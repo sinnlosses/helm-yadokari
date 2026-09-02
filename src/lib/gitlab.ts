@@ -15,6 +15,18 @@ export function createClient(host: GitLabUrl, token: string): GitlabClient {
   return new Gitlab({ host, token })
 }
 
+/**
+ * fn() を実行し、404エラーのときだけ fallback を返す。404以外のエラーは再スローする。
+ */
+async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn()
+  } catch (error) {
+    if (isNotFoundError(error)) return fallback
+    throw error
+  }
+}
+
 export async function listTagNames(gitlab: GitlabClient, projectId: ProjectId): Promise<string[]> {
   const tags = await withRetry(() => gitlab.Tags.all(projectId))
   return tags.map((tag) => tag.name)
@@ -25,15 +37,12 @@ export async function branchExists(
   projectId: ProjectId,
   branch: BranchName,
 ): Promise<boolean> {
-  return withRetry(async () => {
-    try {
+  return withRetry(() =>
+    withNotFoundFallback(async () => {
       await gitlab.Branches.show(projectId, branch)
       return true
-    } catch (error) {
-      if (isNotFoundError(error)) return false
-      throw error
-    }
-  })
+    }, false),
+  )
 }
 
 /**
@@ -45,15 +54,12 @@ export async function getFileContent(
   filePath: string,
   ref: BranchName,
 ): Promise<string | undefined> {
-  return withRetry(async () => {
-    try {
+  return withRetry(() =>
+    withNotFoundFallback(async () => {
       const file = await gitlab.RepositoryFiles.show(projectId, filePath, ref)
       return Buffer.from(file.content, "base64").toString("utf-8")
-    } catch (error) {
-      if (isNotFoundError(error)) return undefined
-      throw error
-    }
-  })
+    }, undefined),
+  )
 }
 
 export async function openMergeRequestExists(
@@ -141,13 +147,10 @@ export async function getLatestPipelineForRef(
   projectId: ProjectId,
   ref: string,
 ): Promise<PipelineInfo | undefined> {
-  return withRetry(async () => {
-    try {
+  return withRetry(() =>
+    withNotFoundFallback(async () => {
       const pipeline = await gitlab.Pipelines.showLatest(projectId, { ref })
       return { status: pipeline.status, webUrl: String(pipeline.web_url) }
-    } catch (error) {
-      if (isNotFoundError(error)) return undefined
-      throw error
-    }
-  })
+    }, undefined),
+  )
 }

@@ -232,7 +232,8 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │   ├── main.ts             # run()/process() のみを持つ薄いオーケストレーションエントリ
 │   ├── types.ts            # 型定義
 │   ├── lib/
-│   │   ├── chart-update.ts # chartリポジトリ単位の更新要否判定・コミット・MR作成の本体
+│   │   ├── chart-update.ts # chartリポジトリ単位のオーケストレーション・エラー境界
+│   │   ├── update-plan.ts  # アプリごとの最新タグ判定・values.yaml差分の計算
 │   │   ├── mr-content.ts   # MRタイトル・本文の組み立て
 │   │   ├── gitlab.ts       # GitLab API クライアント操作
 │   │   ├── config.ts       # config/ の再帰読み込み・パース

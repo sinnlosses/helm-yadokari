@@ -37,18 +37,21 @@ pnpm build && pnpm start              # ビルドしてから実行
 1 chart リポジトリ = 1 MR。`src/main.ts` 自体は `run()`/`process()` のみを持つ薄い
 エントリポイントで、コアロジックは以下のように `lib/` 配下に分割している:
 
-- `lib/chart-update.ts`: `updateChartGroupIfNeeded()`（既存MRの有無を確認 →
-  `buildChartUpdate()` で全アプリの更新計画をオールオアナッシングに構築 → 差分があれば
-  コミット・MR作成）。`buildChartUpdate()` はアプリごとに `lib/tag.ts` で追跡ブランチ由来の
+- `lib/chart-update.ts`: `updateChartGroupIfNeeded()`。既存MRの有無を確認 →
+  `update-plan.ts` の `buildChartUpdate()` で更新計画を取得 → 差分があればコミット・MR作成。
+  fatal/non-fatalなエラーの判定・ログ記録もここで行う（このファイルの責務は「オーケストレーション
+  とエラー境界」であり、更新内容の計算そのものは持たない）
+- `lib/update-plan.ts`: `buildChartUpdate()`。アプリごとに `lib/tag.ts` で追跡ブランチ由来の
   最新タグを判定し、`lib/values.ts` で `values.yaml` の現在値と比較。差分があるアプリだけを
   更新計画に含める。同じ `valuesPath` を参照する複数アプリの変更は1ファイルにまとめる
   - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`lib/tag.ts` の `buildNewTag()`
     でタグ名を組み立て、`lib/gitlab.ts` の `createTag()` で実際に作成してから続行する
     （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
 - `lib/mr-content.ts`: MRのタイトル・本文（`values.yaml`更新後の値・タグへのリンク・
-  パイプラインへのリンク等）の組み立てのみを担当する、`chart-update.ts` から分離した表示専用モジュール
+  パイプラインへのリンク等）の組み立てのみを担当する表示専用モジュール
 - `lib/gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧取得・作成・ファイル取得・MR作成・
-  タグに紐づく最新パイプライン取得など
+  タグに紐づく最新パイプライン取得など。404を特定の戻り値（`false`/`undefined`）に変換する
+  箇所は `withNotFoundFallback()` に共通化している
 - `lib/config.ts`: `config/<chart>/chart.yaml` + `config/<chart>/<tenantId>/<clientId>/apps.yaml`
   の2階層固定構成を再帰的に読み込み、Zodでバリデーション
 
