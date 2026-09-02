@@ -40,7 +40,10 @@ pnpm build && pnpm start              # ビルドしてから実行
 - `buildChartUpdate()`: アプリごとに `lib/tag.ts` で追跡ブランチ由来の最新タグを判定し、
   `lib/values.ts` で `values.yaml` の現在値と比較。差分があるアプリだけを更新計画に含める。
   同じ `valuesPath` を参照する複数アプリの変更は1ファイルにまとめる
-- `lib/gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧・ファイル取得・MR作成・
+  - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`lib/tag.ts` の `buildNewTag()`
+    でタグ名を組み立て、`lib/gitlab.ts` の `createTag()` で実際に作成してから続行する
+    （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
+- `lib/gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧取得・作成・ファイル取得・MR作成・
   タグに紐づく最新パイプライン取得など
 - `lib/config.ts`: `config/<chart>/chart.yaml` + `config/<chart>/<tenantId>/<clientId>/apps.yaml`
   の2階層固定構成を再帰的に読み込み、Zodでバリデーション

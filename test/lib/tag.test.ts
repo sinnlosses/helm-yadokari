@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { buildTagPrefix, findLatestParsedTag, parseTag } from "../../src/lib/tag.js"
+import { buildNewTag, buildTagPrefix, findLatestParsedTag, parseTag } from "../../src/lib/tag.js"
 import { toBranchName } from "../../src/types.js"
 
 describe("buildTagPrefix", () => {
@@ -97,5 +97,40 @@ describe("findLatestParsedTag", () => {
 
   it("空配列のとき undefined を返す", () => {
     expect(findLatestParsedTag([], toBranchName("main"))).toBeUndefined()
+  })
+})
+
+describe("buildNewTag", () => {
+  it("命名規則に従ったタグ名を組み立てる", () => {
+    const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
+    const tag = buildNewTag(toBranchName("main"), now)
+    expect(tag.name).toBe("main-build-at-20260902-123456")
+  })
+
+  it("スラッシュを含むブランチ名は - に置換する", () => {
+    const now = new Date(Date.UTC(2026, 0, 1, 0, 0, 0))
+    const tag = buildNewTag(toBranchName("release/foo"), now)
+    expect(tag.name).toBe("release-foo-build-at-20260101-000000")
+  })
+
+  it("branch と builtAt をそのまま保持する", () => {
+    const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
+    const tag = buildNewTag(toBranchName("main"), now)
+    expect(tag.branch).toBe("main")
+    expect(tag.builtAt).toBe(now)
+  })
+
+  it("組み立てたタグ名は parseTag で正しくパースし直せる", () => {
+    const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
+    const branch = toBranchName("main")
+    const tag = buildNewTag(branch, now)
+    const reparsed = parseTag(tag.name, branch)
+    expect(reparsed?.builtAt).toEqual(now)
+  })
+
+  it("月・日・時・分・秒を2桁ゼロパディングする", () => {
+    const now = new Date(Date.UTC(2026, 0, 5, 3, 7, 9))
+    const tag = buildNewTag(toBranchName("main"), now)
+    expect(tag.name).toBe("main-build-at-20260105-030709")
   })
 })

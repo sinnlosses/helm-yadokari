@@ -18,6 +18,7 @@ import {
   commitFileUpdates,
   createClient,
   createMergeRequest,
+  createTag,
   getFileContent,
   getLatestPipelineForRef,
   getProjectWebUrl,
@@ -68,6 +69,7 @@ describe("updateChartGroupIfNeeded", () => {
     vi.mocked(getProjectWebUrl).mockResolvedValue("https://gitlab.test/group/my-app")
     vi.mocked(commitFileUpdates).mockResolvedValue(undefined)
     vi.mocked(createMergeRequest).mockResolvedValue(undefined)
+    vi.mocked(createTag).mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -131,8 +133,28 @@ describe("updateChartGroupIfNeeded", () => {
     expect(vi.mocked(createMergeRequest).mock.calls[0]?.[3]).toBe("develop")
   })
 
-  it("追跡ブランチ由来のタグが見つからないアプリがあるとき 'ERROR' を返す", async () => {
+  it("追跡ブランチ由来のタグが見つからないとき、新しいタグを作成して 'CREATED' を返す", async () => {
     vi.mocked(listTagNames).mockResolvedValue(["other-branch-build-at-20260101-000000"])
+    vi.mocked(getFileContent).mockResolvedValue("image:\n  tag: some-old-tag\n")
+    expect(await updateChartGroupIfNeeded(mockGitlab, makeChartGroup([makeApp()]))).toBe("CREATED")
+    expect(createTag).toHaveBeenCalledOnce()
+    expect(vi.mocked(createTag).mock.calls[0]?.[3]).toBe("main")
+    expect(commitFileUpdates).toHaveBeenCalledOnce()
+  })
+
+  it("dryRun=true のとき、タグが見つからなくても実際のタグ作成はしない", async () => {
+    vi.mocked(listTagNames).mockResolvedValue(["other-branch-build-at-20260101-000000"])
+    vi.mocked(getFileContent).mockResolvedValue("image:\n  tag: some-old-tag\n")
+    expect(await updateChartGroupIfNeeded(mockGitlab, makeChartGroup([makeApp()]), true)).toBe(
+      "SKIPPED",
+    )
+    expect(createTag).not.toHaveBeenCalled()
+    expect(commitFileUpdates).not.toHaveBeenCalled()
+  })
+
+  it("タグ作成APIが403エラーを投げたとき 'ERROR' を返す", async () => {
+    vi.mocked(listTagNames).mockResolvedValue(["other-branch-build-at-20260101-000000"])
+    vi.mocked(createTag).mockRejectedValue(makeHttpError(403))
     expect(await updateChartGroupIfNeeded(mockGitlab, makeChartGroup([makeApp()]))).toBe("ERROR")
     expect(commitFileUpdates).not.toHaveBeenCalled()
   })
@@ -145,9 +167,10 @@ describe("updateChartGroupIfNeeded", () => {
   it("複数アプリのうち1件が失敗したとき、成功分も反映せず全体を'ERROR'にする（オールオアナッシング）", async () => {
     const appOk = makeApp({ projectId: toProjectId(1), projectName: toProjectName("app-ok") })
     const appFail = makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-fail") })
-    vi.mocked(listTagNames).mockImplementation(async (_client, projectId) =>
-      projectId === 2 ? ["other-build-at-20260101-000000"] : [NEW_TAG],
-    )
+    vi.mocked(listTagNames).mockImplementation(async (_client, projectId) => {
+      if (projectId === 2) throw makeHttpError(403)
+      return [NEW_TAG]
+    })
     expect(await updateChartGroupIfNeeded(mockGitlab, makeChartGroup([appOk, appFail]))).toBe(
       "ERROR",
     )

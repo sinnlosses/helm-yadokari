@@ -7,6 +7,7 @@ import {
   commitFileUpdates,
   createClient,
   createMergeRequest,
+  createTag,
   getFileContent,
   getLatestPipelineForRef,
   getProjectWebUrl,
@@ -18,7 +19,7 @@ import { makeHttpError } from "../helpers.js"
 
 function makeClient(
   overrides: Partial<{
-    Tags: { all: ReturnType<typeof vi.fn> }
+    Tags: { all: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> }
     Branches: { show: ReturnType<typeof vi.fn> }
     RepositoryFiles: { show: ReturnType<typeof vi.fn> }
     MergeRequests: { all: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> }
@@ -28,7 +29,7 @@ function makeClient(
   }>,
 ): GitlabClient {
   return {
-    Tags: { all: vi.fn(), ...overrides.Tags },
+    Tags: { all: vi.fn(), create: vi.fn(), ...overrides.Tags },
     Branches: { show: vi.fn(), ...overrides.Branches },
     RepositoryFiles: { show: vi.fn(), ...overrides.RepositoryFiles },
     MergeRequests: { all: vi.fn(), create: vi.fn(), ...overrides.MergeRequests },
@@ -55,6 +56,7 @@ describe("listTagNames", () => {
             { name: "main-build-at-20260101-000000" },
             { name: "main-build-at-20260201-000000" },
           ]),
+        create: vi.fn(),
       },
     })
     expect(await listTagNames(client, toProjectId(1))).toEqual([
@@ -268,6 +270,23 @@ describe("getLatestPipelineForRef", () => {
     const client = makeClient({ Pipelines: { showLatest: vi.fn().mockRejectedValue(err) } })
     await expect(
       getLatestPipelineForRef(client, toProjectId(1), "main-build-at-20260101-000000"),
+    ).rejects.toBe(err)
+  })
+})
+
+describe("createTag", () => {
+  it("正しい引数で Tags.create を呼び出す", async () => {
+    const createFn = vi.fn().mockResolvedValue({})
+    const client = makeClient({ Tags: { all: vi.fn(), create: createFn } })
+    await createTag(client, toProjectId(1), "main-build-at-20260101-000000", toBranchName("main"))
+    expect(createFn).toHaveBeenCalledWith(1, "main-build-at-20260101-000000", "main")
+  })
+
+  it("エラーは再スローする", async () => {
+    const err = makeHttpError(422)
+    const client = makeClient({ Tags: { all: vi.fn(), create: vi.fn().mockRejectedValue(err) } })
+    await expect(
+      createTag(client, toProjectId(1), "main-build-at-20260101-000000", toBranchName("main")),
     ).rejects.toBe(err)
   })
 })

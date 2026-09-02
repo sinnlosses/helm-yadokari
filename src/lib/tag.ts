@@ -37,6 +37,20 @@ export function parseTag(tagName: string, branch: BranchName): ParsedTag | undef
 }
 
 /**
+ * 現在時刻を元に、命名規則に従った新しいタグを組み立てる（GitLab上への作成はしない、名前の生成のみ）。
+ */
+export function buildNewTag(branch: BranchName, now: Date): ParsedTag {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const datePart = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}`
+  const timePart = `${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`
+  return {
+    name: toTagName(`${buildTagPrefix(branch)}${datePart}-${timePart}`),
+    branch,
+    builtAt: now,
+  }
+}
+
+/**
  * 指定ブランチ由来のタグの中から、最も新しい builtAt を持つものを返す。
  * 該当するタグがひとつもない場合は undefined を返す。
  */

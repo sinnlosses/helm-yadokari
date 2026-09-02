@@ -8,13 +8,14 @@ import {
   commitFileUpdates,
   createClient,
   createMergeRequest,
+  createTag,
   getFileContent,
   getLatestPipelineForRef,
   getProjectWebUrl,
   listTagNames,
   openMergeRequestExists,
 } from "./lib/gitlab.js"
-import { findLatestParsedTag } from "./lib/tag.js"
+import { buildNewTag, findLatestParsedTag } from "./lib/tag.js"
 import { getValueAtPath, setValueAtPath } from "./lib/values.js"
 import type {
   AppConfig,
@@ -120,6 +121,7 @@ export async function updateChartGroupIfNeeded(
       chart.projectId,
       chart.mrTargetBranch,
       apps,
+      dryRun,
     )
     if (plans.length === 0) {
       logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })
@@ -165,12 +167,17 @@ export async function updateChartGroupIfNeeded(
 /**
  * 各アプリの最新タグを判定し、反映済みタグと異なるアプリだけを更新計画に含める。
  * 同じ values.yaml を参照する複数アプリの変更は、同一ファイル内に積み重ねてまとめる。
+ *
+ * 追跡ブランチ由来のタグが1件も見つからないアプリについては、このツール自身が
+ * 追跡ブランチの最新コミットに対して新しいタグを作成し、それを最新タグとして扱う
+ * （dryRun のときは実際の作成はスキップし、作成予定のタグ名だけを使う）。
  */
 async function buildChartUpdate(
   gitlab: GitlabClient,
   chartProjectId: ProjectId,
   baseBranch: BranchName,
   apps: readonly AppConfig[],
+  dryRun: boolean,
 ): Promise<{ plans: AppUpdatePlan[]; files: FileUpdate[] }> {
   const contentCache = new Map<string, string>()
   const modifiedPaths = new Set<string>()
@@ -190,11 +197,19 @@ async function buildChartUpdate(
 
   for (const app of apps) {
     const tags = await listTagNames(gitlab, app.projectId)
-    const latestTag = findLatestParsedTag(tags, app.branchToSync)
+    let latestTag = findLatestParsedTag(tags, app.branchToSync)
     if (!latestTag) {
-      throw new Error(
-        `追跡ブランチ "${app.branchToSync}" 由来のタグが見つかりません（${app.projectName}）`,
-      )
+      latestTag = buildNewTag(app.branchToSync, new Date())
+      if (!dryRun) {
+        await createTag(gitlab, app.projectId, latestTag.name, app.branchToSync)
+      }
+      logger.info({
+        event: "create_tag",
+        projectName: app.projectName,
+        branch: app.branchToSync,
+        tag: latestTag.name,
+        dryRun,
+      })
     }
 
     const content = await loadContent(app.chart.valuesPath)

@@ -113,6 +113,18 @@ export async function createMergeRequest(
   )
 }
 
+/**
+ * 追跡ブランチの最新コミットに対して、指定した名前のタグを作成する。
+ */
+export async function createTag(
+  gitlab: GitlabClient,
+  projectId: ProjectId,
+  tagName: string,
+  ref: BranchName,
+): Promise<void> {
+  await withRetry(() => gitlab.Tags.create(projectId, tagName, ref))
+}
+
 export async function getProjectWebUrl(
   gitlab: GitlabClient,
   projectId: ProjectId,
