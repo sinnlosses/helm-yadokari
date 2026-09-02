@@ -1,0 +1,4 @@
+chart:
+  projectId: 888
+  projectName: teamA-chart
+  mrTargetBranch: develop

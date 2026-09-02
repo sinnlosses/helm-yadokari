@@ -1,0 +1,7 @@
+apps:
+  - projectId: 888
+    projectName: my-app          # タグを取得するGitLabプロジェクト
+    branchToSync: main                    # 追跡するブランチ
+    chart:
+      valuesPath: charts/my-app/values.yaml
+      imageTagKey: image.tag         # values.yaml内のdotパス

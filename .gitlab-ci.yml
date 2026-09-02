@@ -1,0 +1,144 @@
+spec:
+  inputs:
+    DRY_RUN:
+      description: "ブランチ作成・MR作成をスキップし、更新予定の内容のみログ出力する（true のとき MR は作成されません）"
+      default: "false"
+      type: boolean
+    CONCURRENCY_LIMIT:
+      description: "chartリポジトリの同時処理数（1以上の整数）"
+      default: "3"
+      type: string
+    CONFIG_PATH:
+      description: "設定ファイル(config/)のパス（省略時はデフォルト: config/）"
+      default: ""
+      type: string
+---
+# ──────────────────────────────────────────────────────────────────
+# 【必須】Settings > CI/CD > Variables に以下を登録してください:
+#   GITLAB_URL    — GitLab の URL（例: https://gitlab.example.com）
+#                   ※ Protected: ON 推奨（任意 URL 注入を防ぎます）
+#   ACCESS_TOKEN  — GitLab Group/Project Access Token
+#                   （read_api + write_repository + MR作成権限。最小権限で発行すること）
+#                   ※ Masked: ON / Protected: ON 推奨
+# ──────────────────────────────────────────────────────────────────
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: "$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS"
+      when: never
+    - if: "$CI_COMMIT_BRANCH"
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+stages:
+  - validate
+  - deploy
+  - renovate
+
+variables:
+  GITLAB_URL:
+    value: ""
+    description: "【必須】GitLab インスタンスの URL（例: https://gitlab.example.com）"
+  DRY_RUN:
+    value: "$[[ inputs.DRY_RUN ]]"
+    description: "true にするとブランチ作成・MR作成をスキップし、ログのみ出力します（デフォルト: false）"
+  CONCURRENCY_LIMIT:
+    value: "$[[ inputs.CONCURRENCY_LIMIT ]]"
+    description: "chartリポジトリの同時処理数（1以上の整数、デフォルト: 3）省略可"
+  CONFIG_PATH:
+    value: "$[[ inputs.CONFIG_PATH ]]"
+    description: "設定ファイルのパス（省略時はデフォルト: config/）省略可"
+  PNPM_STORE_DIR:
+    value: .pnpm-store
+    description: "pnpm キャッシュの保存先（変更不要）"
+  RENOVATE_TOKEN:
+    value: ""
+    description: "【Renovate 用】GitLab PAT（api スコープ必須）。Settings > CI/CD > Variables に Masked で登録してください"
+
+.node-setup:
+  image: node:22.13-alpine
+  interruptible: true
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - $PNPM_STORE_DIR
+  before_script:
+    - npm install -g corepack
+    - corepack enable
+    - corepack prepare pnpm@11.5.1 --activate
+    - pnpm config set store-dir $PNPM_STORE_DIR
+    - pnpm install --frozen-lockfile
+
+audit:
+  extends: .node-setup
+  stage: validate
+  script:
+    - pnpm audit --audit-level=high
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  # critical 以上の脆弱性をブロックしたい場合は allow_failure: false に変更すること
+  allow_failure: true
+  timeout: 10 minutes
+
+check:
+  extends: .node-setup
+  stage: validate
+  script:
+    - pnpm check
+    - pnpm build
+  artifacts:
+    when: always
+    reports:
+      junit: test-results.xml
+    paths:
+      - dist/
+    expire_in: 1 hour
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+  timeout: 15 minutes
+
+update-app-versions:
+  extends: .node-setup
+  stage: deploy
+  interruptible: false
+  needs: [check]
+  script:
+    - pnpm start
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $RENOVATE != "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+  timeout: 30 minutes
+
+# ──────────────────────────────────────────────────────────────────
+# Renovate — 依存自動更新（このCLI自体の devDependencies 等を更新する）
+# 【必須】Settings > CI/CD > Variables に登録:
+#   RENOVATE_TOKEN — GitLab PAT（api スコープ）。Masked: ON 推奨
+# 【必須】Settings > CI/CD > Schedules にスケジュールを作成:
+#   変数 RENOVATE=true を追加すること（他のスケジュールと区別するため）
+# ──────────────────────────────────────────────────────────────────
+renovate:
+  stage: renovate
+  image: renovate/renovate:latest
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: $CI_SERVER_URL/api/v4
+    RENOVATE_TOKEN: $RENOVATE_TOKEN
+    LOG_LEVEL: info
+  script:
+    - renovate
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $RENOVATE == "true"'
+  timeout: 10 minutes

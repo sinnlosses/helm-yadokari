@@ -1,0 +1,10 @@
+[
+  {
+    "id": "T-001",
+    "task": "プロジェクトの目的・スコープ・要件を定義する (docs/requirements.md を作成)",
+    "status": "done",
+    "passes": true,
+    "evidence": "docs/requirements.md (確定版。タグ命名規則・config/ディレクトリ構成・MRのchart repo単位集約などすべて反映済み。検討経緯は docs/requirements-grilling.md)",
+    "dependencies": []
+  }
+]

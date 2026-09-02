@@ -1,0 +1,4 @@
+# oxfmt はデフォルトで .gitignore と .prettierignore を読む。
+# .claude/ は導入済みスキル（外部由来）、config/ はユーザーが管理する実データのため対象外にする。
+.claude/
+config/

@@ -1,1 +1,254 @@
-# helm-yadokari
+<h1 align="center">helm-yadokari</h1>
+
+<p align="center">
+  ヤドカリが定期的に新しい殻へ引っ越すように、Helm chart が参照するアプリケーションの<br>
+  バージョン（イメージタグ）を GitLab のタグから自動判定し、必要なときだけ更新の Merge Request を作成します。
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/TypeScript-6.x-3178C6?logo=typescript" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Node.js-22.x-339933?logo=node.js" alt="Node.js">
+  <img src="https://img.shields.io/badge/pnpm-11-f69220?logo=pnpm" alt="pnpm">
+  <img src="https://img.shields.io/badge/Tested_with-Vitest-6e9f18?logo=vitest" alt="Vitest">
+  <img src="https://img.shields.io/badge/GitLab_CI-Compatible-fc6d26?logo=gitlab" alt="GitLab CI">
+</p>
+
+---
+
+複数チーム・複数アプリを Helm chart で運用していると、アプリの新バージョンが出るたびに
+`values.yaml` のイメージタグを手で書き換えて MR を作るのが手間になりがちです。
+**helm-yadokari** は GitLab CI のスケジュールパイプラインから定期実行することで、
+chart リポジトリ単位に更新をまとめた MR 作成を自動化します。
+
+要件・設計の詳細は [`docs/requirements.md`](./docs/requirements.md) を参照してください。
+
+## Features
+
+- **複数チーム・複数chart・複数GitLabプロジェクトに対応** — `config/` 配下にディレクトリで登録
+- **chartリポジトリ単位でMRを1つに集約** — 同じchart内の複数アプリの更新をまとめて1MR
+- **オールオアナッシングな更新** — chart内の1アプリでも処理に失敗したら、そのchart全体の更新を見送り次回に再試行
+- **重複作成を防ぐチェック** — 固定ブランチに未マージMRがある間は、そのchartの更新をスキップ
+- **並列実行による高速処理** — `CONCURRENCY_LIMIT`（`p-limit`）で同時処理数を制御
+- **パイプライン状態を可視化** — MR本文にタグへのリンクと、そのタグに紐づく最新パイプラインへのリンクを記載（マージ判断はレビュアーに委ねる）
+- **ドライランモード** — `DRY_RUN=true` でブランチ作成・MR作成をスキップし、更新予定の内容だけログ出力
+- **設定バリデーション** — 起動時に Zod でスキーマを検証し、設定ミスを早期に検出
+
+## タグ命名規則
+
+GitLab のタグ名から追跡ブランチとビルド日時を判定します。
+
+```
+${追跡ブランチ名の "/" を "-" に置換した値}-build-at-${yyyymmdd}-${hhmmss}
+```
+
+例: 追跡ブランチが `release/foo` の場合 → `release-foo-build-at-20260902-123456`
+
+## Quick Start
+
+**前提条件**
+
+- Node.js 22.x 以上
+- pnpm 11.x 以上
+- GitLab Group/Project Access Token（スコープ: `read_api` + `write_repository` + MR作成権限。最小権限で発行してください）
+
+```bash
+# 1. インストール
+git clone <this-repo>
+cd helm-yadokari
+pnpm install
+
+# 2. 設定ファイルを作成（config/ 配下の構成は下記「設定」を参照）
+cp -r config/teamA-chart config/my-team-chart
+# → projectId・valuesPath 等を自分の環境に合わせて編集
+
+# 3. 動作確認（ブランチ作成・MR作成なし・安全）
+GITLAB_URL=https://gitlab.example.com \
+ACCESS_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx \
+DRY_RUN=true \
+pnpm dev
+
+# 4. 実行
+GITLAB_URL=https://gitlab.example.com \
+ACCESS_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx \
+pnpm dev
+```
+
+## 仕組み
+
+`config/` に定義された chart リポジトリごとに、配下の全アプリを処理し、
+以下の条件をすべて満たす場合のみ chart リポジトリ単位で1つの MR を作成します。
+
+```mermaid
+flowchart TD
+    A[⏰ スケジュールパイプライン起動] --> B[config/ を再帰的に読み込む]
+    B --> C[[chartリポジトリ単位で並列処理]]
+    C --> D{固定ブランチにオープン中のMRあり?}
+    D -->|あり| E[⏭ SKIPPED]
+    D -->|なし| F[[配下の全アプリを処理]]
+    F --> G{追跡ブランチ由来の最新タグは見つかる?}
+    G -->|見つからない| H[❌ ERROR（chart全体を見送り）]
+    F --> I{values.yaml のタグと最新タグは一致?}
+    I -->|全アプリ一致| E
+    I -->|差分あり| J[✅ 差分のあるアプリだけ values.yaml を更新しMR作成]
+```
+
+同じ chart 内で一部アプリの処理が失敗した場合、成功した分だけを反映することはせず、
+その chart リポジトリ全体を `ERROR` として次回実行に持ち越します（オールオアナッシング）。
+
+### 実行ログの例
+
+```json
+{"level":"info","timestamp":"2026-09-02T00:00:00.000Z","event":"run_start","dryRun":false,"concurrencyLimit":3}
+{"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_chart","chartDir":"teamA-chart","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","previousTag":"main-build-at-20260901-090000","latestTag":"main-build-at-20260902-090000"}]}
+{"level":"info","timestamp":"2026-09-02T00:00:00.456Z","event":"update_chart","chartDir":"teamB-chart","chartProjectId":999,"chartProjectName":"teamB-chart","result":"SKIPPED","reason":"no_diff"}
+{"level":"info","timestamp":"2026-09-02T00:00:00.500Z","event":"summary","CREATED":1,"SKIPPED":1,"ERROR":0}
+{"level":"info","timestamp":"2026-09-02T00:00:00.520Z","event":"run_end","duration_ms":520}
+```
+
+## 設定
+
+### 環境変数
+
+| 変数名              | 必須 | デフォルト | 説明                                                                                                        |
+| ------------------- | :--: | ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `GITLAB_URL`        |  ✓   | —          | GitLab インスタンスの URL（`http://` または `https://` で始まる形式）                                       |
+| `ACCESS_TOKEN`      |  ✓   | —          | `read_api` + `write_repository` + MR作成権限を持つ Group/Project Access Token（最小権限で発行してください） |
+| `CONFIG_PATH`       |      | `config/`  | 設定ファイル（ディレクトリ）のパス（作業ディレクトリ外のパスは拒否されます）                                |
+| `CONCURRENCY_LIMIT` |      | `3`        | chartリポジトリの同時処理数（1〜20の整数）                                                                  |
+| `DRY_RUN`           |      | `false`    | `"true"` のときブランチ作成・MR作成をスキップし、更新予定の内容のみログ出力します                           |
+
+### config/
+
+対象アプリを chart リポジトリ・テナント・クライアント単位のディレクトリ構成で定義します。
+
+```
+config/
+  <chartリポジトリ名>/            # 例: teamA-chart（ディレクトリ名は人間向けのラベル）
+    chart.yaml                     # そのchartリポジトリ共通の情報
+    <tenantId>/
+      <clientId>/
+        apps.yaml                  # そのテナント/クライアントに属するアプリ一覧
+```
+
+```yaml
+# config/teamA-chart/chart.yaml
+chart:
+  projectId: 888 # values.yamlを更新するGitLabプロジェクトID
+  projectName: teamA-chart
+  mrTargetBranch: develop # MR作成先のベースブランチ
+```
+
+```yaml
+# config/teamA-chart/tenantId1/clientId1/apps.yaml
+apps:
+  - projectId: 1 # タグを取得するGitLabプロジェクトID（ソースリポジトリ）
+    projectName: my-app
+    branchToSync: main # 追跡するブランチ
+    chart:
+      valuesPath: charts/my-app/values.yaml
+      imageTagKey: image.tag # values.yaml内のdotパス
+```
+
+ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/apps.yaml` の2階層で固定です。
+テナント分けが不要な場合もダミーの1つの tenantId/clientId ディレクトリ配下に置いてください。
+
+設定ファイルの文法チェックのみ実行する場合:
+
+```bash
+pnpm lint:validate-config
+```
+
+## エラーハンドリング
+
+| ケース                                                 | 挙動                                                           |
+| ------------------------------------------------------ | -------------------------------------------------------------- |
+| 401 認証エラー / 5xx サーバーエラー / ネットワーク障害 | 即時 `exit(1)` でパイプライン失敗                              |
+| 429 / 502 / 503 / 504                                  | 指数バックオフで最大3回リトライ後にエラー                      |
+| 追跡ブランチ由来のタグが見つからない / values.yaml不在 | そのchartリポジトリ全体を `ERROR` としてログ記録し次に持ち越す |
+| 差分なし / 未マージMR既存                              | `SKIPPED` としてログ記録                                       |
+| その他のAPIエラー                                      | 該当chartリポジトリを `ERROR` としてログ記録し処理継続         |
+
+1件以上の `ERROR` があった場合は `exit(1)` でパイプライン失敗として終了します（致命的エラーを除く）。
+
+## CI/CD
+
+`.gitlab-ci.yml` にジョブが定義されています。GitLab の **スケジュールパイプライン** として設定することで定期実行できます。
+
+### セットアップ手順
+
+1. **Settings > CI/CD > Variables** に以下を登録する
+
+   | 変数名         | Masked | Protected | 説明                                                                       |
+   | -------------- | :----: | :-------: | -------------------------------------------------------------------------- |
+   | `GITLAB_URL`   |        |           | GitLab インスタンスの URL                                                  |
+   | `ACCESS_TOKEN` |   ✓    |     ✓     | Group/Project Access Token（`read_api` + `write_repository` + MR作成権限） |
+
+2. **CI/CD > Schedules** でスケジュールを作成する
+
+### 手動実行時のオプション（Pipeline inputs）
+
+| input               | 型      | デフォルト | 説明                                       |
+| ------------------- | ------- | ---------- | ------------------------------------------ |
+| `DRY_RUN`           | boolean | `false`    | `true` のとき更新をスキップしログのみ出力  |
+| `CONCURRENCY_LIMIT` | string  | `3`        | chartリポジトリの同時処理数（1〜20の整数） |
+| `CONFIG_PATH`       | string  | `""`       | 設定ファイルのパス（省略時は `config/`）   |
+
+## 開発
+
+```bash
+# 依存インストール
+pnpm install
+
+# 型チェック・リント・フォーマット・テストをまとめて実行
+pnpm check
+
+# 個別実行
+pnpm lint             # リント + 設定ファイルバリデーション
+pnpm format           # フォーマット
+pnpm test             # テスト
+pnpm test:coverage    # カバレッジ付きテスト
+
+# ローカル実行（TypeScript 直接）
+GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm dev
+
+# 本番ビルド後に実行
+pnpm build
+GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
+```
+
+### プロジェクト構成
+
+```
+.
+├── src/
+│   ├── index.ts          # エントリポイント
+│   ├── main.ts            # メインロジック（chartリポジトリ単位のオーケストレーション）
+│   ├── types.ts           # 型定義
+│   ├── lib/
+│   │   ├── gitlab.ts      # GitLab API クライアント操作
+│   │   ├── config.ts      # config/ の再帰読み込み・パース
+│   │   ├── tag.ts         # タグ命名規則のパース・最新タグ判定
+│   │   ├── values.ts      # values.yaml のdotパス読み書き
+│   │   └── env.ts         # 環境変数ユーティリティ
+│   └── utils/
+│       ├── errors.ts      # カスタムエラー
+│       ├── http.ts        # HTTP ユーティリティ
+│       ├── retry.ts       # 指数バックオフリトライ
+│       ├── timer.ts       # 実行時間計測
+│       └── logger.ts      # 構造化 JSON ロガー
+├── test/                  # テスト
+├── config/                # 対象アプリ設定
+├── .gitlab-ci.yml         # CI ジョブ定義
+└── package.json
+```
+
+## Contributing
+
+バグ報告・機能提案は Issue にてお知らせください。
+
+プルリクエストを送る場合:
+
+1. ブランチを切る（`git checkout -b feat/your-feature`）
+2. テストを追加する（TDD推奨。`/tdd` スキル参照）
+3. `pnpm check` が通ることを確認する
+4. プルリクエストを作成する
