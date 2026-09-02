@@ -1,6 +1,6 @@
 # 現在の状態
 
-最終更新: 2026-09-02（実装セッション）
+最終更新: 2026-09-03（実装セッション）
 
 ## 完了したこと
 
@@ -30,6 +30,15 @@
     要件の文言と完全一致はしないが意図的な設計判断として `CLAUDE.md` に明記（T-003として要検討事項に記録）
   - 実際に `node dist/src/index.js` を実行し、`config/teamA-chart/` を読み込んでGitLab接続失敗を
     構造化ログで報告し非ゼロ終了することを確認（実GitLabインスタンスへの結合テストは未実施、T-004）
+- **T-002追加リファクタリング**: ユーザーからの明示的な原則2件に基づき、`src/main.ts` を薄い`process()`（flat
+  なステップ呼び出し）に整理し、`src/lib/`・`src/steps/`・`src/utils/` の責務境界を再定義（commit `9b9989f` ほか）
+  - 原則1「`steps/`配下は`process()`からしか呼ばれず、`steps`同士は呼び合わない」を適用
+  - 原則2「`lib/`は特定の技術・外部システム(config/env/gitlab/helm)に依存するものだけ」を適用し、
+    steps専用ヘルパーだった `lib/constants.ts`・`lib/log-context.ts`・`lib/mr-content.ts`・`lib/update-plan.ts` を削除。
+    GitLab固有の`UPDATE_BRANCH`/`buildMrTitle`/`buildMrDescription`は`lib/gitlab.ts`へ統合、
+    純粋関数のタグ命名規則は`src/utils/tag.ts`へ移動、それ以外は各`steps/*.ts`内の非公開関数として複製
+  - `pnpm check`（tsc --noEmit + oxlint + oxfmt + vitest 204件）が全てpass。`CLAUDE.md`/`README.md`の
+    アーキテクチャ説明・ディレクトリ構成も現状に追随させた
 
 ## 次にやること
 
