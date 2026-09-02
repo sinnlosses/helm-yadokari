@@ -6,5 +6,29 @@
     "passes": true,
     "evidence": "docs/requirements.md (確定版。タグ命名規則・config/ディレクトリ構成・MRのchart repo単位集約などすべて反映済み。検討経緯は docs/requirements-grilling.md)",
     "dependencies": []
+  },
+  {
+    "id": "T-002",
+    "task": "gitlab-watari-doriを参考に、同じ技術スタック（TypeScript/pnpm/vitest/oxlint/oxfmt/GitLab CI）でCLIの骨格を実装する",
+    "status": "done",
+    "passes": true,
+    "evidence": "commit 2cb9b97, e9127b5。pnpm check（tsc --noEmit + oxlint + oxfmt --check + vitest）が152テスト全てpassで通過。/code-review（Standards軸: 明文化標準への違反0件。Spec軸: engines未設定とアプリ単位no-opログ欠落を指摘、両方とも e9127b5 で修正済み）。実際の値をGITLAB_URLに設定してnode dist/src/index.jsを実行し、config/teamA-chart/を読み込んでエラーを構造化ログに正しく出力すること・非ゼロ終了することを確認",
+    "dependencies": ["T-001"]
+  },
+  {
+    "id": "T-003",
+    "task": "アプリ単位の処理を並列化するか、意図的に逐次のままにするかを決める（現状はbuildChartUpdate()内でp-limit未適用、docs/requirements.md 4.3節の文言と完全には一致しない）",
+    "status": "todo",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-002"]
+  },
+  {
+    "id": "T-004",
+    "task": "実際のGitLabインスタンスに対する統合テスト・動作確認（DRY_RUN=trueでの実運用リハーサルを含む）",
+    "status": "todo",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-002"]
   }
 ]
