@@ -228,24 +228,26 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 ```
 .
 ├── src/
-│   ├── index.ts          # エントリポイント
-│   ├── main.ts            # メインロジック（chartリポジトリ単位のオーケストレーション）
-│   ├── types.ts           # 型定義
+│   ├── index.ts           # エントリポイント
+│   ├── main.ts             # run()/process() のみを持つ薄いオーケストレーションエントリ
+│   ├── types.ts            # 型定義
 │   ├── lib/
-│   │   ├── gitlab.ts      # GitLab API クライアント操作
-│   │   ├── config.ts      # config/ の再帰読み込み・パース
-│   │   ├── tag.ts         # タグ命名規則のパース・最新タグ判定
-│   │   ├── values.ts      # values.yaml のdotパス読み書き
-│   │   └── env.ts         # 環境変数ユーティリティ
+│   │   ├── chart-update.ts # chartリポジトリ単位の更新要否判定・コミット・MR作成の本体
+│   │   ├── mr-content.ts   # MRタイトル・本文の組み立て
+│   │   ├── gitlab.ts       # GitLab API クライアント操作
+│   │   ├── config.ts       # config/ の再帰読み込み・パース
+│   │   ├── tag.ts          # タグ命名規則のパース・最新タグ判定・新規タグ組み立て
+│   │   ├── values.ts       # values.yaml のdotパス読み書き
+│   │   └── env.ts          # 環境変数ユーティリティ
 │   └── utils/
-│       ├── errors.ts      # カスタムエラー
-│       ├── http.ts        # HTTP ユーティリティ
-│       ├── retry.ts       # 指数バックオフリトライ
-│       ├── timer.ts       # 実行時間計測
-│       └── logger.ts      # 構造化 JSON ロガー
-├── test/                  # テスト
-├── config/                # 対象アプリ設定
-├── .gitlab-ci.yml         # CI ジョブ定義
+│       ├── errors.ts       # カスタムエラー
+│       ├── http.ts         # HTTP ユーティリティ
+│       ├── retry.ts        # 指数バックオフリトライ
+│       ├── timer.ts        # 実行時間計測
+│       └── logger.ts       # 構造化 JSON ロガー
+├── test/                   # テスト
+├── config/                 # 対象アプリ設定
+├── .gitlab-ci.yml          # CI ジョブ定義
 └── package.json
 ```
 

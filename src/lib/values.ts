@@ -12,12 +12,10 @@ export function getValueAtPath(yamlContent: string, dotPath: string): string | u
   const doc = parseYaml(yamlContent)
   if (!isPlainObject(doc)) return undefined
 
-  let current: unknown = doc
-  for (const key of dotPath.split(".")) {
-    if (!isPlainObject(current)) return undefined
-    current = current[key]
-  }
-  return current === undefined || current === null ? undefined : String(current)
+  const value = dotPath.split(".").reduce<unknown>((current, key) => {
+    return isPlainObject(current) ? current[key] : undefined
+  }, doc)
+  return value === undefined || value === null ? undefined : String(value)
 }
 
 /**
@@ -35,18 +33,17 @@ export function setValueAtPath(yamlContent: string, dotPath: string, newValue: s
   const lastKey = keys.at(-1)
   if (lastKey === undefined) throw new Error(`dotパスが空です: "${dotPath}"`)
 
-  let current: Record<string, unknown> = doc
-  for (const key of keys.slice(0, -1)) {
+  const target = keys.slice(0, -1).reduce<Record<string, unknown>>((current, key) => {
     const next = current[key]
     if (!isPlainObject(next)) {
       throw new Error(`values.yaml にパス "${dotPath}" が存在しません（"${key}" で不整合）`)
     }
-    current = next
-  }
-  if (!(lastKey in current)) {
+    return next
+  }, doc)
+  if (!(lastKey in target)) {
     throw new Error(`values.yaml にパス "${dotPath}" が存在しません`)
   }
-  current[lastKey] = newValue
+  target[lastKey] = newValue
 
   return dumpYaml(doc)
 }

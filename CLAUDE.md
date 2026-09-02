@@ -33,16 +33,20 @@ pnpm build && pnpm start              # ビルドしてから実行
 ## アーキテクチャ概要
 
 `src/main.ts` の `process()` が `config/` を読み込み、chart リポジトリ（`ChartGroup`）ごとに
-`updateChartGroupIfNeeded()` を `p-limit` で並列実行する。1 chart リポジトリ = 1 MR。
+`lib/chart-update.ts` の `updateChartGroupIfNeeded()` を `p-limit` で並列実行する。
+1 chart リポジトリ = 1 MR。`src/main.ts` 自体は `run()`/`process()` のみを持つ薄い
+エントリポイントで、コアロジックは以下のように `lib/` 配下に分割している:
 
-- `updateChartGroupIfNeeded()`: 既存MRの有無を確認 → `buildChartUpdate()` で全アプリの更新計画を
-  オールオアナッシングに構築 → 差分があればコミット・MR作成
-- `buildChartUpdate()`: アプリごとに `lib/tag.ts` で追跡ブランチ由来の最新タグを判定し、
-  `lib/values.ts` で `values.yaml` の現在値と比較。差分があるアプリだけを更新計画に含める。
-  同じ `valuesPath` を参照する複数アプリの変更は1ファイルにまとめる
+- `lib/chart-update.ts`: `updateChartGroupIfNeeded()`（既存MRの有無を確認 →
+  `buildChartUpdate()` で全アプリの更新計画をオールオアナッシングに構築 → 差分があれば
+  コミット・MR作成）。`buildChartUpdate()` はアプリごとに `lib/tag.ts` で追跡ブランチ由来の
+  最新タグを判定し、`lib/values.ts` で `values.yaml` の現在値と比較。差分があるアプリだけを
+  更新計画に含める。同じ `valuesPath` を参照する複数アプリの変更は1ファイルにまとめる
   - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`lib/tag.ts` の `buildNewTag()`
     でタグ名を組み立て、`lib/gitlab.ts` の `createTag()` で実際に作成してから続行する
     （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
+- `lib/mr-content.ts`: MRのタイトル・本文（`values.yaml`更新後の値・タグへのリンク・
+  パイプラインへのリンク等）の組み立てのみを担当する、`chart-update.ts` から分離した表示専用モジュール
 - `lib/gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧取得・作成・ファイル取得・MR作成・
   タグに紐づく最新パイプライン取得など
 - `lib/config.ts`: `config/<chart>/chart.yaml` + `config/<chart>/<tenantId>/<clientId>/apps.yaml`
@@ -76,6 +80,9 @@ pnpm build && pnpm start              # ビルドしてから実行
 
 - `as` キャストは極力使わない。ブランド型（`ProjectId`, `BranchName` 等）の生成は
   `toProjectId` のような factory 関数に封じ込め、それ以外で `as` を使わない
+- 変数は基本 `const` を使う。再代入が必要に見える場合はまず、値を返す関数に切り出せないか
+  （`reduce`、早期return付きのヘルパー関数など）を検討する。ループカウンタや、`try`/`catch`
+  で外側のスコープに結果を持ち出す必要があるなど `let` が自然な場合はその限りではない
 - HTTP エラーハンドリングは `src/utils/http.ts` の既存ユーティリティ（`isFatalError` 等）を使う
 - 環境変数はすべて `src/lib/env.ts` で管理する
 - 401 / 5xx / ネットワーク障害は `FatalError` を投げて即時終了、それ以外のエラーは該当
