@@ -199,7 +199,16 @@ async function buildChartUpdate(
 
     const content = await loadContent(app.chart.valuesPath)
     const currentTag = getValueAtPath(content, app.chart.imageTagKey)
-    if (currentTag === latestTag.name) continue
+    if (currentTag === latestTag.name) {
+      logger.info({
+        event: "check_app",
+        projectName: app.projectName,
+        result: "SKIPPED",
+        reason: "already_up_to_date",
+        tag: latestTag.name,
+      })
+      continue
+    }
 
     const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.name)
     plans.push({

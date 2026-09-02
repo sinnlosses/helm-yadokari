@@ -91,6 +91,20 @@ describe("updateChartGroupIfNeeded", () => {
     expect(commitFileUpdates).not.toHaveBeenCalled()
   })
 
+  it("個々のアプリが最新タグと一致しているとき、そのアプリ単位でログ出力する", async () => {
+    const { logger } = await import("../src/utils/logger.js")
+    vi.mocked(getFileContent).mockResolvedValue(`image:\n  tag: ${NEW_TAG}\n`)
+    await updateChartGroupIfNeeded(mockGitlab, makeChartGroup([makeApp()]))
+    expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "check_app",
+        projectName: "my-app",
+        result: "SKIPPED",
+        reason: "already_up_to_date",
+      }),
+    )
+  })
+
   it("差分があり dryRun=true のとき 'SKIPPED' を返しMRを作成しない", async () => {
     expect(await updateChartGroupIfNeeded(mockGitlab, makeChartGroup([makeApp()]), true)).toBe(
       "SKIPPED",

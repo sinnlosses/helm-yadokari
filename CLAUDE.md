@@ -21,13 +21,13 @@ chart リポジトリ単位で1つの Merge Request を作成する。クラス�
 ## よく使うコマンド
 
 ```bash
-pnpm check             # tsc --noEmit + lint + format:check + test をまとめて実行（変更後は必ずこれを通す）
-pnpm test               # テスト全体
+pnpm check                            # tsc --noEmit + lint + format:check + test をまとめて実行（変更後は必ずこれを通す）
+pnpm test                             # テスト全体
 npx vitest run test/lib/tag.test.ts   # 単体テストファイルのみ実行
-pnpm lint               # oxlint + config/ のバリデーション
-pnpm format              # oxfmt で自動整形
-pnpm dev                 # tsx でローカル実行（.env を読み込む）
-pnpm build && pnpm start # ビルドしてから実行
+pnpm lint                             # oxlint + config/ のバリデーション
+pnpm format                           # oxfmt で自動整形
+pnpm dev                              # tsx でローカル実行（.env を読み込む）
+pnpm build && pnpm start              # ビルドしてから実行
 ```
 
 ## アーキテクチャ概要
@@ -48,6 +48,7 @@ pnpm build && pnpm start # ビルドしてから実行
 ## ディレクトリ構成の勘所
 
 - `config/`: 手書きの設定（対象アプリ登録）。`docs/requirements.md` 4.4節のスキーマに従う
+- `scripts/lint/validate-config.ts`: `config/` の文法チェック専用スクリプト（`pnpm lint:validate-config` から実行、`pnpm lint` に含まれる）
 - `dist/`: `pnpm build` の生成物。gitignore対象、手で編集しない
 - `docs/requirements.md`: 確定した要件。`docs/requirements-grilling.md`: 要件定義時のQ&Aログ（検討経緯の参照用、変更不要）
 
@@ -85,6 +86,14 @@ pnpm build && pnpm start # ビルドしてから実行
 - タグに紐づくGitLabプロジェクトのURLは `Projects.show` で都度取得している（`config/`にnamespace
   slugを持たせていないため）
 - Helm CLI（`helm lint` / `helm template` 等）は呼び出さない。`values.yaml`のテキスト更新のみ行う
+- `FatalError`（401/5xx等）を検知すると、そのタスクだけでなく `p-limit` のキュー全体を
+  `clearQueue()` でクリアし、他のchartリポジトリの処理も打ち切る（`src/main.ts` の `process()`）。
+  `docs/requirements.md` 4.3節の「chartリポジトリ間は失敗しても他は継続する」という記述は
+  一般的なエラーを指しており、GitLab側の認証切れ・障害のような全chart共通の致命的エラーに
+  対しては、無駄なAPI呼び出しを避けるためこの例外を設けている（gitlab-watari-dori由来のパターン）
+- 同一chartリポジトリ内の複数アプリの処理（タグ取得・パイプライン取得等）は `buildChartUpdate()`
+  内で逐次実行している。`docs/requirements.md` 4.3節の並列実行制御（`p-limit`）は現状
+  chartリポジトリ単位のみに適用しており、アプリ単位までは並列化していない
 
 ## 導入済みスキル
 
