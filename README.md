@@ -235,17 +235,12 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │   │   ├── filter-targets.ts  # 対象chartグループの絞り込み（登録0件・既存MRを除外）
 │   │   ├── build-plans.ts     # 全chartグループ分の更新計画を並列構築
 │   │   └── apply-updates.ts   # コミット・MR作成を並列実行
-│   ├── lib/                   # steps/や他のlib/から呼ばれる処理
-│   │   ├── gitlab.ts          # GitLab API クライアント操作（タグ作成含む）
+│   ├── lib/                   # 特定の技術・外部システムに依存する処理のみ
+│   │   ├── gitlab.ts          # GitLab API クライアント操作（タグ作成、MRタイトル・本文組み立て含む）
 │   │   ├── config.ts          # config/ の再帰読み込み・パース
-│   │   ├── update-plan.ts     # 1chartグループ分の最新タグ判定・values.yaml差分の計算
-│   │   ├── tag.ts             # タグ命名規則のパース・最新タグ判定・新規タグ組み立て
-│   │   ├── mr-content.ts      # MRタイトル・本文の組み立て
-│   │   ├── constants.ts       # 固定ブランチ名 UPDATE_BRANCH
-│   │   ├── log-context.ts     # ステップ共通のログ文脈情報
 │   │   ├── helm.ts            # Helm chart の values.yaml 操作（dotパス読み書き）
 │   │   └── env.ts             # 環境変数ユーティリティ
-│   └── utils/                 # ドメイン知識を持たない汎用ユーティリティ
+│   └── utils/                 # ドメイン知識を持たない、または純粋な汎用ユーティリティ
 │       ├── errors.ts          # カスタムエラー
 │       ├── http.ts            # HTTP ユーティリティ
 │       ├── retry.ts           # 指数バックオフリトライ
@@ -255,7 +250,8 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │       ├── fs.ts              # パストラバーサル検証・サブディレクトリ列挙
 │       ├── yaml.ts            # YAMLファイル読み込み + Zodバリデーション
 │       ├── object.ts          # isPlainObject
-│       └── cache.ts           # getOrFetch（Mapベースの非同期メモ化）
+│       ├── cache.ts           # getOrFetch（Mapベースの非同期メモ化）
+│       └── tag.ts             # タグ命名規則のパース・最新タグ判定・新規タグ組み立て（純粋関数）
 ├── test/                   # テスト
 ├── config/                 # 対象アプリ設定
 ├── .gitlab-ci.yml          # CI ジョブ定義

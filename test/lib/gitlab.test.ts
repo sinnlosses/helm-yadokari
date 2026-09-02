@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { GitlabClient } from "../../src/lib/gitlab.js"
 import {
+  UPDATE_BRANCH,
   branchExists,
+  buildMrDescription,
+  buildMrTitle,
   commitFileUpdates,
   createClient,
   createMergeRequest,
@@ -14,8 +17,14 @@ import {
   listTagNames,
   openMergeRequestExists,
 } from "../../src/lib/gitlab.js"
-import { toBranchName, toGitLabUrl, toProjectId } from "../../src/types.js"
-import { makeHttpError } from "../helpers.js"
+import {
+  toBranchName,
+  toGitLabUrl,
+  toProjectId,
+  toProjectName,
+  toTagName,
+} from "../../src/types.js"
+import { makeApp, makeHttpError } from "../helpers.js"
 
 function makeClient(
   overrides: Partial<{
@@ -301,5 +310,80 @@ describe("getProjectWebUrl", () => {
     expect(await getProjectWebUrl(client, toProjectId(1))).toBe(
       "https://gitlab.example.com/group/app",
     )
+  })
+})
+
+describe("UPDATE_BRANCH", () => {
+  it("固定のブランチ名を持つ", () => {
+    expect(UPDATE_BRANCH).toBe("yadokari/update")
+  })
+})
+
+function makePlan(overrides: Partial<{ pipelineUrl: string; pipelineStatus: string }> = {}) {
+  return {
+    app: makeApp({ projectId: toProjectId(1), projectName: toProjectName("my-app") }),
+    previousTag: toTagName("main-build-at-20251231-000000"),
+    latestTag: {
+      name: toTagName("main-build-at-20260101-000000"),
+      branch: toBranchName("main"),
+      builtAt: new Date("2026-01-01T00:00:00Z"),
+    },
+    pipelineUrl: overrides.pipelineUrl,
+    pipelineStatus: overrides.pipelineStatus,
+  }
+}
+
+describe("buildMrTitle", () => {
+  it("更新対象アプリ数を含むタイトルを組み立てる", () => {
+    expect(buildMrTitle([makePlan(), makePlan()])).toBe("chore: update 2 app image tag(s)")
+  })
+
+  it("0件のときも組み立てる", () => {
+    expect(buildMrTitle([])).toBe("chore: update 0 app image tag(s)")
+  })
+})
+
+describe("buildMrDescription", () => {
+  it("アプリ名・旧タグ→新タグ・打刻日時を含む", async () => {
+    const client = makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
+      },
+    })
+    const description = await buildMrDescription(client, [makePlan()])
+    expect(description).toContain("my-app")
+    expect(description).toContain("main-build-at-20251231-000000")
+    expect(description).toContain("main-build-at-20260101-000000")
+    expect(description).toContain("2026-01-01T00:00:00.000Z")
+  })
+
+  it("パイプライン情報があるとき、その状態とリンクを含める", async () => {
+    const client = makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
+      },
+    })
+    const description = await buildMrDescription(client, [
+      makePlan({ pipelineUrl: "https://gitlab.example.com/p/1", pipelineStatus: "success" }),
+    ])
+    expect(description).toContain("success")
+    expect(description).toContain("https://gitlab.example.com/p/1")
+  })
+
+  it("パイプライン情報がないとき、見つからない旨を含める", async () => {
+    const client = makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
+      },
+    })
+    const description = await buildMrDescription(client, [makePlan()])
+    expect(description).toContain("見つかりません")
+  })
+
+  it("同じプロジェクトの web_url 取得は1回だけ呼び出す", async () => {
+    const showFn = vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" })
+    const client = makeClient({ Projects: { show: showFn } })
+    await buildMrDescription(client, [makePlan(), makePlan()])
+    expect(showFn).toHaveBeenCalledOnce()
   })
 })

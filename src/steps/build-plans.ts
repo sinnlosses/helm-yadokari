@@ -1,12 +1,29 @@
-import type { GitlabClient } from "../lib/gitlab.js"
-import { chartLogContext } from "../lib/log-context.js"
-import { describePlan } from "../lib/mr-content.js"
-import { buildChartUpdate } from "../lib/update-plan.js"
-import type { ChartGroup, ChartUpdateResult, ChartUpdateTarget } from "../types.js"
+import {
+  type GitlabClient,
+  createTag,
+  getFileContent,
+  getLatestPipelineForRef,
+  listTagNames,
+} from "../lib/gitlab.js"
+import { getValueAtPath, setValueAtPath } from "../lib/helm.js"
+import type {
+  AppConfig,
+  AppUpdatePlan,
+  BranchName,
+  ChartGroup,
+  ChartUpdateResult,
+  ChartUpdateTarget,
+  FileUpdate,
+  ParsedTag,
+  ProjectId,
+} from "../types.js"
+import { toTagName } from "../types.js"
+import { getOrFetch } from "../utils/cache.js"
 import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
+import { buildNewTag, findLatestParsedTag } from "../utils/tag.js"
 
 export type BuildPlansResult = {
   readonly toApply: ChartUpdateTarget[]
@@ -22,7 +39,7 @@ type PlanOutcome =
  * settled（SKIPPED）に、実際に反映が必要なものは toApply にまとめて返す。
  *
  * いずれか1つのアプリの処理が失敗した場合、そのchartグループ全体をオールオアナッシングで
- * settled（ERROR）に含める（`lib/update-plan.ts` の `buildChartUpdate()` 参照）。
+ * settled（ERROR）に含める（`buildChartUpdate()` 参照）。
  */
 export async function buildPlans(
   gitlab: GitlabClient,
@@ -43,22 +60,28 @@ export async function buildPlans(
   return { toApply, settled }
 }
 
+function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
+  return {
+    projectName: plan.app.projectName,
+    previousTag: plan.previousTag,
+    latestTag: plan.latestTag.name,
+  }
+}
+
 async function buildPlanForChartGroup(
   gitlab: GitlabClient,
   chartGroup: ChartGroup,
   dryRun: boolean,
 ): Promise<PlanOutcome> {
-  const logContext = chartLogContext(chartGroup)
-  const { chart, apps } = chartGroup
+  const logContext = {
+    event: "update_chart",
+    chartDir: chartGroup.chartDir,
+    chartProjectId: chartGroup.chart.projectId,
+    chartProjectName: chartGroup.chart.projectName,
+  }
 
   try {
-    const { plans, files } = await buildChartUpdate(
-      gitlab,
-      chart.projectId,
-      chart.mrTargetBranch,
-      apps,
-      dryRun,
-    )
+    const { plans, files } = await buildChartUpdate(gitlab, chartGroup, dryRun)
     if (plans.length === 0) {
       logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })
       return { status: "settled", result: "SKIPPED" }
@@ -82,4 +105,101 @@ async function buildPlanForChartGroup(
     })
     return { status: "settled", result: "ERROR" }
   }
+}
+
+/**
+ * 追跡ブランチ由来の最新タグを判定する。1件も見つからない場合は、このツール自身が
+ * 追跡ブランチの最新コミットに対して新しいタグを作成し、それを最新タグとして扱う
+ * （dryRun のときは実際の作成はスキップし、作成予定のタグ名だけを使う）。
+ */
+async function resolveLatestTag(
+  gitlab: GitlabClient,
+  app: AppConfig,
+  dryRun: boolean,
+): Promise<ParsedTag> {
+  const tags = await listTagNames(gitlab, app.projectId)
+  const existingTag = findLatestParsedTag(tags, app.branchToSync)
+  if (existingTag) return existingTag
+
+  const newTag = buildNewTag(app.branchToSync, new Date())
+  if (!dryRun) {
+    await createTag(gitlab, app.projectId, newTag.name, app.branchToSync)
+  }
+  logger.info({
+    event: "create_tag",
+    projectName: app.projectName,
+    branch: app.branchToSync,
+    tag: newTag.name,
+    dryRun,
+  })
+  return newTag
+}
+
+/**
+ * 1つのchartグループについて、アプリごとに最新タグを判定し、反映済みタグと異なる
+ * アプリだけを更新計画に含める。同じ values.yaml を参照する複数アプリの変更は、
+ * 同一ファイル内に積み重ねてまとめる。
+ */
+async function buildChartUpdate(
+  gitlab: GitlabClient,
+  chartGroup: ChartGroup,
+  dryRun: boolean,
+): Promise<{ plans: AppUpdatePlan[]; files: FileUpdate[] }> {
+  const chartProjectId: ProjectId = chartGroup.chart.projectId
+  const baseBranch: BranchName = chartGroup.chart.mrTargetBranch
+  const contentCache = new Map<string, string>()
+  const modifiedPaths = new Set<string>()
+
+  function loadContent(path: string): Promise<string> {
+    return getOrFetch(contentCache, path, async () => {
+      const content = await getFileContent(gitlab, chartProjectId, path, baseBranch)
+      if (content === undefined) {
+        throw new Error(`values.yaml が見つかりません: ${path}`)
+      }
+      return content
+    })
+  }
+
+  const plans: AppUpdatePlan[] = []
+
+  for (const app of chartGroup.apps) {
+    const latestTag = await resolveLatestTag(gitlab, app, dryRun)
+
+    const content = await loadContent(app.chart.valuesPath)
+    const currentTag = getValueAtPath(content, app.chart.imageTagKey)
+    if (currentTag === latestTag.name) {
+      logger.info({
+        event: "check_app",
+        projectName: app.projectName,
+        result: "SKIPPED",
+        reason: "already_up_to_date",
+        tag: latestTag.name,
+      })
+      continue
+    }
+
+    const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.name)
+    plans.push({
+      app,
+      previousTag: currentTag === undefined ? undefined : toTagName(currentTag),
+      latestTag,
+      pipelineUrl: pipeline?.webUrl,
+      pipelineStatus: pipeline?.status,
+    })
+    contentCache.set(
+      app.chart.valuesPath,
+      setValueAtPath(content, app.chart.imageTagKey, latestTag.name),
+    )
+    modifiedPaths.add(app.chart.valuesPath)
+  }
+
+  const files: FileUpdate[] = [...modifiedPaths].map((filePath) => {
+    const content = contentCache.get(filePath)
+    if (content === undefined) {
+      throw new Error(`internal error: missing content for ${filePath}`)
+    }
+    return { filePath, content }
+  })
+
+  return { plans, files }
 }

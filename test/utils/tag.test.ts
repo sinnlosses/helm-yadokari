@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import { buildNewTag, buildTagPrefix, findLatestParsedTag, parseTag } from "../../src/lib/tag.js"
 import { toBranchName } from "../../src/types.js"
+import { buildNewTag, buildTagPrefix, findLatestParsedTag, parseTag } from "../../src/utils/tag.js"
 
 describe("buildTagPrefix", () => {
   it("スラッシュを含まないブランチ名はそのままプレフィックスにする", () => {

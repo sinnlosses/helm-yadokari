@@ -6,7 +6,12 @@ vi.mock("../../src/utils/logger.js", () => ({
 }))
 
 import type { GitlabClient } from "../../src/lib/gitlab.js"
-import { commitFileUpdates, createMergeRequest, getProjectWebUrl } from "../../src/lib/gitlab.js"
+import {
+  buildMrDescription,
+  buildMrTitle,
+  commitFileUpdates,
+  createMergeRequest,
+} from "../../src/lib/gitlab.js"
 import { applyUpdates } from "../../src/steps/apply-updates.js"
 import { toBranchName, toTagName } from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"
@@ -40,7 +45,8 @@ describe("applyUpdates", () => {
   beforeEach(() => {
     vi.mocked(commitFileUpdates).mockResolvedValue(undefined)
     vi.mocked(createMergeRequest).mockResolvedValue(undefined)
-    vi.mocked(getProjectWebUrl).mockResolvedValue("https://gitlab.test/group/my-app")
+    vi.mocked(buildMrTitle).mockReturnValue("chore: update 1 app image tag(s)")
+    vi.mocked(buildMrDescription).mockResolvedValue("### my-app\n...")
   })
 
   afterEach(() => {
@@ -51,6 +57,18 @@ describe("applyUpdates", () => {
     expect(await applyUpdates(mockGitlab, [makeTarget()], 3)).toEqual(["CREATED"])
     expect(commitFileUpdates).toHaveBeenCalledOnce()
     expect(createMergeRequest).toHaveBeenCalledOnce()
+  })
+
+  it("buildMrTitle/buildMrDescriptionの結果をコミット・MR作成に渡す", async () => {
+    const target = makeTarget()
+    await applyUpdates(mockGitlab, [target], 3)
+    expect(buildMrTitle).toHaveBeenCalledWith(target.plans)
+    expect(buildMrDescription).toHaveBeenCalledWith(mockGitlab, target.plans)
+    expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[4]).toBe("chore: update 1 app image tag(s)")
+    expect(vi.mocked(createMergeRequest).mock.calls[0]?.[4]).toBe(
+      "chore: update 1 app image tag(s)",
+    )
+    expect(vi.mocked(createMergeRequest).mock.calls[0]?.[5]).toBe("### my-app\n...")
   })
 
   it("固定ブランチ名でコミット・MRを作成する", async () => {

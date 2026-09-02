@@ -1,6 +1,4 @@
-import { UPDATE_BRANCH } from "../lib/constants.js"
-import { type GitlabClient, openMergeRequestExists } from "../lib/gitlab.js"
-import { chartLogContext } from "../lib/log-context.js"
+import { type GitlabClient, UPDATE_BRANCH, openMergeRequestExists } from "../lib/gitlab.js"
 import type { ChartGroup, ChartUpdateResult } from "../types.js"
 import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
@@ -39,7 +37,12 @@ export async function filterTargets(
 }
 
 async function checkTarget(gitlab: GitlabClient, chartGroup: ChartGroup): Promise<TargetOutcome> {
-  const logContext = chartLogContext(chartGroup)
+  const logContext = {
+    event: "update_chart",
+    chartDir: chartGroup.chartDir,
+    chartProjectId: chartGroup.chart.projectId,
+    chartProjectName: chartGroup.chart.projectName,
+  }
 
   if (chartGroup.apps.length === 0) {
     logger.info({ ...logContext, result: "SKIPPED", reason: "no_apps" })

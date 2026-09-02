@@ -23,7 +23,7 @@ chart リポジトリ単位で1つの Merge Request を作成する。クラス�
 ```bash
 pnpm check                            # tsc --noEmit + lint + format:check + test をまとめて実行（変更後は必ずこれを通す）
 pnpm test                             # テスト全体
-npx vitest run test/lib/tag.test.ts   # 単体テストファイルのみ実行
+npx vitest run test/utils/tag.test.ts # 単体テストファイルのみ実行
 pnpm lint                             # oxlint + config/ のバリデーション
 pnpm format                           # oxfmt で自動整形
 pnpm dev                              # tsx でローカル実行（.env を読み込む）
@@ -59,66 +59,71 @@ export async function process() {
 確定したもの（`settled`: SKIPPED/ERROR）」の2つを返す。後続ステップは前段の `targets`/
 `toApply` だけを引き継いで処理し、`settled` はそのまま最後の集計に合流させる。
 
-**原則: `src/steps/` 配下のファイルは `main.ts` の `process()` からしか呼ばれない。
-`steps/` 配下のファイルが `steps/` 配下の別ファイルを呼ぶことはない。** ステップが
-共通して使う処理（1chartグループ分の計算、MR本文組み立て、タグ命名規則、固定ブランチ名、
-ログ文脈情報など）はすべて `lib/` に置き、`steps/` の各ファイルはそれぞれ独立して
-`lib/`・`utils/` にだけ依存する。`steps/` 配下は現在ちょうど3ファイルで、
-これは `process()` が呼ぶステップ数と一致する:
+**原則1: `src/steps/` 配下のファイルは `main.ts` の `process()` からしか呼ばれない。
+`steps/` 配下のファイルが `steps/` 配下の別ファイルを呼ぶことはない。**
+**原則2: `src/lib/` は特定の技術・外部システム・ファイル形式に依存するものだけを置く**
+（GitLab API、環境変数、このツールの `config/` ファイル形式、Helm chartの
+`values.yaml` 形式など）。「複数のstepsから呼ばれているが技術には依存しない」という
+理由だけで `lib/` に置くのは誤り。そのような処理は、呼び出し元が1つの `steps/` ファイル
+だけなら**そのファイル内の非公開（exportしない）関数として書く**か、技術に依存しない
+汎用処理なら `utils/` へ、GitLab MRの内容構築のようにその技術と不可分な処理なら
+対応する `lib/` ファイル（例: `gitlab.ts`）に含める。
 
-- `src/steps/`: `process()` が直接呼ぶ、フラットな3ステップのみを置く
+- `src/steps/`: `process()` が直接呼ぶ、フラットな3ステップのみを置く。それぞれ
+  `lib/`・`utils/` にのみ依存する
   - `filter-targets.ts`: `filterTargets()`。登録アプリが0件、または固定ブランチに
     オープン中のMRが既にあるchartグループを除外する
-  - `build-plans.ts`: `buildPlans()`。`lib/update-plan.ts` の `buildChartUpdate()` で
-    chartグループごとの更新計画を並列に構築し、差分がないもの・dryRunのものは
-    settled（SKIPPED）へ、反映が必要なものは `toApply` へ振り分ける
+  - `build-plans.ts`: `buildPlans()`。chartグループごとの更新計画を並列に構築し、
+    差分がないもの・dryRunのものは settled（SKIPPED）へ、反映が必要なものは
+    `toApply` へ振り分ける。1つのchartグループ分の計算（`buildChartUpdate()`）・
+    追跡ブランチ由来の最新タグ判定（`resolveLatestTag()`）・ログ用サマリ組み立て
+    （`describePlan()`）は、このファイルの外からは呼ばれないため非公開関数としてここに書く
+    - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`utils/tag.ts` の
+      `buildNewTag()` でタグ名を組み立て、`lib/gitlab.ts` の `createTag()` で実際に
+      作成してから続行する（`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
   - `apply-updates.ts`: `applyUpdates()`。`toApply` の各chartグループに対してコミット・
-    MR作成を並列実行する
-- `src/lib/`: `steps/` や他の `lib/` から呼ばれる、外部システム・ファイル形式の知識を
-  持つ処理（ドメイン知識はあってもよいが、`process()` から直接は呼ばれない）
+    MR作成を並列実行する。ログ用サマリ組み立て（`describePlan()`）はここでも非公開関数
+    として個別に持つ（`build-plans.ts` のものとほぼ同じ形だが、共有するために `lib/` へ
+    切り出すほどの技術依存はないため、あえて共有しない）
+- `src/lib/`: 特定の技術・外部システム・ファイル形式に依存する処理のみを置く
   - `gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧取得・作成・ファイル取得・MR作成・
     タグに紐づく最新パイプライン取得など。404を特定の戻り値（`false`/`undefined`）に変換する
-    箇所は `withNotFoundFallback()` に共通化している
+    箇所は `withNotFoundFallback()` に共通化している。全ステップ共通の固定ブランチ名
+    `UPDATE_BRANCH`、MRのタイトル・本文組み立て（`buildMrTitle()`/`buildMrDescription()`。
+    タグへのリンクがGitLabのURL構造 `-/tags/...` に依存するため、GitLab固有の関心事として
+    ここに置く）もこのファイルが持つ
   - `config.ts`: `config/<chart>/chart.yaml` + `config/<chart>/<tenantId>/<clientId>/apps.yaml`
     の2階層固定構成を再帰的に読み込み、Zodでバリデーション（ファイル探索・YAML読み込みの
     汎用部分は `utils/fs.ts` / `utils/yaml.ts` に委譲）
-  - `update-plan.ts`: `buildChartUpdate()`。1つのchartグループについて、アプリごとに
-    `tag.ts` で追跡ブランチ由来の最新タグを判定し、`helm.ts` で `values.yaml` の
-    現在値と比較する（1グループ分の計算のみを担い、並列化やログ集計は持たない）。
-    差分があるアプリだけを更新計画に含め、同じ `valuesPath` を参照する複数アプリの
-    変更は1ファイルにまとめる
-    - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`tag.ts` の `buildNewTag()`
-      でタグ名を組み立て、`gitlab.ts` の `createTag()` で実際に作成してから続行する
-      （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
-  - `tag.ts`: このツールのタグ命名規則（`docs/requirements.md` 4.1節）のパース・最新タグ判定・
-    新規タグ名の組み立て
-  - `mr-content.ts`: MRのタイトル・本文（`values.yaml`更新後の値・タグへのリンク・
-    パイプラインへのリンク等）の組み立てのみを担当する表示専用モジュール
-  - `constants.ts`: 全ステップ共通の固定ブランチ名 `UPDATE_BRANCH`
-  - `log-context.ts`: `chartLogContext()`。各ステップで共通して使うログの文脈情報
-    （`chartDir`/`chartProjectId`/`chartProjectName`）を組み立てる
   - `helm.ts`: Helm chart の `values.yaml` を操作する処理（現状はdotパスでの値の取得・書き換え）。
     Helm chart固有の処理を今後追加する場合もここに置く
   - `env.ts`: 環境変数の読み込み・検証
 - `src/utils/`: このツールのドメイン知識を一切持たない、技術的に汎用的なユーティリティ
+  - `tag.ts`: このツールのタグ命名規則（`docs/requirements.md` 4.1節）のパース・最新タグ判定・
+    新規タグ名の組み立て。命名規則自体はこのツール固有だが、外部システム・ファイルへの
+    I/Oを一切持たない純粋な文字列/日付処理のため、`lib/`ではなくutilsに置く
+    （呼び出し元は `steps/build-plans.ts` のみ）
   - `parallel.ts`: `mapWithConcurrency()`。指定した同時実行数で配列を並列処理し、
     `FatalError` を検知したら未着手のタスクをキャンセルして即reject する（各ステップの
     並列化はすべてこれ経由。以前は複数ファイルにほぼ同じp-limitロジックが重複していたのを
     ここに統合した）
   - `fs.ts`: パストラバーサル検証・サブディレクトリ列挙、`yaml.ts`: YAMLファイル読み込み+Zod
     バリデーション、`object.ts`: `isPlainObject`、`cache.ts`: `getOrFetch`（Mapベースの
-    非同期メモ化。`update-plan.ts`と`mr-content.ts`で重複していたcache-or-fetchパターンを共通化）
+    非同期メモ化。`build-plans.ts`と`gitlab.ts`のbuildMrDescriptionで同じcache-or-fetch
+    パターンが必要になったため共通化）
   - 既存の `errors.ts` / `http.ts` / `retry.ts` / `timer.ts` / `logger.ts` も同様に汎用
 
-新しいコードを置くとき:
+新しいコードを置くとき、まず「呼び出し元は何か」を考える:
 
-- このツールのタグ命名規則・更新フローを一切知らなくても成立する、他プロジェクトでも
-  そのまま使い回せる技術的関心事は `utils/` へ
-- `process()` から直接は呼ばれない、他のモジュールから呼ばれる処理（ドメイン知識の
-  有無を問わない）は `lib/` へ
-- `process()` が直接呼ぶ、フラットなパイプラインの1段は `steps/` へ。新しいステップを
-  追加する場合も、他のステップファイルを import せず `lib/`・`utils/` にのみ依存させる。
-  ステップ同士で処理を共有したくなったら、その処理を `lib/` に切り出す
+- `process()` が直接呼ぶ、フラットなパイプラインの1段 → `steps/`。他のステップファイルを
+  import しない
+- 呼び出し元が `steps/` の1ファイルだけ → そのファイル内の非公開（exportしない）関数
+- 複数の場所から呼ばれる、かつ特定の技術・外部システム・ファイル形式に依存する
+  （GitLab API、Helm chart形式、`config/`のYAML形式、環境変数など）→ 対応する `lib/`
+  ファイル。新しい技術/形式を扱うなら新しい `lib/` ファイルを作ってよい
+- 複数の場所から呼ばれる、かつ技術に依存しない純粋な計算 → `utils/`
+- 「stepsから呼ばれているから」「複数箇所で使うから」という理由だけで `lib/` に
+  置くのは誤り。lib行きの判断基準は常に「技術・外部システム・ファイル形式への依存」
 
 ## ディレクトリ構成の勘所
 
@@ -135,7 +140,7 @@ export async function process() {
 
 - TDD推奨: 実装コードの前に失敗するテストを書く（`/tdd` スキル参照）
 - テストは `test/` 以下、`src/` と同じディレクトリ構成で配置する
-- GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする（`test/lib/gitlab.test.ts` 参照）。各ステップのテスト（`test/steps/*.test.ts`）は、直接呼び出す一段下のモジュールだけを `vi.mock` する（例: `build-plans.test.ts` は `update-plan.js` をモックし、`lib/gitlab.js` の詳細までは知らない）
+- GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする（`test/lib/gitlab.test.ts` 参照）。各ステップのテスト（`test/steps/*.test.ts`）も `lib/gitlab.js` をモックし、非公開関数（`buildChartUpdate()` 等）はエクスポートされたステップの振る舞いを通して間接的に検証する
 - 変更後は必ず `pnpm test`（最終的には `pnpm check`）が通ることを確認してから完了と報告する
 
 ## CI/CD
@@ -173,7 +178,7 @@ export async function process() {
   一般的なエラーを指しており、GitLab側の認証切れ・障害のような全chart共通の致命的エラーに
   対しては、無駄なAPI呼び出しを避けるためこの例外を設けている（gitlab-watari-dori由来のパターン）
 - 同一chartリポジトリ内の複数アプリの処理（タグ取得・パイプライン取得等）は `buildChartUpdate()`
-  （`src/lib/update-plan.ts`）内で逐次実行している。`docs/requirements.md` 4.3節の並列実行制御
+  （`src/steps/build-plans.ts` の非公開関数）内で逐次実行している。`docs/requirements.md` 4.3節の並列実行制御
   （`p-limit`）は現状chartグループ単位（`filterTargets`/`buildPlans`/`applyUpdates`それぞれ）
   のみに適用しており、1chartグループ内のアプリ単位までは並列化していない
 

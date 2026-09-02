@@ -1,8 +1,12 @@
-import { UPDATE_BRANCH } from "../lib/constants.js"
-import { type GitlabClient, commitFileUpdates, createMergeRequest } from "../lib/gitlab.js"
-import { chartLogContext } from "../lib/log-context.js"
-import { buildDescription, buildTitle, describePlan } from "../lib/mr-content.js"
-import type { ChartUpdateResult, ChartUpdateTarget } from "../types.js"
+import {
+  UPDATE_BRANCH,
+  type GitlabClient,
+  buildMrDescription,
+  buildMrTitle,
+  commitFileUpdates,
+  createMergeRequest,
+} from "../lib/gitlab.js"
+import type { AppUpdatePlan, ChartUpdateResult, ChartUpdateTarget } from "../types.js"
 import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
 import { logger } from "../utils/logger.js"
@@ -19,15 +23,28 @@ export async function applyUpdates(
   return mapWithConcurrency(targets, concurrencyLimit, (target) => applyUpdate(gitlab, target))
 }
 
+function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
+  return {
+    projectName: plan.app.projectName,
+    previousTag: plan.previousTag,
+    latestTag: plan.latestTag.name,
+  }
+}
+
 async function applyUpdate(
   gitlab: GitlabClient,
   { chartGroup, plans, files }: ChartUpdateTarget,
 ): Promise<ChartUpdateResult> {
-  const logContext = chartLogContext(chartGroup)
+  const logContext = {
+    event: "update_chart",
+    chartDir: chartGroup.chartDir,
+    chartProjectId: chartGroup.chart.projectId,
+    chartProjectName: chartGroup.chart.projectName,
+  }
   const { chart } = chartGroup
 
   try {
-    const title = buildTitle(plans)
+    const title = buildMrTitle(plans)
     await commitFileUpdates(
       gitlab,
       chart.projectId,
@@ -42,7 +59,7 @@ async function applyUpdate(
       UPDATE_BRANCH,
       chart.mrTargetBranch,
       title,
-      await buildDescription(gitlab, plans),
+      await buildMrDescription(gitlab, plans),
     )
     logger.info({ ...logContext, result: "CREATED", apps: plans.map(describePlan) })
     return "CREATED"

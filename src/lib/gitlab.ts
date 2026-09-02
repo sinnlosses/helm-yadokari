@@ -1,6 +1,8 @@
 import { Gitlab } from "@gitbeaker/rest"
 
-import type { BranchName, FileUpdate, GitLabUrl, ProjectId } from "../types.js"
+import type { AppUpdatePlan, BranchName, FileUpdate, GitLabUrl, ProjectId } from "../types.js"
+import { toBranchName } from "../types.js"
+import { getOrFetch } from "../utils/cache.js"
 import { isNotFoundError } from "../utils/http.js"
 import { withRetry } from "../utils/retry.js"
 
@@ -10,6 +12,9 @@ export type PipelineInfo = {
   readonly status: string
   readonly webUrl: string
 }
+
+/** 全chartリポジトリで共通の固定ブランチ名。chartリポジトリ単位で1つのMRに集約するため使い回す */
+export const UPDATE_BRANCH: BranchName = toBranchName("yadokari/update")
 
 export function createClient(host: GitLabUrl, token: string): GitlabClient {
   return new Gitlab({ host, token })
@@ -148,4 +153,42 @@ export async function getLatestPipelineForRef(
       return { status: pipeline.status, webUrl: String(pipeline.web_url) }
     }, undefined),
   )
+}
+
+export function buildMrTitle(plans: readonly AppUpdatePlan[]): string {
+  return `chore: update ${plans.length} app image tag(s)`
+}
+
+function buildMrPlanSection(plan: AppUpdatePlan, webUrl: string): string {
+  const tagUrl = `${webUrl}/-/tags/${encodeURIComponent(plan.latestTag.name)}`
+  const pipelineLine = plan.pipelineUrl
+    ? `- パイプライン: [${plan.pipelineStatus ?? "unknown"}](${plan.pipelineUrl})`
+    : "- パイプライン: (見つかりません)"
+  return [
+    `### ${plan.app.projectName}`,
+    `- タグ: ${plan.previousTag ?? "(未設定)"} → [${plan.latestTag.name}](${tagUrl})`,
+    `- 打刻日時: ${plan.latestTag.builtAt.toISOString()}`,
+    pipelineLine,
+  ].join("\n")
+}
+
+/**
+ * MRの本文を組み立てる。タグへのリンクは対象アプリのソースリポジトリのweb_urlを元に構築するため、
+ * プロジェクトごとに `getProjectWebUrl()` を呼び出す（同一プロジェクトへの呼び出しはキャッシュする）。
+ */
+export async function buildMrDescription(
+  gitlab: GitlabClient,
+  plans: readonly AppUpdatePlan[],
+): Promise<string> {
+  const webUrlCache = new Map<ProjectId, string>()
+  const sections: string[] = []
+
+  for (const plan of plans) {
+    const webUrl = await getOrFetch(webUrlCache, plan.app.projectId, () =>
+      getProjectWebUrl(gitlab, plan.app.projectId),
+    )
+    sections.push(buildMrPlanSection(plan, webUrl))
+  }
+
+  return sections.join("\n\n")
 }
