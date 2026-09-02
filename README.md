@@ -228,24 +228,25 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 ```
 .
 ├── src/
-│   ├── index.ts           # エントリポイント
-│   ├── main.ts             # run()/process() のみを持つ薄いオーケストレーションエントリ
-│   ├── types.ts            # 型定義
-│   ├── lib/
-│   │   ├── chart-update.ts # chartリポジトリ単位のオーケストレーション・エラー境界
-│   │   ├── update-plan.ts  # アプリごとの最新タグ判定・values.yaml差分の計算
-│   │   ├── mr-content.ts   # MRタイトル・本文の組み立て
-│   │   ├── gitlab.ts       # GitLab API クライアント操作
-│   │   ├── config.ts       # config/ の再帰読み込み・パース
-│   │   ├── tag.ts          # タグ命名規則のパース・最新タグ判定・新規タグ組み立て
-│   │   ├── values.ts       # values.yaml のdotパス読み書き
-│   │   └── env.ts          # 環境変数ユーティリティ
+│   ├── index.ts            # エントリポイント
+│   ├── main.ts              # run()/process() のみを持つ薄いオーケストレーションエントリ
+│   ├── types.ts             # 型定義
+│   ├── steps/                # このツール固有の業務フロー（更新の判断・反映）
+│   │   ├── chart-update.ts   # chartリポジトリ単位のオーケストレーション・エラー境界
+│   │   ├── update-plan.ts    # アプリごとの最新タグ判定・values.yaml差分の計算
+│   │   └── mr-content.ts     # MRタイトル・本文の組み立て
+│   ├── lib/                  # 汎用的なAPIラッパー・ユーティリティ
+│   │   ├── gitlab.ts         # GitLab API クライアント操作
+│   │   ├── config.ts         # config/ の再帰読み込み・パース
+│   │   ├── tag.ts            # タグ命名規則のパース・最新タグ判定・新規タグ組み立て
+│   │   ├── values.ts         # values.yaml のdotパス読み書き
+│   │   └── env.ts            # 環境変数ユーティリティ
 │   └── utils/
-│       ├── errors.ts       # カスタムエラー
-│       ├── http.ts         # HTTP ユーティリティ
-│       ├── retry.ts        # 指数バックオフリトライ
-│       ├── timer.ts        # 実行時間計測
-│       └── logger.ts       # 構造化 JSON ロガー
+│       ├── errors.ts         # カスタムエラー
+│       ├── http.ts           # HTTP ユーティリティ
+│       ├── retry.ts          # 指数バックオフリトライ
+│       ├── timer.ts          # 実行時間計測
+│       └── logger.ts         # 構造化 JSON ロガー
 ├── test/                   # テスト
 ├── config/                 # 対象アプリ設定
 ├── .gitlab-ci.yml          # CI ジョブ定義

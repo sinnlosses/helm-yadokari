@@ -1,9 +1,9 @@
 import pLimit from "p-limit"
 
-import { updateChartGroupIfNeeded } from "./lib/chart-update.js"
 import { loadConfig } from "./lib/config.js"
 import { ACCESS_TOKEN, CONCURRENCY_LIMIT, CONFIG_PATH, DRY_RUN, GITLAB_URL } from "./lib/env.js"
 import { createClient } from "./lib/gitlab.js"
+import { updateChartGroupIfNeeded } from "./steps/chart-update.js"
 import type { ChartUpdateResult, RunResult } from "./types.js"
 import { FatalError } from "./utils/errors.js"
 import { logger } from "./utils/logger.js"

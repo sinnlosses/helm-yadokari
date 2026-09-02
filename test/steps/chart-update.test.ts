@@ -5,7 +5,6 @@ vi.mock("../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
-import { updateChartGroupIfNeeded } from "../../src/lib/chart-update.js"
 import {
   commitFileUpdates,
   createMergeRequest,
@@ -17,6 +16,7 @@ import {
   openMergeRequestExists,
 } from "../../src/lib/gitlab.js"
 import type { GitlabClient } from "../../src/lib/gitlab.js"
+import { updateChartGroupIfNeeded } from "../../src/steps/chart-update.js"
 import { toProjectId, toProjectName } from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"
 import { makeApp, makeChartGroup, makeHttpError } from "../helpers.js"

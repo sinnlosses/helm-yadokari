@@ -1,14 +1,14 @@
-import type { BranchName, ChartGroup, ChartUpdateResult } from "../types.js"
-import { toBranchName } from "../types.js"
-import { FatalError } from "../utils/errors.js"
-import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
-import { logger } from "../utils/logger.js"
 import {
   type GitlabClient,
   commitFileUpdates,
   createMergeRequest,
   openMergeRequestExists,
-} from "./gitlab.js"
+} from "../lib/gitlab.js"
+import type { BranchName, ChartGroup, ChartUpdateResult } from "../types.js"
+import { toBranchName } from "../types.js"
+import { FatalError } from "../utils/errors.js"
+import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
+import { logger } from "../utils/logger.js"
 import { buildDescription, buildTitle, describePlan } from "./mr-content.js"
 import { buildChartUpdate } from "./update-plan.js"
 

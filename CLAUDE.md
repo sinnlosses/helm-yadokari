@@ -33,27 +33,35 @@ pnpm build && pnpm start              # ビルドしてから実行
 ## アーキテクチャ概要
 
 `src/main.ts` の `process()` が `config/` を読み込み、chart リポジトリ（`ChartGroup`）ごとに
-`lib/chart-update.ts` の `updateChartGroupIfNeeded()` を `p-limit` で並列実行する。
+`steps/chart-update.ts` の `updateChartGroupIfNeeded()` を `p-limit` で並列実行する。
 1 chart リポジトリ = 1 MR。`src/main.ts` 自体は `run()`/`process()` のみを持つ薄い
-エントリポイントで、コアロジックは以下のように `lib/` 配下に分割している:
+エントリポイント。ディレクトリは責務で分けている:
 
-- `lib/chart-update.ts`: `updateChartGroupIfNeeded()`。既存MRの有無を確認 →
-  `update-plan.ts` の `buildChartUpdate()` で更新計画を取得 → 差分があればコミット・MR作成。
-  fatal/non-fatalなエラーの判定・ログ記録もここで行う（このファイルの責務は「オーケストレーション
-  とエラー境界」であり、更新内容の計算そのものは持たない）
-- `lib/update-plan.ts`: `buildChartUpdate()`。アプリごとに `lib/tag.ts` で追跡ブランチ由来の
-  最新タグを判定し、`lib/values.ts` で `values.yaml` の現在値と比較。差分があるアプリだけを
-  更新計画に含める。同じ `valuesPath` を参照する複数アプリの変更は1ファイルにまとめる
-  - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`lib/tag.ts` の `buildNewTag()`
-    でタグ名を組み立て、`lib/gitlab.ts` の `createTag()` で実際に作成してから続行する
-    （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
-- `lib/mr-content.ts`: MRのタイトル・本文（`values.yaml`更新後の値・タグへのリンク・
-  パイプラインへのリンク等）の組み立てのみを担当する表示専用モジュール
-- `lib/gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧取得・作成・ファイル取得・MR作成・
-  タグに紐づく最新パイプライン取得など。404を特定の戻り値（`false`/`undefined`）に変換する
-  箇所は `withNotFoundFallback()` に共通化している
-- `lib/config.ts`: `config/<chart>/chart.yaml` + `config/<chart>/<tenantId>/<clientId>/apps.yaml`
-  の2階層固定構成を再帰的に読み込み、Zodでバリデーション
+- `src/steps/`: このツール固有の業務フロー（何を・どう更新するか）を持つ「ステップ」。
+  互いに依存し合ってよく、`lib/` のAPI・ユーティリティ層に依存する
+  - `chart-update.ts`: `updateChartGroupIfNeeded()`。既存MRの有無を確認 →
+    `update-plan.ts` の `buildChartUpdate()` で更新計画を取得 → 差分があればコミット・MR作成。
+    fatal/non-fatalなエラーの判定・ログ記録もここで行う（このファイルの責務は
+    「オーケストレーションとエラー境界」であり、更新内容の計算そのものは持たない）
+  - `update-plan.ts`: `buildChartUpdate()`。アプリごとに `lib/tag.ts` で追跡ブランチ由来の
+    最新タグを判定し、`lib/values.ts` で `values.yaml` の現在値と比較。差分があるアプリだけを
+    更新計画に含める。同じ `valuesPath` を参照する複数アプリの変更は1ファイルにまとめる
+    - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`lib/tag.ts` の `buildNewTag()`
+      でタグ名を組み立て、`lib/gitlab.ts` の `createTag()` で実際に作成してから続行する
+      （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
+  - `mr-content.ts`: MRのタイトル・本文（`values.yaml`更新後の値・タグへのリンク・
+    パイプラインへのリンク等）の組み立てのみを担当する表示専用モジュール
+- `src/lib/`: このツール固有のフローに依存しない、汎用的なAPIラッパー・ユーティリティ
+  - `gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧取得・作成・ファイル取得・MR作成・
+    タグに紐づく最新パイプライン取得など。404を特定の戻り値（`false`/`undefined`）に変換する
+    箇所は `withNotFoundFallback()` に共通化している
+  - `config.ts`: `config/<chart>/chart.yaml` + `config/<chart>/<tenantId>/<clientId>/apps.yaml`
+    の2階層固定構成を再帰的に読み込み、Zodでバリデーション
+  - `tag.ts` / `values.ts` / `env.ts`: それぞれタグ命名規則のパース、`values.yaml`のdotパス
+    読み書き、環境変数の検証を行う純粋関数中心のユーティリティ
+
+新しいコードを置くとき: GitLab APIやファイル形式など再利用可能な技術的関心事は `lib/` へ、
+「アプリの更新をどう判断してどう反映するか」という業務フローの一部は `steps/` へ置く。
 
 ## ディレクトリ構成の勘所
 
@@ -70,7 +78,7 @@ pnpm build && pnpm start              # ビルドしてから実行
 
 - TDD推奨: 実装コードの前に失敗するテストを書く（`/tdd` スキル参照）
 - テストは `test/` 以下、`src/` と同じディレクトリ構成で配置する
-- GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする（`test/lib/gitlab.test.ts`, `test/main.test.ts` 参照）
+- GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする（`test/lib/gitlab.test.ts`, `test/steps/chart-update.test.ts` 参照）
 - 変更後は必ず `pnpm test`（最終的には `pnpm check`）が通ることを確認してから完了と報告する
 
 ## CI/CD

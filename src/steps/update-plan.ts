@@ -1,6 +1,3 @@
-import type { AppConfig, AppUpdatePlan, BranchName, ParsedTag, ProjectId } from "../types.js"
-import { toTagName } from "../types.js"
-import { logger } from "../utils/logger.js"
 import {
   type FileUpdate,
   type GitlabClient,
@@ -8,9 +5,12 @@ import {
   getFileContent,
   getLatestPipelineForRef,
   listTagNames,
-} from "./gitlab.js"
-import { buildNewTag, findLatestParsedTag } from "./tag.js"
-import { getValueAtPath, setValueAtPath } from "./values.js"
+} from "../lib/gitlab.js"
+import { buildNewTag, findLatestParsedTag } from "../lib/tag.js"
+import { getValueAtPath, setValueAtPath } from "../lib/values.js"
+import type { AppConfig, AppUpdatePlan, BranchName, ParsedTag, ProjectId } from "../types.js"
+import { toTagName } from "../types.js"
+import { logger } from "../utils/logger.js"
 
 /**
  * 追跡ブランチ由来の最新タグを判定する。1件も見つからない場合は、このツール自身が
