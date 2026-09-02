@@ -1,5 +1,6 @@
 import { type GitlabClient, getProjectWebUrl } from "../lib/gitlab.js"
 import type { AppUpdatePlan, ProjectId } from "../types.js"
+import { getOrFetch } from "../utils/cache.js"
 
 export function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
   return {
@@ -11,18 +12,6 @@ export function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
 
 export function buildTitle(plans: readonly AppUpdatePlan[]): string {
   return `chore: update ${plans.length} app image tag(s)`
-}
-
-async function resolveProjectWebUrl(
-  gitlab: GitlabClient,
-  projectId: ProjectId,
-  cache: Map<ProjectId, string>,
-): Promise<string> {
-  const cached = cache.get(projectId)
-  if (cached !== undefined) return cached
-  const webUrl = await getProjectWebUrl(gitlab, projectId)
-  cache.set(projectId, webUrl)
-  return webUrl
 }
 
 function buildPlanSection(plan: AppUpdatePlan, webUrl: string): string {
@@ -46,7 +35,9 @@ export async function buildDescription(
   const sections: string[] = []
 
   for (const plan of plans) {
-    const webUrl = await resolveProjectWebUrl(gitlab, plan.app.projectId, webUrlCache)
+    const webUrl = await getOrFetch(webUrlCache, plan.app.projectId, () =>
+      getProjectWebUrl(gitlab, plan.app.projectId),
+    )
     sections.push(buildPlanSection(plan, webUrl))
   }
 

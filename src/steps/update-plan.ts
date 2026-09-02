@@ -9,6 +9,7 @@ import {
 import { getValueAtPath, setValueAtPath } from "../lib/helm.js"
 import type { AppConfig, AppUpdatePlan, BranchName, ParsedTag, ProjectId } from "../types.js"
 import { toTagName } from "../types.js"
+import { getOrFetch } from "../utils/cache.js"
 import { logger } from "../utils/logger.js"
 import { buildNewTag, findLatestParsedTag } from "./tag.js"
 
@@ -55,14 +56,13 @@ export async function buildChartUpdate(
   const modifiedPaths = new Set<string>()
 
   async function loadContent(path: string): Promise<string> {
-    const cached = contentCache.get(path)
-    if (cached !== undefined) return cached
-    const content = await getFileContent(gitlab, chartProjectId, path, baseBranch)
-    if (content === undefined) {
-      throw new Error(`values.yaml が見つかりません: ${path}`)
-    }
-    contentCache.set(path, content)
-    return content
+    return getOrFetch(contentCache, path, async () => {
+      const content = await getFileContent(gitlab, chartProjectId, path, baseBranch)
+      if (content === undefined) {
+        throw new Error(`values.yaml が見つかりません: ${path}`)
+      }
+      return content
+    })
   }
 
   const plans: AppUpdatePlan[] = []

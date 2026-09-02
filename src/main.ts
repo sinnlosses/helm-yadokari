@@ -1,11 +1,8 @@
-import pLimit from "p-limit"
-
 import { loadConfig } from "./lib/config.js"
 import { ACCESS_TOKEN, CONCURRENCY_LIMIT, CONFIG_PATH, DRY_RUN, GITLAB_URL } from "./lib/env.js"
 import { createClient } from "./lib/gitlab.js"
-import { updateChartGroupIfNeeded } from "./steps/chart-update.js"
+import { updateChartGroups } from "./steps/update-chart-groups.js"
 import type { ChartUpdateResult, RunResult } from "./types.js"
-import { FatalError } from "./utils/errors.js"
 import { logger } from "./utils/logger.js"
 import { timed } from "./utils/timer.js"
 
@@ -30,22 +27,13 @@ export async function run(): Promise<RunResult> {
 export async function process(): Promise<Record<ChartUpdateResult, number>> {
   const gitlab = createClient(GITLAB_URL, ACCESS_TOKEN)
   const { chartGroups } = loadConfig(CONFIG_PATH)
+  const results = await updateChartGroups(gitlab, chartGroups, CONCURRENCY_LIMIT, DRY_RUN)
+  return summarizeResults(results)
+}
 
-  const limit = pLimit(CONCURRENCY_LIMIT)
-  const tasks = chartGroups.map((chartGroup) =>
-    limit(async () => {
-      try {
-        return await updateChartGroupIfNeeded(gitlab, chartGroup, DRY_RUN)
-      } catch (err) {
-        // FatalError を検出した瞬間にキューをクリアし、後続タスクが開始されるのを防ぐ。
-        if (err instanceof FatalError) limit.clearQueue()
-        throw err
-      }
-    }),
-  )
-
-  const results = await Promise.all(tasks)
-
+function summarizeResults(
+  results: readonly ChartUpdateResult[],
+): Record<ChartUpdateResult, number> {
   return results.reduce<Record<ChartUpdateResult, number>>(
     (counts, result) => ({ ...counts, [result]: counts[result] + 1 }),
     { CREATED: 0, SKIPPED: 0, ERROR: 0 },

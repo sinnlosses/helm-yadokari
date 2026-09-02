@@ -228,25 +228,30 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 ```
 .
 ├── src/
-│   ├── index.ts            # エントリポイント
-│   ├── main.ts              # run()/process() のみを持つ薄いオーケストレーションエントリ
-│   ├── types.ts             # 型定義
-│   ├── steps/                # このツール固有の業務フロー（更新の判断・反映）
-│   │   ├── chart-update.ts   # chartリポジトリ単位のオーケストレーション・エラー境界
-│   │   ├── update-plan.ts    # アプリごとの最新タグ判定・values.yaml差分の計算
-│   │   ├── tag.ts            # タグ命名規則のパース・最新タグ判定・新規タグ組み立て
-│   │   └── mr-content.ts     # MRタイトル・本文の組み立て
-│   ├── lib/                  # 汎用的なAPIラッパー・ユーティリティ
-│   │   ├── gitlab.ts         # GitLab API クライアント操作（タグ作成含む）
-│   │   ├── config.ts         # config/ の再帰読み込み・パース
-│   │   ├── helm.ts           # Helm chart の values.yaml 操作（dotパス読み書き）
-│   │   └── env.ts            # 環境変数ユーティリティ
-│   └── utils/
-│       ├── errors.ts         # カスタムエラー
-│       ├── http.ts           # HTTP ユーティリティ
-│       ├── retry.ts          # 指数バックオフリトライ
-│       ├── timer.ts          # 実行時間計測
-│       └── logger.ts         # 構造化 JSON ロガー
+│   ├── index.ts             # エントリポイント
+│   ├── main.ts               # run()/process()。config読み込み→ステップ呼び出し→集計
+│   ├── types.ts              # 型定義
+│   ├── steps/                 # このツール固有の業務フロー（更新の判断・反映）
+│   │   ├── update-chart-groups.ts # 全chartリポジトリのp-limitファンアウト
+│   │   ├── chart-update.ts        # chartリポジトリ単位のオーケストレーション・エラー境界
+│   │   ├── update-plan.ts         # アプリごとの最新タグ判定・values.yaml差分の計算
+│   │   ├── tag.ts                 # タグ命名規則のパース・最新タグ判定・新規タグ組み立て
+│   │   └── mr-content.ts          # MRタイトル・本文の組み立て
+│   ├── lib/                   # 汎用的なAPIラッパー
+│   │   ├── gitlab.ts          # GitLab API クライアント操作（タグ作成含む）
+│   │   ├── config.ts          # config/ の再帰読み込み・パース
+│   │   ├── helm.ts            # Helm chart の values.yaml 操作（dotパス読み書き）
+│   │   └── env.ts             # 環境変数ユーティリティ
+│   └── utils/                 # ドメイン知識を持たない汎用ユーティリティ
+│       ├── errors.ts          # カスタムエラー
+│       ├── http.ts            # HTTP ユーティリティ
+│       ├── retry.ts           # 指数バックオフリトライ
+│       ├── timer.ts           # 実行時間計測
+│       ├── logger.ts          # 構造化 JSON ロガー
+│       ├── fs.ts              # パストラバーサル検証・サブディレクトリ列挙
+│       ├── yaml.ts            # YAMLファイル読み込み + Zodバリデーション
+│       ├── object.ts          # isPlainObject
+│       └── cache.ts           # getOrFetch（Mapベースの非同期メモ化）
 ├── test/                   # テスト
 ├── config/                 # 対象アプリ設定
 ├── .gitlab-ci.yml          # CI ジョブ定義

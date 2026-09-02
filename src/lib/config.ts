@@ -1,11 +1,12 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs"
-import { join, resolve, sep } from "node:path"
+import { existsSync } from "node:fs"
+import { join } from "node:path"
 
-import { load as parseYaml } from "js-yaml"
 import { z } from "zod"
 
 import type { AppConfig, ChartGroup, Config } from "../types.js"
 import { toBranchName, toProjectId, toProjectName } from "../types.js"
+import { assertSafePath, listSubdirectories } from "../utils/fs.js"
+import { parseYamlFile } from "../utils/yaml.js"
 
 const ChartYamlSchema = z.object({
   chart: z.object({
@@ -29,30 +30,6 @@ const AppsYamlSchema = z.object({
   apps: z.array(AppConfigSchema),
 })
 
-function assertSafePath(inputPath: string): void {
-  const cwd = process.cwd()
-  const resolved = resolve(cwd, inputPath)
-  if (resolved !== cwd && !resolved.startsWith(cwd + sep)) {
-    throw new Error(`CONFIG_PATH にパストラバーサルは使用できません: "${inputPath}"`)
-  }
-}
-
-function listSubdirectories(dirPath: string): string[] {
-  return readdirSync(dirPath, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort()
-}
-
-function parseYamlFile<T>(filePath: string, schema: z.ZodType<T>): T {
-  const raw = parseYaml(readFileSync(filePath, "utf-8"))
-  const result = schema.safeParse(raw)
-  if (!result.success) {
-    throw new Error(`${filePath} の形式が不正です: ${result.error.message}`)
-  }
-  return result.data
-}
-
 /**
  * apps.yaml は `<chartDir>/<tenantId>/<clientId>/apps.yaml` の2階層固定で配置される。
  * 該当ファイルが存在しない tenant/client は空扱いとする。
@@ -74,7 +51,7 @@ function loadApps(chartDirPath: string): AppConfig[] {
  */
 export function loadConfig(configPath?: string): Config {
   const path = configPath ?? "config"
-  assertSafePath(path)
+  assertSafePath(path, "CONFIG_PATH")
 
   const chartGroups = listSubdirectories(path)
     .map((chartDir): ChartGroup | undefined => {
