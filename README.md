@@ -232,11 +232,14 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │   ├── main.ts               # run()/process()。config読み込み→ステップ呼び出し→集計
 │   ├── types.ts              # 型定義
 │   ├── steps/                 # このツール固有の業務フロー（更新の判断・反映）
-│   │   ├── update-chart-groups.ts # 全chartリポジトリのp-limitファンアウト
-│   │   ├── chart-update.ts        # chartリポジトリ単位のオーケストレーション・エラー境界
-│   │   ├── update-plan.ts         # アプリごとの最新タグ判定・values.yaml差分の計算
-│   │   ├── tag.ts                 # タグ命名規則のパース・最新タグ判定・新規タグ組み立て
-│   │   └── mr-content.ts          # MRタイトル・本文の組み立て
+│   │   ├── filter-targets.ts  # 対象chartグループの絞り込み（登録0件・既存MRを除外）
+│   │   ├── build-plans.ts     # 全chartグループ分の更新計画を並列構築
+│   │   ├── update-plan.ts     # 1chartグループ分の最新タグ判定・values.yaml差分の計算
+│   │   ├── apply-updates.ts   # コミット・MR作成を並列実行
+│   │   ├── tag.ts             # タグ命名規則のパース・最新タグ判定・新規タグ組み立て
+│   │   ├── mr-content.ts      # MRタイトル・本文の組み立て
+│   │   ├── constants.ts       # 固定ブランチ名 UPDATE_BRANCH
+│   │   └── log-context.ts     # ステップ共通のログ文脈情報
 │   ├── lib/                   # 汎用的なAPIラッパー
 │   │   ├── gitlab.ts          # GitLab API クライアント操作（タグ作成含む）
 │   │   ├── config.ts          # config/ の再帰読み込み・パース
@@ -248,6 +251,7 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │       ├── retry.ts           # 指数バックオフリトライ
 │       ├── timer.ts           # 実行時間計測
 │       ├── logger.ts          # 構造化 JSON ロガー
+│       ├── parallel.ts        # mapWithConcurrency（p-limit + FatalError時の即時中断）
 │       ├── fs.ts              # パストラバーサル検証・サブディレクトリ列挙
 │       ├── yaml.ts            # YAMLファイル読み込み + Zodバリデーション
 │       ├── object.ts          # isPlainObject

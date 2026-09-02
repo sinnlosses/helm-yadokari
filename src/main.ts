@@ -1,7 +1,9 @@
 import { loadConfig } from "./lib/config.js"
 import { ACCESS_TOKEN, CONCURRENCY_LIMIT, CONFIG_PATH, DRY_RUN, GITLAB_URL } from "./lib/env.js"
 import { createClient } from "./lib/gitlab.js"
-import { updateChartGroups } from "./steps/update-chart-groups.js"
+import { applyUpdates } from "./steps/apply-updates.js"
+import { buildPlans } from "./steps/build-plans.js"
+import { filterTargets } from "./steps/filter-targets.js"
 import type { ChartUpdateResult, RunResult } from "./types.js"
 import { logger } from "./utils/logger.js"
 import { timed } from "./utils/timer.js"
@@ -21,14 +23,27 @@ export async function run(): Promise<RunResult> {
 }
 
 /**
- * 設定ファイルを読み込み、全chartリポジトリに対して更新要否判定とMR作成を並列実行する。
+ * config/ を読み込み、以下のステップを順に呼び出して全chartリポジトリを更新する。
  * DRY_RUN=true のときはブランチ作成・MR作成をせず、更新予定の内容のみログ出力する。
+ *
+ * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがあるchartグループを除外する
+ * 2. buildPlans: 残ったchartグループそれぞれの更新計画（差分）を構築する
+ * 3. applyUpdates: 差分があるchartグループに対してコミット・MR作成を行う
  */
 export async function process(): Promise<Record<ChartUpdateResult, number>> {
   const gitlab = createClient(GITLAB_URL, ACCESS_TOKEN)
   const { chartGroups } = loadConfig(CONFIG_PATH)
-  const results = await updateChartGroups(gitlab, chartGroups, CONCURRENCY_LIMIT, DRY_RUN)
-  return summarizeResults(results)
+
+  const { targets, settled: filtered } = await filterTargets(gitlab, chartGroups, CONCURRENCY_LIMIT)
+  const { toApply, settled: planned } = await buildPlans(
+    gitlab,
+    targets,
+    CONCURRENCY_LIMIT,
+    DRY_RUN,
+  )
+  const applied = await applyUpdates(gitlab, toApply, CONCURRENCY_LIMIT)
+
+  return summarizeResults([...filtered, ...planned, ...applied])
 }
 
 function summarizeResults(

@@ -32,36 +32,59 @@ pnpm build && pnpm start              # ビルドしてから実行
 
 ## アーキテクチャ概要
 
-`src/main.ts` の `process()` が3段階のステップを順に呼び出す薄いオーケストレーションレイヤー:
+`src/main.ts` の `process()` は前準備（GitLabクライアント生成・`config/`読み込み）の後、
+`src/steps/` の各ステップ関数を順番に1つずつ呼び出すだけの薄いオーケストレーションレイヤー。
+各ステップは「全chartグループ分をまとめて」処理するフラットなパイプラインで、
+chartグループごとのループやp-limitはstep関数の中に隠蔽され、`process()`自体には現れない:
 
-1. `lib/config.ts` の `loadConfig()` で `config/` を読み込む
-2. `steps/update-chart-groups.ts` の `updateChartGroups()` で、chart リポジトリ
-   （`ChartGroup`）ごとに `steps/chart-update.ts` の `updateChartGroupIfNeeded()` を
-   `p-limit` で並列実行する（1 chart リポジトリ = 1 MR）
-3. 結果を `Record<ChartUpdateResult, number>` に集計する（`main.ts` 内の `summarizeResults()`）
+```ts
+export async function process() {
+  const gitlab = createClient(GITLAB_URL, ACCESS_TOKEN)
+  const { chartGroups } = loadConfig(CONFIG_PATH)
 
-ディレクトリは責務で分けている:
+  const { targets, settled: filtered } = await filterTargets(gitlab, chartGroups, CONCURRENCY_LIMIT)
+  const { toApply, settled: planned } = await buildPlans(
+    gitlab,
+    targets,
+    CONCURRENCY_LIMIT,
+    DRY_RUN,
+  )
+  const applied = await applyUpdates(gitlab, toApply, CONCURRENCY_LIMIT)
+
+  return summarizeResults([...filtered, ...planned, ...applied])
+}
+```
+
+各ステップは「対象として残すchartグループ（`targets`/`toApply`）」と「その場で結果が
+確定したもの（`settled`: SKIPPED/ERROR）」の2つを返す。後続ステップは前段の `targets`/
+`toApply` だけを引き継いで処理し、`settled` はそのまま最後の集計に合流させる。
 
 - `src/steps/`: このツール固有の業務フロー（何を・どう更新するか）を持つ「ステップ」。
   互いに依存し合ってよく、`lib/`・`utils/` に依存する
-  - `update-chart-groups.ts`: `updateChartGroups()`。登録された全chartリポジトリを
-    `p-limit` で並列処理するファンアウト層。`FatalError` を検知した時点でキューをクリアし、
-    未着手のタスクを実行させない
-  - `chart-update.ts`: `updateChartGroupIfNeeded()`。既存MRの有無を確認 →
-    `update-plan.ts` の `buildChartUpdate()` で更新計画を取得 → 差分があればコミット・MR作成。
-    fatal/non-fatalなエラーの判定・ログ記録もここで行う（このファイルの責務は
-    「1chartリポジトリのオーケストレーションとエラー境界」であり、更新内容の計算そのものは持たない）
-  - `update-plan.ts`: `buildChartUpdate()`。アプリごとに `tag.ts` で追跡ブランチ由来の
-    最新タグを判定し、`lib/helm.ts` で `values.yaml` の現在値と比較。差分があるアプリだけを
-    更新計画に含める。同じ `valuesPath` を参照する複数アプリの変更は1ファイルにまとめる
+  - `filter-targets.ts`: `filterTargets()`。登録アプリが0件、または固定ブランチに
+    オープン中のMRが既にあるchartグループを除外する（並列実行は `utils/parallel.ts` の
+    `mapWithConcurrency()` に委譲。以下の各ステップも同様）
+  - `build-plans.ts`: `buildPlans()`。`update-plan.ts` の `buildChartUpdate()` で
+    chartグループごとの更新計画を並列に構築し、差分がないもの・dryRunのものは
+    settled（SKIPPED）へ、反映が必要なものは `toApply` へ振り分ける
+  - `update-plan.ts`: `buildChartUpdate()`。1つのchartグループについて、アプリごとに
+    `tag.ts` で追跡ブランチ由来の最新タグを判定し、`lib/helm.ts` で `values.yaml` の
+    現在値と比較する（1グループ分の計算のみを担い、並列化やログ集計は持たない）。
+    差分があるアプリだけを更新計画に含め、同じ `valuesPath` を参照する複数アプリの
+    変更は1ファイルにまとめる
     - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`tag.ts` の `buildNewTag()`
       でタグ名を組み立て、`lib/gitlab.ts` の `createTag()` で実際に作成してから続行する
       （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
+  - `apply-updates.ts`: `applyUpdates()`。`toApply` の各chartグループに対してコミット・
+    MR作成を並列実行する
   - `tag.ts`: このツールのタグ命名規則（`docs/requirements.md` 4.1節）のパース・最新タグ判定・
     新規タグ名の組み立て。命名規則自体がこのツール固有の業務ルールのため `lib/` ではなく
     ここに置く。実際にGitLab上へタグを作成するAPI呼び出しは `lib/gitlab.ts` の `createTag()`
   - `mr-content.ts`: MRのタイトル・本文（`values.yaml`更新後の値・タグへのリンク・
     パイプラインへのリンク等）の組み立てのみを担当する表示専用モジュール
+  - `constants.ts`: 全ステップ共通の固定ブランチ名 `UPDATE_BRANCH`
+  - `log-context.ts`: `chartLogContext()`。各ステップで共通して使うログの文脈情報
+    （`chartDir`/`chartProjectId`/`chartProjectName`）を組み立てる
 - `src/lib/`: このツール固有のフローに依存しない、汎用的なAPIラッパー
   - `gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧取得・作成・ファイル取得・MR作成・
     タグに紐づく最新パイプライン取得など。404を特定の戻り値（`false`/`undefined`）に変換する
@@ -73,6 +96,10 @@ pnpm build && pnpm start              # ビルドしてから実行
     Helm chart固有の処理を今後追加する場合もここに置く
   - `env.ts`: 環境変数の読み込み・検証
 - `src/utils/`: このツールのドメイン知識を一切持たない、技術的に汎用的なユーティリティ
+  - `parallel.ts`: `mapWithConcurrency()`。指定した同時実行数で配列を並列処理し、
+    `FatalError` を検知したら未着手のタスクをキャンセルして即reject する（各ステップの
+    並列化はすべてこれ経由。以前は `chart-update`/`update-chart-groups` の2箇所に
+    ほぼ同じp-limitロジックが重複していたのをここに統合した）
   - `fs.ts`: パストラバーサル検証・サブディレクトリ列挙、`yaml.ts`: YAMLファイル読み込み+Zod
     バリデーション、`object.ts`: `isPlainObject`、`cache.ts`: `getOrFetch`（Mapベースの
     非同期メモ化。`update-plan.ts`と`mr-content.ts`で重複していたcache-or-fetchパターンを共通化）
@@ -85,7 +112,9 @@ pnpm build && pnpm start              # ビルドしてから実行
 - GitLab APIやHelm chartのファイル形式など、外部システム・ファイル形式の知識はいるが
   このツール固有の業務ルールは持たないAPIラッパーは `lib/` へ
 - 「どのタグ命名規則を使うか」「アプリの更新をどう判断してどう反映するか」という
-  このツール固有の業務ルールは `steps/` へ
+  このツール固有の業務ルールは `steps/` へ。新しいステップを追加する場合も
+  「全chartグループ分をまとめて処理し、`targets`/`settled` のような形で次に渡す」
+  というフラットなパイプラインの形に合わせる
 
 ## ディレクトリ構成の勘所
 
@@ -102,7 +131,7 @@ pnpm build && pnpm start              # ビルドしてから実行
 
 - TDD推奨: 実装コードの前に失敗するテストを書く（`/tdd` スキル参照）
 - テストは `test/` 以下、`src/` と同じディレクトリ構成で配置する
-- GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする（`test/lib/gitlab.test.ts`, `test/steps/chart-update.test.ts` 参照）。並列実行のファンアウトなど1つ上のレイヤーは、`test/steps/update-chart-groups.test.ts` のように呼び出す側（`chart-update.js`）をモックして単体でテストする
+- GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする（`test/lib/gitlab.test.ts` 参照）。各ステップのテスト（`test/steps/*.test.ts`）は、直接呼び出す一段下のモジュールだけを `vi.mock` する（例: `build-plans.test.ts` は `update-plan.js` をモックし、`lib/gitlab.js` の詳細までは知らない）
 - 変更後は必ず `pnpm test`（最終的には `pnpm check`）が通ることを確認してから完了と報告する
 
 ## CI/CD
@@ -131,14 +160,18 @@ pnpm build && pnpm start              # ビルドしてから実行
 - タグに紐づくGitLabプロジェクトのURLは `Projects.show` で都度取得している（`config/`にnamespace
   slugを持たせていないため）
 - Helm CLI（`helm lint` / `helm template` 等）は呼び出さない。`values.yaml`のテキスト更新のみ行う
-- `FatalError`（401/5xx等）を検知すると、そのタスクだけでなく `p-limit` のキュー全体を
-  `clearQueue()` でクリアし、他のchartリポジトリの処理も打ち切る（`src/steps/update-chart-groups.ts`）。
+- `FatalError`（401/5xx等）を検知すると、`utils/parallel.ts` の `mapWithConcurrency()` が
+  その時点で `p-limit` のキューを `clearQueue()` でクリアし、同じステップ内の他chartグループの
+  未着手タスクを実行させずに reject する。`process()` はステップを順番に await しているため、
+  あるステップでFatalErrorが起きると後続のステップは一切開始されない（例:
+  `buildPlans` でFatalErrorが起きたら `applyUpdates` は1件も呼ばれない）。
   `docs/requirements.md` 4.3節の「chartリポジトリ間は失敗しても他は継続する」という記述は
   一般的なエラーを指しており、GitLab側の認証切れ・障害のような全chart共通の致命的エラーに
   対しては、無駄なAPI呼び出しを避けるためこの例外を設けている（gitlab-watari-dori由来のパターン）
 - 同一chartリポジトリ内の複数アプリの処理（タグ取得・パイプライン取得等）は `buildChartUpdate()`
   （`src/steps/update-plan.ts`）内で逐次実行している。`docs/requirements.md` 4.3節の並列実行制御
-  （`p-limit`）は現状chartリポジトリ単位のみに適用しており、アプリ単位までは並列化していない
+  （`p-limit`）は現状chartグループ単位（`filterTargets`/`buildPlans`/`applyUpdates`それぞれ）
+  のみに適用しており、1chartグループ内のアプリ単位までは並列化していない
 
 ## 導入済みスキル
 
