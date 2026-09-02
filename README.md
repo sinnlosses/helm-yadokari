@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="helm-yadokari" width="200"/>
+</p>
+
 <h1 align="center">helm-yadokari</h1>
 
 <p align="center">
