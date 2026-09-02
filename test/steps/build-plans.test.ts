@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../src/steps/update-plan.js")
+vi.mock("../../src/lib/update-plan.js")
 vi.mock("../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
 import type { GitlabClient } from "../../src/lib/gitlab.js"
+import { buildChartUpdate } from "../../src/lib/update-plan.js"
 import { buildPlans } from "../../src/steps/build-plans.js"
-import { buildChartUpdate } from "../../src/steps/update-plan.js"
 import { toBranchName, toTagName } from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"
 import { makeApp, makeChartGroup, makeHttpError } from "../helpers.js"

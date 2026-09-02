@@ -1,18 +1,12 @@
-import type { FileUpdate, GitlabClient } from "../lib/gitlab.js"
-import type { AppUpdatePlan, ChartGroup, ChartUpdateResult } from "../types.js"
+import type { GitlabClient } from "../lib/gitlab.js"
+import { chartLogContext } from "../lib/log-context.js"
+import { describePlan } from "../lib/mr-content.js"
+import { buildChartUpdate } from "../lib/update-plan.js"
+import type { ChartGroup, ChartUpdateResult, ChartUpdateTarget } from "../types.js"
 import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
-import { chartLogContext } from "./log-context.js"
-import { describePlan } from "./mr-content.js"
-import { buildChartUpdate } from "./update-plan.js"
-
-export type ChartUpdateTarget = {
-  readonly chartGroup: ChartGroup
-  readonly plans: AppUpdatePlan[]
-  readonly files: FileUpdate[]
-}
 
 export type BuildPlansResult = {
   readonly toApply: ChartUpdateTarget[]
@@ -28,7 +22,7 @@ type PlanOutcome =
  * settled（SKIPPED）に、実際に反映が必要なものは toApply にまとめて返す。
  *
  * いずれか1つのアプリの処理が失敗した場合、そのchartグループ全体をオールオアナッシングで
- * settled（ERROR）に含める（`update-plan.ts` の `buildChartUpdate()` 参照）。
+ * settled（ERROR）に含める（`lib/update-plan.ts` の `buildChartUpdate()` 参照）。
  */
 export async function buildPlans(
   gitlab: GitlabClient,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { buildNewTag, buildTagPrefix, findLatestParsedTag, parseTag } from "../../src/steps/tag.js"
+import { buildNewTag, buildTagPrefix, findLatestParsedTag, parseTag } from "../../src/lib/tag.js"
 import { toBranchName } from "../../src/types.js"
 
 describe("buildTagPrefix", () => {

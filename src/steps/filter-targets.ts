@@ -1,11 +1,11 @@
+import { UPDATE_BRANCH } from "../lib/constants.js"
 import { type GitlabClient, openMergeRequestExists } from "../lib/gitlab.js"
+import { chartLogContext } from "../lib/log-context.js"
 import type { ChartGroup, ChartUpdateResult } from "../types.js"
 import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
-import { UPDATE_BRANCH } from "./constants.js"
-import { chartLogContext } from "./log-context.js"
 
 export type FilterTargetsResult = {
   readonly targets: ChartGroup[]

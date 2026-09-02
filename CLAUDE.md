@@ -59,47 +59,52 @@ export async function process() {
 確定したもの（`settled`: SKIPPED/ERROR）」の2つを返す。後続ステップは前段の `targets`/
 `toApply` だけを引き継いで処理し、`settled` はそのまま最後の集計に合流させる。
 
-- `src/steps/`: このツール固有の業務フロー（何を・どう更新するか）を持つ「ステップ」。
-  互いに依存し合ってよく、`lib/`・`utils/` に依存する
+**原則: `src/steps/` 配下のファイルは `main.ts` の `process()` からしか呼ばれない。
+`steps/` 配下のファイルが `steps/` 配下の別ファイルを呼ぶことはない。** ステップが
+共通して使う処理（1chartグループ分の計算、MR本文組み立て、タグ命名規則、固定ブランチ名、
+ログ文脈情報など）はすべて `lib/` に置き、`steps/` の各ファイルはそれぞれ独立して
+`lib/`・`utils/` にだけ依存する。`steps/` 配下は現在ちょうど3ファイルで、
+これは `process()` が呼ぶステップ数と一致する:
+
+- `src/steps/`: `process()` が直接呼ぶ、フラットな3ステップのみを置く
   - `filter-targets.ts`: `filterTargets()`。登録アプリが0件、または固定ブランチに
-    オープン中のMRが既にあるchartグループを除外する（並列実行は `utils/parallel.ts` の
-    `mapWithConcurrency()` に委譲。以下の各ステップも同様）
-  - `build-plans.ts`: `buildPlans()`。`update-plan.ts` の `buildChartUpdate()` で
+    オープン中のMRが既にあるchartグループを除外する
+  - `build-plans.ts`: `buildPlans()`。`lib/update-plan.ts` の `buildChartUpdate()` で
     chartグループごとの更新計画を並列に構築し、差分がないもの・dryRunのものは
     settled（SKIPPED）へ、反映が必要なものは `toApply` へ振り分ける
-  - `update-plan.ts`: `buildChartUpdate()`。1つのchartグループについて、アプリごとに
-    `tag.ts` で追跡ブランチ由来の最新タグを判定し、`lib/helm.ts` で `values.yaml` の
-    現在値と比較する（1グループ分の計算のみを担い、並列化やログ集計は持たない）。
-    差分があるアプリだけを更新計画に含め、同じ `valuesPath` を参照する複数アプリの
-    変更は1ファイルにまとめる
-    - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`tag.ts` の `buildNewTag()`
-      でタグ名を組み立て、`lib/gitlab.ts` の `createTag()` で実際に作成してから続行する
-      （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
   - `apply-updates.ts`: `applyUpdates()`。`toApply` の各chartグループに対してコミット・
     MR作成を並列実行する
-  - `tag.ts`: このツールのタグ命名規則（`docs/requirements.md` 4.1節）のパース・最新タグ判定・
-    新規タグ名の組み立て。命名規則自体がこのツール固有の業務ルールのため `lib/` ではなく
-    ここに置く。実際にGitLab上へタグを作成するAPI呼び出しは `lib/gitlab.ts` の `createTag()`
-  - `mr-content.ts`: MRのタイトル・本文（`values.yaml`更新後の値・タグへのリンク・
-    パイプラインへのリンク等）の組み立てのみを担当する表示専用モジュール
-  - `constants.ts`: 全ステップ共通の固定ブランチ名 `UPDATE_BRANCH`
-  - `log-context.ts`: `chartLogContext()`。各ステップで共通して使うログの文脈情報
-    （`chartDir`/`chartProjectId`/`chartProjectName`）を組み立てる
-- `src/lib/`: このツール固有のフローに依存しない、汎用的なAPIラッパー
+- `src/lib/`: `steps/` や他の `lib/` から呼ばれる、外部システム・ファイル形式の知識を
+  持つ処理（ドメイン知識はあってもよいが、`process()` から直接は呼ばれない）
   - `gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧取得・作成・ファイル取得・MR作成・
     タグに紐づく最新パイプライン取得など。404を特定の戻り値（`false`/`undefined`）に変換する
     箇所は `withNotFoundFallback()` に共通化している
   - `config.ts`: `config/<chart>/chart.yaml` + `config/<chart>/<tenantId>/<clientId>/apps.yaml`
     の2階層固定構成を再帰的に読み込み、Zodでバリデーション（ファイル探索・YAML読み込みの
     汎用部分は `utils/fs.ts` / `utils/yaml.ts` に委譲）
+  - `update-plan.ts`: `buildChartUpdate()`。1つのchartグループについて、アプリごとに
+    `tag.ts` で追跡ブランチ由来の最新タグを判定し、`helm.ts` で `values.yaml` の
+    現在値と比較する（1グループ分の計算のみを担い、並列化やログ集計は持たない）。
+    差分があるアプリだけを更新計画に含め、同じ `valuesPath` を参照する複数アプリの
+    変更は1ファイルにまとめる
+    - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`tag.ts` の `buildNewTag()`
+      でタグ名を組み立て、`gitlab.ts` の `createTag()` で実際に作成してから続行する
+      （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
+  - `tag.ts`: このツールのタグ命名規則（`docs/requirements.md` 4.1節）のパース・最新タグ判定・
+    新規タグ名の組み立て
+  - `mr-content.ts`: MRのタイトル・本文（`values.yaml`更新後の値・タグへのリンク・
+    パイプラインへのリンク等）の組み立てのみを担当する表示専用モジュール
+  - `constants.ts`: 全ステップ共通の固定ブランチ名 `UPDATE_BRANCH`
+  - `log-context.ts`: `chartLogContext()`。各ステップで共通して使うログの文脈情報
+    （`chartDir`/`chartProjectId`/`chartProjectName`）を組み立てる
   - `helm.ts`: Helm chart の `values.yaml` を操作する処理（現状はdotパスでの値の取得・書き換え）。
     Helm chart固有の処理を今後追加する場合もここに置く
   - `env.ts`: 環境変数の読み込み・検証
 - `src/utils/`: このツールのドメイン知識を一切持たない、技術的に汎用的なユーティリティ
   - `parallel.ts`: `mapWithConcurrency()`。指定した同時実行数で配列を並列処理し、
     `FatalError` を検知したら未着手のタスクをキャンセルして即reject する（各ステップの
-    並列化はすべてこれ経由。以前は `chart-update`/`update-chart-groups` の2箇所に
-    ほぼ同じp-limitロジックが重複していたのをここに統合した）
+    並列化はすべてこれ経由。以前は複数ファイルにほぼ同じp-limitロジックが重複していたのを
+    ここに統合した）
   - `fs.ts`: パストラバーサル検証・サブディレクトリ列挙、`yaml.ts`: YAMLファイル読み込み+Zod
     バリデーション、`object.ts`: `isPlainObject`、`cache.ts`: `getOrFetch`（Mapベースの
     非同期メモ化。`update-plan.ts`と`mr-content.ts`で重複していたcache-or-fetchパターンを共通化）
@@ -109,12 +114,11 @@ export async function process() {
 
 - このツールのタグ命名規則・更新フローを一切知らなくても成立する、他プロジェクトでも
   そのまま使い回せる技術的関心事は `utils/` へ
-- GitLab APIやHelm chartのファイル形式など、外部システム・ファイル形式の知識はいるが
-  このツール固有の業務ルールは持たないAPIラッパーは `lib/` へ
-- 「どのタグ命名規則を使うか」「アプリの更新をどう判断してどう反映するか」という
-  このツール固有の業務ルールは `steps/` へ。新しいステップを追加する場合も
-  「全chartグループ分をまとめて処理し、`targets`/`settled` のような形で次に渡す」
-  というフラットなパイプラインの形に合わせる
+- `process()` から直接は呼ばれない、他のモジュールから呼ばれる処理（ドメイン知識の
+  有無を問わない）は `lib/` へ
+- `process()` が直接呼ぶ、フラットなパイプラインの1段は `steps/` へ。新しいステップを
+  追加する場合も、他のステップファイルを import せず `lib/`・`utils/` にのみ依存させる。
+  ステップ同士で処理を共有したくなったら、その処理を `lib/` に切り出す
 
 ## ディレクトリ構成の勘所
 
@@ -169,7 +173,7 @@ export async function process() {
   一般的なエラーを指しており、GitLab側の認証切れ・障害のような全chart共通の致命的エラーに
   対しては、無駄なAPI呼び出しを避けるためこの例外を設けている（gitlab-watari-dori由来のパターン）
 - 同一chartリポジトリ内の複数アプリの処理（タグ取得・パイプライン取得等）は `buildChartUpdate()`
-  （`src/steps/update-plan.ts`）内で逐次実行している。`docs/requirements.md` 4.3節の並列実行制御
+  （`src/lib/update-plan.ts`）内で逐次実行している。`docs/requirements.md` 4.3節の並列実行制御
   （`p-limit`）は現状chartグループ単位（`filterTargets`/`buildPlans`/`applyUpdates`それぞれ）
   のみに適用しており、1chartグループ内のアプリ単位までは並列化していない
 

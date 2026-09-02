@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { chartLogContext } from "../../src/steps/log-context.js"
+import { chartLogContext } from "../../src/lib/log-context.js"
 import { makeApp, makeChartGroup } from "../helpers.js"
 
 describe("chartLogContext", () => {

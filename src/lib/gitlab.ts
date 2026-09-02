@@ -1,6 +1,6 @@
 import { Gitlab } from "@gitbeaker/rest"
 
-import type { BranchName, GitLabUrl, ProjectId } from "../types.js"
+import type { BranchName, FileUpdate, GitLabUrl, ProjectId } from "../types.js"
 import { isNotFoundError } from "../utils/http.js"
 import { withRetry } from "../utils/retry.js"
 
@@ -75,11 +75,6 @@ export async function openMergeRequestExists(
     }),
   )
   return mergeRequests.length > 0
-}
-
-export type FileUpdate = {
-  readonly filePath: string
-  readonly content: string
 }
 
 /**

@@ -76,3 +76,16 @@ export type AppUpdatePlan = {
 export type ChartUpdateResult = "CREATED" | "SKIPPED" | "ERROR"
 
 export type RunResult = "SUCCESS" | "PARTIAL_FAILURE"
+
+/** GitLabへコミットする1ファイル分の更新内容 */
+export type FileUpdate = {
+  readonly filePath: string
+  readonly content: string
+}
+
+/** 差分が確定し、コミット・MR作成の対象になった1chartグループ分の更新内容 */
+export type ChartUpdateTarget = {
+  readonly chartGroup: ChartGroup
+  readonly plans: AppUpdatePlan[]
+  readonly files: FileUpdate[]
+}

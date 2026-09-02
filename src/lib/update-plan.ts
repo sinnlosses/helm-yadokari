@@ -1,16 +1,22 @@
+import type {
+  AppConfig,
+  AppUpdatePlan,
+  BranchName,
+  FileUpdate,
+  ParsedTag,
+  ProjectId,
+} from "../types.js"
+import { toTagName } from "../types.js"
+import { getOrFetch } from "../utils/cache.js"
+import { logger } from "../utils/logger.js"
 import {
-  type FileUpdate,
   type GitlabClient,
   createTag,
   getFileContent,
   getLatestPipelineForRef,
   listTagNames,
-} from "../lib/gitlab.js"
-import { getValueAtPath, setValueAtPath } from "../lib/helm.js"
-import type { AppConfig, AppUpdatePlan, BranchName, ParsedTag, ProjectId } from "../types.js"
-import { toTagName } from "../types.js"
-import { getOrFetch } from "../utils/cache.js"
-import { logger } from "../utils/logger.js"
+} from "./gitlab.js"
+import { getValueAtPath, setValueAtPath } from "./helm.js"
 import { buildNewTag, findLatestParsedTag } from "./tag.js"
 
 /**

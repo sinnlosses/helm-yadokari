@@ -1,6 +1,6 @@
-import { type GitlabClient, getProjectWebUrl } from "../lib/gitlab.js"
 import type { AppUpdatePlan, ProjectId } from "../types.js"
 import { getOrFetch } from "../utils/cache.js"
+import { type GitlabClient, getProjectWebUrl } from "./gitlab.js"
 
 export function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
   return {

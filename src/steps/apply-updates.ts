@@ -1,13 +1,12 @@
+import { UPDATE_BRANCH } from "../lib/constants.js"
 import { type GitlabClient, commitFileUpdates, createMergeRequest } from "../lib/gitlab.js"
-import type { ChartUpdateResult } from "../types.js"
+import { chartLogContext } from "../lib/log-context.js"
+import { buildDescription, buildTitle, describePlan } from "../lib/mr-content.js"
+import type { ChartUpdateResult, ChartUpdateTarget } from "../types.js"
 import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
-import type { ChartUpdateTarget } from "./build-plans.js"
-import { UPDATE_BRANCH } from "./constants.js"
-import { chartLogContext } from "./log-context.js"
-import { buildDescription, buildTitle, describePlan } from "./mr-content.js"
 
 /**
  * 更新計画があるchartグループに対して、固定ブランチへのコミットとMR作成を並列実行する。
