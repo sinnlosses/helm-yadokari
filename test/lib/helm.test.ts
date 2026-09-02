@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { getValueAtPath, setValueAtPath } from "../../src/lib/values.js"
+import { getValueAtPath, setValueAtPath } from "../../src/lib/helm.js"
 
 describe("getValueAtPath", () => {
   it("トップレベルのキーの値を返す", () => {

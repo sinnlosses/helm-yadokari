@@ -43,12 +43,15 @@ pnpm build && pnpm start              # ビルドしてから実行
     `update-plan.ts` の `buildChartUpdate()` で更新計画を取得 → 差分があればコミット・MR作成。
     fatal/non-fatalなエラーの判定・ログ記録もここで行う（このファイルの責務は
     「オーケストレーションとエラー境界」であり、更新内容の計算そのものは持たない）
-  - `update-plan.ts`: `buildChartUpdate()`。アプリごとに `lib/tag.ts` で追跡ブランチ由来の
-    最新タグを判定し、`lib/values.ts` で `values.yaml` の現在値と比較。差分があるアプリだけを
+  - `update-plan.ts`: `buildChartUpdate()`。アプリごとに `tag.ts` で追跡ブランチ由来の
+    最新タグを判定し、`lib/helm.ts` で `values.yaml` の現在値と比較。差分があるアプリだけを
     更新計画に含める。同じ `valuesPath` を参照する複数アプリの変更は1ファイルにまとめる
-    - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`lib/tag.ts` の `buildNewTag()`
+    - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`tag.ts` の `buildNewTag()`
       でタグ名を組み立て、`lib/gitlab.ts` の `createTag()` で実際に作成してから続行する
       （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
+  - `tag.ts`: このツールのタグ命名規則（`docs/requirements.md` 4.1節）のパース・最新タグ判定・
+    新規タグ名の組み立て。命名規則自体がこのツール固有の業務ルールのため `lib/` ではなく
+    ここに置く。実際にGitLab上へタグを作成するAPI呼び出しは `lib/gitlab.ts` の `createTag()`
   - `mr-content.ts`: MRのタイトル・本文（`values.yaml`更新後の値・タグへのリンク・
     パイプラインへのリンク等）の組み立てのみを担当する表示専用モジュール
 - `src/lib/`: このツール固有のフローに依存しない、汎用的なAPIラッパー・ユーティリティ
@@ -57,11 +60,13 @@ pnpm build && pnpm start              # ビルドしてから実行
     箇所は `withNotFoundFallback()` に共通化している
   - `config.ts`: `config/<chart>/chart.yaml` + `config/<chart>/<tenantId>/<clientId>/apps.yaml`
     の2階層固定構成を再帰的に読み込み、Zodでバリデーション
-  - `tag.ts` / `values.ts` / `env.ts`: それぞれタグ命名規則のパース、`values.yaml`のdotパス
-    読み書き、環境変数の検証を行う純粋関数中心のユーティリティ
+  - `helm.ts`: Helm chart の `values.yaml` を操作する処理（現状はdotパスでの値の取得・書き換え）。
+    Helm chart固有の処理を今後追加する場合もここに置く
+  - `env.ts`: 環境変数の読み込み・検証
 
-新しいコードを置くとき: GitLab APIやファイル形式など再利用可能な技術的関心事は `lib/` へ、
-「アプリの更新をどう判断してどう反映するか」という業務フローの一部は `steps/` へ置く。
+新しいコードを置くとき: GitLab APIやYAML操作など、このツールのタグ命名規則や更新フローを
+知らなくても成立する技術的関心事は `lib/` へ。「どのタグ命名規則を使うか」「アプリの更新を
+どう判断してどう反映するか」というこのツール固有の業務ルールは `steps/` へ置く。
 
 ## ディレクトリ構成の勘所
 

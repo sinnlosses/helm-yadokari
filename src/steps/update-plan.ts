@@ -6,11 +6,11 @@ import {
   getLatestPipelineForRef,
   listTagNames,
 } from "../lib/gitlab.js"
-import { buildNewTag, findLatestParsedTag } from "../lib/tag.js"
-import { getValueAtPath, setValueAtPath } from "../lib/values.js"
+import { getValueAtPath, setValueAtPath } from "../lib/helm.js"
 import type { AppConfig, AppUpdatePlan, BranchName, ParsedTag, ProjectId } from "../types.js"
 import { toTagName } from "../types.js"
 import { logger } from "../utils/logger.js"
+import { buildNewTag, findLatestParsedTag } from "./tag.js"
 
 /**
  * 追跡ブランチ由来の最新タグを判定する。1件も見つからない場合は、このツール自身が

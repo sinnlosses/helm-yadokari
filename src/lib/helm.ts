@@ -1,5 +1,9 @@
 import { dump as dumpYaml, load as parseYaml } from "js-yaml"
 
+// Helm chart の values.yaml を操作するための処理を置く。
+// 今のところは dotパスでの値の取得・書き換えのみだが、Helm chart 固有の処理
+// （Chart.yaml の読み込みなど）が今後必要になった場合もここに追加する。
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
