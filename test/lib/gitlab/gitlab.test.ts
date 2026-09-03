@@ -168,10 +168,18 @@ describe("openMergeRequestExists", () => {
 })
 
 describe("commitFileUpdates", () => {
-  it("ブランチが存在しないとき startBranch を指定してコミットする", async () => {
+  function makeRepositoryFilesShow(existingPaths: readonly string[]) {
+    return vi.fn().mockImplementation((_projectId: number, filePath: string) => {
+      if (!existingPaths.includes(filePath)) return Promise.reject(makeHttpError(404))
+      return Promise.resolve({ content: Buffer.from("existing").toString("base64") })
+    })
+  }
+
+  it("ブランチが存在せず、baseBranch上にファイルが存在するとき action: update で startBranch を指定する", async () => {
     const createFn = vi.fn().mockResolvedValue({})
     const client = makeClient({
       Branches: { show: vi.fn().mockRejectedValue(makeHttpError(404)) },
+      RepositoryFiles: { show: makeRepositoryFilesShow(["values.yaml"]) },
       Commits: { create: createFn },
     })
     await commitFileUpdates(
@@ -191,10 +199,11 @@ describe("commitFileUpdates", () => {
     )
   })
 
-  it("ブランチが既に存在するとき startBranch を指定せずコミットする", async () => {
+  it("ブランチが既に存在し、そのブランチ上にファイルも存在するとき action: update で startBranch を指定しない", async () => {
     const createFn = vi.fn().mockResolvedValue({})
     const client = makeClient({
       Branches: { show: vi.fn().mockResolvedValue({}) },
+      RepositoryFiles: { show: makeRepositoryFilesShow(["values.yaml"]) },
       Commits: { create: createFn },
     })
     await commitFileUpdates(
@@ -214,10 +223,35 @@ describe("commitFileUpdates", () => {
     )
   })
 
-  it("複数ファイルのactionsをまとめて送る", async () => {
+  it("ブランチは既に存在するが該当ファイルがそのブランチ上にまだ無いとき action: create にする（MRクローズ後の残留ブランチ＋新規valuesPath追加を想定）", async () => {
     const createFn = vi.fn().mockResolvedValue({})
     const client = makeClient({
       Branches: { show: vi.fn().mockResolvedValue({}) },
+      RepositoryFiles: { show: makeRepositoryFilesShow([]) },
+      Commits: { create: createFn },
+    })
+    await commitFileUpdates(
+      client,
+      toProjectId(1),
+      toBranchName("yadokari/update"),
+      toBranchName("develop"),
+      "chore: update",
+      [{ filePath: toValuesPath("new/values.yaml"), content: "image:\n  tag: v2\n" }],
+    )
+    expect(createFn).toHaveBeenCalledWith(
+      1,
+      "yadokari/update",
+      "chore: update",
+      [{ action: "create", filePath: "new/values.yaml", content: "image:\n  tag: v2\n" }],
+      {},
+    )
+  })
+
+  it("複数ファイルで存在有無が混在するとき、ファイルごとに正しいactionを設定する", async () => {
+    const createFn = vi.fn().mockResolvedValue({})
+    const client = makeClient({
+      Branches: { show: vi.fn().mockResolvedValue({}) },
+      RepositoryFiles: { show: makeRepositoryFilesShow(["a/values.yaml"]) },
       Commits: { create: createFn },
     })
     await commitFileUpdates(
@@ -232,7 +266,10 @@ describe("commitFileUpdates", () => {
       ],
     )
     const actions = createFn.mock.calls[0]?.[3]
-    expect(actions).toHaveLength(2)
+    expect(actions).toEqual([
+      { action: "update", filePath: "a/values.yaml", content: "a" },
+      { action: "create", filePath: "b/values.yaml", content: "b" },
+    ])
   })
 })
 

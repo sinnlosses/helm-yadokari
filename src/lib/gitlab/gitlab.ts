@@ -86,9 +86,17 @@ export async function openMergeRequestExists(
   return mergeRequests.length > 0
 }
 
+type CommitAction = { action: "create" | "update"; filePath: ValuesPath; content: string }
+
 /**
  * 固定ブランチへコミットを作成する。ブランチが存在しない場合は baseBranch から新規作成する。
  * 既存ブランチへのコミットは追加コミットとして積む。
+ *
+ * ファイルごとの action（create/update）は、参照先ブランチ（ブランチが既に存在すればそれ自身、
+ * まだ無ければ baseBranch）に該当ファイルが既に存在するかで判定する。固定ブランチ自体は
+ * 存在してもファイルは無い、というケースがあり得るため（例: MRがクローズされブランチが
+ * 残ったまま、新しくvaluesPathが増えたアプリが追加された場合）、「ブランチが存在するか」だけで
+ * 全ファイルのactionを決め打ちしない
  */
 export async function commitFileUpdates(
   gitlab: GitlabClient,
@@ -99,12 +107,23 @@ export async function commitFileUpdates(
   files: readonly FileUpdate[],
 ): Promise<void> {
   const exists = await branchExists(gitlab, projectId, branch)
+  const referenceBranch = exists ? branch : baseBranch
+  const actions = await Promise.all(
+    files.map(async (file): Promise<CommitAction> => {
+      const currentContent = await getFileContent(gitlab, projectId, file.filePath, referenceBranch)
+      return {
+        action: currentContent === undefined ? "create" : "update",
+        filePath: file.filePath,
+        content: file.content,
+      }
+    }),
+  )
   await withRetry(() =>
     gitlab.Commits.create(
       projectId,
       branch,
       message,
-      files.map((file) => ({ action: "update", filePath: file.filePath, content: file.content })),
+      actions,
       exists ? {} : { startBranch: baseBranch },
     ),
   )

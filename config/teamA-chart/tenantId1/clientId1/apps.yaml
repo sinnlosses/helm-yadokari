@@ -5,3 +5,9 @@ apps:
     chart:
       valuesPath: charts/my-app/values.yaml
       imageTagKey: image.tag         # values.yaml内のdotパス
+  - projectId: 889
+    projectName: another-app     # values.yamlが配列要素にYAMLアンカーで名前を付けた構成の例
+    branchToSync: main
+    chart:
+      valuesPath: charts/another-app/values.yaml
+      imageTagAnchor: tenantId1client1AppsVersion  # values.yaml内のYAMLアンカー名
