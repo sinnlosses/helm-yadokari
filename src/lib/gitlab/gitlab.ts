@@ -8,6 +8,7 @@ import type {
   PipelineInfo,
   ProjectId,
   TagName,
+  ValuesPath,
 } from "../../types.js"
 import { toBranchName, toGitLabUrl, toTagName } from "../../types.js"
 import { getOrFetch } from "../../utils/cache.js"
@@ -59,7 +60,7 @@ export async function branchExists(
 export async function getFileContent(
   gitlab: GitlabClient,
   projectId: ProjectId,
-  filePath: string,
+  filePath: ValuesPath,
   ref: BranchName,
 ): Promise<string | undefined> {
   return withRetry(() =>

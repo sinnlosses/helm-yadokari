@@ -103,9 +103,14 @@ describe("getFileContent", () => {
     const client = makeClient({
       RepositoryFiles: { show: vi.fn().mockResolvedValue({ content }) },
     })
-    expect(await getFileContent(client, toProjectId(1), "values.yaml", toBranchName("main"))).toBe(
-      "image:\n  tag: v1.0.0\n",
-    )
+    expect(
+      await getFileContent(
+        client,
+        toProjectId(1),
+        toValuesPath("values.yaml"),
+        toBranchName("main"),
+      ),
+    ).toBe("image:\n  tag: v1.0.0\n")
   })
 
   it("404のとき undefined を返す", async () => {
@@ -113,7 +118,12 @@ describe("getFileContent", () => {
       RepositoryFiles: { show: vi.fn().mockRejectedValue(makeHttpError(404)) },
     })
     expect(
-      await getFileContent(client, toProjectId(1), "values.yaml", toBranchName("main")),
+      await getFileContent(
+        client,
+        toProjectId(1),
+        toValuesPath("values.yaml"),
+        toBranchName("main"),
+      ),
     ).toBeUndefined()
   })
 
@@ -121,7 +131,7 @@ describe("getFileContent", () => {
     const err = makeHttpError(500)
     const client = makeClient({ RepositoryFiles: { show: vi.fn().mockRejectedValue(err) } })
     await expect(
-      getFileContent(client, toProjectId(1), "values.yaml", toBranchName("main")),
+      getFileContent(client, toProjectId(1), toValuesPath("values.yaml"), toBranchName("main")),
     ).rejects.toBe(err)
   })
 })
