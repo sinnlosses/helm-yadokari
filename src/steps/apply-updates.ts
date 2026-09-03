@@ -33,15 +33,15 @@ function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
 
 async function applyUpdate(
   gitlab: GitlabClient,
-  { chartGroup, plans, files }: ChartUpdateTarget,
+  { chartAndApps, plans, files }: ChartUpdateTarget,
 ): Promise<ChartUpdateResult> {
   const logContext = {
     event: "update_chart",
-    chartDir: chartGroup.chartDir,
-    chartProjectId: chartGroup.chart.projectId,
-    chartProjectName: chartGroup.chart.projectName,
+    chartDir: chartAndApps.chartDir,
+    chartProjectId: chartAndApps.chart.projectId,
+    chartProjectName: chartAndApps.chart.projectName,
   }
-  const { chart } = chartGroup
+  const { chart } = chartAndApps
 
   try {
     // MRタイトルをコミットメッセージにもそのまま使い回す

@@ -22,15 +22,15 @@
 
 ### chartリポジトリ / chartグループ
 
-- **英語識別子**: `ChartGroup`
+- **英語識別子**: `ChartAndApps`（旧`ChartGroup`）
 - **定義**: 1つの`chart.yaml`（Helm chartを管理するGitLabプロジェクトの情報）と、そのプロジェクト配下で管理する全アプリ（`apps.yaml`群）をまとめた集約単位。
-- **表記ゆれ**: `docs/requirements.md`は一貫して「chartリポジトリ」（GitLabプロジェクトそのもの）を使うが、`CLAUDE.md`・コード（`ChartGroup`型）は「chartグループ」を使う。両者は同一視されがちだが、厳密には「chartグループ」は「chartリポジトリの情報＋配下の全アプリ設定」を束ねた広い概念であり、リポジトリそのものとは範囲が異なる。「chartリポジトリ間/chartグループ内」のように、並列処理やエラーハンドリングの粒度を説明する文脈でもこの2語が混在している。
+- **表記ゆれ**: `docs/requirements.md`は一貫して「chartリポジトリ」（GitLabプロジェクトそのもの）を使うが、`CLAUDE.md`・コード（`ChartAndApps`型）は「chartグループ」を使う。両者は同一視されがちだが、厳密には「chartグループ」は「chartリポジトリの情報＋配下の全アプリ設定」を束ねた広い概念であり、リポジトリそのものとは範囲が異なる。「chartリポジトリ間/chartグループ内」のように、並列処理やエラーハンドリングの粒度を説明する文脈でもこの2語が混在している。型名は「グループ」という語よりも中身（chart設定＋アプリ設定の集約）を表すよう`ChartAndApps`に改名されたが、日本語の業務用語としては引き続き「chartグループ」を使う。
 
 ### テナント / クライアント
 
 - **英語識別子**: `tenantId` / `clientId`（ディレクトリパス上のみ）
 - **定義**: 同一chartリポジトリ配下でアプリ設定をさらに分割管理する単位。`config/<chart>/<tenantId>/<clientId>/apps.yaml`というディレクトリ階層で表現される。
-- **表記ゆれ**: `AppConfig`/`ChartGroup`型にはtenantId/clientIdに対応するフィールドが存在しない。ディレクトリを走査してファイルを見つけるためだけに使われ、パース後の値としては保持されない。
+- **表記ゆれ**: `AppConfig`/`ChartAndApps`型にはtenantId/clientIdに対応するフィールドが存在しない。ディレクトリを走査してファイルを見つけるためだけに使われ、パース後の値としては保持されない。
 
 ### valuesPath
 
@@ -48,7 +48,7 @@
 
 ### chartDir
 
-- **英語識別子**: `chartDir`
+- **英語識別子**: `chartDir`（型は`ChartDirName`ブランド型）
 - **定義**: `config/`配下でchartリポジトリに対応するディレクトリ名。ログ出力等で人間向けラベルとして使われる。
 
 ### セルフサービス方式 / 自己申告方式
@@ -127,7 +127,7 @@
 ### chartグループ更新対象
 
 - **英語識別子**: `ChartUpdateTarget`
-- **定義**: 差分が確定し、実際にコミット・MR作成の対象になった1chartグループ分の更新内容（`chartGroup`＋複数の`AppUpdatePlan`＋書き換え済みファイル一覧）。
+- **定義**: 差分が確定し、実際にコミット・MR作成の対象になった1chartグループ分の更新内容（`chartAndApps`＋複数の`AppUpdatePlan`＋書き換え済みファイル一覧）。
 
 ### chartグループ処理結果
 

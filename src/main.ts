@@ -32,9 +32,13 @@ export async function run(): Promise<RunResult> {
  */
 export async function process(): Promise<Record<ChartUpdateResult, number>> {
   const gitlab = createClient(GITLAB_URL, ACCESS_TOKEN)
-  const { chartGroups } = loadConfig(CONFIG_PATH)
+  const { chartAndAppsList } = loadConfig(CONFIG_PATH)
 
-  const { targets, settled: filtered } = await filterTargets(gitlab, chartGroups, CONCURRENCY_LIMIT)
+  const { targets, settled: filtered } = await filterTargets(
+    gitlab,
+    chartAndAppsList,
+    CONCURRENCY_LIMIT,
+  )
   const { toApply, settled: planned } = await buildPlans(
     gitlab,
     targets,

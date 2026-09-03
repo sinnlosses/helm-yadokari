@@ -3,8 +3,15 @@ import { join } from "node:path"
 
 import { z } from "zod"
 
-import type { AppConfig, ChartGroup, Config } from "../types.js"
-import { toBranchName, toDotPath, toProjectId, toProjectName, toValuesPath } from "../types.js"
+import type { AppConfig, ChartAndApps, Config } from "../types.js"
+import {
+  toBranchName,
+  toChartDirName,
+  toDotPath,
+  toProjectId,
+  toProjectName,
+  toValuesPath,
+} from "../types.js"
 import { assertSafePath, listSubdirectories } from "../utils/fs.js"
 import { parseYamlFile } from "../utils/yaml.js"
 
@@ -53,15 +60,15 @@ export function loadConfig(configPath?: string): Config {
   const path = configPath ?? "config"
   assertSafePath(path, "CONFIG_PATH")
 
-  const chartGroups = listSubdirectories(path)
-    .map((chartDir): ChartGroup | undefined => {
+  const chartAndAppsList = listSubdirectories(path)
+    .map((chartDir): ChartAndApps | undefined => {
       const chartDirPath = join(path, chartDir)
       const chartYamlPath = join(chartDirPath, "chart.yaml")
       if (!existsSync(chartYamlPath)) return undefined
       const { chart } = parseYamlFile(chartYamlPath, ChartYamlSchema)
-      return { chartDir, chart, apps: loadApps(chartDirPath) }
+      return { chartDir: toChartDirName(chartDir), chart, apps: loadApps(chartDirPath) }
     })
-    .filter((group): group is ChartGroup => group !== undefined)
+    .filter((group): group is ChartAndApps => group !== undefined)
 
-  return { chartGroups }
+  return { chartAndAppsList }
 }

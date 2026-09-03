@@ -15,7 +15,7 @@ import {
 import { buildPlans } from "../../src/steps/build-plans.js"
 import { toDotPath, toProjectId, toProjectName, toTagName, toValuesPath } from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"
-import { makeApp, makeChartGroup, makeHttpError } from "../helpers.js"
+import { makeApp, makeChartAndApps, makeHttpError } from "../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
 
@@ -35,10 +35,10 @@ describe("buildPlans", () => {
   })
 
   it("差分があるchartグループはtoApplyに含まれる", async () => {
-    const group = makeChartGroup([makeApp()])
+    const group = makeChartAndApps([makeApp()])
     const { toApply, settled } = await buildPlans(mockGitlab, [group], 3, false)
     expect(toApply).toHaveLength(1)
-    expect(toApply[0]?.chartGroup).toBe(group)
+    expect(toApply[0]?.chartAndApps).toBe(group)
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(NEW_TAG)
     expect(toApply[0]?.files).toEqual([
       { filePath: "values.yaml", content: `image:\n  tag: ${NEW_TAG}\n` },
@@ -50,7 +50,7 @@ describe("buildPlans", () => {
     vi.mocked(getFileContent).mockResolvedValue(`image:\n  tag: ${NEW_TAG}\n`)
     const { toApply, settled } = await buildPlans(
       mockGitlab,
-      [makeChartGroup([makeApp()])],
+      [makeChartAndApps([makeApp()])],
       3,
       false,
     )
@@ -61,7 +61,7 @@ describe("buildPlans", () => {
   it("差分があってもdryRunのときはsettledにSKIPPEDとして入り、toApplyには含まれない", async () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
-      [makeChartGroup([makeApp()])],
+      [makeChartAndApps([makeApp()])],
       3,
       true,
     )
@@ -73,7 +73,7 @@ describe("buildPlans", () => {
     vi.mocked(listTagNames).mockResolvedValue([toTagName("other-branch-build-at-20260101-000000")])
     const { toApply, settled } = await buildPlans(
       mockGitlab,
-      [makeChartGroup([makeApp()])],
+      [makeChartAndApps([makeApp()])],
       3,
       false,
     )
@@ -85,7 +85,7 @@ describe("buildPlans", () => {
 
   it("dryRun=true のとき、タグが見つからなくても実際のタグ作成はしない", async () => {
     vi.mocked(listTagNames).mockResolvedValue([toTagName("other-branch-build-at-20260101-000000")])
-    await buildPlans(mockGitlab, [makeChartGroup([makeApp()])], 3, true)
+    await buildPlans(mockGitlab, [makeChartAndApps([makeApp()])], 3, true)
     expect(createTag).not.toHaveBeenCalled()
   })
 
@@ -94,7 +94,7 @@ describe("buildPlans", () => {
     vi.mocked(createTag).mockRejectedValue(makeHttpError(403))
     const { toApply, settled } = await buildPlans(
       mockGitlab,
-      [makeChartGroup([makeApp()])],
+      [makeChartAndApps([makeApp()])],
       3,
       false,
     )
@@ -106,7 +106,7 @@ describe("buildPlans", () => {
     vi.mocked(getFileContent).mockResolvedValue(undefined)
     const { toApply, settled } = await buildPlans(
       mockGitlab,
-      [makeChartGroup([makeApp()])],
+      [makeChartAndApps([makeApp()])],
       3,
       false,
     )
@@ -123,7 +123,7 @@ describe("buildPlans", () => {
     })
     const { toApply, settled } = await buildPlans(
       mockGitlab,
-      [makeChartGroup([appOk, appFail])],
+      [makeChartAndApps([appOk, appFail])],
       3,
       false,
     )
@@ -145,7 +145,7 @@ describe("buildPlans", () => {
     vi.mocked(getFileContent).mockResolvedValue(
       `appA:\n  tag: ${OLD_TAG}\nappB:\n  tag: ${OLD_TAG}\n`,
     )
-    const { toApply } = await buildPlans(mockGitlab, [makeChartGroup([appA, appB])], 3, false)
+    const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([appA, appB])], 3, false)
     expect(toApply[0]?.files).toHaveLength(1)
     expect(toApply[0]?.files[0]?.content).toContain(`appA:\n  tag: ${NEW_TAG}`)
     expect(toApply[0]?.files[0]?.content).toContain(`appB:\n  tag: ${NEW_TAG}`)
@@ -153,7 +153,7 @@ describe("buildPlans", () => {
 
   it("401エラーのとき FatalError をスローする", async () => {
     vi.mocked(listTagNames).mockRejectedValue(makeHttpError(401))
-    await expect(buildPlans(mockGitlab, [makeChartGroup([makeApp()])], 3, false)).rejects.toThrow(
+    await expect(buildPlans(mockGitlab, [makeChartAndApps([makeApp()])], 3, false)).rejects.toThrow(
       FatalError,
     )
   })
@@ -162,7 +162,7 @@ describe("buildPlans", () => {
     vi.mocked(listTagNames).mockRejectedValue(makeHttpError(403))
     const { toApply, settled } = await buildPlans(
       mockGitlab,
-      [makeChartGroup([makeApp()])],
+      [makeChartAndApps([makeApp()])],
       3,
       false,
     )

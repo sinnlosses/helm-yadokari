@@ -184,15 +184,19 @@ export async function buildMrDescription(
   gitlab: GitlabClient,
   plans: readonly AppUpdatePlan[],
 ): Promise<string> {
-  const webUrlCache = new Map<ProjectId, GitLabUrl>()
-  const sections: string[] = []
+  const initialAcc = {
+    sections: [] as readonly string[],
+    webUrlCache: new Map<ProjectId, GitLabUrl>(),
+  }
 
-  for (const plan of plans) {
+  const { sections } = await plans.reduce(async (accPromise, plan) => {
+    const acc = await accPromise
+    const webUrlCache = new Map(acc.webUrlCache)
     const webUrl = await getOrFetch(webUrlCache, plan.app.projectId, () =>
       getProjectWebUrl(gitlab, plan.app.projectId),
     )
-    sections.push(buildMrPlanSection(plan, webUrl))
-  }
+    return { sections: [...acc.sections, buildMrPlanSection(plan, webUrl)], webUrlCache }
+  }, Promise.resolve(initialAcc))
 
   return sections.join("\n\n")
 }

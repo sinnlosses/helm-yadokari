@@ -11,7 +11,7 @@ import type {
   AppConfig,
   AppUpdatePlan,
   BranchName,
-  ChartGroup,
+  ChartAndApps,
   ChartUpdateResult,
   ChartUpdateTarget,
   FileUpdate,
@@ -44,21 +44,21 @@ type PlanOutcome =
  */
 export async function buildPlans(
   gitlab: GitlabClient,
-  targets: readonly ChartGroup[],
+  targets: readonly ChartAndApps[],
   concurrencyLimit: number,
   dryRun: boolean,
 ): Promise<BuildPlansResult> {
-  const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartGroup) =>
-    buildPlanForChartGroup(gitlab, chartGroup, dryRun),
+  const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
+    buildPlanForChartAndApps(gitlab, chartAndApps, dryRun),
   )
 
-  const toApply: ChartUpdateTarget[] = []
-  const settled: ChartUpdateResult[] = []
-  for (const outcome of outcomes) {
-    if (outcome.status === "apply") toApply.push(outcome.target)
-    else settled.push(outcome.result)
-  }
-  return { toApply, settled }
+  return outcomes.reduce<BuildPlansResult>(
+    (acc, outcome) =>
+      outcome.status === "apply"
+        ? { ...acc, toApply: [...acc.toApply, outcome.target] }
+        : { ...acc, settled: [...acc.settled, outcome.result] },
+    { toApply: [], settled: [] },
+  )
 }
 
 function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
@@ -69,20 +69,20 @@ function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
   }
 }
 
-async function buildPlanForChartGroup(
+async function buildPlanForChartAndApps(
   gitlab: GitlabClient,
-  chartGroup: ChartGroup,
+  chartAndApps: ChartAndApps,
   dryRun: boolean,
 ): Promise<PlanOutcome> {
   const logContext = {
     event: "update_chart",
-    chartDir: chartGroup.chartDir,
-    chartProjectId: chartGroup.chart.projectId,
-    chartProjectName: chartGroup.chart.projectName,
+    chartDir: chartAndApps.chartDir,
+    chartProjectId: chartAndApps.chart.projectId,
+    chartProjectName: chartAndApps.chart.projectName,
   }
 
   try {
-    const { plans, files } = await buildChartUpdate(gitlab, chartGroup, dryRun)
+    const { plans, files } = await buildChartUpdate(gitlab, chartAndApps, dryRun)
     if (plans.length === 0) {
       logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })
       return { status: "settled", result: "SKIPPED" }
@@ -96,7 +96,7 @@ async function buildPlanForChartGroup(
       })
       return { status: "settled", result: "SKIPPED" }
     }
-    return { status: "apply", target: { chartGroup, plans, files } }
+    return { status: "apply", target: { chartAndApps, plans, files } }
   } catch (err) {
     if (isFatalError(err)) throw new FatalError(extractHttpStatus(err), err)
     logger.error({
@@ -141,65 +141,107 @@ async function resolveLatestTag(
  * アプリだけを更新計画に含める。同じ values.yaml を参照する複数アプリの変更は、
  * 同一ファイル内に積み重ねてまとめる。
  */
+type BuildChartUpdateAcc = {
+  readonly plans: readonly AppUpdatePlan[]
+  readonly valuesYamlCache: ReadonlyMap<ValuesPath, string>
+  readonly modifiedValuesPaths: ReadonlySet<ValuesPath>
+}
+
+type LoadValuesYamlContent = (
+  cache: Map<ValuesPath, string>,
+  valuesPath: ValuesPath,
+) => Promise<string>
+
+/**
+ * 1アプリ分の最新タグ判定・差分チェックを行い、差分があれば更新計画とキャッシュ済み
+ * values.yaml の内容にそれを積み重ねたアキュムレータを返す（差分がなければ values.yaml
+ * のキャッシュ更新分だけを引き継ぐ）。
+ */
+async function applyAppToChartUpdate(
+  gitlab: GitlabClient,
+  dryRun: boolean,
+  loadValuesYamlContent: LoadValuesYamlContent,
+  acc: BuildChartUpdateAcc,
+  app: AppConfig,
+): Promise<BuildChartUpdateAcc> {
+  const latestTag = await resolveLatestTag(gitlab, app, dryRun)
+
+  const valuesYamlCache = new Map(acc.valuesYamlCache)
+  const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, app.chart.valuesPath)
+  const previousTagRaw = getValueAtPath(valuesYamlContent, app.chart.imageTagKey)
+  if (previousTagRaw === latestTag.name) {
+    logger.info({
+      event: "check_app",
+      projectName: app.projectName,
+      result: "SKIPPED",
+      reason: "already_up_to_date",
+      tag: latestTag.name,
+    })
+    return { ...acc, valuesYamlCache }
+  }
+
+  const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.name)
+  const plan: AppUpdatePlan = {
+    app,
+    previousTag: previousTagRaw === undefined ? undefined : toTagName(previousTagRaw),
+    latestTag,
+    pipeline,
+  }
+  valuesYamlCache.set(
+    app.chart.valuesPath,
+    setValueAtPath(valuesYamlContent, app.chart.imageTagKey, latestTag.name),
+  )
+
+  return {
+    plans: [...acc.plans, plan],
+    valuesYamlCache,
+    modifiedValuesPaths: new Set(acc.modifiedValuesPaths).add(app.chart.valuesPath),
+  }
+}
+
+function buildFileUpdates(
+  modifiedValuesPaths: ReadonlySet<ValuesPath>,
+  valuesYamlCache: ReadonlyMap<ValuesPath, string>,
+): FileUpdate[] {
+  return [...modifiedValuesPaths].map((filePath) => {
+    const content = valuesYamlCache.get(filePath)
+    if (content === undefined) {
+      throw new Error(`internal error: missing values.yaml content for ${filePath}`)
+    }
+    return { filePath, content }
+  })
+}
+
 async function buildChartUpdate(
   gitlab: GitlabClient,
-  chartGroup: ChartGroup,
+  chartAndApps: ChartAndApps,
   dryRun: boolean,
 ): Promise<{ plans: AppUpdatePlan[]; files: FileUpdate[] }> {
-  const chartProjectId: ProjectId = chartGroup.chart.projectId
-  const baseBranch: BranchName = chartGroup.chart.mrTargetBranch
-  const valuesYamlCache = new Map<ValuesPath, string>()
-  const modifiedValuesPaths = new Set<ValuesPath>()
+  const chartProjectId: ProjectId = chartAndApps.chart.projectId
+  const baseBranch: BranchName = chartAndApps.chart.mrTargetBranch
 
-  function loadValuesYamlContent(valuesPath: ValuesPath): Promise<string> {
-    return getOrFetch(valuesYamlCache, valuesPath, async () => {
+  const loadValuesYamlContent: LoadValuesYamlContent = (cache, valuesPath) =>
+    getOrFetch(cache, valuesPath, async () => {
       const valuesYamlContent = await getFileContent(gitlab, chartProjectId, valuesPath, baseBranch)
       if (valuesYamlContent === undefined) {
         throw new Error(`values.yaml が見つかりません: ${valuesPath}`)
       }
       return valuesYamlContent
     })
+
+  const initialAcc: BuildChartUpdateAcc = {
+    plans: [],
+    valuesYamlCache: new Map(),
+    modifiedValuesPaths: new Set(),
   }
 
-  const plans: AppUpdatePlan[] = []
+  const { plans, valuesYamlCache, modifiedValuesPaths } = await chartAndApps.apps.reduce(
+    (accPromise, app) =>
+      accPromise.then((acc) =>
+        applyAppToChartUpdate(gitlab, dryRun, loadValuesYamlContent, acc, app),
+      ),
+    Promise.resolve(initialAcc),
+  )
 
-  for (const app of chartGroup.apps) {
-    const latestTag = await resolveLatestTag(gitlab, app, dryRun)
-
-    const valuesYamlContent = await loadValuesYamlContent(app.chart.valuesPath)
-    const previousTagRaw = getValueAtPath(valuesYamlContent, app.chart.imageTagKey)
-    if (previousTagRaw === latestTag.name) {
-      logger.info({
-        event: "check_app",
-        projectName: app.projectName,
-        result: "SKIPPED",
-        reason: "already_up_to_date",
-        tag: latestTag.name,
-      })
-      continue
-    }
-
-    const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.name)
-    plans.push({
-      app,
-      previousTag: previousTagRaw === undefined ? undefined : toTagName(previousTagRaw),
-      latestTag,
-      pipeline,
-    })
-    valuesYamlCache.set(
-      app.chart.valuesPath,
-      setValueAtPath(valuesYamlContent, app.chart.imageTagKey, latestTag.name),
-    )
-    modifiedValuesPaths.add(app.chart.valuesPath)
-  }
-
-  const files: FileUpdate[] = [...modifiedValuesPaths].map((filePath) => {
-    const valuesYamlContent = valuesYamlCache.get(filePath)
-    if (valuesYamlContent === undefined) {
-      throw new Error(`internal error: missing values.yaml content for ${filePath}`)
-    }
-    return { filePath, content: valuesYamlContent }
-  })
-
-  return { plans, files }
+  return { plans: [...plans], files: buildFileUpdates(modifiedValuesPaths, valuesYamlCache) }
 }

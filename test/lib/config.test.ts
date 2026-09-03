@@ -44,7 +44,7 @@ describe("loadConfig（パストラバーサル）", () => {
 })
 
 describe("loadConfig（正常系）", () => {
-  it("chart.yaml と apps.yaml を読み込み ChartGroup を返す", () => {
+  it("chart.yaml と apps.yaml を読み込み ChartAndApps を返す", () => {
     writeChartYaml(
       "teamA-chart",
       `
@@ -69,9 +69,9 @@ apps:
 `,
     )
 
-    const { chartGroups } = loadConfig(tmpDir)
-    expect(chartGroups).toHaveLength(1)
-    expect(chartGroups[0]).toEqual({
+    const { chartAndAppsList } = loadConfig(tmpDir)
+    expect(chartAndAppsList).toHaveLength(1)
+    expect(chartAndAppsList[0]).toEqual({
       chartDir: "teamA-chart",
       chart: {
         projectId: 888,
@@ -102,8 +102,8 @@ apps:
       "chart:\n  projectId: 2\n  projectName: teamB-chart\n  mrTargetBranch: main\n",
     )
 
-    const { chartGroups } = loadConfig(tmpDir)
-    expect(chartGroups.map((g) => g.chartDir)).toEqual(["teamA-chart", "teamB-chart"])
+    const { chartAndAppsList } = loadConfig(tmpDir)
+    expect(chartAndAppsList.map((g) => g.chartDir)).toEqual(["teamA-chart", "teamB-chart"])
   })
 
   it("同じchartディレクトリ配下の複数tenant/clientのapps.yamlをすべて集約する", () => {
@@ -130,9 +130,9 @@ apps:
       "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n    chart:\n      valuesPath: c.yaml\n      imageTagKey: image.tag\n",
     )
 
-    const { chartGroups } = loadConfig(tmpDir)
-    expect(chartGroups).toHaveLength(1)
-    expect(chartGroups[0]?.apps.map((a) => a.projectName)).toEqual(["app-1", "app-2", "app-3"])
+    const { chartAndAppsList } = loadConfig(tmpDir)
+    expect(chartAndAppsList).toHaveLength(1)
+    expect(chartAndAppsList[0]?.apps.map((a) => a.projectName)).toEqual(["app-1", "app-2", "app-3"])
   })
 
   it("chart.yaml がないディレクトリは無視する", () => {
@@ -142,8 +142,8 @@ apps:
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
 
-    const { chartGroups } = loadConfig(tmpDir)
-    expect(chartGroups.map((g) => g.chartDir)).toEqual(["teamA-chart"])
+    const { chartAndAppsList } = loadConfig(tmpDir)
+    expect(chartAndAppsList.map((g) => g.chartDir)).toEqual(["teamA-chart"])
   })
 
   it("apps.yaml が存在しないtenant/clientディレクトリは空扱いにする", () => {
@@ -153,12 +153,12 @@ apps:
     )
     mkdirSync(join(tmpDir, "teamA-chart", "tenantId1", "clientId1"), { recursive: true })
 
-    const { chartGroups } = loadConfig(tmpDir)
-    expect(chartGroups[0]?.apps).toEqual([])
+    const { chartAndAppsList } = loadConfig(tmpDir)
+    expect(chartAndAppsList[0]?.apps).toEqual([])
   })
 
-  it("configディレクトリが空のとき chartGroups: [] を返す", () => {
-    expect(loadConfig(tmpDir)).toEqual({ chartGroups: [] })
+  it("configディレクトリが空のとき chartAndAppsList: [] を返す", () => {
+    expect(loadConfig(tmpDir)).toEqual({ chartAndAppsList: [] })
   })
 })
 

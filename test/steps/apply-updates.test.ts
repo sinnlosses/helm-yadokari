@@ -16,7 +16,7 @@ import { applyUpdates } from "../../src/steps/apply-updates.js"
 import type { ChartUpdateTarget } from "../../src/types.js"
 import { toBranchName, toTagName, toValuesPath } from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"
-import { makeApp, makeChartGroup, makeHttpError } from "../helpers.js"
+import { makeApp, makeChartAndApps, makeHttpError } from "../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
 
@@ -28,7 +28,7 @@ const NEW_TAG = {
 
 function makeTarget(): ChartUpdateTarget {
   return {
-    chartGroup: makeChartGroup([makeApp()]),
+    chartAndApps: makeChartAndApps([makeApp()]),
     plans: [
       {
         app: makeApp(),
@@ -81,10 +81,10 @@ describe("applyUpdates", () => {
     const target = makeTarget()
     await applyUpdates(mockGitlab, [target], 3)
     expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[3]).toBe(
-      target.chartGroup.chart.mrTargetBranch,
+      target.chartAndApps.chart.mrTargetBranch,
     )
     expect(vi.mocked(createMergeRequest).mock.calls[0]?.[3]).toBe(
-      target.chartGroup.chart.mrTargetBranch,
+      target.chartAndApps.chart.mrTargetBranch,
     )
   })
 

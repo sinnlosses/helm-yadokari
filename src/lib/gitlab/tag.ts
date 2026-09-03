@@ -1,4 +1,4 @@
-import type { BranchName, ParsedTag } from "../../types.js"
+import type { BranchName, ParsedTag, TagName } from "../../types.js"
 import { toTagName } from "../../types.js"
 
 const TAG_SUFFIX_PATTERN = /^(\d{8})-(\d{6})$/
@@ -10,7 +10,7 @@ export function buildTagPrefix(branch: BranchName): string {
   return `${branch.replaceAll("/", "-")}-build-at-`
 }
 
-export function parseTag(tagName: string, branch: BranchName): ParsedTag | undefined {
+export function parseTag(tagName: TagName, branch: BranchName): ParsedTag | undefined {
   const prefix = buildTagPrefix(branch)
   if (!tagName.startsWith(prefix)) return undefined
 
@@ -30,7 +30,7 @@ export function parseTag(tagName: string, branch: BranchName): ParsedTag | undef
   const second = Number(timePart.slice(4, 6))
 
   return {
-    name: toTagName(tagName),
+    name: tagName,
     branch,
     builtAt: new Date(Date.UTC(year, month - 1, day, hour, minute, second)),
   }
@@ -55,7 +55,7 @@ export function buildNewTag(branch: BranchName, now: Date): ParsedTag {
  * 該当するタグがひとつもない場合は undefined を返す。
  */
 export function findLatestParsedTag(
-  tagNames: readonly string[],
+  tagNames: readonly TagName[],
   branch: BranchName,
 ): ParsedTag | undefined {
   return tagNames

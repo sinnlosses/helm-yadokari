@@ -42,6 +42,13 @@ export function toDotPath(s: string): DotPath {
   return s as DotPath
 }
 
+declare const chartDirNameBrand: unique symbol
+/** config/ 直下、1chart分の設定を束ねるディレクトリ名（例: "teamA-chart"） */
+export type ChartDirName = string & { readonly [chartDirNameBrand]: never }
+export function toChartDirName(s: string): ChartDirName {
+  return s as ChartDirName
+}
+
 /** ソースリポジトリ（タグが打たれるGitLabプロジェクト）に対応する1アプリの設定。apps.yamlの1エントリ */
 export type AppConfig = {
   readonly projectId: ProjectId
@@ -61,14 +68,14 @@ export type ChartRepoConfig = {
 }
 
 /** config/<chartリポジトリ>/ 配下1つ分。chart.yaml + そのディレクトリ配下で見つかった全apps.yamlの集約 */
-export type ChartGroup = {
-  readonly chartDir: string
+export type ChartAndApps = {
+  readonly chartDir: ChartDirName
   readonly chart: ChartRepoConfig
   readonly apps: readonly AppConfig[]
 }
 
 export type Config = {
-  readonly chartGroups: readonly ChartGroup[]
+  readonly chartAndAppsList: readonly ChartAndApps[]
 }
 
 /** タグ名から読み取れる情報。追跡ブランチとビルド日時 */
@@ -78,9 +85,29 @@ export type ParsedTag = {
   readonly builtAt: Date
 }
 
+/**
+ * GitLab CIパイプラインの実行状態。GitLab側のドキュメントに載っている既知の値をリテラルで
+ * 列挙しつつ、`@gitbeaker/rest`の型自体が`string`のままで将来の値追加を保証しないため、
+ * 未知の文字列も引き続き受け付ける（分岐ロジックがなくログ・MR本文への埋め込みにしか
+ * 使わないため、未知の値が来ても実行時エラーにはならない）
+ */
+export type PipelineStatus =
+  | "created"
+  | "waiting_for_resource"
+  | "preparing"
+  | "pending"
+  | "running"
+  | "success"
+  | "failed"
+  | "canceled"
+  | "skipped"
+  | "manual"
+  | "scheduled"
+  | (string & {})
+
 /** タグに紐づく最新パイプラインの情報 */
 export type PipelineInfo = {
-  readonly status: string
+  readonly status: PipelineStatus
   readonly webUrl: GitLabUrl
 }
 
@@ -104,7 +131,7 @@ export type FileUpdate = {
 
 /** 差分が確定し、コミット・MR作成の対象になった1chartグループ分の更新内容 */
 export type ChartUpdateTarget = {
-  readonly chartGroup: ChartGroup
+  readonly chartAndApps: ChartAndApps
   readonly plans: AppUpdatePlan[]
   readonly files: FileUpdate[]
 }

@@ -28,7 +28,7 @@ import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
 import { process as processFn, run } from "../src/main.js"
 import { toGitLabUrl, toTagName } from "../src/types.js"
 import { FatalError } from "../src/utils/errors.js"
-import { makeApp, makeChartGroup, makeHttpError } from "./helpers.js"
+import { makeApp, makeChartAndApps, makeHttpError } from "./helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
 
@@ -38,7 +38,7 @@ const NEW_TAG = toTagName("main-build-at-20260101-000000")
 describe("process", () => {
   beforeEach(() => {
     vi.mocked(createClient).mockReturnValue(mockGitlab)
-    vi.mocked(loadConfig).mockReturnValue({ chartGroups: [] })
+    vi.mocked(loadConfig).mockReturnValue({ chartAndAppsList: [] })
     vi.mocked(listTagNames).mockResolvedValue([NEW_TAG])
     vi.mocked(getFileContent).mockResolvedValue(`image:\n  tag: ${OLD_TAG}\n`)
     vi.mocked(openMergeRequestExists).mockResolvedValue(false)
@@ -52,19 +52,19 @@ describe("process", () => {
     vi.clearAllMocks()
   })
 
-  it("chartGroupsがないとき resolve する", async () => {
+  it("chartAndAppsListがないとき resolve する", async () => {
     await expect(processFn()).resolves.toEqual({ CREATED: 0, SKIPPED: 0, ERROR: 0 })
   })
 
   it("全件 CREATED のとき正しい件数を返す", async () => {
     vi.mocked(loadConfig).mockReturnValue({
-      chartGroups: [makeChartGroup([makeApp()]), makeChartGroup([makeApp()])],
+      chartAndAppsList: [makeChartAndApps([makeApp()]), makeChartAndApps([makeApp()])],
     })
     await expect(processFn()).resolves.toEqual({ CREATED: 2, SKIPPED: 0, ERROR: 0 })
   })
 
   it("FatalErrorが発生したとき reject する", async () => {
-    vi.mocked(loadConfig).mockReturnValue({ chartGroups: [makeChartGroup([makeApp()])] })
+    vi.mocked(loadConfig).mockReturnValue({ chartAndAppsList: [makeChartAndApps([makeApp()])] })
     vi.mocked(listTagNames).mockRejectedValue(makeHttpError(401))
     await expect(processFn()).rejects.toThrow(FatalError)
   })
@@ -78,7 +78,7 @@ describe("process", () => {
 describe("run", () => {
   beforeEach(() => {
     vi.mocked(createClient).mockReturnValue(mockGitlab)
-    vi.mocked(loadConfig).mockReturnValue({ chartGroups: [] })
+    vi.mocked(loadConfig).mockReturnValue({ chartAndAppsList: [] })
   })
 
   afterEach(() => {
@@ -90,7 +90,7 @@ describe("run", () => {
   })
 
   it('ERROR が1件以上あるとき "PARTIAL_FAILURE" を返す', async () => {
-    vi.mocked(loadConfig).mockReturnValue({ chartGroups: [makeChartGroup([makeApp()])] })
+    vi.mocked(loadConfig).mockReturnValue({ chartAndAppsList: [makeChartAndApps([makeApp()])] })
     vi.mocked(listTagNames).mockRejectedValue(makeHttpError(403))
     await expect(run()).resolves.toBe("PARTIAL_FAILURE")
   })

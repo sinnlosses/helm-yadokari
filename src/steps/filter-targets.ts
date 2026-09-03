@@ -1,17 +1,17 @@
 import { type GitlabClient, UPDATE_BRANCH, openMergeRequestExists } from "../lib/gitlab/gitlab.js"
-import type { ChartGroup, ChartUpdateResult } from "../types.js"
+import type { ChartAndApps, ChartUpdateResult } from "../types.js"
 import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
 
 export type FilterTargetsResult = {
-  readonly targets: ChartGroup[]
+  readonly targets: ChartAndApps[]
   readonly settled: ChartUpdateResult[]
 }
 
 type TargetOutcome =
-  | { readonly status: "target"; readonly chartGroup: ChartGroup }
+  | { readonly status: "target"; readonly chartAndApps: ChartAndApps }
   | { readonly status: "settled"; readonly result: ChartUpdateResult }
 
 /**
@@ -20,41 +20,44 @@ type TargetOutcome =
  */
 export async function filterTargets(
   gitlab: GitlabClient,
-  chartGroups: readonly ChartGroup[],
+  chartAndAppsList: readonly ChartAndApps[],
   concurrencyLimit: number,
 ): Promise<FilterTargetsResult> {
-  const outcomes = await mapWithConcurrency(chartGroups, concurrencyLimit, (chartGroup) =>
-    checkTarget(gitlab, chartGroup),
+  const outcomes = await mapWithConcurrency(chartAndAppsList, concurrencyLimit, (chartAndApps) =>
+    alreadyMrExists(gitlab, chartAndApps),
   )
 
-  const targets: ChartGroup[] = []
-  const settled: ChartUpdateResult[] = []
-  for (const outcome of outcomes) {
-    if (outcome.status === "target") targets.push(outcome.chartGroup)
-    else settled.push(outcome.result)
-  }
-  return { targets, settled }
+  return outcomes.reduce<FilterTargetsResult>(
+    (acc, outcome) =>
+      outcome.status === "target"
+        ? { ...acc, targets: [...acc.targets, outcome.chartAndApps] }
+        : { ...acc, settled: [...acc.settled, outcome.result] },
+    { targets: [], settled: [] },
+  )
 }
 
-async function checkTarget(gitlab: GitlabClient, chartGroup: ChartGroup): Promise<TargetOutcome> {
+async function alreadyMrExists(
+  gitlab: GitlabClient,
+  chartAndApps: ChartAndApps,
+): Promise<TargetOutcome> {
   const logContext = {
     event: "update_chart",
-    chartDir: chartGroup.chartDir,
-    chartProjectId: chartGroup.chart.projectId,
-    chartProjectName: chartGroup.chart.projectName,
+    chartDir: chartAndApps.chartDir,
+    chartProjectId: chartAndApps.chart.projectId,
+    chartProjectName: chartAndApps.chart.projectName,
   }
 
-  if (chartGroup.apps.length === 0) {
+  if (chartAndApps.apps.length === 0) {
     logger.info({ ...logContext, result: "SKIPPED", reason: "no_apps" })
     return { status: "settled", result: "SKIPPED" }
   }
 
   try {
-    if (await openMergeRequestExists(gitlab, chartGroup.chart.projectId, UPDATE_BRANCH)) {
+    if (await openMergeRequestExists(gitlab, chartAndApps.chart.projectId, UPDATE_BRANCH)) {
       logger.info({ ...logContext, result: "SKIPPED", reason: "mr_exists" })
       return { status: "settled", result: "SKIPPED" }
     }
-    return { status: "target", chartGroup }
+    return { status: "target", chartAndApps }
   } catch (err) {
     if (isFatalError(err)) throw new FatalError(extractHttpStatus(err), err)
     logger.error({

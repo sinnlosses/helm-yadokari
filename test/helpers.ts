@@ -1,5 +1,12 @@
-import type { AppConfig, ChartGroup } from "../src/types.js"
-import { toBranchName, toDotPath, toProjectId, toProjectName, toValuesPath } from "../src/types.js"
+import type { AppConfig, ChartAndApps } from "../src/types.js"
+import {
+  toBranchName,
+  toChartDirName,
+  toDotPath,
+  toProjectId,
+  toProjectName,
+  toValuesPath,
+} from "../src/types.js"
 
 export const makeHttpError = (status: number): Error =>
   new Error("HTTP Error", { cause: { response: { status } } })
@@ -14,9 +21,9 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
   }
 }
 
-export function makeChartGroup(apps: AppConfig[]): ChartGroup {
+export function makeChartAndApps(apps: AppConfig[]): ChartAndApps {
   return {
-    chartDir: "teamA-chart",
+    chartDir: toChartDirName("teamA-chart"),
     chart: {
       projectId: toProjectId(100),
       projectName: toProjectName("teamA-chart"),
