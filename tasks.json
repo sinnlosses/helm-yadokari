@@ -30,5 +30,13 @@
     "passes": false,
     "evidence": "",
     "dependencies": ["T-002"]
+  },
+  {
+    "id": "T-005",
+    "task": "リポジトリで使われるドメイン固有の用語を整理する（docs/glossary.md を作成）",
+    "status": "done",
+    "passes": true,
+    "evidence": "commit ae9a516。/grillingで9問の設計ツリーを確定（対象は業務ドメイン用語のみ、アーキテクチャ用語は除外／表記ゆれは統一せず注記のみ／カテゴリ別グルーピング）。docs/glossary.md 作成、CLAUDE.mdの関連リンク節に追加、oxfmt --check済み",
+    "dependencies": []
   }
 ]
