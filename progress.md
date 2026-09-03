@@ -127,6 +127,20 @@
     クォートスタイルが保持されるようになった
   - `pnpm check`（236テスト）通過。`CLAUDE.md`/`README.md`/`docs/requirements.md`/
     `docs/glossary.md`を更新
+- **T-012完了**: `chart.imageTagAnchor`を`config/`の実例apps.yamlに反映し、gitlab.com実機で再検証
+  - `config/teamA-chart/tenantId1/clientId1/apps.yaml`に`imageTagAnchor`使用例
+    （`another-app`, projectId 889）を追加
+  - T-004で使ったgitlab.com上のテスト用リソースを再利用し、`imageTagAnchor`指定アプリと
+    `imageTagKey`指定アプリが同一chartグループに混在するケースを実機で検証。アンカー値の
+    書き換え・他のアンカー（`helmVersion`）の保持を確認、いずれも成功
+  - **実バグを1件発見・修正**: `commitFileUpdates()`が「固定ブランチが既に存在する ⇒
+    対象ファイルも全て存在する」と決め打ちしていたため、MRをクローズ（マージせず）した後に
+    残った固定ブランチへ、新しく`valuesPath`が増えたアプリを追加すると
+    `action: update`を送ってしまい`400 A file with this name doesn't exist`になっていた。
+    ファイルごとに参照先ブランチ（ブランチが存在すればそれ自身、無ければbaseBranch）上の
+    存在有無を確認して`action: create`/`update`を判定するよう修正し、テストを追加
+    （`pnpm check` 237テスト通過）
+  - 作成したMRはクローズ済み（マージなし）。テスト用GitLabリソースは継続検証のため残置
 
 ## 次にやること
 

@@ -86,5 +86,13 @@
     "passes": true,
     "evidence": "commit e59c410。AnchorNameブランド型・ImageTagLocation（imageTagKey/imageTagAnchorの排他ユニオン）をtypes.tsに追加。src/lib/helm.tsにgetValueAtAnchor/setValueAtAnchor（yamlパッケージのvisit()でアンカー名を持つASTノードを検索・書き換え）を新設し、getImageTag/setImageTagで呼び出し側から方式の違いを隠蔽。src/lib/config.tsのapps.yamlスキーマを判別ユニオン化（両方指定・どちらも未指定はエラー）。getValueAtPath/setValueAtPathとsrc/utils/yaml.tsのparseYamlFileもjs-yamlからyaml（Document.getIn/setIn/hasIn、parse）に置き換え、js-yaml/@types/js-yamlをpackage.jsonから削除。副産物として書き換え対象以外のコメント・クォートスタイルが保持されるようになった。pnpm check（236テスト）通過。CLAUDE.md/README.md/docs/requirements.md/docs/glossary.mdを更新",
     "dependencies": ["T-002"]
+  },
+  {
+    "id": "T-012",
+    "task": "T-011で追加したchart.imageTagAnchorをconfig/の実例apps.yamlに反映し、gitlab.com実機で動作確認する",
+    "status": "done",
+    "passes": true,
+    "evidence": "gitlab.com上の既存smokeテスト用リソース（sinnlosses-group/yadokari-smoke-test-chart等）を使い再検証。imageTagAnchor指定アプリとimageTagKey指定アプリが同一chartグループ内に混在するケースを含め、アンカー値の書き換え・他要素（別アンカー含む）の保持を実機で確認。副産物として実バグを1件発見・修正（commit未定: commitFileUpdates()が「固定ブランチが既に存在する＝対象ファイルも全て存在する」と決め打ちしていたため、MRクローズ後に残った固定ブランチへ新規valuesPathを追加した際に action:update を送ってしまい400エラーになっていた。ファイルごとに参照先ブランチ上の存在有無を確認しaction: create/updateを判定するよう修正、テスト追加。pnpm check（237テスト）通過。config/teamA-chart/tenantId1/clientId1/apps.yamlにimageTagAnchor使用例（another-app, projectId 889）を追加。作成したMRはクローズ済み、テスト用GitLabリソースは継続検証のため残置",
+    "dependencies": ["T-011"]
   }
 ]
