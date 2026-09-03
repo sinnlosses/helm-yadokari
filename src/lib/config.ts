@@ -5,6 +5,7 @@ import { z } from "zod"
 
 import type { AppConfig, ChartAndApps, Config, TargetClient } from "../types.js"
 import {
+  toAnchorName,
   toBranchName,
   toChartDirName,
   toDotPath,
@@ -23,14 +24,33 @@ const ChartYamlSchema = z.object({
   }),
 })
 
+/**
+ * イメージタグの値の位置は `imageTagKey`（dotパス）か `imageTagAnchor`（YAMLアンカー名）の
+ * どちらか一方のみで指定する（`ImageTagLocation`型に対応）。`.strict()`で両方指定・
+ * どちらも未指定を弾く
+ */
+const ImageTagLocationSchema = z.union([
+  z
+    .object({
+      imageTagKey: z.string().min(1, "imageTagKey は空にできません").transform(toDotPath),
+    })
+    .strict(),
+  z
+    .object({
+      imageTagAnchor: z.string().min(1, "imageTagAnchor は空にできません").transform(toAnchorName),
+    })
+    .strict(),
+])
+
 const AppConfigSchema = z.object({
   projectId: z.number().int().transform(toProjectId),
   projectName: z.string().min(1).transform(toProjectName),
   branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
-  chart: z.object({
-    valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
-    imageTagKey: z.string().min(1, "imageTagKey は空にできません").transform(toDotPath),
-  }),
+  chart: z
+    .object({
+      valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
+    })
+    .and(ImageTagLocationSchema),
 })
 
 const AppsYamlSchema = z.object({

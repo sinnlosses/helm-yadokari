@@ -157,6 +157,16 @@ apps:
       imageTagKey: image.tag # values.yaml内のdotパス
 ```
 
+`values.yaml` がオブジェクトのネストではなく、配列要素にYAMLアンカーで名前を付けた構成
+（例: `variables: [&tenant1client1AppsVersion main, ...]`）の場合は、`imageTagKey` の代わりに
+`imageTagAnchor` でアンカー名を指定できます（1アプリにつきどちらか一方のみ）:
+
+```yaml
+chart:
+  valuesPath: charts/my-app/values.yaml
+  imageTagAnchor: tenant1client1AppsVersion
+```
+
 ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/apps.yaml` の2階層で固定です。
 テナント分けが不要な場合もダミーの1つの tenantId/clientId ディレクトリ配下に置いてください。
 

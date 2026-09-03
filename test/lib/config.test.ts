@@ -203,6 +203,55 @@ describe("loadConfig（バリデーションエラー）", () => {
     )
     expect(() => loadConfig(tmpDir)).toThrow("形式が不正です")
   })
+
+  it("apps.yaml の chart.imageTagKey と imageTagAnchor が両方あるとき例外をスローする", () => {
+    writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    writeAppsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      valuesPath: a.yaml\n      imageTagKey: image.tag\n      imageTagAnchor: someAnchor\n",
+    )
+    expect(() => loadConfig(tmpDir)).toThrow("形式が不正です")
+  })
+
+  it("apps.yaml の chart.imageTagKey も imageTagAnchor も無いとき例外をスローする", () => {
+    writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    writeAppsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      valuesPath: a.yaml\n",
+    )
+    expect(() => loadConfig(tmpDir)).toThrow("形式が不正です")
+  })
+})
+
+describe("loadConfig（imageTagAnchor）", () => {
+  it("chart.imageTagAnchor を指定したapps.yamlを読み込める", () => {
+    writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    writeAppsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      valuesPath: a.yaml\n      imageTagAnchor: tenant1client1AppsVersion\n",
+    )
+
+    const { chartAndAppsList } = loadConfig(tmpDir)
+    expect(chartAndAppsList[0]?.apps[0]?.chart).toEqual({
+      valuesPath: "a.yaml",
+      imageTagAnchor: "tenant1client1AppsVersion",
+    })
+  })
 })
 
 describe("loadConfig（存在しないパス）", () => {

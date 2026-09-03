@@ -134,6 +134,25 @@ apps:
       imageTagKey: image.tag # values.yaml内のdotパス
 ```
 
+- `chart.imageTagKey` の代わりに `chart.imageTagAnchor` を指定することもできる。
+  `values.yaml` がオブジェクトのネストではなく、配列要素にYAMLアンカーで名前を
+  付けた構成（例: `variables: [&tenant1client1AppsVersion main, ...]`）の場合に使う。
+  指定したアンカー名を持つYAML上のスカラー値を、ネストの深さ・キー名に関わらず直接
+  書き換える
+
+  ```yaml
+  apps:
+    - projectId: 889
+      projectName: another-app
+      branchToSync: main
+      chart:
+        valuesPath: charts/another-app/values.yaml
+        imageTagAnchor: tenant1client1AppsVersion
+  ```
+
+  - `imageTagKey` と `imageTagAnchor` は1アプリにつきどちらか一方のみ指定する
+    （両方・どちらも無しは設定エラー）
+
 - ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/apps.yaml` の
   2階層（tenantId/clientId）に統一する。テナント分けが不要なchartでも、ダミーの
   1つのtenantId/clientIdディレクトリ配下に置く

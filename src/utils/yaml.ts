@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 
-import { load as parseYamlString } from "js-yaml"
+import { parse as parseYamlString } from "yaml"
 import type { z } from "zod"
 
 /**

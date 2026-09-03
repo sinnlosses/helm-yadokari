@@ -13,7 +13,14 @@ import {
   listTagNames,
 } from "../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../src/steps/build-plans.js"
-import { toDotPath, toProjectId, toProjectName, toTagName, toValuesPath } from "../../src/types.js"
+import {
+  toAnchorName,
+  toDotPath,
+  toProjectId,
+  toProjectName,
+  toTagName,
+  toValuesPath,
+} from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../helpers.js"
 
@@ -149,6 +156,21 @@ describe("buildPlans", () => {
     expect(toApply[0]?.files).toHaveLength(1)
     expect(toApply[0]?.files[0]?.content).toContain(`appA:\n  tag: ${NEW_TAG}`)
     expect(toApply[0]?.files[0]?.content).toContain(`appB:\n  tag: ${NEW_TAG}`)
+  })
+
+  it("chart.imageTagAnchorが指定されたアプリはYAMLアンカーで値を取得・書き換える", async () => {
+    const app = makeApp({
+      chart: {
+        valuesPath: toValuesPath("values.yaml"),
+        imageTagAnchor: toAnchorName("tenant1client1AppsVersion"),
+      },
+    })
+    vi.mocked(getFileContent).mockResolvedValue(
+      `variables:\n  - &helmVersion develop\n  - &tenant1client1AppsVersion ${OLD_TAG}\n`,
+    )
+    const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    expect(toApply[0]?.files[0]?.content).toContain(`&tenant1client1AppsVersion ${NEW_TAG}`)
+    expect(toApply[0]?.files[0]?.content).toContain("&helmVersion develop")
   })
 
   it("401エラーのとき FatalError をスローする", async () => {

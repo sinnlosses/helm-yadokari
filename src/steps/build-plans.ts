@@ -6,7 +6,7 @@ import {
   listTagNames,
 } from "../lib/gitlab/gitlab.js"
 import { buildNewTag, findLatestParsedTag } from "../lib/gitlab/tag.js"
-import { getValueAtPath, setValueAtPath } from "../lib/helm.js"
+import { getImageTag, setImageTag } from "../lib/helm.js"
 import type {
   AppConfig,
   AppUpdatePlan,
@@ -168,7 +168,7 @@ async function applyAppToChartUpdate(
 
   const valuesYamlCache = new Map(acc.valuesYamlCache)
   const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, app.chart.valuesPath)
-  const previousTagRaw = getValueAtPath(valuesYamlContent, app.chart.imageTagKey)
+  const previousTagRaw = getImageTag(valuesYamlContent, app.chart)
   if (previousTagRaw === latestTag.name) {
     logger.info({
       event: "check_app",
@@ -189,7 +189,7 @@ async function applyAppToChartUpdate(
   }
   valuesYamlCache.set(
     app.chart.valuesPath,
-    setValueAtPath(valuesYamlContent, app.chart.imageTagKey, latestTag.name),
+    setImageTag(valuesYamlContent, app.chart, latestTag.name),
   )
 
   return {

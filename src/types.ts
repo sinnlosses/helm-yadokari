@@ -49,6 +49,17 @@ export function toChartDirName(s: string): ChartDirName {
   return s as ChartDirName
 }
 
+declare const anchorNameBrand: unique symbol
+/**
+ * values.yaml内のYAMLアンカー名（例: `&tenant1client1AppsVersion`の`tenant1client1AppsVersion`
+ * 部分）。オブジェクトのネストではなく配列要素にアンカーで名前を付けた構成のvalues.yamlで、
+ * `imageTagKey`（dotパス）の代わりに値の位置を指定するために使う
+ */
+export type AnchorName = string & { readonly [anchorNameBrand]: never }
+export function toAnchorName(s: string): AnchorName {
+  return s as AnchorName
+}
+
 /**
  * TARGET_CLIENT環境変数由来、1件分のtenantId/clientIdの組。config/のディレクトリ階層
  * `<chartDir>/<tenantId>/<clientId>/`に対応する絞り込み条件。永続化されるドメイン値では
@@ -60,15 +71,23 @@ export type TargetClient = {
   readonly clientId: string
 }
 
+/**
+ * values.yaml内でイメージタグの値がどこにあるかを指す2通りの方式。
+ * `imageTagKey`はオブジェクトのネストをdotパスで辿る（例: "image.tag"）。
+ * `imageTagAnchor`は配列要素にYAMLアンカーで名前を付けた構成向けで、アンカー名で
+ * 該当要素を直接指す（例: `variables: [&tenant1client1AppsVersion main, ...]`）。
+ * 1アプリにつきどちらか一方のみを指定する
+ */
+export type ImageTagLocation =
+  | { readonly imageTagKey: DotPath }
+  | { readonly imageTagAnchor: AnchorName }
+
 /** ソースリポジトリ（タグが打たれるGitLabプロジェクト）に対応する1アプリの設定。apps.yamlの1エントリ */
 export type AppConfig = {
   readonly projectId: ProjectId
   readonly projectName: ProjectName
   readonly branchToSync: BranchName
-  readonly chart: {
-    readonly valuesPath: ValuesPath
-    readonly imageTagKey: DotPath
-  }
+  readonly chart: { readonly valuesPath: ValuesPath } & ImageTagLocation
 }
 
 /** chartリポジトリ共通の設定。chart.yamlに対応する */

@@ -110,7 +110,13 @@ export async function process() {
     組を指定できる。config/のディレクトリ構成に対するフィルタなのでこのファイルの責務とし、
     指定した組のいずれか1件でも見つからない場合は例外をスローする（`docs/requirements.md`
     4.5節）
-  - `helm.ts`: Helm chart の `values.yaml` を操作する処理（現状はdotパスでの値の取得・書き換え）。
+  - `helm.ts`: Helm chart の `values.yaml` を操作する処理。イメージタグの値の位置指定には
+    `imageTagKey`（dotパスで`getValueAtPath`/`setValueAtPath`）と`imageTagAnchor`（YAMLアンカー名で
+    `getValueAtAnchor`/`setValueAtAnchor`）の2方式があり、いずれも`yaml`パッケージの
+    Document（AST）を直接操作する（`js-yaml`はオブジェクトとしてしか読み書きできず
+    アンカー名を保持できないため不採用。`config/`側のYAML読み込み`utils/yaml.ts`も含め、
+    リポジトリ全体で`yaml`パッケージに統一している）。呼び出し側は`chart`
+    （`ImageTagLocation`）を渡すだけで済む`getImageTag`/`setImageTag`を使う。
     Helm chart固有の処理を今後追加する場合もここに置く
   - `env.ts`: 環境変数の読み込み・検証
 - `src/utils/`: このツールのドメイン知識を一切持たない、技術的に汎用的なユーティリティ
@@ -175,8 +181,9 @@ export async function process() {
 
 ## 既知の制約・注意点
 
-- `values.yaml` の書き換えは js-yaml でパース→オブジェクト変更→dumpする方式のため、
-  コメントやクォートスタイルなどのフォーマットは保持されない
+- `values.yaml` の書き換えは `yaml` パッケージのDocument（AST）を直接操作する方式のため、
+  書き換え対象以外のコメント・クォートスタイルは概ね保持される（完全な保持を保証するもの
+  ではない）
 - タグに紐づくGitLabプロジェクトのURLは `Projects.show` で都度取得している（`config/`にnamespace
   slugを持たせていないため）
 - Helm CLI（`helm lint` / `helm template` 等）は呼び出さない。`values.yaml`のテキスト更新のみ行う

@@ -41,10 +41,23 @@
 
 - **英語識別子**: `imageTagKey`
 - **定義**: `values.yaml`内のイメージタグの位置を表すdotパス（例: `image.tag`）。`apps.yaml`のフィールド名。
+  `imageTagAnchor`と排他（1アプリにつきどちらか一方のみ指定する）。
 
 ### dotパス
 
 - **定義**: `image.tag`のような、ドット区切りでYAML内の階層を表すパス表記。`imageTagKey`の値の書式。
+
+### imageTagAnchor
+
+- **英語識別子**: `imageTagAnchor`（型は`AnchorName`ブランド型）
+- **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す`apps.yaml`のフィールド。
+  `image.tag`のようなオブジェクトのネストではなく、`variables: [&tenant1client1AppsVersion main, ...]`
+  のように配列要素にアンカーで名前を付けた構成のvalues.yaml向け。`imageTagKey`と排他。
+- **補足**: `js-yaml`はパース時にアンカー名を保持しないため、`imageTagKey`と共通の
+  `getValueAtPath`/`setValueAtPath`（`js-yaml`ベース）では実装できず、アンカー名をASTノードの
+  プロパティとして保持できる`yaml`パッケージを使う`getValueAtAnchor`/`setValueAtAnchor`
+  （`src/lib/helm.ts`）で別実装している。呼び出し側（`build-plans.ts`）は`getImageTag`/
+  `setImageTag`でどちらの方式かを意識せず扱う。
 
 ### chartDir
 
