@@ -11,17 +11,12 @@ export function loadOptionalEnv(key: string): string | undefined {
   return value?.trim() ? value : undefined
 }
 
-function parseUrl(raw: string): URL {
-  try {
-    return new URL(raw)
-  } catch {
+export function validateGitlabUrl(raw: string): GitLabUrl {
+  if (!URL.canParse(raw)) {
     throw new Error(`GITLAB_URL が有効な URL ではありません: "${raw}"`)
   }
-}
-
-export function validateGitlabUrl(raw: string): GitLabUrl {
-  const url = parseUrl(raw)
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
+  const { protocol } = new URL(raw)
+  if (protocol !== "https:" && protocol !== "http:") {
     throw new Error(`GITLAB_URL は http:// または https:// で始まる必要があります: "${raw}"`)
   }
   return toGitLabUrl(raw)
