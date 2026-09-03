@@ -236,7 +236,9 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │   │   ├── build-plans.ts     # 全chartグループ分の更新計画を並列構築
 │   │   └── apply-updates.ts   # コミット・MR作成を並列実行
 │   ├── lib/                   # 特定の技術・外部システムに依存する処理のみ
-│   │   ├── gitlab.ts          # GitLab API クライアント操作（タグ作成、MRタイトル・本文組み立て含む）
+│   │   ├── gitlab/
+│   │   │   ├── gitlab.ts      # GitLab API クライアント操作（タグ作成、MRタイトル・本文組み立て含む）
+│   │   │   └── tag.ts         # タグ命名規則のパース・最新タグ判定・新規タグ組み立て（純粋関数）
 │   │   ├── config.ts          # config/ の再帰読み込み・パース
 │   │   ├── helm.ts            # Helm chart の values.yaml 操作（dotパス読み書き）
 │   │   └── env.ts             # 環境変数ユーティリティ
@@ -250,8 +252,7 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │       ├── fs.ts              # パストラバーサル検証・サブディレクトリ列挙
 │       ├── yaml.ts            # YAMLファイル読み込み + Zodバリデーション
 │       ├── object.ts          # isPlainObject
-│       ├── cache.ts           # getOrFetch（Mapベースの非同期メモ化）
-│       └── tag.ts             # タグ命名規則のパース・最新タグ判定・新規タグ組み立て（純粋関数）
+│       └── cache.ts           # getOrFetch（Mapベースの非同期メモ化）
 ├── test/                   # テスト
 ├── config/                 # 対象アプリ設定
 ├── .gitlab-ci.yml          # CI ジョブ定義

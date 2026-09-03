@@ -23,7 +23,7 @@ chart リポジトリ単位で1つの Merge Request を作成する。クラス�
 ```bash
 pnpm check                            # tsc --noEmit + lint + format:check + test をまとめて実行（変更後は必ずこれを通す）
 pnpm test                             # テスト全体
-npx vitest run test/utils/tag.test.ts # 単体テストファイルのみ実行
+npx vitest run test/lib/gitlab/tag.test.ts # 単体テストファイルのみ実行
 pnpm lint                             # oxlint + config/ のバリデーション
 pnpm format                           # oxfmt で自動整形
 pnpm dev                              # tsx でローカル実行（.env を読み込む）
@@ -78,20 +78,25 @@ export async function process() {
     `toApply` へ振り分ける。1つのchartグループ分の計算（`buildChartUpdate()`）・
     追跡ブランチ由来の最新タグ判定（`resolveLatestTag()`）・ログ用サマリ組み立て
     （`describePlan()`）は、このファイルの外からは呼ばれないため非公開関数としてここに書く
-    - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`utils/tag.ts` の
-      `buildNewTag()` でタグ名を組み立て、`lib/gitlab.ts` の `createTag()` で実際に
+    - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`lib/gitlab/tag.ts` の
+      `buildNewTag()` でタグ名を組み立て、`lib/gitlab/gitlab.ts` の `createTag()` で実際に
       作成してから続行する（`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
   - `apply-updates.ts`: `applyUpdates()`。`toApply` の各chartグループに対してコミット・
     MR作成を並列実行する。ログ用サマリ組み立て（`describePlan()`）はここでも非公開関数
     として個別に持つ（`build-plans.ts` のものとほぼ同じ形だが、共有するために `lib/` へ
     切り出すほどの技術依存はないため、あえて共有しない）
 - `src/lib/`: 特定の技術・外部システム・ファイル形式に依存する処理のみを置く
-  - `gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧取得・作成・ファイル取得・MR作成・
-    タグに紐づく最新パイプライン取得など。404を特定の戻り値（`false`/`undefined`）に変換する
-    箇所は `withNotFoundFallback()` に共通化している。全ステップ共通の固定ブランチ名
-    `UPDATE_BRANCH`、MRのタイトル・本文組み立て（`buildMrTitle()`/`buildMrDescription()`。
-    タグへのリンクがGitLabのURL構造 `-/tags/...` に依存するため、GitLab固有の関心事として
-    ここに置く）もこのファイルが持つ
+  - `gitlab/`: GitLabという技術に依存する処理をまとめたディレクトリ
+    - `gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧取得・作成・ファイル取得・MR作成・
+      タグに紐づく最新パイプライン取得など。404を特定の戻り値（`false`/`undefined`）に変換する
+      箇所は `withNotFoundFallback()` に共通化している。全ステップ共通の固定ブランチ名
+      `UPDATE_BRANCH`、MRのタイトル・本文組み立て（`buildMrTitle()`/`buildMrDescription()`。
+      タグへのリンクがGitLabのURL構造 `-/tags/...` に依存するため、GitLab固有の関心事として
+      ここに置く）もこのファイルが持つ
+    - `tag.ts`: このツールのタグ命名規則（`docs/requirements.md` 4.1節）のパース・最新タグ判定・
+      新規タグ名の組み立て。外部システム・ファイルへのI/Oを一切持たない純粋な文字列/日付処理だが、
+      「GitLabのタグ」という概念に強く紐づく命名規則のため、`utils/`ではなく`gitlab/`配下に置く
+      （呼び出し元は `steps/build-plans.ts` のみ）
   - `config.ts`: `config/<chart>/chart.yaml` + `config/<chart>/<tenantId>/<clientId>/apps.yaml`
     の2階層固定構成を再帰的に読み込み、Zodでバリデーション（ファイル探索・YAML読み込みの
     汎用部分は `utils/fs.ts` / `utils/yaml.ts` に委譲）
@@ -99,10 +104,6 @@ export async function process() {
     Helm chart固有の処理を今後追加する場合もここに置く
   - `env.ts`: 環境変数の読み込み・検証
 - `src/utils/`: このツールのドメイン知識を一切持たない、技術的に汎用的なユーティリティ
-  - `tag.ts`: このツールのタグ命名規則（`docs/requirements.md` 4.1節）のパース・最新タグ判定・
-    新規タグ名の組み立て。命名規則自体はこのツール固有だが、外部システム・ファイルへの
-    I/Oを一切持たない純粋な文字列/日付処理のため、`lib/`ではなくutilsに置く
-    （呼び出し元は `steps/build-plans.ts` のみ）
   - `parallel.ts`: `mapWithConcurrency()`。指定した同時実行数で配列を並列処理し、
     `FatalError` を検知したら未着手のタスクをキャンセルして即reject する（各ステップの
     並列化はすべてこれ経由。以前は複数ファイルにほぼ同じp-limitロジックが重複していたのを
@@ -140,7 +141,7 @@ export async function process() {
 
 - TDD推奨: 実装コードの前に失敗するテストを書く（`/tdd` スキル参照）
 - テストは `test/` 以下、`src/` と同じディレクトリ構成で配置する
-- GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする（`test/lib/gitlab.test.ts` 参照）。各ステップのテスト（`test/steps/*.test.ts`）も `lib/gitlab.js` をモックし、非公開関数（`buildChartUpdate()` 等）はエクスポートされたステップの振る舞いを通して間接的に検証する
+- GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする（`test/lib/gitlab/gitlab.test.ts` 参照）。各ステップのテスト（`test/steps/*.test.ts`）も `lib/gitlab/gitlab.js` をモックし、非公開関数（`buildChartUpdate()` 等）はエクスポートされたステップの振る舞いを通して間接的に検証する
 - 変更後は必ず `pnpm test`（最終的には `pnpm check`）が通ることを確認してから完了と報告する
 
 ## CI/CD

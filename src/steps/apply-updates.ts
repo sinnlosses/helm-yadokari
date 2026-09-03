@@ -5,7 +5,7 @@ import {
   buildMrTitle,
   commitFileUpdates,
   createMergeRequest,
-} from "../lib/gitlab.js"
+} from "../lib/gitlab/gitlab.js"
 import type { AppUpdatePlan, ChartUpdateResult, ChartUpdateTarget } from "../types.js"
 import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"

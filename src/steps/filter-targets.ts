@@ -1,4 +1,4 @@
-import { type GitlabClient, UPDATE_BRANCH, openMergeRequestExists } from "../lib/gitlab.js"
+import { type GitlabClient, UPDATE_BRANCH, openMergeRequestExists } from "../lib/gitlab/gitlab.js"
 import type { ChartGroup, ChartUpdateResult } from "../types.js"
 import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"

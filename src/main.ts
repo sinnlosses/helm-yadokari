@@ -1,6 +1,6 @@
 import { loadConfig } from "./lib/config.js"
 import { ACCESS_TOKEN, CONCURRENCY_LIMIT, CONFIG_PATH, DRY_RUN, GITLAB_URL } from "./lib/env.js"
-import { createClient } from "./lib/gitlab.js"
+import { createClient } from "./lib/gitlab/gitlab.js"
 import { applyUpdates } from "./steps/apply-updates.js"
 import { buildPlans } from "./steps/build-plans.js"
 import { filterTargets } from "./steps/filter-targets.js"

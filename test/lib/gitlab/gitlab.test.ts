@@ -1,7 +1,7 @@
 import { Gitlab } from "@gitbeaker/rest"
 import { describe, expect, it, vi } from "vitest"
 
-import type { GitlabClient } from "../../src/lib/gitlab.js"
+import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
 import {
   UPDATE_BRANCH,
   branchExists,
@@ -16,15 +16,15 @@ import {
   getProjectWebUrl,
   listTagNames,
   openMergeRequestExists,
-} from "../../src/lib/gitlab.js"
+} from "../../../src/lib/gitlab/gitlab.js"
 import {
   toBranchName,
   toGitLabUrl,
   toProjectId,
   toProjectName,
   toTagName,
-} from "../../src/types.js"
-import { makeApp, makeHttpError } from "../helpers.js"
+} from "../../../src/types.js"
+import { makeApp, makeHttpError } from "../../helpers.js"
 
 function makeClient(
   overrides: Partial<{

@@ -1,10 +1,10 @@
 import { Gitlab } from "@gitbeaker/rest"
 
-import type { AppUpdatePlan, BranchName, FileUpdate, GitLabUrl, ProjectId } from "../types.js"
-import { toBranchName } from "../types.js"
-import { getOrFetch } from "../utils/cache.js"
-import { isNotFoundError } from "../utils/http.js"
-import { withRetry } from "../utils/retry.js"
+import type { AppUpdatePlan, BranchName, FileUpdate, GitLabUrl, ProjectId } from "../../types.js"
+import { toBranchName } from "../../types.js"
+import { getOrFetch } from "../../utils/cache.js"
+import { isNotFoundError } from "../../utils/http.js"
+import { withRetry } from "../../utils/retry.js"
 
 export type GitlabClient = InstanceType<typeof Gitlab>
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../src/lib/gitlab.js")
+vi.mock("../src/lib/gitlab/gitlab.js")
 vi.mock("../src/lib/config.js")
 vi.mock("../src/lib/env.js", () => ({
   GITLAB_URL: "https://gitlab.test",
@@ -23,8 +23,8 @@ import {
   getProjectWebUrl,
   listTagNames,
   openMergeRequestExists,
-} from "../src/lib/gitlab.js"
-import type { GitlabClient } from "../src/lib/gitlab.js"
+} from "../src/lib/gitlab/gitlab.js"
+import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
 import { process as processFn, run } from "../src/main.js"
 import { FatalError } from "../src/utils/errors.js"
 import { makeApp, makeChartGroup, makeHttpError } from "./helpers.js"

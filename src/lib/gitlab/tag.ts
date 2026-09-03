@@ -1,5 +1,5 @@
-import type { BranchName, ParsedTag } from "../types.js"
-import { toTagName } from "../types.js"
+import type { BranchName, ParsedTag } from "../../types.js"
+import { toTagName } from "../../types.js"
 
 const TAG_SUFFIX_PATTERN = /^(\d{8})-(\d{6})$/
 

@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../src/lib/gitlab.js")
+vi.mock("../../src/lib/gitlab/gitlab.js")
 vi.mock("../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
-import type { GitlabClient } from "../../src/lib/gitlab.js"
+import type { GitlabClient } from "../../src/lib/gitlab/gitlab.js"
 import {
   buildMrDescription,
   buildMrTitle,
   commitFileUpdates,
   createMergeRequest,
-} from "../../src/lib/gitlab.js"
+} from "../../src/lib/gitlab/gitlab.js"
 import { applyUpdates } from "../../src/steps/apply-updates.js"
 import { toBranchName, toTagName } from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"

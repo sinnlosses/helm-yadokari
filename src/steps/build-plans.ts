@@ -4,7 +4,8 @@ import {
   getFileContent,
   getLatestPipelineForRef,
   listTagNames,
-} from "../lib/gitlab.js"
+} from "../lib/gitlab/gitlab.js"
+import { buildNewTag, findLatestParsedTag } from "../lib/gitlab/tag.js"
 import { getValueAtPath, setValueAtPath } from "../lib/helm.js"
 import type {
   AppConfig,
@@ -23,7 +24,6 @@ import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
-import { buildNewTag, findLatestParsedTag } from "../utils/tag.js"
 
 export type BuildPlansResult = {
   readonly toApply: ChartUpdateTarget[]

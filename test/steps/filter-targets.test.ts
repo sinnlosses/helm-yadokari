@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../src/lib/gitlab.js")
+vi.mock("../../src/lib/gitlab/gitlab.js")
 vi.mock("../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
-import type { GitlabClient } from "../../src/lib/gitlab.js"
-import { openMergeRequestExists } from "../../src/lib/gitlab.js"
+import type { GitlabClient } from "../../src/lib/gitlab/gitlab.js"
+import { openMergeRequestExists } from "../../src/lib/gitlab/gitlab.js"
 import { filterTargets } from "../../src/steps/filter-targets.js"
 import { FatalError } from "../../src/utils/errors.js"
 import { makeApp, makeChartGroup, makeHttpError } from "../helpers.js"
