@@ -44,13 +44,13 @@ async function applyUpdate(
   const { chart } = chartGroup
 
   try {
-    const title = buildMrTitle(plans)
+    const mrTitle = buildMrTitle(plans)
     await commitFileUpdates(
       gitlab,
       chart.projectId,
       UPDATE_BRANCH,
       chart.mrTargetBranch,
-      title,
+      mrTitle,
       files,
     )
     await createMergeRequest(
@@ -58,7 +58,7 @@ async function applyUpdate(
       chart.projectId,
       UPDATE_BRANCH,
       chart.mrTargetBranch,
-      title,
+      mrTitle,
       await buildMrDescription(gitlab, plans),
     )
     logger.info({ ...logContext, result: "CREATED", apps: plans.map(describePlan) })

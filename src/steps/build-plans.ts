@@ -147,16 +147,16 @@ async function buildChartUpdate(
 ): Promise<{ plans: AppUpdatePlan[]; files: FileUpdate[] }> {
   const chartProjectId: ProjectId = chartGroup.chart.projectId
   const baseBranch: BranchName = chartGroup.chart.mrTargetBranch
-  const contentCache = new Map<string, string>()
-  const modifiedPaths = new Set<string>()
+  const valuesYamlCache = new Map<string, string>()
+  const modifiedValuesPaths = new Set<string>()
 
-  function loadContent(path: string): Promise<string> {
-    return getOrFetch(contentCache, path, async () => {
-      const content = await getFileContent(gitlab, chartProjectId, path, baseBranch)
-      if (content === undefined) {
-        throw new Error(`values.yaml が見つかりません: ${path}`)
+  function loadValuesYamlContent(valuesPath: string): Promise<string> {
+    return getOrFetch(valuesYamlCache, valuesPath, async () => {
+      const valuesYamlContent = await getFileContent(gitlab, chartProjectId, valuesPath, baseBranch)
+      if (valuesYamlContent === undefined) {
+        throw new Error(`values.yaml が見つかりません: ${valuesPath}`)
       }
-      return content
+      return valuesYamlContent
     })
   }
 
@@ -165,9 +165,9 @@ async function buildChartUpdate(
   for (const app of chartGroup.apps) {
     const latestTag = await resolveLatestTag(gitlab, app, dryRun)
 
-    const content = await loadContent(app.chart.valuesPath)
-    const currentTag = getValueAtPath(content, app.chart.imageTagKey)
-    if (currentTag === latestTag.name) {
+    const valuesYamlContent = await loadValuesYamlContent(app.chart.valuesPath)
+    const previousTagRaw = getValueAtPath(valuesYamlContent, app.chart.imageTagKey)
+    if (previousTagRaw === latestTag.name) {
       logger.info({
         event: "check_app",
         projectName: app.projectName,
@@ -181,24 +181,24 @@ async function buildChartUpdate(
     const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.name)
     plans.push({
       app,
-      previousTag: currentTag === undefined ? undefined : toTagName(currentTag),
+      previousTag: previousTagRaw === undefined ? undefined : toTagName(previousTagRaw),
       latestTag,
       pipelineUrl: pipeline?.webUrl,
       pipelineStatus: pipeline?.status,
     })
-    contentCache.set(
+    valuesYamlCache.set(
       app.chart.valuesPath,
-      setValueAtPath(content, app.chart.imageTagKey, latestTag.name),
+      setValueAtPath(valuesYamlContent, app.chart.imageTagKey, latestTag.name),
     )
-    modifiedPaths.add(app.chart.valuesPath)
+    modifiedValuesPaths.add(app.chart.valuesPath)
   }
 
-  const files: FileUpdate[] = [...modifiedPaths].map((filePath) => {
-    const content = contentCache.get(filePath)
-    if (content === undefined) {
-      throw new Error(`internal error: missing content for ${filePath}`)
+  const files: FileUpdate[] = [...modifiedValuesPaths].map((filePath) => {
+    const valuesYamlContent = valuesYamlCache.get(filePath)
+    if (valuesYamlContent === undefined) {
+      throw new Error(`internal error: missing values.yaml content for ${filePath}`)
     }
-    return { filePath, content }
+    return { filePath, content: valuesYamlContent }
   })
 
   return { plans, files }
