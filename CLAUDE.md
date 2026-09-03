@@ -34,61 +34,21 @@ pnpm build && pnpm start              # ビルドしてから実行
 
 ## アーキテクチャ概要
 
-`src/main.ts` の `process()` は前準備（GitLabクライアント生成・`config/`読み込み）の後、
-`src/steps/` の各ステップ関数を順番に1つずつ呼び出すだけの薄いオーケストレーションレイヤー。
-各ステップは「全chartグループ分をまとめて」処理するフラットなパイプラインで、
-chartグループごとのループやp-limitはstep関数の中に隠蔽され、`process()`自体には現れない:
+`src/main.ts` の `process()` が全体のオーケストレーション（`src/steps/` を順に呼ぶだけの
+薄いレイヤー）。実装は直接読めば分かるので、ここには**コードから読み取れない設計原則**だけ書く。
 
-```ts
-export async function process() {
-  const gitlab = createClient(GITLAB_URL, ACCESS_TOKEN)
-  const { chartAndAppsList } = loadConfig(CONFIG_PATH)
+- **原則1**: `src/steps/` 配下は `process()` からしか呼ばれない。`steps/` 同士は互いに呼ばない
+- **原則2**: `src/lib/` に置くかどうかは「特定の技術・外部システム・ファイル形式（GitLab API、
+  `config/`形式、`values.yaml`形式など）に依存するか」だけで判断する。「複数箇所から呼ばれる」
+  は `lib/` に置く理由にならない
+- 新しいコードを置く場所:
+  - `process()`が直接呼ぶパイプラインの1段 → `steps/`
+  - 呼び出し元が`steps/`の1ファイルだけ → そのファイル内の非公開関数
+  - 複数箇所から呼ばれ、技術/外部システム/ファイル形式に依存する → 対応する`lib/`ファイル
+  - 複数箇所から呼ばれ、技術に依存しない純粋な計算 → `utils/`
 
-  const { targets, settled: filtered } = await filterTargets(
-    gitlab,
-    chartAndAppsList,
-    CONCURRENCY_LIMIT,
-  )
-  const { toApply, settled: planned } = await buildPlans(
-    gitlab,
-    targets,
-    CONCURRENCY_LIMIT,
-    DRY_RUN,
-  )
-  const applied = await applyUpdates(gitlab, toApply, CONCURRENCY_LIMIT)
-
-  return summarizeResults([...filtered, ...planned, ...applied])
-}
-```
-
-各ステップは「対象として残すchartグループ（`targets`/`toApply`）」と「その場で結果が
-確定したもの（`settled`: SKIPPED/ERROR）」の2つを返す。後続ステップは前段の `targets`/
-`toApply` だけを引き継いで処理し、`settled` はそのまま最後の集計に合流させる。
-
-**原則1: `src/steps/` 配下のファイルは `main.ts` の `process()` からしか呼ばれない。
-`steps/` 配下のファイルが `steps/` 配下の別ファイルを呼ぶことはない。**
-**原則2: `src/lib/` は特定の技術・外部システム・ファイル形式に依存するものだけを置く**
-（GitLab API、環境変数、このツールの `config/` ファイル形式、Helm chartの
-`values.yaml` 形式など）。「複数のstepsから呼ばれているが技術には依存しない」という
-理由だけで `lib/` に置くのは誤り。そのような処理は、呼び出し元が1つの `steps/` ファイル
-だけなら**そのファイル内の非公開（exportしない）関数として書く**か、技術に依存しない
-汎用処理なら `utils/` へ、GitLab MRの内容構築のようにその技術と不可分な処理なら
-対応する `lib/` ファイル（例: `gitlab.ts`）に含める。
-
-新しいコードを置くとき、まず「呼び出し元は何か」を考える:
-
-- `process()` が直接呼ぶ、フラットなパイプラインの1段 → `steps/`。他のステップファイルを
-  import しない
-- 呼び出し元が `steps/` の1ファイルだけ → そのファイル内の非公開（exportしない）関数
-- 複数の場所から呼ばれる、かつ特定の技術・外部システム・ファイル形式に依存する
-  （GitLab API、Helm chart形式、`config/`のYAML形式、環境変数など）→ 対応する `lib/`
-  ファイル。新しい技術/形式を扱うなら新しい `lib/` ファイルを作ってよい
-- 複数の場所から呼ばれる、かつ技術に依存しない純粋な計算 → `utils/`
-- 「stepsから呼ばれているから」「複数箇所で使うから」という理由だけで `lib/` に
-  置くのは誤り。lib行きの判断基準は常に「技術・外部システム・ファイル形式への依存」
-
-`src/steps/`・`src/lib/`・`src/utils/` 配下の各ファイルの詳しい責務、ディレクトリ構成の勘所、
-既知の制約・注意点は [`docs/architecture.md`](./docs/architecture.md) を参照。
+各ファイルの詳しい責務・ディレクトリ構成の勘所・既知の制約は
+[`docs/architecture.md`](./docs/architecture.md) を参照。
 
 ## 設定・環境変数
 
@@ -99,7 +59,9 @@ export async function process() {
 - TDD推奨: 実装コードの前に失敗するテストを書く（`/tdd` スキル参照）
 - テストは `test/` 以下、`src/` と同じディレクトリ構成で配置する
 - GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする（`test/lib/gitlab/gitlab.test.ts` 参照）。各ステップのテスト（`test/steps/*.test.ts`）も `lib/gitlab/gitlab.js` をモックし、非公開関数（`buildChartUpdate()` 等）はエクスポートされたステップの振る舞いを通して間接的に検証する
-- 変更後は必ず `pnpm test`（最終的には `pnpm check`）が通ることを確認してから完了と報告する
+
+**IMPORTANT**: 変更後は必ず `pnpm check` を通してから完了を報告する。テスト件数・エラーなどの
+根拠なしに「完了しました」と言わない。
 
 ## CI/CD
 
@@ -122,33 +84,28 @@ export async function process() {
 
 ## 導入済みスキル
 
-[mattpocock/skills](https://github.com/mattpocock/skills) の engineering カテゴリから、コア開発スキルを日本語化して `.claude/skills/` 配下に導入済み（`tdd`, `code-review`, `diagnosing-bugs`, `codebase-design`, `domain-modeling`, `resolving-merge-conflicts`, `research`, `implement`, `grilling`）。各スキルの詳細は `.claude/skills/` 配下、または利用可能なスキル一覧から確認する。
-
-`code-review` はissueトラッカー連携（`docs/agents/issue-tracker.md` 等）を前提とする元スキルの記述を、未設定でも動くよう汎用化してある。
+[mattpocock/skills](https://github.com/mattpocock/skills) 由来のコア開発スキルを日本語化して
+`.claude/skills/` に導入済み（一覧は毎セッションのスキル案内を参照）。`code-review` のみ、
+issueトラッカー連携を前提とする元の記述を未設定でも動くよう汎用化してある。
 
 ## 進捗管理とHandoff
 
-会話やセッションが切れても作業を再開できるよう、状態はチャットではなく以下の2ファイルに記録する。
+会話やセッションが切れても再開できるよう、状態はチャットではなく `tasks.json` / `progress.md`
+に記録する（フィールド定義・書き方は [`docs/workflow.md`](./docs/workflow.md) 参照）。
 
-- `tasks.json`: タスク一覧。各タスクは `id` / `task` / `status`（todo/doing/done）/ `passes`（完了条件を満たしたか）/ `evidence`（証拠となる成果物へのパス）/ `dependencies` を持つ。
-- `progress.md`: 現在の状態。「完了したこと」「次にやること」「未解決」「注意」の4セクションで構成する。
+1. セッション開始時に `progress.md` と `tasks.json` を読む
+2. `tasks.json` から依存が完了済みの `todo` タスクを1つ選ぶ
+3. 作業する
+4. 完了の判定はテスト結果・生成物・実行ログなど検証可能な証拠で行う（宣言だけで合格にしない）
+5. `tasks.json` の `status`/`passes`/`evidence` と `progress.md` を更新する
 
-### 作業の進め方
-
-1. セッション開始時に `progress.md` と `tasks.json` を読む。
-2. `tasks.json` から未完了(`todo`)のタスクを1つ選ぶ。依存(`dependencies`)が終わっていないタスクは選ばない。
-3. 作業する。
-4. AI自身の「完了しました」という発言だけを合格理由にしない。テスト結果・生成物・実行ログなど、タスクに応じた証拠で完了を判定する。
-5. `tasks.json` の該当タスクの `status` / `passes` / `evidence` を更新する。新しいタスクが見つかったら追記する。
-6. `progress.md` を更新する（完了したこと・変更したファイル・次にやること・未解決の問題）。
-
-### 安全ルール
-
-以下の操作は必ず人間の承認を得てから行う: 外部への公開・送信、破壊的なgit操作、本番/共有環境への反映、認証情報や権限の変更。
+**IMPORTANT**: 以下は必ず人間の承認を得てから行う — 外部への公開・送信、破壊的なgit操作、
+本番/共有環境への反映、認証情報や権限の変更。
 
 ## 関連リンク
 
 - アーキテクチャ詳細（各ファイルの責務、ディレクトリ構成の勘所、既知の制約）: `docs/architecture.md`
+- 進捗管理の詳細（tasks.json/progress.mdのフィールド定義）: `docs/workflow.md`
 - 要件定義: `docs/requirements.md`
 - 要件定義の検討経緯（Q&Aログ）: `docs/requirements-grilling.md`
 - 用語集（ドメイン用語とコード上の識別子の対応、表記ゆれの注記）: `docs/glossary.md`
