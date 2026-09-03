@@ -49,6 +49,17 @@ export function toChartDirName(s: string): ChartDirName {
   return s as ChartDirName
 }
 
+/**
+ * TARGET_CLIENT環境変数由来、1件分のtenantId/clientIdの組。config/のディレクトリ階層
+ * `<chartDir>/<tenantId>/<clientId>/`に対応する絞り込み条件。永続化されるドメイン値では
+ * なくディレクトリ名との単純な文字列比較にしか使わないため、非ブランド型のまま扱う
+ * （`docs/glossary.md`の「テナント / クライアント」の項も参照）
+ */
+export type TargetClient = {
+  readonly tenantId: string
+  readonly clientId: string
+}
+
 /** ソースリポジトリ（タグが打たれるGitLabプロジェクト）に対応する1アプリの設定。apps.yamlの1エントリ */
 export type AppConfig = {
   readonly projectId: ProjectId

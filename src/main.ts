@@ -1,5 +1,13 @@
 import { loadConfig } from "./lib/config.js"
-import { ACCESS_TOKEN, CONCURRENCY_LIMIT, CONFIG_PATH, DRY_RUN, GITLAB_URL } from "./lib/env.js"
+import {
+  ACCESS_TOKEN,
+  CONCURRENCY_LIMIT,
+  CONFIG_PATH,
+  DRY_RUN,
+  GITLAB_URL,
+  TARGET_CHART_DIR,
+  TARGET_CLIENT,
+} from "./lib/env.js"
 import { createClient } from "./lib/gitlab/gitlab.js"
 import { applyUpdates } from "./steps/apply-updates.js"
 import { buildPlans } from "./steps/build-plans.js"
@@ -15,6 +23,8 @@ export async function run(): Promise<RunResult> {
     dryRun: DRY_RUN,
     concurrencyLimit: CONCURRENCY_LIMIT,
     configPath: CONFIG_PATH,
+    targetChartDir: TARGET_CHART_DIR,
+    targetClient: TARGET_CLIENT,
   })
   const { value: resultCounts, duration_ms } = await timed(process)
   logger.info({ event: "summary", ...resultCounts })
@@ -25,6 +35,9 @@ export async function run(): Promise<RunResult> {
 /**
  * config/ を読み込み、以下のステップを順に呼び出して全chartリポジトリを更新する。
  * DRY_RUN=true のときはブランチ作成・MR作成をせず、更新予定の内容のみログ出力する。
+ * TARGET_CHART_DIR / TARGET_CLIENT が設定されている場合は、該当するchart/tenant/client
+ * のみに絞り込んで実行する（`loadConfig`側の`target`絞り込み。指定した対象がconfig/配下に
+ * 見つからない場合は`loadConfig`が例外をスローする）。
  *
  * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがあるchartグループを除外する
  * 2. buildPlans: 残ったchartグループそれぞれの更新計画（差分）を構築する
@@ -32,7 +45,10 @@ export async function run(): Promise<RunResult> {
  */
 export async function process(): Promise<Record<ChartUpdateResult, number>> {
   const gitlab = createClient(GITLAB_URL, ACCESS_TOKEN)
-  const { chartAndAppsList } = loadConfig(CONFIG_PATH)
+  const { chartAndAppsList } = loadConfig(CONFIG_PATH, {
+    chartDir: TARGET_CHART_DIR,
+    clients: TARGET_CLIENT,
+  })
 
   const { targets, settled: filtered } = await filterTargets(
     gitlab,

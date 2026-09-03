@@ -4,6 +4,7 @@ import {
   loadEnv,
   loadOptionalEnv,
   parseConcurrencyLimit,
+  parseTargetClients,
   validateGitlabUrl,
 } from "../../src/lib/env.js"
 
@@ -88,5 +89,51 @@ describe("parseConcurrencyLimit", () => {
 
   it("数値に変換できない文字列のとき例外をスローする", () => {
     expect(() => parseConcurrencyLimit("abc")).toThrow("CONCURRENCY_LIMIT")
+  })
+})
+
+describe("parseTargetClients", () => {
+  it("未指定のとき undefined を返す", () => {
+    expect(parseTargetClients(undefined)).toBeUndefined()
+  })
+
+  it('"<tenantId>/<clientId>" 形式の文字列を1件の配列に分解する', () => {
+    expect(parseTargetClients("tenantId1/clientId1")).toEqual([
+      { tenantId: "tenantId1", clientId: "clientId1" },
+    ])
+  })
+
+  it("カンマ区切りで複数件を配列に分解する", () => {
+    expect(parseTargetClients("tenantId1/clientId1,tenantId2/clientId2")).toEqual([
+      { tenantId: "tenantId1", clientId: "clientId1" },
+      { tenantId: "tenantId2", clientId: "clientId2" },
+    ])
+  })
+
+  it("各エントリ前後の空白を無視する", () => {
+    expect(parseTargetClients(" tenantId1/clientId1 , tenantId2/clientId2 ")).toEqual([
+      { tenantId: "tenantId1", clientId: "clientId1" },
+      { tenantId: "tenantId2", clientId: "clientId2" },
+    ])
+  })
+
+  it("区切り文字がないエントリがあるとき例外をスローする", () => {
+    expect(() => parseTargetClients("tenantId1")).toThrow("TARGET_CLIENT")
+  })
+
+  it("区切り文字が2つ以上あるエントリがあるとき例外をスローする", () => {
+    expect(() => parseTargetClients("tenantId1/clientId1/extra")).toThrow("TARGET_CLIENT")
+  })
+
+  it("複数件のうち1件でも不正な形式のとき例外をスローする", () => {
+    expect(() => parseTargetClients("tenantId1/clientId1,tenantId2")).toThrow("TARGET_CLIENT")
+  })
+
+  it("tenantIdが空のとき例外をスローする", () => {
+    expect(() => parseTargetClients("/clientId1")).toThrow("TARGET_CLIENT")
+  })
+
+  it("clientIdが空のとき例外をスローする", () => {
+    expect(() => parseTargetClients("tenantId1/")).toThrow("TARGET_CLIENT")
   })
 })

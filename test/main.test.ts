@@ -8,6 +8,8 @@ vi.mock("../src/lib/env.js", () => ({
   CONFIG_PATH: undefined,
   CONCURRENCY_LIMIT: 3,
   DRY_RUN: false,
+  TARGET_CHART_DIR: undefined,
+  TARGET_CLIENT: undefined,
 }))
 vi.mock("../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
@@ -72,6 +74,14 @@ describe("process", () => {
   it("createClient に GITLAB_URL と ACCESS_TOKEN を渡す", async () => {
     await processFn()
     expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
+  })
+
+  it("loadConfig に CONFIG_PATH と TARGET_CHART_DIR/TARGET_CLIENT由来のtargetを渡す", async () => {
+    await processFn()
+    expect(loadConfig).toHaveBeenCalledWith(undefined, {
+      chartDir: undefined,
+      clients: undefined,
+    })
   })
 })
 

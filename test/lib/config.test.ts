@@ -210,3 +210,103 @@ describe("loadConfig（存在しないパス）", () => {
     expect(() => loadConfig(join(tmpDir, "nonexistent"))).toThrow()
   })
 })
+
+describe("loadConfig（target絞り込み）", () => {
+  beforeEach(() => {
+    writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    writeAppsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      valuesPath: a.yaml\n      imageTagKey: image.tag\n",
+    )
+    writeAppsYaml(
+      "teamA-chart",
+      "tenantId2",
+      "clientId2",
+      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      valuesPath: b.yaml\n      imageTagKey: image.tag\n",
+    )
+    writeChartYaml(
+      "teamB-chart",
+      "chart:\n  projectId: 2\n  projectName: teamB-chart\n  mrTargetBranch: main\n",
+    )
+    writeAppsYaml(
+      "teamB-chart",
+      "tenantId1",
+      "clientId1",
+      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n    chart:\n      valuesPath: c.yaml\n      imageTagKey: image.tag\n",
+    )
+  })
+
+  it("chartDirを指定すると該当chartのみ返す", () => {
+    const { chartAndAppsList } = loadConfig(tmpDir, { chartDir: "teamA-chart" })
+    expect(chartAndAppsList).toHaveLength(1)
+    expect(chartAndAppsList[0]?.chartDir).toBe("teamA-chart")
+    expect(chartAndAppsList[0]?.apps.map((a) => a.projectName)).toEqual(["app-1", "app-2"])
+  })
+
+  it("存在しないchartDirを指定すると例外をスローする", () => {
+    expect(() => loadConfig(tmpDir, { chartDir: "no-such-chart" })).toThrow("TARGET_CHART_DIR")
+  })
+
+  it("clientsを1件指定すると該当アプリのみ返す（chart横断）", () => {
+    const { chartAndAppsList } = loadConfig(tmpDir, {
+      clients: [{ tenantId: "tenantId1", clientId: "clientId1" }],
+    })
+    expect(chartAndAppsList.map((g) => [g.chartDir, g.apps.map((a) => a.projectName)])).toEqual([
+      ["teamA-chart", ["app-1"]],
+      ["teamB-chart", ["app-3"]],
+    ])
+  })
+
+  it("clientsを複数指定すると該当する全アプリを返す", () => {
+    const { chartAndAppsList } = loadConfig(tmpDir, {
+      clients: [
+        { tenantId: "tenantId1", clientId: "clientId1" },
+        { tenantId: "tenantId2", clientId: "clientId2" },
+      ],
+    })
+    expect(chartAndAppsList.map((g) => [g.chartDir, g.apps.map((a) => a.projectName)])).toEqual([
+      ["teamA-chart", ["app-1", "app-2"]],
+      ["teamB-chart", ["app-3"]],
+    ])
+  })
+
+  it("chartDir + clients を組み合わせて絞り込める", () => {
+    const { chartAndAppsList } = loadConfig(tmpDir, {
+      chartDir: "teamA-chart",
+      clients: [{ tenantId: "tenantId2", clientId: "clientId2" }],
+    })
+    expect(chartAndAppsList).toHaveLength(1)
+    expect(chartAndAppsList[0]?.apps.map((a) => a.projectName)).toEqual(["app-2"])
+  })
+
+  it("存在しないtenantId/clientIdの組み合わせのとき例外をスローする", () => {
+    expect(() =>
+      loadConfig(tmpDir, { clients: [{ tenantId: "tenantId1", clientId: "no-such-client" }] }),
+    ).toThrow("TARGET_CLIENT")
+  })
+
+  it("chartDirは存在するがclientsが一致しないとき例外をスローする", () => {
+    expect(() =>
+      loadConfig(tmpDir, {
+        chartDir: "teamA-chart",
+        clients: [{ tenantId: "tenantId1", clientId: "clientId2" }],
+      }),
+    ).toThrow("TARGET_CLIENT")
+  })
+
+  it("複数指定したclientsのうち1件でも見つからないとき例外をスローし、見つからなかったものを明示する", () => {
+    expect(() =>
+      loadConfig(tmpDir, {
+        clients: [
+          { tenantId: "tenantId1", clientId: "clientId1" },
+          { tenantId: "no-such-tenant", clientId: "no-such-client" },
+        ],
+      }),
+    ).toThrow("no-such-tenant/no-such-client")
+  })
+})

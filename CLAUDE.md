@@ -103,7 +103,13 @@ export async function process() {
       （呼び出し元は `steps/build-plans.ts` のみ）
   - `config.ts`: `config/<chart>/chart.yaml` + `config/<chart>/<tenantId>/<clientId>/apps.yaml`
     の2階層固定構成を再帰的に読み込み、Zodでバリデーション（ファイル探索・YAML読み込みの
-    汎用部分は `utils/fs.ts` / `utils/yaml.ts` に委譲）
+    汎用部分は `utils/fs.ts` / `utils/yaml.ts` に委譲）。`loadConfig()` は第2引数に
+    `ConfigTarget`（`TARGET_CHART_DIR`由来のchartDir、`TARGET_CLIENT`由来の
+    `TargetClient`（tenantId/clientIdの組）配列）を受け取り、指定があればそのchart・
+    tenant/clientの組のみに絞り込む。`TARGET_CLIENT`はカンマ区切りで複数のtenant/client
+    組を指定できる。config/のディレクトリ構成に対するフィルタなのでこのファイルの責務とし、
+    指定した組のいずれか1件でも見つからない場合は例外をスローする（`docs/requirements.md`
+    4.5節）
   - `helm.ts`: Helm chart の `values.yaml` を操作する処理（現状はdotパスでの値の取得・書き換え）。
     Helm chart固有の処理を今後追加する場合もここに置く
   - `env.ts`: 環境変数の読み込み・検証

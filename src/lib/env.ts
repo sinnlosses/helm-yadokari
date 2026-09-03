@@ -1,4 +1,4 @@
-import { type GitLabUrl, toGitLabUrl } from "../types.js"
+import { type GitLabUrl, type TargetClient, toGitLabUrl } from "../types.js"
 
 export function loadEnv(key: string): string {
   const value = process.env[key]
@@ -30,8 +30,28 @@ export function parseConcurrencyLimit(raw: string | undefined): number {
   return value
 }
 
+function parseTargetClientEntry(entry: string): TargetClient {
+  const parts = entry.split("/")
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new Error(`TARGET_CLIENT は "<tenantId>/<clientId>" 形式で指定してください: "${entry}"`)
+  }
+  return { tenantId: parts[0], clientId: parts[1] }
+}
+
+/**
+ * TARGET_CLIENT は `<tenantId>/<clientId>` 形式の組をカンマ区切りで複数指定できる
+ * （例: "tenantId1/clientId1,tenantId2/clientId2"）。config/ のディレクトリ階層
+ * `<chartDir>/<tenantId>/<clientId>/` に対応する2値の組を、1変数でまとめて渡すため。
+ */
+export function parseTargetClients(raw: string | undefined): readonly TargetClient[] | undefined {
+  if (raw === undefined) return undefined
+  return raw.split(",").map((entry) => parseTargetClientEntry(entry.trim()))
+}
+
 export const GITLAB_URL = validateGitlabUrl(loadEnv("GITLAB_URL"))
 export const ACCESS_TOKEN = loadEnv("ACCESS_TOKEN")
 export const CONFIG_PATH = loadOptionalEnv("CONFIG_PATH")
 export const CONCURRENCY_LIMIT = parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT"))
 export const DRY_RUN = loadOptionalEnv("DRY_RUN") === "true"
+export const TARGET_CHART_DIR = loadOptionalEnv("TARGET_CHART_DIR")
+export const TARGET_CLIENT = parseTargetClients(loadOptionalEnv("TARGET_CLIENT"))
