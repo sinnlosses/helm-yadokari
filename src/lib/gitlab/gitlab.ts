@@ -12,7 +12,7 @@ import type {
 } from "../../types.js"
 import { toBranchName, toGitLabUrl, toTagName } from "../../types.js"
 import { getOrFetch } from "../../utils/cache.js"
-import { isNotFoundError } from "../../utils/http.js"
+import { extractHttpStatus, isNotFoundError } from "../../utils/http.js"
 import { withRetry } from "../../utils/retry.js"
 
 export type GitlabClient = InstanceType<typeof Gitlab>
@@ -145,18 +145,25 @@ export async function getProjectWebUrl(
 
 /**
  * 指定した ref（タグ名）に紐づく最新のパイプラインを返す。パイプラインが存在しない場合は undefined。
+ * GitLab実機で確認済みの挙動として、`pipelines/latest` は該当プロジェクトにパイプラインが
+ * 1件も無い場合、404ではなく403を返す。パイプライン情報はMR本文への参考情報にすぎず
+ * 更新処理の必須条件ではないため、404と同様に「パイプライン無し」として扱う。
  */
 export async function getLatestPipelineForRef(
   gitlab: GitlabClient,
   projectId: ProjectId,
   ref: TagName,
 ): Promise<PipelineInfo | undefined> {
-  return withRetry(() =>
-    withNotFoundFallback(async () => {
+  return withRetry(async () => {
+    try {
       const pipeline = await gitlab.Pipelines.showLatest(projectId, { ref })
       return { status: pipeline.status, webUrl: toGitLabUrl(String(pipeline.web_url)) }
-    }, undefined),
-  )
+    } catch (error) {
+      const status = extractHttpStatus(error)
+      if (status === 404 || status === 403) return undefined
+      throw error
+    }
+  })
 }
 
 export function buildMrTitle(plans: readonly AppUpdatePlan[]): string {
