@@ -76,6 +76,16 @@
     独立に`getFileContent`の`filePath`未対応を指摘 → `43ee252`で反映
   - `PipelineInfo.status`と`ChartGroup.chartDir`は意図的に未ブランド化（前者はGitLab API由来の
     自由形式文字列で分岐ロジックがない、後者は外部システム境界を跨がないローカルなディレクトリ名）
+- **T-008完了**: try/catchの削減監査（commit `8289a13`）
+  - `src/`配下の全try/catch（7箇所）と`scripts/lint/validate-config.ts`を監査
+  - `lib/env.ts`の`validateGitlabUrl`内、`new URL()`の例外を捕まえて自前エラーに変換していた
+    箇所を`URL.canParse()`（Node 22で使える非throwの真偽値判定API）に置き換え、try/catchと
+    `parseUrl()`ヘルパーを削除
+  - 残り6箇所（`lib/gitlab/gitlab.ts`の`withNotFoundFallback`、`utils/retry.ts`の`withRetry`、
+    `utils/parallel.ts`の`mapWithConcurrency`、`steps/`3ファイルのFatalError判定）は
+    `@gitbeaker/rest`という例外ベースの外部ライブラリとの境界、またはFatalError（即時中断）/
+    非fatal（ERRORとして値化して継続）を分岐する唯一の場所であり、いずれも意図的に維持
+  - `pnpm check`（204テスト）通過
 
 ## 次にやること
 

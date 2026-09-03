@@ -54,5 +54,13 @@
     "passes": true,
     "evidence": "commit 6183f15, 43ee252。ValuesPath/DotPathブランド型を新設しAppConfig.chart.valuesPath/imageTagKey・FileUpdate.filePath・lib/helm.tsのdotPath引数・lib/gitlab/gitlab.tsのgetFileContentのfilePathに適用。PipelineInfo型をlib/gitlab/gitlab.tsからtypes.tsへ移動しwebUrlをGitLabUrl化。AppUpdatePlanのpipelineUrl/pipelineStatus（Data Clump）をpipeline: PipelineInfo|undefinedに統合し、片方だけundefinedという不正な状態を型的に排除。listTagNames/createTag/getLatestPipelineForRefのタグ名引数・戻り値をTagName化、getProjectWebUrlの戻り値をGitLabUrl化。pnpm check（204テスト）通過。/code-review（固定点1b62791）実施、Standards/Spec両軸が独立にgetFileContentのfilePath未対応を指摘→43ee252で反映。PipelineInfo.statusとChartGroup.chartDirは意図的に未ブランド化（前者はGitLab API由来の自由形式文字列で分岐ロジックなし、後者は外部システム境界を跨がないローカルなディレクトリ名）",
     "dependencies": ["T-006"]
+  },
+  {
+    "id": "T-008",
+    "task": "try/catchを削減できる箇所（エラーを値として扱える箇所）を洗い出して対応する",
+    "status": "done",
+    "passes": true,
+    "evidence": "commit 8289a13。src配下の全try/catch（7箇所）とscripts/lint/validate-config.tsを監査。lib/env.tsのvalidateGitlabUrl内のnew URL()例外捕捉をURL.canParse()（Node 22で使える非throwの真偽値判定API）に置き換え、try/catchとparseUrl()ヘルパーを削除。他6箇所（lib/gitlab/gitlab.tsのwithNotFoundFallback、utils/retry.tsのwithRetry、utils/parallel.tsのmapWithConcurrency、steps/3ファイルのFatalError判定）は@gitbeaker/restという例外ベースの外部ライブラリとの境界、またはFatalError（即時中断）/非fatal（ERRORとして値化して継続）を分岐する唯一の場所であり、いずれも意図的に維持（理由をユーザーに報告済み）。pnpm check（204テスト）通過",
+    "dependencies": ["T-007"]
   }
 ]
