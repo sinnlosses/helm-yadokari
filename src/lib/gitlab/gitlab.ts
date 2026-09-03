@@ -7,6 +7,7 @@ import type {
   GitLabUrl,
   PipelineInfo,
   ProjectId,
+  TagInfo,
   TagName,
   ValuesPath,
 } from "../../types.js"
@@ -36,9 +37,10 @@ async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promi
   }
 }
 
-export async function listTagNames(gitlab: GitlabClient, projectId: ProjectId): Promise<TagName[]> {
+/** タグ名とそれが指すコミットSHAの一覧を返す */
+export async function listTags(gitlab: GitlabClient, projectId: ProjectId): Promise<TagInfo[]> {
   const tags = await withRetry(() => gitlab.Tags.all(projectId))
-  return tags.map((tag) => toTagName(tag.name))
+  return tags.map((tag) => ({ name: toTagName(tag.name), commitSha: tag.commit.id }))
 }
 
 export async function branchExists(
@@ -51,6 +53,20 @@ export async function branchExists(
       await gitlab.Branches.show(projectId, branch)
       return true
     }, false),
+  )
+}
+
+/** 指定ブランチの現在のHEADコミットSHAを返す。ブランチが存在しない場合は undefined */
+export async function getBranchHeadSha(
+  gitlab: GitlabClient,
+  projectId: ProjectId,
+  branch: BranchName,
+): Promise<string | undefined> {
+  return withRetry(() =>
+    withNotFoundFallback(async () => {
+      const result = await gitlab.Branches.show(projectId, branch)
+      return result.commit.id
+    }, undefined),
   )
 }
 

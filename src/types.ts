@@ -116,6 +116,16 @@ export type ParsedTag = {
 }
 
 /**
+ * GitLab上のタグ1件分。名前だけでなく、そのタグが指すコミットのSHAも保持する。
+ * 追跡ブランチ由来の最新タグが、追跡ブランチの現在のHEADコミットと一致するか
+ * （＝タグがブランチの進行に追いついているか）を判定するために使う
+ */
+export type TagInfo = {
+  readonly name: TagName
+  readonly commitSha: string
+}
+
+/**
  * GitLab CIパイプラインの実行状態。GitLab側のドキュメントに載っている既知の値をリテラルで
  * 列挙しつつ、`@gitbeaker/rest`の型自体が`string`のままで将来の値追加を保証しないため、
  * 未知の文字列も引き続き受け付ける（分岐ロジックがなくログ・MR本文への埋め込みにしか

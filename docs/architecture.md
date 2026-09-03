@@ -16,9 +16,11 @@
     `toApply` へ振り分ける。1つのchartグループ分の計算（`buildChartUpdate()`）・
     追跡ブランチ由来の最新タグ判定（`resolveLatestTag()`）・ログ用サマリ組み立て
     （`describePlan()`）は、このファイルの外からは呼ばれないため非公開関数としてここに書く
-    - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`lib/gitlab/tag.ts` の
-      `buildNewTag()` でタグ名を組み立て、`lib/gitlab/gitlab.ts` の `createTag()` で実際に
-      作成してから続行する（`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
+    - 追跡ブランチ由来の最新タグが、追跡ブランチの現在のHEADコミット（`getBranchHeadSha()`）と
+      一致しない場合（1件も見つからない場合に加え、見つかった最新タグが追跡ブランチの進行に
+      ビハインドしている場合を含む）はエラーにせず、`lib/gitlab/tag.ts` の `buildNewTag()` で
+      タグ名を組み立て、`lib/gitlab/gitlab.ts` の `createTag()` で実際に作成してから続行する
+      （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
   - `apply-updates.ts`: `applyUpdates()`。`toApply` の各chartグループに対してコミット・
     MR作成を並列実行する。ログ用サマリ組み立て（`describePlan()`）はここでも非公開関数
     として個別に持つ（`build-plans.ts` のものとほぼ同じ形だが、共有するために `lib/` へ

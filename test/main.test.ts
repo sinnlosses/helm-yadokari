@@ -20,10 +20,11 @@ import {
   commitFileUpdates,
   createClient,
   createMergeRequest,
+  getBranchHeadSha,
   getFileContent,
   getLatestPipelineForRef,
   getProjectWebUrl,
-  listTagNames,
+  listTags,
   openMergeRequestExists,
 } from "../src/lib/gitlab/gitlab.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
@@ -36,12 +37,14 @@ const mockGitlab = {} as unknown as GitlabClient
 
 const OLD_TAG = "main-build-at-20251231-000000"
 const NEW_TAG = toTagName("main-build-at-20260101-000000")
+const HEAD_SHA = "head-sha"
 
 describe("process", () => {
   beforeEach(() => {
     vi.mocked(createClient).mockReturnValue(mockGitlab)
     vi.mocked(loadConfig).mockReturnValue({ chartAndAppsList: [] })
-    vi.mocked(listTagNames).mockResolvedValue([NEW_TAG])
+    vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
+    vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     vi.mocked(getFileContent).mockResolvedValue(`image:\n  tag: ${OLD_TAG}\n`)
     vi.mocked(openMergeRequestExists).mockResolvedValue(false)
     vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
@@ -67,7 +70,7 @@ describe("process", () => {
 
   it("FatalErrorが発生したとき reject する", async () => {
     vi.mocked(loadConfig).mockReturnValue({ chartAndAppsList: [makeChartAndApps([makeApp()])] })
-    vi.mocked(listTagNames).mockRejectedValue(makeHttpError(401))
+    vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
     await expect(processFn()).rejects.toThrow(FatalError)
   })
 
@@ -101,7 +104,7 @@ describe("run", () => {
 
   it('ERROR が1件以上あるとき "PARTIAL_FAILURE" を返す', async () => {
     vi.mocked(loadConfig).mockReturnValue({ chartAndAppsList: [makeChartAndApps([makeApp()])] })
-    vi.mocked(listTagNames).mockRejectedValue(makeHttpError(403))
+    vi.mocked(listTags).mockRejectedValue(makeHttpError(403))
     await expect(run()).resolves.toBe("PARTIAL_FAILURE")
   })
 

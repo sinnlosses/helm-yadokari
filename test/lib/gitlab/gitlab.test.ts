@@ -11,10 +11,11 @@ import {
   createClient,
   createMergeRequest,
   createTag,
+  getBranchHeadSha,
   getFileContent,
   getLatestPipelineForRef,
   getProjectWebUrl,
-  listTagNames,
+  listTags,
   openMergeRequestExists,
 } from "../../../src/lib/gitlab/gitlab.js"
 import type { AppUpdatePlan, PipelineInfo } from "../../../src/types.js"
@@ -57,22 +58,20 @@ describe("createClient", () => {
   })
 })
 
-describe("listTagNames", () => {
-  it("タグ名の一覧を返す", async () => {
+describe("listTags", () => {
+  it("タグ名とコミットSHAの一覧を返す", async () => {
     const client = makeClient({
       Tags: {
-        all: vi
-          .fn()
-          .mockResolvedValue([
-            { name: "main-build-at-20260101-000000" },
-            { name: "main-build-at-20260201-000000" },
-          ]),
+        all: vi.fn().mockResolvedValue([
+          { name: "main-build-at-20260101-000000", commit: { id: "sha1" } },
+          { name: "main-build-at-20260201-000000", commit: { id: "sha2" } },
+        ]),
         create: vi.fn(),
       },
     })
-    expect(await listTagNames(client, toProjectId(1))).toEqual([
-      "main-build-at-20260101-000000",
-      "main-build-at-20260201-000000",
+    expect(await listTags(client, toProjectId(1))).toEqual([
+      { name: "main-build-at-20260101-000000", commitSha: "sha1" },
+      { name: "main-build-at-20260201-000000", commitSha: "sha2" },
     ])
   })
 })
@@ -94,6 +93,30 @@ describe("branchExists", () => {
     const err = makeHttpError(500)
     const client = makeClient({ Branches: { show: vi.fn().mockRejectedValue(err) } })
     await expect(branchExists(client, toProjectId(1), toBranchName("main"))).rejects.toBe(err)
+  })
+})
+
+describe("getBranchHeadSha", () => {
+  it("ブランチのHEADコミットSHAを返す", async () => {
+    const client = makeClient({
+      Branches: { show: vi.fn().mockResolvedValue({ commit: { id: "abc123" } }) },
+    })
+    expect(await getBranchHeadSha(client, toProjectId(1), toBranchName("main"))).toBe("abc123")
+  })
+
+  it("ブランチが存在しない(404)とき undefined を返す", async () => {
+    const client = makeClient({
+      Branches: { show: vi.fn().mockRejectedValue(makeHttpError(404)) },
+    })
+    expect(
+      await getBranchHeadSha(client, toProjectId(1), toBranchName("nonexistent")),
+    ).toBeUndefined()
+  })
+
+  it("404以外のエラーは再スローする", async () => {
+    const err = makeHttpError(500)
+    const client = makeClient({ Branches: { show: vi.fn().mockRejectedValue(err) } })
+    await expect(getBranchHeadSha(client, toProjectId(1), toBranchName("main"))).rejects.toBe(err)
   })
 })
 

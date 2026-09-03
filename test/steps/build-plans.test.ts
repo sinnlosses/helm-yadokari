@@ -8,9 +8,10 @@ vi.mock("../../src/utils/logger.js", () => ({
 import type { GitlabClient } from "../../src/lib/gitlab/gitlab.js"
 import {
   createTag,
+  getBranchHeadSha,
   getFileContent,
   getLatestPipelineForRef,
-  listTagNames,
+  listTags,
 } from "../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../src/steps/build-plans.js"
 import {
@@ -28,10 +29,12 @@ const mockGitlab = {} as unknown as GitlabClient
 
 const OLD_TAG = "main-build-at-20251231-000000"
 const NEW_TAG = toTagName("main-build-at-20260101-000000")
+const HEAD_SHA = "head-sha"
 
 describe("buildPlans", () => {
   beforeEach(() => {
-    vi.mocked(listTagNames).mockResolvedValue([NEW_TAG])
+    vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
+    vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     vi.mocked(getFileContent).mockResolvedValue(`image:\n  tag: ${OLD_TAG}\n`)
     vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
     vi.mocked(createTag).mockResolvedValue(undefined)
@@ -77,7 +80,9 @@ describe("buildPlans", () => {
   })
 
   it("追跡ブランチ由来のタグが見つからないとき、新しいタグを作成してtoApplyに含める", async () => {
-    vi.mocked(listTagNames).mockResolvedValue([toTagName("other-branch-build-at-20260101-000000")])
+    vi.mocked(listTags).mockResolvedValue([
+      { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
+    ])
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       [makeChartAndApps([makeApp()])],
@@ -90,14 +95,34 @@ describe("buildPlans", () => {
     expect(settled).toEqual([])
   })
 
+  it("追跡ブランチ由来の最新タグが追跡ブランチの現在のHEADコミットにビハインドしているとき、新しいタグを作成する", async () => {
+    // タグ名は一致するが、コミットSHAが現在のブランチHEADと異なる
+    // （＝タグ作成後に追跡ブランチへ新しいコミットが積まれた）ケース
+    vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: "old-sha" }])
+    vi.mocked(getBranchHeadSha).mockResolvedValue("new-sha")
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([makeApp()])],
+      3,
+      false,
+    )
+    expect(createTag).toHaveBeenCalledOnce()
+    expect(toApply).toHaveLength(1)
+    expect(settled).toEqual([])
+  })
+
   it("dryRun=true のとき、タグが見つからなくても実際のタグ作成はしない", async () => {
-    vi.mocked(listTagNames).mockResolvedValue([toTagName("other-branch-build-at-20260101-000000")])
+    vi.mocked(listTags).mockResolvedValue([
+      { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
+    ])
     await buildPlans(mockGitlab, [makeChartAndApps([makeApp()])], 3, true)
     expect(createTag).not.toHaveBeenCalled()
   })
 
   it("タグ作成APIが403エラーを投げたときsettledにERRORとして入る", async () => {
-    vi.mocked(listTagNames).mockResolvedValue([toTagName("other-branch-build-at-20260101-000000")])
+    vi.mocked(listTags).mockResolvedValue([
+      { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
+    ])
     vi.mocked(createTag).mockRejectedValue(makeHttpError(403))
     const { toApply, settled } = await buildPlans(
       mockGitlab,
@@ -124,9 +149,9 @@ describe("buildPlans", () => {
   it("複数アプリのうち1件が失敗したとき、成功分も反映せず全体をERRORにする（オールオアナッシング）", async () => {
     const appOk = makeApp({ projectId: toProjectId(1), projectName: toProjectName("app-ok") })
     const appFail = makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-fail") })
-    vi.mocked(listTagNames).mockImplementation(async (_client, projectId) => {
+    vi.mocked(listTags).mockImplementation(async (_client, projectId) => {
       if (projectId === 2) throw makeHttpError(403)
-      return [NEW_TAG]
+      return [{ name: NEW_TAG, commitSha: HEAD_SHA }]
     })
     const { toApply, settled } = await buildPlans(
       mockGitlab,
@@ -174,14 +199,14 @@ describe("buildPlans", () => {
   })
 
   it("401エラーのとき FatalError をスローする", async () => {
-    vi.mocked(listTagNames).mockRejectedValue(makeHttpError(401))
+    vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
     await expect(buildPlans(mockGitlab, [makeChartAndApps([makeApp()])], 3, false)).rejects.toThrow(
       FatalError,
     )
   })
 
   it("非fatalなAPIエラーのときsettledにERRORとして入る", async () => {
-    vi.mocked(listTagNames).mockRejectedValue(makeHttpError(403))
+    vi.mocked(listTags).mockRejectedValue(makeHttpError(403))
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       [makeChartAndApps([makeApp()])],
