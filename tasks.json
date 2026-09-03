@@ -26,9 +26,9 @@
   {
     "id": "T-004",
     "task": "実際のGitLabインスタンスに対する統合テスト・動作確認（DRY_RUN=trueでの実運用リハーサルを含む）",
-    "status": "todo",
-    "passes": false,
-    "evidence": "",
+    "status": "done",
+    "passes": true,
+    "evidence": "gitlab.com上の実リポジトリ（既存: sample-qa-sprint, sample-develop-client／新規作成: yadokari-smoke-test-chart）でエンドツーエンド検証（レポートはコミット前にディスクから消失したため、この記述を証跡とする）。タグ自動作成・DRY_RUN・values.yaml差分反映・chart単位MR集約・既存タグ再利用・オープン中MRスキップ・TARGET_CHART_DIR/TARGET_CLIENT絞り込みと誤指定時エラーをすべて実機で確認。副産物として実バグを1件発見（commit f0124d0: GitLabのGET /pipelines/latestはパイプライン0件のプロジェクトに404でなく403を返すため、CI未実行アプリを含むchartグループが全てERROR化していた）。作成したMRはクローズ済み、テスト用chartリポジトリ・タグは継続検証のため残置",
     "dependencies": ["T-002"]
   },
   {
@@ -62,5 +62,29 @@
     "passes": true,
     "evidence": "commit 8289a13。src配下の全try/catch（7箇所）とscripts/lint/validate-config.tsを監査。lib/env.tsのvalidateGitlabUrl内のnew URL()例外捕捉をURL.canParse()（Node 22で使える非throwの真偽値判定API）に置き換え、try/catchとparseUrl()ヘルパーを削除。他6箇所（lib/gitlab/gitlab.tsのwithNotFoundFallback、utils/retry.tsのwithRetry、utils/parallel.tsのmapWithConcurrency、steps/3ファイルのFatalError判定）は@gitbeaker/restという例外ベースの外部ライブラリとの境界、またはFatalError（即時中断）/非fatal（ERRORとして値化して継続）を分岐する唯一の場所であり、いずれも意図的に維持（理由をユーザーに報告済み）。pnpm check（204テスト）通過",
     "dependencies": ["T-007"]
+  },
+  {
+    "id": "T-009",
+    "task": "ChartGroup→ChartAndApps改名・ChartDirName/PipelineStatusブランド型付与・steps配下のmutableなfor/push/Set.addをreduceベースの不変な組み立てに置き換えるリファクタ",
+    "status": "done",
+    "passes": true,
+    "evidence": "commit eb1344e。pnpm check（204テスト）通過。以前のセッションで未コミットのまま作業ツリーに残っていたものを、このセッションでTARGET_CHART_DIR/TARGET_CLIENT機能の変更と切り分けて単独コミットとして記録",
+    "dependencies": ["T-007"]
+  },
+  {
+    "id": "T-010",
+    "task": "TARGET_CHART_DIR/TARGET_CLIENT環境変数で特定chart・特定tenant/clientに絞り込んで実行できるようにする",
+    "status": "done",
+    "passes": true,
+    "evidence": "commit e902f9c。loadConfig()にConfigTargetフィルタを追加、TARGET_CLIENTは\"<tenantId>/<clientId>\"をカンマ区切りで複数指定可能。指定対象がconfig/配下に見つからない場合は例外。.gitlab-ci.ymlのpipeline inputsにも追加。pnpm check（222テスト）通過。T-004のgitlab.com実機検証でも動作確認済み",
+    "dependencies": ["T-002"]
+  },
+  {
+    "id": "T-011",
+    "task": "chart.imageTagKey（dotパス）に加え、YAMLアンカー名で値を指定するchart.imageTagAnchorを追加する（配列要素にアンカーで名前を付けたvalues.yaml構成に対応）。あわせてvalues.yaml/config読み込みのYAML処理をjs-yamlからyamlパッケージに統一する",
+    "status": "done",
+    "passes": true,
+    "evidence": "commit e59c410。AnchorNameブランド型・ImageTagLocation（imageTagKey/imageTagAnchorの排他ユニオン）をtypes.tsに追加。src/lib/helm.tsにgetValueAtAnchor/setValueAtAnchor（yamlパッケージのvisit()でアンカー名を持つASTノードを検索・書き換え）を新設し、getImageTag/setImageTagで呼び出し側から方式の違いを隠蔽。src/lib/config.tsのapps.yamlスキーマを判別ユニオン化（両方指定・どちらも未指定はエラー）。getValueAtPath/setValueAtPathとsrc/utils/yaml.tsのparseYamlFileもjs-yamlからyaml（Document.getIn/setIn/hasIn、parse）に置き換え、js-yaml/@types/js-yamlをpackage.jsonから削除。副産物として書き換え対象以外のコメント・クォートスタイルが保持されるようになった。pnpm check（236テスト）通過。CLAUDE.md/README.md/docs/requirements.md/docs/glossary.mdを更新",
+    "dependencies": ["T-002"]
   }
 ]

@@ -1,6 +1,6 @@
 # 現在の状態
 
-最終更新: 2026-09-03（型付け強化セッション）
+最終更新: 2026-09-03（絞り込み実行機能・実機動作確認セッション）
 
 ## 完了したこと
 
@@ -86,17 +86,62 @@
     `@gitbeaker/rest`という例外ベースの外部ライブラリとの境界、またはFatalError（即時中断）/
     非fatal（ERRORとして値化して継続）を分岐する唯一の場所であり、いずれも意図的に維持
   - `pnpm check`（204テスト）通過
+- **T-009完了**: `ChartGroup→ChartAndApps`改名・`ChartDirName`/`PipelineStatus`ブランド型付与・
+  `steps/`配下のmutableなfor/push/Set.addをreduceベースの不変な組み立てに置き換えるリファクタ（commit `eb1344e`）
+  - 以前のセッションで未コミットのまま作業ツリーに残っていたものを本セッションで発見。
+    `TARGET_CHART_DIR`/`TARGET_CLIENT`機能の変更と混ざっていたため、ユーザーに確認のうえ
+    2つの独立したコミットに分離（本タスクと次のT-010）
+  - `pnpm check`（204テスト）通過
+- **T-010完了**: `TARGET_CHART_DIR`/`TARGET_CLIENT`環境変数による絞り込み実行機能を追加（commit `e902f9c`）
+  - `loadConfig()`に`ConfigTarget`フィルタを追加。`TARGET_CHART_DIR`は単一chartディレクトリ名、
+    `TARGET_CLIENT`は`"<tenantId>/<clientId>"`をカンマ区切りで複数指定可能
+  - 指定した対象が`config/`配下に1件も見つからない場合はtypo対策として例外で即終了（`docs/requirements.md` 4.5節）
+  - `.gitlab-ci.yml`の`spec:inputs`にも追加し、GitLab CIの手動web実行時に指定できるようにした
+  - `pnpm check`（222テスト）通過
+- **T-004完了**: gitlab.com上の実リポジトリでエンドツーエンド動作確認
+  （まとめHTMLレポートを作成したが未コミットのままディスクから消失したため、
+  この記述を証跡とする）
+  - 既存リポジトリ`sample-qa-sprint`/`sample-develop-client`と、新規作成した
+    `yadokari-smoke-test-chart`（chartリポジトリ役）を使用
+  - タグ自動作成・DRY_RUN・values.yaml差分反映・chart単位MR集約・既存タグ再利用・
+    オープン中MRスキップ・`TARGET_CHART_DIR`/`TARGET_CLIENT`絞り込みと誤指定時エラーを
+    すべて実機で確認、いずれも成功
+  - **実バグを1件発見・修正**（commit `f0124d0`）: GitLabの`GET /pipelines/latest`は
+    パイプラインが1件も無いプロジェクトに対して404でなく403を返す（実機で複数プロジェクト
+    確認済み）。`getLatestPipelineForRef()`がこれを再スローしていたため、CI未実行アプリを
+    1つでも含むchartグループ全体がオールオアナッシングで`ERROR`になっていた。404と同様に
+    「パイプライン無し」として扱うよう修正し、テスト追加（`pnpm check` 223テスト通過）
+  - 作成した2件のMRはクローズ済み（マージなし）。テスト用chartリポジトリ・タグは継続検証の
+    ためユーザーの意向で残置。アクセストークンも継続検証のため未失効（ユーザー管理）
+- **T-011完了**: `chart.imageTagAnchor`の追加とYAML処理の`yaml`パッケージへの統一（commit `e59c410`）
+  - values.yamlがオブジェクトのネストではなく配列要素にYAMLアンカーで名前を付けた構成
+    （例: `variables: [&tenant1client1AppsVersion main, ...]`）向けに、既存の`imageTagKey`
+    （dotパス）に加え`imageTagAnchor`（アンカー名）を指定できるようにした（1アプリにつき
+    どちらか一方のみ、`apps.yaml`スキーマは判別ユニオンで両方・どちらも未指定を弾く）
+  - `js-yaml`はパース時にアンカー名を保持できないため、`yaml`パッケージ（Document/AST、
+    `visit()`でアンカー名を持つノードを検索）で`getValueAtAnchor`/`setValueAtAnchor`を新設。
+    呼び出し側は`getImageTag`/`setImageTag`で方式の違いを意識しない
+  - 既存の`getValueAtPath`/`setValueAtPath`（dotパス）と`config/`読み込み用の`parseYamlFile`
+    も`js-yaml`から`yaml`パッケージ（`Document.getIn`/`setIn`/`hasIn`、`parse`）に置き換え、
+    `js-yaml`/`@types/js-yaml`を依存から削除。副産物として書き換え対象以外のコメント・
+    クォートスタイルが保持されるようになった
+  - `pnpm check`（236テスト）通過。`CLAUDE.md`/`README.md`/`docs/requirements.md`/
+    `docs/glossary.md`を更新
 
 ## 次にやること
 
 - T-003: アプリ単位の並列化要否を判断する（現状は意図的に逐次処理）
-- T-004: 実GitLabインスタンスに対する動作確認（`DRY_RUN=true`でのリハーサルを含む）
+- 検証が完全に終わったら、テスト用のGitLabアクセストークンを失効させる（ユーザー対応）
 
 ## 未解決
 
-- T-003, T-004（`tasks.json`参照）
+- T-003（`tasks.json`参照）
 
 ## 注意
 
 - `config/teamA-chart/` はユーザーが提示した設定ファイルの実例。`docs/requirements.md` のディレクトリ構成説明と対応している
 - `.claude/` と `config/` は `.prettierignore` で `oxfmt` の対象外にしている（導入済みスキル・ユーザー管理データを誤って自動整形しないため）
+- リモートは`origin`が`github.com/sinnlosses/helm-yadokari`と`gitlab.com/sinnlosses-group/helm-yadokari`の
+  2つの push URL を持つ（GitHubからのリダイレクトをgitが追従し自動追加したもの）。`git push`/`git fetch`は
+  両方に対して行われる
+- gitlab.com上に検証用の`sinnlosses-group/yadokari-smoke-test-chart`プロジェクトが存在する（削除せず残置）
