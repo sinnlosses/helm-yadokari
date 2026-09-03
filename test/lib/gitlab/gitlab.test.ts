@@ -17,12 +17,14 @@ import {
   listTagNames,
   openMergeRequestExists,
 } from "../../../src/lib/gitlab/gitlab.js"
+import type { AppUpdatePlan, PipelineInfo } from "../../../src/types.js"
 import {
   toBranchName,
   toGitLabUrl,
   toProjectId,
   toProjectName,
   toTagName,
+  toValuesPath,
 } from "../../../src/types.js"
 import { makeApp, makeHttpError } from "../../helpers.js"
 
@@ -168,7 +170,7 @@ describe("commitFileUpdates", () => {
       toBranchName("yadokari/update"),
       toBranchName("develop"),
       "chore: update",
-      [{ filePath: "values.yaml", content: "image:\n  tag: v2\n" }],
+      [{ filePath: toValuesPath("values.yaml"), content: "image:\n  tag: v2\n" }],
     )
     expect(createFn).toHaveBeenCalledWith(
       1,
@@ -191,7 +193,7 @@ describe("commitFileUpdates", () => {
       toBranchName("yadokari/update"),
       toBranchName("develop"),
       "chore: update",
-      [{ filePath: "values.yaml", content: "image:\n  tag: v2\n" }],
+      [{ filePath: toValuesPath("values.yaml"), content: "image:\n  tag: v2\n" }],
     )
     expect(createFn).toHaveBeenCalledWith(
       1,
@@ -215,8 +217,8 @@ describe("commitFileUpdates", () => {
       toBranchName("develop"),
       "chore: update",
       [
-        { filePath: "a/values.yaml", content: "a" },
-        { filePath: "b/values.yaml", content: "b" },
+        { filePath: toValuesPath("a/values.yaml"), content: "a" },
+        { filePath: toValuesPath("b/values.yaml"), content: "b" },
       ],
     )
     const actions = createFn.mock.calls[0]?.[3]
@@ -258,7 +260,11 @@ describe("getLatestPipelineForRef", () => {
       },
     })
     expect(
-      await getLatestPipelineForRef(client, toProjectId(1), "main-build-at-20260101-000000"),
+      await getLatestPipelineForRef(
+        client,
+        toProjectId(1),
+        toTagName("main-build-at-20260101-000000"),
+      ),
     ).toEqual({
       status: "success",
       webUrl: "https://gitlab.example.com/p/1",
@@ -270,7 +276,11 @@ describe("getLatestPipelineForRef", () => {
       Pipelines: { showLatest: vi.fn().mockRejectedValue(makeHttpError(404)) },
     })
     expect(
-      await getLatestPipelineForRef(client, toProjectId(1), "main-build-at-20260101-000000"),
+      await getLatestPipelineForRef(
+        client,
+        toProjectId(1),
+        toTagName("main-build-at-20260101-000000"),
+      ),
     ).toBeUndefined()
   })
 
@@ -278,7 +288,7 @@ describe("getLatestPipelineForRef", () => {
     const err = makeHttpError(500)
     const client = makeClient({ Pipelines: { showLatest: vi.fn().mockRejectedValue(err) } })
     await expect(
-      getLatestPipelineForRef(client, toProjectId(1), "main-build-at-20260101-000000"),
+      getLatestPipelineForRef(client, toProjectId(1), toTagName("main-build-at-20260101-000000")),
     ).rejects.toBe(err)
   })
 })
@@ -287,7 +297,12 @@ describe("createTag", () => {
   it("正しい引数で Tags.create を呼び出す", async () => {
     const createFn = vi.fn().mockResolvedValue({})
     const client = makeClient({ Tags: { all: vi.fn(), create: createFn } })
-    await createTag(client, toProjectId(1), "main-build-at-20260101-000000", toBranchName("main"))
+    await createTag(
+      client,
+      toProjectId(1),
+      toTagName("main-build-at-20260101-000000"),
+      toBranchName("main"),
+    )
     expect(createFn).toHaveBeenCalledWith(1, "main-build-at-20260101-000000", "main")
   })
 
@@ -295,7 +310,12 @@ describe("createTag", () => {
     const err = makeHttpError(422)
     const client = makeClient({ Tags: { all: vi.fn(), create: vi.fn().mockRejectedValue(err) } })
     await expect(
-      createTag(client, toProjectId(1), "main-build-at-20260101-000000", toBranchName("main")),
+      createTag(
+        client,
+        toProjectId(1),
+        toTagName("main-build-at-20260101-000000"),
+        toBranchName("main"),
+      ),
     ).rejects.toBe(err)
   })
 })
@@ -308,7 +328,7 @@ describe("getProjectWebUrl", () => {
       },
     })
     expect(await getProjectWebUrl(client, toProjectId(1))).toBe(
-      "https://gitlab.example.com/group/app",
+      toGitLabUrl("https://gitlab.example.com/group/app"),
     )
   })
 })
@@ -319,7 +339,7 @@ describe("UPDATE_BRANCH", () => {
   })
 })
 
-function makePlan(overrides: Partial<{ pipelineUrl: string; pipelineStatus: string }> = {}) {
+function makePlan(overrides: Partial<{ pipeline: PipelineInfo }> = {}): AppUpdatePlan {
   return {
     app: makeApp({ projectId: toProjectId(1), projectName: toProjectName("my-app") }),
     previousTag: toTagName("main-build-at-20251231-000000"),
@@ -328,8 +348,7 @@ function makePlan(overrides: Partial<{ pipelineUrl: string; pipelineStatus: stri
       branch: toBranchName("main"),
       builtAt: new Date("2026-01-01T00:00:00Z"),
     },
-    pipelineUrl: overrides.pipelineUrl,
-    pipelineStatus: overrides.pipelineStatus,
+    pipeline: overrides.pipeline,
   }
 }
 
@@ -364,7 +383,9 @@ describe("buildMrDescription", () => {
       },
     })
     const description = await buildMrDescription(client, [
-      makePlan({ pipelineUrl: "https://gitlab.example.com/p/1", pipelineStatus: "success" }),
+      makePlan({
+        pipeline: { webUrl: toGitLabUrl("https://gitlab.example.com/p/1"), status: "success" },
+      }),
     ])
     expect(description).toContain("success")
     expect(description).toContain("https://gitlab.example.com/p/1")

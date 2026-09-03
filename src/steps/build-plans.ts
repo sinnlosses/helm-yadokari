@@ -17,6 +17,7 @@ import type {
   FileUpdate,
   ParsedTag,
   ProjectId,
+  ValuesPath,
 } from "../types.js"
 import { toTagName } from "../types.js"
 import { getOrFetch } from "../utils/cache.js"
@@ -147,10 +148,10 @@ async function buildChartUpdate(
 ): Promise<{ plans: AppUpdatePlan[]; files: FileUpdate[] }> {
   const chartProjectId: ProjectId = chartGroup.chart.projectId
   const baseBranch: BranchName = chartGroup.chart.mrTargetBranch
-  const valuesYamlCache = new Map<string, string>()
-  const modifiedValuesPaths = new Set<string>()
+  const valuesYamlCache = new Map<ValuesPath, string>()
+  const modifiedValuesPaths = new Set<ValuesPath>()
 
-  function loadValuesYamlContent(valuesPath: string): Promise<string> {
+  function loadValuesYamlContent(valuesPath: ValuesPath): Promise<string> {
     return getOrFetch(valuesYamlCache, valuesPath, async () => {
       const valuesYamlContent = await getFileContent(gitlab, chartProjectId, valuesPath, baseBranch)
       if (valuesYamlContent === undefined) {
@@ -183,8 +184,7 @@ async function buildChartUpdate(
       app,
       previousTag: previousTagRaw === undefined ? undefined : toTagName(previousTagRaw),
       latestTag,
-      pipelineUrl: pipeline?.webUrl,
-      pipelineStatus: pipeline?.status,
+      pipeline,
     })
     valuesYamlCache.set(
       app.chart.valuesPath,

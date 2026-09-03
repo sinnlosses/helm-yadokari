@@ -1,17 +1,20 @@
 import { Gitlab } from "@gitbeaker/rest"
 
-import type { AppUpdatePlan, BranchName, FileUpdate, GitLabUrl, ProjectId } from "../../types.js"
-import { toBranchName } from "../../types.js"
+import type {
+  AppUpdatePlan,
+  BranchName,
+  FileUpdate,
+  GitLabUrl,
+  PipelineInfo,
+  ProjectId,
+  TagName,
+} from "../../types.js"
+import { toBranchName, toGitLabUrl, toTagName } from "../../types.js"
 import { getOrFetch } from "../../utils/cache.js"
 import { isNotFoundError } from "../../utils/http.js"
 import { withRetry } from "../../utils/retry.js"
 
 export type GitlabClient = InstanceType<typeof Gitlab>
-
-export type PipelineInfo = {
-  readonly status: string
-  readonly webUrl: string
-}
 
 /** 全chartリポジトリで共通の固定ブランチ名。chartリポジトリ単位で1つのMRに集約するため使い回す */
 export const UPDATE_BRANCH: BranchName = toBranchName("yadokari/update")
@@ -32,9 +35,9 @@ async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promi
   }
 }
 
-export async function listTagNames(gitlab: GitlabClient, projectId: ProjectId): Promise<string[]> {
+export async function listTagNames(gitlab: GitlabClient, projectId: ProjectId): Promise<TagName[]> {
   const tags = await withRetry(() => gitlab.Tags.all(projectId))
-  return tags.map((tag) => tag.name)
+  return tags.map((tag) => toTagName(tag.name))
 }
 
 export async function branchExists(
@@ -125,7 +128,7 @@ export async function createMergeRequest(
 export async function createTag(
   gitlab: GitlabClient,
   projectId: ProjectId,
-  tagName: string,
+  tagName: TagName,
   ref: BranchName,
 ): Promise<void> {
   await withRetry(() => gitlab.Tags.create(projectId, tagName, ref))
@@ -134,9 +137,9 @@ export async function createTag(
 export async function getProjectWebUrl(
   gitlab: GitlabClient,
   projectId: ProjectId,
-): Promise<string> {
+): Promise<GitLabUrl> {
   const project = await withRetry(() => gitlab.Projects.show(projectId))
-  return String(project.web_url)
+  return toGitLabUrl(String(project.web_url))
 }
 
 /**
@@ -145,12 +148,12 @@ export async function getProjectWebUrl(
 export async function getLatestPipelineForRef(
   gitlab: GitlabClient,
   projectId: ProjectId,
-  ref: string,
+  ref: TagName,
 ): Promise<PipelineInfo | undefined> {
   return withRetry(() =>
     withNotFoundFallback(async () => {
       const pipeline = await gitlab.Pipelines.showLatest(projectId, { ref })
-      return { status: pipeline.status, webUrl: String(pipeline.web_url) }
+      return { status: pipeline.status, webUrl: toGitLabUrl(String(pipeline.web_url)) }
     }, undefined),
   )
 }
@@ -159,10 +162,10 @@ export function buildMrTitle(plans: readonly AppUpdatePlan[]): string {
   return `chore: update ${plans.length} app image tag(s)`
 }
 
-function buildMrPlanSection(plan: AppUpdatePlan, webUrl: string): string {
+function buildMrPlanSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {
   const tagUrl = `${webUrl}/-/tags/${encodeURIComponent(plan.latestTag.name)}`
-  const pipelineLine = plan.pipelineUrl
-    ? `- パイプライン: [${plan.pipelineStatus ?? "unknown"}](${plan.pipelineUrl})`
+  const pipelineLine = plan.pipeline
+    ? `- パイプライン: [${plan.pipeline.status}](${plan.pipeline.webUrl})`
     : "- パイプライン: (見つかりません)"
   return [
     `### ${plan.app.projectName}`,
@@ -180,7 +183,7 @@ export async function buildMrDescription(
   gitlab: GitlabClient,
   plans: readonly AppUpdatePlan[],
 ): Promise<string> {
-  const webUrlCache = new Map<ProjectId, string>()
+  const webUrlCache = new Map<ProjectId, GitLabUrl>()
   const sections: string[] = []
 
   for (const plan of plans) {

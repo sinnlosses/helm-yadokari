@@ -13,14 +13,14 @@ import {
   listTagNames,
 } from "../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../src/steps/build-plans.js"
-import { toProjectId, toProjectName } from "../../src/types.js"
+import { toDotPath, toProjectId, toProjectName, toTagName, toValuesPath } from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"
 import { makeApp, makeChartGroup, makeHttpError } from "../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
 
 const OLD_TAG = "main-build-at-20251231-000000"
-const NEW_TAG = "main-build-at-20260101-000000"
+const NEW_TAG = toTagName("main-build-at-20260101-000000")
 
 describe("buildPlans", () => {
   beforeEach(() => {
@@ -70,7 +70,7 @@ describe("buildPlans", () => {
   })
 
   it("追跡ブランチ由来のタグが見つからないとき、新しいタグを作成してtoApplyに含める", async () => {
-    vi.mocked(listTagNames).mockResolvedValue(["other-branch-build-at-20260101-000000"])
+    vi.mocked(listTagNames).mockResolvedValue([toTagName("other-branch-build-at-20260101-000000")])
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       [makeChartGroup([makeApp()])],
@@ -84,13 +84,13 @@ describe("buildPlans", () => {
   })
 
   it("dryRun=true のとき、タグが見つからなくても実際のタグ作成はしない", async () => {
-    vi.mocked(listTagNames).mockResolvedValue(["other-branch-build-at-20260101-000000"])
+    vi.mocked(listTagNames).mockResolvedValue([toTagName("other-branch-build-at-20260101-000000")])
     await buildPlans(mockGitlab, [makeChartGroup([makeApp()])], 3, true)
     expect(createTag).not.toHaveBeenCalled()
   })
 
   it("タグ作成APIが403エラーを投げたときsettledにERRORとして入る", async () => {
-    vi.mocked(listTagNames).mockResolvedValue(["other-branch-build-at-20260101-000000"])
+    vi.mocked(listTagNames).mockResolvedValue([toTagName("other-branch-build-at-20260101-000000")])
     vi.mocked(createTag).mockRejectedValue(makeHttpError(403))
     const { toApply, settled } = await buildPlans(
       mockGitlab,
@@ -135,12 +135,12 @@ describe("buildPlans", () => {
     const appA = makeApp({
       projectId: toProjectId(1),
       projectName: toProjectName("app-a"),
-      chart: { valuesPath: "shared.yaml", imageTagKey: "appA.tag" },
+      chart: { valuesPath: toValuesPath("shared.yaml"), imageTagKey: toDotPath("appA.tag") },
     })
     const appB = makeApp({
       projectId: toProjectId(2),
       projectName: toProjectName("app-b"),
-      chart: { valuesPath: "shared.yaml", imageTagKey: "appB.tag" },
+      chart: { valuesPath: toValuesPath("shared.yaml"), imageTagKey: toDotPath("appB.tag") },
     })
     vi.mocked(getFileContent).mockResolvedValue(
       `appA:\n  tag: ${OLD_TAG}\nappB:\n  tag: ${OLD_TAG}\n`,

@@ -26,13 +26,14 @@ import {
 } from "../src/lib/gitlab/gitlab.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
 import { process as processFn, run } from "../src/main.js"
+import { toGitLabUrl, toTagName } from "../src/types.js"
 import { FatalError } from "../src/utils/errors.js"
 import { makeApp, makeChartGroup, makeHttpError } from "./helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
 
 const OLD_TAG = "main-build-at-20251231-000000"
-const NEW_TAG = "main-build-at-20260101-000000"
+const NEW_TAG = toTagName("main-build-at-20260101-000000")
 
 describe("process", () => {
   beforeEach(() => {
@@ -42,7 +43,7 @@ describe("process", () => {
     vi.mocked(getFileContent).mockResolvedValue(`image:\n  tag: ${OLD_TAG}\n`)
     vi.mocked(openMergeRequestExists).mockResolvedValue(false)
     vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
-    vi.mocked(getProjectWebUrl).mockResolvedValue("https://gitlab.test/group/my-app")
+    vi.mocked(getProjectWebUrl).mockResolvedValue(toGitLabUrl("https://gitlab.test/group/my-app"))
     vi.mocked(commitFileUpdates).mockResolvedValue(undefined)
     vi.mocked(createMergeRequest).mockResolvedValue(undefined)
   })

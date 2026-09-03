@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { z } from "zod"
 
 import type { AppConfig, ChartGroup, Config } from "../types.js"
-import { toBranchName, toProjectId, toProjectName } from "../types.js"
+import { toBranchName, toDotPath, toProjectId, toProjectName, toValuesPath } from "../types.js"
 import { assertSafePath, listSubdirectories } from "../utils/fs.js"
 import { parseYamlFile } from "../utils/yaml.js"
 
@@ -21,8 +21,8 @@ const AppConfigSchema = z.object({
   projectName: z.string().min(1).transform(toProjectName),
   branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
   chart: z.object({
-    valuesPath: z.string().min(1, "valuesPath は空にできません"),
-    imageTagKey: z.string().min(1, "imageTagKey は空にできません"),
+    valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
+    imageTagKey: z.string().min(1, "imageTagKey は空にできません").transform(toDotPath),
   }),
 })
 

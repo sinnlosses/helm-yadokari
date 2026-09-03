@@ -1,5 +1,6 @@
 import { dump as dumpYaml, load as parseYaml } from "js-yaml"
 
+import type { DotPath } from "../types.js"
 import { isPlainObject } from "../utils/object.js"
 
 // Helm chart の values.yaml を操作するための処理を置く。
@@ -10,7 +11,7 @@ import { isPlainObject } from "../utils/object.js"
  * YAML文字列から dotパス（例: "image.tag"）で指定した値を取得する。
  * パスが存在しない、または途中がオブジェクトでない場合は undefined を返す。
  */
-export function getValueAtPath(yamlContent: string, dotPath: string): string | undefined {
+export function getValueAtPath(yamlContent: string, dotPath: DotPath): string | undefined {
   const doc = parseYaml(yamlContent)
   if (!isPlainObject(doc)) return undefined
 
@@ -25,7 +26,7 @@ export function getValueAtPath(yamlContent: string, dotPath: string): string | u
  * js-yaml で構文木ではなくオブジェクトとして読み書きするため、コメントや
  * キーの書式（クォート等）は保持されない。
  */
-export function setValueAtPath(yamlContent: string, dotPath: string, newValue: string): string {
+export function setValueAtPath(yamlContent: string, dotPath: DotPath, newValue: string): string {
   const doc = parseYaml(yamlContent)
   if (!isPlainObject(doc)) {
     throw new Error(`values.yaml のルートがオブジェクトではありません: "${dotPath}"`)

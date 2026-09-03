@@ -13,7 +13,8 @@ import {
   createMergeRequest,
 } from "../../src/lib/gitlab/gitlab.js"
 import { applyUpdates } from "../../src/steps/apply-updates.js"
-import { toBranchName, toTagName } from "../../src/types.js"
+import type { ChartUpdateTarget } from "../../src/types.js"
+import { toBranchName, toTagName, toValuesPath } from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"
 import { makeApp, makeChartGroup, makeHttpError } from "../helpers.js"
 
@@ -25,7 +26,7 @@ const NEW_TAG = {
   builtAt: new Date("2026-01-01T00:00:00Z"),
 }
 
-function makeTarget() {
+function makeTarget(): ChartUpdateTarget {
   return {
     chartGroup: makeChartGroup([makeApp()]),
     plans: [
@@ -33,11 +34,10 @@ function makeTarget() {
         app: makeApp(),
         previousTag: undefined,
         latestTag: NEW_TAG,
-        pipelineUrl: undefined,
-        pipelineStatus: undefined,
+        pipeline: undefined,
       },
     ],
-    files: [{ filePath: "values.yaml", content: "image:\n  tag: x\n" }],
+    files: [{ filePath: toValuesPath("values.yaml"), content: "image:\n  tag: x\n" }],
   }
 }
 

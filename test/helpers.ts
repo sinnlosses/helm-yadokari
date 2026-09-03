@@ -1,5 +1,5 @@
 import type { AppConfig, ChartGroup } from "../src/types.js"
-import { toBranchName, toProjectId, toProjectName } from "../src/types.js"
+import { toBranchName, toDotPath, toProjectId, toProjectName, toValuesPath } from "../src/types.js"
 
 export const makeHttpError = (status: number): Error =>
   new Error("HTTP Error", { cause: { response: { status } } })
@@ -9,7 +9,7 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
     projectId: toProjectId(1),
     projectName: toProjectName("my-app"),
     branchToSync: toBranchName("main"),
-    chart: { valuesPath: "values.yaml", imageTagKey: "image.tag" },
+    chart: { valuesPath: toValuesPath("values.yaml"), imageTagKey: toDotPath("image.tag") },
     ...overrides,
   }
 }
