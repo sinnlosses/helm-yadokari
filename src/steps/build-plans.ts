@@ -36,7 +36,7 @@ type PlanOutcome =
 
 /**
  * 各chartグループの更新計画を並列に構築する。差分がないもの・dryRunのものは
- * settled（SKIPPED）に、実際に反映が必要なものは toApply にまとめて返す。
+ * settled（SKIPPED）に、実際に適用が必要なものは toApply にまとめて返す。
  *
  * いずれか1つのアプリの処理が失敗した場合、そのchartグループ全体をオールオアナッシングで
  * settled（ERROR）に含める（`buildChartUpdate()` 参照）。

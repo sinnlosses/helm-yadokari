@@ -44,6 +44,7 @@ async function applyUpdate(
   const { chart } = chartGroup
 
   try {
+    // MRタイトルをコミットメッセージにもそのまま使い回す
     const mrTitle = buildMrTitle(plans)
     await commitFileUpdates(
       gitlab,
