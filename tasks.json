@@ -38,5 +38,13 @@
     "passes": true,
     "evidence": "commit ae9a516。/grillingで9問の設計ツリーを確定（対象は業務ドメイン用語のみ、アーキテクチャ用語は除外／表記ゆれは統一せず注記のみ／カテゴリ別グルーピング）。docs/glossary.md 作成、CLAUDE.mdの関連リンク節に追加、oxfmt --check済み",
     "dependencies": []
+  },
+  {
+    "id": "T-006",
+    "task": "docs/glossary.mdで見つかった表記ゆれのうち、変数名・メソッド名レベルのものをリネームして明確化する",
+    "status": "done",
+    "passes": true,
+    "evidence": "commit 17f38c3, 1b62791。build-plans.ts: currentTag→previousTagRaw、content系→valuesYamlContent系。apply-updates.ts: title→mrTitle（+コミットメッセージにも流用する旨のコメント追加）。いずれも非公開ローカル変数のみで公開シグネチャ変更なし。pnpm check（204テスト）通過。/code-review（固定点5c2a90a）実施、Standardsはハード違反0件、Specの指摘（mrTitleの二重用途が名前だけでは伝わらない／JSDocの「反映」表記）を反映済み。「chartリポジトリ vs chartグループ」表記ゆれはdocs/requirements.mdという確定済み要件文書側の話であり、変数名・メソッド名の範囲外として今回は対応せず据え置き",
+    "dependencies": ["T-005"]
   }
 ]

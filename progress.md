@@ -47,6 +47,19 @@
     複数の表記ゆれを発見。統一・リネームはせず、各用語エントリ内に事実として注記するのみに留めた
   - カテゴリ別グルーピング（設定・登録／タグ・バージョン管理／MR・GitLab操作／実行結果・処理単位／実行環境・運用）
   - `CLAUDE.md`の関連リンク節に`docs/glossary.md`への参照を追加
+- **T-006完了**: `/implement` で `docs/glossary.md` の表記ゆれのうち変数名・メソッド名レベルのものを
+  リネーム（commit `17f38c3`, `1b62791`）
+  - `build-plans.ts`: `currentTag`→`previousTagRaw`（`AppUpdatePlan.previousTag`と対応）、
+    `content`/`loadContent`/`contentCache`/`modifiedPaths`→`valuesYamlContent`系（values.yaml固有の
+    概念であることを明示）
+  - `apply-updates.ts`: `title`→`mrTitle`（+ コミットメッセージにも流用する旨のコメント追加）
+  - 非公開ローカル変数・パラメータのみのリネームで公開シグネチャ・挙動は無変更。`pnpm check`
+    （204テスト）通過
+  - `/code-review`（固定点`5c2a90a`）実施。Standards軸: ハード違反0件（`previousTagRaw`の命名の
+    重心についてソフトな指摘のみ）。Spec軸: 「mrTitleの二重用途が名前だけでは伝わらない」
+    「JSDocの『反映』表記がtoApply/applyUpdatesの『適用』と揃っていない」を指摘 → `1b62791`で反映
+  - 「chartリポジトリ vs chartグループ」の表記ゆれは`docs/requirements.md`という確定済み要件文書側の
+    話であり、今回の依頼（変数名・メソッド名の明確化）の範囲外として意図的に対応せず据え置き
 
 ## 次にやること
 
