@@ -46,5 +46,13 @@
     "passes": true,
     "evidence": "commit 17f38c3, 1b62791。build-plans.ts: currentTag→previousTagRaw、content系→valuesYamlContent系。apply-updates.ts: title→mrTitle（+コミットメッセージにも流用する旨のコメント追加）。いずれも非公開ローカル変数のみで公開シグネチャ変更なし。pnpm check（204テスト）通過。/code-review（固定点5c2a90a）実施、Standardsはハード違反0件、Specの指摘（mrTitleの二重用途が名前だけでは伝わらない／JSDocの「反映」表記）を反映済み。「chartリポジトリ vs chartグループ」表記ゆれはdocs/requirements.mdという確定済み要件文書側の話であり、変数名・メソッド名の範囲外として今回は対応せず据え置き",
     "dependencies": ["T-005"]
+  },
+  {
+    "id": "T-007",
+    "task": "プリミティブ型（string等）のまま扱われているフィールドにドメイン固有のブランド型を付与し、不要なundefinedの可能性を減らす",
+    "status": "done",
+    "passes": true,
+    "evidence": "commit 6183f15, 43ee252。ValuesPath/DotPathブランド型を新設しAppConfig.chart.valuesPath/imageTagKey・FileUpdate.filePath・lib/helm.tsのdotPath引数・lib/gitlab/gitlab.tsのgetFileContentのfilePathに適用。PipelineInfo型をlib/gitlab/gitlab.tsからtypes.tsへ移動しwebUrlをGitLabUrl化。AppUpdatePlanのpipelineUrl/pipelineStatus（Data Clump）をpipeline: PipelineInfo|undefinedに統合し、片方だけundefinedという不正な状態を型的に排除。listTagNames/createTag/getLatestPipelineForRefのタグ名引数・戻り値をTagName化、getProjectWebUrlの戻り値をGitLabUrl化。pnpm check（204テスト）通過。/code-review（固定点1b62791）実施、Standards/Spec両軸が独立にgetFileContentのfilePath未対応を指摘→43ee252で反映。PipelineInfo.statusとChartGroup.chartDirは意図的に未ブランド化（前者はGitLab API由来の自由形式文字列で分岐ロジックなし、後者は外部システム境界を跨がないローカルなディレクトリ名）",
+    "dependencies": ["T-006"]
   }
 ]

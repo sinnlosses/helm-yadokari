@@ -1,6 +1,6 @@
 # 現在の状態
 
-最終更新: 2026-09-03（用語集作成セッション）
+最終更新: 2026-09-03（型付け強化セッション）
 
 ## 完了したこと
 
@@ -60,6 +60,22 @@
     「JSDocの『反映』表記がtoApply/applyUpdatesの『適用』と揃っていない」を指摘 → `1b62791`で反映
   - 「chartリポジトリ vs chartグループ」の表記ゆれは`docs/requirements.md`という確定済み要件文書側の
     話であり、今回の依頼（変数名・メソッド名の明確化）の範囲外として意図的に対応せず据え置き
+- **T-007完了**: プリミティブ型のフィールドへのブランド型付与・不要なundefinedの削減（commit `6183f15`, `43ee252`）
+  - `ValuesPath`/`DotPath`ブランド型を新設し`AppConfig.chart.valuesPath`/`imageTagKey`・
+    `FileUpdate.filePath`・`lib/helm.ts`のdotPath引数・`lib/gitlab/gitlab.ts`の`getFileContent`の
+    `filePath`に適用
+  - `PipelineInfo`型を`lib/gitlab/gitlab.ts`から`types.ts`へ移動（`FileUpdate`等と同じ理由で共有
+    ドメイン型として集約）。`webUrl`は既存の`GitLabUrl`ブランド型を再利用
+  - `AppUpdatePlan`の`pipelineUrl`/`pipelineStatus`（常に両方undefinedか両方値ありのData Clump）を
+    `pipeline: PipelineInfo | undefined`に統合し、型として表現できていなかった不正な組み合わせ
+    （片方だけundefined）を排除。`buildMrPlanSection`内の`?? "unknown"`フォールバックも型的に
+    到達不能になったため削除
+  - `listTagNames`/`createTag`/`getLatestPipelineForRef`のタグ名の型を`TagName`に統一、
+    `getProjectWebUrl`/`getLatestPipelineForRef`の戻り値URLを`GitLabUrl`に統一
+  - `pnpm check`（204テスト）通過。`/code-review`（固定点`1b62791`）実施、Standards/Spec両軸が
+    独立に`getFileContent`の`filePath`未対応を指摘 → `43ee252`で反映
+  - `PipelineInfo.status`と`ChartGroup.chartDir`は意図的に未ブランド化（前者はGitLab API由来の
+    自由形式文字列で分岐ロジックがない、後者は外部システム境界を跨がないローカルなディレクトリ名）
 
 ## 次にやること
 
