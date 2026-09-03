@@ -1,0 +1,4 @@
+chart:
+  projectId: 86061211
+  projectName: yadokari-smoke-test-chart
+  mrTargetBranch: main
