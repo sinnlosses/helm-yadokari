@@ -29,8 +29,8 @@
       タグに紐づく最新パイプライン取得など。404を特定の戻り値（`false`/`undefined`）に変換する
       箇所は `withNotFoundFallback()` に共通化している。全ステップ共通の固定ブランチ名
       `UPDATE_BRANCH`、MRのタイトル・本文組み立て（`buildMrTitle()`/`buildMrDescription()`。
-      タグへのリンクがGitLabのURL構造 `-/tags/...` に依存するため、GitLab固有の関心事として
-      ここに置く）もこのファイルが持つ
+      タグへのリンク（`-/tags/...`）・旧タグ→新タグの比較リンク（`-/compare/...`）が
+      GitLabのURL構造に依存するため、GitLab固有の関心事としてここに置く）もこのファイルが持つ
     - `tag.ts`: このツールのタグ命名規則（`docs/requirements.md` 4.1節）のパース・最新タグ判定・
       新規タグ名の組み立て。外部システム・ファイルへのI/Oを一切持たない純粋な文字列/日付処理だが、
       「GitLabのタグ」という概念に強く紐づく命名規則のため、`utils/`ではなく`gitlab/`配下に置く

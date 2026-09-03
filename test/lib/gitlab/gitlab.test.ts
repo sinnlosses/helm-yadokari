@@ -402,7 +402,9 @@ describe("UPDATE_BRANCH", () => {
   })
 })
 
-function makePlan(overrides: Partial<{ pipeline: PipelineInfo }> = {}): AppUpdatePlan {
+function makePlan(
+  overrides: Partial<{ pipeline: PipelineInfo; previousTag: AppUpdatePlan["previousTag"] }> = {},
+): AppUpdatePlan {
   return {
     app: makeApp({ projectId: toProjectId(1), projectName: toProjectName("my-app") }),
     previousTag: toTagName("main-build-at-20251231-000000"),
@@ -411,17 +413,20 @@ function makePlan(overrides: Partial<{ pipeline: PipelineInfo }> = {}): AppUpdat
       branch: toBranchName("main"),
       builtAt: new Date("2026-01-01T00:00:00Z"),
     },
-    pipeline: overrides.pipeline,
+    pipeline: undefined,
+    ...overrides,
   }
 }
 
 describe("buildMrTitle", () => {
   it("更新対象アプリ数を含むタイトルを組み立てる", () => {
-    expect(buildMrTitle([makePlan(), makePlan()])).toBe("chore: update 2 app image tag(s)")
+    expect(buildMrTitle([makePlan(), makePlan()])).toBe(
+      "Auto MR by yadokari: update 2 app image tag(s)",
+    )
   })
 
   it("0件のときも組み立てる", () => {
-    expect(buildMrTitle([])).toBe("chore: update 0 app image tag(s)")
+    expect(buildMrTitle([])).toBe("Auto MR by yadokari: update 0 app image tag(s)")
   })
 })
 
@@ -469,5 +474,27 @@ describe("buildMrDescription", () => {
     const client = makeClient({ Projects: { show: showFn } })
     await buildMrDescription(client, [makePlan(), makePlan()])
     expect(showFn).toHaveBeenCalledOnce()
+  })
+
+  it("旧タグ・新タグの比較URLを含む", async () => {
+    const client = makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
+      },
+    })
+    const description = await buildMrDescription(client, [makePlan()])
+    expect(description).toContain(
+      "https://gitlab.example.com/g/my-app/-/compare/main-build-at-20251231-000000...main-build-at-20260101-000000",
+    )
+  })
+
+  it("旧タグが未設定のとき比較URLを含めない", async () => {
+    const client = makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
+      },
+    })
+    const description = await buildMrDescription(client, [makePlan({ previousTag: undefined })])
+    expect(description).not.toContain("/-/compare/")
   })
 })

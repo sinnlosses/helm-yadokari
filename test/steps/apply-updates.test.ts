@@ -45,7 +45,7 @@ describe("applyUpdates", () => {
   beforeEach(() => {
     vi.mocked(commitFileUpdates).mockResolvedValue(undefined)
     vi.mocked(createMergeRequest).mockResolvedValue(undefined)
-    vi.mocked(buildMrTitle).mockReturnValue("chore: update 1 app image tag(s)")
+    vi.mocked(buildMrTitle).mockReturnValue("Auto MR by yadokari: update 1 app image tag(s)")
     vi.mocked(buildMrDescription).mockResolvedValue("### my-app\n...")
   })
 
@@ -64,9 +64,11 @@ describe("applyUpdates", () => {
     await applyUpdates(mockGitlab, [target], 3)
     expect(buildMrTitle).toHaveBeenCalledWith(target.plans)
     expect(buildMrDescription).toHaveBeenCalledWith(mockGitlab, target.plans)
-    expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[4]).toBe("chore: update 1 app image tag(s)")
+    expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[4]).toBe(
+      "Auto MR by yadokari: update 1 app image tag(s)",
+    )
     expect(vi.mocked(createMergeRequest).mock.calls[0]?.[4]).toBe(
-      "chore: update 1 app image tag(s)",
+      "Auto MR by yadokari: update 1 app image tag(s)",
     )
     expect(vi.mocked(createMergeRequest).mock.calls[0]?.[5]).toBe("### my-app\n...")
   })

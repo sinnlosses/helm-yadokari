@@ -186,7 +186,7 @@ export async function getLatestPipelineForRef(
 }
 
 export function buildMrTitle(plans: readonly AppUpdatePlan[]): string {
-  return `chore: update ${plans.length} app image tag(s)`
+  return `Auto MR by yadokari: update ${plans.length} app image tag(s)`
 }
 
 function buildMrPlanSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {
@@ -194,11 +194,15 @@ function buildMrPlanSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {
   const pipelineLine = plan.pipeline
     ? `- パイプライン: [${plan.pipeline.status}](${plan.pipeline.webUrl})`
     : "- パイプライン: (見つかりません)"
+  const compareLine = plan.previousTag
+    ? `- 比較: [${plan.previousTag}...${plan.latestTag.name}](${webUrl}/-/compare/${encodeURIComponent(plan.previousTag)}...${encodeURIComponent(plan.latestTag.name)})`
+    : "- 比較: (旧タグ未設定のため比較できません)"
   return [
     `### ${plan.app.projectName}`,
     `- タグ: ${plan.previousTag ?? "(未設定)"} → [${plan.latestTag.name}](${tagUrl})`,
     `- 打刻日時: ${plan.latestTag.builtAt.toISOString()}`,
     pipelineLine,
+    compareLine,
   ].join("\n")
 }
 
