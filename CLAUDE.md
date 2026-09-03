@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## 対話言語
+
+ユーザーとの対話は常に日本語で行う。
 
 ## プロジェクト概要
 
@@ -73,63 +75,6 @@ export async function process() {
 汎用処理なら `utils/` へ、GitLab MRの内容構築のようにその技術と不可分な処理なら
 対応する `lib/` ファイル（例: `gitlab.ts`）に含める。
 
-- `src/steps/`: `process()` が直接呼ぶ、フラットな3ステップのみを置く。それぞれ
-  `lib/`・`utils/` にのみ依存する
-  - `filter-targets.ts`: `filterTargets()`。登録アプリが0件、または固定ブランチに
-    オープン中のMRが既にあるchartグループを除外する
-  - `build-plans.ts`: `buildPlans()`。chartグループごとの更新計画を並列に構築し、
-    差分がないもの・dryRunのものは settled（SKIPPED）へ、反映が必要なものは
-    `toApply` へ振り分ける。1つのchartグループ分の計算（`buildChartUpdate()`）・
-    追跡ブランチ由来の最新タグ判定（`resolveLatestTag()`）・ログ用サマリ組み立て
-    （`describePlan()`）は、このファイルの外からは呼ばれないため非公開関数としてここに書く
-    - 追跡ブランチにタグが1件も見つからない場合はエラーにせず、`lib/gitlab/tag.ts` の
-      `buildNewTag()` でタグ名を組み立て、`lib/gitlab/gitlab.ts` の `createTag()` で実際に
-      作成してから続行する（`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
-  - `apply-updates.ts`: `applyUpdates()`。`toApply` の各chartグループに対してコミット・
-    MR作成を並列実行する。ログ用サマリ組み立て（`describePlan()`）はここでも非公開関数
-    として個別に持つ（`build-plans.ts` のものとほぼ同じ形だが、共有するために `lib/` へ
-    切り出すほどの技術依存はないため、あえて共有しない）
-- `src/lib/`: 特定の技術・外部システム・ファイル形式に依存する処理のみを置く
-  - `gitlab/`: GitLabという技術に依存する処理をまとめたディレクトリ
-    - `gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧取得・作成・ファイル取得・MR作成・
-      タグに紐づく最新パイプライン取得など。404を特定の戻り値（`false`/`undefined`）に変換する
-      箇所は `withNotFoundFallback()` に共通化している。全ステップ共通の固定ブランチ名
-      `UPDATE_BRANCH`、MRのタイトル・本文組み立て（`buildMrTitle()`/`buildMrDescription()`。
-      タグへのリンクがGitLabのURL構造 `-/tags/...` に依存するため、GitLab固有の関心事として
-      ここに置く）もこのファイルが持つ
-    - `tag.ts`: このツールのタグ命名規則（`docs/requirements.md` 4.1節）のパース・最新タグ判定・
-      新規タグ名の組み立て。外部システム・ファイルへのI/Oを一切持たない純粋な文字列/日付処理だが、
-      「GitLabのタグ」という概念に強く紐づく命名規則のため、`utils/`ではなく`gitlab/`配下に置く
-      （呼び出し元は `steps/build-plans.ts` のみ）
-  - `config.ts`: `config/<chart>/chart.yaml` + `config/<chart>/<tenantId>/<clientId>/apps.yaml`
-    の2階層固定構成を再帰的に読み込み、Zodでバリデーション（ファイル探索・YAML読み込みの
-    汎用部分は `utils/fs.ts` / `utils/yaml.ts` に委譲）。`loadConfig()` は第2引数に
-    `ConfigTarget`（`TARGET_CHART_DIR`由来のchartDir、`TARGET_CLIENT`由来の
-    `TargetClient`（tenantId/clientIdの組）配列）を受け取り、指定があればそのchart・
-    tenant/clientの組のみに絞り込む。`TARGET_CLIENT`はカンマ区切りで複数のtenant/client
-    組を指定できる。config/のディレクトリ構成に対するフィルタなのでこのファイルの責務とし、
-    指定した組のいずれか1件でも見つからない場合は例外をスローする（`docs/requirements.md`
-    4.5節）
-  - `helm.ts`: Helm chart の `values.yaml` を操作する処理。イメージタグの値の位置指定には
-    `imageTagKey`（dotパスで`getValueAtPath`/`setValueAtPath`）と`imageTagAnchor`（YAMLアンカー名で
-    `getValueAtAnchor`/`setValueAtAnchor`）の2方式があり、いずれも`yaml`パッケージの
-    Document（AST）を直接操作する（`js-yaml`はオブジェクトとしてしか読み書きできず
-    アンカー名を保持できないため不採用。`config/`側のYAML読み込み`utils/yaml.ts`も含め、
-    リポジトリ全体で`yaml`パッケージに統一している）。呼び出し側は`chart`
-    （`ImageTagLocation`）を渡すだけで済む`getImageTag`/`setImageTag`を使う。
-    Helm chart固有の処理を今後追加する場合もここに置く
-  - `env.ts`: 環境変数の読み込み・検証
-- `src/utils/`: このツールのドメイン知識を一切持たない、技術的に汎用的なユーティリティ
-  - `parallel.ts`: `mapWithConcurrency()`。指定した同時実行数で配列を並列処理し、
-    `FatalError` を検知したら未着手のタスクをキャンセルして即reject する（各ステップの
-    並列化はすべてこれ経由。以前は複数ファイルにほぼ同じp-limitロジックが重複していたのを
-    ここに統合した）
-  - `fs.ts`: パストラバーサル検証・サブディレクトリ列挙、`yaml.ts`: YAMLファイル読み込み+Zod
-    バリデーション、`object.ts`: `isPlainObject`、`cache.ts`: `getOrFetch`（Mapベースの
-    非同期メモ化。`build-plans.ts`と`gitlab.ts`のbuildMrDescriptionで同じcache-or-fetch
-    パターンが必要になったため共通化）
-  - 既存の `errors.ts` / `http.ts` / `retry.ts` / `timer.ts` / `logger.ts` も同様に汎用
-
 新しいコードを置くとき、まず「呼び出し元は何か」を考える:
 
 - `process()` が直接呼ぶ、フラットなパイプラインの1段 → `steps/`。他のステップファイルを
@@ -142,12 +87,8 @@ export async function process() {
 - 「stepsから呼ばれているから」「複数箇所で使うから」という理由だけで `lib/` に
   置くのは誤り。lib行きの判断基準は常に「技術・外部システム・ファイル形式への依存」
 
-## ディレクトリ構成の勘所
-
-- `config/`: 手書きの設定（対象アプリ登録）。`docs/requirements.md` 4.4節のスキーマに従う
-- `scripts/lint/validate-config.ts`: `config/` の文法チェック専用スクリプト（`pnpm lint:validate-config` から実行、`pnpm lint` に含まれる）
-- `dist/`: `pnpm build` の生成物。gitignore対象、手で編集しない
-- `docs/requirements.md`: 確定した要件。`docs/requirements-grilling.md`: 要件定義時のQ&Aログ（検討経緯の参照用、変更不要）
+`src/steps/`・`src/lib/`・`src/utils/` 配下の各ファイルの詳しい責務、ディレクトリ構成の勘所、
+既知の制約・注意点は [`docs/architecture.md`](./docs/architecture.md) を参照。
 
 ## 設定・環境変数
 
@@ -179,40 +120,9 @@ export async function process() {
   chart リポジトリを `ERROR` としてログ記録し処理継続する（詳細は README「エラーハンドリング」参照）
 - レビュー観点は `/code-review` スキルのStandards軸（この節）とSpec軸（`docs/requirements.md`）を参照
 
-## 既知の制約・注意点
-
-- `values.yaml` の書き換えは `yaml` パッケージのDocument（AST）を直接操作する方式のため、
-  書き換え対象以外のコメント・クォートスタイルは概ね保持される（完全な保持を保証するもの
-  ではない）
-- タグに紐づくGitLabプロジェクトのURLは `Projects.show` で都度取得している（`config/`にnamespace
-  slugを持たせていないため）
-- Helm CLI（`helm lint` / `helm template` 等）は呼び出さない。`values.yaml`のテキスト更新のみ行う
-- `FatalError`（401/5xx等）を検知すると、`utils/parallel.ts` の `mapWithConcurrency()` が
-  その時点で `p-limit` のキューを `clearQueue()` でクリアし、同じステップ内の他chartグループの
-  未着手タスクを実行させずに reject する。`process()` はステップを順番に await しているため、
-  あるステップでFatalErrorが起きると後続のステップは一切開始されない（例:
-  `buildPlans` でFatalErrorが起きたら `applyUpdates` は1件も呼ばれない）。
-  `docs/requirements.md` 4.3節の「chartリポジトリ間は失敗しても他は継続する」という記述は
-  一般的なエラーを指しており、GitLab側の認証切れ・障害のような全chart共通の致命的エラーに
-  対しては、無駄なAPI呼び出しを避けるためこの例外を設けている（gitlab-watari-dori由来のパターン）
-- 同一chartリポジトリ内の複数アプリの処理（タグ取得・パイプライン取得等）は `buildChartUpdate()`
-  （`src/steps/build-plans.ts` の非公開関数）内で逐次実行している。`docs/requirements.md` 4.3節の並列実行制御
-  （`p-limit`）は現状chartグループ単位（`filterTargets`/`buildPlans`/`applyUpdates`それぞれ）
-  のみに適用しており、1chartグループ内のアプリ単位までは並列化していない
-
 ## 導入済みスキル
 
-[mattpocock/skills](https://github.com/mattpocock/skills) の engineering カテゴリから、コア開発スキルを日本語化して `.claude/skills/` 配下に導入済み。
-
-- `tdd`: テスト駆動開発（red-green-refactorループ）
-- `code-review`: Standards軸とSpec軸の2軸で並列サブエージェントレビュー
-- `diagnosing-bugs`: 難しいバグ・性能劣化の診断ループ
-- `codebase-design`: 深いモジュール設計のための共通語彙
-- `domain-modeling`: `CONTEXT.md`/ADRを使ったドメインモデルの構築
-- `resolving-merge-conflicts`: git マージ/リベースのコンフリクト解消
-- `research`: 一次情報源に基づく調査をバックグラウンドエージェントに委任
-- `implement`: spec/チケットに基づく実装（`/tdd` → `/code-review` の流れを内包）
-- `grilling`（productivityカテゴリ）: プラン・決定事項について、設計ツリーが尽きるまでユーザーを容赦なく問い詰める
+[mattpocock/skills](https://github.com/mattpocock/skills) の engineering カテゴリから、コア開発スキルを日本語化して `.claude/skills/` 配下に導入済み（`tdd`, `code-review`, `diagnosing-bugs`, `codebase-design`, `domain-modeling`, `resolving-merge-conflicts`, `research`, `implement`, `grilling`）。各スキルの詳細は `.claude/skills/` 配下、または利用可能なスキル一覧から確認する。
 
 `code-review` はissueトラッカー連携（`docs/agents/issue-tracker.md` 等）を前提とする元スキルの記述を、未設定でも動くよう汎用化してある。
 
@@ -238,6 +148,7 @@ export async function process() {
 
 ## 関連リンク
 
+- アーキテクチャ詳細（各ファイルの責務、ディレクトリ構成の勘所、既知の制約）: `docs/architecture.md`
 - 要件定義: `docs/requirements.md`
 - 要件定義の検討経緯（Q&Aログ）: `docs/requirements-grilling.md`
 - 用語集（ドメイン用語とコード上の識別子の対応、表記ゆれの注記）: `docs/glossary.md`
