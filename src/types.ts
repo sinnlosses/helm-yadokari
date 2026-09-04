@@ -76,18 +76,27 @@ export type TargetClient = {
  * `imageTagKey`はオブジェクトのネストをdotパスで辿る（例: "image.tag"）。
  * `imageTagAnchor`は配列要素にYAMLアンカーで名前を付けた構成向けで、アンカー名で
  * 該当要素を直接指す（例: `variables: [&tenant1client1AppsVersion main, ...]`）。
- * 1アプリにつきどちらか一方のみを指定する
+ * 1箇所につきどちらか一方のみを指定する
  */
 export type ImageTagLocation =
   | { readonly imageTagKey: DotPath }
   | { readonly imageTagAnchor: AnchorName }
+
+/**
+ * values.yaml内でイメージタグを書き換える1箇所分（対象ファイル＋その中での位置）。
+ * 1つのソースリポジトリ（1つのタグ）に対して、WebAPI/バッチ/デーモンなど複数の
+ * デプロイ単位を管理しているケースでは、同じ最新タグを複数箇所に反映する必要があるため、
+ * `AppConfig.chart`はこの型の配列として持つ（T-014）
+ */
+export type ImageTagTarget = { readonly valuesPath: ValuesPath } & ImageTagLocation
 
 /** ソースリポジトリ（タグが打たれるGitLabプロジェクト）に対応する1アプリの設定。apps.yamlの1エントリ */
 export type AppConfig = {
   readonly projectId: ProjectId
   readonly projectName: ProjectName
   readonly branchToSync: BranchName
-  readonly chart: { readonly valuesPath: ValuesPath } & ImageTagLocation
+  /** 同じ最新タグを反映する書き換え箇所の一覧（1件以上）。複数指定すると同一タグを複数箇所へ反映する */
+  readonly chart: readonly ImageTagTarget[]
 }
 
 /** chartリポジトリ共通の設定。chart.yamlに対応する */
@@ -151,12 +160,25 @@ export type PipelineInfo = {
   readonly webUrl: GitLabUrl
 }
 
-/** 1アプリの更新内容。最新タグが反映済みタグと異なる場合にのみ生成される */
+/**
+ * `AppConfig.chart`のうち1箇所分の更新内容。反映済みタグ（`previousTag`）は
+ * 書き換え箇所ごとに独立して読み取るため、同一アプリ内でも箇所によって異なりうる
+ */
+export type ImageTagUpdate = {
+  readonly target: ImageTagTarget
+  readonly previousTag: TagName | undefined
+}
+
+/**
+ * 1アプリの更新内容。`chart`の書き換え箇所のうち、最新タグと異なっていたものだけを
+ * `updates`に含める（1件も無ければこのAppUpdatePlan自体を生成しない＝そのアプリは
+ * 全箇所が反映済み）
+ */
 export type AppUpdatePlan = {
   readonly app: AppConfig
-  readonly previousTag: TagName | undefined
   readonly latestTag: ParsedTag
   readonly pipeline: PipelineInfo | undefined
+  readonly updates: readonly ImageTagUpdate[]
 }
 
 export type ChartUpdateResult = "CREATED" | "SKIPPED" | "ERROR"

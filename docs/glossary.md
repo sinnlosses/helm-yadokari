@@ -40,8 +40,9 @@
 ### imageTagKey
 
 - **英語識別子**: `imageTagKey`
-- **定義**: `values.yaml`内のイメージタグの位置を表すdotパス（例: `image.tag`）。`apps.yaml`のフィールド名。
-  `imageTagAnchor`と排他（1アプリにつきどちらか一方のみ指定する）。
+- **定義**: `values.yaml`内のイメージタグの位置を表すdotパス（例: `image.tag`）。`apps.yaml`の`chart`配列の1要素が持つフィールド名。
+  `imageTagAnchor`と排他（1箇所につきどちらか一方のみ指定する）。1つのソースリポジトリでWebAPI/バッチ/デーモンなど
+  複数のデプロイ単位を管理している場合は、`chart`配列の要素ごとに`imageTagKey`/`imageTagAnchor`を使い分けられる。
 
 ### dotパス
 
@@ -53,11 +54,11 @@
 - **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す`apps.yaml`のフィールド。
   `image.tag`のようなオブジェクトのネストではなく、`variables: [&tenant1client1AppsVersion main, ...]`
   のように配列要素にアンカーで名前を付けた構成のvalues.yaml向け。`imageTagKey`と排他。
-- **補足**: `js-yaml`はパース時にアンカー名を保持しないため、`imageTagKey`と共通の
-  `getValueAtPath`/`setValueAtPath`（`js-yaml`ベース）では実装できず、アンカー名をASTノードの
-  プロパティとして保持できる`yaml`パッケージを使う`getValueAtAnchor`/`setValueAtAnchor`
-  （`src/lib/helm.ts`）で別実装している。呼び出し側（`build-plans.ts`）は`getImageTag`/
-  `setImageTag`でどちらの方式かを意識せず扱う。
+- **補足**: `yaml`パッケージ（`src/lib/helm.ts`の`getValueAtAnchor`/`setValueAtAnchor`）はASTを
+  `visit()`で走査し、アンカー名をノードのプロパティとして直接引ける。`imageTagKey`用の
+  `getValueAtPath`/`setValueAtPath`も同じ`yaml`パッケージの`Document.getIn()`/`setIn()`で
+  実装されており、パース・シリアライズは1ライブラリに統一されている。呼び出し側
+  （`build-plans.ts`）は`getImageTag`/`setImageTag`でどちらの方式かを意識せず扱う。
 
 ### chartDir
 
@@ -98,8 +99,11 @@
 ### 反映済みタグ
 
 - **英語識別子**: `previousTag`
-- **定義**: `values.yaml`に現在書かれているタグ。
-- **表記ゆれ**: 型のフィールド名は`previousTag`だが、`build-plans.ts`内のローカル変数では同じ概念を`currentTag`と呼んでいる。
+- **定義**: `values.yaml`に現在書かれているタグ。`AppConfig.chart`の書き換え箇所（`ImageTagTarget`）ごとに
+  独立して読み取るため、1つのソースリポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を
+  管理している場合、同一アプリ内でも箇所によって異なりうる（`AppUpdatePlan.updates[].previousTag`）。
+- **表記ゆれ**: 型のフィールド名は`previousTag`だが、`build-plans.ts`内のローカル変数では
+  書き換え前の生の文字列を`previousTagRaw`と呼んでいる。
 
 ### タグ自動作成
 

@@ -5,6 +5,9 @@ import type {
   BranchName,
   FileUpdate,
   GitLabUrl,
+  ImageTagTarget,
+  ImageTagUpdate,
+  ParsedTag,
   PipelineInfo,
   ProjectId,
   TagInfo,
@@ -209,23 +212,40 @@ function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): string {
   return `${webUrl}/-/tags/${encodeURIComponent(tagName)}`
 }
 
-function buildMrPlanSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {
-  const previousTagText = plan.previousTag
-    ? `[${plan.previousTag}](${buildTagUrl(webUrl, plan.previousTag)})`
+/** `chart`の1箇所がdotパス指定かアンカー指定かを、MR本文向けの説明文字列にする */
+function describeImageTagLocation(target: ImageTagTarget): string {
+  return "imageTagKey" in target
+    ? `dotパス: ${target.imageTagKey}`
+    : `アンカー: ${target.imageTagAnchor}`
+}
+
+/**
+ * `chart`の1箇所分の更新内容を1行にまとめる。同じ最新タグを複数箇所（WebAPI/バッチ/
+ * デーモンなど）へ反映するケース（T-014）では、この行がアプリ1件につき複数出力される
+ */
+function buildImageTagUpdateLine(
+  webUrl: GitLabUrl,
+  latestTag: ParsedTag,
+  update: ImageTagUpdate,
+): string {
+  const previousTagText = update.previousTag
+    ? `[${update.previousTag}](${buildTagUrl(webUrl, update.previousTag)})`
     : "(未設定)"
-  const tagUrl = buildTagUrl(webUrl, plan.latestTag.name)
+  const compareText = update.previousTag
+    ? `[比較](${webUrl}/-/compare/${encodeURIComponent(update.previousTag)}...${encodeURIComponent(latestTag.name)})`
+    : "(旧タグ未設定のため比較できません)"
+  return `  - \`${update.target.valuesPath}\`（${describeImageTagLocation(update.target)}）: ${previousTagText} → [${latestTag.name}](${buildTagUrl(webUrl, latestTag.name)}) / ${compareText}`
+}
+
+function buildMrPlanSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {
   const pipelineLine = plan.pipeline
     ? `- パイプライン: [${plan.pipeline.status}](${plan.pipeline.webUrl})`
     : "- パイプライン: (見つかりません)"
-  const compareLine = plan.previousTag
-    ? `- 比較: [${plan.previousTag}...${plan.latestTag.name}](${webUrl}/-/compare/${encodeURIComponent(plan.previousTag)}...${encodeURIComponent(plan.latestTag.name)})`
-    : "- 比較: (旧タグ未設定のため比較できません)"
   return [
     `### ${plan.app.projectName}`,
-    `- タグ: ${previousTagText} → [${plan.latestTag.name}](${tagUrl})`,
     `- 打刻日時: ${plan.latestTag.builtAt.toISOString()}`,
     pipelineLine,
-    compareLine,
+    ...plan.updates.map((update) => buildImageTagUpdateLine(webUrl, plan.latestTag, update)),
   ].join("\n")
 }
 

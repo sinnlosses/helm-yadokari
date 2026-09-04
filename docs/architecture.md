@@ -15,7 +15,11 @@
     差分がないもの・dryRunのものは settled（SKIPPED）へ、反映が必要なものは
     `toApply` へ振り分ける。1つのchartグループ分の計算（`buildChartUpdate()`）・
     追跡ブランチ由来の最新タグ判定（`resolveLatestTag()`）・ログ用サマリ組み立て
-    （`describePlan()`）は、このファイルの外からは呼ばれないため非公開関数としてここに書く
+    （`describePlan()`）は、このファイルの外からは呼ばれないため非公開関数としてここに書く。
+    1アプリ（`AppConfig.chart`）が複数の書き換え箇所（WebAPI/バッチ/デーモンなど）を
+    持つ場合は、`applyAppToChartUpdate()`が`app.chart`を`reduce`で1箇所ずつ処理し
+    （`applyImageTagTarget()`）、同じ最新タグに対して差分があった箇所だけを
+    `AppUpdatePlan.updates`に積む（全箇所が反映済みならそのアプリ自体を計画に含めない）
     - 追跡ブランチ由来の最新タグが、追跡ブランチの現在のHEADコミット（`getBranchHeadSha()`）と
       一致しない場合（1件も見つからない場合に加え、見つかった最新タグが追跡ブランチの進行に
       ビハインドしている場合を含む）はエラーにせず、`lib/gitlab/tag.ts` の `buildNewTag()` で

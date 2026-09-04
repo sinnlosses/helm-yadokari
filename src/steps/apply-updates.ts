@@ -26,8 +26,11 @@ export async function applyUpdates(
 function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
   return {
     projectName: plan.app.projectName,
-    previousTag: plan.previousTag,
     latestTag: plan.latestTag.name,
+    updates: plan.updates.map((update) => ({
+      valuesPath: update.target.valuesPath,
+      previousTag: update.previousTag,
+    })),
   }
 }
 

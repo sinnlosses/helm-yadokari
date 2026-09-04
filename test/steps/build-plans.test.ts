@@ -167,12 +167,12 @@ describe("buildPlans", () => {
     const appA = makeApp({
       projectId: toProjectId(1),
       projectName: toProjectName("app-a"),
-      chart: { valuesPath: toValuesPath("shared.yaml"), imageTagKey: toDotPath("appA.tag") },
+      chart: [{ valuesPath: toValuesPath("shared.yaml"), imageTagKey: toDotPath("appA.tag") }],
     })
     const appB = makeApp({
       projectId: toProjectId(2),
       projectName: toProjectName("app-b"),
-      chart: { valuesPath: toValuesPath("shared.yaml"), imageTagKey: toDotPath("appB.tag") },
+      chart: [{ valuesPath: toValuesPath("shared.yaml"), imageTagKey: toDotPath("appB.tag") }],
     })
     vi.mocked(getFileContent).mockResolvedValue(
       `appA:\n  tag: ${OLD_TAG}\nappB:\n  tag: ${OLD_TAG}\n`,
@@ -185,10 +185,12 @@ describe("buildPlans", () => {
 
   it("chart.imageTagAnchorが指定されたアプリはYAMLアンカーで値を取得・書き換える", async () => {
     const app = makeApp({
-      chart: {
-        valuesPath: toValuesPath("values.yaml"),
-        imageTagAnchor: toAnchorName("tenant1client1AppsVersion"),
-      },
+      chart: [
+        {
+          valuesPath: toValuesPath("values.yaml"),
+          imageTagAnchor: toAnchorName("tenant1client1AppsVersion"),
+        },
+      ],
     })
     vi.mocked(getFileContent).mockResolvedValue(
       `variables:\n  - &helmVersion develop\n  - &tenant1client1AppsVersion ${OLD_TAG}\n`,
@@ -196,6 +198,52 @@ describe("buildPlans", () => {
     const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
     expect(toApply[0]?.files[0]?.content).toContain(`&tenant1client1AppsVersion ${NEW_TAG}`)
     expect(toApply[0]?.files[0]?.content).toContain("&helmVersion develop")
+  })
+
+  it("1アプリに複数のchartを指定すると、同じ最新タグを複数箇所へ反映する", async () => {
+    const app = makeApp({
+      chart: [
+        { valuesPath: toValuesPath("webapi.yaml"), imageTagKey: toDotPath("image.tag") },
+        {
+          valuesPath: toValuesPath("batch.yaml"),
+          imageTagAnchor: toAnchorName("batchAppsVersion"),
+        },
+      ],
+    })
+    vi.mocked(getFileContent).mockImplementation(async (_client, _projectId, filePath) => {
+      if (filePath === "webapi.yaml") return `image:\n  tag: ${OLD_TAG}\n`
+      if (filePath === "batch.yaml") return `variables:\n  - &batchAppsVersion ${OLD_TAG}\n`
+      return undefined
+    })
+    const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    expect(toApply[0]?.plans[0]?.updates).toHaveLength(2)
+    expect(toApply[0]?.files).toHaveLength(2)
+    const webapiFile = toApply[0]?.files.find((f) => f.filePath === "webapi.yaml")
+    const batchFile = toApply[0]?.files.find((f) => f.filePath === "batch.yaml")
+    expect(webapiFile?.content).toContain(`tag: ${NEW_TAG}`)
+    expect(batchFile?.content).toContain(`&batchAppsVersion ${NEW_TAG}`)
+  })
+
+  it("複数のchartのうち一部だけ差分があるとき、差分がある箇所だけをupdatesに含める", async () => {
+    const app = makeApp({
+      chart: [
+        { valuesPath: toValuesPath("webapi.yaml"), imageTagKey: toDotPath("image.tag") },
+        {
+          valuesPath: toValuesPath("batch.yaml"),
+          imageTagAnchor: toAnchorName("batchAppsVersion"),
+        },
+      ],
+    })
+    vi.mocked(getFileContent).mockImplementation(async (_client, _projectId, filePath) => {
+      if (filePath === "webapi.yaml") return `image:\n  tag: ${OLD_TAG}\n`
+      if (filePath === "batch.yaml") return `variables:\n  - &batchAppsVersion ${NEW_TAG}\n`
+      return undefined
+    })
+    const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    expect(toApply[0]?.plans[0]?.updates).toHaveLength(1)
+    expect(toApply[0]?.plans[0]?.updates[0]?.target.valuesPath).toBe("webapi.yaml")
+    expect(toApply[0]?.files).toHaveLength(1)
+    expect(toApply[0]?.files[0]?.filePath).toBe("webapi.yaml")
   })
 
   it("401エラーのとき FatalError をスローする", async () => {

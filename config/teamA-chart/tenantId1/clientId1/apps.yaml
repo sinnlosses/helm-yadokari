@@ -3,11 +3,21 @@ apps:
     projectName: my-app          # タグを取得するGitLabプロジェクト
     branchToSync: main                    # 追跡するブランチ
     chart:
-      valuesPath: charts/my-app/values.yaml
-      imageTagKey: image.tag         # values.yaml内のdotパス
+      - valuesPath: charts/my-app/values.yaml
+        imageTagKey: image.tag         # values.yaml内のdotパス
   - projectId: 889
     projectName: another-app     # values.yamlが配列要素にYAMLアンカーで名前を付けた構成の例
     branchToSync: main
     chart:
-      valuesPath: charts/another-app/values.yaml
-      imageTagAnchor: tenantId1client1AppsVersion  # values.yaml内のYAMLアンカー名
+      - valuesPath: charts/another-app/values.yaml
+        imageTagAnchor: tenantId1client1AppsVersion  # values.yaml内のYAMLアンカー名
+  - projectId: 890
+    projectName: multi-service-app # 1プロジェクトでWebAPI/バッチ/デーモンなど複数appを管理する例
+    branchToSync: main
+    chart:
+      - valuesPath: charts/multi-service-app/webapi/values.yaml
+        imageTagKey: image.tag
+      - valuesPath: charts/multi-service-app/batch/values.yaml
+        imageTagKey: image.tag
+      - valuesPath: charts/multi-service-app/daemon/values.yaml
+        imageTagAnchor: multiServiceAppDaemonVersion

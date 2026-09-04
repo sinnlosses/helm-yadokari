@@ -42,15 +42,17 @@ const ImageTagLocationSchema = z.union([
     .strict(),
 ])
 
+const ImageTagTargetSchema = z
+  .object({
+    valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
+  })
+  .and(ImageTagLocationSchema)
+
 const AppConfigSchema = z.object({
   projectId: z.number().int().transform(toProjectId),
   projectName: z.string().min(1).transform(toProjectName),
   branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
-  chart: z
-    .object({
-      valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
-    })
-    .and(ImageTagLocationSchema),
+  chart: z.array(ImageTagTargetSchema).min(1, "chart は1件以上指定してください"),
 })
 
 const AppsYamlSchema = z.object({

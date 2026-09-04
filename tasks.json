@@ -18,9 +18,9 @@
   {
     "id": "T-003",
     "task": "アプリ単位の処理を並列化するか、意図的に逐次のままにするかを決める（現状はbuildChartUpdate()内でp-limit未適用、docs/requirements.md 4.3節の文言と完全には一致しない）",
-    "status": "todo",
-    "passes": false,
-    "evidence": "",
+    "status": "done",
+    "passes": true,
+    "evidence": "ユーザー判断: 夜間のpipeline schedule実行が前提のため、アプリ単位の処理は現状の逐次のままでよいと決定。コード変更なし。docs/requirements.md 4.3節の「chartリポジトリ間はp-limitで並列」という記述と、アプリ単位（chartグループ内）は逐次という実装の差異は、意図的な設計判断として記録のみ行う",
     "dependencies": ["T-002"]
   },
   {
@@ -94,5 +94,29 @@
     "passes": true,
     "evidence": "gitlab.com上の既存smokeテスト用リソース（sinnlosses-group/yadokari-smoke-test-chart等）を使い再検証。imageTagAnchor指定アプリとimageTagKey指定アプリが同一chartグループ内に混在するケースを含め、アンカー値の書き換え・他要素（別アンカー含む）の保持を実機で確認。副産物として実バグを1件発見・修正（commit未定: commitFileUpdates()が「固定ブランチが既に存在する＝対象ファイルも全て存在する」と決め打ちしていたため、MRクローズ後に残った固定ブランチへ新規valuesPathを追加した際に action:update を送ってしまい400エラーになっていた。ファイルごとに参照先ブランチ上の存在有無を確認しaction: create/updateを判定するよう修正、テスト追加。pnpm check（237テスト）通過。config/teamA-chart/tenantId1/clientId1/apps.yamlにimageTagAnchor使用例（another-app, projectId 889）を追加。作成したMRはクローズ済み、テスト用GitLabリソースは継続検証のため残置",
     "dependencies": ["T-011"]
+  },
+  {
+    "id": "T-013",
+    "task": "「Helmの向き先ブランチ」の追従・更新をこのツールのMR対象に含めるかどうか、/grillingで要件を詰める。ユーザー提示の出発点: Helm chartは(1)パラメータを定義するブランチ（values.yaml等を持つ、既存のmrTargetBranchに相当）と、(2)そのパラメータを受け取ってk8sリソースを実際に構築するブランチ（=「Helmの向き先ブランチ」）の2種類で構成される。向き先ブランチは1つのclient（tenantId/clientId）内のapps全体で共通の1つの値であり、タグではなくブランチ名そのもので指定する。この向き先ブランチ自体もバージョンによって変わることがあり、変わった場合はこのツールが検知してMRの変更対象に含めてほしい、という要望。未確定な論点（grillingで詰める）: この設定をどこに持たせるか（chart.yaml/apps.yaml/新設の設定ファイル）、「向き先ブランチが更新された」をどう判定するか（タグの命名規則のような仕組みが向き先ブランチ側にも要るのか、それとも人間が都度値を書き換える運用か）、既存のimageTagKey/imageTagAnchorの更新フロー・MR集約単位（chartグループ単位）とどう共存させるか、1client内で本当に常に1つに定まるのか（複数chartグループにまたがる場合の扱い）など",
+    "status": "todo",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
+  },
+  {
+    "id": "T-014",
+    "task": "1つのsource project（app.projectId）に対して、WebAPI/バッチ/デーモンなど複数のアプリケーションを管理しており、同一の追跡タグを複数の書き換え箇所（複数のimageTagKey/imageTagAnchor）に反映したいケースに対応する。現状（T-011）はAppConfig.chartが1エントリにつきimageTagKey/imageTagAnchorのどちらか1つのみを持てる設計（ImageTagLocation、排他ユニオン）。apps.yamlのスキーマ（1app=1箇所 → 1app=複数箇所の配列、など）・AppConfig/AppUpdatePlan型・buildChartUpdate()やgetImageTag/setImageTagの実装・MR本文（1アプリで複数箇所を書き換えた場合の表示）を、複数箇所への反映に対応する形に見直す必要がある",
+    "status": "done",
+    "passes": true,
+    "evidence": "AppConfig.chartをImageTagTarget（valuesPath + imageTagKey/imageTagAnchor）の配列に変更（1件以上必須、src/lib/config.tsでzod検証）。AppUpdatePlanをapp単位のlatestTag/pipelineと、箇所ごとのImageTagUpdate（target + previousTag）配列に分離。src/steps/build-plans.tsにapplyImageTagTarget()/applyAppToChartUpdate()を追加し、app.chartを1箇所ずつreduceで処理して差分があった箇所だけをupdatesに積む（全箇所反映済みならそのアプリ自体を計画から除外）。src/lib/gitlab/gitlab.tsのbuildMrPlanSection()を、アプリ単位（打刻日時・パイプライン）と箇所単位（タグ・比較URL）の2階層表示に再構成。test/lib/config.test.ts・test/steps/build-plans.test.ts（1アプリ複数chart・一部のみ差分ありの2ケースを追加）・test/steps/apply-updates.test.ts・test/lib/gitlab/gitlab.test.tsを新スキーマに追従。pnpm check（249テスト）通過。gitlab.com実機（sinnlosses-group/yadokari-smoke-test-chart + sample-qa-sprint）でbuildPlans()を直接呼び出し、1アプリ2箇所（dotパス+アンカー）が同一latestTagに対しそれぞれ独立したpreviousTagを検出し、MR descriptionが箇所ごとに正しい行を生成することを確認（一時スクリプト・一時config-test-t014ディレクトリは検証後に削除、既存のテスト用GitLabリソース・MRは変更していない）。config/teamA-chart/tenantId1/clientId1/apps.yamlに複数chart指定の例（multi-service-app, projectId 890）を追加。README.md/docs/requirements.md/docs/architecture.md/docs/glossary.mdを新スキーマ・複数箇所対応の説明に更新",
+    "dependencies": ["T-011"]
+  },
+  {
+    "id": "T-015",
+    "task": "更新ブランチ名の仕様を見直す。現状は`UPDATE_BRANCH`（\"yadokari/update\"）固定の1本で、chartリポジトリ単位にこのブランチへコミットを積みMRを作る。ユーザーの問題意識: 通常のpipeline schedulesによる定期実行に加えて、ユーザーが手動でこのCLIをトリガーしたい場合もありそうで、その際に定期実行分と同じ固定ブランチへ積んでしまうと意図せず混ざる（例: 定期実行のMRがまだレビュー中のところへ手動実行のコミットが追加されてしまう、手動実行のたたき台を定期実行が上書きする、など）。/grillingで要件を詰める。未確定な論点: 手動トリガーと定期実行をどう区別するか（環境変数・CLI引数・実行コンテキストの検知など）、ブランチ名をどう分けるか（固定2種類、都度ユニークな名前、ユーザー指定可能にする等）、既存の「固定ブランチにオープン中のMRがあればそのchartグループをスキップする」（filterTargetsの`openMergeRequestExists`）仕組みや「既存の固定ブランチを削除して作り直す」運用とどう整合させるか、ブランチが複数になった場合のstale化したブランチの掃除方針",
+    "status": "todo",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
   }
 ]

@@ -14,7 +14,7 @@ import {
 } from "../../src/lib/gitlab/gitlab.js"
 import { applyUpdates } from "../../src/steps/apply-updates.js"
 import type { ChartUpdateTarget } from "../../src/types.js"
-import { toBranchName, toTagName, toValuesPath } from "../../src/types.js"
+import { toBranchName, toDotPath, toTagName, toValuesPath } from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../helpers.js"
 
@@ -32,9 +32,17 @@ function makeTarget(): ChartUpdateTarget {
     plans: [
       {
         app: makeApp(),
-        previousTag: undefined,
         latestTag: NEW_TAG,
         pipeline: undefined,
+        updates: [
+          {
+            target: {
+              valuesPath: toValuesPath("values.yaml"),
+              imageTagKey: toDotPath("image.tag"),
+            },
+            previousTag: undefined,
+          },
+        ],
       },
     ],
     files: [{ filePath: toValuesPath("values.yaml"), content: "image:\n  tag: x\n" }],

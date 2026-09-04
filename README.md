@@ -154,18 +154,36 @@ apps:
     projectName: my-app
     branchToSync: main # 追跡するブランチ
     chart:
-      valuesPath: charts/my-app/values.yaml
-      imageTagKey: image.tag # values.yaml内のdotパス
+      - valuesPath: charts/my-app/values.yaml
+        imageTagKey: image.tag # values.yaml内のdotパス
 ```
 
 `values.yaml` がオブジェクトのネストではなく、配列要素にYAMLアンカーで名前を付けた構成
 （例: `variables: [&tenant1client1AppsVersion main, ...]`）の場合は、`imageTagKey` の代わりに
-`imageTagAnchor` でアンカー名を指定できます（1アプリにつきどちらか一方のみ）:
+`imageTagAnchor` でアンカー名を指定できます（`chart` の1要素につきどちらか一方のみ）:
 
 ```yaml
 chart:
-  valuesPath: charts/my-app/values.yaml
-  imageTagAnchor: tenant1client1AppsVersion
+  - valuesPath: charts/my-app/values.yaml
+    imageTagAnchor: tenant1client1AppsVersion
+```
+
+`chart` は1件以上の配列です。1つのソースリポジトリ（1つの `projectId`）でWebAPI/バッチ/デーモン
+など複数のデプロイ単位を管理している場合は、`chart` に複数要素を指定すると同じ最新タグを
+複数箇所へまとめて反映できます:
+
+```yaml
+apps:
+  - projectId: 2
+    projectName: multi-service-app
+    branchToSync: main
+    chart:
+      - valuesPath: charts/multi-service-app/webapi/values.yaml
+        imageTagKey: image.tag
+      - valuesPath: charts/multi-service-app/batch/values.yaml
+        imageTagKey: image.tag
+      - valuesPath: charts/multi-service-app/daemon/values.yaml
+        imageTagAnchor: multiServiceAppDaemonVersion
 ```
 
 ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/apps.yaml` の2階層で固定です。

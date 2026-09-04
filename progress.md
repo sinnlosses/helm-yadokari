@@ -1,6 +1,6 @@
 # 現在の状態
 
-最終更新: 2026-09-03（絞り込み実行機能・実機動作確認セッション）
+最終更新: 2026-09-04（1アプリ複数chart対応セッション）
 
 ## 完了したこと
 
@@ -141,15 +141,62 @@
     存在有無を確認して`action: create`/`update`を判定するよう修正し、テストを追加
     （`pnpm check` 237テスト通過）
   - 作成したMRはクローズ済み（マージなし）。テスト用GitLabリソースは継続検証のため残置
+- **T-014完了**: 1つのsource projectが複数アプリ（WebAPI/バッチ/デーモン等）を持ち、
+  同一の追跡タグを複数の書き換え箇所に反映できるようにした
+  - `AppConfig.chart`を単一の`ImageTagLocation`付きオブジェクトから、`ImageTagTarget`
+    （`valuesPath` + `imageTagKey`/`imageTagAnchor`）の配列（1件以上必須）に変更。
+    `apps.yaml`の`chart`フィールドも配列表記になる（既存の単一指定アプリも`chart: [...]`
+    へ書き換えが必要な破壊的スキーマ変更）
+  - `AppUpdatePlan`を、アプリ単位で1回だけ持つ`latestTag`/`pipeline`と、書き換え箇所ごとに
+    独立した`previousTag`を持つ`updates: ImageTagUpdate[]`に分離。同一タグでも箇所によって
+    現在の`values.yaml`の値が異なりうるため（一部だけ反映済み、等）、差分があった箇所だけを
+    `updates`に積む（全箇所反映済みならそのアプリ自体を計画に含めない）
+  - `src/steps/build-plans.ts`: `applyImageTagTarget()`（1箇所分の差分チェック・書き換え）と
+    `applyAppToChartUpdate()`（`app.chart`をreduceで1箇所ずつ処理）を追加。既存の
+    「同じvaluesPathを複数アプリで共有する場合は1ファイルにまとめる」仕組み
+    （`valuesYamlCache`/`modifiedValuesPaths`）はそのまま複数箇所ケースにも対応
+  - `src/lib/gitlab/gitlab.ts`の`buildMrPlanSection()`を、アプリ単位（`### projectName`・
+    打刻日時・パイプライン）＋箇所単位（`valuesPath`・位置の説明・旧タグ→新タグ・比較URL）の
+    2階層表示に再構成
+  - `test/lib/config.test.ts`（配列構文への全面書き換え＋複数chart指定のテスト追加）、
+    `test/steps/build-plans.test.ts`（「1アプリ複数chartで同じ最新タグを反映」「一部箇所だけ
+    差分がある場合の絞り込み」の2テストを追加）、`test/steps/apply-updates.test.ts`、
+    `test/lib/gitlab/gitlab.test.ts`（`makePlan()`を新しい`updates`構造に対応）を更新
+  - `pnpm check`（249テスト）通過
+  - gitlab.com実機（`yadokari-smoke-test-chart` + `sample-qa-sprint`）で検証。一時的に
+    `buildPlans()`を直接呼び出すスクリプトと専用configディレクトリを用意し
+    （固定ブランチに既存の検証用MRが残っているため、通常のCLI経由だと`filterTargets`で
+    スキップされてしまうことを確認したうえでの代替手段）、1アプリ2箇所
+    （`charts/sample-qa-sprint/values.yaml`のdotパス + `charts/anchor-app/values.yaml`の
+    アンカー）が同一の`latestTag`に対しそれぞれ独立した`previousTag`（`placeholder`と
+    旧タグ）を検出し、両ファイルへの書き換え内容・MR descriptionの箇所別表示が正しいことを
+    確認。検証用スクリプト・configディレクトリは確認後に削除済み、既存のテスト用GitLab
+    リソース・MRには一切変更を加えていない
+  - `config/teamA-chart/tenantId1/clientId1/apps.yaml`に複数chart指定の例
+    （`multi-service-app`, projectId 890, webapi/batch/daemonの3箇所）を追加
+  - `README.md`/`docs/requirements.md`/`docs/architecture.md`/`docs/glossary.md`を
+    配列スキーマ・複数箇所対応の説明に更新（`docs/glossary.md`の`imageTagAnchor`補足に
+    残っていた`js-yaml`言及、`previousTag`表記ゆれ注記の`currentTag`という古い変数名も
+    あわせて修正）
+
+- **T-003完了**: アプリ単位の並列化要否をユーザーに確認し、逐次のままでよいと決定
+  - 理由: 夜間のpipeline schedule実行が前提のため、アプリ単位の処理速度は問題にならない
+  - コード変更なし。`docs/requirements.md` 4.3節の「並列」という記述とアプリ単位（chartグループ内）が
+    逐次実行である実装との差異は、意図的な設計判断として`tasks.json`に記録のみ行う
 
 ## 次にやること
 
-- T-003: アプリ単位の並列化要否を判断する（現状は意図的に逐次処理）
+- T-013: 「Helmの向き先ブランチ」（パラメータを受け取りk8sリソースを構築するブランチ。
+  1client内のapps全体で共通、タグでなくブランチ名で指定）の追従・更新をMR対象に含めるか、
+  `/grilling`で要件を詰める
+- T-015: 更新ブランチ名（現状`UPDATE_BRANCH`固定1本）の仕様見直し。pipeline schedulesに
+  よる定期実行と、ユーザーによる手動トリガー実行とでブランチを分けたいという問題意識、
+  `/grilling`で要件を詰める
 - 検証が完全に終わったら、テスト用のGitLabアクセストークンを失効させる（ユーザー対応）
 
 ## 未解決
 
-- T-003（`tasks.json`参照）
+- T-013, T-015（`tasks.json`参照）
 
 ## 注意
 

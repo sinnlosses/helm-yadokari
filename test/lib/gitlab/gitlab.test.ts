@@ -18,9 +18,10 @@ import {
   listTags,
   openMergeRequestExists,
 } from "../../../src/lib/gitlab/gitlab.js"
-import type { AppUpdatePlan, PipelineInfo } from "../../../src/types.js"
+import type { AppUpdatePlan, PipelineInfo, TagName } from "../../../src/types.js"
 import {
   toBranchName,
+  toDotPath,
   toGitLabUrl,
   toProjectId,
   toProjectName,
@@ -426,18 +427,24 @@ describe("UPDATE_BRANCH", () => {
 })
 
 function makePlan(
-  overrides: Partial<{ pipeline: PipelineInfo; previousTag: AppUpdatePlan["previousTag"] }> = {},
+  overrides: Partial<{ pipeline: PipelineInfo; previousTag: TagName | undefined }> = {},
 ): AppUpdatePlan {
+  const previousTag =
+    "previousTag" in overrides ? overrides.previousTag : toTagName("main-build-at-20251231-000000")
   return {
     app: makeApp({ projectId: toProjectId(1), projectName: toProjectName("my-app") }),
-    previousTag: toTagName("main-build-at-20251231-000000"),
     latestTag: {
       name: toTagName("main-build-at-20260101-000000"),
       branch: toBranchName("main"),
       builtAt: new Date("2026-01-01T00:00:00Z"),
     },
-    pipeline: undefined,
-    ...overrides,
+    pipeline: overrides.pipeline,
+    updates: [
+      {
+        target: { valuesPath: toValuesPath("values.yaml"), imageTagKey: toDotPath("image.tag") },
+        previousTag,
+      },
+    ],
   }
 }
 

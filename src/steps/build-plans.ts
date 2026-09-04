@@ -16,8 +16,11 @@ import type {
   ChartUpdateResult,
   ChartUpdateTarget,
   FileUpdate,
+  ImageTagTarget,
+  ImageTagUpdate,
   ParsedTag,
   ProjectId,
+  TagName,
   ValuesPath,
 } from "../types.js"
 import { toTagName } from "../types.js"
@@ -65,8 +68,11 @@ export async function buildPlans(
 function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
   return {
     projectName: plan.app.projectName,
-    previousTag: plan.previousTag,
     latestTag: plan.latestTag.name,
+    updates: plan.updates.map((update) => ({
+      valuesPath: update.target.valuesPath,
+      previousTag: update.previousTag,
+    })),
   }
 }
 
@@ -148,7 +154,7 @@ async function resolveLatestTag(
 
 /**
  * 1つのchartグループについて、アプリごとに最新タグを判定し、反映済みタグと異なる
- * アプリだけを更新計画に含める。同じ values.yaml を参照する複数アプリの変更は、
+ * アプリだけを更新計画に含める。同じ values.yaml を参照する複数アプリ・複数箇所の変更は、
  * 同一ファイル内に積み重ねてまとめる。
  */
 type BuildChartUpdateAcc = {
@@ -162,10 +168,42 @@ type LoadValuesYamlContent = (
   valuesPath: ValuesPath,
 ) => Promise<string>
 
+type ApplyTargetsAcc = {
+  readonly valuesYamlCache: ReadonlyMap<ValuesPath, string>
+  readonly modifiedValuesPaths: ReadonlySet<ValuesPath>
+  readonly updates: readonly ImageTagUpdate[]
+}
+
 /**
- * 1アプリ分の最新タグ判定・差分チェックを行い、差分があれば更新計画とキャッシュ済み
- * values.yaml の内容にそれを積み重ねたアキュムレータを返す（差分がなければ values.yaml
- * のキャッシュ更新分だけを引き継ぐ）。
+ * `app.chart`のうち1箇所分について、現在の値を読み取り最新タグと比較する。差分が
+ * あれば書き換え内容をキャッシュに積み、`updates`にも積む（差分が無ければキャッシュの
+ * 更新分だけを引き継ぎ、その箇所は`updates`に含めない）。
+ */
+async function applyImageTagTarget(
+  loadValuesYamlContent: LoadValuesYamlContent,
+  latestTagName: TagName,
+  acc: ApplyTargetsAcc,
+  target: ImageTagTarget,
+): Promise<ApplyTargetsAcc> {
+  const valuesYamlCache = new Map(acc.valuesYamlCache)
+  const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, target.valuesPath)
+  const previousTagRaw = getImageTag(valuesYamlContent, target)
+  if (previousTagRaw === latestTagName) return { ...acc, valuesYamlCache }
+
+  valuesYamlCache.set(target.valuesPath, setImageTag(valuesYamlContent, target, latestTagName))
+  return {
+    valuesYamlCache,
+    modifiedValuesPaths: new Set(acc.modifiedValuesPaths).add(target.valuesPath),
+    updates: [
+      ...acc.updates,
+      { target, previousTag: previousTagRaw === undefined ? undefined : toTagName(previousTagRaw) },
+    ],
+  }
+}
+
+/**
+ * 1アプリ分の最新タグ判定・箇所ごとの差分チェックを行い、差分があった箇所だけを
+ * 更新計画に積んだアキュムレータを返す（全箇所が反映済みなら plans は増えない）。
  */
 async function applyAppToChartUpdate(
   gitlab: GitlabClient,
@@ -176,10 +214,20 @@ async function applyAppToChartUpdate(
 ): Promise<BuildChartUpdateAcc> {
   const latestTag = await resolveLatestTag(gitlab, app, dryRun)
 
-  const valuesYamlCache = new Map(acc.valuesYamlCache)
-  const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, app.chart.valuesPath)
-  const previousTagRaw = getImageTag(valuesYamlContent, app.chart)
-  if (previousTagRaw === latestTag.name) {
+  const initialTargetsAcc: ApplyTargetsAcc = {
+    valuesYamlCache: acc.valuesYamlCache,
+    modifiedValuesPaths: acc.modifiedValuesPaths,
+    updates: [],
+  }
+  const { valuesYamlCache, modifiedValuesPaths, updates } = await app.chart.reduce(
+    (accPromise, target) =>
+      accPromise.then((current) =>
+        applyImageTagTarget(loadValuesYamlContent, latestTag.name, current, target),
+      ),
+    Promise.resolve(initialTargetsAcc),
+  )
+
+  if (updates.length === 0) {
     logger.info({
       event: "check_app",
       projectName: app.projectName,
@@ -187,25 +235,16 @@ async function applyAppToChartUpdate(
       reason: "already_up_to_date",
       tag: latestTag.name,
     })
-    return { ...acc, valuesYamlCache }
+    return { plans: acc.plans, valuesYamlCache, modifiedValuesPaths }
   }
 
   const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.name)
-  const plan: AppUpdatePlan = {
-    app,
-    previousTag: previousTagRaw === undefined ? undefined : toTagName(previousTagRaw),
-    latestTag,
-    pipeline,
-  }
-  valuesYamlCache.set(
-    app.chart.valuesPath,
-    setImageTag(valuesYamlContent, app.chart, latestTag.name),
-  )
+  const plan: AppUpdatePlan = { app, latestTag, pipeline, updates }
 
   return {
     plans: [...acc.plans, plan],
     valuesYamlCache,
-    modifiedValuesPaths: new Set(acc.modifiedValuesPaths).add(app.chart.valuesPath),
+    modifiedValuesPaths,
   }
 }
 
