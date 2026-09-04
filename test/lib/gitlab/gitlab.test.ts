@@ -520,4 +520,26 @@ describe("buildMrDescription", () => {
     const description = await buildMrDescription(client, [makePlan({ previousTag: undefined })])
     expect(description).not.toContain("/-/compare/")
   })
+
+  it("旧タグにもタグページへのリンクを付ける", async () => {
+    const client = makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
+      },
+    })
+    const description = await buildMrDescription(client, [makePlan()])
+    expect(description).toContain(
+      "[main-build-at-20251231-000000](https://gitlab.example.com/g/my-app/-/tags/main-build-at-20251231-000000)",
+    )
+  })
+
+  it("旧タグが未設定のときは (未設定) と表示しリンクを付けない", async () => {
+    const client = makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
+      },
+    })
+    const description = await buildMrDescription(client, [makePlan({ previousTag: undefined })])
+    expect(description).toContain("(未設定)")
+  })
 })

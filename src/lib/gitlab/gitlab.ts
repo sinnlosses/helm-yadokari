@@ -205,8 +205,15 @@ export function buildMrTitle(plans: readonly AppUpdatePlan[]): string {
   return `Auto MR by yadokari: update ${plans.length} app image tag(s)`
 }
 
+function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): string {
+  return `${webUrl}/-/tags/${encodeURIComponent(tagName)}`
+}
+
 function buildMrPlanSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {
-  const tagUrl = `${webUrl}/-/tags/${encodeURIComponent(plan.latestTag.name)}`
+  const previousTagText = plan.previousTag
+    ? `[${plan.previousTag}](${buildTagUrl(webUrl, plan.previousTag)})`
+    : "(未設定)"
+  const tagUrl = buildTagUrl(webUrl, plan.latestTag.name)
   const pipelineLine = plan.pipeline
     ? `- パイプライン: [${plan.pipeline.status}](${plan.pipeline.webUrl})`
     : "- パイプライン: (見つかりません)"
@@ -215,7 +222,7 @@ function buildMrPlanSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {
     : "- 比較: (旧タグ未設定のため比較できません)"
   return [
     `### ${plan.app.projectName}`,
-    `- タグ: ${plan.previousTag ?? "(未設定)"} → [${plan.latestTag.name}](${tagUrl})`,
+    `- タグ: ${previousTagText} → [${plan.latestTag.name}](${tagUrl})`,
     `- 打刻日時: ${plan.latestTag.builtAt.toISOString()}`,
     pipelineLine,
     compareLine,
