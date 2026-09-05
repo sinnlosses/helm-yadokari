@@ -37,28 +37,18 @@
 - **英語識別子**: `valuesPath`
 - **定義**: `apps.yaml`内で、対象アプリが参照する`values.yaml`ファイルのパスを指すフィールド。
 
-### imageTagKey
-
-- **英語識別子**: `imageTagKey`
-- **定義**: `values.yaml`内のイメージタグの位置を表すdotパス（例: `image.tag`）。`apps.yaml`の`chart`配列の1要素が持つフィールド名。
-  `imageTagAnchor`と排他（1箇所につきどちらか一方のみ指定する）。1つのソースリポジトリでWebAPI/バッチ/デーモンなど
-  複数のデプロイ単位を管理している場合は、`chart`配列の要素ごとに`imageTagKey`/`imageTagAnchor`を使い分けられる。
-
-### dotパス
-
-- **定義**: `image.tag`のような、ドット区切りでYAML内の階層を表すパス表記。`imageTagKey`の値の書式。
-
 ### imageTagAnchor
 
 - **英語識別子**: `imageTagAnchor`（型は`AnchorName`ブランド型）
-- **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す`apps.yaml`のフィールド。
-  `image.tag`のようなオブジェクトのネストではなく、`variables: [&tenant1client1AppsVersion main, ...]`
-  のように配列要素にアンカーで名前を付けた構成のvalues.yaml向け。`imageTagKey`と排他。
-- **補足**: `yaml`パッケージ（`src/lib/helm.ts`の`getValueAtAnchor`/`setValueAtAnchor`）はASTを
-  `visit()`で走査し、アンカー名をノードのプロパティとして直接引ける。`imageTagKey`用の
-  `getValueAtPath`/`setValueAtPath`も同じ`yaml`パッケージの`Document.getIn()`/`setIn()`で
-  実装されており、パース・シリアライズは1ライブラリに統一されている。呼び出し側
-  （`build-plans.ts`）は`getImageTag`/`setImageTag`でどちらの方式かを意識せず扱う。
+- **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`apps.yaml`の`chart`配列の
+  1要素が持つフィールド名。`variables: [&tenant1client1AppsVersion main, ...]`のように、配列要素に
+  アンカーで名前を付けた構成のvalues.yamlを前提とする。1つのソースリポジトリでWebAPI/バッチ/
+  デーモンなど複数のデプロイ単位を管理している場合は、`chart`配列に要素を複数指定し、それぞれ
+  異なる`imageTagAnchor`を持たせる。
+- **補足**: `yaml`パッケージ（`src/lib/helm.ts`の`getValueAtAnchor`/`setValueAtAnchor`）がASTを
+  `visit()`で走査し、アンカー名をノードのプロパティとして直接引く。オブジェクトのネストを
+  dotパスで辿る`imageTagKey`方式も過去に存在したが、実運用ではYAMLアンカー方式のみで
+  十分なため削除された。
 
 ### chartDir
 

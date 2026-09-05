@@ -136,14 +136,18 @@ apps:
     branchToSync: main # 追跡するブランチ
     chart:
       - valuesPath: charts/my-app/values.yaml
-        imageTagKey: image.tag # values.yaml内のdotパス
+        imageTagAnchor: myAppVersion # values.yaml内のYAMLアンカー名
 ```
 
-- `chart` は1件以上の配列で、`valuesPath`（書き換え対象の`values.yaml`のパス）ごとに
-  1要素を指定する。1つのソースリポジトリ（1つの`projectId`・タグ）に対してWebAPI/
-  バッチ/デーモンなど複数のデプロイ単位を管理しているケースでは、`chart`に複数要素を
-  指定することで、同じ最新タグを複数箇所（複数の`values.yaml`、あるいは同一
-  `values.yaml`内の複数箇所）へまとめて反映できる
+- `chart[].imageTagAnchor` は、`values.yaml`内のイメージタグの位置をYAMLアンカー名で
+  指定するフィールド。`values.yaml`はオブジェクトのネストではなく、配列要素にYAMLアンカーで
+  名前を付けた構成（例: `variables: [&myAppVersion main, ...]`）を前提とし、指定したアンカー名を
+  持つYAML上のスカラー値を、ネストの深さ・キー名に関わらず直接書き換える
+
+- `chart` は1件以上の配列で、`valuesPath`（書き換え対象の`values.yaml`のパス）＋
+  `imageTagAnchor`（書き換え位置）ごとに1要素を指定する。1つのソースリポジトリ（1つの
+  `projectId`・タグ）に対してWebAPI/バッチ/デーモンなど複数のデプロイ単位を管理している
+  ケースでは、`chart`に複数要素を指定することで、同じ最新タグを複数箇所へまとめて反映できる
 
   ```yaml
   apps:
@@ -151,32 +155,13 @@ apps:
       projectName: multi-service-app
       branchToSync: main
       chart:
-        - valuesPath: charts/multi-service-app/webapi/values.yaml
-          imageTagKey: image.tag
-        - valuesPath: charts/multi-service-app/batch/values.yaml
-          imageTagKey: image.tag
-        - valuesPath: charts/multi-service-app/daemon/values.yaml
+        - valuesPath: charts/multi-service-app/values.yaml
+          imageTagAnchor: multiServiceAppWebapiVersion
+        - valuesPath: charts/multi-service-app/values.yaml
+          imageTagAnchor: multiServiceAppBatchVersion
+        - valuesPath: charts/multi-service-app/values.yaml
           imageTagAnchor: multiServiceAppDaemonVersion
   ```
-
-- `chart[].imageTagKey` の代わりに `chart[].imageTagAnchor` を指定することもできる。
-  `values.yaml` がオブジェクトのネストではなく、配列要素にYAMLアンカーで名前を
-  付けた構成（例: `variables: [&tenant1client1AppsVersion main, ...]`）の場合に使う。
-  指定したアンカー名を持つYAML上のスカラー値を、ネストの深さ・キー名に関わらず直接
-  書き換える
-
-  ```yaml
-  apps:
-    - projectId: 889
-      projectName: another-app
-      branchToSync: main
-      chart:
-        - valuesPath: charts/another-app/values.yaml
-          imageTagAnchor: tenant1client1AppsVersion
-  ```
-
-  - `imageTagKey` と `imageTagAnchor` は `chart` の1要素につきどちらか一方のみ指定する
-    （両方・どちらも無しは設定エラー）
 
 - ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/apps.yaml` の
   2階層（tenantId/clientId）に統一する。テナント分けが不要なchartでも、ダミーの

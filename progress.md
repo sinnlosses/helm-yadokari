@@ -178,6 +178,19 @@
     配列スキーマ・複数箇所対応の説明に更新（`docs/glossary.md`の`imageTagAnchor`補足に
     残っていた`js-yaml`言及、`previousTag`表記ゆれ注記の`currentTag`という古い変数名も
     あわせて修正）
+  - **【追記】ユーザー指示により`imageTagKey`（dotパス）方式を完全に削除、`imageTagAnchor`
+    （YAMLアンカー）方式のみに一本化**。当初「multi-service-appの例だけアンカーに寄せる」と
+    誤解して対応したが、ユーザーの意図は「ツール全体でdotパスをやめてアンカーのみ対応にする」
+    ことだったため、`DotPath`型・`ImageTagLocation`ユニオン・`getValueAtPath`/`setValueAtPath`・
+    `getImageTag`/`setImageTag`ラッパーを`src/types.ts`/`src/lib/config.ts`/`src/lib/helm.ts`/
+    `src/steps/build-plans.ts`/`src/lib/gitlab/gitlab.ts`から削除。`ImageTagTarget`は
+    `valuesPath` + `imageTagAnchor`のみを持つ単純な型になった
+  - `config/`実例の`my-app`エントリも`imageTagAnchor`（アンカー名`myAppVersion`）に変更。
+    全テストファイルのフィクスチャを`imageTagAnchor`ベースに書き換え、両方指定/どちらも
+    未指定の排他検証テストなど不要になったテストを削除。`README.md`/`docs/requirements.md`/
+    `docs/architecture.md`/`docs/glossary.md`から`imageTagKey`の現行仕様としての記載を削除し、
+    削除された経緯のみ補足として残した
+  - `pnpm check`（234テスト）通過
 
 - **T-003完了**: アプリ単位の並列化要否をユーザーに確認し、逐次のままでよいと決定
   - 理由: 夜間のpipeline schedule実行が前提のため、アプリ単位の処理速度は問題にならない

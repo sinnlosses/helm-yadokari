@@ -20,8 +20,8 @@ import {
 } from "../../../src/lib/gitlab/gitlab.js"
 import type { AppUpdatePlan, PipelineInfo, TagName } from "../../../src/types.js"
 import {
+  toAnchorName,
   toBranchName,
-  toDotPath,
   toGitLabUrl,
   toProjectId,
   toProjectName,
@@ -441,7 +441,10 @@ function makePlan(
     pipeline: overrides.pipeline,
     updates: [
       {
-        target: { valuesPath: toValuesPath("values.yaml"), imageTagKey: toDotPath("image.tag") },
+        target: {
+          valuesPath: toValuesPath("values.yaml"),
+          imageTagAnchor: toAnchorName("appVersion"),
+        },
         previousTag,
       },
     ],

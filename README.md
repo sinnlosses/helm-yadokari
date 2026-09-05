@@ -155,18 +155,13 @@ apps:
     branchToSync: main # 追跡するブランチ
     chart:
       - valuesPath: charts/my-app/values.yaml
-        imageTagKey: image.tag # values.yaml内のdotパス
+        imageTagAnchor: myAppVersion # values.yaml内のYAMLアンカー名
 ```
 
-`values.yaml` がオブジェクトのネストではなく、配列要素にYAMLアンカーで名前を付けた構成
-（例: `variables: [&tenant1client1AppsVersion main, ...]`）の場合は、`imageTagKey` の代わりに
-`imageTagAnchor` でアンカー名を指定できます（`chart` の1要素につきどちらか一方のみ）:
-
-```yaml
-chart:
-  - valuesPath: charts/my-app/values.yaml
-    imageTagAnchor: tenant1client1AppsVersion
-```
+`chart[].imageTagAnchor` は、`values.yaml` 内のイメージタグの位置をYAMLアンカー名で指定する
+フィールドです。`values.yaml` はオブジェクトのネストではなく、配列要素にYAMLアンカーで名前を
+付けた構成（例: `variables: [&myAppVersion main, ...]`）を前提とし、指定したアンカー名を持つ
+YAML上のスカラー値を、ネストの深さ・キー名に関わらず直接書き換えます。
 
 `chart` は1件以上の配列です。1つのソースリポジトリ（1つの `projectId`）でWebAPI/バッチ/デーモン
 など複数のデプロイ単位を管理している場合は、`chart` に複数要素を指定すると同じ最新タグを
@@ -178,11 +173,11 @@ apps:
     projectName: multi-service-app
     branchToSync: main
     chart:
-      - valuesPath: charts/multi-service-app/webapi/values.yaml
-        imageTagKey: image.tag
-      - valuesPath: charts/multi-service-app/batch/values.yaml
-        imageTagKey: image.tag
-      - valuesPath: charts/multi-service-app/daemon/values.yaml
+      - valuesPath: charts/multi-service-app/values.yaml
+        imageTagAnchor: multiServiceAppWebapiVersion
+      - valuesPath: charts/multi-service-app/values.yaml
+        imageTagAnchor: multiServiceAppBatchVersion
+      - valuesPath: charts/multi-service-app/values.yaml
         imageTagAnchor: multiServiceAppDaemonVersion
 ```
 
@@ -273,7 +268,7 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │   │   │   ├── gitlab.ts      # GitLab API クライアント操作（タグ作成、MRタイトル・本文組み立て含む）
 │   │   │   └── tag.ts         # タグ命名規則のパース・最新タグ判定・新規タグ組み立て（純粋関数）
 │   │   ├── config.ts          # config/ の再帰読み込み・パース
-│   │   ├── helm.ts            # Helm chart の values.yaml 操作（dotパス読み書き）
+│   │   ├── helm.ts            # Helm chart の values.yaml 操作（YAMLアンカー読み書き）
 │   │   └── env.ts             # 環境変数ユーティリティ
 │   └── utils/                 # ドメイン知識を持たない、または純粋な汎用ユーティリティ
 │       ├── errors.ts          # カスタムエラー

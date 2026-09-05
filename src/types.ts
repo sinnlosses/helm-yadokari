@@ -35,13 +35,6 @@ export function toValuesPath(s: string): ValuesPath {
   return s as ValuesPath
 }
 
-declare const dotPathBrand: unique symbol
-/** values.yaml内の値を指すdotパス（例: "image.tag"） */
-export type DotPath = string & { readonly [dotPathBrand]: never }
-export function toDotPath(s: string): DotPath {
-  return s as DotPath
-}
-
 declare const chartDirNameBrand: unique symbol
 /** config/ 直下、1chart分の設定を束ねるディレクトリ名（例: "teamA-chart"） */
 export type ChartDirName = string & { readonly [chartDirNameBrand]: never }
@@ -52,8 +45,9 @@ export function toChartDirName(s: string): ChartDirName {
 declare const anchorNameBrand: unique symbol
 /**
  * values.yaml内のYAMLアンカー名（例: `&tenant1client1AppsVersion`の`tenant1client1AppsVersion`
- * 部分）。オブジェクトのネストではなく配列要素にアンカーで名前を付けた構成のvalues.yamlで、
- * `imageTagKey`（dotパス）の代わりに値の位置を指定するために使う
+ * 部分）。values.yamlはオブジェクトのネストではなく、配列要素にアンカーで名前を付けた構成
+ * （例: `variables: [&tenant1client1AppsVersion main, ...]`）を前提とし、このアンカー名で
+ * イメージタグの値の位置を指定する
  */
 export type AnchorName = string & { readonly [anchorNameBrand]: never }
 export function toAnchorName(s: string): AnchorName {
@@ -72,23 +66,15 @@ export type TargetClient = {
 }
 
 /**
- * values.yaml内でイメージタグの値がどこにあるかを指す2通りの方式。
- * `imageTagKey`はオブジェクトのネストをdotパスで辿る（例: "image.tag"）。
- * `imageTagAnchor`は配列要素にYAMLアンカーで名前を付けた構成向けで、アンカー名で
- * 該当要素を直接指す（例: `variables: [&tenant1client1AppsVersion main, ...]`）。
- * 1箇所につきどちらか一方のみを指定する
- */
-export type ImageTagLocation =
-  | { readonly imageTagKey: DotPath }
-  | { readonly imageTagAnchor: AnchorName }
-
-/**
- * values.yaml内でイメージタグを書き換える1箇所分（対象ファイル＋その中での位置）。
+ * values.yaml内でイメージタグを書き換える1箇所分（対象ファイル＋その中でのYAMLアンカー名）。
  * 1つのソースリポジトリ（1つのタグ）に対して、WebAPI/バッチ/デーモンなど複数の
  * デプロイ単位を管理しているケースでは、同じ最新タグを複数箇所に反映する必要があるため、
  * `AppConfig.chart`はこの型の配列として持つ（T-014）
  */
-export type ImageTagTarget = { readonly valuesPath: ValuesPath } & ImageTagLocation
+export type ImageTagTarget = {
+  readonly valuesPath: ValuesPath
+  readonly imageTagAnchor: AnchorName
+}
 
 /** ソースリポジトリ（タグが打たれるGitLabプロジェクト）に対応する1アプリの設定。apps.yamlの1エントリ */
 export type AppConfig = {

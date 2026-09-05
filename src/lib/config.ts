@@ -8,7 +8,6 @@ import {
   toAnchorName,
   toBranchName,
   toChartDirName,
-  toDotPath,
   toProjectId,
   toProjectName,
   toValuesPath,
@@ -24,29 +23,10 @@ const ChartYamlSchema = z.object({
   }),
 })
 
-/**
- * イメージタグの値の位置は `imageTagKey`（dotパス）か `imageTagAnchor`（YAMLアンカー名）の
- * どちらか一方のみで指定する（`ImageTagLocation`型に対応）。`.strict()`で両方指定・
- * どちらも未指定を弾く
- */
-const ImageTagLocationSchema = z.union([
-  z
-    .object({
-      imageTagKey: z.string().min(1, "imageTagKey は空にできません").transform(toDotPath),
-    })
-    .strict(),
-  z
-    .object({
-      imageTagAnchor: z.string().min(1, "imageTagAnchor は空にできません").transform(toAnchorName),
-    })
-    .strict(),
-])
-
-const ImageTagTargetSchema = z
-  .object({
-    valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
-  })
-  .and(ImageTagLocationSchema)
+const ImageTagTargetSchema = z.object({
+  valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
+  imageTagAnchor: z.string().min(1, "imageTagAnchor は空にできません").transform(toAnchorName),
+})
 
 const AppConfigSchema = z.object({
   projectId: z.number().int().transform(toProjectId),

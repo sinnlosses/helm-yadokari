@@ -5,7 +5,6 @@ import type {
   BranchName,
   FileUpdate,
   GitLabUrl,
-  ImageTagTarget,
   ImageTagUpdate,
   ParsedTag,
   PipelineInfo,
@@ -212,13 +211,6 @@ function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): string {
   return `${webUrl}/-/tags/${encodeURIComponent(tagName)}`
 }
 
-/** `chart`の1箇所がdotパス指定かアンカー指定かを、MR本文向けの説明文字列にする */
-function describeImageTagLocation(target: ImageTagTarget): string {
-  return "imageTagKey" in target
-    ? `dotパス: ${target.imageTagKey}`
-    : `アンカー: ${target.imageTagAnchor}`
-}
-
 /**
  * `chart`の1箇所分の更新内容を1行にまとめる。同じ最新タグを複数箇所（WebAPI/バッチ/
  * デーモンなど）へ反映するケース（T-014）では、この行がアプリ1件につき複数出力される
@@ -234,7 +226,7 @@ function buildImageTagUpdateLine(
   const compareText = update.previousTag
     ? `[比較](${webUrl}/-/compare/${encodeURIComponent(update.previousTag)}...${encodeURIComponent(latestTag.name)})`
     : "(旧タグ未設定のため比較できません)"
-  return `  - \`${update.target.valuesPath}\`（${describeImageTagLocation(update.target)}）: ${previousTagText} → [${latestTag.name}](${buildTagUrl(webUrl, latestTag.name)}) / ${compareText}`
+  return `  - \`${update.target.valuesPath}\`（アンカー: ${update.target.imageTagAnchor}）: ${previousTagText} → [${latestTag.name}](${buildTagUrl(webUrl, latestTag.name)}) / ${compareText}`
 }
 
 function buildMrPlanSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {

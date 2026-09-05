@@ -65,7 +65,7 @@ apps:
     branchToSync: main
     chart:
       - valuesPath: charts/my-app/values.yaml
-        imageTagKey: image.tag
+        imageTagAnchor: appVersion
 `,
     )
 
@@ -86,7 +86,7 @@ apps:
           chart: [
             {
               valuesPath: "charts/my-app/values.yaml",
-              imageTagKey: "image.tag",
+              imageTagAnchor: "appVersion",
             },
           ],
         },
@@ -117,19 +117,19 @@ apps:
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagKey: image.tag\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n",
     )
     writeAppsYaml(
       "teamA-chart",
       "tenantId1",
       "clientId2",
-      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        imageTagKey: image.tag\n",
+      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        imageTagAnchor: appVersion\n",
     )
     writeAppsYaml(
       "teamA-chart",
       "tenantId2",
       "clientId1",
-      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n    chart:\n      - valuesPath: c.yaml\n        imageTagKey: image.tag\n",
+      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n    chart:\n      - valuesPath: c.yaml\n        imageTagAnchor: appVersion\n",
     )
 
     const { chartAndAppsList } = loadConfig(tmpDir)
@@ -187,7 +187,7 @@ describe("loadConfig（バリデーションエラー）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      'apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: ""\n    chart:\n      - valuesPath: a.yaml\n        imageTagKey: image.tag\n',
+      'apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: ""\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n',
     )
     expect(() => loadConfig(tmpDir)).toThrow("形式が不正です")
   })
@@ -215,26 +215,12 @@ describe("loadConfig（バリデーションエラー）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - imageTagKey: image.tag\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - imageTagAnchor: appVersion\n",
     )
     expect(() => loadConfig(tmpDir)).toThrow("形式が不正です")
   })
 
-  it("apps.yaml の chart[].imageTagKey と imageTagAnchor が両方あるとき例外をスローする", () => {
-    writeChartYaml(
-      "teamA-chart",
-      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
-    )
-    writeAppsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagKey: image.tag\n        imageTagAnchor: someAnchor\n",
-    )
-    expect(() => loadConfig(tmpDir)).toThrow("形式が不正です")
-  })
-
-  it("apps.yaml の chart[].imageTagKey も imageTagAnchor も無いとき例外をスローする", () => {
+  it("apps.yaml の chart[].imageTagAnchor が無いとき例外をスローする", () => {
     writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -249,29 +235,6 @@ describe("loadConfig（バリデーションエラー）", () => {
   })
 })
 
-describe("loadConfig（imageTagAnchor）", () => {
-  it("chart[].imageTagAnchor を指定したapps.yamlを読み込める", () => {
-    writeChartYaml(
-      "teamA-chart",
-      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
-    )
-    writeAppsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: tenant1client1AppsVersion\n",
-    )
-
-    const { chartAndAppsList } = loadConfig(tmpDir)
-    expect(chartAndAppsList[0]?.apps[0]?.chart).toEqual([
-      {
-        valuesPath: "a.yaml",
-        imageTagAnchor: "tenant1client1AppsVersion",
-      },
-    ])
-  })
-})
-
 describe("loadConfig（chartの複数指定）", () => {
   it("1アプリにつきchartを複数指定できる（同一タグを複数箇所へ反映する用途）", () => {
     writeChartYaml(
@@ -282,12 +245,12 @@ describe("loadConfig（chartの複数指定）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "apps:\n  - projectId: 1\n    projectName: my-service\n    branchToSync: main\n    chart:\n      - valuesPath: charts/webapi/values.yaml\n        imageTagKey: image.tag\n      - valuesPath: charts/batch/values.yaml\n        imageTagAnchor: batchAppsVersion\n",
+      "apps:\n  - projectId: 1\n    projectName: my-service\n    branchToSync: main\n    chart:\n      - valuesPath: charts/webapi/values.yaml\n        imageTagAnchor: appVersion\n      - valuesPath: charts/batch/values.yaml\n        imageTagAnchor: batchAppsVersion\n",
     )
 
     const { chartAndAppsList } = loadConfig(tmpDir)
     expect(chartAndAppsList[0]?.apps[0]?.chart).toEqual([
-      { valuesPath: "charts/webapi/values.yaml", imageTagKey: "image.tag" },
+      { valuesPath: "charts/webapi/values.yaml", imageTagAnchor: "appVersion" },
       { valuesPath: "charts/batch/values.yaml", imageTagAnchor: "batchAppsVersion" },
     ])
   })
@@ -309,13 +272,13 @@ describe("loadConfig（target絞り込み）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagKey: image.tag\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n",
     )
     writeAppsYaml(
       "teamA-chart",
       "tenantId2",
       "clientId2",
-      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        imageTagKey: image.tag\n",
+      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        imageTagAnchor: appVersion\n",
     )
     writeChartYaml(
       "teamB-chart",
@@ -325,7 +288,7 @@ describe("loadConfig（target絞り込み）", () => {
       "teamB-chart",
       "tenantId1",
       "clientId1",
-      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n    chart:\n      - valuesPath: c.yaml\n        imageTagKey: image.tag\n",
+      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n    chart:\n      - valuesPath: c.yaml\n        imageTagAnchor: appVersion\n",
     )
   })
 

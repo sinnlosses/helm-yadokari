@@ -7,7 +7,7 @@ import {
   listTags,
 } from "../lib/gitlab/gitlab.js"
 import { buildNewTag, findLatestParsedTag } from "../lib/gitlab/tag.js"
-import { getImageTag, setImageTag } from "../lib/helm.js"
+import { getValueAtAnchor, setValueAtAnchor } from "../lib/helm.js"
 import type {
   AppConfig,
   AppUpdatePlan,
@@ -187,10 +187,13 @@ async function applyImageTagTarget(
 ): Promise<ApplyTargetsAcc> {
   const valuesYamlCache = new Map(acc.valuesYamlCache)
   const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, target.valuesPath)
-  const previousTagRaw = getImageTag(valuesYamlContent, target)
+  const previousTagRaw = getValueAtAnchor(valuesYamlContent, target.imageTagAnchor)
   if (previousTagRaw === latestTagName) return { ...acc, valuesYamlCache }
 
-  valuesYamlCache.set(target.valuesPath, setImageTag(valuesYamlContent, target, latestTagName))
+  valuesYamlCache.set(
+    target.valuesPath,
+    setValueAtAnchor(valuesYamlContent, target.imageTagAnchor, latestTagName),
+  )
   return {
     valuesYamlCache,
     modifiedValuesPaths: new Set(acc.modifiedValuesPaths).add(target.valuesPath),

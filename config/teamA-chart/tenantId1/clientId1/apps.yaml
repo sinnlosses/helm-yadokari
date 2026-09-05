@@ -4,20 +4,20 @@ apps:
     branchToSync: main                    # 追跡するブランチ
     chart:
       - valuesPath: charts/my-app/values.yaml
-        imageTagKey: image.tag         # values.yaml内のdotパス
+        imageTagAnchor: myAppVersion  # values.yaml内のYAMLアンカー名
   - projectId: 889
-    projectName: another-app     # values.yamlが配列要素にYAMLアンカーで名前を付けた構成の例
+    projectName: another-app
     branchToSync: main
     chart:
       - valuesPath: charts/another-app/values.yaml
         imageTagAnchor: tenantId1client1AppsVersion  # values.yaml内のYAMLアンカー名
   - projectId: 890
     projectName: multi-service-app # 1プロジェクトでWebAPI/バッチ/デーモンなど複数appを管理する例
-    branchToSync: main
+    branchToSync: main             # 1つのvalues.yaml内に複数のアンカーで各appのタグを持つ構成
     chart:
-      - valuesPath: charts/multi-service-app/webapi/values.yaml
-        imageTagKey: image.tag
-      - valuesPath: charts/multi-service-app/batch/values.yaml
-        imageTagKey: image.tag
-      - valuesPath: charts/multi-service-app/daemon/values.yaml
+      - valuesPath: charts/multi-service-app/values.yaml
+        imageTagAnchor: multiServiceAppWebapiVersion
+      - valuesPath: charts/multi-service-app/values.yaml
+        imageTagAnchor: multiServiceAppBatchVersion
+      - valuesPath: charts/multi-service-app/values.yaml
         imageTagAnchor: multiServiceAppDaemonVersion

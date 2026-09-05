@@ -16,7 +16,6 @@ import {
 import { buildPlans } from "../../src/steps/build-plans.js"
 import {
   toAnchorName,
-  toDotPath,
   toProjectId,
   toProjectName,
   toTagName,
@@ -35,7 +34,7 @@ describe("buildPlans", () => {
   beforeEach(() => {
     vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
-    vi.mocked(getFileContent).mockResolvedValue(`image:\n  tag: ${OLD_TAG}\n`)
+    vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
     vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
     vi.mocked(createTag).mockResolvedValue(undefined)
   })
@@ -51,13 +50,13 @@ describe("buildPlans", () => {
     expect(toApply[0]?.chartAndApps).toBe(group)
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(NEW_TAG)
     expect(toApply[0]?.files).toEqual([
-      { filePath: "values.yaml", content: `image:\n  tag: ${NEW_TAG}\n` },
+      { filePath: "values.yaml", content: `variables:\n  - &appVersion ${NEW_TAG}\n` },
     ])
     expect(settled).toEqual([])
   })
 
   it("差分がないchartグループはsettledにSKIPPEDとして入る", async () => {
-    vi.mocked(getFileContent).mockResolvedValue(`image:\n  tag: ${NEW_TAG}\n`)
+    vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${NEW_TAG}\n`)
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       [makeChartAndApps([makeApp()])],
@@ -167,23 +166,27 @@ describe("buildPlans", () => {
     const appA = makeApp({
       projectId: toProjectId(1),
       projectName: toProjectName("app-a"),
-      chart: [{ valuesPath: toValuesPath("shared.yaml"), imageTagKey: toDotPath("appA.tag") }],
+      chart: [
+        { valuesPath: toValuesPath("shared.yaml"), imageTagAnchor: toAnchorName("appAVersion") },
+      ],
     })
     const appB = makeApp({
       projectId: toProjectId(2),
       projectName: toProjectName("app-b"),
-      chart: [{ valuesPath: toValuesPath("shared.yaml"), imageTagKey: toDotPath("appB.tag") }],
+      chart: [
+        { valuesPath: toValuesPath("shared.yaml"), imageTagAnchor: toAnchorName("appBVersion") },
+      ],
     })
     vi.mocked(getFileContent).mockResolvedValue(
-      `appA:\n  tag: ${OLD_TAG}\nappB:\n  tag: ${OLD_TAG}\n`,
+      `variables:\n  - &appAVersion ${OLD_TAG}\n  - &appBVersion ${OLD_TAG}\n`,
     )
     const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([appA, appB])], 3, false)
     expect(toApply[0]?.files).toHaveLength(1)
-    expect(toApply[0]?.files[0]?.content).toContain(`appA:\n  tag: ${NEW_TAG}`)
-    expect(toApply[0]?.files[0]?.content).toContain(`appB:\n  tag: ${NEW_TAG}`)
+    expect(toApply[0]?.files[0]?.content).toContain(`&appAVersion ${NEW_TAG}`)
+    expect(toApply[0]?.files[0]?.content).toContain(`&appBVersion ${NEW_TAG}`)
   })
 
-  it("chart.imageTagAnchorが指定されたアプリはYAMLアンカーで値を取得・書き換える", async () => {
+  it("chart.imageTagAnchorで指定したアンカーの値だけを取得・書き換える", async () => {
     const app = makeApp({
       chart: [
         {
@@ -203,16 +206,13 @@ describe("buildPlans", () => {
   it("1アプリに複数のchartを指定すると、同じ最新タグを複数箇所へ反映する", async () => {
     const app = makeApp({
       chart: [
-        { valuesPath: toValuesPath("webapi.yaml"), imageTagKey: toDotPath("image.tag") },
-        {
-          valuesPath: toValuesPath("batch.yaml"),
-          imageTagAnchor: toAnchorName("batchAppsVersion"),
-        },
+        { valuesPath: toValuesPath("webapi.yaml"), imageTagAnchor: toAnchorName("webapiVersion") },
+        { valuesPath: toValuesPath("batch.yaml"), imageTagAnchor: toAnchorName("batchVersion") },
       ],
     })
     vi.mocked(getFileContent).mockImplementation(async (_client, _projectId, filePath) => {
-      if (filePath === "webapi.yaml") return `image:\n  tag: ${OLD_TAG}\n`
-      if (filePath === "batch.yaml") return `variables:\n  - &batchAppsVersion ${OLD_TAG}\n`
+      if (filePath === "webapi.yaml") return `variables:\n  - &webapiVersion ${OLD_TAG}\n`
+      if (filePath === "batch.yaml") return `variables:\n  - &batchVersion ${OLD_TAG}\n`
       return undefined
     })
     const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
@@ -220,23 +220,20 @@ describe("buildPlans", () => {
     expect(toApply[0]?.files).toHaveLength(2)
     const webapiFile = toApply[0]?.files.find((f) => f.filePath === "webapi.yaml")
     const batchFile = toApply[0]?.files.find((f) => f.filePath === "batch.yaml")
-    expect(webapiFile?.content).toContain(`tag: ${NEW_TAG}`)
-    expect(batchFile?.content).toContain(`&batchAppsVersion ${NEW_TAG}`)
+    expect(webapiFile?.content).toContain(`&webapiVersion ${NEW_TAG}`)
+    expect(batchFile?.content).toContain(`&batchVersion ${NEW_TAG}`)
   })
 
   it("複数のchartのうち一部だけ差分があるとき、差分がある箇所だけをupdatesに含める", async () => {
     const app = makeApp({
       chart: [
-        { valuesPath: toValuesPath("webapi.yaml"), imageTagKey: toDotPath("image.tag") },
-        {
-          valuesPath: toValuesPath("batch.yaml"),
-          imageTagAnchor: toAnchorName("batchAppsVersion"),
-        },
+        { valuesPath: toValuesPath("webapi.yaml"), imageTagAnchor: toAnchorName("webapiVersion") },
+        { valuesPath: toValuesPath("batch.yaml"), imageTagAnchor: toAnchorName("batchVersion") },
       ],
     })
     vi.mocked(getFileContent).mockImplementation(async (_client, _projectId, filePath) => {
-      if (filePath === "webapi.yaml") return `image:\n  tag: ${OLD_TAG}\n`
-      if (filePath === "batch.yaml") return `variables:\n  - &batchAppsVersion ${NEW_TAG}\n`
+      if (filePath === "webapi.yaml") return `variables:\n  - &webapiVersion ${OLD_TAG}\n`
+      if (filePath === "batch.yaml") return `variables:\n  - &batchVersion ${NEW_TAG}\n`
       return undefined
     })
     const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)

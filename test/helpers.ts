@@ -1,8 +1,8 @@
 import type { AppConfig, ChartAndApps } from "../src/types.js"
 import {
+  toAnchorName,
   toBranchName,
   toChartDirName,
-  toDotPath,
   toProjectId,
   toProjectName,
   toValuesPath,
@@ -16,7 +16,9 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
     projectId: toProjectId(1),
     projectName: toProjectName("my-app"),
     branchToSync: toBranchName("main"),
-    chart: [{ valuesPath: toValuesPath("values.yaml"), imageTagKey: toDotPath("image.tag") }],
+    chart: [
+      { valuesPath: toValuesPath("values.yaml"), imageTagAnchor: toAnchorName("appVersion") },
+    ],
     ...overrides,
   }
 }

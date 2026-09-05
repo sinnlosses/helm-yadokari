@@ -50,13 +50,13 @@
     組を指定できる。config/のディレクトリ構成に対するフィルタなのでこのファイルの責務とし、
     指定した組のいずれか1件でも見つからない場合は例外をスローする（`docs/requirements.md`
     4.5節）
-  - `helm.ts`: Helm chart の `values.yaml` を操作する処理。イメージタグの値の位置指定には
-    `imageTagKey`（dotパスで`getValueAtPath`/`setValueAtPath`）と`imageTagAnchor`（YAMLアンカー名で
-    `getValueAtAnchor`/`setValueAtAnchor`）の2方式があり、いずれも`yaml`パッケージの
-    Document（AST）を直接操作する（`js-yaml`はオブジェクトとしてしか読み書きできず
-    アンカー名を保持できないため不採用。`config/`側のYAML読み込み`utils/yaml.ts`も含め、
-    リポジトリ全体で`yaml`パッケージに統一している）。呼び出し側は`chart`
-    （`ImageTagLocation`）を渡すだけで済む`getImageTag`/`setImageTag`を使う。
+  - `helm.ts`: Helm chart の `values.yaml` を操作する処理。イメージタグの値の位置指定は
+    `imageTagAnchor`（YAMLアンカー名）のみに対応し、`getValueAtAnchor`/`setValueAtAnchor`が
+    `yaml`パッケージのDocument（AST）を`visit()`で走査してアンカー名を持つノードを直接
+    操作する（`js-yaml`はオブジェクトとしてしか読み書きできずアンカー名を保持できないため
+    不採用。`config/`側のYAML読み込み`utils/yaml.ts`も含め、リポジトリ全体で`yaml`パッケージに
+    統一している）。オブジェクトのネストをdotパスで辿る`imageTagKey`方式も過去に存在したが、
+    実運用ではYAMLアンカー方式のみで十分なため削除した。
     Helm chart固有の処理を今後追加する場合もここに置く
   - `env.ts`: 環境変数の読み込み・検証
 - `src/utils/`: このツールのドメイン知識を一切持たない、技術的に汎用的なユーティリティ
