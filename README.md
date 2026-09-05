@@ -136,8 +136,16 @@ config/
     chart.yaml                     # そのchartリポジトリ共通の情報
     <tenantId>/
       <clientId>/
-        apps.yaml                  # そのテナント/クライアントに属するアプリ一覧
+        config.yaml                # 運用値（どのプロジェクトのどのブランチを追跡するか等）
+        anchor-setting.yaml        # chart構造（values.yaml内のどこに書き込むか）
 ```
+
+`config.yaml`（よく変更する）と `anchor-setting.yaml`（滅多に変更しない）でファイルを
+分けています。`config.yaml` は「どのプロジェクトのどのブランチを追跡するか」といった運用値
+のみを持ち、`anchor-setting.yaml` は「`values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
+書き込むか」というchart構造を持ちます。両者は `projectId` で対応付け、`anchor-setting.yaml`
+側にも同じ `projectId`/`projectName` を重複して書くことで、`anchor-setting.yaml` 単体を見ても
+「どのappの設定か」が分かるようにしています。
 
 ```yaml
 # config/teamA-chart/chart.yaml
@@ -148,17 +156,24 @@ chart:
 ```
 
 ```yaml
-# config/teamA-chart/tenantId1/clientId1/apps.yaml
+# config/teamA-chart/tenantId1/clientId1/config.yaml
 apps:
   - projectId: 1 # タグを取得するGitLabプロジェクトID（ソースリポジトリ）
     projectName: my-app
     branchToSync: main # 追跡するブランチ
+```
+
+```yaml
+# config/teamA-chart/tenantId1/clientId1/anchor-setting.yaml
+apps:
+  - projectId: 1 # config.yaml と一致させる
+    projectName: my-app # config.yaml と一致させる
     chart:
       - valuesPath: charts/my-app/values.yaml
         anchor: myAppVersion # values.yaml内のYAMLアンカー名
 ```
 
-`chart[].anchor` は、`values.yaml` 内のイメージタグの位置をYAMLアンカー名で指定する
+`apps[].chart[].anchor` は、`values.yaml` 内のイメージタグの位置をYAMLアンカー名で指定する
 フィールドです。`values.yaml` はオブジェクトのネストではなく、配列要素にYAMLアンカーで名前を
 付けた構成（例: `variables: [&myAppVersion main, ...]`）を前提とし、指定したアンカー名を持つ
 YAML上のスカラー値を、ネストの深さ・キー名に関わらず直接書き換えます。
@@ -168,10 +183,10 @@ YAML上のスカラー値を、ネストの深さ・キー名に関わらず直�
 複数箇所へまとめて反映できます:
 
 ```yaml
+# anchor-setting.yaml
 apps:
   - projectId: 2
     projectName: multi-service-app
-    branchToSync: main
     chart:
       - valuesPath: charts/multi-service-app/values.yaml
         anchor: multiServiceAppWebapiVersion
@@ -181,41 +196,56 @@ apps:
         anchor: multiServiceAppDaemonVersion
 ```
 
-ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/apps.yaml` の2階層で固定です。
+`config.yaml` の各appに対応する `projectId` が `anchor-setting.yaml` に無い場合や、逆に
+`anchor-setting.yaml` に `config.yaml` に存在しないappが定義されている場合、同じ `projectId`
+なのに `projectName` が食い違っている場合は、いずれも設定エラーになります（`config.yaml` と
+`anchor-setting.yaml` の紐づけを検証する仕組みが自動で働きます）。
+
+ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/` の2階層で固定です。
 テナント分けが不要な場合もダミーの1つの tenantId/clientId ディレクトリ配下に置いてください。
 
 **Helmの向き先ブランチ**（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
 ブランチ。`mrTargetBranch` ＝ 値定義ブランチとは別物）の追従・更新もMRの対象に含められます:
 
 ```yaml
-# apps.yaml トップレベル。apps: 配列と同階層、tenantId/clientId単位に1件のオブジェクト
+# config.yaml トップレベル。apps: 配列と同階層、tenantId/clientId単位に1件のオブジェクト（運用値）
 helm:
   branchToSync: release/2026-q1
-  chart:
-    # helm.branchToSync の値をこの valuesPath 内のこのアンカーに書き込む
-    - valuesPath: charts/my-app/values.yaml
-      anchor: myAppTargetBranch
 apps:
   - projectId: 1
     projectName: my-app
     branchToSync: main
+```
+
+```yaml
+# anchor-setting.yaml トップレベル（chart構造。config.yaml の helm.branchToSync の値をどこに書くか）
+apps:
+  - projectId: 1
+    projectName: my-app
     chart:
       - valuesPath: charts/my-app/values.yaml
         anchor: myAppVersion
+helm:
+  chart:
+    # helm.branchToSync の値をこの valuesPath 内のこのアンカーに書き込む
+    - valuesPath: charts/my-app/values.yaml
+      anchor: myAppTargetBranch
 ```
 
-`helm` はchartリポジトリ内の別ブランチ（`chart.yaml` の `projectId` と同一プロジェクト）を指す、
-tenantId/clientId単位に1件のオブジェクトです。`helm.branchToSync` は人間が自己申告方式で直接
-書き換える運用とし、タグ命名規則のような自動生成・自動判定の仕組みは持ちません。`helm.chart[]`
-は書き込み先（`valuesPath` + `anchor`）の一覧で、`apps[].chart[]` とは独立したリストです。
+`config.yaml` の `helm.branchToSync` はchartリポジトリ内の別ブランチ（`chart.yaml` の
+`projectId` と同一プロジェクト）を指す、tenantId/clientId単位に1件の値です。人間が自己申告
+方式で直接書き換える運用とし、タグ命名規則のような自動生成・自動判定の仕組みは持ちません。
+`anchor-setting.yaml` の `helm.chart[]` は書き込み先（`valuesPath` + `anchor`）の一覧で、
+`apps[].chart[]` とは独立したリストです。
 
-`helm.chart[]` と各appの紐付けは、`valuesPath` の一致だけで決まります（app側に専用フィールドは
-持たせません）。1つのappが複数の`valuesPath`を持つ場合は、それぞれに対応する`helm.chart[]`の
-要素があれば複数箇所へまとめて反映できます。
+`helm.chart[]` と各appの紐付けは、`valuesPath` の一致だけで決まります（app側に専用
+フィールドは持たせません）。1つのappが複数の`valuesPath`を持つ場合は、それぞれに対応する
+`helm.chart[]` の要素があれば複数箇所へまとめて反映できます。
 
-Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、`helm` が指定されている
-apps.yamlでは、そのファイル配下の**全アプリ**の**全`chart[].valuesPath`**が `helm.chart[]` で
-カバーされている必要があります（1つでも漏れていると設定エラーになります）。書き込み前に、
+Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、`helm.branchToSync` が
+指定されている場合、そのconfig.yaml配下の**全アプリ**の**全`chart[].valuesPath`**が
+`helm.chart[]` でカバーされている必要があります（1つでも漏れていると設定エラーになります）。
+`helm.branchToSync` と `helm.chart[]` は片方だけの指定も設定エラーです。書き込み前に、
 指定されたブランチ名がchartリポジトリ上に実在するか検証し、存在しなければそのchartグループ
 全体を `ERROR` にします。
 
@@ -321,14 +351,3 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 ├── .gitlab-ci.yml          # CI ジョブ定義
 └── package.json
 ```
-
-## Contributing
-
-バグ報告・機能提案は Issue にてお知らせください。
-
-プルリクエストを送る場合:
-
-1. ブランチを切る（`git checkout -b feat/your-feature`）
-2. テストを追加する（TDD推奨。`/tdd` スキル参照）
-3. `pnpm check` が通ることを確認する
-4. プルリクエストを作成する

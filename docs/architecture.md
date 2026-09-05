@@ -27,13 +27,13 @@
       （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
     - `app.helmTargetBranch`（Helmの向き先ブランチ。T-016）が設定されているアプリは、
       `applyHelmTargetBranchTarget()`が`app.chart`と同じ`valuesYamlCache`を共有しつつ、
-      `helmTargetBranch.targets`（トップレベル`helm.chart[]`のうち`valuesPath`がこのappの
-      `chart[].valuesPath`と一致する箇所すべて）を1箇所ずつ処理し、設定値
-      （`helmTargetBranch.branch`）と`values.yaml`側の現在値を比較する。
+      `helmTargetBranch.targets`（anchor-setting.yamlトップレベル`helm.chart[]`のうち
+      `valuesPath`がこのappの`chart[].valuesPath`と一致する箇所すべて）を1箇所ずつ処理し、
+      設定値（`helmTargetBranch.branch`）と`values.yaml`側の現在値を比較する。
       差分があれば書き込み前に`lib/gitlab/gitlab.ts`の`branchExists()`でそのブランチが
       chartリポジトリ上に実在するかを検証し（存在しなければ例外を投げてそのchartグループ全体を
       ERRORにする）、`AppUpdatePlan.helmTargetBranchUpdates`に積む。タグ更新と異なり
-      「最新値の自動判定」は行わず、apps.yamlに人間が書いた値をそのまま比較対象にする。
+      「最新値の自動判定」は行わず、config.yamlに人間が書いた値をそのまま比較対象にする。
       同じブランチ名の存在確認はchartグループ内で1回だけになるよう`branchExistsCache`で共有する
   - `apply-updates.ts`: `applyUpdates()`。`toApply` の各chartグループに対してコミット・
     MR作成を並列実行する。ログ用サマリ組み立て（`describePlan()`）はここでも非公開関数
@@ -51,22 +51,31 @@
       新規タグ名の組み立て。外部システム・ファイルへのI/Oを一切持たない純粋な文字列/日付処理だが、
       「GitLabのタグ」という概念に強く紐づく命名規則のため、`utils/`ではなく`gitlab/`配下に置く
       （呼び出し元は `steps/build-plans.ts` のみ）
-  - `config.ts`: `config/<chart>/chart.yaml` + `config/<chart>/<tenantId>/<clientId>/apps.yaml`
-    の2階層固定構成を再帰的に読み込み、Zodでバリデーション（ファイル探索・YAML読み込みの
-    汎用部分は `utils/fs.ts` / `utils/yaml.ts` に委譲）。`loadConfig()` は第2引数に
-    `ConfigTarget`（`TARGET_CHART_DIR`由来のchartDir、`TARGET_CLIENT`由来の
-    `TargetClient`（tenantId/clientIdの組）配列）を受け取り、指定があればそのchart・
-    tenant/clientの組のみに絞り込む。`TARGET_CLIENT`はカンマ区切りで複数のtenant/client
-    組を指定できる。config/のディレクトリ構成に対するフィルタなのでこのファイルの責務とし、
-    指定した組のいずれか1件でも見つからない場合は例外をスローする（`docs/requirements.md`
-    4.5節）。`apps.yaml`のトップレベル`helm`（オブジェクト、tenantId/clientId単位に1件、
-    `branchToSync`＋書き込み先一覧`chart[]`（`valuesPath`+`anchor`）を持つ）は、`loadApps()`内の
-    `resolveHelmTargetBranch()`が`valuesPath`の一致でapp単位の`AppConfig.helmTargetBranch`に
-    振り分ける（app側には専用フィールドを持たせず、`helm.chart[].valuesPath`とapp自身の
-    `chart[].valuesPath`が一致する要素だけを`targets`として集約）。Helmの向き先ブランチは
-    「1client内のapps全体で共通」という前提のため、`helm`が指定されているapps.yamlは配下の
-    全アプリの全`chart[].valuesPath`が`helm.chart[]`でカバーされていることを要求し（1つでも
-    漏れていると例外）（T-016）
+  - `config.ts`: `config/<chart>/chart.yaml`・`config/<chart>/<tenantId>/<clientId>/config.yaml`・
+    同じディレクトリの`anchor-setting.yaml`という2階層固定構成を再帰的に読み込み、Zodで
+    バリデーション（ファイル探索・YAML読み込みの汎用部分は `utils/fs.ts` / `utils/yaml.ts` に
+    委譲）。`config.yaml`は運用値（`projectId`/`projectName`/`branchToSync`、Helmの向き先
+    ブランチの値`helm.branchToSync`）のみを持ち、`anchor-setting.yaml`はchart構造
+    （`valuesPath`+`anchor`の書き込み先一覧。app単位の`projectId`/`projectName`も重複して
+    持つ）のみを持つ（T-017、あまり変更されないchart構造と、頻繁に変更される運用値を
+    別ファイルに分離する狙い）。両者は`loadApps()`内の`validateProjectLinkage()`が
+    `projectId`をキーに突き合わせ、(1) `config.yaml`の各appに対応する`anchor-setting.yaml`側の
+    エントリが無い、(2) 逆に`anchor-setting.yaml`に`config.yaml`側に存在しない孤児エントリが
+    ある、(3) 同じ`projectId`なのに`projectName`が一致しない、の3パターンを設定ミスとして
+    例外をスローする。`loadConfig()` は第2引数に`ConfigTarget`（`TARGET_CHART_DIR`由来の
+    chartDir、`TARGET_CLIENT`由来の`TargetClient`（tenantId/clientIdの組）配列）を受け取り、
+    指定があればそのchart・tenant/clientの組のみに絞り込む。`TARGET_CLIENT`はカンマ区切りで
+    複数のtenant/client組を指定できる。config/のディレクトリ構成に対するフィルタなので
+    このファイルの責務とし、指定した組のいずれか1件でも見つからない場合は例外をスローする
+    （`docs/requirements.md` 4.5節）。`config.yaml`のトップレベル`helm.branchToSync`
+    （tenantId/clientId単位に1件）と`anchor-setting.yaml`のトップレベル`helm.chart[]`
+    （書き込み先一覧）は、`loadApps()`内の`resolveHelmTargetBranch()`が`valuesPath`の一致で
+    app単位の`AppConfig.helmTargetBranch`に振り分ける（app側には専用フィールドを持たせず、
+    `helm.chart[].valuesPath`とapp自身の`chart[].valuesPath`が一致する要素だけを`targets`
+    として集約）。Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、
+    `helm.branchToSync`が指定されているconfig.yamlは配下の全アプリの全`chart[].valuesPath`が
+    `helm.chart[]`でカバーされていることを要求し（1つでも漏れていると例外）、`branchToSync`と
+    `helm.chart[]`は片方だけの指定も例外（T-016、T-017）
   - `helm.ts`: Helm chart の `values.yaml` を操作する処理。イメージタグの値の位置指定は
     `chart[].anchor`（YAMLアンカー名）のみに対応し、`getValueAtAnchor`/`setValueAtAnchor`が
     `yaml`パッケージのDocument（AST）を`visit()`で走査してアンカー名を持つノードを直接

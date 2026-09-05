@@ -34,13 +34,13 @@ Helm chart でバージョン管理されているアプリケーションのバ
 
 ## 3. 用語
 
-| 用語                          | 意味                                                                                                                                                                 |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| アプリ                        | 管理対象とする、Helm chartでデプロイされる1つのアプリケーション単位。`apps.yaml`の1エントリに対応する                                                                |
-| ソースリポジトリ              | アプリのソースコードが置かれ、タグが打たれるGitLabプロジェクト                                                                                                       |
-| chartリポジトリ               | Helm chart（`values.yaml`を含む）を管理するGitLabプロジェクト。ソースリポジトリとは別プロジェクト。`config/`配下では1ディレクトリ（`chart.yaml`）に対応する          |
-| テナント / クライアント       | 同一のchartリポジトリ配下で、アプリの設定をさらに分割管理するための単位。`config/<chartリポジトリ>/<tenantId>/<clientId>/apps.yaml` というディレクトリ階層で表現する |
-| 追跡ブランチ (`branchToSync`) | アプリごとに設定する、最新タグの判定対象とするソースリポジトリ側のブランチ                                                                                           |
+| 用語                          | 意味                                                                                                                                                                   |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| アプリ                        | 管理対象とする、Helm chartでデプロイされる1つのアプリケーション単位。`config.yaml`の1エントリに対応する                                                                |
+| ソースリポジトリ              | アプリのソースコードが置かれ、タグが打たれるGitLabプロジェクト                                                                                                         |
+| chartリポジトリ               | Helm chart（`values.yaml`を含む）を管理するGitLabプロジェクト。ソースリポジトリとは別プロジェクト。`config/`配下では1ディレクトリ（`chart.yaml`）に対応する            |
+| テナント / クライアント       | 同一のchartリポジトリ配下で、アプリの設定をさらに分割管理するための単位。`config/<chartリポジトリ>/<tenantId>/<clientId>/config.yaml` というディレクトリ階層で表現する |
+| 追跡ブランチ (`branchToSync`) | アプリごとに設定する、最新タグの判定対象とするソースリポジトリ側のブランチ                                                                                             |
 
 ## 4. 機能要件
 
@@ -104,8 +104,8 @@ Helm chart でバージョン管理されているアプリケーションのバ
 
 管理対象の情報は、CLIリポジトリ側の `config/` ディレクトリで一元管理する
 （chartリポジトリ側に設定を持たせる自己申告方式は採用しない）。CLIは `config/` 配下を
-再帰的に走査し、見つけた全ての `apps.yaml`（とその直近の親をたどって見つかる
-`chart.yaml`）を処理対象とする。
+再帰的に走査し、見つけた全ての `config.yaml`（とその直近の親をたどって見つかる`chart.yaml`、
+同じディレクトリの`anchor-setting.yaml`）を処理対象とする。
 
 ディレクトリ構成:
 
@@ -115,8 +115,16 @@ config/
     chart.yaml                     # そのchartリポジトリ共通の情報
     <tenantId>/
       <clientId>/
-        apps.yaml                  # そのテナント/クライアントに属するアプリ一覧
+        config.yaml                # 運用値（どのプロジェクトのどのブランチを追跡するか等）
+        anchor-setting.yaml        # chart構造（values.yaml内のどこに書き込むか）
 ```
+
+`config.yaml`（よく変更する）と`anchor-setting.yaml`（滅多に変更しない）でファイルを分ける
+（T-017）。`config.yaml`は「どのプロジェクトのどのブランチを追跡するか」といった運用値のみを
+持ち、`anchor-setting.yaml`は「`values.yaml`のどこ（`valuesPath`+YAMLアンカー名）に書き込むか」
+というchart構造を持つ。両者は`projectId`で対応付け、`anchor-setting.yaml`側にも同じ
+`projectId`/`projectName`を重複して書くことで、`anchor-setting.yaml`単体を見ても「どのappの
+設定か」が分かるようにしている。
 
 `chart.yaml`:
 
@@ -127,19 +135,27 @@ chart:
   mrTargetBranch: develop # MR作成先のベースブランチ
 ```
 
-`apps.yaml`:
+`config.yaml`:
 
 ```yaml
 apps:
   - projectId: 888 # タグを取得するGitLabプロジェクトID（ソースリポジトリ）
     projectName: my-app
     branchToSync: main # 追跡するブランチ
+```
+
+`anchor-setting.yaml`（`config.yaml`と同じ`<tenantId>/<clientId>`ディレクトリに置く）:
+
+```yaml
+apps:
+  - projectId: 888 # config.yaml と一致させる
+    projectName: my-app # config.yaml と一致させる
     chart:
       - valuesPath: charts/my-app/values.yaml
         anchor: myAppVersion # values.yaml内のYAMLアンカー名
 ```
 
-- `chart[].anchor` は、`values.yaml`内のイメージタグの位置をYAMLアンカー名で
+- `apps[].chart[].anchor` は、`values.yaml`内のイメージタグの位置をYAMLアンカー名で
   指定するフィールド。`values.yaml`はオブジェクトのネストではなく、配列要素にYAMLアンカーで
   名前を付けた構成（例: `variables: [&myAppVersion main, ...]`）を前提とし、指定したアンカー名を
   持つYAML上のスカラー値を、ネストの深さ・キー名に関わらず直接書き換える
@@ -150,10 +166,10 @@ apps:
   ケースでは、`chart`に複数要素を指定することで、同じ最新タグを複数箇所へまとめて反映できる
 
   ```yaml
+  # anchor-setting.yaml
   apps:
     - projectId: 890
       projectName: multi-service-app
-      branchToSync: main
       chart:
         - valuesPath: charts/multi-service-app/values.yaml
           anchor: multiServiceAppWebapiVersion
@@ -163,7 +179,11 @@ apps:
           anchor: multiServiceAppDaemonVersion
   ```
 
-- ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/apps.yaml` の
+- `config.yaml`の各appに対応する`projectId`が`anchor-setting.yaml`に見つからない場合、
+  逆に`anchor-setting.yaml`に`config.yaml`側に存在しないappが定義されている場合（孤児設定）、
+  同じ`projectId`なのに`projectName`が食い違っている場合は、いずれも設定エラーになる
+  （`config.yaml`と`anchor-setting.yaml`の紐づけを検証する仕組みが働く）
+- ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/` の
   2階層（tenantId/clientId）に統一する。テナント分けが不要なchartでも、ダミーの
   1つのtenantId/clientIdディレクトリ配下に置く
 - 新しいアプリの登録は、各チームがCLIリポジトリの `config/` へMRを送り、レビュー後
@@ -173,35 +193,44 @@ apps:
 ブランチ。既存の`mrTargetBranch`＝値定義ブランチとは別物）の追従・更新も、このMRの対象に含める:
 
 ```yaml
-# apps.yaml トップレベル。apps:配列と同階層、tenantId/clientId単位に1件のオブジェクト
+# config.yaml トップレベル。apps:配列と同階層、tenantId/clientId単位に1件のオブジェクト（運用値）
 helm:
   branchToSync: release/2026-q1
-  chart:
-    # helm.branchToSyncの値をこのvaluesPath内のこのアンカーに書き込む
-    - valuesPath: charts/my-app/values.yaml
-      anchor: myAppTargetBranch
 apps:
   - projectId: 888
     projectName: my-app
     branchToSync: main
+```
+
+```yaml
+# anchor-setting.yaml トップレベル（chart構造。config.yaml の helm.branchToSync の値をどこに書くか）
+apps:
+  - projectId: 888
+    projectName: my-app
     chart:
       - valuesPath: charts/my-app/values.yaml
         anchor: myAppVersion
+helm:
+  chart:
+    # helm.branchToSyncの値をこのvaluesPath内のこのアンカーに書き込む
+    - valuesPath: charts/my-app/values.yaml
+      anchor: myAppTargetBranch
 ```
 
-- `helm`はchartリポジトリ内の別ブランチ（chart.yamlの`projectId`と同一プロジェクト）を指す、
-  tenantId/clientId単位に1件のオブジェクト。`branchToSync`は人間が自己申告方式で直接書き換える
+- `config.yaml`の`helm.branchToSync`はchartリポジトリ内の別ブランチ（chart.yamlの`projectId`と
+  同一プロジェクト）を指す、tenantId/clientId単位に1件の値。人間が自己申告方式で直接書き換える
   運用とし、タグ命名規則のような自動生成・自動判定の仕組みは持たない
-- `helm.chart[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、`apps[].chart[]`とは独立した
-  リスト。どのappに紐づくかは`valuesPath`の一致だけで決まる（app側に専用フィールドは持たせない）。
-  1つのappが複数の`valuesPath`を持つ場合、それぞれに対応する`helm.chart[]`の要素があれば
-  複数箇所へまとめて反映できる
-- Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、`helm`が指定されている
-  apps.yamlでは、そのファイル配下の**全アプリ**の**全`chart[].valuesPath`**が`helm.chart[]`で
-  カバーされている必要がある（1つでも漏れていると設定エラー）
+- `anchor-setting.yaml`の`helm.chart[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、
+  `apps[].chart[]`とは独立したリスト。どのappに紐づくかは`valuesPath`の一致だけで決まる
+  （app側に専用フィールドは持たせない）。1つのappが複数の`valuesPath`を持つ場合、それぞれに
+  対応する`helm.chart[]`の要素があれば複数箇所へまとめて反映できる
+- Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、`helm.branchToSync`が
+  指定されている場合、そのconfig.yaml配下の**全アプリ**の**全`chart[].valuesPath`**が
+  `helm.chart[]`でカバーされている必要がある（1つでも漏れていると設定エラー）。
+  `helm.branchToSync`と`helm.chart[]`は片方だけの指定も設定エラー
 - 書き込み前に、指定されたブランチ名がchartリポジトリ上に実在するか検証する。存在しなければ
   そのchartグループ全体を`ERROR`として扱う（他のアプリの更新も含めオールオアナッシングで見送る）
-- 同じtenantId/clientIdが複数のchartディレクトリにまたがる場合、各`apps.yaml`が独立して
+- 同じtenantId/clientIdが複数のchartディレクトリにまたがる場合、各`config.yaml`が独立して
   値を持つため、片方だけ更新し忘れて値がズレる可能性がある。これは許容し、追加の
   整合性チェックは行わない
 
@@ -213,8 +242,8 @@ apps:
 - `TARGET_CHART_DIR`: `config/` 直下の特定のchartディレクトリ名を1つ指定し、そのchart
   リポジトリのみを対象にする
 - `TARGET_CLIENT`: `"<tenantId>/<clientId>"` 形式で特定のtenant/clientを指定し、
-  該当するapps.yamlのみを対象にする。カンマ区切りで複数のtenant/client組を指定でき、
-  指定した組のいずれかに一致するapps.yamlがすべて対象になる（`TARGET_CHART_DIR`と
+  該当するconfig.yamlのみを対象にする。カンマ区切りで複数のtenant/client組を指定でき、
+  指定した組のいずれかに一致するconfig.yamlがすべて対象になる（`TARGET_CHART_DIR`と
   組み合わせ可能。組み合わせた場合はその両方に一致するものだけが対象になる）
 - 指定した`TARGET_CHART_DIR`、または`TARGET_CLIENT`内の各tenant/client組が
   `config/`配下に1件も見つからない場合は、typo等に気づけるようエラーとして即時終了する

@@ -1,6 +1,6 @@
 # 現在の状態
 
-最終更新: 2026-09-04（1アプリ複数chart対応セッション）
+最終更新: 2026-09-05（config.yaml / anchor-setting.yaml 分離セッション）
 
 ## 完了したこと
 
@@ -293,6 +293,70 @@
       書いていたため変更不要（`multi-service-app`用の`multiServiceAppTargetBranch`アンカーも
       ユーザー自身が追記済み）
     - `pnpm check`（248テスト）通過
+- **T-017検討・撤回**: chart構造（`valuesPath`+`anchor`）を`apps.yaml`から新設の`chart-targets.yaml`
+  （`<tenantId>/<clientId>`ディレクトリ配下、`projectId`をキーとするマップ）へ分離する設計を
+  一度実装（`src/lib/config.ts`に`ChartTargetsYamlSchema`・`loadChartTargets()`・
+  `resolveAppChart()`を追加、`apps.yaml`側を運用値のみに削減、`pnpm check`251テスト通過まで確認）
+  したが、ユーザーへの評価報告で「`projectId`キーだけで読み解くのはやや難しいかもしれない」と
+  指摘があり、直前の状態（T-016完了時点、`helm.chart[]`独立リスト＋`valuesPath`一致方式を
+  apps.yaml内で完結させる設計）へ差し戻した。`src/lib/config.ts`・`src/types.ts`のdocコメント・
+  `test/lib/config.test.ts`・`README.md`/`docs/requirements.md`/`docs/architecture.md`/
+  `docs/glossary.md`・`config/teamA-chart/tenantId1/clientId1/apps.yaml`・
+  `config-test/yadokari-smoke-test-chart/tenant1/client1/apps.yaml`をT-016完了時点の内容に復元し、
+  新設した`chart-targets.yaml`（2ファイル）は削除。`tasks.json`のT-017エントリも削除し、
+  このセッションの試行錯誤は`progress.md`のこの記述のみに残す
+- **T-016（差し戻し後の状態）を実機で再検証**: 一時スクリプトから`buildPlans()`を直接呼び出し、
+  gitlab.com上の`yadokari-smoke-test-chart`（`charts/anchor-app/values.yaml`）+
+  `sample-qa-sprint`に対して`DRY_RUN`相当（`dryRun: true`）で検証。
+  `chart[].anchor`（イメージタグ）は現在値`main-build-at-20260903-171213`から最新タグ
+  `main-build-at-20260903-172148`への差分を正しく検出。`helm.chart[]`（独立リスト、
+  `valuesPath`一致でapp単位に振り分け）は既存の`smokeTestTargetBranch`アンカーの現在値
+  `release/2025-q4`と設定値`main`の差分を正しく検出。いずれも書き込みは発生していない
+  （`dryRun: true`のため）。一時スクリプトは検証後に削除、テスト用GitLabリソースは変更なし
+- **T-017完了**: 前回撤回した`chart-targets.yaml`案（`projectId`をマップキーにする形式）に
+  代えて、ユーザーから具体的なファイル名・スキーマ形状の指定を受けて再実装
+  - `apps.yaml`を`config.yaml`にリネーム（`git mv`）し、運用値のみに削減
+  - `config.yaml`と同じ`<tenantId>/<clientId>`ディレクトリに`anchor-setting.yaml`を新設。
+    `projectId`をマップキーにする代わりに、`apps: [{projectId, projectName, chart: [...]}]`
+    という自己完結した配列要素の形式にした（`anchor-setting.yaml`単体を見てもどのappの
+    設定か分かるようにするため）。`helm`は`helm: [{chart: [...]}]`という配列表記
+  - `src/lib/config.ts`に`validateProjectLinkage()`を新設し、`config.yaml`と
+    `anchor-setting.yaml`の紐づけを3方向で検証: (a) `config.yaml`の各appに対応する
+    `anchor-setting.yaml`側エントリが無ければ例外、(b) 逆に`anchor-setting.yaml`に
+    `config.yaml`側に存在しない孤児エントリがあれば例外、(c) 同じ`projectId`なのに
+    `projectName`が食い違っていれば例外
+  - `resolveHelmTargetBranch()`は`config.yaml`の`helm.branchToSync`と`anchor-setting.yaml`の
+    `helm[0].chart`を別引数で受け取り、`valuesPath`一致でapp単位に振り分ける方式を維持
+  - `config/teamA-chart/tenantId1/clientId1/`・`config-test/yadokari-smoke-test-chart/tenant1/client1/`
+    双方を新構成に更新
+  - `test/lib/config.test.ts`を全面書き換え（`writeConfigYaml()`/`writeAnchorSettingYaml()`
+    ヘルパーを新設、孤児設定・`projectName`不一致の新規テストケースを追加、37テスト）
+  - `src/types.ts`のdocコメント・`README.md`/`docs/requirements.md`/`docs/architecture.md`/
+    `docs/glossary.md`を新構成に更新（`docs/glossary.md`には前回`chart-targets.yaml`案を
+    撤回した経緯も記録）
+  - `pnpm check`（254テスト）通過。gitlab.com実機（`CONFIG_PATH=config-test DRY_RUN=true`）で
+    新しい`config.yaml`/`anchor-setting.yaml`構成から`loadConfig()`が正しく読み込み・
+    整合性検証を通過し、実際のGitLab APIへ到達することを確認（既存のオープン中MRにより
+    `SKIPPED`。values.yamlへのanchor書き込みロジック自体は本タスクで変更していないため、
+    直近の`buildPlans()`直接検証結果がそのまま有効）
+- **T-017追記**: ユーザーが`config/teamA-chart/tenantId1/clientId1/anchor-setting.yaml`を
+  手動で修正し、`helm`を`[{chart: [...]}]`という配列表記から`{chart: [...]}`という単純な
+  オブジェクトに変更。実装をそれに追従させた
+  - `src/lib/config.ts`の`AnchorSettingYamlSchema.helm`を`z.array(AnchorSettingHelmSchema)
+.length(1)`から`AnchorSettingHelmSchema.optional()`に変更し、`loadAnchorSetting()`の
+    `parsed.helm?.[0]?.chart`を`parsed.helm?.chart`に変更
+  - `resolveHelmTargetBranch()`・エラーメッセージ・`src/types.ts`のdocコメントの
+    `helm[0].chart`表記を`helm.chart`に統一
+  - `test/lib/config.test.ts`のhelm関連テストのYAML文字列を配列表記からオブジェクト表記に
+    修正し、配列であることが前提だった「helmが2件以上指定されると例外をスローする」テストは
+    削除（オブジェクトなので複数指定という概念自体が無くなったため、253テスト）
+  - `README.md`/`docs/requirements.md`/`docs/architecture.md`/`docs/glossary.md`の
+    `helm[0].chart`表記を`helm.chart`に修正
+  - `pnpm check`（253テスト）通過。`pnpm lint:validate-config`で実configが新スキーマで
+    読み込めることを確認。`CONFIG_PATH=config TARGET_CHART_DIR=teamA-chart DRY_RUN=true`で
+    実行し、設定パース段階でエラーが出ず実際のGitLab APIまで到達することを確認
+    （`config/teamA-chart/`はprojectId 888等の架空プロジェクトのため404 Project Not Foundで
+    ERRORになるが、これは想定通りでconfig解析の問題ではない）
 
 ## 次にやること
 

@@ -1,7 +1,6 @@
 apps:
   - projectId: 82861978
     projectName: sample-qa-sprint
-    branchToSync: main
     chart:
       - valuesPath: charts/anchor-app/values.yaml
         anchor: tenantId1client1AppsVersion

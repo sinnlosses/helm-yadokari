@@ -1,6 +1,5 @@
 helm:
-  branchToSync: release/2026-q1
-  chart:
+  chart: # Helmの向き先ブランチの書き込み先
     - valuesPath: charts/my-app/values.yaml
       anchor: myAppTargetBranch
     - valuesPath: charts/another-app/values.yaml
@@ -8,21 +7,18 @@ helm:
     - valuesPath: charts/multi-service-app/values.yaml
       anchor: multiServiceAppTargetBranch
 apps:
-  - projectId: 888
-    projectName: my-app          # タグを取得するGitLabプロジェクト
-    branchToSync: main                    # 追跡するブランチ
+  - projectId: 888 # config.yaml と一致させる
+    projectName: my-app # config.yaml と一致させる
     chart:
       - valuesPath: charts/my-app/values.yaml
-        anchor: myAppVersion  # values.yaml内のYAMLアンカー名
+        anchor: myAppVersion # values.yaml内のYAMLアンカー名
   - projectId: 889
     projectName: another-app
-    branchToSync: main
     chart:
       - valuesPath: charts/another-app/values.yaml
-        anchor: tenantId1client1AppsVersion  # values.yaml内のYAMLアンカー名
+        anchor: tenantId1client1AppsVersion
   - projectId: 890
-    projectName: multi-service-app # 1プロジェクトでWebAPI/バッチ/デーモンなど複数appを管理する例
-    branchToSync: main             # 1つのvalues.yaml内に複数のアンカーで各appのタグを持つ構成
+    projectName: multi-service-app
     chart:
       - valuesPath: charts/multi-service-app/values.yaml
         anchor: multiServiceAppWebapiVersion
