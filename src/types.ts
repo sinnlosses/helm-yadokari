@@ -69,7 +69,7 @@ export type TargetClient = {
  * values.yaml内でイメージタグを書き換える1箇所分（対象ファイル＋その中でのYAMLアンカー名）。
  * 1つのソースリポジトリ（1つのタグ）に対して、WebAPI/バッチ/デーモンなど複数の
  * デプロイ単位を管理しているケースでは、同じ最新タグを複数箇所に反映する必要があるため、
- * `AppConfig.chart`はこの型の配列として持つ（T-014）。値は`anchor-setting.yaml`の
+ * `AppConfig.chart`はこの型の配列として持つ（T-014）。値は`anchors.yaml`の
  * `apps[].chart[]`から取得する（T-017）
  */
 export type ImageTagTarget = {
@@ -80,7 +80,7 @@ export type ImageTagTarget = {
 /**
  * Helmの向き先ブランチ（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
  * ブランチ）の書き込み先1箇所分（対象ファイル＋その中でのYAMLアンカー名）。
- * `anchor-setting.yaml`トップレベルの`helm.chart[]`の1要素に対応する（T-016、T-017）
+ * `anchors.yaml`トップレベルの`helm.chart[]`の1要素に対応する（T-016、T-017）
  */
 export type HelmTargetBranchTarget = {
   readonly valuesPath: ValuesPath
@@ -88,9 +88,9 @@ export type HelmTargetBranchTarget = {
 }
 
 /**
- * config.yaml/anchor-setting.yaml内で「Helmの向き先ブランチ」を扱うための設定。`branch`は
+ * config.yaml/anchors.yaml内で「Helmの向き先ブランチ」を扱うための設定。`branch`は
  * config.yamlのトップレベルフィールド`helm.branchToSync`として1ファイル（tenantId/clientId単位）
- * につき1つ、人間が直接書き換える値。`targets`は、同じディレクトリのanchor-setting.yamlが持つ
+ * につき1つ、人間が直接書き換える値。`targets`は、同じディレクトリのanchors.yamlが持つ
  * `helm.chart[]`の要素のうち、このアプリの`chart[].valuesPath`と一致するものすべてを指す
  * （`valuesPath`一致でapp単位に振り分ける）。タグの命名規則のような自動生成・自動判定の
  * 仕組みは持たず、単純に`branch`と各`targets`が指す現在値を比較する
@@ -103,7 +103,7 @@ export type HelmTargetBranchConfig = {
 /**
  * ソースリポジトリ（タグが打たれるGitLabプロジェクト）に対応する1アプリの設定。
  * `projectId`/`projectName`/`branchToSync`はconfig.yamlの運用値、`chart`は同じディレクトリの
- * `anchor-setting.yaml`（`apps[].chart[]`）から`projectId`で引いた書き込み先（T-017）
+ * `anchors.yaml`（`apps[].chart[]`）から`projectId`で引いた書き込み先（T-017）
  */
 export type AppConfig = {
   readonly projectId: ProjectId
@@ -112,7 +112,7 @@ export type AppConfig = {
   /** 同じ最新タグを反映する書き換え箇所の一覧（1件以上）。複数指定すると同一タグを複数箇所へ反映する */
   readonly chart: readonly ImageTagTarget[]
   /**
-   * config.yamlの`helm.branchToSync`とanchor-setting.yamlの`helm.chart`が両方指定され、
+   * config.yamlの`helm.branchToSync`とanchors.yamlの`helm.chart`が両方指定され、
    * `chart`のいずれかのvaluesPathがそこでカバーされている場合のみ値を持つ
    */
   readonly helmTargetBranch: HelmTargetBranchConfig | undefined
@@ -127,7 +127,7 @@ export type ChartRepoConfig = {
 
 /**
  * config/<chartリポジトリ>/ 配下1つ分。chart.yaml + そのディレクトリ配下で見つかった全
- * config.yaml（+ 同じディレクトリのanchor-setting.yaml）の集約
+ * config.yaml（+ 同じディレクトリのanchors.yaml）の集約
  */
 export type ChartAndApps = {
   readonly chartDir: ChartDirName

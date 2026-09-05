@@ -13,7 +13,7 @@
 ### アプリ
 
 - **英語識別子**: `AppConfig` / `app`
-- **定義**: Helm chartでデプロイされる1つのアプリケーション単位。`config/<chart>/<tenantId>/<clientId>/config.yaml`の1エントリ（運用値）と、同じディレクトリの`anchor-setting.yaml`の対応するエントリ（chart構造）を`projectId`で結合したもの（T-017）。
+- **定義**: Helm chartでデプロイされる1つのアプリケーション単位。`config/<chart>/<tenantId>/<clientId>/config.yaml`の1エントリ（運用値）と、同じディレクトリの`anchors.yaml`の対応するエントリ（chart構造）を`projectId`で結合したもの（T-017）。
 
 ### ソースリポジトリ
 
@@ -32,23 +32,23 @@
 - **定義**: 同一chartリポジトリ配下でアプリ設定をさらに分割管理する単位。`config/<chart>/<tenantId>/<clientId>/config.yaml`というディレクトリ階層で表現される。
 - **表記ゆれ**: `AppConfig`/`ChartAndApps`型にはtenantId/clientIdに対応するフィールドが存在しない。ディレクトリを走査してファイルを見つけるためだけに使われ、パース後の値としては保持されない。
 
-### config.yaml / anchor-setting.yaml
+### config.yaml / anchors.yaml
 
 - **英語識別子**: なし（ファイル名そのもの）
 - **定義**: `<tenantId>/<clientId>`ディレクトリに置く2つの設定ファイル（T-017）。`config.yaml`は
   「どのプロジェクトのどのブランチを追跡するか」という運用値（`projectId`/`projectName`/
   `branchToSync`、Helmの向き先ブランチの値`helm.branchToSync`。頻繁に変更される）のみを持ち、
-  `anchor-setting.yaml`は「`values.yaml`のどこに書き込むか」というchart構造（`apps[].chart[]`、
+  `anchors.yaml`は「`values.yaml`のどこに書き込むか」というchart構造（`apps[].chart[]`、
   `helm.chart[]`。滅多に変更されない）のみを持つ。両者は`projectId`で対応付ける。
-  `anchor-setting.yaml`側の各appは`projectId`に加えて`projectName`も重複して持ち、
+  `anchors.yaml`側の各appは`projectId`に加えて`projectName`も重複して持ち、
   `loadApps()`内の`validateProjectLinkage()`が両ファイル間の紐づけ（`config.yaml`の各appに
-  対応するエントリが`anchor-setting.yaml`にあるか、逆に`anchor-setting.yaml`に孤児エントリが
+  対応するエントリが`anchors.yaml`にあるか、逆に`anchors.yaml`に孤児エントリが
   無いか、`projectName`が食い違っていないか）を検証する。
 - **経緯**: 元々は`config.yaml`（当時は`apps.yaml`）自身が`apps[].chart[]`・`helm.chart[]`と
   してchart構造も持っていたが、「chart設定は一度設定すればあまり触らず、apps.yamlはよく触る」
   というユーザー指摘により分離した。最初は`chart-targets.yaml`という名前で`projectId`を
   キーとするマップ形式にしたが、「`projectId`だけで読み解くのは難しいかもしれない」という
-  評価を受けて撤回。改めて`anchor-setting.yaml`という名前で、`projectId`をマップのキーにする
+  評価を受けて撤回。改めて`anchors.yaml`という名前で、`projectId`をマップのキーにする
   代わりに`projectId`/`projectName`を持つ自己完結した配列要素にする形に作り直した。
   `helm`もユーザーが手動で`[{chart: [...]}]`という配列表記から`{chart: [...]}`という単純な
   オブジェクトに直接修正し、それに実装を追従させた。
@@ -56,12 +56,12 @@
 ### valuesPath
 
 - **英語識別子**: `valuesPath`
-- **定義**: `anchor-setting.yaml`内で、対象アプリが参照する`values.yaml`ファイルのパスを指すフィールド。
+- **定義**: `anchors.yaml`内で、対象アプリが参照する`values.yaml`ファイルのパスを指すフィールド。
 
 ### anchor（chart[].anchor）
 
 - **英語識別子**: `anchor`（型は`AnchorName`ブランド型、`ImageTagTarget`のフィールド）
-- **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`anchor-setting.yaml`の
+- **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`anchors.yaml`の
   `apps[].chart`配列の1要素が持つフィールド名。`variables: [&tenant1client1AppsVersion main, ...]`
   のように、配列要素にアンカーで名前を付けた構成のvalues.yamlを前提とする。1つのソース
   リポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を管理している場合は、`chart`配列に
@@ -71,7 +71,7 @@
   dotパスで辿る`imageTagKey`方式も過去に存在したが、実運用ではYAMLアンカー方式のみで
   十分なため削除された。過去には`imageTagAnchor`という名前だったが、ユーザー指示により
   `helm.chart[].anchor`と対になる形で`anchor`にリネームされ、さらに`apps.yaml`から
-  `anchor-setting.yaml`へ移設された（T-017）。
+  `anchors.yaml`へ移設された（T-017）。
 
 ### Helmの向き先ブランチ
 
@@ -81,7 +81,7 @@
   (2)そのパラメータを受け取ってk8sリソースを実際に構築するブランチの2種類で構成される、という前提のもと、
   後者を指すブランチ名。タグではなくブランチ名そのもので指定する。1つのtenantId/clientId内のapps全体で
   共通の1つの値であり、`config.yaml`のトップレベルフィールド`helm`（`apps:`配列と同階層、
-  `branchToSync`を持つ1件のオブジェクト。運用値のためconfig.yaml側に置く。`anchor-setting.yaml`
+  `branchToSync`を持つ1件のオブジェクト。運用値のためconfig.yaml側に置く。`anchors.yaml`
   側の`helm`も同じくオブジェクト形式で、両者とも配列表記は使わない）として人間が直接
   書き換える。タグ命名規則のような自動生成・自動判定の仕組みは持たない（T-016）。
 - **表記ゆれ**: config.yaml上のフィールド名は`helm.branchToSync`だが、これは`AppConfig.branchToSync`
@@ -92,18 +92,18 @@
 
 - **英語識別子**: `anchor`（型は`AnchorName`、`HelmTargetBranchTarget`のフィールド）
 - **定義**: 「Helmの向き先ブランチ」の値を`valuesPath`のどこに書き込むかを指す、
-  `anchor-setting.yaml`トップレベル`helm.chart`配列の各要素が持つフィールド（chart構造の
-  ためconfig.yamlではなくanchor-setting.yaml側に置く、T-017）。`apps[].chart[].anchor`と
+  `anchors.yaml`トップレベル`helm.chart`配列の各要素が持つフィールド（chart構造の
+  ためconfig.yamlではなくanchors.yaml側に置く、T-017）。`apps[].chart[].anchor`と
   同様にYAMLアンカー名で位置を指定するが、書き込む値がタグではなくブランチ名である点が
   異なる。`apps[].chart[]`とは独立したリストで、どのappの`values.yaml`に書き込むかは
   `valuesPath`の一致だけで決まる（app側に専用フィールドは持たせない）。
 - **制約**: config.yamlに`helm.branchToSync`が指定されている場合、そのconfig.yaml配下の全アプリの全
-  `chart[].valuesPath`が`anchor-setting.yaml`の`helm.chart[]`でカバーされている必要がある
+  `chart[].valuesPath`が`anchors.yaml`の`helm.chart[]`でカバーされている必要がある
   （Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、1つでもvaluesPathが
   漏れていると設定エラーになる）。`helm.branchToSync`と`helm.chart[]`は片方だけの指定も
   設定エラー。過去には`apps[].chart[].helmBranchAnchor`というapp単位の任意フィールドだったが、
   ユーザー指示によりトップレベルの独立リストへ再設計され（T-016）、さらに`apps.yaml`から
-  `anchor-setting.yaml`へ移設された（T-017）。当初`helm`は`[{chart: [...]}]`という配列表記
+  `anchors.yaml`へ移設された（T-017）。当初`helm`は`[{chart: [...]}]`という配列表記
   だったが、ユーザーが`{chart: [...]}`という単純なオブジェクトに直接修正した。
 
 ### chartDir

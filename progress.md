@@ -357,6 +357,28 @@
     実行し、設定パース段階でエラーが出ず実際のGitLab APIまで到達することを確認
     （`config/teamA-chart/`はprojectId 888等の架空プロジェクトのため404 Project Not Foundで
     ERRORになるが、これは想定通りでconfig解析の問題ではない）
+- **T-017追記2**: `chart.yaml`/`config.yaml`/`anchor-setting.yaml`という3ファイルの命名が
+  紛らわしいという指摘を受け、命名候補を4案提示（`tracking.yaml`+`write-targets.yaml`案、
+  `sync.yaml`+`anchors.yaml`案、3ファイル全改名の体系的な案、`app-`プレフィックスで揃える案）。
+  ユーザーは「`anchor-setting.yaml`を`anchors.yaml`に変えるだけでいい」と、`chart.yaml`・
+  `config.yaml`は据え置きの最小変更を選択
+  - `git mv`で`anchor-setting.yaml`→`anchors.yaml`にリネーム（`config/teamA-chart/tenantId1/clientId1/`・
+    `config-test/yadokari-smoke-test-chart/tenant1/client1/`の両方）
+  - `src/lib/config.ts`の識別子もファイル名に合わせて統一: `AnchorSettingYamlSchema`→
+    `AnchorsYamlSchema`、`AnchorSettingAppSchema`→`AnchorsAppSchema`、`AnchorSettingHelmSchema`→
+    `AnchorsHelmSchema`、型`AnchorSettingApp`→`AnchorsApp`、型`AnchorSetting`→`Anchors`、
+    `loadAnchorSetting()`→`loadAnchors()`、変数`anchorSetting`→`anchors`、`anchorSettingPath`→
+    `anchorsPath`
+  - `test/lib/config.test.ts`の`writeAnchorSettingYaml()`ヘルパーを`writeAnchorsYaml()`に
+    リネームし、ファイルパス・テストタイトルの文字列も追従（36テスト）
+  - `README.md`/`docs/requirements.md`/`docs/architecture.md`/`docs/glossary.md`/`src/types.ts`の
+    `anchor-setting.yaml`表記を`anchors.yaml`に一括置換し、ディレクトリ構成図のコメント位置が
+    ずれた箇所（README.md/docs/requirements.md）のインデントを手動で整列
+  - `progress.md`/`tasks.json`の過去の記述は当時の名前のまま残し、履歴として保持（このエントリ
+    自体は新しい名前で記述）
+  - `pnpm check`（253テスト）通過。`pnpm lint:validate-config`で実configが新ファイル名で
+    読み込めることを確認。`CONFIG_PATH=config-test DRY_RUN=true`で実行し、gitlab.com実機に
+    対して設定パースからAPI呼び出しまで問題なく到達することを再確認
 
 ## 次にやること
 

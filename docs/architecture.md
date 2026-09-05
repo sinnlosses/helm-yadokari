@@ -27,7 +27,7 @@
       （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
     - `app.helmTargetBranch`（Helmの向き先ブランチ。T-016）が設定されているアプリは、
       `applyHelmTargetBranchTarget()`が`app.chart`と同じ`valuesYamlCache`を共有しつつ、
-      `helmTargetBranch.targets`（anchor-setting.yamlトップレベル`helm.chart[]`のうち
+      `helmTargetBranch.targets`（anchors.yamlトップレベル`helm.chart[]`のうち
       `valuesPath`がこのappの`chart[].valuesPath`と一致する箇所すべて）を1箇所ずつ処理し、
       設定値（`helmTargetBranch.branch`）と`values.yaml`側の現在値を比較する。
       差分があれば書き込み前に`lib/gitlab/gitlab.ts`の`branchExists()`でそのブランチが
@@ -52,15 +52,15 @@
       「GitLabのタグ」という概念に強く紐づく命名規則のため、`utils/`ではなく`gitlab/`配下に置く
       （呼び出し元は `steps/build-plans.ts` のみ）
   - `config.ts`: `config/<chart>/chart.yaml`・`config/<chart>/<tenantId>/<clientId>/config.yaml`・
-    同じディレクトリの`anchor-setting.yaml`という2階層固定構成を再帰的に読み込み、Zodで
+    同じディレクトリの`anchors.yaml`という2階層固定構成を再帰的に読み込み、Zodで
     バリデーション（ファイル探索・YAML読み込みの汎用部分は `utils/fs.ts` / `utils/yaml.ts` に
     委譲）。`config.yaml`は運用値（`projectId`/`projectName`/`branchToSync`、Helmの向き先
-    ブランチの値`helm.branchToSync`）のみを持ち、`anchor-setting.yaml`はchart構造
+    ブランチの値`helm.branchToSync`）のみを持ち、`anchors.yaml`はchart構造
     （`valuesPath`+`anchor`の書き込み先一覧。app単位の`projectId`/`projectName`も重複して
     持つ）のみを持つ（T-017、あまり変更されないchart構造と、頻繁に変更される運用値を
     別ファイルに分離する狙い）。両者は`loadApps()`内の`validateProjectLinkage()`が
-    `projectId`をキーに突き合わせ、(1) `config.yaml`の各appに対応する`anchor-setting.yaml`側の
-    エントリが無い、(2) 逆に`anchor-setting.yaml`に`config.yaml`側に存在しない孤児エントリが
+    `projectId`をキーに突き合わせ、(1) `config.yaml`の各appに対応する`anchors.yaml`側の
+    エントリが無い、(2) 逆に`anchors.yaml`に`config.yaml`側に存在しない孤児エントリが
     ある、(3) 同じ`projectId`なのに`projectName`が一致しない、の3パターンを設定ミスとして
     例外をスローする。`loadConfig()` は第2引数に`ConfigTarget`（`TARGET_CHART_DIR`由来の
     chartDir、`TARGET_CLIENT`由来の`TargetClient`（tenantId/clientIdの組）配列）を受け取り、
@@ -68,7 +68,7 @@
     複数のtenant/client組を指定できる。config/のディレクトリ構成に対するフィルタなので
     このファイルの責務とし、指定した組のいずれか1件でも見つからない場合は例外をスローする
     （`docs/requirements.md` 4.5節）。`config.yaml`のトップレベル`helm.branchToSync`
-    （tenantId/clientId単位に1件）と`anchor-setting.yaml`のトップレベル`helm.chart[]`
+    （tenantId/clientId単位に1件）と`anchors.yaml`のトップレベル`helm.chart[]`
     （書き込み先一覧）は、`loadApps()`内の`resolveHelmTargetBranch()`が`valuesPath`の一致で
     app単位の`AppConfig.helmTargetBranch`に振り分ける（app側には専用フィールドを持たせず、
     `helm.chart[].valuesPath`とapp自身の`chart[].valuesPath`が一致する要素だけを`targets`

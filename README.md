@@ -136,15 +136,15 @@ config/
     chart.yaml                     # そのchartリポジトリ共通の情報
     <tenantId>/
       <clientId>/
-        config.yaml                # 運用値（どのプロジェクトのどのブランチを追跡するか等）
-        anchor-setting.yaml        # chart構造（values.yaml内のどこに書き込むか）
+        config.yaml         # 運用値（どのプロジェクトのどのブランチを追跡するか等）
+        anchors.yaml        # chart構造（values.yaml内のどこに書き込むか）
 ```
 
-`config.yaml`（よく変更する）と `anchor-setting.yaml`（滅多に変更しない）でファイルを
+`config.yaml`（よく変更する）と `anchors.yaml`（滅多に変更しない）でファイルを
 分けています。`config.yaml` は「どのプロジェクトのどのブランチを追跡するか」といった運用値
-のみを持ち、`anchor-setting.yaml` は「`values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
-書き込むか」というchart構造を持ちます。両者は `projectId` で対応付け、`anchor-setting.yaml`
-側にも同じ `projectId`/`projectName` を重複して書くことで、`anchor-setting.yaml` 単体を見ても
+のみを持ち、`anchors.yaml` は「`values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
+書き込むか」というchart構造を持ちます。両者は `projectId` で対応付け、`anchors.yaml`
+側にも同じ `projectId`/`projectName` を重複して書くことで、`anchors.yaml` 単体を見ても
 「どのappの設定か」が分かるようにしています。
 
 ```yaml
@@ -164,7 +164,7 @@ apps:
 ```
 
 ```yaml
-# config/teamA-chart/tenantId1/clientId1/anchor-setting.yaml
+# config/teamA-chart/tenantId1/clientId1/anchors.yaml
 apps:
   - projectId: 1 # config.yaml と一致させる
     projectName: my-app # config.yaml と一致させる
@@ -183,7 +183,7 @@ YAML上のスカラー値を、ネストの深さ・キー名に関わらず直�
 複数箇所へまとめて反映できます:
 
 ```yaml
-# anchor-setting.yaml
+# anchors.yaml
 apps:
   - projectId: 2
     projectName: multi-service-app
@@ -196,10 +196,10 @@ apps:
         anchor: multiServiceAppDaemonVersion
 ```
 
-`config.yaml` の各appに対応する `projectId` が `anchor-setting.yaml` に無い場合や、逆に
-`anchor-setting.yaml` に `config.yaml` に存在しないappが定義されている場合、同じ `projectId`
+`config.yaml` の各appに対応する `projectId` が `anchors.yaml` に無い場合や、逆に
+`anchors.yaml` に `config.yaml` に存在しないappが定義されている場合、同じ `projectId`
 なのに `projectName` が食い違っている場合は、いずれも設定エラーになります（`config.yaml` と
-`anchor-setting.yaml` の紐づけを検証する仕組みが自動で働きます）。
+`anchors.yaml` の紐づけを検証する仕組みが自動で働きます）。
 
 ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/` の2階層で固定です。
 テナント分けが不要な場合もダミーの1つの tenantId/clientId ディレクトリ配下に置いてください。
@@ -218,7 +218,7 @@ apps:
 ```
 
 ```yaml
-# anchor-setting.yaml トップレベル（chart構造。config.yaml の helm.branchToSync の値をどこに書くか）
+# anchors.yaml トップレベル（chart構造。config.yaml の helm.branchToSync の値をどこに書くか）
 apps:
   - projectId: 1
     projectName: my-app
@@ -235,7 +235,7 @@ helm:
 `config.yaml` の `helm.branchToSync` はchartリポジトリ内の別ブランチ（`chart.yaml` の
 `projectId` と同一プロジェクト）を指す、tenantId/clientId単位に1件の値です。人間が自己申告
 方式で直接書き換える運用とし、タグ命名規則のような自動生成・自動判定の仕組みは持ちません。
-`anchor-setting.yaml` の `helm.chart[]` は書き込み先（`valuesPath` + `anchor`）の一覧で、
+`anchors.yaml` の `helm.chart[]` は書き込み先（`valuesPath` + `anchor`）の一覧で、
 `apps[].chart[]` とは独立したリストです。
 
 `helm.chart[]` と各appの紐付けは、`valuesPath` の一致だけで決まります（app側に専用

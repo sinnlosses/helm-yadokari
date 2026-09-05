@@ -105,7 +105,7 @@ Helm chart でバージョン管理されているアプリケーションのバ
 管理対象の情報は、CLIリポジトリ側の `config/` ディレクトリで一元管理する
 （chartリポジトリ側に設定を持たせる自己申告方式は採用しない）。CLIは `config/` 配下を
 再帰的に走査し、見つけた全ての `config.yaml`（とその直近の親をたどって見つかる`chart.yaml`、
-同じディレクトリの`anchor-setting.yaml`）を処理対象とする。
+同じディレクトリの`anchors.yaml`）を処理対象とする。
 
 ディレクトリ構成:
 
@@ -115,15 +115,15 @@ config/
     chart.yaml                     # そのchartリポジトリ共通の情報
     <tenantId>/
       <clientId>/
-        config.yaml                # 運用値（どのプロジェクトのどのブランチを追跡するか等）
-        anchor-setting.yaml        # chart構造（values.yaml内のどこに書き込むか）
+        config.yaml         # 運用値（どのプロジェクトのどのブランチを追跡するか等）
+        anchors.yaml        # chart構造（values.yaml内のどこに書き込むか）
 ```
 
-`config.yaml`（よく変更する）と`anchor-setting.yaml`（滅多に変更しない）でファイルを分ける
+`config.yaml`（よく変更する）と`anchors.yaml`（滅多に変更しない）でファイルを分ける
 （T-017）。`config.yaml`は「どのプロジェクトのどのブランチを追跡するか」といった運用値のみを
-持ち、`anchor-setting.yaml`は「`values.yaml`のどこ（`valuesPath`+YAMLアンカー名）に書き込むか」
-というchart構造を持つ。両者は`projectId`で対応付け、`anchor-setting.yaml`側にも同じ
-`projectId`/`projectName`を重複して書くことで、`anchor-setting.yaml`単体を見ても「どのappの
+持ち、`anchors.yaml`は「`values.yaml`のどこ（`valuesPath`+YAMLアンカー名）に書き込むか」
+というchart構造を持つ。両者は`projectId`で対応付け、`anchors.yaml`側にも同じ
+`projectId`/`projectName`を重複して書くことで、`anchors.yaml`単体を見ても「どのappの
 設定か」が分かるようにしている。
 
 `chart.yaml`:
@@ -144,7 +144,7 @@ apps:
     branchToSync: main # 追跡するブランチ
 ```
 
-`anchor-setting.yaml`（`config.yaml`と同じ`<tenantId>/<clientId>`ディレクトリに置く）:
+`anchors.yaml`（`config.yaml`と同じ`<tenantId>/<clientId>`ディレクトリに置く）:
 
 ```yaml
 apps:
@@ -166,7 +166,7 @@ apps:
   ケースでは、`chart`に複数要素を指定することで、同じ最新タグを複数箇所へまとめて反映できる
 
   ```yaml
-  # anchor-setting.yaml
+  # anchors.yaml
   apps:
     - projectId: 890
       projectName: multi-service-app
@@ -179,10 +179,10 @@ apps:
           anchor: multiServiceAppDaemonVersion
   ```
 
-- `config.yaml`の各appに対応する`projectId`が`anchor-setting.yaml`に見つからない場合、
-  逆に`anchor-setting.yaml`に`config.yaml`側に存在しないappが定義されている場合（孤児設定）、
+- `config.yaml`の各appに対応する`projectId`が`anchors.yaml`に見つからない場合、
+  逆に`anchors.yaml`に`config.yaml`側に存在しないappが定義されている場合（孤児設定）、
   同じ`projectId`なのに`projectName`が食い違っている場合は、いずれも設定エラーになる
-  （`config.yaml`と`anchor-setting.yaml`の紐づけを検証する仕組みが働く）
+  （`config.yaml`と`anchors.yaml`の紐づけを検証する仕組みが働く）
 - ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/` の
   2階層（tenantId/clientId）に統一する。テナント分けが不要なchartでも、ダミーの
   1つのtenantId/clientIdディレクトリ配下に置く
@@ -203,7 +203,7 @@ apps:
 ```
 
 ```yaml
-# anchor-setting.yaml トップレベル（chart構造。config.yaml の helm.branchToSync の値をどこに書くか）
+# anchors.yaml トップレベル（chart構造。config.yaml の helm.branchToSync の値をどこに書くか）
 apps:
   - projectId: 888
     projectName: my-app
@@ -220,7 +220,7 @@ helm:
 - `config.yaml`の`helm.branchToSync`はchartリポジトリ内の別ブランチ（chart.yamlの`projectId`と
   同一プロジェクト）を指す、tenantId/clientId単位に1件の値。人間が自己申告方式で直接書き換える
   運用とし、タグ命名規則のような自動生成・自動判定の仕組みは持たない
-- `anchor-setting.yaml`の`helm.chart[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、
+- `anchors.yaml`の`helm.chart[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、
   `apps[].chart[]`とは独立したリスト。どのappに紐づくかは`valuesPath`の一致だけで決まる
   （app側に専用フィールドは持たせない）。1つのappが複数の`valuesPath`を持つ場合、それぞれに
   対応する`helm.chart[]`の要素があれば複数箇所へまとめて反映できる
