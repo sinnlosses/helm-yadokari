@@ -190,7 +190,12 @@ async function buildAppUpdatePlan(
   app: AppConfig,
 ): Promise<BuildChartUpdateAcc> {
   const { gitlab, dryRun, tagFormat, loadValuesYamlContent, branchExists } = context
-  const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat)
+  const { tag: latestTag, created: latestTagCreated } = await resolveLatestTag(
+    gitlab,
+    app,
+    dryRun,
+    tagFormat,
+  )
 
   const initialTargetsAcc: ApplyImageTagAcc = {
     valuesYamlCache: acc.valuesYamlCache,
@@ -235,7 +240,14 @@ async function buildAppUpdatePlan(
   }
 
   const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.name)
-  const plan: AppUpdatePlan = { app, latestTag, pipeline, updates, helmTargetBranchUpdates }
+  const plan: AppUpdatePlan = {
+    app,
+    latestTag,
+    latestTagCreated,
+    pipeline,
+    updates,
+    helmTargetBranchUpdates,
+  }
 
   return {
     plans: [...acc.plans, plan],

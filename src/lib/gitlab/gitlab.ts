@@ -8,7 +8,6 @@ import type {
   GitLabUrl,
   HelmTargetBranchUpdate,
   ImageTagUpdate,
-  ParsedTag,
   PipelineInfo,
   ProjectId,
   TagInfo,
@@ -274,79 +273,78 @@ function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): string {
 }
 
 /**
- * `chart`の1箇所分の更新内容を1行にまとめる。同じ最新タグを複数箇所（WebAPI/バッチ/
- * デーモンなど）へ反映するケース（T-014）では、この行がアプリ1件につき複数出力される
+ * 打刻日時をJSTで `yyyy-MM-dd HH:mm:ss` 形式にする。タグ名に埋め込まれる日時はUTCなので、
+ * MR本文ではレビュアーが読みやすいJSTに直して表示する（T-036）。
  */
-function buildImageTagUpdateLine(
-  webUrl: GitLabUrl,
-  latestTag: ParsedTag,
-  update: ImageTagUpdate,
-): string {
+function formatJst(date: Date): string {
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date)
+  const part = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((p) => p.type === type)?.value ?? ""
+  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")}`
+}
+
+/**
+ * イメージタグの更新1箇所分をテーブルの1行にする（T-036）。1アプリが複数箇所を書き換える
+ * 場合（T-014）は、同じリポジトリの行が箇所の数だけ並ぶ。
+ *
+ * - 打刻日時は、このツールが今回タグを作成したときだけ表示する（既存タグの再利用時は `-`）
+ * - パイプラインは状態を出さずリンクだけにする
+ */
+function buildImageTagRow(webUrl: GitLabUrl, plan: AppUpdatePlan, update: ImageTagUpdate): string {
   const previousTagText = update.previousTag
     ? `[${update.previousTag}](${buildTagUrl(webUrl, update.previousTag)})`
     : "(未設定)"
   const compareText = update.previousTag
-    ? `[比較](${webUrl}/-/compare/${encodeURIComponent(update.previousTag)}...${encodeURIComponent(latestTag.name)})`
-    : "(旧タグ未設定のため比較できません)"
-  return `  - \`${update.target.valuesPath}\`（アンカー: ${update.target.anchor}）: ${previousTagText} → [${latestTag.name}](${buildTagUrl(webUrl, latestTag.name)}) / ${compareText}`
+    ? `[比較](${webUrl}/-/compare/${encodeURIComponent(update.previousTag)}...${encodeURIComponent(plan.latestTag.name)})`
+    : "-"
+  const cells = [
+    plan.app.projectName,
+    previousTagText,
+    `[${plan.latestTag.name}](${buildTagUrl(webUrl, plan.latestTag.name)})`,
+    compareText,
+    plan.latestTagCreated ? formatJst(plan.latestTag.builtAt) : "-",
+    plan.pipeline ? `[パイプライン](${plan.pipeline.webUrl})` : "-",
+  ]
+  return `| ${cells.join(" | ")} |`
 }
 
 /**
- * Helmの向き先ブランチの更新を、変更内容（旧→新）ごとにまとめて表示する（T-016、T-034）。
- * 向き先ブランチはclient単位で共通の値なので、アプリの節ではなく独立したセクションに置く。
+ * Helmの向き先ブランチの更新をテーブルにする（T-016、T-034、T-036）。
+ * 向き先ブランチはclient単位で共通の値なので、イメージタグとは別のセクションに置く。
  */
 function buildHelmTargetBranchSection(updates: readonly HelmTargetBranchUpdate[]): string {
-  const byTransition = updates.reduce((groups, update) => {
-    const previousBranchText = update.previousBranch ? `\`${update.previousBranch}\`` : "(未設定)"
-    const key = `${previousBranchText} → \`${update.newBranch}\``
-    return new Map(groups).set(key, [...(groups.get(key) ?? []), update])
-  }, new Map<string, readonly HelmTargetBranchUpdate[]>())
-
   return [
     "## Helmの向き先ブランチ",
-    ...[...byTransition].map(([transition, groupedUpdates]) =>
-      [
-        `- ${transition}`,
-        ...groupedUpdates.map(
-          (update) => `  - \`${update.target.valuesPath}\`（アンカー: ${update.target.anchor}）`,
-        ),
-      ].join("\n"),
-    ),
-  ].join("\n\n")
-}
-
-/**
- * 1アプリ分のイメージタグ更新の節。イメージタグに差分が無いアプリ（向き先ブランチだけが
- * 変わったアプリ）は呼び出し元が除外するため、この関数は必ず1件以上の更新を受け取る。
- */
-function buildImageTagAppSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {
-  const pipelineLine = plan.pipeline
-    ? `- パイプライン: [${plan.pipeline.status}](${plan.pipeline.webUrl})`
-    : "- パイプライン: (見つかりません)"
-  return [
-    `### ${plan.app.projectName}`,
-    `- 打刻日時: ${plan.latestTag.builtAt.toISOString()}`,
-    pipelineLine,
-    ...plan.updates.map((update) => buildImageTagUpdateLine(webUrl, plan.latestTag, update)),
+    "",
+    "| 旧ブランチ | 新ブランチ | 書き込み先 |",
+    "| --- | --- | --- |",
+    ...updates.map((update) => {
+      const previousBranchText = update.previousBranch ? `\`${update.previousBranch}\`` : "(未設定)"
+      const target = `\`${update.target.valuesPath}\`（アンカー: ${update.target.anchor}）`
+      return `| ${previousBranchText} | \`${update.newBranch}\` | ${target} |`
+    }),
   ].join("\n")
 }
 
-/**
- * MRの本文を「## イメージタグ」「## Helmの向き先ブランチ」の2セクションで組み立てる（T-034）。
- * 更新が1件も無い種別のセクションは出力しない。タグへのリンクは対象アプリのソース
- * リポジトリのweb_urlを元に構築するため、プロジェクトごとに `getProjectWebUrl()` を
- * 呼び出す（同一プロジェクトへの呼び出しはキャッシュする）。
- */
 export async function buildMrDescription(
   gitlab: GitlabClient,
   plans: readonly AppUpdatePlan[],
 ): Promise<string> {
   const initialAcc = {
-    sections: [] as readonly string[],
+    rows: [] as readonly string[],
     webUrlCache: new Map<ProjectId, GitLabUrl>(),
   }
 
-  const { sections } = await plans
+  const { rows } = await plans
     .filter((plan) => plan.updates.length > 0)
     .reduce(async (accPromise, plan) => {
       const acc = await accPromise
@@ -354,12 +352,26 @@ export async function buildMrDescription(
       const webUrl = await getOrFetch(webUrlCache, plan.app.projectId, () =>
         getProjectWebUrl(gitlab, plan.app.projectId),
       )
-      return { sections: [...acc.sections, buildImageTagAppSection(plan, webUrl)], webUrlCache }
+      return {
+        rows: [
+          ...acc.rows,
+          ...plan.updates.map((update) => buildImageTagRow(webUrl, plan, update)),
+        ],
+        webUrlCache,
+      }
     }, Promise.resolve(initialAcc))
+
+  const imageTagSection = [
+    "## イメージタグ",
+    "",
+    "| リポジトリ | 旧タグ | 新タグ | 比較 | 打刻日時(JST) | パイプライン |",
+    "| --- | --- | --- | --- | --- | --- |",
+    ...rows,
+  ].join("\n")
 
   const helmUpdates = uniqueHelmTargetBranchUpdates(plans)
   return [
-    ...(sections.length > 0 ? ["## イメージタグ", ...sections] : []),
+    ...(rows.length > 0 ? [imageTagSection] : []),
     ...(helmUpdates.length > 0 ? [buildHelmTargetBranchSection(helmUpdates)] : []),
   ].join("\n\n")
 }

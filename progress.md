@@ -131,6 +131,13 @@ T-001〜T-021（要件定義・CLI実装・GitLab実機検証・スキーマ再�
   !17（image tag 2）で新しいタイトル・2セクション構成・実在するタグリンクを確認。
   この過程で古いMR（!11・!13・!14・!15）はリセット手順によりクローズ済み
 
+- **T-036完了**: ユーザー指定に沿ってMR本文をテーブル化。「## イメージタグ」は
+  `リポジトリ / 旧タグ / 新タグ / 比較 / 打刻日時(JST) / パイプライン` の6列、
+  「## Helmの向き先ブランチ」も3列のテーブルに。パイプラインは状態を出さずリンクだけ、
+  打刻日時はJST表示で、既存タグを再利用した実行では `-`（このツールが打刻していないため）。
+  そのために `AppUpdatePlan.latestTagCreated` を追加し `resolveLatestTag()` の戻り値を
+  `{tag, created}` に変更。実機のMR !18/!19 で確認
+
 ## 次にやること
 
 - `refactor/repo-cleanup` を main へマージする（`git switch main && git merge --ff-only refactor/repo-cleanup`）。
@@ -138,7 +145,7 @@ T-001〜T-021（要件定義・CLI実装・GitLab実機検証・スキーマ再�
   - `steps/shared/` という置き場所の新設（CLAUDE.mdの「新しいコードを置く場所」に追記済み）
   - evidenceを3行以内に絞る運用とアーカイブ（docs/workflow.mdに追記済み）
   - README「設定 > config/」章を要約に縮小し、正典を docs/requirements.md 4.4節にしたこと
-- 実機検証で残置したMR（!16、!17）とブランチ2本の後片付け（不要になったら
+- 実機検証で残置したMR（!18、!19）とブランチ2本の後片付け（不要になったら
   `SMOKE_CHART_PROJECT_ID=86061211 npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply`）
 - 検証が完全に終わったら、テスト用のGitLabアクセストークンを失効させる（ユーザー対応）
 

@@ -278,5 +278,13 @@
     "passes": true,
     "evidence": "scripts/smoke/smoke-fixture.ts の SEED_FILES を実タグ（sample-qa-sprint は既存の main-build-at-20260903-171213、sample-develop-client は同リポジトリのコミットが1つしかないため同じコミットに作成した main-build-at-20260101-000000）に変更し、setup が ensureSeedTags() でシードタグの実在を保証するようにした（シードタグより新しいタグが無い場合は警告）。docs/smoke-test.md に前提と制約（develop-client の比較リンクは差分が空になる）を追記。実機で reset→setup→実行のループを回し、MR !16/!17 の旧タグリンク・比較リンクがすべて実在タグを指すことを確認",
     "dependencies": ["T-033"]
+  },
+  {
+    "id": "T-036",
+    "task": "MR本文（description）の見せ方をユーザー指定に合わせて改善する。指定内容: (1) イメージタグの更新は箇条書きではなくテーブルにする、(2) 列は リポジトリ / 旧タグ / 新タグ / 比較 / 打刻日時(JST) / パイプライン、(3) パイプラインは状態（success等）を出さずリンクだけにする、(4) 打刻日時はJSTで表示し、このツールが新しいタグを打っていない場合（既存タグの再利用時）は「-」にする",
+    "status": "done",
+    "passes": true,
+    "evidence": "src/types.ts の AppUpdatePlan に latestTagCreated を追加し、resolveLatestTag() が {tag, created} を返すよう変更して build-plans.ts 経由で貫通（既存タグ再利用か新規作成かをMR本文で区別するため）。src/lib/gitlab/gitlab.ts に formatJst()（Intl.DateTimeFormat、Asia/Tokyo、hourCycle h23）と buildImageTagRow() を新設し、イメージタグ節を6列のテーブルに、向き先ブランチ節も「旧ブランチ/新ブランチ/書き込み先」のテーブルに変更。パイプライン列はリンクのみ、パイプライン無し・比較不可・打刻日時なしはすべて「-」。test/lib/gitlab/gitlab.test.ts のdescription系テストを全面書き換え（13テスト、JST変換・「-」表示・箇所ごとの行・重複まとめを含む）。pnpm check（21ファイル294テスト）通過。実機のMR !18/!19 でテーブル表示とリンクを確認",
+    "dependencies": ["T-034"]
   }
 ]

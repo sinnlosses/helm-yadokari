@@ -244,6 +244,12 @@ export type HelmTargetBranchUpdate = {
 export type AppUpdatePlan = {
   readonly app: AppConfig
   readonly latestTag: ParsedTag
+  /**
+   * `latestTag` を今回の実行でこのツール自身が作成したか（既存タグの再利用なら false）。
+   * MR本文の「打刻日時」は、このツールが打刻したときだけ意味を持つ値なので、
+   * false のときは表示しない（T-036）
+   */
+  readonly latestTagCreated: boolean
   readonly pipeline: PipelineInfo | undefined
   readonly updates: readonly ImageTagUpdate[]
   readonly helmTargetBranchUpdates: readonly HelmTargetBranchUpdate[]

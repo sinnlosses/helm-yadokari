@@ -76,9 +76,12 @@ CONFIG_PATH=config-test TARGET_CLIENT=tenant2/client1,tenant2/client2 pnpm dev
 - MRタイトルは種別ごとの件数つき（T-034）:
   - client1: `Auto MR by yadokari: update tenant2/client1 (image tag 2, helm branch 1)`
   - client2: `Auto MR by yadokari: update tenant2/client2 (image tag 2)`
-- MR本文は「## イメージタグ」（アプリごとに打刻日時・パイプライン・旧タグ→新タグ・比較リンク）と
-  「## Helmの向き先ブランチ」（`main` → `release/2026-q1` と書き込み先の一覧）の2セクション。
+- MR本文は2セクションのテーブル（T-036）。「## イメージタグ」は
+  `リポジトリ / 旧タグ / 新タグ / 比較 / 打刻日時(JST) / パイプライン` の6列で、
+  「## Helmの向き先ブランチ」は `旧ブランチ / 新ブランチ / 書き込み先` の3列。
   タグリンク・比較リンクはすべて実在するタグを指す
+- 打刻日時は、このツールが新しいタグを作成した実行でだけ入る。スモークテストの
+  ソースリポジトリはHEADに一致するタグが既にあるため、通常は `-` になる
 
 ## 繰り返し実行するときの注意
 
