@@ -19,6 +19,11 @@ chartリポジトリ側に必要なもの（`smoke-fixture.ts setup` が用意�
 
 - ブランチ `release/2026-q1` … Helmの向き先ブランチの更新先。書き込み前に実在検証されるため、
   実際に存在している必要がある
+- ソースリポジトリのシードタグ … `values.yaml` の初期値には**実在する、かつ最新より古いタグ**を
+  使う（T-035）。架空の値（旧`placeholder`）だとMR本文の旧タグリンク・比較リンクが
+  存在しないタグを指してしまうため。`sample-develop-client` はコミットが1つしかないので、
+  同じコミットに古い日時のタグ（`main-build-at-20260101-000000`）を作って代用している
+  （比較リンクは開けるが差分は空になる）
 - `charts/smoke-tenant2/client1/values.yaml` … アンカー3つ
   （`t2c1QaSprintVersion` / `t2c1DevelopClientVersion` / `t2c1HelmTargetBranch`）
 - `charts/smoke-tenant2/client2/values.yaml` … アンカー2つ
@@ -68,8 +73,12 @@ CONFIG_PATH=config-test TARGET_CLIENT=tenant2/client1,tenant2/client2 pnpm dev
   それぞれに対応するMRが2件
 - `client1` の `values.yaml` は3アンカーすべてが書き換わる（image tag 2つ ＋ 向き先ブランチ）
 - `client2` の `values.yaml` は2アンカーが書き換わる
-- MR本文にアプリごとの打刻日時・パイプラインリンク・旧タグ→新タグの比較リンクが並び、
-  向き先ブランチの行は `（アンカー: …、向き先ブランチ）: main → release/2026-q1` の形で出る
+- MRタイトルは種別ごとの件数つき（T-034）:
+  - client1: `Auto MR by yadokari: update tenant2/client1 (image tag 2, helm branch 1)`
+  - client2: `Auto MR by yadokari: update tenant2/client2 (image tag 2)`
+- MR本文は「## イメージタグ」（アプリごとに打刻日時・パイプライン・旧タグ→新タグ・比較リンク）と
+  「## Helmの向き先ブランチ」（`main` → `release/2026-q1` と書き込み先の一覧）の2セクション。
+  タグリンク・比較リンクはすべて実在するタグを指す
 
 ## 繰り返し実行するときの注意
 

@@ -456,20 +456,25 @@ function makePlan(
   overrides: Partial<{
     pipeline: PipelineInfo
     previousTag: TagName | undefined
+    projectName: string
+    updates: AppUpdatePlan["updates"]
     helmTargetBranchUpdates: AppUpdatePlan["helmTargetBranchUpdates"]
   }> = {},
 ): AppUpdatePlan {
   const previousTag =
     "previousTag" in overrides ? overrides.previousTag : toTagName("main-build-at-20251231-000000")
   return {
-    app: makeApp({ projectId: toProjectId(1), projectName: toProjectName("my-app") }),
+    app: makeApp({
+      projectId: toProjectId(1),
+      projectName: toProjectName(overrides.projectName ?? "my-app"),
+    }),
     latestTag: {
       name: toTagName("main-build-at-20260101-000000"),
       branch: toBranchName("main"),
       builtAt: new Date("2026-01-01T00:00:00Z"),
     },
     pipeline: overrides.pipeline,
-    updates: [
+    updates: overrides.updates ?? [
       {
         target: {
           valuesPath: toValuesPath("values.yaml"),
@@ -483,15 +488,71 @@ function makePlan(
 }
 
 describe("buildMrTitle", () => {
-  it("tenantId/clientId・更新対象アプリ数を含むタイトルを組み立てる", () => {
+  const helmUpdate = {
+    target: { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("targetBranch") },
+    previousBranch: toBranchName("release/2025-q4"),
+    newBranch: toBranchName("release/2026-q1"),
+  }
+
+  it("イメージタグの書き換え箇所数を種別つきで含む", () => {
     expect(
       buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), [makePlan(), makePlan()]),
-    ).toBe("Auto MR by yadokari: update tenantId1/clientId1 2 app image tag(s)")
+    ).toBe("Auto MR by yadokari: update tenantId1/clientId1 (image tag 2)")
   })
 
-  it("0件のときも組み立てる", () => {
+  it("1アプリが複数箇所を書き換える場合はアプリ数ではなく箇所数を数える", () => {
+    const plan = makePlan({
+      updates: [
+        {
+          target: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("x") },
+          previousTag: undefined,
+        },
+        {
+          target: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("y") },
+          previousTag: undefined,
+        },
+        {
+          target: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("z") },
+          previousTag: undefined,
+        },
+      ],
+    })
+
+    expect(buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), [plan])).toBe(
+      "Auto MR by yadokari: update tenantId1/clientId1 (image tag 3)",
+    )
+  })
+
+  it("イメージタグとHelm向き先ブランチの両方があるとき、種別ごとに件数を出す", () => {
+    const plan = makePlan({ helmTargetBranchUpdates: [helmUpdate] })
+
+    expect(buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), [plan])).toBe(
+      "Auto MR by yadokari: update tenantId1/clientId1 (image tag 1, helm branch 1)",
+    )
+  })
+
+  it("Helm向き先ブランチだけが変わるとき、image tag と表示しない", () => {
+    const plan = makePlan({ updates: [], helmTargetBranchUpdates: [helmUpdate] })
+
+    expect(buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), [plan])).toBe(
+      "Auto MR by yadokari: update tenantId1/clientId1 (helm branch 1)",
+    )
+  })
+
+  it("同じ向き先ブランチの書き換え箇所が複数アプリに割り当てられていても重複して数えない", () => {
+    const plans = [
+      makePlan({ updates: [], helmTargetBranchUpdates: [helmUpdate] }),
+      makePlan({ projectName: "other-app", updates: [], helmTargetBranchUpdates: [helmUpdate] }),
+    ]
+
+    expect(buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), plans)).toBe(
+      "Auto MR by yadokari: update tenantId1/clientId1 (helm branch 1)",
+    )
+  })
+
+  it("0件のときは件数の括弧を付けない", () => {
     expect(buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), [])).toBe(
-      "Auto MR by yadokari: update tenantId1/clientId1 0 app image tag(s)",
+      "Auto MR by yadokari: update tenantId1/clientId1",
     )
   })
 })
@@ -643,5 +704,62 @@ describe("buildMrDescription", () => {
     })
     const description = await buildMrDescription(client, [makePlan()])
     expect(description).not.toContain("向き先ブランチ")
+  })
+})
+
+describe("buildMrDescription（セクション構成）", () => {
+  const makeShowClient = () =>
+    makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
+      },
+    })
+  const helmUpdate = {
+    target: { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("targetBranch") },
+    previousBranch: toBranchName("release/2025-q4"),
+    newBranch: toBranchName("release/2026-q1"),
+  }
+
+  it("イメージタグの更新は「## イメージタグ」セクションにアプリ単位で並べる", async () => {
+    const description = await buildMrDescription(makeShowClient(), [makePlan()])
+
+    expect(description).toContain("## イメージタグ")
+    expect(description).toContain("### my-app")
+  })
+
+  it("向き先ブランチの更新はアプリの節ではなく「## Helmの向き先ブランチ」セクションに出す", async () => {
+    const description = await buildMrDescription(makeShowClient(), [
+      makePlan({ helmTargetBranchUpdates: [helmUpdate] }),
+    ])
+
+    const helmSectionIndex = description.indexOf("## Helmの向き先ブランチ")
+    expect(helmSectionIndex).toBeGreaterThan(description.indexOf("## イメージタグ"))
+    expect(description.slice(helmSectionIndex)).toContain("`release/2025-q4` → `release/2026-q1`")
+    expect(description.slice(helmSectionIndex)).toContain("targetBranch")
+    // アプリの節には向き先ブランチの行を出さない
+    expect(description.slice(0, helmSectionIndex)).not.toContain("release/2026-q1")
+  })
+
+  it("イメージタグに差分が無いアプリの節は出さない", async () => {
+    const description = await buildMrDescription(makeShowClient(), [
+      makePlan({
+        projectName: "helm-only-app",
+        updates: [],
+        helmTargetBranchUpdates: [helmUpdate],
+      }),
+    ])
+
+    expect(description).not.toContain("### helm-only-app")
+    expect(description).not.toContain("## イメージタグ")
+    expect(description).toContain("## Helmの向き先ブランチ")
+  })
+
+  it("同じ書き込み先の向き先ブランチ更新が複数アプリにあっても1行にまとめる", async () => {
+    const description = await buildMrDescription(makeShowClient(), [
+      makePlan({ updates: [], helmTargetBranchUpdates: [helmUpdate] }),
+      makePlan({ projectName: "other-app", updates: [], helmTargetBranchUpdates: [helmUpdate] }),
+    ])
+
+    expect(description.split("targetBranch")).toHaveLength(2)
   })
 })

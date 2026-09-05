@@ -116,21 +116,29 @@ T-001〜T-021（要件定義・CLI実装・GitLab実機検証・スキーマ再�
   再現手順は `docs/smoke-test.md`、フィクスチャ操作は `scripts/smoke/smoke-fixture.ts`
   （`setup`/`reset`、既定dry-run）に記録した
 
-## 次にやること
+- **T-034完了**: MRのタイトルと本文を再設計（方針はユーザーと合意）。タイトルは
+  `update tenant2/client1 (image tag 2, helm branch 1)` のように**種別ごとの件数**を出し、
+  件数の単位はアプリ数ではなく**書き換え箇所数**（T-014の1アプリ複数箇所も正しく数える）。
+  本文は「## イメージタグ」「## Helmの向き先ブランチ」の2セクションにし、向き先ブランチを
+  client単位の情報としてアプリの節から独立させた（同じvaluesPathを共有する複数アプリでの
+  重複表示・重複計上も `uniqueHelmTargetBranchUpdates()` で解消）。イメージタグに差分が
+  無いアプリの節は出さない。テスト10件追加
+- **T-035完了**: スモークテストのシード値を実タグに変更（`placeholder` → 実在する古いタグ）。
+  `sample-develop-client` はコミットが1つしかないため、同じコミットに
+  `main-build-at-20260101-000000` を作成して代用。`smoke-fixture.ts setup` が
+  シードタグの実在を保証するようにし、docs/smoke-test.md に制約を明記
+- **実機で再検証**: reset→setup→実行のループを回し、MR !16（image tag 2＋向き先ブランチ1）と
+  !17（image tag 2）で新しいタイトル・2セクション構成・実在するタグリンクを確認。
+  この過程で古いMR（!11・!13・!14・!15）はリセット手順によりクローズ済み
 
-- **T-034（MRのタイトル・本文の再考）**: 向き先ブランチだけが変わったアプリも
-  「N app image tag(s)」と数えてしまう／複数箇所への反映がタイトルに出ない／向き先ブランチの行が
-  アプリセクションに紛れる、という表示の問題。T-033の実機MR（!14）が実例
-- **T-035（シード値を実タグにする）**: `placeholder` をシードしているため初回MRのタグリンク・
-  比較リンクが壊れる。最新タグより古い実タグをシードする（sample-develop-client は
-  タグが1件しかないため準備が要る）
+## 次にやること
 
 - `refactor/repo-cleanup` を main へマージする（`git switch main && git merge --ff-only refactor/repo-cleanup`）。
   以下は方針の追加なので、マージ前に内容を確認してほしい:
   - `steps/shared/` という置き場所の新設（CLAUDE.mdの「新しいコードを置く場所」に追記済み）
   - evidenceを3行以内に絞る運用とアーカイブ（docs/workflow.mdに追記済み）
   - README「設定 > config/」章を要約に縮小し、正典を docs/requirements.md 4.4節にしたこと
-- 実機検証で残置したMR（!11、!13、!14、!15）とブランチ4本の後片付け（不要になったら
+- 実機検証で残置したMR（!16、!17）とブランチ2本の後片付け（不要になったら
   `SMOKE_CHART_PROJECT_ID=86061211 npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply`）
 - 検証が完全に終わったら、テスト用のGitLabアクセストークンを失効させる（ユーザー対応）
 
