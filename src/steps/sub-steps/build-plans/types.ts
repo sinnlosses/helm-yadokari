@@ -8,8 +8,8 @@ export type LoadValuesYamlContent = (
 
 /**
  * 1つのchartAndApps分の更新計画を組み立てる過程のアキュムレータ。`build-plans.ts`の
- * `buildChartUpdate()`がアプリを1つずつ処理するたびに更新し、`app-update-plan.ts`の
- * `buildAppUpdatePlan()`との間で受け渡しする。
+ * `build-plans.ts`の`buildPlan()`がアプリを1つずつ処理するたびに更新し、同ファイル内の
+ * 非公開関数`buildAppUpdatePlan()`との間で受け渡しする。
  */
 export type BuildChartUpdateAcc = {
   readonly plans: readonly AppUpdatePlan[]

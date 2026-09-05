@@ -16,39 +16,38 @@
     下の「1箇所（target）」の処理は全て`sub-steps/build-plans/`側の責務）:
     - `buildPlans()`: 全chartAndAppsを並列に処理し、settled（SKIPPED/ERROR）とtoApplyに
       振り分ける
-    - `buildPlanForChartAndApps()`: 1つのchartAndApps分。`buildChartUpdate()`の結果を見て
+    - `process()`: 1つのchartAndApps分。`buildPlan()`の結果を見て
       SKIPPED（差分無し/dryRun）・ERROR・applyのどれにするかを判定する（try/catchもここ）
-    - `buildChartUpdate()`: 1つのchartAndApps配下の全アプリを、`sub-steps/build-plans/`の
-      `buildAppUpdatePlan()`（1アプリ分のサブステップ）に順番に渡すだけ。同じvalues.yamlを
+    - `buildPlan()`: 1つのchartAndApps配下の全アプリを、同ファイル内の非公開関数
+      `buildAppUpdatePlan()`（1アプリ分の処理）に順番に渡すだけ。同じvalues.yamlを
       参照する複数アプリの変更が`valuesYamlCache`に正しく積み重なるよう、アプリ間は並列化
       しない
+    - `buildAppUpdatePlan()`: **1アプリ分**の処理。手順は4つだけ:
+      (1) `sub-steps/build-plans/resolve-latest-tag.ts`の`resolveLatestTag()`で最新タグを判定、
+      (2) `sub-steps/build-plans/image-tag-target.ts`の`applyImageTagTargets()`で`app.chart`
+      全箇所の差分をまとめてチェック、(3) `app.helmTargetBranch`があれば
+      `sub-steps/build-plans/helm-target-branch-target.ts`の`applyHelmTargetBranchTargets()`で
+      向き先ブランチの全箇所の差分をまとめてチェック、(4) 差分が1件も無ければSKIPPEDとして
+      ログを出して終了、あれば最新パイプラインを取得して`AppUpdatePlan`を組み立てる。
+      「ステップがステップを呼ばない」原則をサブステップにも適用し、この関数は
+      `sub-steps/build-plans/`配下の3つのサブステップを直接呼ぶだけで、サブステップ同士が
+      互いを呼ぶことはない（「1箇所（target）ごとの実処理」は下記3ファイルへ完全に委譲し、
+      このファイルはtargetの配列をループする`reduce`を直接持たない）。以前は
+      `sub-steps/build-plans/app-update-plan.ts`という独立ファイルに切り出していたが、
+      それ自体が他のサブステップを呼ぶ「サブステップがサブステップを呼ぶ」構造になって
+      しまうため、`build-plans.ts`の非公開関数に統合した
     - `buildFileUpdates()`: 書き換えのあったファイルだけを`FileUpdate[]`にする
     - `describePlan()`: ログ用サマリ組み立て
-      「1アプリ分の処理」自体（`resolveLatestTag()`→`applyImageTagTargets()`→
-      `applyHelmTargetBranchTargets()`→plan化orSKIPPED、という手順）は`build-plans.ts`には
-      置かず、`sub-steps/build-plans/app-update-plan.ts`の`buildAppUpdatePlan()`という
-      独立したサブステップにしている。`chartAndApps`・`app`・`target`という3段の処理単位を、
-      「chartAndApps・app段はbuild-plans.ts」「app・target段はsub-steps/」という形で
-      ファイル境界にも反映させ、どの塊がどこで処理されているかを一目で追えるようにする狙い
       （`sub-steps/`はどのstepにも属さない「フラットな3ステップ」には含めない、内部実装専用の
       置き場所。他のステップやprocess()からは参照されない。呼び出し元は依然として
       build-plans.ts1つだけなので、原則2「複数箇所から呼ばれない限りlib/には置かない」の
       考え方は変わらない）
-    - `sub-steps/build-plans/app-update-plan.ts`: `buildAppUpdatePlan()`。**1アプリ分**の
-      サブステップ。手順は4つだけ: (1) `resolveLatestTag()`で最新タグを判定、
-      (2) `applyImageTagTargets()`で`app.chart`全箇所の差分をまとめてチェック、
-      (3) `app.helmTargetBranch`があれば`applyHelmTargetBranchTargets()`で向き先ブランチの
-      全箇所の差分をまとめてチェック、(4) 差分が1件も無ければSKIPPEDとしてログを出して終了、
-      あれば最新パイプラインを取得して`AppUpdatePlan`を組み立てる。この4手順の並びだけを
-      読めば「1アプリに対して何が起きるか」が分かるようにし、「1箇所（target）ごとの実処理」は
-      下記2ファイルへ完全に委譲する（このファイルはtargetの配列をループする`reduce`を
-      直接持たない）
     - `sub-steps/build-plans/image-tag-target.ts`: **1箇所（target）分**のイメージタグ処理。
       非公開の`applyImageTagTarget()`が1箇所分の値の読み取り・比較・書き換えを行い、
       公開している`applyImageTagTargets()`（複数形）が`app.chart`（1アプリが複数の書き換え
       箇所、WebAPI/バッチ/デーモンなどを持つ場合を含む）を`reduce`で先頭から処理する。
       「1箇所分の処理」と「複数箇所をループする責務」を同じファイルに閉じ込め、
-      呼び出し元（`app-update-plan.ts`）は複数形の関数を1回呼ぶだけでよい
+      呼び出し元（`build-plans.ts`の`buildAppUpdatePlan()`）は複数形の関数を1回呼ぶだけでよい
     - `sub-steps/build-plans/helm-target-branch-target.ts`: **1箇所（target）分**のHelm
       向き先ブランチ処理。構造は`image-tag-target.ts`と同じで、非公開の
       `applyHelmTargetBranchTarget()`（1箇所分。差分があれば`lib/gitlab/gitlab.ts`の
@@ -67,8 +66,8 @@
     - `sub-steps/build-plans/types.ts`: `LoadValuesYamlContent`型・`BuildChartUpdateAcc`型の
       みを持つ。どちらも特定の1ファイルには属さない共有インターフェース（前者は
       `build-plans.ts`・`image-tag-target.ts`・`helm-target-branch-target.ts`の3箇所、
-      後者は`build-plans.ts`・`app-update-plan.ts`の2箇所から参照される）なので、
-      独立させている
+      後者は`build-plans.ts`内の`buildPlan()`・`buildAppUpdatePlan()`の2箇所から
+      参照される）なので、独立させている
   - `apply-updates.ts`: `applyUpdates()`。`toApply` の各chartAndAppsに対してコミット・
     MR作成を並列実行する。ログ用サマリ組み立て（`describePlan()`）はここでも非公開関数
     として個別に持つ（`build-plans.ts` のものとほぼ同じ形だが、共有するために `lib/` へ

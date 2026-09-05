@@ -63,7 +63,7 @@ async function applyHelmTargetBranchTarget(
 
 /**
  * 1アプリの`helmTargetBranch.targets`（1件以上）を先頭から順に`applyHelmTargetBranchTarget()`へ
- * 渡す。複数箇所を扱うのはこの関数の責務で、呼び出し元（`app-update-plan.ts`）は
+ * 渡す。複数箇所を扱うのはこの関数の責務で、呼び出し元（`build-plans.ts`）は
  * 「アプリのHelm向き先ブランチを適用する」という1つの操作として呼ぶだけでよい。
  */
 export async function applyHelmTargetBranchTargets(

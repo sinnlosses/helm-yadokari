@@ -41,7 +41,7 @@ async function applyImageTagTarget(
 
 /**
  * 1アプリの`app.chart`（1件以上）を先頭から順に`applyImageTagTarget()`へ渡す。
- * 複数箇所を扱うのはこの関数の責務で、呼び出し元（`app-update-plan.ts`）は
+ * 複数箇所を扱うのはこの関数の責務で、呼び出し元（`build-plans.ts`）は
  * 「アプリのchart全体にイメージタグを適用する」という1つの操作として呼ぶだけでよい。
  */
 export async function applyImageTagTargets(
