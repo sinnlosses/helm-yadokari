@@ -453,10 +453,10 @@
   {
     "id": "T-048",
     "task": "`src/steps/sub-steps/build-plans/` で、values.yamlの同じアンカーの値を2回読んでいる重複を解消する。現状 `buildAppUpdatePlan()`（src/steps/build-plans.ts）は (1) `readCurrentImageTags()` で `app.chart` の全箇所の反映済みタグを読み（image-tag-target.ts:20-36）、その結果を `resolveLatestTag()` の追跡ブランチ切り替え判定に渡し、続いて (2) `applyImageTagTargets()` の中の `applyImageTagTarget()` が同じ `valuesPath`+`anchor` を `getValueAtAnchor()` でもう一度読んでいる（image-tag-target.ts:55）。values.yamlの取得自体はキャッシュされるためGitLabへの問い合わせは増えないが、「反映済みタグを読む」ロジックが2箇所にあり、片方だけ直す事故が起きやすい。T-032で同じclient内の `valuesPath`+`anchor` の重複は設定エラーにしてあるため、1アプリの処理中に同じアンカーが2回書き換わることはなく、(1)で読んだ値と(2)で読む値は必ず一致する（この前提はコメントに明記すること）。`readCurrentImageTags()` が返す `previousTags` を `applyImageTagTargets()` にも渡して読み取りを1回にするか、両者を1つの関数に統合するかは実装者の判断でよい。完了条件: 振る舞いを変えないこと（`pnpm check` のテスト件数が減らないこと）と、前提が崩れたときに気づけるテストを1件足すこと",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "readCurrentImageTags() が読んだ previousTags を applyImageTagTargets() にも渡し、applyImageTagTarget() 内の getValueAtAnchor() による再読み取りをやめた（読み取り専用と書き換えで責務が違うため関数統合はしない判断）。差分が無い箇所は values.yaml のロード自体も行わなくなった（readCurrentImageTags() が全valuesPathをキャッシュ済みのため挙動は不変）。T-032の重複防止が壊れたときに気づく回帰テストを1件追加。pnpm check（28ファイル306テスト、305→306）通過。T-037・T-043の既存テストも変更なしでパス。sonnetのサブエージェントに委譲し、メイン側で差分と pnpm check を確認して受け入れた（previousTags と targets を添字で対応付ける形はT-050の型統合で解消予定）",
     "dependencies": []
   },
   {

@@ -187,6 +187,7 @@ async function buildPlan(
  * 2. `resolveLatestTag()` — 追跡ブランチ由来の最新タグが存在するか確認し、無ければ作成する
  *    （反映済みタグが現在の追跡ブランチ由来でない場合も作成する）
  * 3. `applyImageTagTargets()` — `app.chart`全箇所について、最新タグとの差分をチェックする
+ *    （反映済みタグは1で読んだ`previousTags`をそのまま使い、同じアンカーを読み直さない。T-048）
  * 4. `applyHelmTargetBranchTargets()` — `app.helmTargetBranch`があれば、向き先ブランチの
  *    全箇所について設定値との差分をチェック
  * 5. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば最新パイプラインを取得して
@@ -219,6 +220,7 @@ async function buildAppUpdatePlan(
       latestTag,
       initialTargetsAcc,
       app.chart,
+      previousTags,
     )
 
     const helmTargetBranch = app.helmTargetBranch

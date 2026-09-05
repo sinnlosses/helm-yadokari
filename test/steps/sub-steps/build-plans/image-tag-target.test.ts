@@ -125,4 +125,31 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     expect(toApply[0]?.files).toHaveLength(1)
     expect(toApply[0]?.files[0]?.filePath).toBe("webapi.yaml")
   })
+
+  it(
+    "同じvaluesPath+anchorが1アプリのchartに2回現れると、1箇所しか変わっていなくても" +
+      "updatesが2件記録される（T-032の重複防止が壊れたときに気づくための回帰テスト。" +
+      "本来この設定は loadConfig() の validateNoDuplicateTargets() で例外になり、" +
+      "buildPlans() まで到達しない）",
+    async () => {
+      const app = makeApp({
+        chart: [
+          { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("appVersion") },
+          { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("appVersion") },
+        ],
+      })
+      vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
+      const { toApply } = await buildPlans(
+        mockGitlab,
+        [makeChartAndApps([app])],
+        3,
+        false,
+        DEFAULT_TAG_FORMAT,
+      )
+      expect(toApply[0]?.plans[0]?.updates).toHaveLength(2)
+      expect(toApply[0]?.plans[0]?.updates.every((update) => update.previousTag === OLD_TAG)).toBe(
+        true,
+      )
+    },
+  )
 })
