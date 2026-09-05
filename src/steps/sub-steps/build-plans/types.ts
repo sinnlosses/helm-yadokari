@@ -1,4 +1,4 @@
-import type { AppUpdatePlan, BranchName, ParsedTag, ValuesPath } from "../../../types.js"
+import type { AppUpdatePlan, BranchName, ParsedTag, TagName, ValuesPath } from "../../../types.js"
 
 /** `build-plans.ts`のvalues.yamlキャッシュ（chartAndApps単位で共有）を経由して内容を取得する関数 */
 export type LoadValuesYamlContent = (
@@ -17,13 +17,16 @@ export type BranchExists = (branch: BranchName) => Promise<boolean>
  * 1アプリ分の「最新タグの判定結果」。`resolveLatestTag()`が組み立て、イメージタグの
  * 差分判定（`image-tag-target.ts`）が使う。
  *
- * `pointsAtTrackedHead`は、values.yamlに書かれている現在値が「追跡ブランチの現在のHEADを
- * 指すタグ」かどうかを返す。true なら、たとえより新しい名前のタグが存在してもデプロイされる
- * 中身は変わらないため更新しない（T-037）。
+ * `trackedHeadTagNames`は、「現在の追跡ブランチ由来（＝現在の`branchToSync`と`tagFormat`で
+ * パースできる）で、かつ追跡ブランチの現在のHEADコミットを指すタグ名」の集合。values.yamlに
+ * 書かれている現在値がこの集合に含まれるなら、たとえより新しい名前のタグが存在しても
+ * デプロイされる中身は変わらないため更新しない（T-037）。追跡ブランチを切り替えた直後は、
+ * 切り替え前のタグ名がこの集合に含まれない（現在の追跡ブランチ由来ではないため）ので、
+ * HEADと同じコミットを指していてもスキップされない（T-043）。
  */
 export type LatestTagResolution = {
   readonly tag: ParsedTag
-  readonly pointsAtTrackedHead: (currentValue: string) => boolean
+  readonly trackedHeadTagNames: ReadonlySet<TagName>
 }
 
 /**

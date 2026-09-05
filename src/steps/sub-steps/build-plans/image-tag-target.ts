@@ -64,7 +64,7 @@ async function applyImageTagTarget(
 ): Promise<ApplyImageTagAcc> {
   const latestTagName = latestTag.tag.name
   if (previousTag === latestTagName) return acc
-  if (previousTag !== undefined && latestTag.pointsAtTrackedHead(previousTag)) {
+  if (previousTag !== undefined && latestTag.trackedHeadTagNames.has(previousTag)) {
     return acc
   }
 

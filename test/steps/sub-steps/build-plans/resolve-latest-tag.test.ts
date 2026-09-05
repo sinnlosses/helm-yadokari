@@ -16,6 +16,7 @@ import {
 } from "../../../../src/lib/gitlab/gitlab.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../../src/lib/gitlab/tag.js"
 import { buildPlans } from "../../../../src/steps/build-plans.js"
+import { resolveLatestTag } from "../../../../src/steps/sub-steps/build-plans/resolve-latest-tag.js"
 import { toBranchName, toTagName } from "../../../../src/types.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../../../helpers.js"
 
@@ -240,5 +241,43 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     )
 
     expect(toApply).toHaveLength(1)
+  })
+})
+
+describe("resolveLatestTag（trackedHeadTagNamesの中身、T-049）", () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("追跡ブランチ由来かつHEADと同じコミットを指すタグ名だけを含む", async () => {
+    // 同じコミット(HEAD_SHA)を指すタグが2件あるが、他ブランチ由来のものはパースできないため
+    // 集合には含まれない。コミットが違うタグ（OLD_TAG）も含まれない
+    vi.mocked(listTags).mockResolvedValue([
+      { name: NEW_TAG, commitSha: HEAD_SHA },
+      { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
+      { name: toTagName(OLD_TAG), commitSha: "older-sha" },
+    ])
+    vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
+
+    const result = await resolveLatestTag(mockGitlab, makeApp(), false, DEFAULT_TAG_FORMAT, [
+      NEW_TAG,
+    ])
+
+    expect([...result.trackedHeadTagNames]).toEqual([NEW_TAG])
+  })
+
+  it("追跡ブランチを切り替えた直後は、切り替え前のタグ名がHEADと同じコミットを指していても含まない", async () => {
+    // release/2026-q2 に切り替えた直後、切り替え前(main)のタグがrelease/2026-q2のHEADと
+    // たまたま同じコミットを指しているケース。tagFormatではrelease/2026-q2由来として
+    // パースできないため、trackedHeadTagNamesは空になる（T-043）
+    vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
+    vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
+    const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
+
+    const result = await resolveLatestTag(mockGitlab, app, false, DEFAULT_TAG_FORMAT, [
+      toTagName(OLD_TAG),
+    ])
+
+    expect(result.trackedHeadTagNames.size).toBe(0)
   })
 })
