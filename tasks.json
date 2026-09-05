@@ -383,5 +383,59 @@
     "passes": true,
     "evidence": "src/types/brand.ts（86行）にブランド型11個とfactory関数を移し、src/types.ts（189行）は先頭で `export * from \"./types/brand.js\"` するだけにした（25ファイルのimportは無変更）。再エクスポートだけでは types.ts 自身のスコープに名前が入らないため、`import type { ... } from \"./types/brand.js\"` も併記している。ブランド型生成の `as` は brand.ts に閉じたが、`[] as string[]`（reduceの初期値の型注釈）は他ファイルにも残るため「src全体でasが1ファイルだけ」にはならない。pnpm check（21ファイル304テスト）通過",
     "dependencies": []
+  },
+  {
+    "id": "T-048",
+    "task": "`src/steps/sub-steps/build-plans/` で、values.yamlの同じアンカーの値を2回読んでいる重複を解消する。現状 `buildAppUpdatePlan()`（src/steps/build-plans.ts）は (1) `readCurrentImageTags()` で `app.chart` の全箇所の反映済みタグを読み（image-tag-target.ts:20-36）、その結果を `resolveLatestTag()` の追跡ブランチ切り替え判定に渡し、続いて (2) `applyImageTagTargets()` の中の `applyImageTagTarget()` が同じ `valuesPath`+`anchor` を `getValueAtAnchor()` でもう一度読んでいる（image-tag-target.ts:55）。values.yamlの取得自体はキャッシュされるためGitLabへの問い合わせは増えないが、「反映済みタグを読む」ロジックが2箇所にあり、片方だけ直す事故が起きやすい。T-032で同じclient内の `valuesPath`+`anchor` の重複は設定エラーにしてあるため、1アプリの処理中に同じアンカーが2回書き換わることはなく、(1)で読んだ値と(2)で読む値は必ず一致する（この前提はコメントに明記すること）。`readCurrentImageTags()` が返す `previousTags` を `applyImageTagTargets()` にも渡して読み取りを1回にするか、両者を1つの関数に統合するかは実装者の判断でよい。完了条件: 振る舞いを変えないこと（`pnpm check` のテスト件数が減らないこと）と、前提が崩れたときに気づけるテストを1件足すこと",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
+  },
+  {
+    "id": "T-049",
+    "task": "`LatestTagResolution.pointsAtTrackedHead`（src/steps/sub-steps/build-plans/types.ts:24-27）が関数（クロージャ）なのをデータに置き換える。現状 `resolveLatestTag()` は `(currentValue: string) => boolean` を返し、その中で `headSha`・`tags`・`app.branchToSync`・`tagFormat` を閉じ込めている（resolve-latest-tag.ts:56-59）。呼び出し側（image-tag-target.ts:57）は関数を呼ぶだけなので動くが、(a) 判定結果をログに出せない・スナップショットできない、(b) `resolveLatestTag()` の単体テストで判定条件を直接検証できない、(c) 「タグ解決」の結果に振る舞いが混ざっていて型から意図が読めない、という難点がある。代わりに「追跡ブランチのHEADコミットを指す、現在の追跡ブランチ由来のタグ名の集合」（例: `trackedHeadTagNames: ReadonlySet<TagName>`）のような純粋なデータを返し、呼び出し側は集合に含まれるかを見るだけにする。T-037（中身が同じなら更新しない）とT-043（追跡ブランチ切り替え時は例外的に更新する）の両方の振る舞いが変わらないことを、既存テスト（test/steps/sub-steps/build-plans/resolve-latest-tag.test.ts）で確認する。完了条件: `pnpm check` のテスト件数が減らないこと",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-048"]
+  },
+  {
+    "id": "T-050",
+    "task": "1つのchartAndAppsを処理する間の「values.yamlの下書き状態」を1つの型にまとめ、アキュムレータの詰め替えを無くす。現状は `valuesYamlCache`（ReadonlyMap<ValuesPath, string>）と `modifiedValuesPaths`（ReadonlySet<ValuesPath>）が常にセットで持ち回られ、`BuildChartUpdateAcc` / `ApplyTargetsAcc<U>` の3つの型に同じ2フィールドが現れる。そのため `buildAppUpdatePlan()`（src/steps/build-plans.ts:203-232）が `initialTargetsAcc` → `afterChartTargets` → `initialHelmTargetsAcc` → `afterHelmTargets` と手作業でフィールドを詰め替えており、どの段階の状態を見ているのか追いにくい。あわせて `buildFileUpdates()`（build-plans.ts:261-272）が「modifiedValuesPaths に入っているのに valuesYamlCache に無い」ケースを internal error として実行時に投げているが、これは2つのフィールドが別々に持ち回られているせいで型では防げていない。改善案: `ValuesYamlDraft`（内容と「書き換えたか」を1つのMapに持つ）のような型を作り、サブステップは `(draft, ...) => { draft, updates }` を返す形に統一する。これにより詰め替えが消え、`buildFileUpdates()` の internal error も型レベルで不要になる。完了条件: 振る舞いを変えない（`pnpm check` のテスト件数が減らない）こと",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-048", "T-049"]
+  },
+  {
+    "id": "T-051",
+    "task": "`DRY_RUN=true` のときに不要なGitLab API呼び出し（パイプライン取得）をやめる。`buildAppUpdatePlan()`（src/steps/build-plans.ts:245）は差分があったアプリごとに `getLatestPipelineForRef()` を呼ぶが、この結果を使うのはMR本文の組み立て（lib/gitlab/mr-content.ts の `buildImageTagRow()`）だけで、dryRun時は `planTarget()` が SKIPPED を返してMRを作らない。dryRunのログに使う `describePlan()`（src/steps/shared/step-outcome.ts:27-41）もパイプラインを見ていないため、dryRun時のこの呼び出しは完全に無駄（差分があるアプリの数だけAPIを叩いている）。dryRunのときは `pipeline: undefined` にしてAPI呼び出しをスキップする。完了条件: dryRun時に `getLatestPipelineForRef` が呼ばれないことを検証するテストを1件足し、`pnpm check` を通すこと",
+    "status": "todo",
+    "difficulty": "haiku",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
+  },
+  {
+    "id": "T-052",
+    "task": "build-plans の失敗ログから「どのアプリで失敗したか」が分からない問題を直す。`buildPlan()` が投げるエラー（build-plans.ts:141 の「values.yaml が見つかりません: <valuesPath>」、helm-target-branch-target.ts:33 の「向き先ブランチ \"<branch>\" がchartリポジトリに見つかりません」）は、`planTarget()` の catch で `settleAsError()` に渡り、chartAndApps単位のログコンテキスト（chartDir/tenantId/clientId/chartProjectId/chartProjectName）と一緒に出力される。しかしアプリ名は含まれないため、1つのclientに複数アプリがあると、どのアプリの設定が原因かがログから特定できない（オールオアナッシングでclient全体がERRORになるぶん、原因の特定はより重要）。エラーメッセージにアプリの識別情報（`app.projectName`、可能なら該当の `valuesPath`/`anchor`）を含める。`settleAsError()` のシグネチャや共通のエラー方針は変えず、投げる側でメッセージを組み立てる方針とする。完了条件: 失敗時のメッセージにアプリ名が含まれることを検証するテストを1件足し、`pnpm check` を通すこと",
+    "status": "todo",
+    "difficulty": "haiku",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
+  },
+  {
+    "id": "T-053",
+    "task": "アプリ単位を逐次実行している設計（T-003で意図的に据え置いた判断）を、実行時間の観点から見直すか、改めて現状維持と決めて明文化する。`buildPlan()`（src/steps/build-plans.ts:166-170）は `reduceAsync` で1アプリずつ処理する。理由は values.yaml の書き換えを同じキャッシュに積み上げる必要があるためで、これは正当。一方、1アプリあたり `listTags` + `getBranchHeadSha`（resolve-latest-tag.ts:50-53、この2つは既にPromise.allで並列）と `getLatestPipelineForRef` という**ソースリポジトリ側への読み取り**が含まれ、これらは values.yaml のキャッシュとは無関係なので先に全アプリ分をまとめて解決できる余地がある。検討すること: (a) 読み取りフェーズ（タグ一覧・HEAD SHA）を `mapWithConcurrency` で先に並列解決し、書き換えフェーズだけを逐次にする案の是非、(b) その場合 `resolveLatestTag()` が持つタグ作成（副作用）をどちらのフェーズに置くか、(c) 1clientあたりのアプリ数が実運用でどのくらいかを踏まえた費用対効果、(d) T-042で `verify-config` に入れた並列化（キャッシュはPromise共有の `getOrFetchShared()` を使う）との一貫性。現状維持と決めた場合は、その理由を docs/architecture.md の「コードからは読み取れない設計判断」に追記して決着させる（T-003・T-022と同じ扱い）",
+    "status": "todo",
+    "difficulty": "opus",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-050"]
   }
 ]
