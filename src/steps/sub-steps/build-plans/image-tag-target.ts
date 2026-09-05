@@ -1,13 +1,15 @@
 import { getValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
-import type { ImageTagTarget, ImageTagUpdate, TagName, ValuesPath } from "../../../types.js"
+import type { ImageTagTarget, ImageTagUpdate, TagName } from "../../../types.js"
 import { toTagName } from "../../../types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
 import type { ApplyTargetsAcc, LatestTagResolution, LoadValuesYamlContent } from "./types.js"
+import type { ValuesYamlDraft } from "./values-yaml-draft.js"
+import { writeValuesYamlDraft } from "./values-yaml-draft.js"
 
 export type ApplyImageTagAcc = ApplyTargetsAcc<ImageTagUpdate>
 
 export type CurrentImageTags = {
-  readonly valuesYamlCache: ReadonlyMap<ValuesPath, string>
+  readonly draft: ValuesYamlDraft
   /** `targets`と同じ並び。該当アンカーが無い箇所は`undefined`（＝反映済みタグ無し） */
   readonly previousTags: readonly (TagName | undefined)[]
 }
@@ -15,7 +17,7 @@ export type CurrentImageTags = {
 /**
  * `app.chart`の各箇所に現在反映されているタグを読み取る。書き換えはせず、`resolveLatestTag()`が
  * 「反映済みタグが今の追跡ブランチ由来か」を判定するための入力を作るのが目的。読み込んだ
- * values.yamlは`valuesYamlCache`に載せて返すので、後続の`applyImageTagTargets()`が再取得することはない。
+ * values.yamlは下書きに載せて返すので、後続の`applyImageTagTargets()`が再取得することはない。
  *
  * ここで返す`previousTags`は`applyImageTagTargets()`にもそのまま渡し、同じアンカーを
  * `getValueAtAnchor()`で二重に読むのを避ける（T-048）。この使い回しは、1つのclient内で
@@ -28,25 +30,25 @@ export type CurrentImageTags = {
  */
 export async function readCurrentImageTags(
   loadValuesYamlContent: LoadValuesYamlContent,
-  cache: ReadonlyMap<ValuesPath, string>,
+  draft: ValuesYamlDraft,
   targets: readonly ImageTagTarget[],
 ): Promise<CurrentImageTags> {
-  const valuesYamlCache = new Map(cache)
+  const draftCopy = new Map(draft)
   const previousTags = await reduceAsync<ImageTagTarget, readonly (TagName | undefined)[]>(
     targets,
     [],
     async (tags, target) => {
-      const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, target.valuesPath)
+      const valuesYamlContent = await loadValuesYamlContent(draftCopy, target.valuesPath)
       const previousTagRaw = getValueAtAnchor(valuesYamlContent, target.anchor)
       return [...tags, previousTagRaw === undefined ? undefined : toTagName(previousTagRaw)]
     },
   )
-  return { valuesYamlCache, previousTags }
+  return { draft: draftCopy, previousTags }
 }
 
 /**
  * `app.chart`のうち1箇所分について、`previousTag`（`readCurrentImageTags()`が読んだ
- * 反映済みタグ）と最新タグを比較する。差分があれば書き換え内容をキャッシュに積み、
+ * 反映済みタグ）と最新タグを比較する。差分があれば書き換え内容を下書きに積み、
  * `updates`にも積む（差分が無ければ`acc`をそのまま返し、values.yamlの再読み込みもしない）。
  *
  * `previousTag`は呼び出し時点で読み取り済みの値であり、ここで`getValueAtAnchor()`を
@@ -68,15 +70,14 @@ async function applyImageTagTarget(
     return acc
   }
 
-  const valuesYamlCache = new Map(acc.valuesYamlCache)
-  const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, target.valuesPath)
-  valuesYamlCache.set(
-    target.valuesPath,
-    setValueAtAnchor(valuesYamlContent, target.anchor, latestTagName),
-  )
+  const draftCopy = new Map(acc.draft)
+  const valuesYamlContent = await loadValuesYamlContent(draftCopy, target.valuesPath)
   return {
-    valuesYamlCache,
-    modifiedValuesPaths: new Set(acc.modifiedValuesPaths).add(target.valuesPath),
+    draft: writeValuesYamlDraft(
+      draftCopy,
+      target.valuesPath,
+      setValueAtAnchor(valuesYamlContent, target.anchor, latestTagName),
+    ),
     updates: [...acc.updates, { target, previousTag }],
   }
 }
@@ -92,7 +93,7 @@ async function applyImageTagTarget(
 export async function applyImageTagTargets(
   loadValuesYamlContent: LoadValuesYamlContent,
   latestTag: LatestTagResolution,
-  acc: ApplyImageTagAcc,
+  draft: ValuesYamlDraft,
   targets: readonly ImageTagTarget[],
   previousTags: readonly (TagName | undefined)[],
 ): Promise<ApplyImageTagAcc> {
@@ -100,7 +101,8 @@ export async function applyImageTagTargets(
     target,
     previousTag: previousTags[index],
   }))
-  return reduceAsync(targetsWithPreviousTag, acc, (current, { target, previousTag }) =>
+  const initialAcc: ApplyImageTagAcc = { draft, updates: [] }
+  return reduceAsync(targetsWithPreviousTag, initialAcc, (current, { target, previousTag }) =>
     applyImageTagTarget(loadValuesYamlContent, latestTag, current, target, previousTag),
   )
 }

@@ -405,10 +405,10 @@
   {
     "id": "T-050",
     "task": "1つのchartAndAppsを処理する間の「values.yamlの下書き状態」を1つの型にまとめ、アキュムレータの詰め替えを無くす。現状は `valuesYamlCache`（ReadonlyMap<ValuesPath, string>）と `modifiedValuesPaths`（ReadonlySet<ValuesPath>）が常にセットで持ち回られ、`BuildChartUpdateAcc` / `ApplyTargetsAcc<U>` の3つの型に同じ2フィールドが現れる。そのため `buildAppUpdatePlan()`（src/steps/build-plans.ts:203-232）が `initialTargetsAcc` → `afterChartTargets` → `initialHelmTargetsAcc` → `afterHelmTargets` と手作業でフィールドを詰め替えており、どの段階の状態を見ているのか追いにくい。あわせて `buildFileUpdates()`（build-plans.ts:261-272）が「modifiedValuesPaths に入っているのに valuesYamlCache に無い」ケースを internal error として実行時に投げているが、これは2つのフィールドが別々に持ち回られているせいで型では防げていない。改善案: `ValuesYamlDraft`（内容と「書き換えたか」を1つのMapに持つ）のような型を作り、サブステップは `(draft, ...) => { draft, updates }` を返す形に統一する。これにより詰め替えが消え、`buildFileUpdates()` の internal error も型レベルで不要になる。完了条件: 振る舞いを変えない（`pnpm check` のテスト件数が減らない）こと",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "sub-steps/build-plans/values-yaml-draft.ts を新設し、ValuesYamlEntry {content, modified} を値とする ValuesYamlDraft 1本に統合（BuildChartUpdateAcc・ApplyTargetsAcc<U> から valuesYamlCache/modifiedValuesPaths の2フィールドが消えた）。buildAppUpdatePlan() の initialTargetsAcc/initialHelmTargetsAcc という詰め替え用オブジェクトが不要になり、draftWithCurrentTags → draftAfterChartTargets → draft と段階が変数名で読める形になった。buildFileUpdates() の internal error は toFileUpdates() で型レベルに解消（modified なエントリは writeValuesYamlDraft() 経由でしか作られず必ず content を伴う）。build-plans.ts は272→259行。pnpm check（28ファイル308テスト）通過＝件数不変。sonnetのサブエージェントに委譲し、メイン側で「同じvalues.yamlを共有する次のアプリが前のアプリの書き換え結果を読むこと」を確認し、未使用だった export（EMPTY_VALUES_YAML_DRAFT）を削って受け入れた",
     "dependencies": ["T-048", "T-049"]
   },
   {

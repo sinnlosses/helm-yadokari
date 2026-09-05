@@ -1,8 +1,9 @@
 import type { AppUpdatePlan, BranchName, ParsedTag, TagName, ValuesPath } from "../../../types.js"
+import type { ValuesYamlDraft, ValuesYamlEntry } from "./values-yaml-draft.js"
 
-/** `build-plans.ts`のvalues.yamlキャッシュ（chartAndApps単位で共有）を経由して内容を取得する関数 */
+/** `build-plans.ts`のvalues.yaml下書き（chartAndApps単位で共有）を経由して内容を取得する関数 */
 export type LoadValuesYamlContent = (
-  cache: Map<ValuesPath, string>,
+  cache: Map<ValuesPath, ValuesYamlEntry>,
   valuesPath: ValuesPath,
 ) => Promise<string>
 
@@ -32,11 +33,11 @@ export type LatestTagResolution = {
 /**
  * 1アプリ分の書き換え箇所（target）を1つずつ処理する間のアキュムレータ。イメージタグ側と
  * Helm向き先ブランチ側で`updates`の要素型だけが違うため、型引数`U`で共有する（T-024）。
- * `valuesYamlCache`/`modifiedValuesPaths`はchartAndApps単位で引き継ぐ。
+ * `draft`はchartAndApps単位で引き継ぐ。以前は`valuesYamlCache`/`modifiedValuesPaths`の
+ * 2フィールドだったが、`ValuesYamlDraft`1つにまとめた（T-050）。
  */
 export type ApplyTargetsAcc<U> = {
-  readonly valuesYamlCache: ReadonlyMap<ValuesPath, string>
-  readonly modifiedValuesPaths: ReadonlySet<ValuesPath>
+  readonly draft: ValuesYamlDraft
   readonly updates: readonly U[]
 }
 
@@ -47,6 +48,5 @@ export type ApplyTargetsAcc<U> = {
  */
 export type BuildChartUpdateAcc = {
   readonly plans: readonly AppUpdatePlan[]
-  readonly valuesYamlCache: ReadonlyMap<ValuesPath, string>
-  readonly modifiedValuesPaths: ReadonlySet<ValuesPath>
+  readonly draft: ValuesYamlDraft
 }

@@ -14,7 +14,6 @@ import type {
   FileUpdate,
   ProjectId,
   TagFormat,
-  ValuesPath,
 } from "../types.js"
 import { getOrFetch } from "../utils/cache.js"
 import { logger } from "../utils/logger.js"
@@ -32,7 +31,6 @@ import {
   applyHelmTargetBranchTargets,
 } from "./sub-steps/build-plans/helm-target-branch-target.js"
 import {
-  type ApplyImageTagAcc,
   applyImageTagTargets,
   readCurrentImageTags,
 } from "./sub-steps/build-plans/image-tag-target.js"
@@ -42,6 +40,7 @@ import type {
   BuildChartUpdateAcc,
   LoadValuesYamlContent,
 } from "./sub-steps/build-plans/types.js"
+import { toFileUpdates } from "./sub-steps/build-plans/values-yaml-draft.js"
 
 export type BuildPlansResult = {
   readonly toApply: ChartUpdateTarget[]
@@ -126,8 +125,8 @@ async function planTarget(
 
 /**
  * 1つのchartAndAppsについて、配下の全アプリ(Apps)のうち差分があったアプリだけの計画を積み上げる。
- * 同じvalues.yamlを参照する複数アプリ・複数箇所の変更が`valuesYamlCache`に積み重なるよう、
- * アプリ間で並列化はせず1つずつ処理する。最終的に書き換えのあったファイルだけを`buildFileUpdates()`で
+ * 同じvalues.yamlを参照する複数アプリ・複数箇所の変更が下書き（`ValuesYamlDraft`）に積み重なるよう、
+ * アプリ間で並列化はせず1つずつ処理する。最終的に書き換えのあったファイルだけを`toFileUpdates()`で
  * `FileUpdate[]`にする。
  */
 async function buildPlan(
@@ -145,8 +144,8 @@ async function buildPlan(
       if (valuesYamlContent === undefined) {
         throw new Error(`values.yaml が見つかりません: ${valuesPath}`)
       }
-      return valuesYamlContent
-    })
+      return { content: valuesYamlContent, modified: false }
+    }).then((entry) => entry.content)
 
   // 同じブランチ名の存在確認はこのchartAndApps内で1回だけになるようキャッシュを共有する
   const branchExistsCache = new Map<BranchName, boolean>()
@@ -164,19 +163,16 @@ async function buildPlan(
   }
   const initialAcc: BuildChartUpdateAcc = {
     plans: [],
-    valuesYamlCache: new Map(),
-    modifiedValuesPaths: new Set(),
+    draft: new Map(),
   }
 
-  const { plans, valuesYamlCache, modifiedValuesPaths } = await reduceAsync(
-    chartAndApps.apps,
-    initialAcc,
-    (acc, app) => buildAppUpdatePlan(context, acc, app),
+  const { plans, draft } = await reduceAsync(chartAndApps.apps, initialAcc, (acc, app) =>
+    buildAppUpdatePlan(context, acc, app),
   )
 
   return {
     plans: [...plans],
-    files: buildFileUpdates(modifiedValuesPaths, valuesYamlCache),
+    files: toFileUpdates(draft),
   }
 }
 
@@ -203,44 +199,31 @@ async function buildAppUpdatePlan(
 ): Promise<BuildChartUpdateAcc> {
   const { gitlab, dryRun, tagFormat, loadValuesYamlContent, branchExists } = context
   try {
-    const { valuesYamlCache: cacheWithCurrentTags, previousTags } = await readCurrentImageTags(
+    const { draft: draftWithCurrentTags, previousTags } = await readCurrentImageTags(
       loadValuesYamlContent,
-      acc.valuesYamlCache,
+      acc.draft,
       app.chart,
     )
     const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat, previousTags)
 
-    const initialTargetsAcc: ApplyImageTagAcc = {
-      valuesYamlCache: cacheWithCurrentTags,
-      modifiedValuesPaths: acc.modifiedValuesPaths,
-      updates: [],
-    }
-    const afterChartTargets = await applyImageTagTargets(
+    const { draft: draftAfterChartTargets, updates } = await applyImageTagTargets(
       loadValuesYamlContent,
       latestTag,
-      initialTargetsAcc,
+      draftWithCurrentTags,
       app.chart,
       previousTags,
     )
 
     const helmTargetBranch = app.helmTargetBranch
-    const initialHelmTargetsAcc: ApplyHelmTargetsAcc = {
-      valuesYamlCache: afterChartTargets.valuesYamlCache,
-      modifiedValuesPaths: afterChartTargets.modifiedValuesPaths,
-      updates: [],
-    }
-    const afterHelmTargets = helmTargetBranch
+    const afterHelmTargets: ApplyHelmTargetsAcc = helmTargetBranch
       ? await applyHelmTargetBranchTargets(
           branchExists,
           loadValuesYamlContent,
           helmTargetBranch,
-          initialHelmTargetsAcc,
+          draftAfterChartTargets,
         )
-      : initialHelmTargetsAcc
-
-    const { valuesYamlCache, modifiedValuesPaths } = afterHelmTargets
-    const { updates } = afterChartTargets
-    const helmTargetBranchUpdates = afterHelmTargets.updates
+      : { draft: draftAfterChartTargets, updates: [] }
+    const { draft, updates: helmTargetBranchUpdates } = afterHelmTargets
 
     if (updates.length === 0 && helmTargetBranchUpdates.length === 0) {
       logger.info({
@@ -250,7 +233,7 @@ async function buildAppUpdatePlan(
         reason: "already_up_to_date",
         tag: latestTag.tag.name,
       })
-      return { plans: acc.plans, valuesYamlCache, modifiedValuesPaths }
+      return { plans: acc.plans, draft }
     }
 
     // dryRun時はMRを作らないため（planTarget()でSKIPPEDになる）、MR本文組み立てで必要な
@@ -268,23 +251,9 @@ async function buildAppUpdatePlan(
 
     return {
       plans: [...acc.plans, plan],
-      valuesYamlCache,
-      modifiedValuesPaths,
+      draft,
     }
   } catch (err) {
     rethrowWithAppContext(err, app.projectName)
   }
-}
-
-function buildFileUpdates(
-  modifiedValuesPaths: ReadonlySet<ValuesPath>,
-  valuesYamlCache: ReadonlyMap<ValuesPath, string>,
-): FileUpdate[] {
-  return [...modifiedValuesPaths].map((filePath) => {
-    const content = valuesYamlCache.get(filePath)
-    if (content === undefined) {
-      throw new Error(`internal error: missing values.yaml content for ${filePath}`)
-    }
-    return { filePath, content }
-  })
 }

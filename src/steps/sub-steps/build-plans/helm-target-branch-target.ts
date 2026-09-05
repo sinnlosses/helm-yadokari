@@ -7,13 +7,15 @@ import type {
 import { toBranchName } from "../../../types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
 import type { ApplyTargetsAcc, BranchExists, LoadValuesYamlContent } from "./types.js"
+import type { ValuesYamlDraft } from "./values-yaml-draft.js"
+import { writeValuesYamlDraft } from "./values-yaml-draft.js"
 
 export type ApplyHelmTargetsAcc = ApplyTargetsAcc<HelmTargetBranchUpdate>
 
 /**
  * `helmTargetBranch.targets`のうち1箇所分について、現在の値を読み取り設定値（`branch`）と
  * 比較する。差分があれば、書き込み前にそのブランチがchartリポジトリ上に実在するか
- * （`branchExists()`）検証したうえで書き換え内容をキャッシュに積み、`updates`にも積む
+ * （`branchExists()`）検証したうえで書き換え内容を下書きに積み、`updates`にも積む
  * （差分が無ければ`updates`に含めない）。
  */
 async function applyHelmTargetBranchTarget(
@@ -24,10 +26,10 @@ async function applyHelmTargetBranchTarget(
   target: HelmTargetBranchTarget,
 ): Promise<ApplyHelmTargetsAcc> {
   const { branch } = helmTargetBranch
-  const valuesYamlCache = new Map(acc.valuesYamlCache)
-  const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, target.valuesPath)
+  const draftCopy = new Map(acc.draft)
+  const valuesYamlContent = await loadValuesYamlContent(draftCopy, target.valuesPath)
   const previousBranchRaw = getValueAtAnchor(valuesYamlContent, target.anchor)
-  if (previousBranchRaw === branch) return { ...acc, valuesYamlCache }
+  if (previousBranchRaw === branch) return { ...acc, draft: draftCopy }
 
   if (!(await branchExists(branch))) {
     throw new Error(
@@ -35,10 +37,12 @@ async function applyHelmTargetBranchTarget(
     )
   }
 
-  valuesYamlCache.set(target.valuesPath, setValueAtAnchor(valuesYamlContent, target.anchor, branch))
   return {
-    valuesYamlCache,
-    modifiedValuesPaths: new Set(acc.modifiedValuesPaths).add(target.valuesPath),
+    draft: writeValuesYamlDraft(
+      draftCopy,
+      target.valuesPath,
+      setValueAtAnchor(valuesYamlContent, target.anchor, branch),
+    ),
     updates: [
       ...acc.updates,
       {
@@ -60,9 +64,10 @@ export async function applyHelmTargetBranchTargets(
   branchExists: BranchExists,
   loadValuesYamlContent: LoadValuesYamlContent,
   helmTargetBranch: HelmTargetBranchConfig,
-  acc: ApplyHelmTargetsAcc,
+  draft: ValuesYamlDraft,
 ): Promise<ApplyHelmTargetsAcc> {
-  return reduceAsync(helmTargetBranch.targets, acc, (current, target) =>
+  const initialAcc: ApplyHelmTargetsAcc = { draft, updates: [] }
+  return reduceAsync(helmTargetBranch.targets, initialAcc, (current, target) =>
     applyHelmTargetBranchTarget(
       branchExists,
       loadValuesYamlContent,

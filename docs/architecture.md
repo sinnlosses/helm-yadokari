@@ -39,6 +39,7 @@
 | `resolve-latest-tag.ts`        | 追跡ブランチ由来の最新タグの判定。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成                         |
 | `image-tag-target.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.chart`全箇所のループ（反映済みタグの読み取り専用版`readCurrentImageTags()`も持つ） |
 | `helm-target-branch-target.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                                           |
+| `values-yaml-draft.ts`         | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）と、その組み立て・`FileUpdate[]`化（T-050）           |
 | `types.ts`                     | 上記と`build-plans.ts`の間で共有する型のみ                                                                                           |
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
