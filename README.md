@@ -187,39 +187,21 @@ apps:
 `apps[].chart[].anchor` は、`values.yaml` 内のイメージタグの位置をYAMLアンカー名で指定する
 フィールドです。`values.yaml` はオブジェクトのネストではなく、配列要素にYAMLアンカーで名前を
 付けた構成（例: `variables: [&myAppVersion main, ...]`）を前提とし、指定したアンカー名を持つ
-YAML上のスカラー値を、ネストの深さ・キー名に関わらず直接書き換えます。
-
-`chart` は1件以上の配列です。1つのソースリポジトリ（1つの `projectId`）でWebAPI/バッチ/デーモン
-など複数のデプロイ単位を管理している場合は、`chart` に複数要素を指定すると同じ最新タグを
-複数箇所へまとめて反映できます:
-
-```yaml
-# anchors.yaml
-apps:
-  - projectId: 2
-    projectName: multi-service-app
-    chart:
-      - valuesPath: charts/multi-service-app/values.yaml
-        anchor: multiServiceAppWebapiVersion
-      - valuesPath: charts/multi-service-app/values.yaml
-        anchor: multiServiceAppBatchVersion
-      - valuesPath: charts/multi-service-app/values.yaml
-        anchor: multiServiceAppDaemonVersion
-```
-
-`config.yaml` の各appに対応する `projectId` が `anchors.yaml` に無い場合や、逆に
-`anchors.yaml` に `config.yaml` に存在しないappが定義されている場合、同じ `projectId`
-なのに `projectName` が食い違っている場合は、いずれも設定エラーになります（`config.yaml` と
-`anchors.yaml` の紐づけを検証する仕組みが自動で働きます）。
+YAML上のスカラー値を、ネストの深さ・キー名に関わらず直接書き換えます。`chart` は1件以上の
+配列なので、1つのソースリポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を管理して
+いる場合は、複数要素を指定すれば同じ最新タグをまとめて反映できます。
 
 ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/` の2階層で固定です。
 テナント分けが不要な場合もダミーの1つの tenantId/clientId ディレクトリ配下に置いてください。
 
 **Helmの向き先ブランチ**（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
-ブランチ。`mrTargetBranch` ＝ 値定義ブランチとは別物）の追従・更新もMRの対象に含められます:
+ブランチ。`mrTargetBranch` ＝ 値定義ブランチとは別物）の追従・更新もMRの対象に含められます。
+書き込む値は `config.yaml` の `helm.branchToSync`（tenantId/clientId単位に1件、人間が直接
+書き換える運用）、書き込み先は `anchors.yaml` の `helm.chart[]`（`apps[].chart[]` とは独立した
+リスト）で、両者は `valuesPath` の一致だけで各appに紐付きます:
 
 ```yaml
-# config.yaml トップレベル。apps: 配列と同階層、tenantId/clientId単位に1件のオブジェクト（運用値）
+# config.yaml トップレベル。apps: 配列と同階層
 helm:
   branchToSync: release/2026-q1
 apps:
@@ -229,7 +211,7 @@ apps:
 ```
 
 ```yaml
-# anchors.yaml トップレベル（chart構造。config.yaml の helm.branchToSync の値をどこに書くか）
+# anchors.yaml トップレベル（config.yaml の helm.branchToSync の値をどこに書くか）
 apps:
   - projectId: 1
     projectName: my-app
@@ -243,22 +225,16 @@ helm:
       anchor: myAppTargetBranch
 ```
 
-`config.yaml` の `helm.branchToSync` はchartリポジトリ内の別ブランチ（`chart.yaml` の
-`projectId` と同一プロジェクト）を指す、tenantId/clientId単位に1件の値です。人間が自己申告
-方式で直接書き換える運用とし、タグ命名規則のような自動生成・自動判定の仕組みは持ちません。
-`anchors.yaml` の `helm.chart[]` は書き込み先（`valuesPath` + `anchor`）の一覧で、
-`apps[].chart[]` とは独立したリストです。
+設定エラー（実行前に例外で停止）になる主なケース:
 
-`helm.chart[]` と各appの紐付けは、`valuesPath` の一致だけで決まります（app側に専用
-フィールドは持たせません）。1つのappが複数の`valuesPath`を持つ場合は、それぞれに対応する
-`helm.chart[]` の要素があれば複数箇所へまとめて反映できます。
+- `config.yaml` と `anchors.yaml` の app の対応が取れない（片方にしかない、同じ `projectId`
+  なのに `projectName` が食い違う）
+- `helm.branchToSync` と `helm.chart[]` のどちらか片方だけが指定されている
+- `helm.branchToSync` を指定しているのに、配下の**全アプリ**の**全 `chart[].valuesPath`** が
+  `helm.chart[]` でカバーされていない（向き先ブランチはclient内で共通という前提のため）
 
-Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、`helm.branchToSync` が
-指定されている場合、そのconfig.yaml配下の**全アプリ**の**全`chart[].valuesPath`**が
-`helm.chart[]` でカバーされている必要があります（1つでも漏れていると設定エラーになります）。
-`helm.branchToSync` と `helm.chart[]` は片方だけの指定も設定エラーです。書き込み前に、
-指定されたブランチ名がchartリポジトリ上に実在するか検証し、存在しなければそのchartAndApps
-全体を `ERROR` にします。
+各フィールドの完全な仕様・制約の一覧は [`docs/requirements.md`](./docs/requirements.md) の
+「4.4 アプリの登録・設定」が正典です（このREADMEはセットアップに必要な範囲の要約です）。
 
 設定ファイルの文法チェックのみ実行する場合:
 
@@ -339,7 +315,15 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │   ├── steps/                 # process()が直接呼ぶ3ステップのみ（steps同士は互いに呼ばない）
 │   │   ├── filter-targets.ts  # 対象chartAndAppsの絞り込み（登録0件・既存MRを除外）
 │   │   ├── build-plans.ts     # 全chartAndApps分の更新計画を並列構築
-│   │   └── apply-updates.ts   # コミット・MR作成を並列実行
+│   │   ├── apply-updates.ts   # コミット・MR作成を並列実行
+│   │   ├── shared/            # 複数stepが共有する結果ログ・エラー方針
+│   │   │   └── step-outcome.ts
+│   │   └── sub-steps/         # 各stepの内部実装専用（step本体からのみ呼ばれる）
+│   │       └── build-plans/   # 1アプリ・1箇所(target)単位の処理
+│   │           ├── resolve-latest-tag.ts          # 最新タグの判定・不足時のタグ自動作成
+│   │           ├── image-tag-target.ts            # イメージタグの差分検出・書き換え
+│   │           ├── helm-target-branch-target.ts   # Helm向き先ブランチの差分検出・書き換え
+│   │           └── types.ts                       # サブステップ間で共有する型
 │   ├── lib/                   # 特定の技術・外部システムに依存する処理のみ
 │   │   ├── gitlab/
 │   │   │   ├── gitlab.ts      # GitLab API クライアント操作（タグ作成、MRタイトル・本文組み立て含む）
@@ -356,10 +340,19 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │       ├── parallel.ts        # mapWithConcurrency（p-limit + FatalError時の即時中断）
 │       ├── fs.ts              # パストラバーサル検証・サブディレクトリ列挙
 │       ├── yaml.ts            # YAMLファイル読み込み + Zodバリデーション
-│       ├── object.ts          # isPlainObject
+│       ├── partition.ts       # partitionMap（判別可能ユニオンの配列を2つに振り分け）
+│       ├── sequential.ts      # reduceAsync（配列を順に処理する非同期reduce）
 │       └── cache.ts           # getOrFetch（Mapベースの非同期メモ化）
-├── test/                   # テスト
+├── test/                   # テスト（src/ と同じディレクトリ構成）
+├── scripts/
+│   └── lint/validate-config.ts  # config/ の文法チェック（pnpm lint:validate-config）
 ├── config/                 # 対象アプリ設定
+├── config-test/            # 実GitLabに対する手動スモークテスト用の設定（CONFIG_PATH=config-test）
+├── docs/                   # 要件定義・アーキテクチャ・用語集など
 ├── .gitlab-ci.yml          # CI ジョブ定義
 └── package.json
 ```
+
+`config-test/` は本番の対象アプリ設定ではなく、実際の GitLab インスタンスに対して
+`CONFIG_PATH=config-test DRY_RUN=true` で疎通・動作確認するための手動検証用フィクスチャです
+（CIからは参照されません）。

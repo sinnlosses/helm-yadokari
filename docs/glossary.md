@@ -60,7 +60,7 @@
 
 ### anchor（chart[].anchor）
 
-- **英語識別子**: `anchor`（型は`AnchorName`ブランド型、`ImageTagTarget`のフィールド）
+- **英語識別子**: `anchor`（型は`AnchorName`ブランド型、`ImageTagTarget`＝`AnchorTarget`のフィールド）
 - **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`anchors.yaml`の
   `apps[].chart`配列の1要素が持つフィールド名。`variables: [&tenant1client1AppsVersion main, ...]`
   のように、配列要素にアンカーで名前を付けた構成のvalues.yamlを前提とする。1つのソース
@@ -90,7 +90,7 @@
 
 ### helm.chart\[\].anchor
 
-- **英語識別子**: `anchor`（型は`AnchorName`、`HelmTargetBranchTarget`のフィールド）
+- **英語識別子**: `anchor`（型は`AnchorName`、`HelmTargetBranchTarget`＝`AnchorTarget`のフィールド）
 - **定義**: 「Helmの向き先ブランチ」の値を`valuesPath`のどこに書き込むかを指す、
   `anchors.yaml`トップレベル`helm.chart`配列の各要素が持つフィールド（chart構造の
   ためconfig.yamlではなくanchors.yaml側に置く、T-017）。`apps[].chart[].anchor`と

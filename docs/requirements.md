@@ -120,6 +120,9 @@ Helm chart でバージョン管理されているアプリケーションのバ
 
 ### 4.4 アプリの登録・設定
 
+> この節が `config/` のスキーマ・制約の**正典**。`README.md` の「設定 > config/」章は
+> セットアップに必要な範囲の要約で、フィールドを追加・変更したときはこの節を先に更新する（T-028）。
+
 管理対象の情報は、CLIリポジトリ側の `config/` ディレクトリで一元管理する
 （chartリポジトリ側に設定を持たせる自己申告方式は採用しない）。CLIは `config/` 配下を
 再帰的に走査し、見つけた全ての `config.yaml`（とその直近の親をたどって見つかる`chart.yaml`、
@@ -157,7 +160,7 @@ chart:
 
 ```yaml
 apps:
-  - projectId: 888 # タグを取得するGitLabプロジェクトID（ソースリポジトリ）
+  - projectId: 1 # タグを取得するGitLabプロジェクトID（ソースリポジトリ。chart.yamlのprojectIdとは別物）
     projectName: my-app
     branchToSync: main # 追跡するブランチ
 ```
@@ -166,7 +169,7 @@ apps:
 
 ```yaml
 apps:
-  - projectId: 888 # config.yaml と一致させる
+  - projectId: 1 # config.yaml と一致させる
     projectName: my-app # config.yaml と一致させる
     chart:
       - valuesPath: charts/my-app/values.yaml
@@ -215,7 +218,7 @@ apps:
 helm:
   branchToSync: release/2026-q1
 apps:
-  - projectId: 888
+  - projectId: 1
     projectName: my-app
     branchToSync: main
 ```
@@ -223,7 +226,7 @@ apps:
 ```yaml
 # anchors.yaml トップレベル（chart構造。config.yaml の helm.branchToSync の値をどこに書くか）
 apps:
-  - projectId: 888
+  - projectId: 1
     projectName: my-app
     chart:
       - valuesPath: charts/my-app/values.yaml

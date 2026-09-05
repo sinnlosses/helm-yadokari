@@ -48,6 +48,9 @@ pnpm build && pnpm start              # ビルドしてから実行
     原則2は変わらない）
   - 複数箇所から呼ばれ、技術/外部システム/ファイル形式に依存する → 対応する`lib/`ファイル
   - 複数箇所から呼ばれ、技術に依存しない純粋な計算 → `utils/`
+  - 複数の`steps/`から呼ばれるが、技術ではなくこのツールのドメイン型（`ChartAndApps`・
+    `AppUpdatePlan`など）にだけ依存する → `steps/shared/`（結果ログの識別情報・エラー方針など。
+    `lib/`でも`utils/`でもないためT-022で新設）
 
 各ファイルの詳しい責務・ディレクトリ構成の勘所・既知の制約は
 [`docs/architecture.md`](./docs/architecture.md) を参照。
@@ -107,7 +110,9 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 ## 関連リンク
 
 - アーキテクチャ詳細（各ファイルの責務、ディレクトリ構成の勘所、既知の制約）: `docs/architecture.md`
-- 進捗管理の詳細（tasks.json/progress.mdのフィールド定義）: `docs/workflow.md`
+- 進捗管理の詳細（tasks.json/progress.mdのフィールド定義・evidenceの粒度・アーカイブ運用）: `docs/workflow.md`
+- 完了タスク・過去セッションの詳細な記録: `docs/history/tasks-archive.md` / `docs/history/progress-archive.md`
+  （セッション開始時に読む必要はない。過去の判断の経緯をたどりたいときだけ参照する）
 - 要件定義: `docs/requirements.md`
 - 要件定義の検討経緯（Q&Aログ）: `docs/requirements-grilling.md`
 - 用語集（ドメイン用語とコード上の識別子の対応、表記ゆれの注記）: `docs/glossary.md`
