@@ -1,6 +1,6 @@
 # 現在の状態
 
-最終更新: 2026-09-05（config.yaml / anchor-setting.yaml 分離セッション）
+最終更新: 2026-09-05（build-plans.ts 処理単位別 sub-steps 分割セッション）
 
 ## 完了したこと
 
@@ -442,6 +442,67 @@
   - `dist/`に前回ビルドの`build-plans/`ディレクトリが残っていたため`rm -rf dist && pnpm build`
     でクリーンビルドし直し、`dist/src/steps/sub-steps/build-plans/`のみになることを確認
   - `pnpm check`（253テスト）通過。`CONFIG_PATH=config-test DRY_RUN=true`で実機再確認
+- **`build-plans.ts`のオーケストレーションを可視化**: 3ステップ構成は維持でいいか、それとも
+  stepsを増やして再構築すべきかを相談したところ、ユーザーからは「3ステップ維持でいいが、
+  build-plansがまだ複雑。build-plansが各サブステップを呼ぶ構成にして流れがパッと理解できる
+  ものにしてほしい」と指摘された
+  - それまでは`build-plans.ts`→`sub-steps/build-plans/chart-update.ts`（隠れた
+    オーケストレーター、`buildChartUpdate()`/`applyAppToChartUpdate()`/`buildFileUpdates()`を
+    保持）→3つのサブステップ、という2段の間接参照になっており、`build-plans.ts`を読むだけでは
+    実際の処理の流れが追えなかった
+  - `chart-update.ts`を削除し、その中身（`buildChartUpdate()`・`applyAppToChartUpdate()`・
+    `buildFileUpdates()`・`BuildChartUpdateAcc`型）を`build-plans.ts`本体へ統合。
+    `build-plans.ts`が`resolveLatestTag()`・`applyImageTagTarget()`・
+    `applyHelmTargetBranchTarget()`の3サブステップを直接importして呼ぶ構成にし、
+    「どういう順番で何を呼ぶか」が1ファイルを読むだけで分かるようにした
+  - サブステップ間で共有していた`LoadValuesYamlContent`型は、どちらのサブステップにも
+    属さない共有インターフェースとして`sub-steps/build-plans/types.ts`に切り出した
+    （`chart-update.ts`が無くなったことで置き場所が必要になったため）
+  - `build-plans.ts`は97行→269行に増えたが（`chart-update.ts`の171行を吸収したため）、
+    隠れた中間層が無くなり流れが1ファイルで完結するようになった。`sub-steps/build-plans/`
+    配下は`resolve-latest-tag.ts`・`image-tag-target.ts`・`helm-target-branch-target.ts`・
+    `types.ts`の4ファイル（純粋な「1箇所分の差分チェック・書き換え」ワーカーのみ）に整理された
+  - `CLAUDE.md`・`docs/architecture.md`を新しい役割分担（オーケストレーションは
+    build-plans.ts側、実処理はsub-steps側）に合わせて更新
+  - `pnpm check`（253テスト）通過。`rm -rf dist && pnpm build`でクリーンビルドし
+    `dist/src/steps/sub-steps/build-plans/`の中身を確認。`CONFIG_PATH=config-test
+DRY_RUN=true`で実機再確認
+
+- **`build-plans.ts`をさらに「処理単位」で分割**: 「3ステップ維持でよいが、build-plansが
+  まだ複雑」の対応後も、ユーザーから「もっと処理の単位を意識したstep/sub-stepに整理して、
+  塊ごとに処理が行われていることが10秒でわかるようにしたい」と再度指摘された
+  - `Config → ChartAndApps[] → AppConfig[] → ImageTagTarget[]/HelmTargetBranchTarget[]`という
+    ドメイン階層に合わせ、「全chartAndApps」「1つのchartAndApps」「1つのapp」「1箇所（target）」
+    という4段の処理単位をファイル境界にも反映させる方針にした。従来は`build-plans.ts`が
+    「chartAndApps・app・target」の3段すべてを1ファイルで抱えていた
+  - `build-plans.ts`は「全chartAndApps・1つのchartAndApps」の2段だけに絞り、`buildPlans()`
+    （並列振り分け）・`buildPlanForChartAndApps()`（SKIPPED/ERROR/apply判定）・
+    `buildChartUpdate()`（1chartAndApps配下の全appを順に処理）・`buildFileUpdates()`・
+    `describePlan()`のみを残した
+  - 新設した`sub-steps/build-plans/app-update-plan.ts`の`buildAppUpdatePlan()`が「1アプリ分」
+    の処理単位を担当。手順を(1)`resolveLatestTag()`(2)`applyImageTagTargets()`
+    (3)`applyHelmTargetBranchTargets()`(4)差分0件ならSKIPPED、あれば`AppUpdatePlan`化、
+    という4行だけで追えるようにした
+  - `image-tag-target.ts`/`helm-target-branch-target.ts`は「1箇所（target）分」の非公開関数
+    （`applyImageTagTarget`/`applyHelmTargetBranchTarget`）はそのまま維持しつつ、新たに公開の
+    複数形ラッパー（`applyImageTagTargets`/`applyHelmTargetBranchTargets`）を追加し、targetの
+    配列を`reduce`で回す責務も同じファイルに閉じ込めた。呼び出し元（`app-update-plan.ts`）は
+    複数形の関数を1回呼ぶだけでよくなり、target配列をループするコードは`app-update-plan.ts`から
+    完全に消えた
+  - `BuildChartUpdateAcc`型は`build-plans.ts`・`app-update-plan.ts`の2箇所から参照される
+    共有インターフェースのため`sub-steps/build-plans/types.ts`へ移動（既存の
+    `LoadValuesYamlContent`型と同居）
+  - 作業中、`build-plans.ts`が意図せずディスク上でセミコロン付きスタイルに変わり、かつ
+    `buildPlanForChartAndApps()`が`process()`（`main.ts`の実際のオーケストレーター関数と
+    衝突する名前）にリネームされている状態を検出。自分の変更ではなかったためユーザーに確認し、
+    「意図した変更ではない、破棄していい」との回答を得てから上書きした
+  - `CLAUDE.md`は変更なし（原則の記述は元々ファイル単位ではなく抽象的なため据え置きで正確）。
+    `docs/architecture.md`の`build-plans.ts`節を新しい4段構成の説明に書き換え
+  - `pnpm check`（253テスト）通過。`rm -rf dist && pnpm build`でクリーンビルドし
+    `dist/src/steps/sub-steps/build-plans/`に`app-update-plan.js`含む5ファイルが
+    生成されることを確認。`CONFIG_PATH=config-test DRY_RUN=true`で実機再確認
+    （既存のオープン中MRにより`filterTargets`で`SKIPPED`。設定読み込み〜GitLab API疎通までは
+    到達を確認、`buildPlans()`内部の新構成自体は253テストで担保）
 
 ## 次にやること
 

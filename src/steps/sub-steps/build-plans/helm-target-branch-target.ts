@@ -2,6 +2,7 @@ import { type GitlabClient, branchExists } from "../../../lib/gitlab/gitlab.js"
 import { getValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
 import type {
   BranchName,
+  HelmTargetBranchConfig,
   HelmTargetBranchTarget,
   HelmTargetBranchUpdate,
   ProjectId,
@@ -9,7 +10,7 @@ import type {
 } from "../../../types.js"
 import { toBranchName } from "../../../types.js"
 import { getOrFetch } from "../../../utils/cache.js"
-import type { LoadValuesYamlContent } from "./chart-update.js"
+import type { LoadValuesYamlContent } from "./types.js"
 
 export type ApplyHelmTargetsAcc = {
   readonly valuesYamlCache: ReadonlyMap<ValuesPath, string>
@@ -18,12 +19,12 @@ export type ApplyHelmTargetsAcc = {
 }
 
 /**
- * `app.helmTargetBranch.targets`のうち1箇所分について、現在の値を読み取り設定値（`branch`）と
+ * `helmTargetBranch.targets`のうち1箇所分について、現在の値を読み取り設定値（`branch`）と
  * 比較する。差分があれば、書き込み前にそのブランチがchartリポジトリ上に実在するか検証したうえで
  * 書き換え内容をキャッシュに積み、`updates`にも積む（差分が無ければ`updates`に含めない）。
  * ブランチ存在チェックは同一ブランチ名につき1回だけになるよう`branchExistsCache`で共有する。
  */
-export async function applyHelmTargetBranchTarget(
+async function applyHelmTargetBranchTarget(
   gitlab: GitlabClient,
   chartProjectId: ProjectId,
   branchExistsCache: Map<BranchName, boolean>,
@@ -58,4 +59,34 @@ export async function applyHelmTargetBranchTarget(
       },
     ],
   }
+}
+
+/**
+ * 1アプリの`helmTargetBranch.targets`（1件以上）を先頭から順に`applyHelmTargetBranchTarget()`へ
+ * 渡す。複数箇所を扱うのはこの関数の責務で、呼び出し元（`app-update-plan.ts`）は
+ * 「アプリのHelm向き先ブランチを適用する」という1つの操作として呼ぶだけでよい。
+ */
+export async function applyHelmTargetBranchTargets(
+  gitlab: GitlabClient,
+  chartProjectId: ProjectId,
+  branchExistsCache: Map<BranchName, boolean>,
+  loadValuesYamlContent: LoadValuesYamlContent,
+  helmTargetBranch: HelmTargetBranchConfig,
+  acc: ApplyHelmTargetsAcc,
+): Promise<ApplyHelmTargetsAcc> {
+  return helmTargetBranch.targets.reduce(
+    (accPromise, target) =>
+      accPromise.then((current) =>
+        applyHelmTargetBranchTarget(
+          gitlab,
+          chartProjectId,
+          branchExistsCache,
+          loadValuesYamlContent,
+          helmTargetBranch.branch,
+          current,
+          target,
+        ),
+      ),
+    Promise.resolve(acc),
+  )
 }

@@ -1,10 +1,21 @@
-import type { GitlabClient } from "../lib/gitlab/gitlab.js"
-import type { AppUpdatePlan, ChartAndApps, ChartUpdateResult, ChartUpdateTarget } from "../types.js"
+import { type GitlabClient, getFileContent } from "../lib/gitlab/gitlab.js"
+import type {
+  AppUpdatePlan,
+  BranchName,
+  ChartAndApps,
+  ChartUpdateResult,
+  ChartUpdateTarget,
+  FileUpdate,
+  ProjectId,
+  ValuesPath,
+} from "../types.js"
+import { getOrFetch } from "../utils/cache.js"
 import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
-import { buildChartUpdate } from "./sub-steps/build-plans/chart-update.js"
+import { buildAppUpdatePlan } from "./sub-steps/build-plans/app-update-plan.js"
+import type { BuildChartUpdateAcc, LoadValuesYamlContent } from "./sub-steps/build-plans/types.js"
 
 export type BuildPlansResult = {
   readonly toApply: ChartUpdateTarget[]
@@ -20,7 +31,7 @@ type PlanOutcome =
  * settled（SKIPPED）に、実際に適用が必要なものは toApply にまとめて返す。
  *
  * いずれか1つのアプリの処理が失敗した場合、そのchartAndApps全体をオールオアナッシングで
- * settled（ERROR）に含める（`build-plans/chart-update.ts`の`buildChartUpdate()`参照）。
+ * settled（ERROR）に含める（`buildChartUpdate()` 参照）。
  */
 export async function buildPlans(
   gitlab: GitlabClient,
@@ -94,4 +105,70 @@ async function buildPlanForChartAndApps(
     })
     return { status: "settled", result: "ERROR" }
   }
+}
+
+/**
+ * 1つのchartAndAppsについて、配下の全アプリを`buildAppUpdatePlan()`（1アプリ分の
+ * サブステップ）に順番に渡し、差分があったアプリだけの計画を積み上げる。同じvalues.yamlを
+ * 参照する複数アプリ・複数箇所の変更が`valuesYamlCache`に積み重なるよう、アプリ間で
+ * 並列化はせず1つずつ処理する。最終的に書き換えのあったファイルだけを`buildFileUpdates()`で
+ * `FileUpdate[]`にする。
+ */
+async function buildChartUpdate(
+  gitlab: GitlabClient,
+  chartAndApps: ChartAndApps,
+  dryRun: boolean,
+): Promise<{ plans: AppUpdatePlan[]; files: FileUpdate[] }> {
+  const chartProjectId: ProjectId = chartAndApps.chart.projectId
+  const baseBranch: BranchName = chartAndApps.chart.mrTargetBranch
+
+  const loadValuesYamlContent: LoadValuesYamlContent = (cache, valuesPath) =>
+    getOrFetch(cache, valuesPath, async () => {
+      const valuesYamlContent = await getFileContent(gitlab, chartProjectId, valuesPath, baseBranch)
+      if (valuesYamlContent === undefined) {
+        throw new Error(`values.yaml が見つかりません: ${valuesPath}`)
+      }
+      return valuesYamlContent
+    })
+
+  const initialAcc: BuildChartUpdateAcc = {
+    plans: [],
+    valuesYamlCache: new Map(),
+    modifiedValuesPaths: new Set(),
+  }
+  const branchExistsCache = new Map<BranchName, boolean>()
+
+  const { plans, valuesYamlCache, modifiedValuesPaths } = await chartAndApps.apps.reduce(
+    (accPromise, app) =>
+      accPromise.then((acc) =>
+        buildAppUpdatePlan(
+          gitlab,
+          dryRun,
+          loadValuesYamlContent,
+          chartProjectId,
+          branchExistsCache,
+          acc,
+          app,
+        ),
+      ),
+    Promise.resolve(initialAcc),
+  )
+
+  return {
+    plans: [...plans],
+    files: buildFileUpdates(modifiedValuesPaths, valuesYamlCache),
+  }
+}
+
+function buildFileUpdates(
+  modifiedValuesPaths: ReadonlySet<ValuesPath>,
+  valuesYamlCache: ReadonlyMap<ValuesPath, string>,
+): FileUpdate[] {
+  return [...modifiedValuesPaths].map((filePath) => {
+    const content = valuesYamlCache.get(filePath)
+    if (content === undefined) {
+      throw new Error(`internal error: missing values.yaml content for ${filePath}`)
+    }
+    return { filePath, content }
+  })
 }
