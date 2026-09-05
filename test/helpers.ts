@@ -19,8 +19,7 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
     chart: [
       {
         valuesPath: toValuesPath("values.yaml"),
-        imageTagAnchor: toAnchorName("appVersion"),
-        helmBranchAnchor: undefined,
+        anchor: toAnchorName("appVersion"),
       },
     ],
     helmTargetBranch: undefined,

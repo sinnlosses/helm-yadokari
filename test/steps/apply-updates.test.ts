@@ -38,8 +38,7 @@ function makeTarget(): ChartUpdateTarget {
           {
             target: {
               valuesPath: toValuesPath("values.yaml"),
-              imageTagAnchor: toAnchorName("appVersion"),
-              helmBranchAnchor: undefined,
+              anchor: toAnchorName("appVersion"),
             },
             previousTag: undefined,
           },

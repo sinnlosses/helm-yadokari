@@ -269,6 +269,30 @@
       「例外をスローする」に更新し、「全appが指定していれば読み込める」テストを追加
     - `README.md`/`docs/requirements.md`/`docs/architecture.md`/`docs/glossary.md`にこの制約を明記
     - `pnpm check`（249テスト）通過
+  - **【追記3】ユーザー指示によりhelm.chart[]を独立リスト化する形へ再設計**:
+    ユーザーが`config/teamA-chart/tenantId1/clientId1/apps.yaml`を手動で書き直し、
+    `helmBranchAnchor`（app単位の任意フィールド）方式をやめ、トップレベル`helm`配下に独立した
+    `chart[]`（`valuesPath`+`anchor`の書き込み先一覧、`apps[].chart[]`とは別建て）を持つ設計に
+    戻す形で「この構成で動くように実装を直してほしい」と指示。/askで「`helm.chart[]`と
+    `app.chart[]`の対応付けは`valuesPath`の一致で決め、appの`valuesPath`が`helm.chart[]`に
+    無ければエラーにする」方針を確認のうえ実装
+    - `src/types.ts`: `ImageTagTarget`から`helmBranchAnchor`を削除し`imageTagAnchor`を
+      `anchor`にリネーム。`HelmTargetBranchTarget.anchorName`も`anchor`にリネーム
+      （`apps[].chart[].anchor`と`helm.chart[].anchor`で同じフィールド名に統一）
+    - `src/lib/config.ts`: `HelmConfigSchema`を配列から単一オブジェクト（`branchToSync`+
+      `chart[]`）に戻し、`resolveHelmTargetBranch()`を`valuesPath`一致によるマッチングに
+      書き換え（appの`chart[].valuesPath`がすべて`helm.chart[]`でカバーされていない場合、
+      未カバーのvaluesPathとapp名を含む例外をスロー）
+    - `src/steps/build-plans.ts`・`src/lib/gitlab/gitlab.ts`のフィールド参照を`anchor`に追従
+    - `test/helpers.ts`・`test/lib/config.test.ts`（helmTargetBranch関連のdescribeブロックを
+      新設計に全面書き換え）・`test/steps/build-plans.test.ts`・`test/steps/apply-updates.test.ts`・
+      `test/lib/gitlab/gitlab.test.ts`のフィクスチャを追従
+    - `config-test/yadokari-smoke-test-chart/`の手動検証用フィクスチャ、`README.md`/
+      `docs/requirements.md`/`docs/architecture.md`/`docs/glossary.md`を新設計に更新
+    - `config/teamA-chart/tenantId1/clientId1/apps.yaml`自体はユーザーが既に新設計の内容で
+      書いていたため変更不要（`multi-service-app`用の`multiServiceAppTargetBranch`アンカーも
+      ユーザー自身が追記済み）
+    - `pnpm check`（248テスト）通過
 
 ## 次にやること
 

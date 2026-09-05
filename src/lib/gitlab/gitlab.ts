@@ -227,13 +227,13 @@ function buildImageTagUpdateLine(
   const compareText = update.previousTag
     ? `[比較](${webUrl}/-/compare/${encodeURIComponent(update.previousTag)}...${encodeURIComponent(latestTag.name)})`
     : "(旧タグ未設定のため比較できません)"
-  return `  - \`${update.target.valuesPath}\`（アンカー: ${update.target.imageTagAnchor}）: ${previousTagText} → [${latestTag.name}](${buildTagUrl(webUrl, latestTag.name)}) / ${compareText}`
+  return `  - \`${update.target.valuesPath}\`（アンカー: ${update.target.anchor}）: ${previousTagText} → [${latestTag.name}](${buildTagUrl(webUrl, latestTag.name)}) / ${compareText}`
 }
 
 /** Helmの向き先ブランチの更新内容を1行にまとめる（T-016） */
 function buildHelmTargetBranchUpdateLine(update: HelmTargetBranchUpdate): string {
   const previousBranchText = update.previousBranch ? `\`${update.previousBranch}\`` : "(未設定)"
-  return `  - \`${update.target.valuesPath}\`（アンカー: ${update.target.anchorName}、向き先ブランチ）: ${previousBranchText} → \`${update.newBranch}\``
+  return `  - \`${update.target.valuesPath}\`（アンカー: ${update.target.anchor}、向き先ブランチ）: ${previousBranchText} → \`${update.newBranch}\``
 }
 
 function buildMrPlanSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {

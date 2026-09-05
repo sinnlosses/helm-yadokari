@@ -172,8 +172,7 @@ describe("buildPlans", () => {
       chart: [
         {
           valuesPath: toValuesPath("shared.yaml"),
-          imageTagAnchor: toAnchorName("appAVersion"),
-          helmBranchAnchor: undefined,
+          anchor: toAnchorName("appAVersion"),
         },
       ],
     })
@@ -183,8 +182,7 @@ describe("buildPlans", () => {
       chart: [
         {
           valuesPath: toValuesPath("shared.yaml"),
-          imageTagAnchor: toAnchorName("appBVersion"),
-          helmBranchAnchor: undefined,
+          anchor: toAnchorName("appBVersion"),
         },
       ],
     })
@@ -197,13 +195,12 @@ describe("buildPlans", () => {
     expect(toApply[0]?.files[0]?.content).toContain(`&appBVersion ${NEW_TAG}`)
   })
 
-  it("chart.imageTagAnchorで指定したアンカーの値だけを取得・書き換える", async () => {
+  it("chart.anchorで指定したアンカーの値だけを取得・書き換える", async () => {
     const app = makeApp({
       chart: [
         {
           valuesPath: toValuesPath("values.yaml"),
-          imageTagAnchor: toAnchorName("tenant1client1AppsVersion"),
-          helmBranchAnchor: undefined,
+          anchor: toAnchorName("tenant1client1AppsVersion"),
         },
       ],
     })
@@ -220,13 +217,11 @@ describe("buildPlans", () => {
       chart: [
         {
           valuesPath: toValuesPath("webapi.yaml"),
-          imageTagAnchor: toAnchorName("webapiVersion"),
-          helmBranchAnchor: undefined,
+          anchor: toAnchorName("webapiVersion"),
         },
         {
           valuesPath: toValuesPath("batch.yaml"),
-          imageTagAnchor: toAnchorName("batchVersion"),
-          helmBranchAnchor: undefined,
+          anchor: toAnchorName("batchVersion"),
         },
       ],
     })
@@ -249,13 +244,11 @@ describe("buildPlans", () => {
       chart: [
         {
           valuesPath: toValuesPath("webapi.yaml"),
-          imageTagAnchor: toAnchorName("webapiVersion"),
-          helmBranchAnchor: undefined,
+          anchor: toAnchorName("webapiVersion"),
         },
         {
           valuesPath: toValuesPath("batch.yaml"),
-          imageTagAnchor: toAnchorName("batchVersion"),
-          helmBranchAnchor: undefined,
+          anchor: toAnchorName("batchVersion"),
         },
       ],
     })
@@ -278,7 +271,7 @@ describe("buildPlans", () => {
         targets: [
           {
             valuesPath: toValuesPath("values.yaml"),
-            anchorName: toAnchorName("targetBranch"),
+            anchor: toAnchorName("targetBranch"),
           },
         ],
       },
@@ -289,7 +282,7 @@ describe("buildPlans", () => {
     const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
     expect(toApply[0]?.plans[0]?.helmTargetBranchUpdates).toEqual([
       {
-        target: { valuesPath: "values.yaml", anchorName: "targetBranch" },
+        target: { valuesPath: "values.yaml", anchor: "targetBranch" },
         previousBranch: "release/2025-q4",
         newBranch: "release/2026-q1",
       },
@@ -304,7 +297,7 @@ describe("buildPlans", () => {
         targets: [
           {
             valuesPath: toValuesPath("values.yaml"),
-            anchorName: toAnchorName("targetBranch"),
+            anchor: toAnchorName("targetBranch"),
           },
         ],
       },
@@ -324,7 +317,7 @@ describe("buildPlans", () => {
         targets: [
           {
             valuesPath: toValuesPath("values.yaml"),
-            anchorName: toAnchorName("targetBranch"),
+            anchor: toAnchorName("targetBranch"),
           },
         ],
       },
@@ -345,7 +338,7 @@ describe("buildPlans", () => {
         targets: [
           {
             valuesPath: toValuesPath("values.yaml"),
-            anchorName: toAnchorName("targetBranch"),
+            anchor: toAnchorName("targetBranch"),
           },
         ],
       },
@@ -366,7 +359,7 @@ describe("buildPlans", () => {
         targets: [
           {
             valuesPath: toValuesPath("values.yaml"),
-            anchorName: toAnchorName("targetBranch"),
+            anchor: toAnchorName("targetBranch"),
           },
         ],
       },

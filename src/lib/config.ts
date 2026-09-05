@@ -5,10 +5,10 @@ import { z } from "zod"
 
 import type {
   AppConfig,
-  BranchName,
   ChartAndApps,
   Config,
   HelmTargetBranchConfig,
+  HelmTargetBranchTarget,
   ImageTagTarget,
   TargetClient,
 } from "../types.js"
@@ -34,20 +34,9 @@ const ChartYamlSchema = z.object({
 const ImageTagTargetSchema = z
   .object({
     valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
-    imageTagAnchor: z.string().min(1, "imageTagAnchor は空にできません").transform(toAnchorName),
-    helmBranchAnchor: z
-      .string()
-      .min(1, "helmBranchAnchor は空にできません")
-      .transform(toAnchorName)
-      .optional(),
+    anchor: z.string().min(1, "anchor は空にできません").transform(toAnchorName),
   })
-  .transform(
-    (v): ImageTagTarget => ({
-      valuesPath: v.valuesPath,
-      imageTagAnchor: v.imageTagAnchor,
-      helmBranchAnchor: v.helmBranchAnchor,
-    }),
-  )
+  .transform((v): ImageTagTarget => ({ valuesPath: v.valuesPath, anchor: v.anchor }))
 
 const AppConfigSchema = z.object({
   projectId: z.number().int().transform(toProjectId),
@@ -56,57 +45,55 @@ const AppConfigSchema = z.object({
   chart: z.array(ImageTagTargetSchema).min(1, "chart は1件以上指定してください"),
 })
 
-const HelmConfigSchema = z.object({
-  branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
-})
+const HelmTargetBranchTargetSchema = z
+  .object({
+    valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
+    anchor: z.string().min(1, "anchor は空にできません").transform(toAnchorName),
+  })
+  .transform((v): HelmTargetBranchTarget => ({ valuesPath: v.valuesPath, anchor: v.anchor }))
+
+const HelmConfigSchema = z
+  .object({
+    branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
+    chart: z.array(HelmTargetBranchTargetSchema).min(1, "chart は1件以上指定してください"),
+  })
+  .transform((v): HelmTargetBranchConfig => ({ branch: v.branchToSync, targets: v.chart }))
 
 const AppsYamlSchema = z.object({
-  helm: z.array(HelmConfigSchema).length(1, "helm は現在1件のみ指定できます").optional(),
+  helm: HelmConfigSchema.optional(),
   apps: z.array(AppConfigSchema),
 })
 
-/** `ImageTagTarget`のうち`helmBranchAnchor`が指定されている箇所かどうかを判定する型ガード */
-function hasHelmBranchAnchor(target: ImageTagTarget): target is ImageTagTarget & {
-  helmBranchAnchor: NonNullable<ImageTagTarget["helmBranchAnchor"]>
-} {
-  return target.helmBranchAnchor !== undefined
-}
-
 /**
- * apps.yamlのファイル直下の`helm`（書き込む値、tenantId/clientId単位で1件）と、
- * app単位の`chart[].helmBranchAnchor`（書き込み先、複数可）を1つの`HelmTargetBranchConfig`に
- * まとめる。Helmの向き先ブランチは「1client内のapps全体で共通」という前提（T-013）のため、
- * `helm`が指定されている場合は、そのapps.yaml配下の全アプリが`chart[].helmBranchAnchor`を
- * 最低1件持つ必要がある（無ければ、そのアプリだけ更新対象から漏れてしまう設定ミスとして
- * 例外をスローする）。逆に`helmBranchAnchor`が指定されているのに`helm`が無い場合も、
- * 書き込む値が存在しない設定ミスなので例外をスローする
+ * apps.yamlのファイル直下の`helm`（`branchToSync`＝書き込む値、`chart[]`＝書き込み先の
+ * `valuesPath`+`anchor`一覧、tenantId/clientId単位で1件）を、app単位の`HelmTargetBranchConfig`
+ * に振り分ける。振り分けは`helm.chart[].valuesPath`とapp自身の`chart[].valuesPath`の一致で行う
+ * （どのappのvalues.yamlに書き込むかを、app側に専用フィールドを持たせず`valuesPath`だけで
+ * 判定する）。Helmの向き先ブランチは「1client内のapps全体で共通」という前提（T-013）のため、
+ * `helm`が指定されている場合は、そのapps.yaml配下の全アプリの全`chart[].valuesPath`が
+ * `helm.chart[]`でカバーされている必要がある（1つでも漏れていれば、そのvaluesPathだけ
+ * 更新対象から漏れてしまう設定ミスとして例外をスローする）
  */
 function resolveHelmTargetBranch(
   appsYamlPath: string,
-  helm: readonly { branchToSync: BranchName }[] | undefined,
+  helm: HelmTargetBranchConfig | undefined,
   projectName: string,
   chart: readonly ImageTagTarget[],
 ): HelmTargetBranchConfig | undefined {
-  const targets = chart
-    .filter(hasHelmBranchAnchor)
-    .map((target) => ({ valuesPath: target.valuesPath, anchorName: target.helmBranchAnchor }))
+  if (helm === undefined) return undefined
 
-  if (targets.length === 0) {
-    if (helm === undefined) return undefined
+  const appValuesPaths = [...new Set(chart.map((target) => target.valuesPath))]
+  const uncoveredValuesPaths = appValuesPaths.filter(
+    (valuesPath) => !helm.targets.some((target) => target.valuesPath === valuesPath),
+  )
+  if (uncoveredValuesPaths.length > 0) {
     throw new Error(
-      `${appsYamlPath}: helm が指定されていますが、app "${projectName}" の chart[] に helmBranchAnchor がありません（Helmの向き先ブランチはclient内の全appで共通のため、全appに指定してください）`,
+      `${appsYamlPath}: helm が指定されていますが、app "${projectName}" の valuesPath（${uncoveredValuesPaths.join(", ")}）が helm.chart[] に見つかりません（Helmの向き先ブランチはclient内の全appで共通のため、全appのvaluesPathを helm.chart[] に含めてください）`,
     )
   }
-  if (helm === undefined) {
-    throw new Error(
-      `${appsYamlPath}: chart[].helmBranchAnchor を指定する場合、ファイル直下の helm も指定してください`,
-    )
-  }
-  const [helmConfig] = helm
-  if (helmConfig === undefined) {
-    throw new Error(`internal error: helm should have exactly 1 element`)
-  }
-  return { branch: helmConfig.branchToSync, targets }
+
+  const targets = helm.targets.filter((target) => appValuesPaths.includes(target.valuesPath))
+  return { branch: helm.branch, targets }
 }
 
 /**

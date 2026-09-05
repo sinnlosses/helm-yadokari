@@ -136,16 +136,16 @@ apps:
     branchToSync: main # 追跡するブランチ
     chart:
       - valuesPath: charts/my-app/values.yaml
-        imageTagAnchor: myAppVersion # values.yaml内のYAMLアンカー名
+        anchor: myAppVersion # values.yaml内のYAMLアンカー名
 ```
 
-- `chart[].imageTagAnchor` は、`values.yaml`内のイメージタグの位置をYAMLアンカー名で
+- `chart[].anchor` は、`values.yaml`内のイメージタグの位置をYAMLアンカー名で
   指定するフィールド。`values.yaml`はオブジェクトのネストではなく、配列要素にYAMLアンカーで
   名前を付けた構成（例: `variables: [&myAppVersion main, ...]`）を前提とし、指定したアンカー名を
   持つYAML上のスカラー値を、ネストの深さ・キー名に関わらず直接書き換える
 
 - `chart` は1件以上の配列で、`valuesPath`（書き換え対象の`values.yaml`のパス）＋
-  `imageTagAnchor`（書き換え位置）ごとに1要素を指定する。1つのソースリポジトリ（1つの
+  `anchor`（書き換え位置）ごとに1要素を指定する。1つのソースリポジトリ（1つの
   `projectId`・タグ）に対してWebAPI/バッチ/デーモンなど複数のデプロイ単位を管理している
   ケースでは、`chart`に複数要素を指定することで、同じ最新タグを複数箇所へまとめて反映できる
 
@@ -156,11 +156,11 @@ apps:
       branchToSync: main
       chart:
         - valuesPath: charts/multi-service-app/values.yaml
-          imageTagAnchor: multiServiceAppWebapiVersion
+          anchor: multiServiceAppWebapiVersion
         - valuesPath: charts/multi-service-app/values.yaml
-          imageTagAnchor: multiServiceAppBatchVersion
+          anchor: multiServiceAppBatchVersion
         - valuesPath: charts/multi-service-app/values.yaml
-          imageTagAnchor: multiServiceAppDaemonVersion
+          anchor: multiServiceAppDaemonVersion
   ```
 
 - ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/apps.yaml` の
@@ -173,30 +173,32 @@ apps:
 ブランチ。既存の`mrTargetBranch`＝値定義ブランチとは別物）の追従・更新も、このMRの対象に含める:
 
 ```yaml
-# apps.yaml トップレベル。apps:配列と同階層、tenantId/clientId単位に1件（拡張性のため配列表記）
+# apps.yaml トップレベル。apps:配列と同階層、tenantId/clientId単位に1件のオブジェクト
 helm:
-  - branchToSync: release/2026-q1
+  branchToSync: release/2026-q1
+  chart:
+    # helm.branchToSyncの値をこのvaluesPath内のこのアンカーに書き込む
+    - valuesPath: charts/my-app/values.yaml
+      anchor: myAppTargetBranch
 apps:
   - projectId: 888
     projectName: my-app
     branchToSync: main
     chart:
       - valuesPath: charts/my-app/values.yaml
-        imageTagAnchor: myAppVersion
-        # 上記helm[].branchToSyncの値をこのvaluesPath内のこのアンカーに書き込む
-        helmBranchAnchor: myAppTargetBranch
+        anchor: myAppVersion
 ```
 
 - `helm`はchartリポジトリ内の別ブランチ（chart.yamlの`projectId`と同一プロジェクト）を指す、
-  tenantId/clientId単位に1件の配列（現状は1件のみサポート、2件以上は設定エラー）。人間が
-  自己申告方式で直接書き換える運用とし、タグ命名規則のような自動生成・自動判定の仕組みは持たない
-- `chart[].helmBranchAnchor`は、`helm[0].branchToSync`の値をその`valuesPath`のどこに書き込むかを
-  指すYAMLアンカー名。`chart`の各要素に任意指定でき（`imageTagAnchor`と同じ要素に併記する）。
-  1つのapp内で複数の`chart`要素に指定すれば、同じ値を複数箇所へまとめて反映できる
+  tenantId/clientId単位に1件のオブジェクト。`branchToSync`は人間が自己申告方式で直接書き換える
+  運用とし、タグ命名規則のような自動生成・自動判定の仕組みは持たない
+- `helm.chart[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、`apps[].chart[]`とは独立した
+  リスト。どのappに紐づくかは`valuesPath`の一致だけで決まる（app側に専用フィールドは持たせない）。
+  1つのappが複数の`valuesPath`を持つ場合、それぞれに対応する`helm.chart[]`の要素があれば
+  複数箇所へまとめて反映できる
 - Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、`helm`が指定されている
-  apps.yamlでは、そのファイル配下の**全アプリ**が`chart[].helmBranchAnchor`を最低1件持つ必要が
-  ある（一部のアプリだけ指定漏れがあると設定エラー）。逆に`helm`が指定されていないのに
-  `chart[].helmBranchAnchor`が指定されている場合も設定エラー（書き込む値が存在しないため）
+  apps.yamlでは、そのファイル配下の**全アプリ**の**全`chart[].valuesPath`**が`helm.chart[]`で
+  カバーされている必要がある（1つでも漏れていると設定エラー）
 - 書き込み前に、指定されたブランチ名がchartリポジトリ上に実在するか検証する。存在しなければ
   そのchartグループ全体を`ERROR`として扱う（他のアプリの更新も含めオールオアナッシングで見送る）
 - 同じtenantId/clientIdが複数のchartディレクトリにまたがる場合、各`apps.yaml`が独立して

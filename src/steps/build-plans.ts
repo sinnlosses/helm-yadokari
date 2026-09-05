@@ -201,12 +201,12 @@ async function applyImageTagTarget(
 ): Promise<ApplyTargetsAcc> {
   const valuesYamlCache = new Map(acc.valuesYamlCache)
   const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, target.valuesPath)
-  const previousTagRaw = getValueAtAnchor(valuesYamlContent, target.imageTagAnchor)
+  const previousTagRaw = getValueAtAnchor(valuesYamlContent, target.anchor)
   if (previousTagRaw === latestTagName) return { ...acc, valuesYamlCache }
 
   valuesYamlCache.set(
     target.valuesPath,
-    setValueAtAnchor(valuesYamlContent, target.imageTagAnchor, latestTagName),
+    setValueAtAnchor(valuesYamlContent, target.anchor, latestTagName),
   )
   return {
     valuesYamlCache,
@@ -235,7 +235,7 @@ async function applyHelmTargetBranchTarget(
 ): Promise<ApplyHelmTargetsAcc> {
   const valuesYamlCache = new Map(acc.valuesYamlCache)
   const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, target.valuesPath)
-  const previousBranchRaw = getValueAtAnchor(valuesYamlContent, target.anchorName)
+  const previousBranchRaw = getValueAtAnchor(valuesYamlContent, target.anchor)
   if (previousBranchRaw === branch) return { ...acc, valuesYamlCache }
 
   const exists = await getOrFetch(branchExistsCache, branch, () =>
@@ -245,10 +245,7 @@ async function applyHelmTargetBranchTarget(
     throw new Error(`向き先ブランチ "${branch}" がchartリポジトリに見つかりません`)
   }
 
-  valuesYamlCache.set(
-    target.valuesPath,
-    setValueAtAnchor(valuesYamlContent, target.anchorName, branch),
-  )
+  valuesYamlCache.set(target.valuesPath, setValueAtAnchor(valuesYamlContent, target.anchor, branch))
   return {
     valuesYamlCache,
     modifiedValuesPaths: new Set(acc.modifiedValuesPaths).add(target.valuesPath),

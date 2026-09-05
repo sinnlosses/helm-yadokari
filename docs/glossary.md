@@ -37,44 +37,47 @@
 - **英語識別子**: `valuesPath`
 - **定義**: `apps.yaml`内で、対象アプリが参照する`values.yaml`ファイルのパスを指すフィールド。
 
-### imageTagAnchor
+### anchor（chart[].anchor）
 
-- **英語識別子**: `imageTagAnchor`（型は`AnchorName`ブランド型）
+- **英語識別子**: `anchor`（型は`AnchorName`ブランド型、`ImageTagTarget`のフィールド）
 - **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`apps.yaml`の`chart`配列の
   1要素が持つフィールド名。`variables: [&tenant1client1AppsVersion main, ...]`のように、配列要素に
   アンカーで名前を付けた構成のvalues.yamlを前提とする。1つのソースリポジトリでWebAPI/バッチ/
   デーモンなど複数のデプロイ単位を管理している場合は、`chart`配列に要素を複数指定し、それぞれ
-  異なる`imageTagAnchor`を持たせる。
+  異なる`anchor`を持たせる。
 - **補足**: `yaml`パッケージ（`src/lib/helm.ts`の`getValueAtAnchor`/`setValueAtAnchor`）がASTを
   `visit()`で走査し、アンカー名をノードのプロパティとして直接引く。オブジェクトのネストを
   dotパスで辿る`imageTagKey`方式も過去に存在したが、実運用ではYAMLアンカー方式のみで
-  十分なため削除された。
+  十分なため削除された。過去には`imageTagAnchor`という名前だったが、ユーザー指示により
+  `helm.chart[].anchor`と対になる形で`anchor`にリネームされた。
 
 ### Helmの向き先ブランチ
 
 - **英語識別子**: `helm`（apps.yamlのフィールド名）/ `AppConfig.helmTargetBranch: HelmTargetBranchConfig`
-  （マージ後のコード上の型）
+  （app単位に振り分けた後のコード上の型）
 - **定義**: Helm chartは(1)`values.yaml`等のパラメータを定義するブランチ（既存の`mrTargetBranch`に相当）と、
   (2)そのパラメータを受け取ってk8sリソースを実際に構築するブランチの2種類で構成される、という前提のもと、
   後者を指すブランチ名。タグではなくブランチ名そのもので指定する。1つのtenantId/clientId内のapps全体で
   共通の1つの値であり、`apps.yaml`のトップレベルフィールド`helm`（`apps:`配列と同階層、
-  `- branchToSync: <ブランチ名>`という1要素の配列。拡張性のため配列表記だが現状は1件のみサポート）
-  として人間が直接書き換える。タグ命名規則のような自動生成・自動判定の仕組みは持たない（T-016）。
-- **表記ゆれ**: apps.yaml上のフィールド名は`helm[].branchToSync`だが、これは`AppConfig.branchToSync`
+  `branchToSync`＋書き込み先一覧`chart[]`を持つ1件のオブジェクト）として人間が直接書き換える。
+  タグ命名規則のような自動生成・自動判定の仕組みは持たない（T-016）。
+- **表記ゆれ**: apps.yaml上のフィールド名は`helm.branchToSync`だが、これは`AppConfig.branchToSync`
   （追跡ブランチ、ソースリポジトリ側の別概念）とは無関係。同じフィールド名が異なる2つの意味で
   使われている点に注意。
 
-### helmBranchAnchor
+### helm.chart\[\].anchor
 
-- **英語識別子**: `helmBranchAnchor`（型は`AnchorName`、`ImageTagTarget`のフィールド）
-- **定義**: 「Helmの向き先ブランチ」の値をこの`chart`要素の`valuesPath`のどこに書き込むかを指す、
-  `apps.yaml`の`chart`配列の各要素が持つ任意フィールド。`imageTagAnchor`と同じ要素に併記し、
-  同様にYAMLアンカー名で位置を指定するが、書き込む値がタグではなくブランチ名である点が異なる。
-  `chart`要素ごとの任意指定であり、指定しない要素は「Helmの向き先ブランチ」の更新対象外になる。
-  1つのapp内で複数の`chart`要素に指定すれば、同じ値を複数箇所へまとめて反映できる。
-- **制約**: apps.yamlに`helm`が指定されている場合、そのファイル配下の全アプリが
-  `helmBranchAnchor`を最低1件持つ必要がある（Helmの向き先ブランチは「1client内のapps全体で
-  共通」という前提のため、一部のアプリだけ指定漏れがあると設定エラーになる）。
+- **英語識別子**: `anchor`（型は`AnchorName`、`HelmTargetBranchTarget`のフィールド）
+- **定義**: 「Helmの向き先ブランチ」の値を`valuesPath`のどこに書き込むかを指す、`apps.yaml`
+  トップレベル`helm.chart`配列の各要素が持つフィールド。`apps[].chart[].anchor`と同様にYAML
+  アンカー名で位置を指定するが、書き込む値がタグではなくブランチ名である点が異なる。
+  `apps[].chart[]`とは独立したリストで、どのappの`values.yaml`に書き込むかは`valuesPath`の
+  一致だけで決まる（app側に専用フィールドは持たせない）。
+- **制約**: apps.yamlに`helm`が指定されている場合、そのファイル配下の全アプリの全
+  `chart[].valuesPath`が`helm.chart[]`でカバーされている必要がある（Helmの向き先ブランチは
+  「1client内のapps全体で共通」という前提のため、1つでもvaluesPathが漏れていると設定エラーに
+  なる）。過去には`apps[].chart[].helmBranchAnchor`というapp単位の任意フィールドだったが、
+  ユーザー指示によりトップレベルの独立リストへ再設計された。
 
 ### chartDir
 

@@ -447,8 +447,7 @@ function makePlan(
       {
         target: {
           valuesPath: toValuesPath("values.yaml"),
-          imageTagAnchor: toAnchorName("appVersion"),
-          helmBranchAnchor: undefined,
+          anchor: toAnchorName("appVersion"),
         },
         previousTag,
       },
@@ -571,7 +570,7 @@ describe("buildMrDescription", () => {
           {
             target: {
               valuesPath: toValuesPath("values.yaml"),
-              anchorName: toAnchorName("targetBranch"),
+              anchor: toAnchorName("targetBranch"),
             },
             previousBranch: toBranchName("release/2025-q4"),
             newBranch: toBranchName("release/2026-q1"),
@@ -596,7 +595,7 @@ describe("buildMrDescription", () => {
           {
             target: {
               valuesPath: toValuesPath("values.yaml"),
-              anchorName: toAnchorName("targetBranch"),
+              anchor: toAnchorName("targetBranch"),
             },
             previousBranch: undefined,
             newBranch: toBranchName("release/2026-q1"),

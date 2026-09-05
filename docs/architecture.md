@@ -27,8 +27,9 @@
       （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
     - `app.helmTargetBranch`（Helmの向き先ブランチ。T-016）が設定されているアプリは、
       `applyHelmTargetBranchTarget()`が`app.chart`と同じ`valuesYamlCache`を共有しつつ、
-      `helmTargetBranch.targets`（`app.chart`のうち`helmBranchAnchor`が指定された箇所すべて）を
-      1箇所ずつ処理し、設定値（`helmTargetBranch.branch`）と`values.yaml`側の現在値を比較する。
+      `helmTargetBranch.targets`（トップレベル`helm.chart[]`のうち`valuesPath`がこのappの
+      `chart[].valuesPath`と一致する箇所すべて）を1箇所ずつ処理し、設定値
+      （`helmTargetBranch.branch`）と`values.yaml`側の現在値を比較する。
       差分があれば書き込み前に`lib/gitlab/gitlab.ts`の`branchExists()`でそのブランチが
       chartリポジトリ上に実在するかを検証し（存在しなければ例外を投げてそのchartグループ全体を
       ERRORにする）、`AppUpdatePlan.helmTargetBranchUpdates`に積む。タグ更新と異なり
@@ -58,16 +59,16 @@
     tenant/clientの組のみに絞り込む。`TARGET_CLIENT`はカンマ区切りで複数のtenant/client
     組を指定できる。config/のディレクトリ構成に対するフィルタなのでこのファイルの責務とし、
     指定した組のいずれか1件でも見つからない場合は例外をスローする（`docs/requirements.md`
-    4.5節）。`apps.yaml`のトップレベル`helm`（配列、tenantId/clientId単位に1件、拡張性のため
-    配列表記だが現状は1件のみサポート）と、`chart[].helmBranchAnchor`（各要素に任意指定）は、
-    `loadApps()`内の`resolveHelmTargetBranch()`が1つの`AppConfig.helmTargetBranch`にマージする
-    （`chart`のうち`helmBranchAnchor`が指定された箇所を`targets`として集約）。Helmの向き先
-    ブランチは「1client内のapps全体で共通」という前提のため、`helm`が指定されているapps.yamlは
-    配下の全アプリが`helmBranchAnchor`を最低1件持つことを要求し（一部のアプリだけ指定漏れが
-    あると例外）、逆に`helmBranchAnchor`が指定されているのに`helm`が無い場合も設定エラーとして
-    例外をスローする（T-016）
+    4.5節）。`apps.yaml`のトップレベル`helm`（オブジェクト、tenantId/clientId単位に1件、
+    `branchToSync`＋書き込み先一覧`chart[]`（`valuesPath`+`anchor`）を持つ）は、`loadApps()`内の
+    `resolveHelmTargetBranch()`が`valuesPath`の一致でapp単位の`AppConfig.helmTargetBranch`に
+    振り分ける（app側には専用フィールドを持たせず、`helm.chart[].valuesPath`とapp自身の
+    `chart[].valuesPath`が一致する要素だけを`targets`として集約）。Helmの向き先ブランチは
+    「1client内のapps全体で共通」という前提のため、`helm`が指定されているapps.yamlは配下の
+    全アプリの全`chart[].valuesPath`が`helm.chart[]`でカバーされていることを要求し（1つでも
+    漏れていると例外）（T-016）
   - `helm.ts`: Helm chart の `values.yaml` を操作する処理。イメージタグの値の位置指定は
-    `imageTagAnchor`（YAMLアンカー名）のみに対応し、`getValueAtAnchor`/`setValueAtAnchor`が
+    `chart[].anchor`（YAMLアンカー名）のみに対応し、`getValueAtAnchor`/`setValueAtAnchor`が
     `yaml`パッケージのDocument（AST）を`visit()`で走査してアンカー名を持つノードを直接
     操作する（`js-yaml`はオブジェクトとしてしか読み書きできずアンカー名を保持できないため
     不採用。`config/`側のYAML読み込み`utils/yaml.ts`も含め、リポジトリ全体で`yaml`パッケージに

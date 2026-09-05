@@ -3,5 +3,5 @@ apps:
     projectName: sample-qa-sprint
     branchToSync: main
     chart:
-      valuesPath: charts/anchor-app/values.yaml
-      imageTagAnchor: tenantId1client1AppsVersion
+      - valuesPath: charts/anchor-app/values.yaml
+        anchor: tenantId1client1AppsVersion

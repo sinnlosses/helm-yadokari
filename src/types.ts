@@ -69,32 +69,30 @@ export type TargetClient = {
  * values.yaml内でイメージタグを書き換える1箇所分（対象ファイル＋その中でのYAMLアンカー名）。
  * 1つのソースリポジトリ（1つのタグ）に対して、WebAPI/バッチ/デーモンなど複数の
  * デプロイ単位を管理しているケースでは、同じ最新タグを複数箇所に反映する必要があるため、
- * `AppConfig.chart`はこの型の配列として持つ（T-014）。
- * `helmBranchAnchor`が指定されている箇所は、Helmの向き先ブランチの値もこの`valuesPath`内の
- * 別アンカーへ書き込む対象になる（T-016、`imageTagAnchor`と同じファイル内の別アンカーを指す）
+ * `AppConfig.chart`はこの型の配列として持つ（T-014）
  */
 export type ImageTagTarget = {
   readonly valuesPath: ValuesPath
-  readonly imageTagAnchor: AnchorName
-  readonly helmBranchAnchor: AnchorName | undefined
+  readonly anchor: AnchorName
 }
 
 /**
  * Helmの向き先ブランチ（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
  * ブランチ）の書き込み先1箇所分（対象ファイル＋その中でのYAMLアンカー名）。
- * `AppConfig.chart[].helmBranchAnchor`が指定された箇所から導出する（T-016）
+ * apps.yamlトップレベルの`helm.chart[]`の1要素に対応する（T-016）
  */
 export type HelmTargetBranchTarget = {
   readonly valuesPath: ValuesPath
-  readonly anchorName: AnchorName
+  readonly anchor: AnchorName
 }
 
 /**
  * apps.yaml内で「Helmの向き先ブランチ」を扱うための設定。`branch`はapps.yamlのトップレベル
- * フィールドとして1ファイル（tenantId/clientId単位）につき1つ、人間が直接書き換える値。
- * `targets`は、その値をこのアプリのvalues.yaml内のどこに書き込むか（`chart[].helmBranchAnchor`が
- * 指定された箇所すべて）を指す。タグの命名規則のような自動生成・自動判定の仕組みは持たず、
- * 単純に`branch`と各`targets`が指す現在値を比較する
+ * フィールド`helm.branchToSync`として1ファイル（tenantId/clientId単位）につき1つ、人間が
+ * 直接書き換える値。`targets`は、その値を書き込む`helm.chart[]`の要素のうち、このアプリの
+ * `chart[].valuesPath`と一致するものすべてを指す（`valuesPath`一致でapp単位に振り分ける）。
+ * タグの命名規則のような自動生成・自動判定の仕組みは持たず、単純に`branch`と各`targets`が
+ * 指す現在値を比較する
  */
 export type HelmTargetBranchConfig = {
   readonly branch: BranchName
@@ -108,7 +106,7 @@ export type AppConfig = {
   readonly branchToSync: BranchName
   /** 同じ最新タグを反映する書き換え箇所の一覧（1件以上）。複数指定すると同一タグを複数箇所へ反映する */
   readonly chart: readonly ImageTagTarget[]
-  /** `chart`のいずれかにhelmBranchAnchorが指定されている場合のみ値を持つ（未指定なら対象外） */
+  /** apps.yamlの`helm`が指定され、`chart`のいずれかのvaluesPathがそこでカバーされている場合のみ値を持つ */
   readonly helmTargetBranch: HelmTargetBranchConfig | undefined
 }
 

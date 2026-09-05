@@ -65,7 +65,7 @@ apps:
     branchToSync: main
     chart:
       - valuesPath: charts/my-app/values.yaml
-        imageTagAnchor: appVersion
+        anchor: appVersion
 `,
     )
 
@@ -86,7 +86,7 @@ apps:
           chart: [
             {
               valuesPath: "charts/my-app/values.yaml",
-              imageTagAnchor: "appVersion",
+              anchor: "appVersion",
             },
           ],
         },
@@ -117,19 +117,19 @@ apps:
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
     writeAppsYaml(
       "teamA-chart",
       "tenantId1",
       "clientId2",
-      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        imageTagAnchor: appVersion\n",
+      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        anchor: appVersion\n",
     )
     writeAppsYaml(
       "teamA-chart",
       "tenantId2",
       "clientId1",
-      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n    chart:\n      - valuesPath: c.yaml\n        imageTagAnchor: appVersion\n",
+      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n    chart:\n      - valuesPath: c.yaml\n        anchor: appVersion\n",
     )
 
     const { chartAndAppsList } = loadConfig(tmpDir)
@@ -187,7 +187,7 @@ describe("loadConfig（バリデーションエラー）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      'apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: ""\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n',
+      'apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: ""\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n',
     )
     expect(() => loadConfig(tmpDir)).toThrow("形式が不正です")
   })
@@ -215,12 +215,12 @@ describe("loadConfig（バリデーションエラー）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - imageTagAnchor: appVersion\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - anchor: appVersion\n",
     )
     expect(() => loadConfig(tmpDir)).toThrow("形式が不正です")
   })
 
-  it("apps.yaml の chart[].imageTagAnchor が無いとき例外をスローする", () => {
+  it("apps.yaml の chart[].anchor が無いとき例外をスローする", () => {
     writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -245,19 +245,19 @@ describe("loadConfig（chartの複数指定）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "apps:\n  - projectId: 1\n    projectName: my-service\n    branchToSync: main\n    chart:\n      - valuesPath: charts/webapi/values.yaml\n        imageTagAnchor: appVersion\n      - valuesPath: charts/batch/values.yaml\n        imageTagAnchor: batchAppsVersion\n",
+      "apps:\n  - projectId: 1\n    projectName: my-service\n    branchToSync: main\n    chart:\n      - valuesPath: charts/webapi/values.yaml\n        anchor: appVersion\n      - valuesPath: charts/batch/values.yaml\n        anchor: batchAppsVersion\n",
     )
 
     const { chartAndAppsList } = loadConfig(tmpDir)
     expect(chartAndAppsList[0]?.apps[0]?.chart).toEqual([
-      { valuesPath: "charts/webapi/values.yaml", imageTagAnchor: "appVersion" },
-      { valuesPath: "charts/batch/values.yaml", imageTagAnchor: "batchAppsVersion" },
+      { valuesPath: "charts/webapi/values.yaml", anchor: "appVersion" },
+      { valuesPath: "charts/batch/values.yaml", anchor: "batchAppsVersion" },
     ])
   })
 })
 
 describe("loadConfig（helmTargetBranch）", () => {
-  it("helmとchart[].helmBranchAnchorを両方指定すると、appのhelmTargetBranchにマージされる", () => {
+  it("helm.chart[].valuesPathがappのchart[].valuesPathと一致すると、appのhelmTargetBranchにマージされる", () => {
     writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -266,17 +266,17 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "helm:\n  - branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n        helmBranchAnchor: targetBranch\n",
+      "helm:\n  branchToSync: release/2026-q1\n  chart:\n    - valuesPath: a.yaml\n      anchor: targetBranch\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
 
     const { chartAndAppsList } = loadConfig(tmpDir)
     expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toEqual({
       branch: "release/2026-q1",
-      targets: [{ valuesPath: "a.yaml", anchorName: "targetBranch" }],
+      targets: [{ valuesPath: "a.yaml", anchor: "targetBranch" }],
     })
   })
 
-  it("chart[].helmBranchAnchorもhelmも無いとき、app.helmTargetBranchはundefinedになる", () => {
+  it("helmが無いとき、app.helmTargetBranchはundefinedになる", () => {
     writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -285,14 +285,14 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
 
     const { chartAndAppsList } = loadConfig(tmpDir)
     expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toBeUndefined()
   })
 
-  it("apps.yamlのhelmが無いのにchart[].helmBranchAnchorだけ指定すると例外をスローする", () => {
+  it("helm.chartが空配列のとき例外をスローする", () => {
     writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -301,28 +301,13 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n        helmBranchAnchor: targetBranch\n",
-    )
-
-    expect(() => loadConfig(tmpDir)).toThrow("helm")
-  })
-
-  it("helmに2件以上指定すると例外をスローする", () => {
-    writeChartYaml(
-      "teamA-chart",
-      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
-    )
-    writeAppsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
-      "helm:\n  - branchToSync: release/2026-q1\n  - branchToSync: release/2026-q2\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n        helmBranchAnchor: targetBranch\n",
+      "helm:\n  branchToSync: release/2026-q1\n  chart: []\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
 
     expect(() => loadConfig(tmpDir)).toThrow("形式が不正です")
   })
 
-  it("helmが指定されているのに一部のappだけchart[].helmBranchAnchorが無いとき例外をスローする", () => {
+  it("helmが指定されているのに、一部のappのvaluesPathがhelm.chart[]に無いとき例外をスローする", () => {
     writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -331,13 +316,13 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "helm:\n  - branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n        helmBranchAnchor: targetBranch\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        imageTagAnchor: appVersion\n",
+      "helm:\n  branchToSync: release/2026-q1\n  chart:\n    - valuesPath: a.yaml\n      anchor: targetBranch\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        anchor: appVersion\n",
     )
 
     expect(() => loadConfig(tmpDir)).toThrow("app-2")
   })
 
-  it("helmが指定されているとき、apps.yaml内の全appがchart[].helmBranchAnchorを持てば読み込める", () => {
+  it("helmが指定されているとき、全appのvaluesPathがhelm.chart[]でカバーされていれば読み込める", () => {
     writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -346,7 +331,7 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "helm:\n  - branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n        helmBranchAnchor: targetBranchA\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        imageTagAnchor: appVersion\n        helmBranchAnchor: targetBranchB\n",
+      "helm:\n  branchToSync: release/2026-q1\n  chart:\n    - valuesPath: a.yaml\n      anchor: targetBranchA\n    - valuesPath: b.yaml\n      anchor: targetBranchB\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        anchor: appVersion\n",
     )
 
     const { chartAndAppsList } = loadConfig(tmpDir)
@@ -354,7 +339,7 @@ describe("loadConfig（helmTargetBranch）", () => {
     expect(chartAndAppsList[0]?.apps[1]?.helmTargetBranch).toBeDefined()
   })
 
-  it("1アプリのchart内で複数箇所にhelmBranchAnchorを指定すると、helmTargetBranch.targetsに複数含める", () => {
+  it("1アプリのchart内で複数のvaluesPathがそれぞれhelm.chart[]と一致すると、helmTargetBranch.targetsに複数含める", () => {
     writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -363,15 +348,15 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "helm:\n  - branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: webapi.yaml\n        imageTagAnchor: webapiVersion\n        helmBranchAnchor: webapiTargetBranch\n      - valuesPath: batch.yaml\n        imageTagAnchor: batchVersion\n        helmBranchAnchor: batchTargetBranch\n",
+      "helm:\n  branchToSync: release/2026-q1\n  chart:\n    - valuesPath: webapi.yaml\n      anchor: webapiTargetBranch\n    - valuesPath: batch.yaml\n      anchor: batchTargetBranch\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: webapi.yaml\n        anchor: webapiVersion\n      - valuesPath: batch.yaml\n        anchor: batchVersion\n",
     )
 
     const { chartAndAppsList } = loadConfig(tmpDir)
     expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toEqual({
       branch: "release/2026-q1",
       targets: [
-        { valuesPath: "webapi.yaml", anchorName: "webapiTargetBranch" },
-        { valuesPath: "batch.yaml", anchorName: "batchTargetBranch" },
+        { valuesPath: "webapi.yaml", anchor: "webapiTargetBranch" },
+        { valuesPath: "batch.yaml", anchor: "batchTargetBranch" },
       ],
     })
   })
@@ -393,13 +378,13 @@ describe("loadConfig（target絞り込み）", () => {
       "teamA-chart",
       "tenantId1",
       "clientId1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
     writeAppsYaml(
       "teamA-chart",
       "tenantId2",
       "clientId2",
-      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        imageTagAnchor: appVersion\n",
+      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        anchor: appVersion\n",
     )
     writeChartYaml(
       "teamB-chart",
@@ -409,7 +394,7 @@ describe("loadConfig（target絞り込み）", () => {
       "teamB-chart",
       "tenantId1",
       "clientId1",
-      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n    chart:\n      - valuesPath: c.yaml\n        imageTagAnchor: appVersion\n",
+      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n    chart:\n      - valuesPath: c.yaml\n        anchor: appVersion\n",
     )
   })
 

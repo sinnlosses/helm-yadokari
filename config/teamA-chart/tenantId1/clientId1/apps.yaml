@@ -1,32 +1,32 @@
-# このtenantId/clientId内のapps全体で共通の「Helmの向き先ブランチ」（values.yamlの
-# パラメータを受け取ってk8sリソースを実際に構築するブランチ）。人間が直接書き換える値で、
-# 自動生成・自動判定は行わない（変更した場合、下記の各chart[].helmBranchAnchorが指す
-# values.yaml内のアンカーへ反映される）
 helm:
-  - branchToSync: release/2026-q1
+  branchToSync: release/2026-q1
+  chart:
+    - valuesPath: charts/my-app/values.yaml
+      anchor: myAppTargetBranch
+    - valuesPath: charts/another-app/values.yaml
+      anchor: anotherAppTargetBranch
+    - valuesPath: charts/multi-service-app/values.yaml
+      anchor: multiServiceAppTargetBranch
 apps:
   - projectId: 888
     projectName: my-app          # タグを取得するGitLabプロジェクト
     branchToSync: main                    # 追跡するブランチ
     chart:
       - valuesPath: charts/my-app/values.yaml
-        imageTagAnchor: myAppVersion  # values.yaml内のYAMLアンカー名
-        helmBranchAnchor: myAppTargetBranch  # 上記helm[].branchToSyncの値をここに書き込む
+        anchor: myAppVersion  # values.yaml内のYAMLアンカー名
   - projectId: 889
     projectName: another-app
     branchToSync: main
     chart:
       - valuesPath: charts/another-app/values.yaml
-        imageTagAnchor: tenantId1client1AppsVersion  # values.yaml内のYAMLアンカー名
-        helmBranchAnchor: anotherAppTargetBranch  # 上記helm[].branchToSyncの値をここに書き込む
+        anchor: tenantId1client1AppsVersion  # values.yaml内のYAMLアンカー名
   - projectId: 890
     projectName: multi-service-app # 1プロジェクトでWebAPI/バッチ/デーモンなど複数appを管理する例
     branchToSync: main             # 1つのvalues.yaml内に複数のアンカーで各appのタグを持つ構成
     chart:
       - valuesPath: charts/multi-service-app/values.yaml
-        imageTagAnchor: multiServiceAppWebapiVersion
-        helmBranchAnchor: multiServiceAppTargetBranch  # 上記helm[].branchToSyncの値をここに書き込む
+        anchor: multiServiceAppWebapiVersion
       - valuesPath: charts/multi-service-app/values.yaml
-        imageTagAnchor: multiServiceAppBatchVersion
+        anchor: multiServiceAppBatchVersion
       - valuesPath: charts/multi-service-app/values.yaml
-        imageTagAnchor: multiServiceAppDaemonVersion
+        anchor: multiServiceAppDaemonVersion

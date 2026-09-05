@@ -155,10 +155,10 @@ apps:
     branchToSync: main # 追跡するブランチ
     chart:
       - valuesPath: charts/my-app/values.yaml
-        imageTagAnchor: myAppVersion # values.yaml内のYAMLアンカー名
+        anchor: myAppVersion # values.yaml内のYAMLアンカー名
 ```
 
-`chart[].imageTagAnchor` は、`values.yaml` 内のイメージタグの位置をYAMLアンカー名で指定する
+`chart[].anchor` は、`values.yaml` 内のイメージタグの位置をYAMLアンカー名で指定する
 フィールドです。`values.yaml` はオブジェクトのネストではなく、配列要素にYAMLアンカーで名前を
 付けた構成（例: `variables: [&myAppVersion main, ...]`）を前提とし、指定したアンカー名を持つ
 YAML上のスカラー値を、ネストの深さ・キー名に関わらず直接書き換えます。
@@ -174,11 +174,11 @@ apps:
     branchToSync: main
     chart:
       - valuesPath: charts/multi-service-app/values.yaml
-        imageTagAnchor: multiServiceAppWebapiVersion
+        anchor: multiServiceAppWebapiVersion
       - valuesPath: charts/multi-service-app/values.yaml
-        imageTagAnchor: multiServiceAppBatchVersion
+        anchor: multiServiceAppBatchVersion
       - valuesPath: charts/multi-service-app/values.yaml
-        imageTagAnchor: multiServiceAppDaemonVersion
+        anchor: multiServiceAppDaemonVersion
 ```
 
 ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/apps.yaml` の2階層で固定です。
@@ -188,31 +188,36 @@ apps:
 ブランチ。`mrTargetBranch` ＝ 値定義ブランチとは別物）の追従・更新もMRの対象に含められます:
 
 ```yaml
-# apps.yaml トップレベル。apps: 配列と同階層、tenantId/clientId単位に1件（拡張性のため配列表記）
+# apps.yaml トップレベル。apps: 配列と同階層、tenantId/clientId単位に1件のオブジェクト
 helm:
-  - branchToSync: release/2026-q1
+  branchToSync: release/2026-q1
+  chart:
+    # helm.branchToSync の値をこの valuesPath 内のこのアンカーに書き込む
+    - valuesPath: charts/my-app/values.yaml
+      anchor: myAppTargetBranch
 apps:
   - projectId: 1
     projectName: my-app
     branchToSync: main
     chart:
       - valuesPath: charts/my-app/values.yaml
-        imageTagAnchor: myAppVersion
-        # helm[].branchToSync の値をこの valuesPath 内のこのアンカーに書き込む
-        helmBranchAnchor: myAppTargetBranch
+        anchor: myAppVersion
 ```
 
 `helm` はchartリポジトリ内の別ブランチ（`chart.yaml` の `projectId` と同一プロジェクト）を指す、
-tenantId/clientId単位に1件の配列です（現状は1件のみサポート）。人間が自己申告方式で直接書き換える
-運用とし、タグ命名規則のような自動生成・自動判定の仕組みは持ちません。`chart[].helmBranchAnchor` は
-`chart`の各要素に任意指定で、`imageTagAnchor`と同じ要素に併記します。1つのapp内で複数の`chart`要素に
-指定すれば、同じ値を複数箇所へまとめて反映できます。
+tenantId/clientId単位に1件のオブジェクトです。`helm.branchToSync` は人間が自己申告方式で直接
+書き換える運用とし、タグ命名規則のような自動生成・自動判定の仕組みは持ちません。`helm.chart[]`
+は書き込み先（`valuesPath` + `anchor`）の一覧で、`apps[].chart[]` とは独立したリストです。
+
+`helm.chart[]` と各appの紐付けは、`valuesPath` の一致だけで決まります（app側に専用フィールドは
+持たせません）。1つのappが複数の`valuesPath`を持つ場合は、それぞれに対応する`helm.chart[]`の
+要素があれば複数箇所へまとめて反映できます。
 
 Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、`helm` が指定されている
-apps.yamlでは、そのファイル配下の**全アプリ**が `chart[].helmBranchAnchor` を最低1件持つ必要が
-あります（一部のアプリだけ指定漏れがあると設定エラーになります）。逆に `helm` が指定されていないのに
-`chart[].helmBranchAnchor` が指定されている場合も設定エラーです。書き込み前に、指定されたブランチ名が
-chartリポジトリ上に実在するか検証し、存在しなければそのchartグループ全体を `ERROR` にします。
+apps.yamlでは、そのファイル配下の**全アプリ**の**全`chart[].valuesPath`**が `helm.chart[]` で
+カバーされている必要があります（1つでも漏れていると設定エラーになります）。書き込み前に、
+指定されたブランチ名がchartリポジトリ上に実在するか検証し、存在しなければそのchartグループ
+全体を `ERROR` にします。
 
 設定ファイルの文法チェックのみ実行する場合:
 
