@@ -571,7 +571,7 @@ describe("buildMrDescription", () => {
 
     expect(description).toContain("## イメージタグ")
     expect(description).toContain(
-      "| リポジトリ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
+      "| リポジトリ | 追跡ブランチ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
     )
     const row = description.split("\n").find((line) => line.includes("my-app"))
     expect(row).toContain("[main-build-at-20251231-000000](")
@@ -614,6 +614,13 @@ describe("buildMrDescription", () => {
 
     const row = description.split("\n").find((line) => line.includes("my-app"))
     expect(row).toContain("| `values.yaml` | `appVersion` |")
+  })
+
+  it("そのアプリの設定（追跡ブランチ）を列に出す", async () => {
+    const description = await buildMrDescription(makeShowClient(), [makePlan()])
+
+    const row = description.split("\n").find((line) => line.includes("my-app"))
+    expect(row).toContain("| my-app | `main` |")
   })
 
   it("打刻日時の列は出さない", async () => {

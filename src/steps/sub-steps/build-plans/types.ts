@@ -1,4 +1,4 @@
-import type { AppUpdatePlan, BranchName, ValuesPath } from "../../../types.js"
+import type { AppUpdatePlan, BranchName, ParsedTag, ValuesPath } from "../../../types.js"
 
 /** `build-plans.ts`のvalues.yamlキャッシュ（chartAndApps単位で共有）を経由して内容を取得する関数 */
 export type LoadValuesYamlContent = (
@@ -12,6 +12,19 @@ export type LoadValuesYamlContent = (
  * GitLabを知らずにブランチの実在確認だけを依頼できる（`LoadValuesYamlContent`と同じ考え方）。
  */
 export type BranchExists = (branch: BranchName) => Promise<boolean>
+
+/**
+ * 1アプリ分の「最新タグの判定結果」。`resolveLatestTag()`が組み立て、イメージタグの
+ * 差分判定（`image-tag-target.ts`）が使う。
+ *
+ * `pointsAtTrackedHead`は、values.yamlに書かれている現在値が「追跡ブランチの現在のHEADを
+ * 指すタグ」かどうかを返す。true なら、たとえより新しい名前のタグが存在してもデプロイされる
+ * 中身は変わらないため更新しない（T-037）。
+ */
+export type LatestTagResolution = {
+  readonly tag: ParsedTag
+  readonly pointsAtTrackedHead: (currentValue: string) => boolean
+}
 
 /**
  * 1アプリ分の書き換え箇所（target）を1つずつ処理する間のアキュムレータ。イメージタグ側と

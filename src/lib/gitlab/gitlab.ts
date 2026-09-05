@@ -287,6 +287,7 @@ function buildImageTagRow(webUrl: GitLabUrl, plan: AppUpdatePlan, update: ImageT
     : "-"
   const cells = [
     plan.app.projectName,
+    `\`${plan.app.branchToSync}\``,
     `\`${update.target.valuesPath}\``,
     `\`${update.target.anchor}\``,
     previousTagText,
@@ -350,8 +351,8 @@ export async function buildMrDescription(
   const imageTagSection = [
     "## イメージタグ",
     "",
-    "| リポジトリ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
-    "| --- | --- | --- | --- | --- | --- | --- |",
+    "| リポジトリ | 追跡ブランチ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...rows,
   ].join("\n")
 

@@ -199,7 +199,7 @@ async function buildAppUpdatePlan(
   }
   const afterChartTargets = await applyImageTagTargets(
     loadValuesYamlContent,
-    latestTag.name,
+    latestTag,
     initialTargetsAcc,
     app.chart,
   )
@@ -229,13 +229,19 @@ async function buildAppUpdatePlan(
       projectName: app.projectName,
       result: "SKIPPED",
       reason: "already_up_to_date",
-      tag: latestTag.name,
+      tag: latestTag.tag.name,
     })
     return { plans: acc.plans, valuesYamlCache, modifiedValuesPaths }
   }
 
-  const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.name)
-  const plan: AppUpdatePlan = { app, latestTag, pipeline, updates, helmTargetBranchUpdates }
+  const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.tag.name)
+  const plan: AppUpdatePlan = {
+    app,
+    latestTag: latestTag.tag,
+    pipeline,
+    updates,
+    helmTargetBranchUpdates,
+  }
 
   return {
     plans: [...acc.plans, plan],

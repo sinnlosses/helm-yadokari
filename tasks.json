@@ -286,5 +286,13 @@
     "passes": true,
     "evidence": "src/lib/gitlab/gitlab.ts に buildImageTagRow() を新設し、イメージタグ節を「リポジトリ / ファイル / アンカー / 旧タグ / 新タグ / 比較 / パイプライン」の7列テーブルに、向き先ブランチ節も「旧ブランチ / 新ブランチ / ファイル / アンカー」の4列テーブルに変更。比較・パイプラインはURLをそのまま置き（GitLabが自動リンクする）、値が無いセル（パイプライン無し・旧タグ未設定で比較不可）は「-」に統一。旧タグ・新タグはタグ名をラベルにしたリンクのまま。打刻日時列を出し分けるために一度追加した AppUpdatePlan.latestTagCreated・resolveLatestTag() の {tag, created} 戻り値・formatJst() は、列が不採用になった時点で撤去した（未使用コードを残さないため）。test/lib/gitlab/gitlab.test.ts のdescription系テストを全面書き換え（14テスト。列構成・ファイル/アンカーの分割・URL直書き・打刻日時を出さないこと・重複まとめを含む）。pnpm check（21ファイル295テスト）通過。実機のMR !22/!23 で表示を確認",
     "dependencies": ["T-034"]
+  },
+  {
+    "id": "T-037",
+    "task": "(1) 反映済みタグが追跡ブランチの現在のHEADコミットを指している場合は、より新しい名前のタグが存在しても更新しないようにする。T-035のスモークテストで、sample-develop-client の反映済みタグ（main-build-at-20260101-000000）と最新タグ（main-build-at-20260903-143646）が同じコミットを指しているのに更新MRが作られ、デプロイされる中身が変わらないのに差分だけが出る状態になっていた。(2) MR本文に各アプリの設定（追跡ブランチなど）も出して、なぜそのタグが選ばれたのかをレビュアーが追えるようにする",
+    "status": "done",
+    "passes": true,
+    "evidence": "(1) sub-steps/build-plans/types.ts に LatestTagResolution 型（tag ＋ pointsAtTrackedHead）を追加し、resolveLatestTag() が「values.yamlの現在値が追跡ブランチのHEADを指すタグか」を判定する関数を返すようにした（タグ一覧とHEAD SHAは既に取得済みなのでAPI呼び出しは増えない）。image-tag-target.ts の1箇所分の判定に、現在値がHEADを指すタグなら更新しない分岐を追加。test/steps/build-plans.test.ts に3テスト追加（HEADを指す旧タグはより新しいタグがあってもSKIPPED／古いコミットを指す旧タグは従来どおり更新／タグ名でない値も従来どおり更新）。docs/requirements.md 4.1節に仕様として追記。(2) MR本文のイメージタグ表に「追跡ブランチ」列を追加（列は リポジトリ / 追跡ブランチ / ファイル / アンカー / 旧タグ / 新タグ / 比較 / パイプライン）。pnpm check（21ファイル299テスト）通過。実機で再検証し、tenant2/client1 の sample-develop-client が新ルールで更新対象から外れ（MR !24 は image tag 1 件のみ）、values.yaml の該当アンカーが据え置かれることを確認",
+    "dependencies": ["T-036"]
   }
 ]

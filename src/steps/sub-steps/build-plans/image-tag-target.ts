@@ -1,8 +1,8 @@
 import { getValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
-import type { ImageTagTarget, ImageTagUpdate, TagName } from "../../../types.js"
+import type { ImageTagTarget, ImageTagUpdate } from "../../../types.js"
 import { toTagName } from "../../../types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
-import type { ApplyTargetsAcc, LoadValuesYamlContent } from "./types.js"
+import type { ApplyTargetsAcc, LatestTagResolution, LoadValuesYamlContent } from "./types.js"
 
 export type ApplyImageTagAcc = ApplyTargetsAcc<ImageTagUpdate>
 
@@ -10,17 +10,24 @@ export type ApplyImageTagAcc = ApplyTargetsAcc<ImageTagUpdate>
  * `app.chart`のうち1箇所分について、現在の値を読み取り最新タグと比較する。差分が
  * あれば書き換え内容をキャッシュに積み、`updates`にも積む（差分が無ければキャッシュの
  * 更新分だけを引き継ぎ、その箇所は`updates`に含めない）。
+ *
+ * 現在値が「追跡ブランチの現在のHEADを指すタグ」の場合も更新しない（T-037）。タグ名は
+ * 違ってもデプロイされる中身は同じで、更新しても意味が無いMRになるため。
  */
 async function applyImageTagTarget(
   loadValuesYamlContent: LoadValuesYamlContent,
-  latestTagName: TagName,
+  latestTag: LatestTagResolution,
   acc: ApplyImageTagAcc,
   target: ImageTagTarget,
 ): Promise<ApplyImageTagAcc> {
+  const latestTagName = latestTag.tag.name
   const valuesYamlCache = new Map(acc.valuesYamlCache)
   const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, target.valuesPath)
   const previousTagRaw = getValueAtAnchor(valuesYamlContent, target.anchor)
   if (previousTagRaw === latestTagName) return { ...acc, valuesYamlCache }
+  if (previousTagRaw !== undefined && latestTag.pointsAtTrackedHead(previousTagRaw)) {
+    return { ...acc, valuesYamlCache }
+  }
 
   valuesYamlCache.set(
     target.valuesPath,
@@ -43,11 +50,11 @@ async function applyImageTagTarget(
  */
 export async function applyImageTagTargets(
   loadValuesYamlContent: LoadValuesYamlContent,
-  latestTagName: TagName,
+  latestTag: LatestTagResolution,
   acc: ApplyImageTagAcc,
   targets: readonly ImageTagTarget[],
 ): Promise<ApplyImageTagAcc> {
   return reduceAsync(targets, acc, (current, target) =>
-    applyImageTagTarget(loadValuesYamlContent, latestTagName, current, target),
+    applyImageTagTarget(loadValuesYamlContent, latestTag, current, target),
   )
 }
