@@ -156,7 +156,7 @@
     "task": "T-019で確定した「MRを(chartリポジトリ, tenantId, clientId)単位に分割する」要件を実装する。ChartAndApps型にtenantId/clientIdを追加し、config.tsのグルーピングをtenantId/clientIdごとの独立エントリに変更、ブランチ名をfeature/yadokari/<tenantId>/<clientId>に、MRタイトルをAuto MR by yadokari: update ${tenantId}/${clientId} ${N} app image tag(s)に変更する",
     "status": "done",
     "passes": true,
-    "evidence": "コード変更なし（判断・要件定義のみ）。詳細な経緯は docs/history/tasks-archive.md の T-020 節",
+    "evidence": "コード変更なし（判断・要件定義のみ）。詳細な経緯は docs/history/tasks-archive.md の T-020 節。【2026-09-05 実機確認】gitlab.com（yadokari-smoke-test-chart, projectId 86061211）で1chartディレクトリ配下の tenant1/client1・tenant1/client2 を定義して実行し、feature/yadokari/tenant1/client1 と .../client2 の2ブランチ＋MR !11/!12 が独立して作られること、client1にオープン中MRがあってもclient2はブロックされないこと、片方がERROR（存在しないアンカー）でも他方はCREATEDになり終了コードが1（PARTIAL_FAILURE）になることを確認",
     "dependencies": ["T-019"]
   },
   {
@@ -164,7 +164,7 @@
     "task": "ユーザー指摘（「T-015はもはや問題ないんじゃないか、定期実行後に手動実行したければMRを閉じればいい。ただしMRをクローズしてもブランチが残り続ける仕様になっているなら、MRが存在せずブランチが存在する場合は削除する仕様にしたい」）を受けて、既存の固定ブランチの再作成漏れバグを修正する。docs/requirements.mdには元々「マージまたはクローズされた後の実行で、改めて固定ブランチを作り直しMRを作成する」と明記されていたが、実装（commitFileUpdates()）はブランチが存在する場合は削除せず追加コミットを積むだけだった",
     "status": "done",
     "passes": true,
-    "evidence": "コード変更なし（判断・要件定義のみ）。詳細な経緯は docs/history/tasks-archive.md の T-021 節",
+    "evidence": "コード変更なし（判断・要件定義のみ）。詳細な経緯は docs/history/tasks-archive.md の T-021 節。【2026-09-05 実機確認】MR !12 をクローズしブランチを残した状態で再実行し、feature/yadokari/tenant1/client2 のHEADが 6226e559→97e2c7f1 に変わり履歴が「main(c96614e1)＋新コミット1つ」のみ（＝追加コミットではなく削除して作り直し）になること、新MR !13 が作成されることを確認",
     "dependencies": ["T-020"]
   },
   {

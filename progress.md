@@ -75,21 +75,36 @@ T-001〜T-021（要件定義・CLI実装・GitLab実機検証・スキーマ再�
 
 **T-022〜T-031（リファクタリング監査で洗い出した10件）はすべて完了。** 最終状態は
 `pnpm check`（tsc・oxlint・config検証・oxfmt・vitest 20ファイル272テスト）通過、
-`rm -rf dist && pnpm build` のクリーンビルドも成功。
+`rm -rf dist && pnpm build` のクリーンビルドも成功。ブランチ `refactor/repo-cleanup` に
+3コミット（コード / ドキュメント / 進捗管理）として記録済み（mainへは未マージ）。
+
+- **T-019/T-020/T-021 のgitlab.com実機確認を実施（2026-09-05、ユーザー承認のうえ書き込みあり）**:
+  `config-verify/`（一時。確認後に削除）に1つのchartディレクトリ配下の tenant1/client1 と
+  tenant1/client2 を定義し、`sinnlosses-group/yadokari-smoke-test-chart`（projectId 86061211）
+  に対して実行した。前提として旧命名の残骸（ブランチ`yadokari/update`とMR !10）はユーザー判断で
+  クローズ・削除済み
+  - T-020（失敗分離）: client2 のアンカーを存在しない名前にして実行 → client2 は
+    `ERROR`（"values.yaml にアンカー ... が見つかりません"）、client1 は `CREATED`（MR !11）。
+    プロセスの終了コードは1（PARTIAL_FAILURE）
+  - T-019/T-020（クライアント独立）: client2 を正しいアンカー（`helmVersion`）に直して再実行 →
+    client1 は既存MRがあるため `SKIPPED`（`mr_exists`）、client2 は独立して `CREATED`（MR !12）。
+    ブランチは `feature/yadokari/tenant1/client1` と `.../client2` の2本が別々に作られ、
+    それぞれ自分のアンカーだけを書き換えている（同じ`values.yaml`でも互いに影響なし）。
+    MRタイトル・本文（タグリンク・比較リンク・パイプラインリンク）も期待どおり
+  - T-021（固定ブランチの再作成）: MR !12 をクローズしブランチを残した状態で再実行 →
+    client2 のブランチが `6226e559` → `97e2c7f1` に変わり、履歴が「main(c96614e1) + 新コミット1つ」
+    のみ（＝削除して作り直されている。追加コミットなら旧コミットが残るはず）。新しいMR !13 が作成された
+  - 検証で作成したブランチ2本・MR（!11、!13）はユーザーの意向で**残置**。片付ける場合は
+    MRをクローズし `feature/yadokari/tenant1/client1` / `.../client2` を削除する
 
 ## 次にやること
 
-- **T-022〜T-031の変更は未コミット**（ユーザー承認待ち）。コミットするなら、
-  コード（T-022〜T-027）とドキュメント（T-028〜T-031）で分けると差分が読みやすい
-- 今回の変更のうち、以下は方針の追加なのでユーザーの承認が要る:
+- `refactor/repo-cleanup` を main へマージする（`git switch main && git merge --ff-only refactor/repo-cleanup`）。
+  以下は方針の追加なので、マージ前に内容を確認してほしい:
   - `steps/shared/` という置き場所の新設（CLAUDE.mdの「新しいコードを置く場所」に追記済み）
   - evidenceを3行以内に絞る運用とアーカイブ（docs/workflow.mdに追記済み）
   - README「設定 > config/」章を要約に縮小し、正典を docs/requirements.md 4.4節にしたこと
-- T-019/T-020のgitlab.com実機での動作確認（未実施）。1つのchartディレクトリ配下に
-  複数tenantId/clientIdを持つテスト用config構成を用意し、クライアントごとに独立した
-  ブランチ・MRが作られること、片方のクライアントの失敗が他方をブロックしないことを確認する
-- T-021のgitlab.com実機での動作確認（未実施）。オープン中でないMRのブランチが残っている
-  状態から実行し、ブランチが削除されてから作り直されることを確認する
+- 実機検証で残置したMR（!11、!13）とブランチ2本の後片付け（不要になったら）
 - 検証が完全に終わったら、テスト用のGitLabアクセストークンを失効させる（ユーザー対応）
 
 ## 未解決
