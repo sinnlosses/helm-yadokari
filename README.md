@@ -35,7 +35,7 @@ chart リポジトリ単位に更新をまとめた MR 作成を自動化しま�
 - **追跡ブランチの切り替えを検知** — `branchToSync` を変更したら、変更後のブランチの最新コミットに新しいタグを作成して反映する（変更前後のブランチが同じコミットを指していても更新する）
 - **重複作成を防ぐチェック** — 固定ブランチに未マージMRがある間は、そのテナント/クライアントの更新をスキップ
 - **並列実行による高速処理** — `CONCURRENCY_LIMIT`（`p-limit`）で同時処理数を制御
-- **パイプライン状態を可視化** — MR本文にタグへのリンクと、そのタグに紐づく最新パイプラインへのリンクを記載（マージ判断はレビュアーに委ねる）
+- **パイプラインへの導線** — MR本文にタグへのリンクと、そのタグに紐づく最新パイプラインのURLを記載（状態は表示せずリンクのみ。マージ判断はレビュアーに委ねる）
 - **差分をワンクリックで確認** — MR本文に旧タグ→新タグ間のGitLab比較URLを記載
 - **ドライランモード** — `DRY_RUN=true` でタグ作成・ブランチ作成・MR作成をスキップし、更新予定の内容だけログ出力
 - **設定バリデーション** — 起動時に Zod でスキーマを検証し、設定ミスを早期に検出
@@ -73,8 +73,9 @@ cd helm-yadokari
 pnpm install
 
 # 2. 設定ファイルを作成（config/ 配下の構成は下記「設定」を参照）
-cp -r config/teamA-chart config/my-team-chart
-# → projectId・valuesPath 等を自分の環境に合わせて編集
+mkdir -p config/my-team-chart/my-tenant/my-client
+# → chart.yaml / config.yaml / anchors.yaml を作成する
+#   （記述例は docs/requirements.md 4.4節。config-test/ の実物も参考になる）
 
 # 3. 動作確認（ブランチ作成・MR作成なし・安全）
 GITLAB_URL=https://gitlab.example.com \
@@ -107,7 +108,9 @@ flowchart TD
     H --> I
     G -->|どちらもYes| I{values.yaml のタグと最新タグは一致?}
     I -->|全アプリ一致| E
-    I -->|差分あり| J[✅ 差分のあるアプリだけ values.yaml を更新しMR作成]
+    I -->|差分あり| K{反映済みタグが追跡ブランチのHEADを指している?}
+    K -->|Yes（中身が同じなので更新しない）| E
+    K -->|No| J[✅ 差分のあるアプリだけ values.yaml を更新しMR作成]
 ```
 
 同じテナント/クライアント内で一部アプリの処理が失敗した場合、成功した分だけを反映することは
@@ -332,7 +335,9 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 ├── src/
 │   ├── index.ts             # エントリポイント
 │   ├── main.ts               # run()/process()。config読み込み→ステップ呼び出し→集計
-│   ├── types.ts              # 型定義
+│   ├── types.ts              # 型定義（ドメインモデル。types/brand.ts を再エクスポート）
+│   ├── types/
+│   │   └── brand.ts          # ブランド型と to* factory 関数（as キャストはここだけ）
 │   ├── steps/                 # process()が直接呼ぶ3ステップのみ（steps同士は互いに呼ばない）
 │   │   ├── filter-targets.ts  # 対象chartAndAppsの絞り込み（登録0件・既存MRを除外）
 │   │   ├── build-plans.ts     # 全chartAndApps分の更新計画を並列構築
@@ -347,9 +352,14 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │   │           └── types.ts                       # サブステップ間で共有する型
 │   ├── lib/                   # 特定の技術・外部システムに依存する処理のみ
 │   │   ├── gitlab/
-│   │   │   ├── gitlab.ts      # GitLab API クライアント操作（タグ作成、MRタイトル・本文組み立て含む）
+│   │   │   ├── gitlab.ts      # GitLab API クライアント操作（タグ作成、コミット、MR作成など）
+│   │   │   ├── mr-content.ts  # ブランチ名・MRタイトル・MR本文の組み立て（純粋関数）
 │   │   │   └── tag.ts         # タグ命名規則のパース・最新タグ判定・新規タグ組み立て（純粋関数）
-│   │   ├── config.ts          # config/ の再帰読み込み・パース
+│   │   ├── config/
+│   │   │   ├── config.ts      # config/ の走査・ChartAndApps の組み立て（公開API loadConfig）
+│   │   │   ├── schema.ts      # 設定ファイル3種の Zod スキーマ
+│   │   │   ├── validate.ts    # 紐づけ・重複の検証（GitLabに問い合わせない範囲）
+│   │   │   └── helm-target-branch.ts # helm.branchToSync/helm.chart[] のapp単位への振り分け
 │   │   ├── helm.ts            # Helm chart の values.yaml 操作（YAMLアンカー読み書き）
 │   │   └── env.ts             # 環境変数ユーティリティ
 │   └── utils/                 # ドメイン知識を持たない、または純粋な汎用ユーティリティ
@@ -366,8 +376,9 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │       └── cache.ts           # getOrFetch（Mapベースの非同期メモ化）
 ├── test/                   # テスト（src/ と同じディレクトリ構成）
 ├── scripts/
-│   └── lint/validate-config.ts  # config/ の文法チェック（pnpm lint:validate-config）
-├── config/                 # 対象アプリ設定
+│   ├── lint/validate-config.ts  # config/ の検証（pnpm lint:validate-config、--remote で実在チェック）
+│   └── smoke/smoke-fixture.ts   # 実機スモークテストのフィクスチャ操作（docs/smoke-test.md）
+├── config/                 # 対象アプリ設定（実運用の登録のみ。記述例は docs/requirements.md 4.4節）
 ├── config-test/            # 実GitLabに対する手動スモークテスト用の設定（CONFIG_PATH=config-test）
 ├── docs/                   # 要件定義・アーキテクチャ・用語集など
 ├── .gitlab-ci.yml          # CI ジョブ定義

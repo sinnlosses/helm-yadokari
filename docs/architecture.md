@@ -43,29 +43,34 @@
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
-| ファイル           | 責務                                                                             |
-| ------------------ | -------------------------------------------------------------------------------- |
-| `gitlab/gitlab.ts` | `@gitbeaker/rest` のラッパー。固定ブランチ名・MRタイトル・MR本文の組み立ても含む |
-| `gitlab/tag.ts`    | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証   |
-| `config.ts`        | `config/` の2階層固定構成の読み込み・Zod検証・2ファイル間の整合性検証            |
-| `verify-config.ts` | `config/`の値がGitLab上に実在するかの検証（`--remote`のlintから呼ぶ、T-032）     |
-| `helm.ts`          | `values.yaml` のYAMLアンカー位置の値の読み書き                                   |
-| `env.ts`           | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）             |
+| ファイル                         | 責務                                                                                |
+| -------------------------------- | ----------------------------------------------------------------------------------- |
+| `gitlab/gitlab.ts`               | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ         |
+| `gitlab/mr-content.ts`           | 固定ブランチ名・MRタイトル・MR本文（Markdown）の組み立て。外部I/Oを持たない         |
+| `gitlab/tag.ts`                  | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証      |
+| `config/config.ts`               | 公開API `loadConfig()`。`config/` の2階層固定構成の走査と `ChartAndApps` の組み立て |
+| `config/schema.ts`               | 3つの設定ファイルのZodスキーマと `anchors.yaml` の読み込み                          |
+| `config/validate.ts`             | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証（T-032）                   |
+| `config/helm-target-branch.ts`   | `helm.branchToSync` と `helm.chart[]` をapp単位に振り分ける                         |
+| `verify-config/verify-config.ts` | `config/`の値がGitLab上に実在するかの検証（`--remote`のlintから呼ぶ、T-032）        |
+| `verify-config/remote-cache.ts`  | 上記の問い合わせ（project/branch/values.yaml）のキャッシュ層                        |
+| `helm.ts`                        | `values.yaml` のYAMLアンカー位置の値の読み書き                                      |
+| `env.ts`                         | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                |
 
 `config/` のスキーマと検証ルールの仕様は `docs/requirements.md` 4.4節が正典（このファイルには
 書かない）。
 
 ### `src/utils/` — ドメイン知識を一切持たない汎用ユーティリティ
 
-| ファイル                                                        | 責務                                                                           |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `parallel.ts`                                                   | `mapWithConcurrency()`。並列実行＋`FatalError`検知時の未着手タスクのキャンセル |
-| `sequential.ts`                                                 | `reduceAsync()`。配列を順に処理する非同期reduce（`parallel.ts`の逐次版）       |
-| `partition.ts`                                                  | `partitionMap()`。判別可能ユニオンの配列を中身を取り出しつつ2つに振り分ける    |
-| `cache.ts`                                                      | `getOrFetch()`。Mapベースの非同期メモ化                                        |
-| `fs.ts`                                                         | パストラバーサル検証・サブディレクトリ列挙                                     |
-| `yaml.ts`                                                       | YAMLファイル読み込み + Zodバリデーション                                       |
-| `errors.ts` / `http.ts` / `retry.ts` / `timer.ts` / `logger.ts` | カスタムエラー・HTTPステータス判定・リトライ・実行時間計測・構造化ログ         |
+| ファイル                                                        | 責務                                                                               |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `parallel.ts`                                                   | `mapWithConcurrency()`。並列実行＋`FatalError`検知時の未着手タスクのキャンセル     |
+| `sequential.ts`                                                 | `reduceAsync()`。配列を順に処理する非同期reduce（`parallel.ts`の逐次版）           |
+| `partition.ts`                                                  | `partitionMap()`。判別可能ユニオンの配列を中身を取り出しつつ2つに振り分ける        |
+| `cache.ts`                                                      | `getOrFetch()`（値をキャッシュ）と `getOrFetchShared()`（並列向けにPromiseを共有） |
+| `fs.ts`                                                         | パストラバーサル検証・サブディレクトリ列挙                                         |
+| `yaml.ts`                                                       | YAMLファイル読み込み + Zodバリデーション                                           |
+| `errors.ts` / `http.ts` / `retry.ts` / `timer.ts` / `logger.ts` | カスタムエラー・HTTPステータス判定・リトライ・実行時間計測・構造化ログ             |
 
 ## 新しいコードを置く場所の判断基準
 
@@ -116,8 +121,8 @@
   （`anchors.yaml`）と、頻繁に変更される運用値（`config.yaml`）を分けるため。両者は
   `projectId` で突き合わせて整合性を検証する（T-017）
 - **設定ミスの検知は「形」と「実在」で2段に分けている**: ローカルのYAMLだけで分かること
-  （型・対応関係・重複）は`config.ts`が`loadConfig()`時に例外を投げ、GitLabに問い合わせないと
-  分からないこと（projectId・ブランチ・valuesPath・アンカーの実在）は`verify-config.ts`が
+  （型・対応関係・重複）は`config/validate.ts`が`loadConfig()`時に例外を投げ、GitLabに
+  問い合わせないと分からないこと（projectId・ブランチ・valuesPath・アンカーの実在）は`verify-config/`が
   問題の一覧を返す。前者は認証不要なので全パイプラインで、後者はトークンがある
   パイプラインでのみ実行する（T-032）
 - **MRの単位は `(chartリポジトリ, tenantId, clientId)`**: クライアントごとに独立して
@@ -125,7 +130,8 @@
 
 ## ディレクトリ構成の勘所
 
-- `config/`: 手書きの設定（対象アプリ登録）。`docs/requirements.md` 4.4節のスキーマに従う
+- `config/`: 手書きの設定（対象アプリ登録）。`docs/requirements.md` 4.4節のスキーマに従う。
+  CIの`validate-config-remote`が実在チェックの対象にするため、**架空の設定例は置かない**（T-038）
 - `config-test/`: 実GitLabインスタンスへの手動スモークテスト用フィクスチャ
   （`CONFIG_PATH=config-test DRY_RUN=true` で使う）。`config/`と同じスキーマだが本番の登録対象
   ではなく、CIからも参照されない
@@ -133,6 +139,9 @@
   （`pnpm lint:validate-config`、認証不要なので`pnpm lint`に含まれる）、`--remote` を付けると
   GitLabへ問い合わせて projectId・ブランチ・valuesPath・アンカーの実在も検証する
   （`pnpm lint:validate-config:remote`、CIの`validate-config-remote`ジョブが実行）
+- `scripts/smoke/smoke-fixture.ts`: `config-test/` を使った実機スモークテストの前準備・後片付け
+  （`setup`/`reset`。既定はdry-runで、`--apply`を付けたときだけGitLabに書き込む）。
+  手順とシナリオは `docs/smoke-test.md`（T-033）
 - `dist/`: `pnpm build` の生成物。gitignore対象、手で編集しない
 - `docs/requirements.md`: 確定した要件。`docs/requirements-grilling.md`: 要件定義時のQ&Aログ
   （検討経緯の参照用、変更不要）。`docs/history/`: 完了タスク・過去セッションのアーカイブ
