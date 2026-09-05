@@ -5,6 +5,7 @@ import type {
   BranchName,
   FileUpdate,
   GitLabUrl,
+  HelmTargetBranchUpdate,
   ImageTagUpdate,
   ParsedTag,
   PipelineInfo,
@@ -229,6 +230,12 @@ function buildImageTagUpdateLine(
   return `  - \`${update.target.valuesPath}\`（アンカー: ${update.target.imageTagAnchor}）: ${previousTagText} → [${latestTag.name}](${buildTagUrl(webUrl, latestTag.name)}) / ${compareText}`
 }
 
+/** Helmの向き先ブランチの更新内容を1行にまとめる（T-016） */
+function buildHelmTargetBranchUpdateLine(update: HelmTargetBranchUpdate): string {
+  const previousBranchText = update.previousBranch ? `\`${update.previousBranch}\`` : "(未設定)"
+  return `  - \`${update.target.valuesPath}\`（アンカー: ${update.target.anchorName}、向き先ブランチ）: ${previousBranchText} → \`${update.newBranch}\``
+}
+
 function buildMrPlanSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {
   const pipelineLine = plan.pipeline
     ? `- パイプライン: [${plan.pipeline.status}](${plan.pipeline.webUrl})`
@@ -238,6 +245,7 @@ function buildMrPlanSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {
     `- 打刻日時: ${plan.latestTag.builtAt.toISOString()}`,
     pipelineLine,
     ...plan.updates.map((update) => buildImageTagUpdateLine(webUrl, plan.latestTag, update)),
+    ...plan.helmTargetBranchUpdates.map((update) => buildHelmTargetBranchUpdateLine(update)),
   ].join("\n")
 }
 

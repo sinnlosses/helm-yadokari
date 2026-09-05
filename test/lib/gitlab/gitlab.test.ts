@@ -427,7 +427,11 @@ describe("UPDATE_BRANCH", () => {
 })
 
 function makePlan(
-  overrides: Partial<{ pipeline: PipelineInfo; previousTag: TagName | undefined }> = {},
+  overrides: Partial<{
+    pipeline: PipelineInfo
+    previousTag: TagName | undefined
+    helmTargetBranchUpdates: AppUpdatePlan["helmTargetBranchUpdates"]
+  }> = {},
 ): AppUpdatePlan {
   const previousTag =
     "previousTag" in overrides ? overrides.previousTag : toTagName("main-build-at-20251231-000000")
@@ -444,10 +448,12 @@ function makePlan(
         target: {
           valuesPath: toValuesPath("values.yaml"),
           imageTagAnchor: toAnchorName("appVersion"),
+          helmBranchAnchor: undefined,
         },
         previousTag,
       },
     ],
+    helmTargetBranchUpdates: overrides.helmTargetBranchUpdates ?? [],
   }
 }
 
@@ -551,5 +557,64 @@ describe("buildMrDescription", () => {
     })
     const description = await buildMrDescription(client, [makePlan({ previousTag: undefined })])
     expect(description).toContain("(未設定)")
+  })
+
+  it("helmTargetBranchUpdateがあるとき、旧ブランチ名→新ブランチ名を含める", async () => {
+    const client = makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
+      },
+    })
+    const description = await buildMrDescription(client, [
+      makePlan({
+        helmTargetBranchUpdates: [
+          {
+            target: {
+              valuesPath: toValuesPath("values.yaml"),
+              anchorName: toAnchorName("targetBranch"),
+            },
+            previousBranch: toBranchName("release/2025-q4"),
+            newBranch: toBranchName("release/2026-q1"),
+          },
+        ],
+      }),
+    ])
+    expect(description).toContain("release/2025-q4")
+    expect(description).toContain("release/2026-q1")
+    expect(description).toContain("向き先ブランチ")
+  })
+
+  it("helmTargetBranchUpdateの旧ブランチが未設定のとき (未設定) と表示する", async () => {
+    const client = makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
+      },
+    })
+    const description = await buildMrDescription(client, [
+      makePlan({
+        helmTargetBranchUpdates: [
+          {
+            target: {
+              valuesPath: toValuesPath("values.yaml"),
+              anchorName: toAnchorName("targetBranch"),
+            },
+            previousBranch: undefined,
+            newBranch: toBranchName("release/2026-q1"),
+          },
+        ],
+      }),
+    ])
+    expect(description).toContain("(未設定)")
+    expect(description).toContain("release/2026-q1")
+  })
+
+  it("helmTargetBranchUpdateが無いとき、向き先ブランチの行を含めない", async () => {
+    const client = makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
+      },
+    })
+    const description = await buildMrDescription(client, [makePlan()])
+    expect(description).not.toContain("向き先ブランチ")
   })
 })

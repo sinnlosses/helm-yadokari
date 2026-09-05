@@ -256,6 +256,127 @@ describe("loadConfig（chartの複数指定）", () => {
   })
 })
 
+describe("loadConfig（helmTargetBranch）", () => {
+  it("helmとchart[].helmBranchAnchorを両方指定すると、appのhelmTargetBranchにマージされる", () => {
+    writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    writeAppsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      "helm:\n  - branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n        helmBranchAnchor: targetBranch\n",
+    )
+
+    const { chartAndAppsList } = loadConfig(tmpDir)
+    expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toEqual({
+      branch: "release/2026-q1",
+      targets: [{ valuesPath: "a.yaml", anchorName: "targetBranch" }],
+    })
+  })
+
+  it("chart[].helmBranchAnchorもhelmも無いとき、app.helmTargetBranchはundefinedになる", () => {
+    writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    writeAppsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n",
+    )
+
+    const { chartAndAppsList } = loadConfig(tmpDir)
+    expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toBeUndefined()
+  })
+
+  it("apps.yamlのhelmが無いのにchart[].helmBranchAnchorだけ指定すると例外をスローする", () => {
+    writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    writeAppsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n        helmBranchAnchor: targetBranch\n",
+    )
+
+    expect(() => loadConfig(tmpDir)).toThrow("helm")
+  })
+
+  it("helmに2件以上指定すると例外をスローする", () => {
+    writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    writeAppsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      "helm:\n  - branchToSync: release/2026-q1\n  - branchToSync: release/2026-q2\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n        helmBranchAnchor: targetBranch\n",
+    )
+
+    expect(() => loadConfig(tmpDir)).toThrow("形式が不正です")
+  })
+
+  it("helmが指定されているのに一部のappだけchart[].helmBranchAnchorが無いとき例外をスローする", () => {
+    writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    writeAppsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      "helm:\n  - branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n        helmBranchAnchor: targetBranch\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        imageTagAnchor: appVersion\n",
+    )
+
+    expect(() => loadConfig(tmpDir)).toThrow("app-2")
+  })
+
+  it("helmが指定されているとき、apps.yaml内の全appがchart[].helmBranchAnchorを持てば読み込める", () => {
+    writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    writeAppsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      "helm:\n  - branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        imageTagAnchor: appVersion\n        helmBranchAnchor: targetBranchA\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    chart:\n      - valuesPath: b.yaml\n        imageTagAnchor: appVersion\n        helmBranchAnchor: targetBranchB\n",
+    )
+
+    const { chartAndAppsList } = loadConfig(tmpDir)
+    expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toBeDefined()
+    expect(chartAndAppsList[0]?.apps[1]?.helmTargetBranch).toBeDefined()
+  })
+
+  it("1アプリのchart内で複数箇所にhelmBranchAnchorを指定すると、helmTargetBranch.targetsに複数含める", () => {
+    writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    writeAppsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      "helm:\n  - branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: webapi.yaml\n        imageTagAnchor: webapiVersion\n        helmBranchAnchor: webapiTargetBranch\n      - valuesPath: batch.yaml\n        imageTagAnchor: batchVersion\n        helmBranchAnchor: batchTargetBranch\n",
+    )
+
+    const { chartAndAppsList } = loadConfig(tmpDir)
+    expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toEqual({
+      branch: "release/2026-q1",
+      targets: [
+        { valuesPath: "webapi.yaml", anchorName: "webapiTargetBranch" },
+        { valuesPath: "batch.yaml", anchorName: "batchTargetBranch" },
+      ],
+    })
+  })
+})
+
 describe("loadConfig（存在しないパス）", () => {
   it("ディレクトリが存在しないとき例外をスローする", () => {
     expect(() => loadConfig(join(tmpDir, "nonexistent"))).toThrow()

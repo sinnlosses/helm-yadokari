@@ -39,10 +39,12 @@ function makeTarget(): ChartUpdateTarget {
             target: {
               valuesPath: toValuesPath("values.yaml"),
               imageTagAnchor: toAnchorName("appVersion"),
+              helmBranchAnchor: undefined,
             },
             previousTag: undefined,
           },
         ],
+        helmTargetBranchUpdates: [],
       },
     ],
     files: [{ filePath: toValuesPath("values.yaml"), content: "image:\n  tag: x\n" }],

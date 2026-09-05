@@ -169,6 +169,40 @@ apps:
 - 新しいアプリの登録は、各チームがCLIリポジトリの `config/` へMRを送り、レビュー後
   マージするセルフサービス方式とする
 
+**Helmの向き先ブランチ**（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
+ブランチ。既存の`mrTargetBranch`＝値定義ブランチとは別物）の追従・更新も、このMRの対象に含める:
+
+```yaml
+# apps.yaml トップレベル。apps:配列と同階層、tenantId/clientId単位に1件（拡張性のため配列表記）
+helm:
+  - branchToSync: release/2026-q1
+apps:
+  - projectId: 888
+    projectName: my-app
+    branchToSync: main
+    chart:
+      - valuesPath: charts/my-app/values.yaml
+        imageTagAnchor: myAppVersion
+        # 上記helm[].branchToSyncの値をこのvaluesPath内のこのアンカーに書き込む
+        helmBranchAnchor: myAppTargetBranch
+```
+
+- `helm`はchartリポジトリ内の別ブランチ（chart.yamlの`projectId`と同一プロジェクト）を指す、
+  tenantId/clientId単位に1件の配列（現状は1件のみサポート、2件以上は設定エラー）。人間が
+  自己申告方式で直接書き換える運用とし、タグ命名規則のような自動生成・自動判定の仕組みは持たない
+- `chart[].helmBranchAnchor`は、`helm[0].branchToSync`の値をその`valuesPath`のどこに書き込むかを
+  指すYAMLアンカー名。`chart`の各要素に任意指定でき（`imageTagAnchor`と同じ要素に併記する）。
+  1つのapp内で複数の`chart`要素に指定すれば、同じ値を複数箇所へまとめて反映できる
+- Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、`helm`が指定されている
+  apps.yamlでは、そのファイル配下の**全アプリ**が`chart[].helmBranchAnchor`を最低1件持つ必要が
+  ある（一部のアプリだけ指定漏れがあると設定エラー）。逆に`helm`が指定されていないのに
+  `chart[].helmBranchAnchor`が指定されている場合も設定エラー（書き込む値が存在しないため）
+- 書き込み前に、指定されたブランチ名がchartリポジトリ上に実在するか検証する。存在しなければ
+  そのchartグループ全体を`ERROR`として扱う（他のアプリの更新も含めオールオアナッシングで見送る）
+- 同じtenantId/clientIdが複数のchartディレクトリにまたがる場合、各`apps.yaml`が独立して
+  値を持つため、片方だけ更新し忘れて値がズレる可能性がある。これは許容し、追加の
+  整合性チェックは行わない
+
 ### 4.5 特定chart・特定client限定実行
 
 - 通常は `config/` 配下に登録された全chartリポジトリ・全アプリを対象に実行するが、

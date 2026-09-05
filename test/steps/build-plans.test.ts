@@ -7,6 +7,7 @@ vi.mock("../../src/utils/logger.js", () => ({
 
 import type { GitlabClient } from "../../src/lib/gitlab/gitlab.js"
 import {
+  branchExists,
   createTag,
   getBranchHeadSha,
   getFileContent,
@@ -16,6 +17,7 @@ import {
 import { buildPlans } from "../../src/steps/build-plans.js"
 import {
   toAnchorName,
+  toBranchName,
   toProjectId,
   toProjectName,
   toTagName,
@@ -37,6 +39,7 @@ describe("buildPlans", () => {
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
     vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
     vi.mocked(createTag).mockResolvedValue(undefined)
+    vi.mocked(branchExists).mockResolvedValue(true)
   })
 
   afterEach(() => {
@@ -167,14 +170,22 @@ describe("buildPlans", () => {
       projectId: toProjectId(1),
       projectName: toProjectName("app-a"),
       chart: [
-        { valuesPath: toValuesPath("shared.yaml"), imageTagAnchor: toAnchorName("appAVersion") },
+        {
+          valuesPath: toValuesPath("shared.yaml"),
+          imageTagAnchor: toAnchorName("appAVersion"),
+          helmBranchAnchor: undefined,
+        },
       ],
     })
     const appB = makeApp({
       projectId: toProjectId(2),
       projectName: toProjectName("app-b"),
       chart: [
-        { valuesPath: toValuesPath("shared.yaml"), imageTagAnchor: toAnchorName("appBVersion") },
+        {
+          valuesPath: toValuesPath("shared.yaml"),
+          imageTagAnchor: toAnchorName("appBVersion"),
+          helmBranchAnchor: undefined,
+        },
       ],
     })
     vi.mocked(getFileContent).mockResolvedValue(
@@ -192,6 +203,7 @@ describe("buildPlans", () => {
         {
           valuesPath: toValuesPath("values.yaml"),
           imageTagAnchor: toAnchorName("tenant1client1AppsVersion"),
+          helmBranchAnchor: undefined,
         },
       ],
     })
@@ -206,8 +218,16 @@ describe("buildPlans", () => {
   it("1アプリに複数のchartを指定すると、同じ最新タグを複数箇所へ反映する", async () => {
     const app = makeApp({
       chart: [
-        { valuesPath: toValuesPath("webapi.yaml"), imageTagAnchor: toAnchorName("webapiVersion") },
-        { valuesPath: toValuesPath("batch.yaml"), imageTagAnchor: toAnchorName("batchVersion") },
+        {
+          valuesPath: toValuesPath("webapi.yaml"),
+          imageTagAnchor: toAnchorName("webapiVersion"),
+          helmBranchAnchor: undefined,
+        },
+        {
+          valuesPath: toValuesPath("batch.yaml"),
+          imageTagAnchor: toAnchorName("batchVersion"),
+          helmBranchAnchor: undefined,
+        },
       ],
     })
     vi.mocked(getFileContent).mockImplementation(async (_client, _projectId, filePath) => {
@@ -227,8 +247,16 @@ describe("buildPlans", () => {
   it("複数のchartのうち一部だけ差分があるとき、差分がある箇所だけをupdatesに含める", async () => {
     const app = makeApp({
       chart: [
-        { valuesPath: toValuesPath("webapi.yaml"), imageTagAnchor: toAnchorName("webapiVersion") },
-        { valuesPath: toValuesPath("batch.yaml"), imageTagAnchor: toAnchorName("batchVersion") },
+        {
+          valuesPath: toValuesPath("webapi.yaml"),
+          imageTagAnchor: toAnchorName("webapiVersion"),
+          helmBranchAnchor: undefined,
+        },
+        {
+          valuesPath: toValuesPath("batch.yaml"),
+          imageTagAnchor: toAnchorName("batchVersion"),
+          helmBranchAnchor: undefined,
+        },
       ],
     })
     vi.mocked(getFileContent).mockImplementation(async (_client, _projectId, filePath) => {
@@ -241,6 +269,114 @@ describe("buildPlans", () => {
     expect(toApply[0]?.plans[0]?.updates[0]?.target.valuesPath).toBe("webapi.yaml")
     expect(toApply[0]?.files).toHaveLength(1)
     expect(toApply[0]?.files[0]?.filePath).toBe("webapi.yaml")
+  })
+
+  it("helmTargetBranchが現在値と異なるとき、helmTargetBranchUpdateに含めて書き換える", async () => {
+    const app = makeApp({
+      helmTargetBranch: {
+        branch: toBranchName("release/2026-q1"),
+        targets: [
+          {
+            valuesPath: toValuesPath("values.yaml"),
+            anchorName: toAnchorName("targetBranch"),
+          },
+        ],
+      },
+    })
+    vi.mocked(getFileContent).mockResolvedValue(
+      `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
+    )
+    const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    expect(toApply[0]?.plans[0]?.helmTargetBranchUpdates).toEqual([
+      {
+        target: { valuesPath: "values.yaml", anchorName: "targetBranch" },
+        previousBranch: "release/2025-q4",
+        newBranch: "release/2026-q1",
+      },
+    ])
+    expect(toApply[0]?.files[0]?.content).toContain("&targetBranch release/2026-q1")
+  })
+
+  it("helmTargetBranchが現在値と同じで、chart側も差分が無いとき、そのアプリはSKIPPEDになる", async () => {
+    const app = makeApp({
+      helmTargetBranch: {
+        branch: toBranchName("release/2026-q1"),
+        targets: [
+          {
+            valuesPath: toValuesPath("values.yaml"),
+            anchorName: toAnchorName("targetBranch"),
+          },
+        ],
+      },
+    })
+    vi.mocked(getFileContent).mockResolvedValue(
+      `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2026-q1\n`,
+    )
+    const { toApply, settled } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    expect(toApply).toEqual([])
+    expect(settled).toEqual(["SKIPPED"])
+  })
+
+  it("chart側の差分は無くhelmTargetBranchのみ差分があるとき、そのアプリの計画を作成する", async () => {
+    const app = makeApp({
+      helmTargetBranch: {
+        branch: toBranchName("release/2026-q1"),
+        targets: [
+          {
+            valuesPath: toValuesPath("values.yaml"),
+            anchorName: toAnchorName("targetBranch"),
+          },
+        ],
+      },
+    })
+    vi.mocked(getFileContent).mockResolvedValue(
+      `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
+    )
+    const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    expect(toApply).toHaveLength(1)
+    expect(toApply[0]?.plans[0]?.updates).toEqual([])
+    expect(toApply[0]?.plans[0]?.helmTargetBranchUpdates).toHaveLength(1)
+  })
+
+  it("指定した向き先ブランチがchartリポジトリに存在しないとき、そのchartグループ全体をERRORにする", async () => {
+    const app = makeApp({
+      helmTargetBranch: {
+        branch: toBranchName("release/2026-q1"),
+        targets: [
+          {
+            valuesPath: toValuesPath("values.yaml"),
+            anchorName: toAnchorName("targetBranch"),
+          },
+        ],
+      },
+    })
+    vi.mocked(getFileContent).mockResolvedValue(
+      `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
+    )
+    vi.mocked(branchExists).mockResolvedValue(false)
+    const { toApply, settled } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    expect(toApply).toEqual([])
+    expect(settled).toEqual(["ERROR"])
+  })
+
+  it("向き先ブランチの存在確認は、chartリポジトリのprojectIdに対して行う", async () => {
+    const app = makeApp({
+      helmTargetBranch: {
+        branch: toBranchName("release/2026-q1"),
+        targets: [
+          {
+            valuesPath: toValuesPath("values.yaml"),
+            anchorName: toAnchorName("targetBranch"),
+          },
+        ],
+      },
+    })
+    vi.mocked(getFileContent).mockResolvedValue(
+      `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
+    )
+    const group = makeChartAndApps([app])
+    await buildPlans(mockGitlab, [group], 3, false)
+    expect(branchExists).toHaveBeenCalledWith(mockGitlab, group.chart.projectId, "release/2026-q1")
   })
 
   it("401エラーのとき FatalError をスローする", async () => {

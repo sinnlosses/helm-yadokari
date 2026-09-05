@@ -184,6 +184,36 @@ apps:
 ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/apps.yaml` の2階層で固定です。
 テナント分けが不要な場合もダミーの1つの tenantId/clientId ディレクトリ配下に置いてください。
 
+**Helmの向き先ブランチ**（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
+ブランチ。`mrTargetBranch` ＝ 値定義ブランチとは別物）の追従・更新もMRの対象に含められます:
+
+```yaml
+# apps.yaml トップレベル。apps: 配列と同階層、tenantId/clientId単位に1件（拡張性のため配列表記）
+helm:
+  - branchToSync: release/2026-q1
+apps:
+  - projectId: 1
+    projectName: my-app
+    branchToSync: main
+    chart:
+      - valuesPath: charts/my-app/values.yaml
+        imageTagAnchor: myAppVersion
+        # helm[].branchToSync の値をこの valuesPath 内のこのアンカーに書き込む
+        helmBranchAnchor: myAppTargetBranch
+```
+
+`helm` はchartリポジトリ内の別ブランチ（`chart.yaml` の `projectId` と同一プロジェクト）を指す、
+tenantId/clientId単位に1件の配列です（現状は1件のみサポート）。人間が自己申告方式で直接書き換える
+運用とし、タグ命名規則のような自動生成・自動判定の仕組みは持ちません。`chart[].helmBranchAnchor` は
+`chart`の各要素に任意指定で、`imageTagAnchor`と同じ要素に併記します。1つのapp内で複数の`chart`要素に
+指定すれば、同じ値を複数箇所へまとめて反映できます。
+
+Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、`helm` が指定されている
+apps.yamlでは、そのファイル配下の**全アプリ**が `chart[].helmBranchAnchor` を最低1件持つ必要が
+あります（一部のアプリだけ指定漏れがあると設定エラーになります）。逆に `helm` が指定されていないのに
+`chart[].helmBranchAnchor` が指定されている場合も設定エラーです。書き込み前に、指定されたブランチ名が
+chartリポジトリ上に実在するか検証し、存在しなければそのchartグループ全体を `ERROR` にします。
+
 設定ファイルの文法チェックのみ実行する場合:
 
 ```bash

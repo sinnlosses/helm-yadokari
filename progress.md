@@ -197,11 +197,81 @@
   - コード変更なし。`docs/requirements.md` 4.3節の「並列」という記述とアプリ単位（chartグループ内）が
     逐次実行である実装との差異は、意図的な設計判断として`tasks.json`に記録のみ行う
 
+- **T-013完了**: 「Helmの向き先ブランチ」要件を`/grilling`3ラウンドで確定（実装はT-016に切り出し）
+  - 向き先ブランチはchartリポジトリ内の別ブランチ（`chart.yaml`の`projectId`と同一プロジェクト）
+  - 設定は`apps.yaml`の新しいトップレベルフィールド（`apps:`配列と同階層、tenantId/clientId単位に1つ、
+    例: `helmTargetBranch: release/2026-q1`）として持たせる。人間が自己申告方式で直接書き換える運用とし、
+    タグ命名規則のような自動生成・自動判定の仕組みは持たない
+  - 書き込み先は各appごとにそれぞれのapp用`values.yaml`内の1箇所（既存の`imageTagAnchor`と同様の方式で
+    app単位に書き込み位置を指定する新フィールドが必要）
+  - 書き込み前にブランチの実在をchartリポジトリ上で検証し、存在しなければそのchartグループ全体を`ERROR`にする
+  - 既存の「1chartリポジトリ=1MR」に含め、image tag更新と同じMRにまとめる
+  - 同じtenantId/clientIdが複数chartディレクトリにまたがる場合のズレ（値の更新し忘れ）リスクは許容し、
+    追加の整合性チェックは作らない
+  - コード変更なし（要件定義のみ）。ユーザーに最終確認済み
+
+- **T-016完了**: T-013で確定した「Helmの向き先ブランチ」要件を実装
+  - `src/types.ts`: `HelmTargetBranchTarget`（`valuesPath` + `anchorName`）・`HelmTargetBranchConfig`
+    （`branch` + `target`）・`HelmTargetBranchUpdate`（`target` + `previousBranch` + `newBranch`）を追加。
+    `AppConfig.helmTargetBranch`・`AppUpdatePlan.helmTargetBranchUpdate`はいずれも`| undefined`
+  - `src/lib/config.ts`: `apps.yaml`のトップレベル`helmTargetBranch`（tenantId/clientId単位に1つ）と
+    app単位の`helmTargetBranchTarget`を追加。`loadApps()`内の`resolveHelmTargetBranch()`が両者を
+    1つの`HelmTargetBranchConfig`にマージし、`helmTargetBranchTarget`のみ指定され`helmTargetBranch`が
+    無い場合は設定ミスとして例外をスロー
+  - `src/steps/build-plans.ts`: `applyHelmTargetBranchTarget()`を追加し、`applyAppToChartUpdate()`内で
+    `app.chart`の処理後に同じ`valuesYamlCache`を共有して処理。値が現在の`values.yaml`と異なる場合のみ
+    `branchExists()`（既存関数を流用）でchartリポジトリ上の実在を検証し、存在しなければ例外を投げて
+    そのchartグループ全体を`ERROR`にする（既存のオールオアナッシング方針を踏襲）。ブランチ存在チェックは
+    `branchExistsCache`で同一ブランチ名につき1回に共有。chart側の差分が無く向き先ブランチの差分のみ
+    あるアプリも計画に含めるようスキップ条件を修正
+  - `src/lib/gitlab/gitlab.ts`: `buildMrPlanSection()`に`buildHelmTargetBranchUpdateLine()`を追加し、
+    MR本文に「向き先ブランチ」の行（旧ブランチ→新ブランチ）を表示
+  - `pnpm check`（246テスト）通過
+  - gitlab.com実機（`yadokari-smoke-test-chart` + `sample-qa-sprint`）で`buildPlans()`を直接呼び出し検証:
+    (1) 実在するブランチ（`main`）を指定した場合、`charts/anchor-app/values.yaml`に追加した
+    `smokeTestTargetBranch`アンカーの現在値（`release/2025-q4`）と設定値（`main`）の差分を正しく検出し
+    `helmTargetBranchUpdate`とMR description行を生成、(2) 実在しないブランチ名を指定した場合は
+    chartグループ全体が`ERROR`になることを確認。検証用に追加した`smokeTestTargetBranch`アンカー
+    （コミット`c96614e1`）はテスト用GitLabリソースとして残置。一時スクリプト・一時configディレクトリは
+    検証後に削除
+  - `config/teamA-chart/tenantId1/clientId1/apps.yaml`に`helmTargetBranch`/`helmTargetBranchTarget`の
+    使用例（`my-app`）を追加。`README.md`/`docs/requirements.md`/`docs/architecture.md`/
+    `docs/glossary.md`を更新
+  - **【追記】ユーザー指示によりapps.yamlのスキーマ形状を再設計**:
+    - トップレベルのスカラー`helmTargetBranch: <branch>`を、拡張性を考慮した配列
+      `helm:\n  - branchToSync: <branch>`に変更（現状1件のみサポート、`.length(1)`で検証）
+    - app単位の独立オブジェクトフィールド`helmTargetBranchTarget`を廃止し、既存の`chart[]`配列の
+      各要素（`imageTagAnchor`と同じ場所）に任意の`helmBranchAnchor`フィールドとして統合。
+      1アプリで複数の`chart`要素に指定すれば複数箇所へ反映できるようになった
+    - 型も`HelmTargetBranchConfig.target`（単数）を`targets`（配列）に、
+      `AppUpdatePlan.helmTargetBranchUpdate`を`helmTargetBranchUpdates`（配列）に変更し、
+      T-014の複数箇所対応と同じ設計パターンに揃えた
+    - 全テストファイルのフィクスチャを新スキーマに書き換え（`ImageTagTarget`型が
+      `helmBranchAnchor`を必須プロパティ、値は`undefined`許容として持つようになったため、
+      既存のchart要素リテラルすべてに追記が必要だった）
+    - `pnpm check`（248テスト）通過。gitlab.com実機で新スキーマでの`buildPlans()`呼び出しを
+      再検証し、既存の`smokeTestTargetBranch`アンカーに対する差分検出・MR description生成が
+      変更後も正しく動作することを確認
+    - `config/`実例・`README.md`/`docs/requirements.md`/`docs/architecture.md`/
+      `docs/glossary.md`を新スキーマに更新
+  - **【追記2】ユーザー指摘により欠けていた整合性検証を追加**:
+    「helmBranchAnchorの記載のないprojectがapps.yamlにあるが、そこはバリデーションが効く必要が
+    ある」という指摘。Helmの向き先ブランチは「1client内のapps全体で共通」という前提（T-013）
+    にもかかわらず、`chart[].helmBranchAnchor`をapp単位の完全な任意指定にしていたため、`helm`を
+    指定したのに一部アプリだけ`helmBranchAnchor`が無い設定が黙って通ってしまっていた
+    （実際、`config/`の実例で`another-app`/`multi-service-app`がこの状態だった）
+    - `src/lib/config.ts`の`resolveHelmTargetBranch()`に、`helm`が指定されているapps.yamlで
+      `targets.length === 0`のアプリがあれば例外をスローする分岐を追加（app名を含む
+      エラーメッセージ）
+    - `config/teamA-chart/tenantId1/clientId1/apps.yaml`の`another-app`/`multi-service-app`に
+      `helmBranchAnchor`を追加して修正
+    - `test/lib/config.test.ts`の「一部のappだけhelmBranchAnchorを指定できる」テストを
+      「例外をスローする」に更新し、「全appが指定していれば読み込める」テストを追加
+    - `README.md`/`docs/requirements.md`/`docs/architecture.md`/`docs/glossary.md`にこの制約を明記
+    - `pnpm check`（249テスト）通過
+
 ## 次にやること
 
-- T-013: 「Helmの向き先ブランチ」（パラメータを受け取りk8sリソースを構築するブランチ。
-  1client内のapps全体で共通、タグでなくブランチ名で指定）の追従・更新をMR対象に含めるか、
-  `/grilling`で要件を詰める
 - T-015: 更新ブランチ名（現状`UPDATE_BRANCH`固定1本）の仕様見直し。pipeline schedulesに
   よる定期実行と、ユーザーによる手動トリガー実行とでブランチを分けたいという問題意識、
   `/grilling`で要件を詰める
@@ -209,7 +279,7 @@
 
 ## 未解決
 
-- T-013, T-015（`tasks.json`参照）
+- T-015（`tasks.json`参照）
 
 ## 注意
 

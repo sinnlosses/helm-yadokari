@@ -1,5 +1,6 @@
 import {
   type GitlabClient,
+  branchExists,
   createTag,
   getBranchHeadSha,
   getFileContent,
@@ -16,6 +17,8 @@ import type {
   ChartUpdateResult,
   ChartUpdateTarget,
   FileUpdate,
+  HelmTargetBranchTarget,
+  HelmTargetBranchUpdate,
   ImageTagTarget,
   ImageTagUpdate,
   ParsedTag,
@@ -23,7 +26,7 @@ import type {
   TagName,
   ValuesPath,
 } from "../types.js"
-import { toTagName } from "../types.js"
+import { toBranchName, toTagName } from "../types.js"
 import { getOrFetch } from "../utils/cache.js"
 import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
@@ -72,6 +75,11 @@ function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
     updates: plan.updates.map((update) => ({
       valuesPath: update.target.valuesPath,
       previousTag: update.previousTag,
+    })),
+    helmTargetBranchUpdates: plan.helmTargetBranchUpdates.map((update) => ({
+      valuesPath: update.target.valuesPath,
+      previousBranch: update.previousBranch,
+      newBranch: update.newBranch,
     })),
   }
 }
@@ -174,6 +182,12 @@ type ApplyTargetsAcc = {
   readonly updates: readonly ImageTagUpdate[]
 }
 
+type ApplyHelmTargetsAcc = {
+  readonly valuesYamlCache: ReadonlyMap<ValuesPath, string>
+  readonly modifiedValuesPaths: ReadonlySet<ValuesPath>
+  readonly updates: readonly HelmTargetBranchUpdate[]
+}
+
 /**
  * `app.chart`のうち1箇所分について、現在の値を読み取り最新タグと比較する。差分が
  * あれば書き換え内容をキャッシュに積み、`updates`にも積む（差分が無ければキャッシュの
@@ -205,6 +219,52 @@ async function applyImageTagTarget(
 }
 
 /**
+ * `app.helmTargetBranch.targets`のうち1箇所分について、現在の値を読み取り設定値（`branch`）と
+ * 比較する。差分があれば、書き込み前にそのブランチがchartリポジトリ上に実在するか検証したうえで
+ * 書き換え内容をキャッシュに積み、`updates`にも積む（差分が無ければ`updates`に含めない）。
+ * ブランチ存在チェックは同一ブランチ名につき1回だけになるよう`branchExistsCache`で共有する。
+ */
+async function applyHelmTargetBranchTarget(
+  gitlab: GitlabClient,
+  chartProjectId: ProjectId,
+  branchExistsCache: Map<BranchName, boolean>,
+  loadValuesYamlContent: LoadValuesYamlContent,
+  branch: BranchName,
+  acc: ApplyHelmTargetsAcc,
+  target: HelmTargetBranchTarget,
+): Promise<ApplyHelmTargetsAcc> {
+  const valuesYamlCache = new Map(acc.valuesYamlCache)
+  const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, target.valuesPath)
+  const previousBranchRaw = getValueAtAnchor(valuesYamlContent, target.anchorName)
+  if (previousBranchRaw === branch) return { ...acc, valuesYamlCache }
+
+  const exists = await getOrFetch(branchExistsCache, branch, () =>
+    branchExists(gitlab, chartProjectId, branch),
+  )
+  if (!exists) {
+    throw new Error(`向き先ブランチ "${branch}" がchartリポジトリに見つかりません`)
+  }
+
+  valuesYamlCache.set(
+    target.valuesPath,
+    setValueAtAnchor(valuesYamlContent, target.anchorName, branch),
+  )
+  return {
+    valuesYamlCache,
+    modifiedValuesPaths: new Set(acc.modifiedValuesPaths).add(target.valuesPath),
+    updates: [
+      ...acc.updates,
+      {
+        target,
+        previousBranch:
+          previousBranchRaw === undefined ? undefined : toBranchName(previousBranchRaw),
+        newBranch: branch,
+      },
+    ],
+  }
+}
+
+/**
  * 1アプリ分の最新タグ判定・箇所ごとの差分チェックを行い、差分があった箇所だけを
  * 更新計画に積んだアキュムレータを返す（全箇所が反映済みなら plans は増えない）。
  */
@@ -212,6 +272,8 @@ async function applyAppToChartUpdate(
   gitlab: GitlabClient,
   dryRun: boolean,
   loadValuesYamlContent: LoadValuesYamlContent,
+  chartProjectId: ProjectId,
+  branchExistsCache: Map<BranchName, boolean>,
   acc: BuildChartUpdateAcc,
   app: AppConfig,
 ): Promise<BuildChartUpdateAcc> {
@@ -222,7 +284,7 @@ async function applyAppToChartUpdate(
     modifiedValuesPaths: acc.modifiedValuesPaths,
     updates: [],
   }
-  const { valuesYamlCache, modifiedValuesPaths, updates } = await app.chart.reduce(
+  const afterChartTargets = await app.chart.reduce(
     (accPromise, target) =>
       accPromise.then((current) =>
         applyImageTagTarget(loadValuesYamlContent, latestTag.name, current, target),
@@ -230,7 +292,35 @@ async function applyAppToChartUpdate(
     Promise.resolve(initialTargetsAcc),
   )
 
-  if (updates.length === 0) {
+  const helmTargetBranch = app.helmTargetBranch
+  const initialHelmTargetsAcc: ApplyHelmTargetsAcc = {
+    valuesYamlCache: afterChartTargets.valuesYamlCache,
+    modifiedValuesPaths: afterChartTargets.modifiedValuesPaths,
+    updates: [],
+  }
+  const afterHelmTargets = helmTargetBranch
+    ? await helmTargetBranch.targets.reduce(
+        (accPromise, target) =>
+          accPromise.then((current) =>
+            applyHelmTargetBranchTarget(
+              gitlab,
+              chartProjectId,
+              branchExistsCache,
+              loadValuesYamlContent,
+              helmTargetBranch.branch,
+              current,
+              target,
+            ),
+          ),
+        Promise.resolve(initialHelmTargetsAcc),
+      )
+    : initialHelmTargetsAcc
+
+  const { valuesYamlCache, modifiedValuesPaths } = afterHelmTargets
+  const { updates } = afterChartTargets
+  const helmTargetBranchUpdates = afterHelmTargets.updates
+
+  if (updates.length === 0 && helmTargetBranchUpdates.length === 0) {
     logger.info({
       event: "check_app",
       projectName: app.projectName,
@@ -242,7 +332,7 @@ async function applyAppToChartUpdate(
   }
 
   const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.name)
-  const plan: AppUpdatePlan = { app, latestTag, pipeline, updates }
+  const plan: AppUpdatePlan = { app, latestTag, pipeline, updates, helmTargetBranchUpdates }
 
   return {
     plans: [...acc.plans, plan],
@@ -286,11 +376,20 @@ async function buildChartUpdate(
     valuesYamlCache: new Map(),
     modifiedValuesPaths: new Set(),
   }
+  const branchExistsCache = new Map<BranchName, boolean>()
 
   const { plans, valuesYamlCache, modifiedValuesPaths } = await chartAndApps.apps.reduce(
     (accPromise, app) =>
       accPromise.then((acc) =>
-        applyAppToChartUpdate(gitlab, dryRun, loadValuesYamlContent, acc, app),
+        applyAppToChartUpdate(
+          gitlab,
+          dryRun,
+          loadValuesYamlContent,
+          chartProjectId,
+          branchExistsCache,
+          acc,
+          app,
+        ),
       ),
     Promise.resolve(initialAcc),
   )

@@ -17,8 +17,13 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
     projectName: toProjectName("my-app"),
     branchToSync: toBranchName("main"),
     chart: [
-      { valuesPath: toValuesPath("values.yaml"), imageTagAnchor: toAnchorName("appVersion") },
+      {
+        valuesPath: toValuesPath("values.yaml"),
+        imageTagAnchor: toAnchorName("appVersion"),
+        helmBranchAnchor: undefined,
+      },
     ],
+    helmTargetBranch: undefined,
     ...overrides,
   }
 }

@@ -31,6 +31,11 @@ function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
       valuesPath: update.target.valuesPath,
       previousTag: update.previousTag,
     })),
+    helmTargetBranchUpdates: plan.helmTargetBranchUpdates.map((update) => ({
+      valuesPath: update.target.valuesPath,
+      previousBranch: update.previousBranch,
+      newBranch: update.newBranch,
+    })),
   }
 }
 
