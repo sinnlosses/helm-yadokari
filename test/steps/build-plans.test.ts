@@ -168,6 +168,26 @@ describe("buildPlans", () => {
     expect(settled).toEqual([])
   })
 
+  it("追跡ブランチを変更したとき、反映済みタグが変更後ブランチのHEADを指していても更新する（T-037のスキップ対象外）", async () => {
+    // 切り替え前後のブランチが同じコミットを指しているケース。反映済みタグ（main由来）は
+    // release/2026-q2 のHEADを指すのでT-037なら更新しないが、追跡先が変わったことを
+    // values.yamlに反映するため更新する
+    vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
+    const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([app])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
+    expect(createTag).toHaveBeenCalledOnce()
+    expect(toApply).toHaveLength(1)
+    expect(toApply[0]?.plans[0]?.updates[0]?.previousTag).toBe(OLD_TAG)
+    expect(toApply[0]?.files[0]?.content).toMatch(/&appVersion release-2026-q2-build-at-/)
+    expect(settled).toEqual([])
+  })
+
   it("dryRun=true のとき、追跡ブランチを変更していても実際のタグ作成はしない", async () => {
     vi.mocked(listTags).mockResolvedValue([
       { name: toTagName("release-2026-q2-build-at-20260101-000000"), commitSha: HEAD_SHA },
@@ -519,5 +539,71 @@ describe("buildPlans", () => {
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
+  })
+})
+
+describe("buildPlans（旧タグが追跡ブランチのHEADを指す場合）", () => {
+  beforeEach(() => {
+    vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
+    vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
+    vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
+    vi.mocked(createTag).mockResolvedValue(undefined)
+    vi.mocked(branchExists).mockResolvedValue(true)
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("旧タグが追跡ブランチのHEADと同じコミットを指すとき、より新しいタグがあっても更新しない", async () => {
+    // 同じコミットに古いタグと新しいタグの両方が付いている状態
+    vi.mocked(listTags).mockResolvedValue([
+      { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
+      { name: NEW_TAG, commitSha: HEAD_SHA },
+    ])
+
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([makeApp()])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
+
+    expect(toApply).toEqual([])
+    expect(settled).toEqual(["SKIPPED"])
+  })
+
+  it("旧タグが古いコミットを指すときは従来どおり更新する", async () => {
+    vi.mocked(listTags).mockResolvedValue([
+      { name: toTagName(OLD_TAG), commitSha: "older-sha" },
+      { name: NEW_TAG, commitSha: HEAD_SHA },
+    ])
+
+    const { toApply } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([makeApp()])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
+
+    expect(toApply).toHaveLength(1)
+    expect(toApply[0]?.plans[0]?.updates[0]?.previousTag).toBe(OLD_TAG)
+  })
+
+  it("values.yamlの値がタグ名でないとき（初期値など）は更新する", async () => {
+    vi.mocked(getFileContent).mockResolvedValue("variables:\n  - &appVersion placeholder\n")
+    vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
+
+    const { toApply } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([makeApp()])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
+
+    expect(toApply).toHaveLength(1)
   })
 })

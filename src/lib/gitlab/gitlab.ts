@@ -8,7 +8,6 @@ import type {
   GitLabUrl,
   HelmTargetBranchUpdate,
   ImageTagUpdate,
-  ParsedTag,
   PipelineInfo,
   ProjectId,
   TagInfo,
@@ -52,6 +51,19 @@ async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promi
 export async function listTags(gitlab: GitlabClient, projectId: ProjectId): Promise<TagInfo[]> {
   const tags = await withRetry(() => gitlab.Tags.all(projectId))
   return tags.map((tag) => ({ name: toTagName(tag.name), commitSha: tag.commit.id }))
+}
+
+/**
+ * プロジェクトが存在し、アクセストークンで参照できるかを返す（404のときのみ false）。
+ * 設定ファイルに書かれた projectId の実在確認に使う。
+ */
+export async function projectExists(gitlab: GitlabClient, projectId: ProjectId): Promise<boolean> {
+  return withRetry(() =>
+    withNotFoundFallback(async () => {
+      await gitlab.Projects.show(projectId)
+      return true
+    }, false),
+  )
 }
 
 export async function branchExists(
@@ -216,12 +228,44 @@ export async function getLatestPipelineForRef(
   })
 }
 
+/**
+ * 向き先ブランチの更新は`helm.chart[]`をvaluesPath一致でアプリに振り分けた結果なので、
+ * 同じ書き込み先が複数アプリの計画に現れうる。件数・表示は書き込み先（valuesPath+anchor）
+ * 単位で一意にする（T-034）
+ */
+function uniqueHelmTargetBranchUpdates(
+  plans: readonly AppUpdatePlan[],
+): readonly HelmTargetBranchUpdate[] {
+  const byTarget = new Map(
+    plans.flatMap((plan) =>
+      plan.helmTargetBranchUpdates.map((update): [string, HelmTargetBranchUpdate] => [
+        `${update.target.valuesPath}#${update.target.anchor}`,
+        update,
+      ]),
+    ),
+  )
+  return [...byTarget.values()]
+}
+
+/**
+ * MRのタイトル。何が何件変わったかを種別ごとに示す（T-034。以前は「N app image tag(s)」と
+ * 固定で、向き先ブランチだけが変わった場合もイメージタグが変わったように読めていた）。
+ * 数える単位はアプリ数ではなく values.yaml の書き換え箇所数（1アプリが複数箇所を持つ
+ * ケース、T-014、も正しく数えるため）。`apply-updates.ts` がコミットメッセージにも流用する。
+ */
 export function buildMrTitle(
   tenantId: TenantId,
   clientId: ClientId,
   plans: readonly AppUpdatePlan[],
 ): string {
-  return `Auto MR by yadokari: update ${tenantId}/${clientId} ${plans.length} app image tag(s)`
+  const imageTagCount = plans.reduce((count, plan) => count + plan.updates.length, 0)
+  const helmBranchCount = uniqueHelmTargetBranchUpdates(plans).length
+  const parts = [
+    ...(imageTagCount > 0 ? [`image tag ${imageTagCount}`] : []),
+    ...(helmBranchCount > 0 ? [`helm branch ${helmBranchCount}`] : []),
+  ]
+  const summary = parts.length > 0 ? ` (${parts.join(", ")})` : ""
+  return `Auto MR by yadokari: update ${tenantId}/${clientId}${summary}`
 }
 
 function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): string {
@@ -229,63 +273,92 @@ function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): string {
 }
 
 /**
- * `chart`の1箇所分の更新内容を1行にまとめる。同じ最新タグを複数箇所（WebAPI/バッチ/
- * デーモンなど）へ反映するケース（T-014）では、この行がアプリ1件につき複数出力される
+ * イメージタグの更新1箇所分をテーブルの1行にする（T-036）。1アプリが複数箇所を書き換える
+ * 場合（T-014）は同じリポジトリの行が箇所の数だけ並ぶため、ファイル・アンカーの列で区別する。
+ * 比較・パイプラインはリンクテキストを付けずURLをそのまま載せ（GitLabが自動リンクする）、
+ * 値が無いセルは `-` で埋める。
  */
-function buildImageTagUpdateLine(
-  webUrl: GitLabUrl,
-  latestTag: ParsedTag,
-  update: ImageTagUpdate,
-): string {
+function buildImageTagRow(webUrl: GitLabUrl, plan: AppUpdatePlan, update: ImageTagUpdate): string {
   const previousTagText = update.previousTag
     ? `[${update.previousTag}](${buildTagUrl(webUrl, update.previousTag)})`
     : "(未設定)"
-  const compareText = update.previousTag
-    ? `[比較](${webUrl}/-/compare/${encodeURIComponent(update.previousTag)}...${encodeURIComponent(latestTag.name)})`
-    : "(旧タグ未設定のため比較できません)"
-  return `  - \`${update.target.valuesPath}\`（アンカー: ${update.target.anchor}）: ${previousTagText} → [${latestTag.name}](${buildTagUrl(webUrl, latestTag.name)}) / ${compareText}`
-}
-
-/** Helmの向き先ブランチの更新内容を1行にまとめる（T-016） */
-function buildHelmTargetBranchUpdateLine(update: HelmTargetBranchUpdate): string {
-  const previousBranchText = update.previousBranch ? `\`${update.previousBranch}\`` : "(未設定)"
-  return `  - \`${update.target.valuesPath}\`（アンカー: ${update.target.anchor}、向き先ブランチ）: ${previousBranchText} → \`${update.newBranch}\``
-}
-
-function buildMrPlanSection(plan: AppUpdatePlan, webUrl: GitLabUrl): string {
-  const pipelineLine = plan.pipeline
-    ? `- パイプライン: [${plan.pipeline.status}](${plan.pipeline.webUrl})`
-    : "- パイプライン: (見つかりません)"
-  return [
-    `### ${plan.app.projectName}`,
-    `- 打刻日時: ${plan.latestTag.builtAt.toISOString()}`,
-    pipelineLine,
-    ...plan.updates.map((update) => buildImageTagUpdateLine(webUrl, plan.latestTag, update)),
-    ...plan.helmTargetBranchUpdates.map((update) => buildHelmTargetBranchUpdateLine(update)),
-  ].join("\n")
+  const compareUrl = update.previousTag
+    ? `${webUrl}/-/compare/${encodeURIComponent(update.previousTag)}...${encodeURIComponent(plan.latestTag.name)}`
+    : "-"
+  const cells = [
+    plan.app.projectName,
+    `\`${plan.app.branchToSync}\``,
+    `\`${update.target.valuesPath}\``,
+    `\`${update.target.anchor}\``,
+    previousTagText,
+    `[${plan.latestTag.name}](${buildTagUrl(webUrl, plan.latestTag.name)})`,
+    compareUrl,
+    plan.pipeline ? plan.pipeline.webUrl : "-",
+  ]
+  return `| ${cells.join(" | ")} |`
 }
 
 /**
- * MRの本文を組み立てる。タグへのリンクは対象アプリのソースリポジトリのweb_urlを元に構築するため、
- * プロジェクトごとに `getProjectWebUrl()` を呼び出す（同一プロジェクトへの呼び出しはキャッシュする）。
+ * Helmの向き先ブランチの更新をテーブルにする（T-016、T-034、T-036）。
+ * 向き先ブランチはclient単位で共通の値なので、イメージタグとは別のセクションに置く。
+ * 書き込み先はイメージタグの表と同じくファイル・アンカーの2列に分ける。
  */
+function buildHelmTargetBranchSection(updates: readonly HelmTargetBranchUpdate[]): string {
+  return [
+    "## Helmの向き先ブランチ",
+    "",
+    "| 旧ブランチ | 新ブランチ | ファイル | アンカー |",
+    "| --- | --- | --- | --- |",
+    ...updates.map((update) => {
+      const previousBranchText = update.previousBranch ? `\`${update.previousBranch}\`` : "(未設定)"
+      const cells = [
+        previousBranchText,
+        `\`${update.newBranch}\``,
+        `\`${update.target.valuesPath}\``,
+        `\`${update.target.anchor}\``,
+      ]
+      return `| ${cells.join(" | ")} |`
+    }),
+  ].join("\n")
+}
+
 export async function buildMrDescription(
   gitlab: GitlabClient,
   plans: readonly AppUpdatePlan[],
 ): Promise<string> {
   const initialAcc = {
-    sections: [] as readonly string[],
+    rows: [] as readonly string[],
     webUrlCache: new Map<ProjectId, GitLabUrl>(),
   }
 
-  const { sections } = await plans.reduce(async (accPromise, plan) => {
-    const acc = await accPromise
-    const webUrlCache = new Map(acc.webUrlCache)
-    const webUrl = await getOrFetch(webUrlCache, plan.app.projectId, () =>
-      getProjectWebUrl(gitlab, plan.app.projectId),
-    )
-    return { sections: [...acc.sections, buildMrPlanSection(plan, webUrl)], webUrlCache }
-  }, Promise.resolve(initialAcc))
+  const { rows } = await plans
+    .filter((plan) => plan.updates.length > 0)
+    .reduce(async (accPromise, plan) => {
+      const acc = await accPromise
+      const webUrlCache = new Map(acc.webUrlCache)
+      const webUrl = await getOrFetch(webUrlCache, plan.app.projectId, () =>
+        getProjectWebUrl(gitlab, plan.app.projectId),
+      )
+      return {
+        rows: [
+          ...acc.rows,
+          ...plan.updates.map((update) => buildImageTagRow(webUrl, plan, update)),
+        ],
+        webUrlCache,
+      }
+    }, Promise.resolve(initialAcc))
 
-  return sections.join("\n\n")
+  const imageTagSection = [
+    "## イメージタグ",
+    "",
+    "| リポジトリ | 追跡ブランチ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ...rows,
+  ].join("\n")
+
+  const helmUpdates = uniqueHelmTargetBranchUpdates(plans)
+  return [
+    ...(rows.length > 0 ? [imageTagSection] : []),
+    ...(helmUpdates.length > 0 ? [buildHelmTargetBranchSection(helmUpdates)] : []),
+  ].join("\n\n")
 }

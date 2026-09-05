@@ -1,0 +1,8 @@
+# 複数appのimage tag更新のみを検証するclient（Helm向き先ブランチは持たない）
+apps:
+  - projectId: 82861978
+    projectName: sample-qa-sprint
+    branchToSync: main
+  - projectId: 82861977
+    projectName: sample-develop-client
+    branchToSync: main

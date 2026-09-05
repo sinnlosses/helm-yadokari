@@ -68,6 +68,14 @@ Helm chart でバージョン管理されているアプリケーションのバ
   エラーになるため、先にタグだけ作成してしまうのを避ける）
 - 判定した最新タグが、すでに `values.yaml` に反映済みのタグと同じ場合は何もしない（MRを
   作らない）。ただしその判定結果はCLIのログに出力する
+- `values.yaml` に反映済みのタグが、追跡ブランチの現在のHEADコミットを指している場合も
+  更新しない（T-037）。名前がより新しいタグが存在していても、そのタグが指すコミットは
+  反映済みのものと同じで、デプロイされる中身が変わらないため。中身が変わらない更新MRを
+  作らないことを優先する（反映済みの値がタグ名でない場合や、より古いコミットを指すタグの
+  場合は従来どおり更新する）。ただし反映済みのタグが**現在の追跡ブランチ由来でない**場合
+  （＝上記の `branchToSync` を切り替えた場合）はこのスキップの対象外とし、同じコミットを
+  指していても更新する。デプロイされる中身は同じでも、`values.yaml` から読み取れる追従先が
+  実態と食い違ったままになるのを避けることを優先する
 
 ### 4.2 更新ワークフロー（chartリポジトリ×テナント/クライアント単位）
 
@@ -126,6 +134,9 @@ Helm chart でバージョン管理されているアプリケーションのバ
 
 ### 4.4 アプリの登録・設定
 
+> この節が `config/` のスキーマ・制約の**正典**。`README.md` の「設定 > config/」章は
+> セットアップに必要な範囲の要約で、フィールドを追加・変更したときはこの節を先に更新する（T-028）。
+
 管理対象の情報は、CLIリポジトリ側の `config/` ディレクトリで一元管理する
 （chartリポジトリ側に設定を持たせる自己申告方式は採用しない）。CLIは `config/` 配下を
 再帰的に走査し、見つけた全ての `config.yaml`（とその直近の親をたどって見つかる`chart.yaml`、
@@ -163,7 +174,7 @@ chart:
 
 ```yaml
 apps:
-  - projectId: 888 # タグを取得するGitLabプロジェクトID（ソースリポジトリ）
+  - projectId: 1 # タグを取得するGitLabプロジェクトID（ソースリポジトリ。chart.yamlのprojectIdとは別物）
     projectName: my-app
     branchToSync: main # 追跡するブランチ
 ```
@@ -172,7 +183,7 @@ apps:
 
 ```yaml
 apps:
-  - projectId: 888 # config.yaml と一致させる
+  - projectId: 1 # config.yaml と一致させる
     projectName: my-app # config.yaml と一致させる
     chart:
       - valuesPath: charts/my-app/values.yaml
@@ -207,6 +218,12 @@ apps:
   逆に`anchors.yaml`に`config.yaml`側に存在しないappが定義されている場合（孤児設定）、
   同じ`projectId`なのに`projectName`が食い違っている場合は、いずれも設定エラーになる
   （`config.yaml`と`anchors.yaml`の紐づけを検証する仕組みが働く）
+- 同じ`projectId`のappが1つのファイル内に複数書かれている場合も設定エラーになる（T-032）。
+  CLIは`projectId`をキーに2ファイルを突き合わせるため、重複していると片方が黙って無視され、
+  同じ書き込み先へ別々のタグを順に書いて最後の値だけが残る
+- 1つのclient内で、同じ`valuesPath`+`anchor`の組（＝values.yamlの同じ1箇所）が複数の
+  書き込み先として指定されている場合も設定エラーになる（T-032）。`apps[].chart[]`同士の重複、
+  `apps[].chart[]`と`helm.chart[]`の衝突（イメージタグと向き先ブランチが同じ箇所を奪い合う）が対象
 - ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/` の
   2階層（tenantId/clientId）に統一する。テナント分けが不要なchartでも、ダミーの
   1つのtenantId/clientIdディレクトリ配下に置く
@@ -221,7 +238,7 @@ apps:
 helm:
   branchToSync: release/2026-q1
 apps:
-  - projectId: 888
+  - projectId: 1
     projectName: my-app
     branchToSync: main
 ```
@@ -229,7 +246,7 @@ apps:
 ```yaml
 # anchors.yaml トップレベル（chart構造。config.yaml の helm.branchToSync の値をどこに書くか）
 apps:
-  - projectId: 888
+  - projectId: 1
     projectName: my-app
     chart:
       - valuesPath: charts/my-app/values.yaml

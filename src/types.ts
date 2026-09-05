@@ -90,26 +90,31 @@ export type TargetClient = {
 }
 
 /**
- * values.yaml内でイメージタグを書き換える1箇所分（対象ファイル＋その中でのYAMLアンカー名）。
- * 1つのソースリポジトリ（1つのタグ）に対して、WebAPI/バッチ/デーモンなど複数の
- * デプロイ単位を管理しているケースでは、同じ最新タグを複数箇所に反映する必要があるため、
- * `AppConfig.chart`はこの型の配列として持つ（T-014）。値は`anchors.yaml`の
- * `apps[].chart[]`から取得する（T-017）
+ * values.yaml内の書き込み位置1箇所分（対象ファイル＋その中でのYAMLアンカー名）。
+ * 「何を書くか」（イメージタグ／Helmの向き先ブランチ）は位置そのものには含まれないため、
+ * 用途ごとの別名（`ImageTagTarget`/`HelmTargetBranchTarget`）はこの型のエイリアスにしている
+ * （TypeScriptは構造的型付けなので、同じ形の型を2つ定義しても取り違えは防げない。
+ * 別名は「どちらの用途か」を読み手に伝えるためのもの、T-024）
  */
-export type ImageTagTarget = {
+export type AnchorTarget = {
   readonly valuesPath: ValuesPath
   readonly anchor: AnchorName
 }
 
 /**
- * Helmの向き先ブランチ（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
- * ブランチ）の書き込み先1箇所分（対象ファイル＋その中でのYAMLアンカー名）。
- * `anchors.yaml`トップレベルの`helm.chart[]`の1要素に対応する（T-016、T-017）
+ * values.yaml内でイメージタグを書き換える1箇所分。1つのソースリポジトリ（1つのタグ）に
+ * 対して、WebAPI/バッチ/デーモンなど複数のデプロイ単位を管理しているケースでは、同じ
+ * 最新タグを複数箇所に反映する必要があるため、`AppConfig.chart`はこの型の配列として持つ
+ * （T-014）。値は`anchors.yaml`の`apps[].chart[]`から取得する（T-017）
  */
-export type HelmTargetBranchTarget = {
-  readonly valuesPath: ValuesPath
-  readonly anchor: AnchorName
-}
+export type ImageTagTarget = AnchorTarget
+
+/**
+ * Helmの向き先ブランチ（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
+ * ブランチ）の書き込み先1箇所分。`anchors.yaml`トップレベルの`helm.chart[]`の1要素に
+ * 対応する（T-016、T-017）
+ */
+export type HelmTargetBranchTarget = AnchorTarget
 
 /**
  * config.yaml/anchors.yaml内で「Helmの向き先ブランチ」を扱うための設定。`branch`は

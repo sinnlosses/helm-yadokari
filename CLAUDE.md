@@ -26,7 +26,8 @@ chart リポジトリ単位で1つの Merge Request を作成する。クラス�
 pnpm check                            # tsc --noEmit + lint + format:check + test をまとめて実行（変更後は必ずこれを通す）
 pnpm test                             # テスト全体
 npx vitest run test/lib/gitlab/tag.test.ts # 単体テストファイルのみ実行
-pnpm lint                             # oxlint + config/ のバリデーション
+pnpm lint                             # oxlint + config/ のバリデーション（ローカルのみ）
+pnpm lint:validate-config:remote      # config/ の値がGitLab上に実在するか検証（要 .env、読み取りのみ）
 pnpm format                           # oxfmt で自動整形
 pnpm dev                              # tsx でローカル実行（.env を読み込む）
 pnpm build && pnpm start              # ビルドしてから実行
@@ -48,6 +49,9 @@ pnpm build && pnpm start              # ビルドしてから実行
     原則2は変わらない）
   - 複数箇所から呼ばれ、技術/外部システム/ファイル形式に依存する → 対応する`lib/`ファイル
   - 複数箇所から呼ばれ、技術に依存しない純粋な計算 → `utils/`
+  - 複数の`steps/`から呼ばれるが、技術ではなくこのツールのドメイン型（`ChartAndApps`・
+    `AppUpdatePlan`など）にだけ依存する → `steps/shared/`（結果ログの識別情報・エラー方針など。
+    `lib/`でも`utils/`でもないためT-022で新設）
 
 各ファイルの詳しい責務・ディレクトリ構成の勘所・既知の制約は
 [`docs/architecture.md`](./docs/architecture.md) を参照。
@@ -68,7 +72,10 @@ pnpm build && pnpm start              # ビルドしてから実行
 ## CI/CD
 
 `.gitlab-ci.yml` 参照。`check`（型チェック・lint・test・build）→ `update-app-versions`
-（pipeline schedule / 手動実行時のみ本体を実行）という構成。`renovate` ジョブはこのCLI自体の
+（pipeline schedule / 手動実行時のみ本体を実行）という構成。`validate-config-remote` は
+`config/` の値がGitLab上に実在するかをMR時点で検証するジョブ（読み取りのみ。MR/push/手動実行で
+必ず走り、`ACCESS_TOKEN`が参照できないときはスキップせず失敗する。そのため同変数は
+Protected: OFF で登録する、T-032）。`renovate` ジョブはこのCLI自体の
 依存パッケージ更新用（別スケジュールで `RENOVATE=true` を指定）。
 
 ## コーディング規約・レビュー方針
@@ -107,8 +114,11 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 ## 関連リンク
 
 - アーキテクチャ詳細（各ファイルの責務、ディレクトリ構成の勘所、既知の制約）: `docs/architecture.md`
-- 進捗管理の詳細（tasks.json/progress.mdのフィールド定義）: `docs/workflow.md`
+- 進捗管理の詳細（tasks.json/progress.mdのフィールド定義・evidenceの粒度・アーカイブ運用）: `docs/workflow.md`
+- 完了タスク・過去セッションの詳細な記録: `docs/history/tasks-archive.md` / `docs/history/progress-archive.md`
+  （セッション開始時に読む必要はない。過去の判断の経緯をたどりたいときだけ参照する）
 - 要件定義: `docs/requirements.md`
 - 要件定義の検討経緯（Q&Aログ）: `docs/requirements-grilling.md`
 - 用語集（ドメイン用語とコード上の識別子の対応、表記ゆれの注記）: `docs/glossary.md`
+- 実機スモークテストの手順（フィクスチャ・シナリオ・繰り返し方）: `docs/smoke-test.md`
 - Issueトラッカー・外部の設計ドキュメントは未設定（今後追加され次第ここに記載する）

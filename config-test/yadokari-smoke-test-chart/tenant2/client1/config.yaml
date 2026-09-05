@@ -1,0 +1,10 @@
+# 複数app + Helm向き先ブランチの更新を検証するclient（docs/smoke-test.md 参照）
+helm:
+  branchToSync: release/2026-q1
+apps:
+  - projectId: 82861978
+    projectName: sample-qa-sprint
+    branchToSync: main
+  - projectId: 82861977
+    projectName: sample-develop-client
+    branchToSync: main

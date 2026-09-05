@@ -1,4 +1,9 @@
-import { type GitlabClient, getFileContent, getLatestPipelineForRef } from "../lib/gitlab/gitlab.js"
+import {
+  type GitlabClient,
+  branchExists as branchExistsOnGitlab,
+  getFileContent,
+  getLatestPipelineForRef,
+} from "../lib/gitlab/gitlab.js"
 import type {
   AppConfig,
   AppUpdatePlan,
@@ -12,25 +17,44 @@ import type {
   ValuesPath,
 } from "../types.js"
 import { getOrFetch } from "../utils/cache.js"
-import { FatalError } from "../utils/errors.js"
-import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
+import { left, partitionMap, right } from "../utils/partition.js"
+import { reduceAsync } from "../utils/sequential.js"
+import { buildLogContext, describePlan, settleAsError } from "./shared/step-outcome.js"
 import {
   type ApplyHelmTargetsAcc,
   applyHelmTargetBranchTargets,
 } from "./sub-steps/build-plans/helm-target-branch-target.js"
 import {
-  type ApplyTargetsAcc,
+  type ApplyImageTagAcc,
   applyImageTagTargets,
   readCurrentImageTags,
 } from "./sub-steps/build-plans/image-tag-target.js"
 import { resolveLatestTag } from "./sub-steps/build-plans/resolve-latest-tag.js"
-import type { BuildChartUpdateAcc, LoadValuesYamlContent } from "./sub-steps/build-plans/types.js"
+import type {
+  BranchExists,
+  BuildChartUpdateAcc,
+  LoadValuesYamlContent,
+} from "./sub-steps/build-plans/types.js"
 
 export type BuildPlansResult = {
   readonly toApply: ChartUpdateTarget[]
   readonly settled: ChartUpdateResult[]
+}
+
+/**
+ * 1つのchartAndAppsを処理する間ずっと変わらない文脈。アプリを1つずつ処理する
+ * `buildAppUpdatePlan()` へ、アプリごとに変わる値（`acc`/`app`）と分けて渡す。
+ * `loadValuesYamlContent`/`branchExists` はGitLabクライアント・chartのprojectId・
+ * chartAndApps単位のキャッシュを閉じ込めた関数で、サブステップ側はGitLabを知らずに済む。
+ */
+type BuildPlanContext = {
+  readonly gitlab: GitlabClient
+  readonly dryRun: boolean
+  readonly tagFormat: TagFormat
+  readonly loadValuesYamlContent: LoadValuesYamlContent
+  readonly branchExists: BranchExists
 }
 
 type PlanResult =
@@ -52,32 +76,27 @@ export async function buildPlans(
   tagFormat: TagFormat,
 ): Promise<BuildPlansResult> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
-    process(gitlab, chartAndApps, dryRun, tagFormat),
+    planTarget(gitlab, chartAndApps, dryRun, tagFormat),
   )
 
-  return outcomes.reduce<BuildPlansResult>(
-    (acc, outcome) =>
-      outcome.status === "apply"
-        ? { ...acc, toApply: [...acc.toApply, outcome.target] }
-        : { ...acc, settled: [...acc.settled, outcome.result] },
-    { toApply: [], settled: [] },
+  const { left: toApply, right: settled } = partitionMap(outcomes, (outcome) =>
+    outcome.status === "apply" ? left(outcome.target) : right(outcome.result),
   )
+  return { toApply, settled }
 }
 
-async function process(
+/**
+ * 1つのchartAndAppsの更新計画を組み立て、結果を振り分ける（このstepの並列処理1件分）。
+ * `buildPlan()`の結果を見て SKIPPED（差分無し / dryRun）・ERROR・apply のどれにするかを
+ * 判定する。
+ */
+async function planTarget(
   gitlab: GitlabClient,
   chartAndApps: ChartAndApps,
   dryRun: boolean,
   tagFormat: TagFormat,
 ): Promise<PlanResult> {
-  const logContext = {
-    event: "update_chart",
-    chartDir: chartAndApps.chartDir,
-    tenantId: chartAndApps.tenantId,
-    clientId: chartAndApps.clientId,
-    chartProjectId: chartAndApps.chart.projectId,
-    chartProjectName: chartAndApps.chart.projectName,
-  }
+  const logContext = buildLogContext(chartAndApps)
 
   try {
     const { plans, files } = await buildPlan(gitlab, chartAndApps, dryRun, tagFormat)
@@ -96,29 +115,7 @@ async function process(
     }
     return { status: "apply", target: { chartAndApps, plans, files } }
   } catch (err) {
-    if (isFatalError(err)) throw new FatalError(extractHttpStatus(err), err)
-    logger.error({
-      ...logContext,
-      result: "ERROR",
-      reason: `httpStatus: ${extractHttpStatus(err)}, message: ${toErrorMessage(err)}`,
-    })
-    return { status: "settled", result: "ERROR" }
-  }
-}
-
-function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
-  return {
-    projectName: plan.app.projectName,
-    latestTag: plan.latestTag.name,
-    updates: plan.updates.map((update) => ({
-      valuesPath: update.target.valuesPath,
-      previousTag: update.previousTag,
-    })),
-    helmTargetBranchUpdates: plan.helmTargetBranchUpdates.map((update) => ({
-      valuesPath: update.target.valuesPath,
-      previousBranch: update.previousBranch,
-      newBranch: update.newBranch,
-    })),
+    return { status: "settled", result: settleAsError(err, logContext) }
   }
 }
 
@@ -146,28 +143,30 @@ async function buildPlan(
       return valuesYamlContent
     })
 
+  // 同じブランチ名の存在確認はこのchartAndApps内で1回だけになるようキャッシュを共有する
+  const branchExistsCache = new Map<BranchName, boolean>()
+  const branchExists: BranchExists = (branch) =>
+    getOrFetch(branchExistsCache, branch, () =>
+      branchExistsOnGitlab(gitlab, chartProjectId, branch),
+    )
+
+  const context: BuildPlanContext = {
+    gitlab,
+    dryRun,
+    tagFormat,
+    loadValuesYamlContent,
+    branchExists,
+  }
   const initialAcc: BuildChartUpdateAcc = {
     plans: [],
     valuesYamlCache: new Map(),
     modifiedValuesPaths: new Set(),
   }
-  const branchExistsCache = new Map<BranchName, boolean>()
 
-  const { plans, valuesYamlCache, modifiedValuesPaths } = await chartAndApps.apps.reduce(
-    (accPromise, app) =>
-      accPromise.then((acc) =>
-        buildAppUpdatePlan(
-          gitlab,
-          dryRun,
-          tagFormat,
-          loadValuesYamlContent,
-          chartProjectId,
-          branchExistsCache,
-          acc,
-          app,
-        ),
-      ),
-    Promise.resolve(initialAcc),
+  const { plans, valuesYamlCache, modifiedValuesPaths } = await reduceAsync(
+    chartAndApps.apps,
+    initialAcc,
+    (acc, app) => buildAppUpdatePlan(context, acc, app),
   )
 
   return {
@@ -189,15 +188,11 @@ async function buildPlan(
  *    `AppUpdatePlan`を組み立てる
  */
 async function buildAppUpdatePlan(
-  gitlab: GitlabClient,
-  dryRun: boolean,
-  tagFormat: TagFormat,
-  loadValuesYamlContent: LoadValuesYamlContent,
-  chartProjectId: ProjectId,
-  branchExistsCache: Map<BranchName, boolean>,
+  context: BuildPlanContext,
   acc: BuildChartUpdateAcc,
   app: AppConfig,
 ): Promise<BuildChartUpdateAcc> {
+  const { gitlab, dryRun, tagFormat, loadValuesYamlContent, branchExists } = context
   const { valuesYamlCache: cacheWithCurrentTags, previousTags } = await readCurrentImageTags(
     loadValuesYamlContent,
     acc.valuesYamlCache,
@@ -205,14 +200,14 @@ async function buildAppUpdatePlan(
   )
   const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat, previousTags)
 
-  const initialTargetsAcc: ApplyTargetsAcc = {
+  const initialTargetsAcc: ApplyImageTagAcc = {
     valuesYamlCache: cacheWithCurrentTags,
     modifiedValuesPaths: acc.modifiedValuesPaths,
     updates: [],
   }
   const afterChartTargets = await applyImageTagTargets(
     loadValuesYamlContent,
-    latestTag.name,
+    latestTag,
     initialTargetsAcc,
     app.chart,
   )
@@ -225,9 +220,7 @@ async function buildAppUpdatePlan(
   }
   const afterHelmTargets = helmTargetBranch
     ? await applyHelmTargetBranchTargets(
-        gitlab,
-        chartProjectId,
-        branchExistsCache,
+        branchExists,
         loadValuesYamlContent,
         helmTargetBranch,
         initialHelmTargetsAcc,
@@ -244,13 +237,19 @@ async function buildAppUpdatePlan(
       projectName: app.projectName,
       result: "SKIPPED",
       reason: "already_up_to_date",
-      tag: latestTag.name,
+      tag: latestTag.tag.name,
     })
     return { plans: acc.plans, valuesYamlCache, modifiedValuesPaths }
   }
 
-  const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.name)
-  const plan: AppUpdatePlan = { app, latestTag, pipeline, updates, helmTargetBranchUpdates }
+  const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.tag.name)
+  const plan: AppUpdatePlan = {
+    app,
+    latestTag: latestTag.tag,
+    pipeline,
+    updates,
+    helmTargetBranchUpdates,
+  }
 
   return {
     plans: [...acc.plans, plan],

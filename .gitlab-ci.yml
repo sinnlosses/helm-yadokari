@@ -28,10 +28,13 @@ spec:
 # ──────────────────────────────────────────────────────────────────
 # 【必須】Settings > CI/CD > Variables に以下を登録してください:
 #   GITLAB_URL    — GitLab の URL（例: https://gitlab.example.com）
-#                   ※ Protected: ON 推奨（任意 URL 注入を防ぎます）
+#                   ※ Protected: OFF（下記 ACCESS_TOKEN と同じ理由）
 #   ACCESS_TOKEN  — GitLab Group/Project Access Token
 #                   （read_api + write_repository + MR作成権限。最小権限で発行すること）
-#                   ※ Masked: ON / Protected: ON 推奨
+#                   ※ Masked: ON / Protected: OFF
+#                   Protected にすると保護ブランチ以外のパイプラインで空になり、
+#                   MR時の設定検証（validate-config-remote）が実行できなくなるため。
+#                   MRのたびに設定の実在チェックを確実に通す運用を優先している
 # ──────────────────────────────────────────────────────────────────
 
 workflow:
@@ -124,6 +127,25 @@ check:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
   timeout: 15 minutes
+
+# config/ に書かれた projectId・ブランチ・valuesPath・アンカーが GitLab 上に実在するかを
+# MR の時点で検証する（読み取りのみ。タグ・ブランチ・MR は作らない）。
+# 【必須】ACCESS_TOKEN / GITLAB_URL を MR パイプラインからも参照できるようにしておくこと
+#   （Protected: OFF。このジョブは読み取りしか行わないため read_api のみのトークンでよい）。
+#   参照できない場合このジョブは「実在チェックを実行できません」で失敗する。設定ミスを
+#   確実に止めるため、条件付きスキップにはしていない。
+# 定期実行（schedule）では実行しない: 1つのclientの設定ミスで全clientの更新が止まるのを避け、
+#   本体の実行時に該当clientだけを ERROR にする従来どおりの挙動に任せる。
+validate-config-remote:
+  extends: .node-setup
+  stage: validate
+  script:
+    - pnpm lint:validate-config:remote
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+  timeout: 10 minutes
 
 update-app-versions:
   extends: .node-setup

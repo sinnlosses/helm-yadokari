@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { z } from "zod"
 
 import type {
+  AnchorTarget,
   AppConfig,
   BranchName,
   ChartAndApps,
@@ -38,19 +39,17 @@ const ChartYamlSchema = z.object({
   }),
 })
 
-const ImageTagTargetSchema = z
+/**
+ * `apps[].chart[]`（イメージタグの書き込み先）と`helm.chart[]`（Helm向き先ブランチの
+ * 書き込み先）はどちらも`valuesPath`+`anchor`という同じ形なので、スキーマも共有する
+ * （型側も`AnchorTarget`とそのエイリアス、T-024）
+ */
+const AnchorTargetSchema = z
   .object({
     valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
     anchor: z.string().min(1, "anchor は空にできません").transform(toAnchorName),
   })
-  .transform((v): ImageTagTarget => ({ valuesPath: v.valuesPath, anchor: v.anchor }))
-
-const HelmTargetBranchTargetSchema = z
-  .object({
-    valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
-    anchor: z.string().min(1, "anchor は空にできません").transform(toAnchorName),
-  })
-  .transform((v): HelmTargetBranchTarget => ({ valuesPath: v.valuesPath, anchor: v.anchor }))
+  .transform((v): AnchorTarget => ({ valuesPath: v.valuesPath, anchor: v.anchor }))
 
 /** config.yaml側。運用値のみ（chart構造はanchors.yaml側が持つ） */
 const AppOperationalSchema = z.object({
@@ -76,11 +75,11 @@ const ConfigYamlSchema = z.object({
 const AnchorsAppSchema = z.object({
   projectId: z.number().int().transform(toProjectId),
   projectName: z.string().min(1).transform(toProjectName),
-  chart: z.array(ImageTagTargetSchema).min(1, "chart は1件以上指定してください"),
+  chart: z.array(AnchorTargetSchema).min(1, "chart は1件以上指定してください"),
 })
 
 const AnchorsHelmSchema = z.object({
-  chart: z.array(HelmTargetBranchTargetSchema).min(1, "chart は1件以上指定してください"),
+  chart: z.array(AnchorTargetSchema).min(1, "chart は1件以上指定してください"),
 })
 
 const AnchorsYamlSchema = z.object({
@@ -146,6 +145,50 @@ function validateProjectLinkage(
     throw new Error(
       `${anchorsPath}: ${configYamlPath} に存在しないapp（${orphanList}）が定義されています`,
     )
+  }
+}
+
+/**
+ * 同じ`projectId`のappが1ファイル内に複数書かれていないか検証する。CLIは`projectId`を
+ * キーに2ファイルを突き合わせるため、重複していると片方の設定が黙って無視され、
+ * 同じ書き込み先へ別々のタグを順番に書いて最後の値だけが残る（T-032）。
+ */
+function validateNoDuplicateProjectIds(
+  filePath: string,
+  apps: readonly { readonly projectId: ProjectId; readonly projectName: ProjectName }[],
+): void {
+  const seen = new Set<ProjectId>()
+  const duplicated = apps.filter((app) => {
+    if (seen.has(app.projectId)) return true
+    seen.add(app.projectId)
+    return false
+  })
+  if (duplicated.length > 0) {
+    const list = [...new Set(duplicated.map((app) => `projectId ${app.projectId}`))].join(", ")
+    throw new Error(`${filePath}: 同じappが複数回定義されています（${list}）`)
+  }
+}
+
+/** `valuesPath`+`anchor`の組を、エラーメッセージ用のラベル付きで表す */
+type LabeledTarget = { readonly target: AnchorTarget; readonly label: string }
+
+/**
+ * 1つのclient内で、同じ`valuesPath`+`anchor`（＝values.yamlの同じ1箇所）を複数の設定が
+ * 書き込み先にしていないか検証する。重複していると後から処理した側の値だけが残り、
+ * MRには両方を更新したように表示されるため、静かに誤った結果になる（T-032）。
+ * イメージタグ用（`apps[].chart[]`）と向き先ブランチ用（`helm.chart[]`）の衝突も対象にする。
+ */
+function validateNoDuplicateTargets(anchorsPath: string, targets: readonly LabeledTarget[]): void {
+  const seen = new Map<string, string>()
+  for (const { target, label } of targets) {
+    const key = `${target.valuesPath}#${target.anchor}`
+    const previousLabel = seen.get(key)
+    if (previousLabel !== undefined) {
+      throw new Error(
+        `${anchorsPath}: 同じ書き込み先（${target.valuesPath} のアンカー "${target.anchor}"）が複数指定されています（${previousLabel} / ${label}）`,
+      )
+    }
+    seen.set(key, label)
   }
 }
 
@@ -234,7 +277,18 @@ function loadClientChartAndApps(
 
       const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
       const anchors = loadAnchors(clientDirPath)
+      validateNoDuplicateProjectIds(configYamlPath, apps)
+      validateNoDuplicateProjectIds(anchorsPath, anchors.apps)
       validateProjectLinkage(configYamlPath, anchorsPath, apps, anchors.apps)
+      validateNoDuplicateTargets(anchorsPath, [
+        ...anchors.apps.flatMap((anchorApp) =>
+          anchorApp.chart.map((target) => ({
+            target,
+            label: `app "${anchorApp.projectName}" の chart[]`,
+          })),
+        ),
+        ...(anchors.helmChart ?? []).map((target) => ({ target, label: "helm.chart[]" })),
+      ])
 
       const anchorAppByProjectId = new Map(
         anchors.apps.map((anchorApp) => [anchorApp.projectId, anchorApp]),

@@ -5,8 +5,10 @@ import {
   listTags,
 } from "../../../lib/gitlab/gitlab.js"
 import { buildNewTag, findLatestParsedTag, parseTag } from "../../../lib/gitlab/tag.js"
-import type { AppConfig, BranchName, ParsedTag, TagFormat, TagName } from "../../../types.js"
+import type { AppConfig, BranchName, TagFormat, TagName } from "../../../types.js"
+import { toTagName } from "../../../types.js"
 import { logger } from "../../../utils/logger.js"
+import type { LatestTagResolution } from "./types.js"
 
 /**
  * `values.yaml`に反映済みのタグが、現在の追跡ブランチ由来ではない箇所があるかを判定する。
@@ -34,6 +36,9 @@ function hasTagFromOtherBranch(
  *   見つかった最新タグが追跡ブランチの進行にビハインドしている場合を含む）
  * - `values.yaml`への反映済みタグが現在の追跡ブランチ由来でない（＝追跡ブランチを切り替えた）。
  *   この場合はHEADと一致する既存タグがあっても、切り替えを明示するため新しいタグを作る
+ *
+ * あわせて`pointsAtTrackedHead`（values.yamlの現在値が追跡ブランチのHEADを指すタグかの判定）
+ * を返す。中身が同じコミットなら、より新しい名前のタグがあっても更新しないため（T-037）。
  */
 export async function resolveLatestTag(
   gitlab: GitlabClient,
@@ -41,11 +46,18 @@ export async function resolveLatestTag(
   dryRun: boolean,
   tagFormat: TagFormat,
   previousTags: readonly (TagName | undefined)[],
-): Promise<ParsedTag> {
+): Promise<LatestTagResolution> {
   const [tags, headSha] = await Promise.all([
     listTags(gitlab, app.projectId),
     getBranchHeadSha(gitlab, app.projectId, app.branchToSync),
   ])
+  // 追跡ブランチを切り替えた場合は、現在値が同じコミットを指していても追従先が変わったことを
+  // values.yamlに反映したいので、「現在の追跡ブランチ由来のタグであること」も条件に含める
+  const pointsAtTrackedHead = (currentValue: string): boolean =>
+    headSha !== undefined &&
+    parseTag(toTagName(currentValue), app.branchToSync, tagFormat) !== undefined &&
+    tags.some((tag) => tag.name === currentValue && tag.commitSha === headSha)
+
   const existingTag = findLatestParsedTag(
     tags.map((tag) => tag.name),
     app.branchToSync,
@@ -53,7 +65,9 @@ export async function resolveLatestTag(
   )
   const existingTagCommitSha = tags.find((tag) => tag.name === existingTag?.name)?.commitSha
   const branchChanged = hasTagFromOtherBranch(previousTags, app.branchToSync, tagFormat)
-  if (!branchChanged && existingTag && existingTagCommitSha === headSha) return existingTag
+  if (!branchChanged && existingTag && existingTagCommitSha === headSha) {
+    return { tag: existingTag, pointsAtTrackedHead }
+  }
 
   const newTag = buildNewTag(app.branchToSync, new Date(), tagFormat)
   if (!dryRun) {
@@ -67,5 +81,5 @@ export async function resolveLatestTag(
     reason: branchChanged ? "tracked_branch_changed" : "no_tag_at_branch_head",
     dryRun,
   })
-  return newTag
+  return { tag: newTag, pointsAtTrackedHead }
 }

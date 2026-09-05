@@ -1,0 +1,11 @@
+apps:
+  - projectId: 82861978
+    projectName: sample-qa-sprint
+    chart:
+      - valuesPath: charts/smoke-tenant2/client2/values.yaml
+        anchor: t2c2QaSprintVersion
+  - projectId: 82861977
+    projectName: sample-develop-client
+    chart:
+      - valuesPath: charts/smoke-tenant2/client2/values.yaml
+        anchor: t2c2DevelopClientVersion

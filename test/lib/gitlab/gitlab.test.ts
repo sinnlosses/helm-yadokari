@@ -456,20 +456,25 @@ function makePlan(
   overrides: Partial<{
     pipeline: PipelineInfo
     previousTag: TagName | undefined
+    projectName: string
+    updates: AppUpdatePlan["updates"]
     helmTargetBranchUpdates: AppUpdatePlan["helmTargetBranchUpdates"]
   }> = {},
 ): AppUpdatePlan {
   const previousTag =
     "previousTag" in overrides ? overrides.previousTag : toTagName("main-build-at-20251231-000000")
   return {
-    app: makeApp({ projectId: toProjectId(1), projectName: toProjectName("my-app") }),
+    app: makeApp({
+      projectId: toProjectId(1),
+      projectName: toProjectName(overrides.projectName ?? "my-app"),
+    }),
     latestTag: {
       name: toTagName("main-build-at-20260101-000000"),
       branch: toBranchName("main"),
       builtAt: new Date("2026-01-01T00:00:00Z"),
     },
     pipeline: overrides.pipeline,
-    updates: [
+    updates: overrides.updates ?? [
       {
         target: {
           valuesPath: toValuesPath("values.yaml"),
@@ -483,165 +488,237 @@ function makePlan(
 }
 
 describe("buildMrTitle", () => {
-  it("tenantId/clientId・更新対象アプリ数を含むタイトルを組み立てる", () => {
+  const helmUpdate = {
+    target: { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("targetBranch") },
+    previousBranch: toBranchName("release/2025-q4"),
+    newBranch: toBranchName("release/2026-q1"),
+  }
+
+  it("イメージタグの書き換え箇所数を種別つきで含む", () => {
     expect(
       buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), [makePlan(), makePlan()]),
-    ).toBe("Auto MR by yadokari: update tenantId1/clientId1 2 app image tag(s)")
+    ).toBe("Auto MR by yadokari: update tenantId1/clientId1 (image tag 2)")
   })
 
-  it("0件のときも組み立てる", () => {
+  it("1アプリが複数箇所を書き換える場合はアプリ数ではなく箇所数を数える", () => {
+    const plan = makePlan({
+      updates: [
+        {
+          target: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("x") },
+          previousTag: undefined,
+        },
+        {
+          target: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("y") },
+          previousTag: undefined,
+        },
+        {
+          target: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("z") },
+          previousTag: undefined,
+        },
+      ],
+    })
+
+    expect(buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), [plan])).toBe(
+      "Auto MR by yadokari: update tenantId1/clientId1 (image tag 3)",
+    )
+  })
+
+  it("イメージタグとHelm向き先ブランチの両方があるとき、種別ごとに件数を出す", () => {
+    const plan = makePlan({ helmTargetBranchUpdates: [helmUpdate] })
+
+    expect(buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), [plan])).toBe(
+      "Auto MR by yadokari: update tenantId1/clientId1 (image tag 1, helm branch 1)",
+    )
+  })
+
+  it("Helm向き先ブランチだけが変わるとき、image tag と表示しない", () => {
+    const plan = makePlan({ updates: [], helmTargetBranchUpdates: [helmUpdate] })
+
+    expect(buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), [plan])).toBe(
+      "Auto MR by yadokari: update tenantId1/clientId1 (helm branch 1)",
+    )
+  })
+
+  it("同じ向き先ブランチの書き換え箇所が複数アプリに割り当てられていても重複して数えない", () => {
+    const plans = [
+      makePlan({ updates: [], helmTargetBranchUpdates: [helmUpdate] }),
+      makePlan({ projectName: "other-app", updates: [], helmTargetBranchUpdates: [helmUpdate] }),
+    ]
+
+    expect(buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), plans)).toBe(
+      "Auto MR by yadokari: update tenantId1/clientId1 (helm branch 1)",
+    )
+  })
+
+  it("0件のときは件数の括弧を付けない", () => {
     expect(buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), [])).toBe(
-      "Auto MR by yadokari: update tenantId1/clientId1 0 app image tag(s)",
+      "Auto MR by yadokari: update tenantId1/clientId1",
     )
   })
 })
 
 describe("buildMrDescription", () => {
-  it("アプリ名・旧タグ→新タグ・打刻日時を含む", async () => {
-    const client = makeClient({
-      Projects: {
-        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
-      },
-    })
-    const description = await buildMrDescription(client, [makePlan()])
-    expect(description).toContain("my-app")
-    expect(description).toContain("main-build-at-20251231-000000")
-    expect(description).toContain("main-build-at-20260101-000000")
-    expect(description).toContain("2026-01-01T00:00:00.000Z")
-  })
+  const makeShowClient = (webUrl = "https://gitlab.example.com/g/my-app") =>
+    makeClient({ Projects: { show: vi.fn().mockResolvedValue({ web_url: webUrl }) } })
+  const helmUpdate = {
+    target: { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("targetBranch") },
+    previousBranch: toBranchName("release/2025-q4"),
+    newBranch: toBranchName("release/2026-q1"),
+  }
 
-  it("パイプライン情報があるとき、その状態とリンクを含める", async () => {
-    const client = makeClient({
-      Projects: {
-        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
-      },
-    })
-    const description = await buildMrDescription(client, [
-      makePlan({
-        pipeline: { webUrl: toGitLabUrl("https://gitlab.example.com/p/1"), status: "success" },
-      }),
-    ])
-    expect(description).toContain("success")
-    expect(description).toContain("https://gitlab.example.com/p/1")
-  })
+  it("イメージタグの更新をテーブルで表示する（指定の列順）", async () => {
+    const description = await buildMrDescription(makeShowClient(), [makePlan()])
 
-  it("パイプライン情報がないとき、見つからない旨を含める", async () => {
-    const client = makeClient({
-      Projects: {
-        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
-      },
-    })
-    const description = await buildMrDescription(client, [makePlan()])
-    expect(description).toContain("見つかりません")
-  })
-
-  it("同じプロジェクトの web_url 取得は1回だけ呼び出す", async () => {
-    const showFn = vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" })
-    const client = makeClient({ Projects: { show: showFn } })
-    await buildMrDescription(client, [makePlan(), makePlan()])
-    expect(showFn).toHaveBeenCalledOnce()
-  })
-
-  it("旧タグ・新タグの比較URLを含む", async () => {
-    const client = makeClient({
-      Projects: {
-        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
-      },
-    })
-    const description = await buildMrDescription(client, [makePlan()])
+    expect(description).toContain("## イメージタグ")
     expect(description).toContain(
+      "| リポジトリ | 追跡ブランチ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
+    )
+    const row = description.split("\n").find((line) => line.includes("my-app"))
+    expect(row).toContain("[main-build-at-20251231-000000](")
+    expect(row).toContain("[main-build-at-20260101-000000](")
+    expect(row).toContain(
       "https://gitlab.example.com/g/my-app/-/compare/main-build-at-20251231-000000...main-build-at-20260101-000000",
     )
   })
 
-  it("旧タグが未設定のとき比較URLを含めない", async () => {
-    const client = makeClient({
-      Projects: {
-        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
-      },
-    })
-    const description = await buildMrDescription(client, [makePlan({ previousTag: undefined })])
+  it("比較のリンクはURLをそのまま表示する", async () => {
+    const description = await buildMrDescription(makeShowClient(), [makePlan()])
+
+    expect(description).not.toContain("[比較]")
+  })
+
+  it("1アプリが複数箇所を書き換えるとき、箇所ごとに行を出す", async () => {
+    const description = await buildMrDescription(makeShowClient(), [
+      makePlan({
+        updates: [
+          {
+            target: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("x") },
+            previousTag: toTagName("main-build-at-20251231-000000"),
+          },
+          {
+            target: { valuesPath: toValuesPath("b.yaml"), anchor: toAnchorName("y") },
+            previousTag: undefined,
+          },
+        ],
+      }),
+    ])
+
+    const rows = description.split("\n").filter((line) => line.includes("my-app"))
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toContain("| `a.yaml` | `x` |")
+    expect(rows[1]).toContain("| `b.yaml` | `y` |")
+  })
+
+  it("書き込み先はファイルとアンカーの2列に分ける", async () => {
+    const description = await buildMrDescription(makeShowClient(), [makePlan()])
+
+    const row = description.split("\n").find((line) => line.includes("my-app"))
+    expect(row).toContain("| `values.yaml` | `appVersion` |")
+  })
+
+  it("そのアプリの設定（追跡ブランチ）を列に出す", async () => {
+    const description = await buildMrDescription(makeShowClient(), [makePlan()])
+
+    const row = description.split("\n").find((line) => line.includes("my-app"))
+    expect(row).toContain("| my-app | `main` |")
+  })
+
+  it("打刻日時の列は出さない", async () => {
+    const description = await buildMrDescription(makeShowClient(), [makePlan()])
+
+    expect(description).not.toContain("打刻日時")
+    expect(description).not.toContain("2026-01-01 09:00:00")
+  })
+
+  it("パイプラインは状態を出さず、URLをそのまま表示する", async () => {
+    const description = await buildMrDescription(makeShowClient(), [
+      makePlan({
+        pipeline: { status: "success", webUrl: toGitLabUrl("https://gitlab.example.com/p/1") },
+      }),
+    ])
+
+    const row = description.split("\n").find((line) => line.includes("my-app"))
+    expect(row).toContain("| https://gitlab.example.com/p/1 |")
+    expect(description).not.toContain("[パイプライン]")
+    expect(description).not.toContain("success")
+  })
+
+  it("パイプラインが無いとき - にする", async () => {
+    const description = await buildMrDescription(makeShowClient(), [makePlan()])
+
+    expect(description).not.toContain("見つかりません")
+    expect(description.split("\n").find((line) => line.includes("my-app"))).toMatch(/\| - \|$/)
+  })
+
+  it("旧タグが未設定のとき (未設定) と表示し、比較は - にする", async () => {
+    const description = await buildMrDescription(makeShowClient(), [
+      makePlan({ previousTag: undefined }),
+    ])
+
+    const row = description.split("\n").find((line) => line.includes("my-app"))
+    expect(row).toContain("(未設定)")
     expect(description).not.toContain("/-/compare/")
   })
 
-  it("旧タグにもタグページへのリンクを付ける", async () => {
-    const client = makeClient({
-      Projects: {
-        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
-      },
-    })
-    const description = await buildMrDescription(client, [makePlan()])
-    expect(description).toContain(
-      "[main-build-at-20251231-000000](https://gitlab.example.com/g/my-app/-/tags/main-build-at-20251231-000000)",
-    )
+  it("同じプロジェクトの web_url 取得は1回だけ呼び出す", async () => {
+    const showFn = vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" })
+    await buildMrDescription(makeClient({ Projects: { show: showFn } }), [makePlan(), makePlan()])
+
+    expect(showFn).toHaveBeenCalledOnce()
   })
 
-  it("旧タグが未設定のときは (未設定) と表示しリンクを付けない", async () => {
-    const client = makeClient({
-      Projects: {
-        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
-      },
-    })
-    const description = await buildMrDescription(client, [makePlan({ previousTag: undefined })])
-    expect(description).toContain("(未設定)")
+  it("向き先ブランチの更新は別セクションのテーブルにする", async () => {
+    const description = await buildMrDescription(makeShowClient(), [
+      makePlan({ helmTargetBranchUpdates: [helmUpdate] }),
+    ])
+
+    const helmSectionIndex = description.indexOf("## Helmの向き先ブランチ")
+    expect(helmSectionIndex).toBeGreaterThan(description.indexOf("## イメージタグ"))
+    const helmSection = description.slice(helmSectionIndex)
+    expect(helmSection).toContain("| 旧ブランチ | 新ブランチ | ファイル | アンカー |")
+    expect(helmSection).toContain("`release/2025-q4`")
+    expect(helmSection).toContain("`release/2026-q1`")
+    expect(helmSection).toContain("| `values.yaml` | `targetBranch` |")
+    expect(description.slice(0, helmSectionIndex)).not.toContain("release/2026-q1")
   })
 
-  it("helmTargetBranchUpdateがあるとき、旧ブランチ名→新ブランチ名を含める", async () => {
-    const client = makeClient({
-      Projects: {
-        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
-      },
-    })
-    const description = await buildMrDescription(client, [
+  it("向き先ブランチの旧ブランチが未設定のとき (未設定) と表示する", async () => {
+    const description = await buildMrDescription(makeShowClient(), [
       makePlan({
-        helmTargetBranchUpdates: [
-          {
-            target: {
-              valuesPath: toValuesPath("values.yaml"),
-              anchor: toAnchorName("targetBranch"),
-            },
-            previousBranch: toBranchName("release/2025-q4"),
-            newBranch: toBranchName("release/2026-q1"),
-          },
-        ],
+        helmTargetBranchUpdates: [{ ...helmUpdate, previousBranch: undefined }],
       }),
     ])
-    expect(description).toContain("release/2025-q4")
-    expect(description).toContain("release/2026-q1")
-    expect(description).toContain("向き先ブランチ")
-  })
 
-  it("helmTargetBranchUpdateの旧ブランチが未設定のとき (未設定) と表示する", async () => {
-    const client = makeClient({
-      Projects: {
-        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
-      },
-    })
-    const description = await buildMrDescription(client, [
-      makePlan({
-        helmTargetBranchUpdates: [
-          {
-            target: {
-              valuesPath: toValuesPath("values.yaml"),
-              anchor: toAnchorName("targetBranch"),
-            },
-            previousBranch: undefined,
-            newBranch: toBranchName("release/2026-q1"),
-          },
-        ],
-      }),
-    ])
     expect(description).toContain("(未設定)")
-    expect(description).toContain("release/2026-q1")
+    expect(description).toContain("`release/2026-q1`")
   })
 
-  it("helmTargetBranchUpdateが無いとき、向き先ブランチの行を含めない", async () => {
-    const client = makeClient({
-      Projects: {
-        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/g/my-app" }),
-      },
-    })
-    const description = await buildMrDescription(client, [makePlan()])
+  it("向き先ブランチの更新が無いとき、そのセクションを出さない", async () => {
+    const description = await buildMrDescription(makeShowClient(), [makePlan()])
+
     expect(description).not.toContain("向き先ブランチ")
+  })
+
+  it("イメージタグに差分が無いアプリは行に出さず、全アプリ差分なしならセクションごと出さない", async () => {
+    const description = await buildMrDescription(makeShowClient(), [
+      makePlan({
+        projectName: "helm-only-app",
+        updates: [],
+        helmTargetBranchUpdates: [helmUpdate],
+      }),
+    ])
+
+    expect(description).not.toContain("helm-only-app")
+    expect(description).not.toContain("## イメージタグ")
+    expect(description).toContain("## Helmの向き先ブランチ")
+  })
+
+  it("同じ書き込み先の向き先ブランチ更新が複数アプリにあっても1行にまとめる", async () => {
+    const description = await buildMrDescription(makeShowClient(), [
+      makePlan({ updates: [], helmTargetBranchUpdates: [helmUpdate] }),
+      makePlan({ projectName: "other-app", updates: [], helmTargetBranchUpdates: [helmUpdate] }),
+    ])
+
+    expect(description.split("targetBranch")).toHaveLength(2)
   })
 })
