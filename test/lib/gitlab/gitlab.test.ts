@@ -3,14 +3,15 @@ import { describe, expect, it, vi } from "vitest"
 
 import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
 import {
-  UPDATE_BRANCH,
   branchExists,
   buildMrDescription,
   buildMrTitle,
+  buildUpdateBranch,
   commitFileUpdates,
   createClient,
   createMergeRequest,
   createTag,
+  deleteBranch,
   getBranchHeadSha,
   getFileContent,
   getLatestPipelineForRef,
@@ -22,10 +23,12 @@ import type { AppUpdatePlan, PipelineInfo, TagName } from "../../../src/types.js
 import {
   toAnchorName,
   toBranchName,
+  toClientId,
   toGitLabUrl,
   toProjectId,
   toProjectName,
   toTagName,
+  toTenantId,
   toValuesPath,
 } from "../../../src/types.js"
 import { makeApp, makeHttpError } from "../../helpers.js"
@@ -33,7 +36,7 @@ import { makeApp, makeHttpError } from "../../helpers.js"
 function makeClient(
   overrides: Partial<{
     Tags: { all: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> }
-    Branches: { show: ReturnType<typeof vi.fn> }
+    Branches: { show: ReturnType<typeof vi.fn>; remove?: ReturnType<typeof vi.fn> }
     RepositoryFiles: { show: ReturnType<typeof vi.fn> }
     MergeRequests: { all: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> }
     Commits: { create: ReturnType<typeof vi.fn> }
@@ -43,7 +46,7 @@ function makeClient(
 ): GitlabClient {
   return {
     Tags: { all: vi.fn(), create: vi.fn(), ...overrides.Tags },
-    Branches: { show: vi.fn(), ...overrides.Branches },
+    Branches: { show: vi.fn(), remove: vi.fn(), ...overrides.Branches },
     RepositoryFiles: { show: vi.fn(), ...overrides.RepositoryFiles },
     MergeRequests: { all: vi.fn(), create: vi.fn(), ...overrides.MergeRequests },
     Commits: { create: vi.fn(), ...overrides.Commits },
@@ -199,10 +202,11 @@ describe("commitFileUpdates", () => {
     })
   }
 
-  it("ブランチが存在せず、baseBranch上にファイルが存在するとき action: update で startBranch を指定する", async () => {
+  it("ブランチが存在しないとき、削除せずbaseBranchから新規作成する", async () => {
     const createFn = vi.fn().mockResolvedValue({})
+    const removeFn = vi.fn().mockResolvedValue(undefined)
     const client = makeClient({
-      Branches: { show: vi.fn().mockRejectedValue(makeHttpError(404)) },
+      Branches: { show: vi.fn().mockRejectedValue(makeHttpError(404)), remove: removeFn },
       RepositoryFiles: { show: makeRepositoryFilesShow(["values.yaml"]) },
       Commits: { create: createFn },
     })
@@ -214,6 +218,7 @@ describe("commitFileUpdates", () => {
       "chore: update",
       [{ filePath: toValuesPath("values.yaml"), content: "image:\n  tag: v2\n" }],
     )
+    expect(removeFn).not.toHaveBeenCalled()
     expect(createFn).toHaveBeenCalledWith(
       1,
       "yadokari/update",
@@ -223,10 +228,11 @@ describe("commitFileUpdates", () => {
     )
   })
 
-  it("ブランチが既に存在し、そのブランチ上にファイルも存在するとき action: update で startBranch を指定しない", async () => {
+  it("ブランチが既に存在するとき、削除してからbaseBranchを起点に作り直す（T-021、オープン中MRが無いことは呼び出し元で確認済みの前提）", async () => {
     const createFn = vi.fn().mockResolvedValue({})
+    const removeFn = vi.fn().mockResolvedValue(undefined)
     const client = makeClient({
-      Branches: { show: vi.fn().mockResolvedValue({}) },
+      Branches: { show: vi.fn().mockResolvedValue({}), remove: removeFn },
       RepositoryFiles: { show: makeRepositoryFilesShow(["values.yaml"]) },
       Commits: { create: createFn },
     })
@@ -238,20 +244,25 @@ describe("commitFileUpdates", () => {
       "chore: update",
       [{ filePath: toValuesPath("values.yaml"), content: "image:\n  tag: v2\n" }],
     )
+    expect(removeFn).toHaveBeenCalledWith(1, "yadokari/update")
     expect(createFn).toHaveBeenCalledWith(
       1,
       "yadokari/update",
       "chore: update",
       [{ action: "update", filePath: "values.yaml", content: "image:\n  tag: v2\n" }],
-      {},
+      { startBranch: "develop" },
     )
   })
 
-  it("ブランチは既に存在するが該当ファイルがそのブランチ上にまだ無いとき action: create にする（MRクローズ後の残留ブランチ＋新規valuesPath追加を想定）", async () => {
+  it("actionの判定は常にbaseBranch側のファイル存在有無で行う（残留ブランチの状態に依存しない）", async () => {
     const createFn = vi.fn().mockResolvedValue({})
+    const repositoryFilesShow = makeRepositoryFilesShow(["values.yaml"])
     const client = makeClient({
-      Branches: { show: vi.fn().mockResolvedValue({}) },
-      RepositoryFiles: { show: makeRepositoryFilesShow([]) },
+      Branches: {
+        show: vi.fn().mockResolvedValue({}),
+        remove: vi.fn().mockResolvedValue(undefined),
+      },
+      RepositoryFiles: { show: repositoryFilesShow },
       Commits: { create: createFn },
     })
     await commitFileUpdates(
@@ -262,19 +273,23 @@ describe("commitFileUpdates", () => {
       "chore: update",
       [{ filePath: toValuesPath("new/values.yaml"), content: "image:\n  tag: v2\n" }],
     )
+    expect(repositoryFilesShow).toHaveBeenCalledWith(1, "new/values.yaml", "develop")
     expect(createFn).toHaveBeenCalledWith(
       1,
       "yadokari/update",
       "chore: update",
       [{ action: "create", filePath: "new/values.yaml", content: "image:\n  tag: v2\n" }],
-      {},
+      { startBranch: "develop" },
     )
   })
 
   it("複数ファイルで存在有無が混在するとき、ファイルごとに正しいactionを設定する", async () => {
     const createFn = vi.fn().mockResolvedValue({})
     const client = makeClient({
-      Branches: { show: vi.fn().mockResolvedValue({}) },
+      Branches: {
+        show: vi.fn().mockResolvedValue({}),
+        remove: vi.fn().mockResolvedValue(undefined),
+      },
       RepositoryFiles: { show: makeRepositoryFilesShow(["a/values.yaml"]) },
       Commits: { create: createFn },
     })
@@ -294,6 +309,15 @@ describe("commitFileUpdates", () => {
       { action: "update", filePath: "a/values.yaml", content: "a" },
       { action: "create", filePath: "b/values.yaml", content: "b" },
     ])
+  })
+})
+
+describe("deleteBranch", () => {
+  it("正しい引数で Branches.remove を呼び出す", async () => {
+    const removeFn = vi.fn().mockResolvedValue(undefined)
+    const client = makeClient({ Branches: { show: vi.fn(), remove: removeFn } })
+    await deleteBranch(client, toProjectId(1), toBranchName("yadokari/update"))
+    expect(removeFn).toHaveBeenCalledWith(1, "yadokari/update")
   })
 })
 
@@ -420,9 +444,11 @@ describe("getProjectWebUrl", () => {
   })
 })
 
-describe("UPDATE_BRANCH", () => {
-  it("固定のブランチ名を持つ", () => {
-    expect(UPDATE_BRANCH).toBe("yadokari/update")
+describe("buildUpdateBranch", () => {
+  it("tenantId/clientIdを含むブランチ名を組み立てる", () => {
+    expect(buildUpdateBranch(toTenantId("tenantId1"), toClientId("clientId1"))).toBe(
+      "feature/yadokari/tenantId1/clientId1",
+    )
   })
 })
 
@@ -457,14 +483,16 @@ function makePlan(
 }
 
 describe("buildMrTitle", () => {
-  it("更新対象アプリ数を含むタイトルを組み立てる", () => {
-    expect(buildMrTitle([makePlan(), makePlan()])).toBe(
-      "Auto MR by yadokari: update 2 app image tag(s)",
-    )
+  it("tenantId/clientId・更新対象アプリ数を含むタイトルを組み立てる", () => {
+    expect(
+      buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), [makePlan(), makePlan()]),
+    ).toBe("Auto MR by yadokari: update tenantId1/clientId1 2 app image tag(s)")
   })
 
   it("0件のときも組み立てる", () => {
-    expect(buildMrTitle([])).toBe("Auto MR by yadokari: update 0 app image tag(s)")
+    expect(buildMrTitle(toTenantId("tenantId1"), toClientId("clientId1"), [])).toBe(
+      "Auto MR by yadokari: update tenantId1/clientId1 0 app image tag(s)",
+    )
   })
 })
 

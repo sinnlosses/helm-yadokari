@@ -1,8 +1,8 @@
 import {
-  UPDATE_BRANCH,
   type GitlabClient,
   buildMrDescription,
   buildMrTitle,
+  buildUpdateBranch,
   commitFileUpdates,
   createMergeRequest,
 } from "../lib/gitlab/gitlab.js"
@@ -46,18 +46,21 @@ async function applyUpdate(
   const logContext = {
     event: "update_chart",
     chartDir: chartAndApps.chartDir,
+    tenantId: chartAndApps.tenantId,
+    clientId: chartAndApps.clientId,
     chartProjectId: chartAndApps.chart.projectId,
     chartProjectName: chartAndApps.chart.projectName,
   }
-  const { chart } = chartAndApps
+  const { chart, tenantId, clientId } = chartAndApps
+  const updateBranch = buildUpdateBranch(tenantId, clientId)
 
   try {
     // MRタイトルをコミットメッセージにもそのまま使い回す
-    const mrTitle = buildMrTitle(plans)
+    const mrTitle = buildMrTitle(tenantId, clientId, plans)
     await commitFileUpdates(
       gitlab,
       chart.projectId,
-      UPDATE_BRANCH,
+      updateBranch,
       chart.mrTargetBranch,
       mrTitle,
       files,
@@ -65,7 +68,7 @@ async function applyUpdate(
     await createMergeRequest(
       gitlab,
       chart.projectId,
-      UPDATE_BRANCH,
+      updateBranch,
       chart.mrTargetBranch,
       mrTitle,
       await buildMrDescription(gitlab, plans),

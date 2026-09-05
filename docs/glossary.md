@@ -28,9 +28,9 @@
 
 ### テナント / クライアント
 
-- **英語識別子**: `tenantId` / `clientId`（ディレクトリパス上のみ）
-- **定義**: 同一chartリポジトリ配下でアプリ設定をさらに分割管理する単位。`config/<chart>/<tenantId>/<clientId>/config.yaml`というディレクトリ階層で表現される。
-- **表記ゆれ**: `AppConfig`/`ChartAndApps`型にはtenantId/clientIdに対応するフィールドが存在しない。ディレクトリを走査してファイルを見つけるためだけに使われ、パース後の値としては保持されない。
+- **英語識別子**: `tenantId` / `clientId`（`TenantId`/`ClientId`ブランド型、`ChartAndApps`のフィールド）
+- **定義**: 同一chartリポジトリ配下でアプリ設定をさらに分割管理する単位。`config/<chart>/<tenantId>/<clientId>/config.yaml`というディレクトリ階層で表現される。MRを作成する単位でもある（T-019）。
+- **表記ゆれ（解消済み）**: 当初`AppConfig`/`ChartAndApps`型にはtenantId/clientIdに対応するフィールドが存在せず、ディレクトリを走査してファイルを見つけるためだけに使われるディレクトリ名（永続化されないもの）だった。T-019でMRの粒度をtenantId/clientId単位に変更したのに伴い、`ChartAndApps.tenantId`/`ChartAndApps.clientId`として`TenantId`/`ClientId`ブランド型で保持するようになった。
 
 ### config.yaml / anchors.yaml
 
@@ -172,9 +172,10 @@
 
 ### 固定ブランチ
 
-- **英語識別子**: `UPDATE_BRANCH`（値は`yadokari/update`）
-- **定義**: chartAndApps単位でMRを送るために使い回す、全chartAndApps共通の固定ブランチ名。
-- **補足**: 要件定義の検討初期段階では`yadokari/<アプリ名>`というアプリ単位のブランチ名案だったが、議論の末に「chartAndApps単位で固定」の現行仕様に変更された。この変遷は確定版の`docs/requirements.md`には残っていない。
+- **英語識別子**: `buildUpdateBranch(tenantId, clientId)`（値は`feature/yadokari/<tenantId>/<clientId>`）
+- **定義**: 1つのchartAndApps（`(chartリポジトリ, tenantId, clientId)`単位）でMRを送るために使い回す固定ブランチ名。tenantId/clientIdごとに異なる値になる。
+- **補足**: 要件定義の検討初期段階では`yadokari/<アプリ名>`というアプリ単位のブランチ名案だったが、議論の末に「chartリポジトリ単位で固定（`yadokari/update`）」に変更され、さらにT-019で「`(chartリポジトリ, tenantId, clientId)`単位」に変更された（同じchartリポジトリに複数のtenantId/clientIdが乗る場合、クライアントごとに独立したブランチ・MRになる）。以前は`UPDATE_BRANCH`という固定値のエクスポートだったが、tenantId/clientIdごとに値が変わるようになったため関数に変わった。
+- **バグ修正（T-021）**: 要件定義には元々「マージまたはクローズされた後の実行で、改めて固定ブランチを作り直しMRを作成する」と明記されていたが、実装（`commitFileUpdates()`）はブランチが存在する場合は削除せず追加コミットを積むだけだった。`filterTargets`が「このブランチにオープン中のMRが無い」ことを確認済みという前提を活かし、ブランチが存在すれば`deleteBranch()`で無条件に削除してから作り直すよう修正した。
 
 ### mrTargetBranch
 

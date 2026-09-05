@@ -3,8 +3,10 @@ import {
   toAnchorName,
   toBranchName,
   toChartDirName,
+  toClientId,
   toProjectId,
   toProjectName,
+  toTenantId,
   toValuesPath,
 } from "../src/types.js"
 
@@ -27,14 +29,20 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
   }
 }
 
-export function makeChartAndApps(apps: AppConfig[]): ChartAndApps {
+export function makeChartAndApps(
+  apps: AppConfig[],
+  overrides: Partial<Pick<ChartAndApps, "chartDir" | "tenantId" | "clientId">> = {},
+): ChartAndApps {
   return {
     chartDir: toChartDirName("teamA-chart"),
+    tenantId: toTenantId("tenantId1"),
+    clientId: toClientId("clientId1"),
     chart: {
       projectId: toProjectId(100),
       projectName: toProjectName("teamA-chart"),
       mrTargetBranch: toBranchName("develop"),
     },
     apps,
+    ...overrides,
   }
 }

@@ -114,10 +114,10 @@
   {
     "id": "T-015",
     "task": "更新ブランチ名の仕様を見直す。現状は`UPDATE_BRANCH`（\"yadokari/update\"）固定の1本で、chartリポジトリ単位にこのブランチへコミットを積みMRを作る。ユーザーの問題意識: 通常のpipeline schedulesによる定期実行に加えて、ユーザーが手動でこのCLIをトリガーしたい場合もありそうで、その際に定期実行分と同じ固定ブランチへ積んでしまうと意図せず混ざる（例: 定期実行のMRがまだレビュー中のところへ手動実行のコミットが追加されてしまう、手動実行のたたき台を定期実行が上書きする、など）。/grillingで要件を詰める。未確定な論点: 手動トリガーと定期実行をどう区別するか（環境変数・CLI引数・実行コンテキストの検知など）、ブランチ名をどう分けるか（固定2種類、都度ユニークな名前、ユーザー指定可能にする等）、既存の「固定ブランチにオープン中のMRがあればそのchartグループをスキップする」（filterTargetsの`openMergeRequestExists`）仕組みや「既存の固定ブランチを削除して作り直す」運用とどう整合させるか、ブランチが複数になった場合のstale化したブランチの掃除方針",
-    "status": "todo",
-    "passes": false,
-    "evidence": "",
-    "dependencies": []
+    "status": "done",
+    "passes": true,
+    "evidence": "ユーザー判断によりクローズ（コード変更なし）。T-021のセッションでユーザーから「T-015はもはや問題ないんじゃないか。定期実行後に手動実行したくなったら、定期実行されて作られたMRを閉じればいいから」との指摘。T-021で「MRが存在せずブランチが存在する場合は削除する」仕様（`deleteBranch()`）を実装したことで、MRを閉じれば次回実行時に固定ブランチが自動的に削除・作り直されるようになり、定期実行と手動実行が同じブランチに混ざる懸念は「先に該当MRを閉じる」という運用でカバーできると判断。手動/定期実行を区別する仕組み自体は導入しないことで決着",
+    "dependencies": ["T-021"]
   },
   {
     "id": "T-016",
@@ -142,5 +142,29 @@
     "passes": true,
     "evidence": "src/types.tsにTagFormatブランド型・toTagFormat()を追加。src/lib/gitlab/tag.tsを全面改修: DEFAULT_TAG_FORMAT（\"{branch}-build-at-{date}-{time}\"）・validateTagFormat()（{branch}/{date}/{time}をちょうど1回ずつ含むか検証、未知プレースホルダは拒否）を新設し、buildTagPrefix()を削除してbuildNewTag()/parseTag()/findLatestParsedTag()を第3引数format: TagFormatを取る形に変更（parseTagは名前付きキャプチャグループ(?<date>)/(?<time>)を使い、{branch}はテンプレート中の位置に関わらずリテラル一致させることでプレースホルダの並び替えに対応）。src/lib/env.tsにparseTagFormat()（未指定時はDEFAULT_TAG_FORMATを適用してvalidateTagFormat()に委譲）とTAG_FORMAT定数を追加。tagFormatをsrc/steps/sub-steps/build-plans/resolve-latest-tag.ts→src/steps/build-plans.ts（buildAppUpdatePlan/buildPlan/process/buildPlans）→src/main.tsまで明示的な引数として貫通（他の環境変数と同じ明示引数渡しのスタイルに統一、デフォルト引数は使わない）。test/lib/gitlab/tag.test.ts（validateTagFormatの正常系・異常系6件、カスタムフォーマットでのparseTag/buildNewTagのテストを追加、buildTagPrefixのテストは削除）・test/lib/env.test.ts（parseTagFormatの3テスト追加）・test/steps/build-plans.test.ts（tagFormatにカスタムフォーマットを渡すとcreateTag/latestTagがその形式になることを確認する1テストを追加、既存の全buildPlans()呼び出しにDEFAULT_TAG_FORMAT引数を追加）・test/main.test.tsのenv.jsモックにTAG_FORMATを追加。README.md（タグ命名規則節にTAG_FORMATの説明と運用注意点、環境変数表・CI/CD変数表に追加）・.env.example・.gitlab-ci.yml（spec.inputs.TAG_FORMATと variables.TAG_FORMAT）・docs/requirements.md（4.1節）・docs/requirements-grilling.md（新ラウンドとして設定粒度・柔軟性レベルの決定経緯を記録）・docs/glossary.md（タグ命名規則の定義更新）・docs/architecture.mdのtag.ts説明を更新。pnpm check（tsc/oxlint/oxfmt/vitest 264テスト）通過",
     "dependencies": ["T-002"]
+  },
+  {
+    "id": "T-019",
+    "task": "MRを出す単位を「chartリポジトリ単位」から「(chartリポジトリ, tenantId, clientId)単位（clientIdごと）」に変更する要件を/grillingで詰める。ユーザー提案「MRを出す単位をclientIdごとにしようと思うんだけどどうかな?」を受け、動機（マージしたいclientと保留したいclientがいそう＝クライアントごとに独立してマージ判断・保留できるようにしたい）を確認したうえで実施。実装は含まない、要件定義のみ（T-013→T-016と同じ進め方）",
+    "status": "done",
+    "passes": true,
+    "evidence": "/grillingを3ラウンド実施し要件を確定。確定事項: (1)MRの粒度をchartリポジトリ単位→(chartディレクトリ,tenantId,clientId)単位に変更。1つのchartリポジトリに複数のtenantId/clientIdがある場合、クライアントごとに独立したブランチ・MRになる。(2)ブランチ名を固定値yadokari/update廃止→feature/yadokari/<tenantId>/<clientId>に変更。(3)tenantId/clientIdがGitLabブランチ名として不正な文字を含む場合の追加バリデーションは行わず、既存の非fatalエラー時ERROR方針に委ねる。(4)MRタイトルをAuto MR by yadokari: update ${tenantId}/${clientId} ${N} app image tag(s)に変更。(5)オールオアナッシングの範囲をchartリポジトリ全体→そのクライアント内の全アプリに縮小（本変更の主目的）。(6)既存MRオープン中のスキップ判定もクライアントの固定ブランチ単位に変更。(7)異なるclientが同じvalues.yamlを共有するケースは追加バリデーションせず既知の制限としてドキュメントに明記のみ。(8)CONCURRENCY_LIMITの意味を「chartリポジトリの同時処理数」→「(chartディレクトリ,tenantId,clientId)単位の同時処理数」に定義し直し、2段階の同時実行数制御は導入しない。(9)同じtenantId/clientIdが複数chartディレクトリにまたがるケースは従来からchartディレクトリ単位で別MRだったため影響なし。ユーザーに最終確認済み（「OK。お願い。」）。docs/requirements-grilling.mdに新ラウンド「MRの分割単位をtenantId/clientId単位に変更（T-019）」として記録。docs/requirements.md 2.1節（MRの単位の記述）・用語表（テナント/クライアント行）・4.2節（更新ワークフロー全面書き換え）・4.3節（オールオアナッシング範囲・並列実行数の定義）を更新。docs/glossary.md・docs/architecture.md・実際のコード（src/types.ts、src/lib/config.ts、src/lib/gitlab/gitlab.ts等）は未着手（実装は別タスクに切り出す）",
+    "dependencies": ["T-002"]
+  },
+  {
+    "id": "T-020",
+    "task": "T-019で確定した「MRを(chartリポジトリ, tenantId, clientId)単位に分割する」要件を実装する。ChartAndApps型にtenantId/clientIdを追加し、config.tsのグルーピングをtenantId/clientIdごとの独立エントリに変更、ブランチ名をfeature/yadokari/<tenantId>/<clientId>に、MRタイトルをAuto MR by yadokari: update ${tenantId}/${clientId} ${N} app image tag(s)に変更する",
+    "status": "done",
+    "passes": true,
+    "evidence": "src/types.tsにTenantId/ClientIdブランド型（toTenantId/toClientId）を追加し、ChartAndAppsにtenantId/clientIdフィールドを追加（JSDocも「MRを作成する単位」に更新）。src/lib/config.tsのloadApps()をloadClientChartAndApps()にリネーム・全面改修し、tenantId/clientIdごとに独立したChartAndAppsを1件返す形に変更（以前はchartDir配下の全tenantId/clientIdを1つのapps配列に集約していた）。config.yamlが存在しないtenant/clientディレクトリからはChartAndApps自体を作らない（before: 空appsのChartAndAppsを1件作っていた）。loadConfig()もflatMapベースに書き換え。src/lib/gitlab/gitlab.tsのUPDATE_BRANCH定数（固定値yadokari/update）を削除し、buildUpdateBranch(tenantId, clientId)関数（feature/yadokari/<tenantId>/<clientId>）に置き換え。buildMrTitle()にtenantId/clientId引数を追加しタイトルにAuto MR by yadokari: update ${tenantId}/${clientId} ${N} app image tag(s)を組み込み。src/steps/filter-targets.ts・apply-updates.ts・build-plans.tsのlogContextにtenantId/clientIdを追加、branchをbuildUpdateBranch()経由で取得するよう変更。test/helpers.tsのmakeChartAndApps()にtenantId/clientId（デフォルトtenantId1/clientId1）とoverrides引数を追加。test/lib/config.test.ts（複数tenant/clientの集約テストを「別々のChartAndAppsになる」に書き換え、target絞り込みテストを新しい粒度に合わせて修正、config.yaml不在テストをChartAndApps自体が作られないことの確認に変更、6テスト修正）・test/lib/gitlab/gitlab.test.ts（UPDATE_BRANCH→buildUpdateBranchのテストに置き換え、buildMrTitleのテストにtenantId/clientId引数を追加）・test/steps/apply-updates.test.ts（buildUpdateBranch/buildMrTitleの自動モックにvi.mocked().mockReturnValue()で戻り値を明示的にスタブ、ブランチ名アサーションをfeature/yadokari/tenantId1/clientId1に更新）・test/steps/filter-targets.test.ts（buildUpdateBranchのモック実装を追加、tenantId/clientIdを含むブランチで判定することの確認テストと、同じchartリポジトリでも異なるclientが独立して判定される（片方にオープン中MRがあっても他方はブロックしない）ことを確認する新規テストを追加）を更新。README.md（Features・仕組みのmermaid図と説明文・実行ログ例・環境変数表・エラーハンドリング表）・.gitlab-ci.yml（CONCURRENCY_LIMITの説明文言）・docs/architecture.md（gitlab.ts/config.tsの責務説明、loadApps→loadClientChartAndAppsのリネーム反映、buildChartUpdate()という別セッションからの古い関数名参照も合わせて修正）・docs/glossary.md（「固定ブランチ」「テナント/クライアント」項目を新設計に更新）を更新。pnpm check（tsc/oxlint/oxfmt/vitest 266テスト）通過。gitlab.com実機での動作確認は未実施（次回実施するなら、1つのchartディレクトリ配下に複数tenantId/clientIdを持つテスト用config構成が必要）",
+    "dependencies": ["T-019"]
+  },
+  {
+    "id": "T-021",
+    "task": "ユーザー指摘（「T-015はもはや問題ないんじゃないか、定期実行後に手動実行したければMRを閉じればいい。ただしMRをクローズしてもブランチが残り続ける仕様になっているなら、MRが存在せずブランチが存在する場合は削除する仕様にしたい」）を受けて、既存の固定ブランチの再作成漏れバグを修正する。docs/requirements.mdには元々「マージまたはクローズされた後の実行で、改めて固定ブランチを作り直しMRを作成する」と明記されていたが、実装（commitFileUpdates()）はブランチが存在する場合は削除せず追加コミットを積むだけだった",
+    "status": "done",
+    "passes": true,
+    "evidence": "src/lib/gitlab/gitlab.tsにdeleteBranch(gitlab, projectId, branch)（gitlab.Branches.remove()のラッパー）を新設。commitFileUpdates()を全面改修: 呼び出し元（filterTargets）が「このブランチにオープン中のMRが無い」ことを確認済みという前提を明文化し、branchExists()がtrueならdeleteBranch()で削除してからbaseBranchを起点に作り直すよう変更（以前はexists ? branch : baseBranchという参照先ブランチの出し分けで追加コミットしていた）。ファイルごとのaction（create/update）判定も、ブランチを必ず作り直す前提のため常にbaseBranch基準に単純化（従来のexists変数によるreferenceBranch分岐を削除）。commit時のstartBranchオプションも常に指定するよう単純化（以前はexists ? {} : {startBranch: baseBranch}だった）。test/lib/gitlab/gitlab.test.tsのcommitFileUpdatesテストを新仕様に書き換え（「ブランチが存在しないとき、削除せずbaseBranchから新規作成する」「ブランチが既に存在するとき、削除してからbaseBranchを起点に作り直す」「actionの判定は常にbaseBranch側のファイル存在有無で行う」の3テストに再編、makeClientヘルパーのBranches型にremoveを追加）、deleteBranch単体のテストを追加。docs/requirements.md 4.2節（削除してから作り直す旨とT-021参照を追記）・docs/requirements-grilling.md（新ラウンドとして経緯を記録）・docs/architecture.md（gitlab.tsの責務説明を更新、ついでに前セッションの編集でoxfmtの多段階整形により3階層ネストのリストが1階層に潰れて壊れていたのを修正）・docs/glossary.mdの「固定ブランチ」項目を更新。pnpm check（tsc/oxlint/oxfmt/vitest 267テスト）通過",
+    "dependencies": ["T-020"]
   }
 ]

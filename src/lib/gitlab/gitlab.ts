@@ -3,6 +3,7 @@ import { Gitlab } from "@gitbeaker/rest"
 import type {
   AppUpdatePlan,
   BranchName,
+  ClientId,
   FileUpdate,
   GitLabUrl,
   HelmTargetBranchUpdate,
@@ -12,6 +13,7 @@ import type {
   ProjectId,
   TagInfo,
   TagName,
+  TenantId,
   ValuesPath,
 } from "../../types.js"
 import { toBranchName, toGitLabUrl, toTagName } from "../../types.js"
@@ -21,8 +23,14 @@ import { withRetry } from "../../utils/retry.js"
 
 export type GitlabClient = InstanceType<typeof Gitlab>
 
-/** 全chartリポジトリで共通の固定ブランチ名。chartリポジトリ単位で1つのMRに集約するため使い回す */
-export const UPDATE_BRANCH: BranchName = toBranchName("yadokari/update")
+/**
+ * 1つの`(chartリポジトリ, tenantId, clientId)`分の更新に使う固定ブランチ名（T-019）。
+ * 同じGitLabプロジェクト内で複数のtenantId/clientIdのMRが共存するため、IDをブランチ名に
+ * 含めて分離する。
+ */
+export function buildUpdateBranch(tenantId: TenantId, clientId: ClientId): BranchName {
+  return toBranchName(`feature/yadokari/${tenantId}/${clientId}`)
+}
 
 export function createClient(host: GitLabUrl, token: string): GitlabClient {
   return new Gitlab({ host, token })
@@ -57,6 +65,15 @@ export async function branchExists(
       return true
     }, false),
   )
+}
+
+/** 指定ブランチを削除する */
+export async function deleteBranch(
+  gitlab: GitlabClient,
+  projectId: ProjectId,
+  branch: BranchName,
+): Promise<void> {
+  await withRetry(() => gitlab.Branches.remove(projectId, branch))
 }
 
 /** 指定ブランチの現在のHEADコミットSHAを返す。ブランチが存在しない場合は undefined */
@@ -108,14 +125,14 @@ export async function openMergeRequestExists(
 type CommitAction = { action: "create" | "update"; filePath: ValuesPath; content: string }
 
 /**
- * 固定ブランチへコミットを作成する。ブランチが存在しない場合は baseBranch から新規作成する。
- * 既存ブランチへのコミットは追加コミットとして積む。
+ * 固定ブランチへコミットを作成する。呼び出し元（`filterTargets`）が、このブランチに
+ * オープン中のMRが無いことを既に確認済みである前提のため、ブランチが既に存在する場合は
+ * （マージ済み・クローズ済みいずれのMRの残骸であっても）一旦削除し、`baseBranch` から
+ * 常に新規作成し直す（T-021）。これにより、過去の（もう追跡していない）変更が新しいMRの
+ * 差分に紛れ込むことを防ぐ。
  *
- * ファイルごとの action（create/update）は、参照先ブランチ（ブランチが既に存在すればそれ自身、
- * まだ無ければ baseBranch）に該当ファイルが既に存在するかで判定する。固定ブランチ自体は
- * 存在してもファイルは無い、というケースがあり得るため（例: MRがクローズされブランチが
- * 残ったまま、新しくvaluesPathが増えたアプリが追加された場合）、「ブランチが存在するか」だけで
- * 全ファイルのactionを決め打ちしない
+ * ファイルごとの action（create/update）は、常に `baseBranch` に該当ファイルが既に
+ * 存在するかで判定する（ブランチを作り直す前提のため、判定基準は常に `baseBranch` でよい）。
  */
 export async function commitFileUpdates(
   gitlab: GitlabClient,
@@ -125,11 +142,12 @@ export async function commitFileUpdates(
   message: string,
   files: readonly FileUpdate[],
 ): Promise<void> {
-  const exists = await branchExists(gitlab, projectId, branch)
-  const referenceBranch = exists ? branch : baseBranch
+  if (await branchExists(gitlab, projectId, branch)) {
+    await deleteBranch(gitlab, projectId, branch)
+  }
   const actions = await Promise.all(
     files.map(async (file): Promise<CommitAction> => {
-      const currentContent = await getFileContent(gitlab, projectId, file.filePath, referenceBranch)
+      const currentContent = await getFileContent(gitlab, projectId, file.filePath, baseBranch)
       return {
         action: currentContent === undefined ? "create" : "update",
         filePath: file.filePath,
@@ -138,13 +156,7 @@ export async function commitFileUpdates(
     }),
   )
   await withRetry(() =>
-    gitlab.Commits.create(
-      projectId,
-      branch,
-      message,
-      actions,
-      exists ? {} : { startBranch: baseBranch },
-    ),
+    gitlab.Commits.create(projectId, branch, message, actions, { startBranch: baseBranch }),
   )
 }
 
@@ -204,8 +216,12 @@ export async function getLatestPipelineForRef(
   })
 }
 
-export function buildMrTitle(plans: readonly AppUpdatePlan[]): string {
-  return `Auto MR by yadokari: update ${plans.length} app image tag(s)`
+export function buildMrTitle(
+  tenantId: TenantId,
+  clientId: ClientId,
+  plans: readonly AppUpdatePlan[],
+): string {
+  return `Auto MR by yadokari: update ${tenantId}/${clientId} ${plans.length} app image tag(s)`
 }
 
 function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): string {

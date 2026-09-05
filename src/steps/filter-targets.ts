@@ -1,4 +1,8 @@
-import { type GitlabClient, UPDATE_BRANCH, openMergeRequestExists } from "../lib/gitlab/gitlab.js"
+import {
+  type GitlabClient,
+  buildUpdateBranch,
+  openMergeRequestExists,
+} from "../lib/gitlab/gitlab.js"
 import type { ChartAndApps, ChartUpdateResult } from "../types.js"
 import { FatalError } from "../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
@@ -43,6 +47,8 @@ async function alreadyMrExists(
   const logContext = {
     event: "update_chart",
     chartDir: chartAndApps.chartDir,
+    tenantId: chartAndApps.tenantId,
+    clientId: chartAndApps.clientId,
     chartProjectId: chartAndApps.chart.projectId,
     chartProjectName: chartAndApps.chart.projectName,
   }
@@ -53,7 +59,8 @@ async function alreadyMrExists(
   }
 
   try {
-    if (await openMergeRequestExists(gitlab, chartAndApps.chart.projectId, UPDATE_BRANCH)) {
+    const branch = buildUpdateBranch(chartAndApps.tenantId, chartAndApps.clientId)
+    if (await openMergeRequestExists(gitlab, chartAndApps.chart.projectId, branch)) {
       logger.info({ ...logContext, result: "SKIPPED", reason: "mr_exists" })
       return { status: "settled", result: "SKIPPED" }
     }

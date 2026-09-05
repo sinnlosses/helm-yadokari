@@ -52,6 +52,20 @@ export function toChartDirName(s: string): ChartDirName {
   return s as ChartDirName
 }
 
+declare const tenantIdBrand: unique symbol
+/** `config/<chartDir>/<tenantId>/`ディレクトリ名。MRを作成する単位の一部（T-019） */
+export type TenantId = string & { readonly [tenantIdBrand]: never }
+export function toTenantId(s: string): TenantId {
+  return s as TenantId
+}
+
+declare const clientIdBrand: unique symbol
+/** `config/<chartDir>/<tenantId>/<clientId>/`ディレクトリ名。MRを作成する単位の一部（T-019） */
+export type ClientId = string & { readonly [clientIdBrand]: never }
+export function toClientId(s: string): ClientId {
+  return s as ClientId
+}
+
 declare const anchorNameBrand: unique symbol
 /**
  * values.yaml内のYAMLアンカー名（例: `&tenant1client1AppsVersion`の`tenant1client1AppsVersion`
@@ -136,11 +150,15 @@ export type ChartRepoConfig = {
 }
 
 /**
- * config/<chartリポジトリ>/ 配下1つ分。chart.yaml + そのディレクトリ配下で見つかった全
- * config.yaml（+ 同じディレクトリのanchors.yaml）の集約
+ * `config/<chartリポジトリ>/<tenantId>/<clientId>/`1つ分。chart.yamlの情報＋その
+ * tenantId/clientIdディレクトリのconfig.yaml（+同じディレクトリのanchors.yaml）から
+ * 得たアプリ一覧の集約。MRを作成する単位（T-019）でもあり、`tenantId`/`clientId`が
+ * 異なれば同じchartリポジトリでも別のChartAndApps（＝別ブランチ・別MR）になる
  */
 export type ChartAndApps = {
   readonly chartDir: ChartDirName
+  readonly tenantId: TenantId
+  readonly clientId: ClientId
   readonly chart: ChartRepoConfig
   readonly apps: readonly AppConfig[]
 }

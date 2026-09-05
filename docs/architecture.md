@@ -76,10 +76,18 @@
   - `gitlab/`: GitLabという技術に依存する処理をまとめたディレクトリ
     - `gitlab.ts`: `@gitbeaker/rest` のラッパー。タグ一覧取得・作成・ファイル取得・MR作成・
       タグに紐づく最新パイプライン取得など。404を特定の戻り値（`false`/`undefined`）に変換する
-      箇所は `withNotFoundFallback()` に共通化している。全ステップ共通の固定ブランチ名
-      `UPDATE_BRANCH`、MRのタイトル・本文組み立て（`buildMrTitle()`/`buildMrDescription()`。
-      タグへのリンク（`-/tags/...`）・旧タグ→新タグの比較リンク（`-/compare/...`）が
-      GitLabのURL構造に依存するため、GitLab固有の関心事としてここに置く）もこのファイルが持つ
+      箇所は `withNotFoundFallback()` に共通化している。固定ブランチ名を組み立てる
+      `buildUpdateBranch(tenantId, clientId)`（T-019、`feature/yadokari/<tenantId>/<clientId>`
+      形式）、MRのタイトル・本文組み立て（`buildMrTitle(tenantId, clientId, plans)`/
+      `buildMrDescription()`。タグへのリンク（`-/tags/...`）・旧タグ→新タグの比較リンク
+      （`-/compare/...`）がGitLabのURL構造に依存するため、GitLab固有の関心事としてここに
+      置く）もこのファイルが持つ
+    - `deleteBranch()`もこのファイルが持つ。`commitFileUpdates()`は呼び出し元
+      （`filterTargets`）が「このブランチにオープン中のMRが無い」ことを確認済みという前提で、
+      既存ブランチがあれば削除してから`baseBranch`（`mrTargetBranch`）を起点に作り直す
+      （T-021。以前は既存ブランチへ追加コミットを積むだけで、要件定義に明記されていた
+      「改めてブランチを作り直す」が実装されていなかった）。ファイルごとのaction
+      （create/update）判定も、ブランチを必ず作り直す前提のため常に`baseBranch`基準にした
     - `tag.ts`: このツールのタグ命名規則（`docs/requirements.md` 4.1節）のパース・最新タグ判定・
       新規タグ名の組み立てに加え、`TAG_FORMAT`環境変数のテンプレート文字列（`{branch}`/`{date}`/
       `{time}`プレースホルダ）を検証する`validateTagFormat()`も持つ。外部システム・ファイルへの
@@ -95,18 +103,23 @@
     ブランチの値`helm.branchToSync`）のみを持ち、`anchors.yaml`はchart構造
     （`valuesPath`+`anchor`の書き込み先一覧。app単位の`projectId`/`projectName`も重複して
     持つ）のみを持つ（T-017、あまり変更されないchart構造と、頻繁に変更される運用値を
-    別ファイルに分離する狙い）。両者は`loadApps()`内の`validateProjectLinkage()`が
+    別ファイルに分離する狙い）。両者は`loadClientChartAndApps()`内の`validateProjectLinkage()`が
     `projectId`をキーに突き合わせ、(1) `config.yaml`の各appに対応する`anchors.yaml`側の
     エントリが無い、(2) 逆に`anchors.yaml`に`config.yaml`側に存在しない孤児エントリが
     ある、(3) 同じ`projectId`なのに`projectName`が一致しない、の3パターンを設定ミスとして
-    例外をスローする。`loadConfig()` は第2引数に`ConfigTarget`（`TARGET_CHART_DIR`由来の
+    例外をスローする。`loadClientChartAndApps()`はtenantId/clientIdごとに独立した
+    `ChartAndApps`を1件返す（T-019、MRを作成する単位に対応。以前はchartディレクトリ配下の
+    全tenantId/clientIdを1つの`ChartAndApps`に集約していた）。`config.yaml`が存在しない
+    tenant/clientディレクトリからは`ChartAndApps`自体を作らない。`loadConfig()` は
+    第2引数に`ConfigTarget`（`TARGET_CHART_DIR`由来の
     chartDir、`TARGET_CLIENT`由来の`TargetClient`（tenantId/clientIdの組）配列）を受け取り、
     指定があればそのchart・tenant/clientの組のみに絞り込む。`TARGET_CLIENT`はカンマ区切りで
     複数のtenant/client組を指定できる。config/のディレクトリ構成に対するフィルタなので
     このファイルの責務とし、指定した組のいずれか1件でも見つからない場合は例外をスローする
     （`docs/requirements.md` 4.5節）。`config.yaml`のトップレベル`helm.branchToSync`
     （tenantId/clientId単位に1件）と`anchors.yaml`のトップレベル`helm.chart[]`
-    （書き込み先一覧）は、`loadApps()`内の`resolveHelmTargetBranch()`が`valuesPath`の一致で
+    （書き込み先一覧）は、`loadClientChartAndApps()`内の`resolveHelmTargetBranch()`が
+    `valuesPath`の一致で
     app単位の`AppConfig.helmTargetBranch`に振り分ける（app側には専用フィールドを持たせず、
     `helm.chart[].valuesPath`とapp自身の`chart[].valuesPath`が一致する要素だけを`targets`
     として集約）。Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、
@@ -175,7 +188,8 @@
   `docs/requirements.md` 4.3節の「chartリポジトリ間は失敗しても他は継続する」という記述は
   一般的なエラーを指しており、GitLab側の認証切れ・障害のような全chart共通の致命的エラーに
   対しては、無駄なAPI呼び出しを避けるためこの例外を設けている（gitlab-watari-dori由来のパターン）
-- 同一chartリポジトリ内の複数アプリの処理（タグ取得・パイプライン取得等）は `buildChartUpdate()`
-  （`src/steps/build-plans.ts` の非公開関数）内で逐次実行している。`docs/requirements.md` 4.3節の並列実行制御
-  （`p-limit`）は現状chartAndApps単位（`filterTargets`/`buildPlans`/`applyUpdates`それぞれ）
-  のみに適用しており、1chartAndApps内のアプリ単位までは並列化していない
+- 同一`(chartリポジトリ, tenantId, clientId)`内の複数アプリの処理（タグ取得・パイプライン
+  取得等）は `buildPlan()`（`src/steps/build-plans.ts` の非公開関数）内で逐次実行している。
+  `docs/requirements.md` 4.3節の並列実行制御（`p-limit`）は現状chartAndApps単位
+  （`filterTargets`/`buildPlans`/`applyUpdates`それぞれ）のみに適用しており、
+  1chartAndApps内のアプリ単位までは並列化していない

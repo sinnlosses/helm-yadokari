@@ -7,6 +7,8 @@ import type {
   AppConfig,
   BranchName,
   ChartAndApps,
+  ChartDirName,
+  ChartRepoConfig,
   Config,
   HelmTargetBranchConfig,
   HelmTargetBranchTarget,
@@ -19,8 +21,10 @@ import {
   toAnchorName,
   toBranchName,
   toChartDirName,
+  toClientId,
   toProjectId,
   toProjectName,
+  toTenantId,
   toValuesPath,
 } from "../types.js"
 import { assertSafePath, listSubdirectories } from "../utils/fs.js"
@@ -202,10 +206,17 @@ export type ConfigTarget = {
 
 /**
  * config.yaml は `<chartDir>/<tenantId>/<clientId>/config.yaml` の2階層固定で配置される。
- * 該当ファイルが存在しない tenant/client は空扱いとする。同じディレクトリの`anchors.yaml`
- * とprojectId単位で結合し、両ファイル間の紐づけ矛盾（`validateProjectLinkage()`）を検証する。
+ * 同じディレクトリの`anchors.yaml`とprojectId単位で結合し、両ファイル間の紐づけ矛盾
+ * （`validateProjectLinkage()`）を検証する。tenantId/clientIdごとに独立した`ChartAndApps`を
+ * 1件返す（T-019、MRを作成する単位に対応）。該当する`config.yaml`が存在しないtenant/client
+ * ディレクトリからは`ChartAndApps`を作らない（空扱いのMR単位を作らないため）。
  */
-function loadApps(chartDirPath: string, target: ConfigTarget): AppConfig[] {
+function loadClientChartAndApps(
+  chartDirPath: string,
+  chartDir: ChartDirName,
+  chart: ChartRepoConfig,
+  target: ConfigTarget,
+): ChartAndApps[] {
   const tenantIds = listSubdirectories(chartDirPath).filter(
     (id) => !target.clients || target.clients.some((c) => c.tenantId === id),
   )
@@ -215,7 +226,7 @@ function loadApps(chartDirPath: string, target: ConfigTarget): AppConfig[] {
       (id) =>
         !target.clients || target.clients.some((c) => c.tenantId === tenantId && c.clientId === id),
     )
-    return clientIds.flatMap((clientId) => {
+    return clientIds.flatMap((clientId): ChartAndApps[] => {
       const clientDirPath = join(tenantDirPath, clientId)
       const configYamlPath = join(clientDirPath, "config.yaml")
       const anchorsPath = join(clientDirPath, "anchors.yaml")
@@ -228,27 +239,37 @@ function loadApps(chartDirPath: string, target: ConfigTarget): AppConfig[] {
       const anchorAppByProjectId = new Map(
         anchors.apps.map((anchorApp) => [anchorApp.projectId, anchorApp]),
       )
-      return apps.map((app) => {
+      const appConfigs: AppConfig[] = apps.map((app) => {
         const anchorApp = anchorAppByProjectId.get(app.projectId)
         if (anchorApp === undefined) {
           throw new Error(
             `internal error: validateProjectLinkage を通過したのに projectId ${app.projectId} が見つからない`,
           )
         }
-        const { chart } = anchorApp
+        const { chart: appChart } = anchorApp
         return {
           ...app,
-          chart,
+          chart: appChart,
           helmTargetBranch: resolveHelmTargetBranch(
             configYamlPath,
             anchorsPath,
             helm?.branchToSync,
             anchors.helmChart,
             app.projectName,
-            chart,
+            appChart,
           ),
         }
       })
+
+      return [
+        {
+          chartDir,
+          tenantId: toTenantId(tenantId),
+          clientId: toClientId(clientId),
+          chart,
+          apps: appConfigs,
+        },
+      ]
     })
   })
 }
@@ -269,7 +290,9 @@ function clientDirExists(
  * （+ 同じディレクトリの`anchors.yaml`）という2階層固定のディレクトリ構成を再帰的に
  * 読み込む。chart.yaml のないディレクトリは無視する。`target` を指定すると該当chart/tenant・
  * clientのみに絞り込む。指定した対象がtypo等で1件も見つからない場合は例外をスローする
- * （`target`未指定時は素通しで、0件でもエラーにしない）。
+ * （`target`未指定時は素通しで、0件でもエラーにしない）。tenantId/clientIdごとに独立した
+ * `ChartAndApps`（MRを作成する単位、T-019）を返すため、1つのchartディレクトリに複数の
+ * tenantId/clientIdがあれば`chartAndAppsList`には複数件が並ぶ。
  */
 export function loadConfig(configPath?: string, target: ConfigTarget = {}): Config {
   const path = configPath ?? "config"
@@ -291,15 +314,13 @@ export function loadConfig(configPath?: string, target: ConfigTarget = {}): Conf
     throw new Error(`TARGET_CLIENT で指定された "${missingList}" が見つかりません`)
   }
 
-  const chartAndAppsList = targetChartDirs
-    .map((chartDir): ChartAndApps | undefined => {
-      const chartDirPath = join(path, chartDir)
-      const chartYamlPath = join(chartDirPath, "chart.yaml")
-      if (!existsSync(chartYamlPath)) return undefined
-      const { chart } = parseYamlFile(chartYamlPath, ChartYamlSchema)
-      return { chartDir: toChartDirName(chartDir), chart, apps: loadApps(chartDirPath, target) }
-    })
-    .filter((group): group is ChartAndApps => group !== undefined)
+  const chartAndAppsList = targetChartDirs.flatMap((chartDir): ChartAndApps[] => {
+    const chartDirPath = join(path, chartDir)
+    const chartYamlPath = join(chartDirPath, "chart.yaml")
+    if (!existsSync(chartYamlPath)) return []
+    const { chart } = parseYamlFile(chartYamlPath, ChartYamlSchema)
+    return loadClientChartAndApps(chartDirPath, toChartDirName(chartDir), chart, target)
+  })
 
   return { chartAndAppsList }
 }

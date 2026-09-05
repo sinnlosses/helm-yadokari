@@ -72,6 +72,8 @@ async function process(
   const logContext = {
     event: "update_chart",
     chartDir: chartAndApps.chartDir,
+    tenantId: chartAndApps.tenantId,
+    clientId: chartAndApps.clientId,
     chartProjectId: chartAndApps.chart.projectId,
     chartProjectName: chartAndApps.chart.projectName,
   }

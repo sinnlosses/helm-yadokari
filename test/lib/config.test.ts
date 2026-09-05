@@ -97,6 +97,8 @@ apps:
     expect(chartAndAppsList).toHaveLength(1)
     expect(chartAndAppsList[0]).toEqual({
       chartDir: "teamA-chart",
+      tenantId: "tenantId1",
+      clientId: "clientId1",
       chart: {
         projectId: 888,
         projectName: "teamA-chart",
@@ -123,16 +125,18 @@ apps:
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
+    writeConfigYaml("teamA-chart", "tenantId1", "clientId1", "apps: []\n")
     writeChartYaml(
       "teamB-chart",
       "chart:\n  projectId: 2\n  projectName: teamB-chart\n  mrTargetBranch: main\n",
     )
+    writeConfigYaml("teamB-chart", "tenantId1", "clientId1", "apps: []\n")
 
     const { chartAndAppsList } = loadConfig(tmpDir)
     expect(chartAndAppsList.map((g) => g.chartDir)).toEqual(["teamA-chart", "teamB-chart"])
   })
 
-  it("同じchartディレクトリ配下の複数tenant/clientのconfig.yamlをすべて集約する", () => {
+  it("同じchartディレクトリ配下の複数tenant/clientはそれぞれ別のChartAndAppsになる（T-019）", () => {
     writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -175,8 +179,14 @@ apps:
     )
 
     const { chartAndAppsList } = loadConfig(tmpDir)
-    expect(chartAndAppsList).toHaveLength(1)
-    expect(chartAndAppsList[0]?.apps.map((a) => a.projectName)).toEqual(["app-1", "app-2", "app-3"])
+    expect(chartAndAppsList).toHaveLength(3)
+    expect(
+      chartAndAppsList.map((g) => [g.tenantId, g.clientId, g.apps.map((a) => a.projectName)]),
+    ).toEqual([
+      ["tenantId1", "clientId1", ["app-1"]],
+      ["tenantId1", "clientId2", ["app-2"]],
+      ["tenantId2", "clientId1", ["app-3"]],
+    ])
   })
 
   it("chart.yaml がないディレクトリは無視する", () => {
@@ -185,12 +195,13 @@ apps:
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
+    writeConfigYaml("teamA-chart", "tenantId1", "clientId1", "apps: []\n")
 
     const { chartAndAppsList } = loadConfig(tmpDir)
     expect(chartAndAppsList.map((g) => g.chartDir)).toEqual(["teamA-chart"])
   })
 
-  it("config.yaml が存在しないtenant/clientディレクトリは空扱いにする", () => {
+  it("config.yaml が存在しないtenant/clientディレクトリはChartAndAppsを作らない（T-019）", () => {
     writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -198,7 +209,7 @@ apps:
     mkdirSync(join(tmpDir, "teamA-chart", "tenantId1", "clientId1"), { recursive: true })
 
     const { chartAndAppsList } = loadConfig(tmpDir)
-    expect(chartAndAppsList[0]?.apps).toEqual([])
+    expect(chartAndAppsList).toEqual([])
   })
 
   it("configディレクトリが空のとき chartAndAppsList: [] を返す", () => {
@@ -622,9 +633,14 @@ describe("loadConfig（target絞り込み）", () => {
 
   it("chartDirを指定すると該当chartのみ返す", () => {
     const { chartAndAppsList } = loadConfig(tmpDir, { chartDir: "teamA-chart" })
-    expect(chartAndAppsList).toHaveLength(1)
-    expect(chartAndAppsList[0]?.chartDir).toBe("teamA-chart")
-    expect(chartAndAppsList[0]?.apps.map((a) => a.projectName)).toEqual(["app-1", "app-2"])
+    expect(chartAndAppsList).toHaveLength(2)
+    expect(chartAndAppsList.every((g) => g.chartDir === "teamA-chart")).toBe(true)
+    expect(
+      chartAndAppsList.map((g) => [g.tenantId, g.clientId, g.apps.map((a) => a.projectName)]),
+    ).toEqual([
+      ["tenantId1", "clientId1", ["app-1"]],
+      ["tenantId2", "clientId2", ["app-2"]],
+    ])
   })
 
   it("存在しないchartDirを指定すると例外をスローする", () => {
@@ -648,9 +664,17 @@ describe("loadConfig（target絞り込み）", () => {
         { tenantId: "tenantId2", clientId: "clientId2" },
       ],
     })
-    expect(chartAndAppsList.map((g) => [g.chartDir, g.apps.map((a) => a.projectName)])).toEqual([
-      ["teamA-chart", ["app-1", "app-2"]],
-      ["teamB-chart", ["app-3"]],
+    expect(
+      chartAndAppsList.map((g) => [
+        g.chartDir,
+        g.tenantId,
+        g.clientId,
+        g.apps.map((a) => a.projectName),
+      ]),
+    ).toEqual([
+      ["teamA-chart", "tenantId1", "clientId1", ["app-1"]],
+      ["teamA-chart", "tenantId2", "clientId2", ["app-2"]],
+      ["teamB-chart", "tenantId1", "clientId1", ["app-3"]],
     ])
   })
 

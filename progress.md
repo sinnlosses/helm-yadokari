@@ -1,6 +1,6 @@
 # 現在の状態
 
-最終更新: 2026-09-05（T-018: タグ命名規則の設定可能化セッション）
+最終更新: 2026-09-05（T-021: 固定ブランチ再作成漏れバグ修正セッション）
 
 ## 完了したこと
 
@@ -541,16 +541,118 @@ DRY_RUN=true`で実機再確認
   - 未実施: gitlab.com実機での動作確認（コード変更のみでこのセッションは完了、次回以降に
     やるなら`TAG_FORMAT`にカスタム値を指定した`DRY_RUN=true`実行で確認するとよい）
 
+- **T-019完了**: MRを出す単位を「chartリポジトリ単位」から「(chartリポジトリ, tenantId,
+  clientId)単位（clientIdごと）」に変更する要件を`/grilling`3ラウンドで確定
+  （実装は別タスクに切り出し、本タスクは要件定義のみで完了）
+  - ユーザー提案「MRを出す単位をclientIdごとにしようと思うんだけどどうかな?」を受け、
+    まず動機を確認: 「マージしたいclientと保留したいclientがいそう」＝クライアントごとに
+    独立してマージ判断・保留できるようにしたい
+  - 現状（`config/teamA-chart/tenantId1/clientId1/`等）はどのchartディレクトリも
+    tenantId/clientIdが1組しかなく、この変更をしても既存の実例の挙動は変わらない
+    （将来1つのchartリポジトリに複数クライアントが乗る運用への備え）
+  - 確定事項: (1) MRの粒度を`(chartディレクトリ, tenantId, clientId)`単位に変更。
+    (2) ブランチ名を`yadokari/update`固定から`feature/yadokari/<tenantId>/<clientId>`に変更。
+    (3) tenantId/clientIdの文字種バリデーションは追加せず既存のERROR方針に委ねる。
+    (4) MRタイトルを`Auto MR by yadokari: update ${tenantId}/${clientId} ${N} app image
+tag(s)`に変更。(5) オールオアナッシングの範囲をchartリポジトリ全体→そのクライアント内の
+    全アプリに縮小（本変更の主目的）。(6) 既存MRオープン中のスキップ判定もクライアント単位に。
+    (7) 異なるclientが同じvalues.yamlを共有するケースは既知の制限としてドキュメントに明記の
+    みで追加チェックはしない。(8) `CONCURRENCY_LIMIT`の意味を「chartリポジトリの同時処理数」
+    →「`(chartディレクトリ, tenantId, clientId)`単位の同時処理数」に定義し直し、2段階の
+    同時実行数制御は導入しない。(9) 同じtenantId/clientIdが複数chartディレクトリにまたがる
+    ケースは従来から別MRだったため影響なし
+  - `docs/requirements-grilling.md`に新ラウンド「MRの分割単位をtenantId/clientId単位に
+    変更（T-019）」として記録。`docs/requirements.md`の2.1節・用語表（テナント/クライアント
+    行）・4.2節（更新ワークフロー全面書き換え）・4.3節（オールオアナッシング範囲・並列実行数の
+    定義）を更新
+  - コード実装は未着手。`docs/glossary.md`・`docs/architecture.md`（現在のコードの実装を
+    説明するドキュメントのため）も未更新のまま据え置き、実装タスクで一緒に更新する方針
+    （T-013→T-016の進め方を踏襲）
+
+- **T-020完了**: T-019で確定した要件を実装
+  - `src/types.ts`: `TenantId`/`ClientId`ブランド型（`toTenantId`/`toClientId`）を新設し、
+    `ChartAndApps`に`tenantId`/`clientId`フィールドを追加（JSDocも「MRを作成する単位」に更新）
+  - `src/lib/config.ts`: `loadApps()`を`loadClientChartAndApps()`にリネーム・全面改修し、
+    tenantId/clientIdごとに独立した`ChartAndApps`を1件返す形に変更（以前はchartDir配下の
+    全tenantId/clientIdを1つの`apps`配列に集約していた）。`config.yaml`が存在しない
+    tenant/clientディレクトリからは`ChartAndApps`自体を作らないようにした（以前は空`apps`の
+    `ChartAndApps`を1件作っていた）。`loadConfig()`も`flatMap`ベースに書き換え
+  - `src/lib/gitlab/gitlab.ts`: `UPDATE_BRANCH`定数（固定値`yadokari/update`）を削除し、
+    `buildUpdateBranch(tenantId, clientId)`関数（`feature/yadokari/<tenantId>/<clientId>`）に
+    置き換え。`buildMrTitle()`に`tenantId`/`clientId`引数を追加し、タイトルを
+    `Auto MR by yadokari: update ${tenantId}/${clientId} ${N} app image tag(s)`に変更
+  - `src/steps/filter-targets.ts`・`apply-updates.ts`・`build-plans.ts`: `logContext`に
+    `tenantId`/`clientId`を追加。ブランチ名は`buildUpdateBranch()`経由で取得するよう変更
+  - `test/helpers.ts`の`makeChartAndApps()`に`tenantId`/`clientId`（デフォルト`tenantId1`/
+    `clientId1`）と`overrides`引数を追加
+  - `test/lib/config.test.ts`: 複数tenant/clientの集約テストを「別々の`ChartAndApps`になる」
+    に書き換え、target絞り込みテストを新しい粒度に合わせて修正、`config.yaml`不在テストを
+    「`ChartAndApps`自体が作られない」ことの確認に変更（6テスト修正）
+  - `test/lib/gitlab/gitlab.test.ts`: `UPDATE_BRANCH`→`buildUpdateBranch`のテストに置き換え、
+    `buildMrTitle`のテストに`tenantId`/`clientId`引数を追加
+  - `test/steps/apply-updates.test.ts`: `vi.mock`の自動モック化で`buildUpdateBranch`/
+    `buildMrTitle`もモック関数になり戻り値が`undefined`になっていたのを、
+    `vi.mocked().mockReturnValue()`で明示的にスタブして修正。ブランチ名アサーションを
+    `feature/yadokari/tenantId1/clientId1`に更新
+  - `test/steps/filter-targets.test.ts`: `buildUpdateBranch`のモック実装を追加し、
+    tenantId/clientIdを含むブランチで判定することの確認テストと、「同じchartリポジトリでも
+    異なるclientは独立して判定される（片方にオープン中MRがあっても他方はブロックしない）」
+    ことを確認する新規テストを追加
+  - `README.md`（Features・仕組みのmermaid図と説明文・実行ログ例・環境変数表・
+    エラーハンドリング表）・`.gitlab-ci.yml`（`CONCURRENCY_LIMIT`の説明文言）・
+    `docs/architecture.md`（`gitlab.ts`/`config.ts`の責務説明、`loadApps`→
+    `loadClientChartAndApps`のリネーム反映、別セッションからの古い関数名参照
+    `buildChartUpdate()`→`buildPlan()`も合わせて修正）・`docs/glossary.md`（「固定ブランチ」
+    「テナント/クライアント」項目を新設計に更新）を更新
+  - `pnpm check`（tsc/oxlint/oxfmt/vitest 266テスト）通過
+  - 未実施: gitlab.com実機での動作確認。1つのchartディレクトリ配下に複数tenantId/clientIdを
+    持つテスト用config構成が必要（現状の実例はどこも1chartDirにつき1組のみ）
+
+- **T-021完了**: 固定ブランチの再作成漏れバグを修正
+  - ユーザー指摘: 「T-015はもはや問題ないんじゃないか。定期実行後に手動実行したくなったら
+    定期実行されて作られたMRを閉じればいいから」。ただし「MRをクローズしてもブランチが
+    残り続ける仕様になっているなら、MRは存在しないけどブランチが存在する場合は削除する
+    仕様にしたい」という追加要望
+  - 調査の結果、`docs/requirements.md`には元々「マージまたはクローズされた後の実行で、
+    改めて固定ブランチを作り直しMRを作成する」と明記されていたが、実装
+    （`commitFileUpdates()`）はブランチが存在する場合は削除せず追加コミットを積むだけに
+    なっており、要件と実装が食い違っていた（T-012の頃からの積年のバグ）
+  - `src/lib/gitlab/gitlab.ts`に`deleteBranch()`（`gitlab.Branches.remove()`のラッパー）を
+    新設。`commitFileUpdates()`を全面改修し、呼び出し元（`filterTargets`）が「このブランチに
+    オープン中のMRが無い」ことを確認済みという前提のもと、ブランチが存在すれば無条件で
+    削除してから`baseBranch`を起点に作り直すよう変更
+  - ファイルごとのaction（create/update）判定も、ブランチを必ず作り直す前提のため常に
+    `baseBranch`基準に単純化（従来の`exists ? branch : baseBranch`という参照先ブランチの
+    出し分けロジックを削除）。commit時の`startBranch`オプションも常に指定するよう単純化
+  - `test/lib/gitlab/gitlab.test.ts`の`commitFileUpdates`テストを新仕様に書き換え（3テストに
+    再編）、`deleteBranch`単体のテストを追加
+  - `docs/requirements.md` 4.2節・`docs/requirements-grilling.md`（新ラウンド）・
+    `docs/architecture.md`（`gitlab.ts`の責務説明。ついでに前セッションの編集でoxfmtの
+    多段階整形により3階層ネストのリストが1階層に潰れて壊れていたのを修正）・
+    `docs/glossary.md`（「固定ブランチ」項目）を更新
+  - `pnpm check`（267テスト）通過。マージ済み・クローズ済みのどちらも同じ扱い（無条件で
+    削除）でよいと判断：マージ済みなら変更は既に`mrTargetBranch`に取り込まれているため
+    削除は無害、クローズ済みなら人間が明示的に却下した変更なので復元不要
+- **T-015クローズ**: ユーザー判断によりコード変更なしでクローズ。「もはや問題ないんじゃ
+  ないか。定期実行後に手動実行したくなったら、定期実行されて作られたMRを閉じればいいから」
+  との指摘どおり、T-021で「MRが存在せずブランチが存在する場合は削除する」仕様を実装した
+  ことで、MRを閉じれば次回実行時に固定ブランチが自動的に削除・作り直されるようになった。
+  定期実行と手動実行が同じブランチに混ざる懸念は「先に該当MRを閉じる」という運用でカバー
+  できると判断し、手動/定期実行を区別する仕組み自体は導入しないことで決着。`tasks.json`の
+  T-015を`done`に更新
+
 ## 次にやること
 
-- T-015: 更新ブランチ名（現状`UPDATE_BRANCH`固定1本）の仕様見直し。pipeline schedulesに
-  よる定期実行と、ユーザーによる手動トリガー実行とでブランチを分けたいという問題意識、
-  `/grilling`で要件を詰める
+- T-019/T-020のgitlab.com実機での動作確認（未実施）。1つのchartディレクトリ配下に
+  複数tenantId/clientIdを持つテスト用config構成を用意し、クライアントごとに独立した
+  ブランチ・MRが作られること、片方のクライアントの失敗が他方をブロックしないことを確認する
+- T-021のgitlab.com実機での動作確認（未実施）。オープン中でないMRのブランチが残っている
+  状態から実行し、ブランチが削除されてから作り直されることを確認する
 - 検証が完全に終わったら、テスト用のGitLabアクセストークンを失効させる（ユーザー対応）
 
 ## 未解決
 
-- T-015（`tasks.json`参照）
+- なし
 
 ## 注意
 

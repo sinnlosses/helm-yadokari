@@ -6,9 +6,9 @@ vi.mock("../../src/utils/logger.js", () => ({
 }))
 
 import type { GitlabClient } from "../../src/lib/gitlab/gitlab.js"
-import { openMergeRequestExists } from "../../src/lib/gitlab/gitlab.js"
+import { buildUpdateBranch, openMergeRequestExists } from "../../src/lib/gitlab/gitlab.js"
 import { filterTargets } from "../../src/steps/filter-targets.js"
-import { toChartDirName } from "../../src/types.js"
+import { toBranchName, toChartDirName, toClientId, toTenantId } from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../helpers.js"
 
@@ -17,6 +17,9 @@ const mockGitlab = {} as unknown as GitlabClient
 describe("filterTargets", () => {
   beforeEach(() => {
     vi.mocked(openMergeRequestExists).mockResolvedValue(false)
+    vi.mocked(buildUpdateBranch).mockImplementation((tenantId, clientId) =>
+      toBranchName(`feature/yadokari/${tenantId}/${clientId}`),
+    )
   })
 
   afterEach(() => {
@@ -50,6 +53,36 @@ describe("filterTargets", () => {
     const target = { ...makeChartAndApps([makeApp()]), chartDir: toChartDirName("target") }
     const { targets, settled } = await filterTargets(mockGitlab, [noApps, target], 3)
     expect(targets).toEqual([target])
+    expect(settled).toEqual(["SKIPPED"])
+  })
+
+  it("tenantId/clientIdを含むブランチでオープン中MRの有無を判定する（T-019）", async () => {
+    const group = makeChartAndApps([makeApp()], {
+      tenantId: toTenantId("tenant1"),
+      clientId: toClientId("client1"),
+    })
+    await filterTargets(mockGitlab, [group], 3)
+    expect(openMergeRequestExists).toHaveBeenCalledWith(
+      mockGitlab,
+      group.chart.projectId,
+      "feature/yadokari/tenant1/client1",
+    )
+  })
+
+  it("同じchartリポジトリでも異なるclientは独立して判定される（片方にオープン中MRがあっても他方はブロックしない）", async () => {
+    const clientA = makeChartAndApps([makeApp()], {
+      tenantId: toTenantId("tenantA"),
+      clientId: toClientId("clientA"),
+    })
+    const clientB = makeChartAndApps([makeApp()], {
+      tenantId: toTenantId("tenantB"),
+      clientId: toClientId("clientB"),
+    })
+    vi.mocked(openMergeRequestExists).mockImplementation(
+      async (_gitlab, _projectId, branch) => branch === "feature/yadokari/tenantA/clientA",
+    )
+    const { targets, settled } = await filterTargets(mockGitlab, [clientA, clientB], 3)
+    expect(targets).toEqual([clientB])
     expect(settled).toEqual(["SKIPPED"])
   })
 

@@ -9,6 +9,7 @@ import type { GitlabClient } from "../../src/lib/gitlab/gitlab.js"
 import {
   buildMrDescription,
   buildMrTitle,
+  buildUpdateBranch,
   commitFileUpdates,
   createMergeRequest,
 } from "../../src/lib/gitlab/gitlab.js"
@@ -54,8 +55,13 @@ describe("applyUpdates", () => {
   beforeEach(() => {
     vi.mocked(commitFileUpdates).mockResolvedValue(undefined)
     vi.mocked(createMergeRequest).mockResolvedValue(undefined)
-    vi.mocked(buildMrTitle).mockReturnValue("Auto MR by yadokari: update 1 app image tag(s)")
+    vi.mocked(buildMrTitle).mockReturnValue(
+      "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
+    )
     vi.mocked(buildMrDescription).mockResolvedValue("### my-app\n...")
+    vi.mocked(buildUpdateBranch).mockReturnValue(
+      toBranchName("feature/yadokari/tenantId1/clientId1"),
+    )
   })
 
   afterEach(() => {
@@ -71,21 +77,29 @@ describe("applyUpdates", () => {
   it("buildMrTitle/buildMrDescriptionの結果をコミット・MR作成に渡す", async () => {
     const target = makeTarget()
     await applyUpdates(mockGitlab, [target], 3)
-    expect(buildMrTitle).toHaveBeenCalledWith(target.plans)
+    expect(buildMrTitle).toHaveBeenCalledWith(
+      target.chartAndApps.tenantId,
+      target.chartAndApps.clientId,
+      target.plans,
+    )
     expect(buildMrDescription).toHaveBeenCalledWith(mockGitlab, target.plans)
     expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[4]).toBe(
-      "Auto MR by yadokari: update 1 app image tag(s)",
+      "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
     )
     expect(vi.mocked(createMergeRequest).mock.calls[0]?.[4]).toBe(
-      "Auto MR by yadokari: update 1 app image tag(s)",
+      "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
     )
     expect(vi.mocked(createMergeRequest).mock.calls[0]?.[5]).toBe("### my-app\n...")
   })
 
-  it("固定ブランチ名でコミット・MRを作成する", async () => {
+  it("tenantId/clientIdを含む固定ブランチ名でコミット・MRを作成する", async () => {
     await applyUpdates(mockGitlab, [makeTarget()], 3)
-    expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[2]).toBe("yadokari/update")
-    expect(vi.mocked(createMergeRequest).mock.calls[0]?.[2]).toBe("yadokari/update")
+    expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[2]).toBe(
+      "feature/yadokari/tenantId1/clientId1",
+    )
+    expect(vi.mocked(createMergeRequest).mock.calls[0]?.[2]).toBe(
+      "feature/yadokari/tenantId1/clientId1",
+    )
   })
 
   it("mrTargetBranch をベースブランチ・MR作成先として使う", async () => {
