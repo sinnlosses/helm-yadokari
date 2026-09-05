@@ -120,4 +120,5 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 - 要件定義: `docs/requirements.md`
 - 要件定義の検討経緯（Q&Aログ）: `docs/requirements-grilling.md`
 - 用語集（ドメイン用語とコード上の識別子の対応、表記ゆれの注記）: `docs/glossary.md`
+- 実機スモークテストの手順（フィクスチャ・シナリオ・繰り返し方）: `docs/smoke-test.md`
 - Issueトラッカー・外部の設計ドキュメントは未設定（今後追加され次第ここに記載する）

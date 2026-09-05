@@ -254,5 +254,13 @@
     "passes": true,
     "evidence": "認証不要のローカル検証（config.ts に validateNoDuplicateProjectIds / validateNoDuplicateTargets を追加、テスト6件）と、GitLabへ問い合わせる実在チェック（src/lib/verify-config.ts の verifyConfigExistence、テスト10件）の2段構成にした。後者は scripts/lint/validate-config.ts の --remote（pnpm lint:validate-config:remote）から呼び、.gitlab-ci.yml に validate-config-remote ジョブ（MR/push/web）を追加。ユーザー判断で ACCESS_TOKEN は Protected: OFF とし、ジョブは条件付きスキップにせず必ず実行する（認証情報が無い場合は「実在チェックを実行できません（環境変数 ... が未設定です）」と表示して exit 1）。実機確認: 正しい config-test/ は OK、わざと壊した設定で「branchToSync/アンカー/helm.branchToSync/projectId」の4件を同時に検出し終了コード1、mrTargetBranch不在時も従来の誤解を招くメッセージ（values.yamlが見つかりません）ではなく原因1件のみを報告することを確認。pnpm check（21ファイル288テスト）通過",
     "dependencies": ["T-020", "T-021"]
+  },
+  {
+    "id": "T-033",
+    "task": "「複数clientの複数appのimage tagが更新され、いずれかのclientではHelmの向き先ブランチも更新される」というシナリオを実機で検証する。あわせて、同じ検証を何度でも繰り返せるように手順とフィクスチャを記録に残す",
+    "status": "done",
+    "passes": true,
+    "evidence": "docs/smoke-test.md（手順・期待結果・繰り返し時の注意）と scripts/smoke/smoke-fixture.ts（setup/reset、既定dry-run、SMOKE_CHART_PROJECT_ID必須）、config-test/yadokari-smoke-test-chart/tenant2/{client1,client2} を追加。実機結果: summary {CREATED:2, SKIPPED:0, ERROR:0}・終了コード0で、client1 はMR !14（sample-qa-sprint と sample-develop-client のタグ2件＋向き先ブランチ main→release/2026-q1 の計3アンカー）、client2 はMR !15（タグ2件）を独立したブランチに作成。向き先ブランチ用に chartリポジトリへ release/2026-q1 を新規作成し、書き込み前の実在検証を通ることも確認。MRを残したまま再実行すると両clientが SKIPPED(mr_exists) になることも確認（手順書の注意書きの裏取り）",
+    "dependencies": ["T-032"]
   }
 ]

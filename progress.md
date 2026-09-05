@@ -108,6 +108,14 @@ T-001〜T-021（要件定義・CLI実装・GitLab実機検証・スキーマ再�
   無い場合に「実在チェックを実行できません」で停止することを確認。
   pnpm check（21ファイル288テスト）通過
 
+- **T-033完了（実機テスト）**: 「複数clientの複数appのimage tag更新＋いずれかのclientの
+  Helm向き先ブランチ更新」を gitlab.com で実施。`tenant2/client1`（app2件＋向き先ブランチ、MR !14）と
+  `tenant2/client2`（app2件、MR !15）が独立したブランチ・MRとして作られ、
+  summary は `{CREATED:2, SKIPPED:0, ERROR:0}`・終了コード0。向き先ブランチ用に
+  chartリポジトリへ `release/2026-q1` を新規作成し、書き込み前の実在検証を通ることも確認。
+  再現手順は `docs/smoke-test.md`、フィクスチャ操作は `scripts/smoke/smoke-fixture.ts`
+  （`setup`/`reset`、既定dry-run）に記録した
+
 ## 次にやること
 
 - `refactor/repo-cleanup` を main へマージする（`git switch main && git merge --ff-only refactor/repo-cleanup`）。
@@ -115,7 +123,8 @@ T-001〜T-021（要件定義・CLI実装・GitLab実機検証・スキーマ再�
   - `steps/shared/` という置き場所の新設（CLAUDE.mdの「新しいコードを置く場所」に追記済み）
   - evidenceを3行以内に絞る運用とアーカイブ（docs/workflow.mdに追記済み）
   - README「設定 > config/」章を要約に縮小し、正典を docs/requirements.md 4.4節にしたこと
-- 実機検証で残置したMR（!11、!13）とブランチ2本の後片付け（不要になったら）
+- 実機検証で残置したMR（!11、!13、!14、!15）とブランチ4本の後片付け（不要になったら
+  `SMOKE_CHART_PROJECT_ID=86061211 npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply`）
 - 検証が完全に終わったら、テスト用のGitLabアクセストークンを失効させる（ユーザー対応）
 
 ## 未解決
