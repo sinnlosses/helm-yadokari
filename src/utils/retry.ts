@@ -7,21 +7,33 @@ function isRetryable(error: unknown): boolean {
   return status !== undefined && RETRYABLE_STATUSES.has(status)
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * `attempt`回目の試行を行い、リトライ可能なエラーなら指数バックオフを挟んで次の試行を
+ * 再帰的に呼ぶ。リトライ不能なエラー・最終試行での失敗はそのままスローする。
+ */
+async function runAttempt<T>(
+  fn: () => Promise<T>,
+  attempt: number,
+  maxAttempts: number,
+  baseDelayMs: number,
+): Promise<T> {
+  try {
+    return await fn()
+  } catch (err) {
+    if (!isRetryable(err) || attempt === maxAttempts) throw err
+    await sleep(baseDelayMs * 2 ** (attempt - 1))
+    return runAttempt(fn, attempt + 1, maxAttempts, baseDelayMs)
+  }
+}
+
 export async function withRetry<T>(
   fn: () => Promise<T>,
   options: { maxAttempts?: number; baseDelayMs?: number } = {},
 ): Promise<T> {
   const { maxAttempts = 3, baseDelayMs = 1000 } = options
-  let lastError: unknown
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await fn()
-    } catch (err) {
-      if (!isRetryable(err) || attempt === maxAttempts) throw err
-      const delay = baseDelayMs * 2 ** (attempt - 1)
-      await new Promise((resolve) => setTimeout(resolve, delay))
-      lastError = err
-    }
-  }
-  throw lastError
+  return runAttempt(fn, 1, maxAttempts, baseDelayMs)
 }

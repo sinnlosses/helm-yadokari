@@ -4,10 +4,10 @@ import {
   openMergeRequestExists,
 } from "../lib/gitlab/gitlab.js"
 import type { ChartAndApps, ChartUpdateResult } from "../types.js"
-import { FatalError } from "../utils/errors.js"
-import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
+import { left, partitionMap, right } from "../utils/partition.js"
+import { buildLogContext, settleAsError } from "./shared/step-outcome.js"
 
 export type FilterTargetsResult = {
   readonly targets: ChartAndApps[]
@@ -28,30 +28,25 @@ export async function filterTargets(
   concurrencyLimit: number,
 ): Promise<FilterTargetsResult> {
   const outcomes = await mapWithConcurrency(chartAndAppsList, concurrencyLimit, (chartAndApps) =>
-    alreadyMrExists(gitlab, chartAndApps),
+    evaluateTarget(gitlab, chartAndApps),
   )
 
-  return outcomes.reduce<FilterTargetsResult>(
-    (acc, outcome) =>
-      outcome.status === "target"
-        ? { ...acc, targets: [...acc.targets, outcome.chartAndApps] }
-        : { ...acc, settled: [...acc.settled, outcome.result] },
-    { targets: [], settled: [] },
+  const { left: targets, right: settled } = partitionMap(outcomes, (outcome) =>
+    outcome.status === "target" ? left(outcome.chartAndApps) : right(outcome.result),
   )
+  return { targets, settled }
 }
 
-async function alreadyMrExists(
+/**
+ * 1つのchartAndAppsが処理対象か判定する（このstepの並列処理1件分）。登録アプリが0件、
+ * または固定ブランチにオープン中のMRがある場合はSKIPPED、判定中のエラーはERRORとして
+ * settled 側に振り分ける。
+ */
+async function evaluateTarget(
   gitlab: GitlabClient,
   chartAndApps: ChartAndApps,
 ): Promise<TargetOutcome> {
-  const logContext = {
-    event: "update_chart",
-    chartDir: chartAndApps.chartDir,
-    tenantId: chartAndApps.tenantId,
-    clientId: chartAndApps.clientId,
-    chartProjectId: chartAndApps.chart.projectId,
-    chartProjectName: chartAndApps.chart.projectName,
-  }
+  const logContext = buildLogContext(chartAndApps)
 
   if (chartAndApps.apps.length === 0) {
     logger.info({ ...logContext, result: "SKIPPED", reason: "no_apps" })
@@ -66,12 +61,6 @@ async function alreadyMrExists(
     }
     return { status: "target", chartAndApps }
   } catch (err) {
-    if (isFatalError(err)) throw new FatalError(extractHttpStatus(err), err)
-    logger.error({
-      ...logContext,
-      result: "ERROR",
-      reason: `httpStatus: ${extractHttpStatus(err)}, message: ${toErrorMessage(err)}`,
-    })
-    return { status: "settled", result: "ERROR" }
+    return { status: "settled", result: settleAsError(err, logContext) }
   }
 }

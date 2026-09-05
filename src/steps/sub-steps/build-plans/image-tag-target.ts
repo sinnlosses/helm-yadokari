@@ -1,13 +1,10 @@
 import { getValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
-import type { ImageTagTarget, ImageTagUpdate, TagName, ValuesPath } from "../../../types.js"
+import type { ImageTagTarget, ImageTagUpdate, TagName } from "../../../types.js"
 import { toTagName } from "../../../types.js"
-import type { LoadValuesYamlContent } from "./types.js"
+import { reduceAsync } from "../../../utils/sequential.js"
+import type { ApplyTargetsAcc, LoadValuesYamlContent } from "./types.js"
 
-export type ApplyTargetsAcc = {
-  readonly valuesYamlCache: ReadonlyMap<ValuesPath, string>
-  readonly modifiedValuesPaths: ReadonlySet<ValuesPath>
-  readonly updates: readonly ImageTagUpdate[]
-}
+export type ApplyImageTagAcc = ApplyTargetsAcc<ImageTagUpdate>
 
 /**
  * `app.chart`のうち1箇所分について、現在の値を読み取り最新タグと比較する。差分が
@@ -17,9 +14,9 @@ export type ApplyTargetsAcc = {
 async function applyImageTagTarget(
   loadValuesYamlContent: LoadValuesYamlContent,
   latestTagName: TagName,
-  acc: ApplyTargetsAcc,
+  acc: ApplyImageTagAcc,
   target: ImageTagTarget,
-): Promise<ApplyTargetsAcc> {
+): Promise<ApplyImageTagAcc> {
   const valuesYamlCache = new Map(acc.valuesYamlCache)
   const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, target.valuesPath)
   const previousTagRaw = getValueAtAnchor(valuesYamlContent, target.anchor)
@@ -47,14 +44,10 @@ async function applyImageTagTarget(
 export async function applyImageTagTargets(
   loadValuesYamlContent: LoadValuesYamlContent,
   latestTagName: TagName,
-  acc: ApplyTargetsAcc,
+  acc: ApplyImageTagAcc,
   targets: readonly ImageTagTarget[],
-): Promise<ApplyTargetsAcc> {
-  return targets.reduce(
-    (accPromise, target) =>
-      accPromise.then((current) =>
-        applyImageTagTarget(loadValuesYamlContent, latestTagName, current, target),
-      ),
-    Promise.resolve(acc),
+): Promise<ApplyImageTagAcc> {
+  return reduceAsync(targets, acc, (current, target) =>
+    applyImageTagTarget(loadValuesYamlContent, latestTagName, current, target),
   )
 }

@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { z } from "zod"
 
 import type {
+  AnchorTarget,
   AppConfig,
   BranchName,
   ChartAndApps,
@@ -38,19 +39,17 @@ const ChartYamlSchema = z.object({
   }),
 })
 
-const ImageTagTargetSchema = z
+/**
+ * `apps[].chart[]`（イメージタグの書き込み先）と`helm.chart[]`（Helm向き先ブランチの
+ * 書き込み先）はどちらも`valuesPath`+`anchor`という同じ形なので、スキーマも共有する
+ * （型側も`AnchorTarget`とそのエイリアス、T-024）
+ */
+const AnchorTargetSchema = z
   .object({
     valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
     anchor: z.string().min(1, "anchor は空にできません").transform(toAnchorName),
   })
-  .transform((v): ImageTagTarget => ({ valuesPath: v.valuesPath, anchor: v.anchor }))
-
-const HelmTargetBranchTargetSchema = z
-  .object({
-    valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
-    anchor: z.string().min(1, "anchor は空にできません").transform(toAnchorName),
-  })
-  .transform((v): HelmTargetBranchTarget => ({ valuesPath: v.valuesPath, anchor: v.anchor }))
+  .transform((v): AnchorTarget => ({ valuesPath: v.valuesPath, anchor: v.anchor }))
 
 /** config.yaml側。運用値のみ（chart構造はanchors.yaml側が持つ） */
 const AppOperationalSchema = z.object({
@@ -76,11 +75,11 @@ const ConfigYamlSchema = z.object({
 const AnchorsAppSchema = z.object({
   projectId: z.number().int().transform(toProjectId),
   projectName: z.string().min(1).transform(toProjectName),
-  chart: z.array(ImageTagTargetSchema).min(1, "chart は1件以上指定してください"),
+  chart: z.array(AnchorTargetSchema).min(1, "chart は1件以上指定してください"),
 })
 
 const AnchorsHelmSchema = z.object({
-  chart: z.array(HelmTargetBranchTargetSchema).min(1, "chart は1件以上指定してください"),
+  chart: z.array(AnchorTargetSchema).min(1, "chart は1件以上指定してください"),
 })
 
 const AnchorsYamlSchema = z.object({

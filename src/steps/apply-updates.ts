@@ -6,11 +6,10 @@ import {
   commitFileUpdates,
   createMergeRequest,
 } from "../lib/gitlab/gitlab.js"
-import type { AppUpdatePlan, ChartUpdateResult, ChartUpdateTarget } from "../types.js"
-import { FatalError } from "../utils/errors.js"
-import { extractHttpStatus, isFatalError, toErrorMessage } from "../utils/http.js"
+import type { ChartUpdateResult, ChartUpdateTarget } from "../types.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
+import { buildLogContext, describePlan, settleAsError } from "./shared/step-outcome.js"
 
 /**
  * 更新計画があるchartAndAppsに対して、固定ブランチへのコミットとMR作成を並列実行する。
@@ -23,34 +22,14 @@ export async function applyUpdates(
   return mapWithConcurrency(targets, concurrencyLimit, (target) => applyUpdate(gitlab, target))
 }
 
-function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
-  return {
-    projectName: plan.app.projectName,
-    latestTag: plan.latestTag.name,
-    updates: plan.updates.map((update) => ({
-      valuesPath: update.target.valuesPath,
-      previousTag: update.previousTag,
-    })),
-    helmTargetBranchUpdates: plan.helmTargetBranchUpdates.map((update) => ({
-      valuesPath: update.target.valuesPath,
-      previousBranch: update.previousBranch,
-      newBranch: update.newBranch,
-    })),
-  }
-}
-
+/**
+ * 1つのchartAndAppsにコミットとMR作成を適用する（このstepの並列処理1件分）。
+ */
 async function applyUpdate(
   gitlab: GitlabClient,
   { chartAndApps, plans, files }: ChartUpdateTarget,
 ): Promise<ChartUpdateResult> {
-  const logContext = {
-    event: "update_chart",
-    chartDir: chartAndApps.chartDir,
-    tenantId: chartAndApps.tenantId,
-    clientId: chartAndApps.clientId,
-    chartProjectId: chartAndApps.chart.projectId,
-    chartProjectName: chartAndApps.chart.projectName,
-  }
+  const logContext = buildLogContext(chartAndApps)
   const { chart, tenantId, clientId } = chartAndApps
   const updateBranch = buildUpdateBranch(tenantId, clientId)
 
@@ -76,12 +55,6 @@ async function applyUpdate(
     logger.info({ ...logContext, result: "CREATED", apps: plans.map(describePlan) })
     return "CREATED"
   } catch (err) {
-    if (isFatalError(err)) throw new FatalError(extractHttpStatus(err), err)
-    logger.error({
-      ...logContext,
-      result: "ERROR",
-      reason: `httpStatus: ${extractHttpStatus(err)}, message: ${toErrorMessage(err)}`,
-    })
-    return "ERROR"
+    return settleAsError(err, logContext)
   }
 }
