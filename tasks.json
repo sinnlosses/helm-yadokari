@@ -294,5 +294,45 @@
     "passes": true,
     "evidence": "(1) sub-steps/build-plans/types.ts に LatestTagResolution 型（tag ＋ pointsAtTrackedHead）を追加し、resolveLatestTag() が「values.yamlの現在値が追跡ブランチのHEADを指すタグか」を判定する関数を返すようにした（タグ一覧とHEAD SHAは既に取得済みなのでAPI呼び出しは増えない）。image-tag-target.ts の1箇所分の判定に、現在値がHEADを指すタグなら更新しない分岐を追加。test/steps/build-plans.test.ts に3テスト追加（HEADを指す旧タグはより新しいタグがあってもSKIPPED／古いコミットを指す旧タグは従来どおり更新／タグ名でない値も従来どおり更新）。docs/requirements.md 4.1節に仕様として追記。(2) MR本文のイメージタグ表に「追跡ブランチ」列を追加（列は リポジトリ / 追跡ブランチ / ファイル / アンカー / 旧タグ / 新タグ / 比較 / パイプライン）。pnpm check（21ファイル299テスト）通過。実機で再検証し、tenant2/client1 の sample-develop-client が新ルールで更新対象から外れ（MR !24 は image tag 1 件のみ）、values.yaml の該当アンカーが据え置かれることを確認",
     "dependencies": ["T-036"]
+  },
+  {
+    "id": "T-038",
+    "task": "CIの `validate-config-remote` ジョブが、現状のリポジトリでは必ず失敗する状態になっているのを解消する。このジョブは引数なしで `pnpm lint:validate-config:remote` を実行するため既定の `config/` を検証するが、`config/teamA-chart/` はドキュメント用の**架空の設定例**（projectId 888/889/890）なので、実行すると「chart.yaml の projectId 888 が見つかりません」など4件の問題を検出して exit 1 になる（実際にトークン付きで実行して確認済み）。T-032でこのジョブを「条件付きスキップにせず必ず実行する」と決めたため、このままCIを有効化すると全MRがブロックされる。取りうる選択肢: (a) `config/` を実運用の設定だけにして架空の例は `docs/` かREADMEの記載に移す、(b) 例を `config-example/` のような別ディレクトリに追い出す、(c) 実在チェックの対象ディレクトリをCI変数で明示する（例: `CONFIG_PATH` を使う）、(d) 架空エントリを実在するプロジェクトIDに置き換える。どれを取るかは「config/ に何を置く運用にするか」次第なので、方針を決めてから直す",
+    "status": "todo",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-032"]
+  },
+  {
+    "id": "T-039",
+    "task": "T-034〜T-037でMRの出力仕様を変えた結果、ドキュメント側に残った不整合を同期する。(1) docs/requirements.md 4.2節が「パイプラインの状態（成功/失敗/実行中）を…状態はMR本文に記載する情報提供に留め」と書いているが、T-036で状態表示をやめてリンクだけにしたため、正典（T-028で requirements.md をconfig/仕様の正典と定めた流れと同じく、MRの仕様もここに書かれている）と実装が食い違っている。(2) README の Features「パイプライン状態を可視化」も同様に状態表示前提の説明のまま。(3) README「仕組み」のmermaid図が `values.yaml のタグと最新タグは一致?` の分岐しか持たず、T-037で追加した「反映済みタグが追跡ブランチのHEADを指すなら更新しない」条件が反映されていない。(4) docs/glossary.md の「反映済みタグ」項目にもT-037のルールが無い。(5) docs/architecture.md の「ディレクトリ構成の勘所」に T-033 で追加した `scripts/smoke/` が載っていない。(6) progress.md の最終更新行が「T-022〜T-031のセッション」のままで、その後のT-032〜T-037を含んでいない",
+    "status": "todo",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-037"]
+  },
+  {
+    "id": "T-040",
+    "task": "直近の変更で使われなくなったコードを片付ける。(1) `PipelineInfo.status` は T-036 でMR本文から状態表示を外して以降どこからも読まれていない（`getLatestPipelineForRef()` が値を詰めているだけで、ログにも出していない）。あわせて、そのためだけに存在する `PipelineStatus` 型（GitLabの既知の状態値をリテラル列挙しつつ未知の文字列も許容する凝った型）も宙に浮いている。状態をログに出す価値があるなら残す、無ければ型ごと削って `PipelineInfo` を webUrl だけにする、のどちらかを決める。(2) `src/lib/gitlab/gitlab.ts` の `getProjectWebUrl()` と `src/utils/http.ts` の `isFatalStatus()` は、同じファイル内からしか呼ばれていないのに export されている（テストが直接importしているだけ）。CLAUDE.mdのテスト方針「非公開関数はエクスポートされた関数の振る舞いを通して間接的に検証する」と揃えるなら、非公開にしてテストを公開API経由に寄せる",
+    "status": "todo",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-036"]
+  },
+  {
+    "id": "T-041",
+    "task": "肥大化したテストファイルを関心ごとに分割する。`test/lib/config.test.ts` が938行、`test/lib/gitlab/gitlab.test.ts` が724行あり、1ファイルで「パストラバーサル・スキーマ検証・2ファイル間の整合性・重複検出・target絞り込み」（config）や「APIラッパー・コミット/MR作成・MRタイトル/本文の組み立て」（gitlab）を扱っていて、目的のテストを探しにくい。src/ 側は既に責務ごとに分かれているので、テストも `test/lib/gitlab/mr-content.test.ts` のように分けられる。テスト対象の実装を変えずに移動するだけなので、分割前後でテスト件数が変わらないことを確認する",
+    "status": "todo",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-036"]
+  },
+  {
+    "id": "T-042",
+    "task": "`src/lib/verify-config.ts` の実在チェックが chartAndApps 単位でも app 単位でも完全に逐次実行になっているため、登録clientやappが増えるとCIの `validate-config-remote` ジョブが線形に遅くなる（現状の`config-test`は3件なので問題ないが、実運用の規模では効いてくる。ジョブのtimeoutは10分）。`utils/parallel.ts` の `mapWithConcurrency()` を使って chartAndApps 単位を並列化できるか検討する。問題の出力順が設定の並び順と一致する読みやすさは維持したい（`mapWithConcurrency` は入力順を保った配列を返すので両立できるはず）。あわせて、同じプロジェクト・ブランチ・values.yaml への問い合わせを共有しているキャッシュが並列化しても壊れないか（同時に同じキーをfetchして二重に呼ばないか）も確認する",
+    "status": "todo",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-032"]
   }
 ]

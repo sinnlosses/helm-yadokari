@@ -148,7 +148,18 @@ T-001〜T-021（要件定義・CLI実装・GitLab実機検証・スキーマ再�
   (2) MR本文のイメージタグ表に「追跡ブランチ」列を追加。実機で sample-develop-client が
   新ルールで更新対象から外れること（MR !24 は image tag 1件のみ）を確認
 
+- **2回目のリファクタリング監査（T-032〜T-037の実施後）**: 新しい改善点を T-038〜T-042 として
+  登録（コード変更なし）。最優先は T-038 で、T-032で追加したCIジョブ `validate-config-remote` は
+  既定の `config/` を検証するが、`config/teamA-chart/` が架空の設定例（projectId 888等）のため
+  **実行すると必ず失敗する**（トークン付きで実行し4件の問題検出・exit 1 を確認済み）。
+  他は仕様とドキュメントの不整合（T-039）、未使用になった `PipelineInfo.status`（T-040）、
+  肥大化したテストファイル（T-041）、実在チェックの逐次実行（T-042）
+
 ## 次にやること
+
+- **T-038（優先）**: CIの `validate-config-remote` が架空の設定例で必ず失敗する問題。
+  「`config/` に何を置く運用にするか」の方針決めが先
+- T-039（ドキュメント同期）、T-040（未使用コード）、T-041（テスト分割）、T-042（並列化）
 
 - `refactor/repo-cleanup` を main へマージする（`git switch main && git merge --ff-only refactor/repo-cleanup`）。
   以下は方針の追加なので、マージ前に内容を確認してほしい:
