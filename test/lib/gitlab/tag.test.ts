@@ -2,29 +2,52 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildNewTag,
-  buildTagPrefix,
+  DEFAULT_TAG_FORMAT,
   findLatestParsedTag,
   parseTag,
+  validateTagFormat,
 } from "../../../src/lib/gitlab/tag.js"
 import { toBranchName, toTagName } from "../../../src/types.js"
 
-describe("buildTagPrefix", () => {
-  it("スラッシュを含まないブランチ名はそのままプレフィックスにする", () => {
-    expect(buildTagPrefix(toBranchName("main"))).toBe("main-build-at-")
+describe("validateTagFormat", () => {
+  it("デフォルトのフォーマットを受け入れる", () => {
+    expect(validateTagFormat("{branch}-build-at-{date}-{time}")).toBe(
+      "{branch}-build-at-{date}-{time}",
+    )
   })
 
-  it("スラッシュを含むブランチ名は - に置換する", () => {
-    expect(buildTagPrefix(toBranchName("release/foo"))).toBe("release-foo-build-at-")
+  it("プレースホルダの並び順を入れ替えたフォーマットを受け入れる", () => {
+    expect(validateTagFormat("{date}-{time}-{branch}")).toBe("{date}-{time}-{branch}")
   })
 
-  it("スラッシュを複数含むブランチ名はすべて置換する", () => {
-    expect(buildTagPrefix(toBranchName("team/release/foo"))).toBe("team-release-foo-build-at-")
+  it("{branch} がないとき例外をスローする", () => {
+    expect(() => validateTagFormat("build-at-{date}-{time}")).toThrow("TAG_FORMAT")
+  })
+
+  it("{date} がないとき例外をスローする", () => {
+    expect(() => validateTagFormat("{branch}-build-at-{time}")).toThrow("TAG_FORMAT")
+  })
+
+  it("{time} がないとき例外をスローする", () => {
+    expect(() => validateTagFormat("{branch}-build-at-{date}")).toThrow("TAG_FORMAT")
+  })
+
+  it("同じプレースホルダが複数回あるとき例外をスローする", () => {
+    expect(() => validateTagFormat("{branch}-{branch}-{date}-{time}")).toThrow("TAG_FORMAT")
+  })
+
+  it("未知のプレースホルダがあるとき例外をスローする", () => {
+    expect(() => validateTagFormat("{branch}-{date}-{time}-{foo}")).toThrow("TAG_FORMAT")
   })
 })
 
 describe("parseTag", () => {
   it("正しい形式のタグをパースする", () => {
-    const parsed = parseTag(toTagName("main-build-at-20260902-123456"), toBranchName("main"))
+    const parsed = parseTag(
+      toTagName("main-build-at-20260902-123456"),
+      toBranchName("main"),
+      DEFAULT_TAG_FORMAT,
+    )
     expect(parsed).toBeDefined()
     expect(parsed?.name).toBe("main-build-at-20260902-123456")
     expect(parsed?.branch).toBe("main")
@@ -40,6 +63,7 @@ describe("parseTag", () => {
     const parsed = parseTag(
       toTagName("release-foo-build-at-20260101-000000"),
       toBranchName("release/foo"),
+      DEFAULT_TAG_FORMAT,
     )
     expect(parsed).toBeDefined()
     expect(parsed?.builtAt.getUTCFullYear()).toBe(2026)
@@ -47,35 +71,63 @@ describe("parseTag", () => {
 
   it("別ブランチのタグは undefined を返す", () => {
     expect(
-      parseTag(toTagName("develop-build-at-20260902-123456"), toBranchName("main")),
+      parseTag(
+        toTagName("develop-build-at-20260902-123456"),
+        toBranchName("main"),
+        DEFAULT_TAG_FORMAT,
+      ),
     ).toBeUndefined()
   })
 
   it("build-at 部分がないタグは undefined を返す", () => {
-    expect(parseTag(toTagName("main-20260902-123456"), toBranchName("main"))).toBeUndefined()
+    expect(
+      parseTag(toTagName("main-20260902-123456"), toBranchName("main"), DEFAULT_TAG_FORMAT),
+    ).toBeUndefined()
   })
 
   it("日付部分が8桁でないタグは undefined を返す", () => {
     expect(
-      parseTag(toTagName("main-build-at-2026902-123456"), toBranchName("main")),
+      parseTag(toTagName("main-build-at-2026902-123456"), toBranchName("main"), DEFAULT_TAG_FORMAT),
     ).toBeUndefined()
   })
 
   it("時刻部分が6桁でないタグは undefined を返す", () => {
     expect(
-      parseTag(toTagName("main-build-at-20260902-12345"), toBranchName("main")),
+      parseTag(toTagName("main-build-at-20260902-12345"), toBranchName("main"), DEFAULT_TAG_FORMAT),
     ).toBeUndefined()
   })
 
   it("日付・時刻部分が数字でないタグは undefined を返す", () => {
     expect(
-      parseTag(toTagName("main-build-at-2026090a-123456"), toBranchName("main")),
+      parseTag(
+        toTagName("main-build-at-2026090a-123456"),
+        toBranchName("main"),
+        DEFAULT_TAG_FORMAT,
+      ),
     ).toBeUndefined()
   })
 
   it("余分なサフィックスがあるタグは undefined を返す", () => {
     expect(
-      parseTag(toTagName("main-build-at-20260902-123456-extra"), toBranchName("main")),
+      parseTag(
+        toTagName("main-build-at-20260902-123456-extra"),
+        toBranchName("main"),
+        DEFAULT_TAG_FORMAT,
+      ),
+    ).toBeUndefined()
+  })
+
+  it("TAG_FORMATをカスタマイズすると、その形式でパースする", () => {
+    const format = validateTagFormat("{date}-{time}-{branch}")
+    const parsed = parseTag(toTagName("20260902-123456-main"), toBranchName("main"), format)
+    expect(parsed).toBeDefined()
+    expect(parsed?.builtAt.getUTCFullYear()).toBe(2026)
+  })
+
+  it("TAG_FORMATのリテラル部分が異なれば、デフォルト形式のタグはパースできない", () => {
+    const format = validateTagFormat("{branch}_{date}_{time}")
+    expect(
+      parseTag(toTagName("main-build-at-20260902-123456"), toBranchName("main"), format),
     ).toBeUndefined()
   })
 })
@@ -89,6 +141,7 @@ describe("findLatestParsedTag", () => {
         toTagName("main-build-at-20260601-000000"),
       ],
       toBranchName("main"),
+      DEFAULT_TAG_FORMAT,
     )
     expect(latest?.name).toBe("main-build-at-20260902-123456")
   })
@@ -97,6 +150,7 @@ describe("findLatestParsedTag", () => {
     const latest = findLatestParsedTag(
       [toTagName("develop-build-at-20261231-235959"), toTagName("main-build-at-20260101-000000")],
       toBranchName("main"),
+      DEFAULT_TAG_FORMAT,
     )
     expect(latest?.name).toBe("main-build-at-20260101-000000")
   })
@@ -105,35 +159,38 @@ describe("findLatestParsedTag", () => {
     const latest = findLatestParsedTag(
       [toTagName("v1.0.0"), toTagName("main-build-at-20260101-000000")],
       toBranchName("main"),
+      DEFAULT_TAG_FORMAT,
     )
     expect(latest?.name).toBe("main-build-at-20260101-000000")
   })
 
   it("該当するタグがないとき undefined を返す", () => {
-    expect(findLatestParsedTag([toTagName("v1.0.0")], toBranchName("main"))).toBeUndefined()
+    expect(
+      findLatestParsedTag([toTagName("v1.0.0")], toBranchName("main"), DEFAULT_TAG_FORMAT),
+    ).toBeUndefined()
   })
 
   it("空配列のとき undefined を返す", () => {
-    expect(findLatestParsedTag([], toBranchName("main"))).toBeUndefined()
+    expect(findLatestParsedTag([], toBranchName("main"), DEFAULT_TAG_FORMAT)).toBeUndefined()
   })
 })
 
 describe("buildNewTag", () => {
   it("命名規則に従ったタグ名を組み立てる", () => {
     const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
-    const tag = buildNewTag(toBranchName("main"), now)
+    const tag = buildNewTag(toBranchName("main"), now, DEFAULT_TAG_FORMAT)
     expect(tag.name).toBe("main-build-at-20260902-123456")
   })
 
   it("スラッシュを含むブランチ名は - に置換する", () => {
     const now = new Date(Date.UTC(2026, 0, 1, 0, 0, 0))
-    const tag = buildNewTag(toBranchName("release/foo"), now)
+    const tag = buildNewTag(toBranchName("release/foo"), now, DEFAULT_TAG_FORMAT)
     expect(tag.name).toBe("release-foo-build-at-20260101-000000")
   })
 
   it("branch と builtAt をそのまま保持する", () => {
     const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
-    const tag = buildNewTag(toBranchName("main"), now)
+    const tag = buildNewTag(toBranchName("main"), now, DEFAULT_TAG_FORMAT)
     expect(tag.branch).toBe("main")
     expect(tag.builtAt).toBe(now)
   })
@@ -141,14 +198,21 @@ describe("buildNewTag", () => {
   it("組み立てたタグ名は parseTag で正しくパースし直せる", () => {
     const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
     const branch = toBranchName("main")
-    const tag = buildNewTag(branch, now)
-    const reparsed = parseTag(tag.name, branch)
+    const tag = buildNewTag(branch, now, DEFAULT_TAG_FORMAT)
+    const reparsed = parseTag(tag.name, branch, DEFAULT_TAG_FORMAT)
     expect(reparsed?.builtAt).toEqual(now)
   })
 
   it("月・日・時・分・秒を2桁ゼロパディングする", () => {
     const now = new Date(Date.UTC(2026, 0, 5, 3, 7, 9))
-    const tag = buildNewTag(toBranchName("main"), now)
+    const tag = buildNewTag(toBranchName("main"), now, DEFAULT_TAG_FORMAT)
     expect(tag.name).toBe("main-build-at-20260105-030709")
+  })
+
+  it("TAG_FORMATをカスタマイズすると、その形式でタグ名を組み立てる", () => {
+    const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
+    const format = validateTagFormat("{date}-{time}-{branch}")
+    const tag = buildNewTag(toBranchName("main"), now, format)
+    expect(tag.name).toBe("20260902-123456-main")
   })
 })

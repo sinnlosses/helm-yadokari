@@ -81,9 +81,13 @@
       タグへのリンク（`-/tags/...`）・旧タグ→新タグの比較リンク（`-/compare/...`）が
       GitLabのURL構造に依存するため、GitLab固有の関心事としてここに置く）もこのファイルが持つ
     - `tag.ts`: このツールのタグ命名規則（`docs/requirements.md` 4.1節）のパース・最新タグ判定・
-      新規タグ名の組み立て。外部システム・ファイルへのI/Oを一切持たない純粋な文字列/日付処理だが、
-      「GitLabのタグ」という概念に強く紐づく命名規則のため、`utils/`ではなく`gitlab/`配下に置く
-      （呼び出し元は `steps/build-plans.ts` のみ）
+      新規タグ名の組み立てに加え、`TAG_FORMAT`環境変数のテンプレート文字列（`{branch}`/`{date}`/
+      `{time}`プレースホルダ）を検証する`validateTagFormat()`も持つ。外部システム・ファイルへの
+      I/Oを一切持たない純粋な文字列/日付処理だが、「GitLabのタグ」という概念に強く紐づく命名規則
+      のため、`utils/`ではなく`gitlab/`配下に置く。`validateTagFormat()`/`DEFAULT_TAG_FORMAT`は
+      `lib/env.ts`の`parseTagFormat()`から、`buildNewTag()`/`parseTag()`/`findLatestParsedTag()`は
+      `sub-steps/build-plans/resolve-latest-tag.ts`から呼ばれる（`lib/`同士の依存は原則2の対象外
+      なので問題ない）
   - `config.ts`: `config/<chart>/chart.yaml`・`config/<chart>/<tenantId>/<clientId>/config.yaml`・
     同じディレクトリの`anchors.yaml`という2階層固定構成を再帰的に読み込み、Zodで
     バリデーション（ファイル探索・YAML読み込みの汎用部分は `utils/fs.ts` / `utils/yaml.ts` に

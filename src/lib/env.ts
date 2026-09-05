@@ -1,4 +1,6 @@
-import { type GitLabUrl, type TargetClient, toGitLabUrl } from "../types.js"
+import type { GitLabUrl, TagFormat, TargetClient } from "../types.js"
+import { toGitLabUrl } from "../types.js"
+import { DEFAULT_TAG_FORMAT, validateTagFormat } from "./gitlab/tag.js"
 
 export function loadEnv(key: string): string {
   const value = process.env[key]
@@ -30,6 +32,16 @@ export function parseConcurrencyLimit(raw: string | undefined): number {
   return value
 }
 
+/**
+ * TAG_FORMAT は `{branch}`/`{date}`/`{time}` プレースホルダをちょうど1回ずつ含む
+ * テンプレート文字列（未指定時は `DEFAULT_TAG_FORMAT`）。プレースホルダの検証・置換の
+ * ロジックはタグ命名規則の本体である `lib/gitlab/tag.ts` 側に持たせ、ここでは
+ * 未指定時のデフォルト適用のみ行う。
+ */
+export function parseTagFormat(raw: string | undefined): TagFormat {
+  return validateTagFormat(raw ?? DEFAULT_TAG_FORMAT)
+}
+
 function parseTargetClientEntry(entry: string): TargetClient {
   const parts = entry.split("/")
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
@@ -55,3 +67,4 @@ export const CONCURRENCY_LIMIT = parseConcurrencyLimit(loadOptionalEnv("CONCURRE
 export const DRY_RUN = loadOptionalEnv("DRY_RUN") === "true"
 export const TARGET_CHART_DIR = loadOptionalEnv("TARGET_CHART_DIR")
 export const TARGET_CLIENT = parseTargetClients(loadOptionalEnv("TARGET_CLIENT"))
+export const TAG_FORMAT = parseTagFormat(loadOptionalEnv("TAG_FORMAT"))

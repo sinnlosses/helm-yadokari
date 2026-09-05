@@ -8,6 +8,7 @@ import type {
   ChartUpdateTarget,
   FileUpdate,
   ProjectId,
+  TagFormat,
   ValuesPath,
 } from "../types.js"
 import { getOrFetch } from "../utils/cache.js"
@@ -47,9 +48,10 @@ export async function buildPlans(
   targets: readonly ChartAndApps[],
   concurrencyLimit: number,
   dryRun: boolean,
+  tagFormat: TagFormat,
 ): Promise<BuildPlansResult> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
-    process(gitlab, chartAndApps, dryRun),
+    process(gitlab, chartAndApps, dryRun, tagFormat),
   )
 
   return outcomes.reduce<BuildPlansResult>(
@@ -65,6 +67,7 @@ async function process(
   gitlab: GitlabClient,
   chartAndApps: ChartAndApps,
   dryRun: boolean,
+  tagFormat: TagFormat,
 ): Promise<PlanResult> {
   const logContext = {
     event: "update_chart",
@@ -74,7 +77,7 @@ async function process(
   }
 
   try {
-    const { plans, files } = await buildPlan(gitlab, chartAndApps, dryRun)
+    const { plans, files } = await buildPlan(gitlab, chartAndApps, dryRun, tagFormat)
     if (plans.length === 0) {
       logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })
       return { status: "settled", result: "SKIPPED" }
@@ -126,6 +129,7 @@ async function buildPlan(
   gitlab: GitlabClient,
   chartAndApps: ChartAndApps,
   dryRun: boolean,
+  tagFormat: TagFormat,
 ): Promise<{ plans: AppUpdatePlan[]; files: FileUpdate[] }> {
   const chartProjectId: ProjectId = chartAndApps.chart.projectId
   const baseBranch: BranchName = chartAndApps.chart.mrTargetBranch
@@ -152,6 +156,7 @@ async function buildPlan(
         buildAppUpdatePlan(
           gitlab,
           dryRun,
+          tagFormat,
           loadValuesYamlContent,
           chartProjectId,
           branchExistsCache,
@@ -181,13 +186,14 @@ async function buildPlan(
 async function buildAppUpdatePlan(
   gitlab: GitlabClient,
   dryRun: boolean,
+  tagFormat: TagFormat,
   loadValuesYamlContent: LoadValuesYamlContent,
   chartProjectId: ProjectId,
   branchExistsCache: Map<BranchName, boolean>,
   acc: BuildChartUpdateAcc,
   app: AppConfig,
 ): Promise<BuildChartUpdateAcc> {
-  const latestTag = await resolveLatestTag(gitlab, app, dryRun)
+  const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat)
 
   const initialTargetsAcc: ApplyTargetsAcc = {
     valuesYamlCache: acc.valuesYamlCache,

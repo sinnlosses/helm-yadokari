@@ -14,6 +14,7 @@ import {
   getLatestPipelineForRef,
   listTags,
 } from "../../src/lib/gitlab/gitlab.js"
+import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../src/lib/gitlab/tag.js"
 import { buildPlans } from "../../src/steps/build-plans.js"
 import {
   toAnchorName,
@@ -48,7 +49,7 @@ describe("buildPlans", () => {
 
   it("差分があるchartAndAppsはtoApplyに含まれる", async () => {
     const group = makeChartAndApps([makeApp()])
-    const { toApply, settled } = await buildPlans(mockGitlab, [group], 3, false)
+    const { toApply, settled } = await buildPlans(mockGitlab, [group], 3, false, DEFAULT_TAG_FORMAT)
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.chartAndApps).toBe(group)
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(NEW_TAG)
@@ -65,6 +66,7 @@ describe("buildPlans", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
+      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["SKIPPED"])
@@ -76,9 +78,26 @@ describe("buildPlans", () => {
       [makeChartAndApps([makeApp()])],
       3,
       true,
+      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["SKIPPED"])
+  })
+
+  it("tagFormatにカスタムフォーマットを渡すと、その形式で新しいタグを作成する", async () => {
+    const customFormat = validateTagFormat("{date}-{time}-{branch}")
+    vi.mocked(listTags).mockResolvedValue([
+      { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
+    ])
+    const { toApply } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([makeApp()])],
+      3,
+      false,
+      customFormat,
+    )
+    expect(vi.mocked(createTag).mock.calls[0]?.[2]).toMatch(/^\d{8}-\d{6}-main$/)
+    expect(toApply[0]?.plans[0]?.latestTag.name).toMatch(/^\d{8}-\d{6}-main$/)
   })
 
   it("追跡ブランチ由来のタグが見つからないとき、新しいタグを作成してtoApplyに含める", async () => {
@@ -90,6 +109,7 @@ describe("buildPlans", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
+      DEFAULT_TAG_FORMAT,
     )
     expect(createTag).toHaveBeenCalledOnce()
     expect(vi.mocked(createTag).mock.calls[0]?.[3]).toBe("main")
@@ -107,6 +127,7 @@ describe("buildPlans", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
+      DEFAULT_TAG_FORMAT,
     )
     expect(createTag).toHaveBeenCalledOnce()
     expect(toApply).toHaveLength(1)
@@ -117,7 +138,7 @@ describe("buildPlans", () => {
     vi.mocked(listTags).mockResolvedValue([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
-    await buildPlans(mockGitlab, [makeChartAndApps([makeApp()])], 3, true)
+    await buildPlans(mockGitlab, [makeChartAndApps([makeApp()])], 3, true, DEFAULT_TAG_FORMAT)
     expect(createTag).not.toHaveBeenCalled()
   })
 
@@ -131,6 +152,7 @@ describe("buildPlans", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
+      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
@@ -143,6 +165,7 @@ describe("buildPlans", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
+      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
@@ -160,6 +183,7 @@ describe("buildPlans", () => {
       [makeChartAndApps([appOk, appFail])],
       3,
       false,
+      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
@@ -189,7 +213,13 @@ describe("buildPlans", () => {
     vi.mocked(getFileContent).mockResolvedValue(
       `variables:\n  - &appAVersion ${OLD_TAG}\n  - &appBVersion ${OLD_TAG}\n`,
     )
-    const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([appA, appB])], 3, false)
+    const { toApply } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([appA, appB])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
     expect(toApply[0]?.files).toHaveLength(1)
     expect(toApply[0]?.files[0]?.content).toContain(`&appAVersion ${NEW_TAG}`)
     expect(toApply[0]?.files[0]?.content).toContain(`&appBVersion ${NEW_TAG}`)
@@ -207,7 +237,13 @@ describe("buildPlans", () => {
     vi.mocked(getFileContent).mockResolvedValue(
       `variables:\n  - &helmVersion develop\n  - &tenant1client1AppsVersion ${OLD_TAG}\n`,
     )
-    const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    const { toApply } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([app])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
     expect(toApply[0]?.files[0]?.content).toContain(`&tenant1client1AppsVersion ${NEW_TAG}`)
     expect(toApply[0]?.files[0]?.content).toContain("&helmVersion develop")
   })
@@ -230,7 +266,13 @@ describe("buildPlans", () => {
       if (filePath === "batch.yaml") return `variables:\n  - &batchVersion ${OLD_TAG}\n`
       return undefined
     })
-    const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    const { toApply } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([app])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
     expect(toApply[0]?.plans[0]?.updates).toHaveLength(2)
     expect(toApply[0]?.files).toHaveLength(2)
     const webapiFile = toApply[0]?.files.find((f) => f.filePath === "webapi.yaml")
@@ -257,7 +299,13 @@ describe("buildPlans", () => {
       if (filePath === "batch.yaml") return `variables:\n  - &batchVersion ${NEW_TAG}\n`
       return undefined
     })
-    const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    const { toApply } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([app])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
     expect(toApply[0]?.plans[0]?.updates).toHaveLength(1)
     expect(toApply[0]?.plans[0]?.updates[0]?.target.valuesPath).toBe("webapi.yaml")
     expect(toApply[0]?.files).toHaveLength(1)
@@ -279,7 +327,13 @@ describe("buildPlans", () => {
     vi.mocked(getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
-    const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    const { toApply } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([app])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
     expect(toApply[0]?.plans[0]?.helmTargetBranchUpdates).toEqual([
       {
         target: { valuesPath: "values.yaml", anchor: "targetBranch" },
@@ -305,7 +359,13 @@ describe("buildPlans", () => {
     vi.mocked(getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2026-q1\n`,
     )
-    const { toApply, settled } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([app])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["SKIPPED"])
   })
@@ -325,7 +385,13 @@ describe("buildPlans", () => {
     vi.mocked(getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
-    const { toApply } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    const { toApply } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([app])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.plans[0]?.updates).toEqual([])
     expect(toApply[0]?.plans[0]?.helmTargetBranchUpdates).toHaveLength(1)
@@ -347,7 +413,13 @@ describe("buildPlans", () => {
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     vi.mocked(branchExists).mockResolvedValue(false)
-    const { toApply, settled } = await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false)
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([app])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
   })
@@ -368,15 +440,15 @@ describe("buildPlans", () => {
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const group = makeChartAndApps([app])
-    await buildPlans(mockGitlab, [group], 3, false)
+    await buildPlans(mockGitlab, [group], 3, false, DEFAULT_TAG_FORMAT)
     expect(branchExists).toHaveBeenCalledWith(mockGitlab, group.chart.projectId, "release/2026-q1")
   })
 
   it("401エラーのとき FatalError をスローする", async () => {
     vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
-    await expect(buildPlans(mockGitlab, [makeChartAndApps([makeApp()])], 3, false)).rejects.toThrow(
-      FatalError,
-    )
+    await expect(
+      buildPlans(mockGitlab, [makeChartAndApps([makeApp()])], 3, false, DEFAULT_TAG_FORMAT),
+    ).rejects.toThrow(FatalError)
   })
 
   it("非fatalなAPIエラーのときsettledにERRORとして入る", async () => {
@@ -386,6 +458,7 @@ describe("buildPlans", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
+      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])

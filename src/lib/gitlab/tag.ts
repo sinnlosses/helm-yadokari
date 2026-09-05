@@ -1,25 +1,94 @@
-import type { BranchName, ParsedTag, TagName } from "../../types.js"
-import { toTagName } from "../../types.js"
+import type { BranchName, ParsedTag, TagFormat, TagName } from "../../types.js"
+import { toTagFormat, toTagName } from "../../types.js"
 
-const TAG_SUFFIX_PATTERN = /^(\d{8})-(\d{6})$/
+const REQUIRED_PLACEHOLDERS: readonly string[] = ["branch", "date", "time"]
+const PLACEHOLDER_PATTERN = /\{(branch|date|time)\}/g
+const ANY_PLACEHOLDER_PATTERN = /\{([^}]*)\}/g
 
-/**
- * タグ命名規則: `${branchの"/"を"-"に置換した値}-build-at-${yyyymmdd}-${hhmmss}`
- */
-export function buildTagPrefix(branch: BranchName): string {
-  return `${branch.replaceAll("/", "-")}-build-at-`
+export const DEFAULT_TAG_FORMAT: TagFormat = toTagFormat("{branch}-build-at-{date}-{time}")
+
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
-export function parseTag(tagName: TagName, branch: BranchName): ParsedTag | undefined {
-  const prefix = buildTagPrefix(branch)
-  if (!tagName.startsWith(prefix)) return undefined
+/**
+ * `TAG_FORMAT`（タグ命名規則のテンプレート）の妥当性を検証する。`{branch}`/`{date}`/`{time}`
+ * をちょうど1回ずつ含む必要があり、それ以外のプレースホルダは許可しない。
+ */
+export function validateTagFormat(raw: string): TagFormat {
+  const unknownPlaceholders = [...raw.matchAll(ANY_PLACEHOLDER_PATTERN)]
+    .map((match) => match[1])
+    .filter((name): name is string => name !== undefined && !REQUIRED_PLACEHOLDERS.includes(name))
+  if (unknownPlaceholders.length > 0) {
+    throw new Error(
+      `TAG_FORMAT に未知のプレースホルダがあります: ${unknownPlaceholders.join(", ")}` +
+        `（使えるのは {branch}/{date}/{time} のみです）: "${raw}"`,
+    )
+  }
 
-  const suffix = tagName.slice(prefix.length)
-  const match = TAG_SUFFIX_PATTERN.exec(suffix)
-  if (!match) return undefined
+  for (const placeholder of REQUIRED_PLACEHOLDERS) {
+    const count = [...raw.matchAll(new RegExp(`\\{${placeholder}\\}`, "g"))].length
+    if (count !== 1) {
+      throw new Error(`TAG_FORMAT には {${placeholder}} をちょうど1回含めてください: "${raw}"`)
+    }
+  }
 
-  const datePart = match[1]
-  const timePart = match[2]
+  return toTagFormat(raw)
+}
+
+/**
+ * `format`のプレースホルダを埋めてタグ名を組み立てる。`{branch}`は呼び出し元が渡した
+ * `branch`（"/"を"-"に置換済み）、`{date}`/`{time}`は呼び出し元が渡した値にそのまま置換する。
+ */
+function fillTagFormat(
+  format: TagFormat,
+  branch: BranchName,
+  datePart: string,
+  timePart: string,
+): string {
+  const branchLiteral = branch.replaceAll("/", "-")
+  return format.replace(PLACEHOLDER_PATTERN, (_, placeholder: string) => {
+    if (placeholder === "branch") return branchLiteral
+    if (placeholder === "date") return datePart
+    return timePart
+  })
+}
+
+/**
+ * `format`と`branch`から、タグ名をパースするための正規表現を組み立てる。`{branch}`は
+ * `branch`の具体値（"/"を"-"に置換済み）へのリテラル一致、`{date}`/`{time}`は名前付き
+ * キャプチャグループにする。プレースホルダ以外の部分はリテラルとしてエスケープする。
+ */
+function compileTagPattern(format: TagFormat, branch: BranchName): RegExp {
+  const branchLiteral = branch.replaceAll("/", "-")
+  let source = "^"
+  let lastIndex = 0
+  for (const match of format.matchAll(PLACEHOLDER_PATTERN)) {
+    const index = match.index
+    source += escapeRegExp(format.slice(lastIndex, index))
+    const placeholder = match[1]
+    if (placeholder === "branch") {
+      source += escapeRegExp(branchLiteral)
+    } else if (placeholder === "date") {
+      source += "(?<date>\\d{8})"
+    } else {
+      source += "(?<time>\\d{6})"
+    }
+    lastIndex = index + match[0].length
+  }
+  source += escapeRegExp(format.slice(lastIndex))
+  source += "$"
+  return new RegExp(source)
+}
+
+export function parseTag(
+  tagName: TagName,
+  branch: BranchName,
+  format: TagFormat,
+): ParsedTag | undefined {
+  const match = compileTagPattern(format, branch).exec(tagName)
+  const datePart = match?.groups?.["date"]
+  const timePart = match?.groups?.["time"]
   if (!datePart || !timePart) return undefined
 
   const year = Number(datePart.slice(0, 4))
@@ -37,14 +106,14 @@ export function parseTag(tagName: TagName, branch: BranchName): ParsedTag | unde
 }
 
 /**
- * 現在時刻を元に、命名規則に従った新しいタグを組み立てる（GitLab上への作成はしない、名前の生成のみ）。
+ * 現在時刻を元に、`format`に従った新しいタグを組み立てる（GitLab上への作成はしない、名前の生成のみ）。
  */
-export function buildNewTag(branch: BranchName, now: Date): ParsedTag {
+export function buildNewTag(branch: BranchName, now: Date, format: TagFormat): ParsedTag {
   const pad = (n: number) => String(n).padStart(2, "0")
   const datePart = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}`
   const timePart = `${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`
   return {
-    name: toTagName(`${buildTagPrefix(branch)}${datePart}-${timePart}`),
+    name: toTagName(fillTagFormat(format, branch, datePart, timePart)),
     branch,
     builtAt: now,
   }
@@ -57,9 +126,10 @@ export function buildNewTag(branch: BranchName, now: Date): ParsedTag {
 export function findLatestParsedTag(
   tagNames: readonly TagName[],
   branch: BranchName,
+  format: TagFormat,
 ): ParsedTag | undefined {
   return tagNames
-    .map((name) => parseTag(name, branch))
+    .map((name) => parseTag(name, branch, format))
     .filter((tag): tag is ParsedTag => tag !== undefined)
     .reduce<ParsedTag | undefined>((latest, current) => {
       if (!latest) return current

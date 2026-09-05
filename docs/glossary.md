@@ -128,7 +128,10 @@
 
 ### タグ命名規則
 
-- **定義**: `${追跡ブランチ名の"/"を"-"に置換した値}-build-at-${yyyymmdd}-${hhmmss}` という固定フォーマット。`buildTagPrefix()`/`parseTag()`/`buildNewTag()`が扱う。
+- **定義**: デフォルトは `${追跡ブランチ名の"/"を"-"に置換した値}-build-at-${yyyymmdd}-${hhmmss}`
+  というフォーマット。`TAG_FORMAT`環境変数（`{branch}`/`{date}`/`{time}`プレースホルダを
+  ちょうど1回ずつ含むテンプレート文字列）でカスタマイズ可能（当初は固定フォーマットだったが、
+  T-018で設定可能に変更）。`validateTagFormat()`/`parseTag()`/`buildNewTag()`が扱う。
 
 ### 打刻日時 / ビルド日時
 

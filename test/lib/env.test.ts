@@ -4,6 +4,7 @@ import {
   loadEnv,
   loadOptionalEnv,
   parseConcurrencyLimit,
+  parseTagFormat,
   parseTargetClients,
   validateGitlabUrl,
 } from "../../src/lib/env.js"
@@ -89,6 +90,20 @@ describe("parseConcurrencyLimit", () => {
 
   it("数値に変換できない文字列のとき例外をスローする", () => {
     expect(() => parseConcurrencyLimit("abc")).toThrow("CONCURRENCY_LIMIT")
+  })
+})
+
+describe("parseTagFormat", () => {
+  it("未指定のときデフォルトのフォーマットを返す", () => {
+    expect(parseTagFormat(undefined)).toBe("{branch}-build-at-{date}-{time}")
+  })
+
+  it("指定されたフォーマットを検証して返す", () => {
+    expect(parseTagFormat("{date}-{time}-{branch}")).toBe("{date}-{time}-{branch}")
+  })
+
+  it("不正なフォーマットのとき例外をスローする", () => {
+    expect(() => parseTagFormat("{branch}-{date}")).toThrow("TAG_FORMAT")
   })
 })
 

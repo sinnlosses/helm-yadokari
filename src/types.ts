@@ -22,6 +22,16 @@ export function toTagName(s: string): TagName {
   return s as TagName
 }
 
+declare const tagFormatBrand: unique symbol
+/**
+ * タグ命名規則のテンプレート文字列。`{branch}`/`{date}`/`{time}` プレースホルダを
+ * ちょうど1回ずつ含む（検証は `lib/gitlab/tag.ts` の `validateTagFormat()` が行う）
+ */
+export type TagFormat = string & { readonly [tagFormatBrand]: never }
+export function toTagFormat(s: string): TagFormat {
+  return s as TagFormat
+}
+
 declare const gitLabUrlBrand: unique symbol
 export type GitLabUrl = string & { readonly [gitLabUrlBrand]: never }
 export function toGitLabUrl(s: string): GitLabUrl {

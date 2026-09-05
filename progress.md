@@ -1,6 +1,6 @@
 # 現在の状態
 
-最終更新: 2026-09-05（build-plans.ts 処理単位別 sub-steps 分割セッション）
+最終更新: 2026-09-05（T-018: タグ命名規則の設定可能化セッション）
 
 ## 完了したこと
 
@@ -503,6 +503,43 @@ DRY_RUN=true`で実機再確認
     生成されることを確認。`CONFIG_PATH=config-test DRY_RUN=true`で実機再確認
     （既存のオープン中MRにより`filterTargets`で`SKIPPED`。設定読み込み〜GitLab API疎通までは
     到達を確認、`buildPlans()`内部の新構成自体は253テストで担保）
+
+- **T-018完了**: タグ命名規則を`TAG_FORMAT`環境変数で設定可能にした（元は固定フォーマット、
+  `docs/requirements-grilling.md`7ラウンド目で確定していたものを再検討）
+  - ユーザーからの依頼「ブランチ由来のタグの形式を決め打ちではなく設定可能にできるか」を受けて
+    /askで2点を確認: (1) 設定の粒度はapp単位（config.yaml）か全体で1つ（環境変数）か →
+    「全体で1つの環境変数」を選択（branchToSyncのようなapp単位設定にはしない）。
+    (2) 柔軟性のレベルは既存タグ解析専用の正規表現か、新規タグ作成にも使えるテンプレート
+    文字列か → 「テンプレート文字列でプレースホルダ差し替え」を選択
+  - `src/types.ts`に`TagFormat`ブランド型・`toTagFormat()`を追加
+  - `src/lib/gitlab/tag.ts`を全面改修: `DEFAULT_TAG_FORMAT`（`"{branch}-build-at-{date}-{time}"`）・
+    `validateTagFormat()`（`{branch}`/`{date}`/`{time}`をちょうど1回ずつ含むか検証、未知の
+    プレースホルダは拒否）を新設。`buildTagPrefix()`を削除し、`buildNewTag()`/`parseTag()`/
+    `findLatestParsedTag()`は第3引数`format: TagFormat`を取る形に変更。`parseTag()`は
+    名前付きキャプチャグループ（`(?<date>...)`/`(?<time>...)`）でプレースホルダの並び替えに
+    対応し、`{branch}`はテンプレート中の位置に関わらずリテラル一致させる
+  - `src/lib/env.ts`に`parseTagFormat()`（未指定時は`DEFAULT_TAG_FORMAT`を適用して
+    `validateTagFormat()`に委譲）と`TAG_FORMAT`定数を追加。タグ命名規則の検証ロジック自体は
+    `lib/gitlab/tag.ts`側の責務として保ち、`env.ts`は未指定時のデフォルト適用のみ担当
+    （`lib/`同士の依存は原則2の対象外）
+  - `tagFormat`を`resolve-latest-tag.ts`→`build-plans.ts`（`buildAppUpdatePlan`/`buildPlan`/
+    `process`/`buildPlans`）→`main.ts`まで明示的な引数として貫通（他の環境変数と同じ
+    明示引数渡しのスタイルに統一し、デフォルト引数は使わない）
+  - `test/lib/gitlab/tag.test.ts`（`validateTagFormat`の正常系・異常系6件、カスタム
+    フォーマットでの`parseTag`/`buildNewTag`のテストを追加、`buildTagPrefix`のテストは削除）・
+    `test/lib/env.test.ts`（`parseTagFormat`の3テスト追加）・`test/steps/build-plans.test.ts`
+    （カスタムフォーマットを渡すと`createTag`/`latestTag`がその形式になることを確認する
+    1テストを追加、既存の全`buildPlans()`呼び出しに`DEFAULT_TAG_FORMAT`引数を追加）・
+    `test/main.test.ts`の`env.js`モックに`TAG_FORMAT`を追加
+  - `README.md`（タグ命名規則節に説明と運用注意点、環境変数表・CI/CD変数表）・`.env.example`・
+    `.gitlab-ci.yml`（`spec.inputs.TAG_FORMAT`・`variables.TAG_FORMAT`）・
+    `docs/requirements.md`（4.1節）・`docs/requirements-grilling.md`（新ラウンドとして
+    設定粒度・柔軟性レベルの決定経緯を記録）・`docs/glossary.md`・`docs/architecture.md`
+    （`tag.ts`の説明）を更新
+  - `pnpm check`（264テスト）通過。運用注意点として、フォーマットを運用途中で変更すると
+    過去に作成済みのタグが追跡ブランチ由来のタグとして認識されなくなる旨をREADMEに明記
+  - 未実施: gitlab.com実機での動作確認（コード変更のみでこのセッションは完了、次回以降に
+    やるなら`TAG_FORMAT`にカスタム値を指定した`DRY_RUN=true`実行で確認するとよい）
 
 ## 次にやること
 

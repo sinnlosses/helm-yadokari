@@ -10,6 +10,7 @@ vi.mock("../src/lib/env.js", () => ({
   DRY_RUN: false,
   TARGET_CHART_DIR: undefined,
   TARGET_CLIENT: undefined,
+  TAG_FORMAT: "{branch}-build-at-{date}-{time}",
 }))
 vi.mock("../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },

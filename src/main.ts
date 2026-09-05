@@ -5,6 +5,7 @@ import {
   CONFIG_PATH,
   DRY_RUN,
   GITLAB_URL,
+  TAG_FORMAT,
   TARGET_CHART_DIR,
   TARGET_CLIENT,
 } from "./lib/env.js"
@@ -25,6 +26,7 @@ export async function run(): Promise<RunResult> {
     configPath: CONFIG_PATH,
     targetChartDir: TARGET_CHART_DIR,
     targetClient: TARGET_CLIENT,
+    tagFormat: TAG_FORMAT,
   })
   const { value: resultCounts, duration_ms } = await timed(process)
   logger.info({ event: "summary", ...resultCounts })
@@ -60,6 +62,7 @@ export async function process(): Promise<Record<ChartUpdateResult, number>> {
     targets,
     CONCURRENCY_LIMIT,
     DRY_RUN,
+    TAG_FORMAT,
   )
   const applied = await applyUpdates(gitlab, toApply, CONCURRENCY_LIMIT)
 
