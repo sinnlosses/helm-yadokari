@@ -1,4 +1,4 @@
-import type { AppUpdatePlan, ChartAndApps } from "../../types.js"
+import type { AppUpdatePlan, ChartAndApps, ProjectName } from "../../types.js"
 import { FatalError } from "../../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../../utils/http.js"
 import { logger } from "../../utils/logger.js"
@@ -38,6 +38,21 @@ export function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
       newBranch: update.newBranch,
     })),
   }
+}
+
+/**
+ * アプリ単位の処理で捕捉した例外に「どのアプリで起きたか」を付け足して投げ直す（T-052）。
+ * オールオアナッシングでclient全体がERRORになるため、原因のアプリがログから特定できないと
+ * 調査できないことへの対策。
+ *
+ * 致命的エラー（401 / 5xx / ネットワーク障害）は**包まずにそのまま投げる**。`settleAsError()`は
+ * 元の例外の構造（`cause.response.status` や `code`）を見て判定するため、`new Error(..., { cause })`
+ * で包むとその構造が1段深くなり、`FatalError`に昇格できなくなるためである。この「何が致命的か」の
+ * 判断を`settleAsError()`と同じファイルに置くことで、方針の変更漏れを防ぐ（T-022）。
+ */
+export function rethrowWithAppContext(err: unknown, projectName: ProjectName): never {
+  if (isFatalError(err) || !(err instanceof Error)) throw err
+  throw new Error(`[アプリ: ${projectName}] ${err.message}`, { cause: err })
 }
 
 /**

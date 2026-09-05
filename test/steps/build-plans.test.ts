@@ -24,6 +24,7 @@ import {
   toValuesPath,
 } from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"
+import { logger } from "../../src/utils/logger.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
@@ -181,5 +182,14 @@ describe("buildPlans", () => {
     expect(toApply).toEqual([])
     expect(settled).toEqual(["SKIPPED"])
     expect(vi.mocked(getLatestPipelineForRef)).not.toHaveBeenCalled()
+  })
+
+  it("values.yaml が見つからないときのエラーメッセージにアプリ名が含まれる", async () => {
+    vi.mocked(getFileContent).mockResolvedValue(undefined)
+    const app = makeApp({ projectName: toProjectName("test-app-name") })
+    await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false, DEFAULT_TAG_FORMAT)
+    expect(vi.mocked(logger.error)).toHaveBeenCalled()
+    const errorCall = vi.mocked(logger.error).mock.calls[0]?.[0]
+    expect(errorCall?.reason).toContain("test-app-name")
   })
 })

@@ -30,7 +30,9 @@ async function applyHelmTargetBranchTarget(
   if (previousBranchRaw === branch) return { ...acc, valuesYamlCache }
 
   if (!(await branchExists(branch))) {
-    throw new Error(`向き先ブランチ "${branch}" がchartリポジトリに見つかりません`)
+    throw new Error(
+      `向き先ブランチ "${branch}" がchartリポジトリに見つかりません (valuesPath: ${target.valuesPath}, anchor: ${target.anchor})`,
+    )
   }
 
   valuesYamlCache.set(target.valuesPath, setValueAtAnchor(valuesYamlContent, target.anchor, branch))

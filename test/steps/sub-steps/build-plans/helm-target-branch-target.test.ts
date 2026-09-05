@@ -16,7 +16,14 @@ import {
 } from "../../../../src/lib/gitlab/gitlab.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../../src/lib/gitlab/tag.js"
 import { buildPlans } from "../../../../src/steps/build-plans.js"
-import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../../src/types.js"
+import {
+  toAnchorName,
+  toBranchName,
+  toProjectName,
+  toTagName,
+  toValuesPath,
+} from "../../../../src/types.js"
+import { logger } from "../../../../src/utils/logger.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../../../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
@@ -169,5 +176,30 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     const group = makeChartAndApps([app])
     await buildPlans(mockGitlab, [group], 3, false, DEFAULT_TAG_FORMAT)
     expect(branchExists).toHaveBeenCalledWith(mockGitlab, group.chart.projectId, "release/2026-q1")
+  })
+
+  it("向き先ブランチが見つからないときのエラーメッセージにアプリ名、valuesPath、anchorが含まれる", async () => {
+    const app = makeApp({
+      projectName: toProjectName("my-test-app"),
+      helmTargetBranch: {
+        branch: toBranchName("release/2026-q1"),
+        targets: [
+          {
+            valuesPath: toValuesPath("helm/values.yaml"),
+            anchor: toAnchorName("targetBranch"),
+          },
+        ],
+      },
+    })
+    vi.mocked(getFileContent).mockResolvedValue(
+      `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
+    )
+    vi.mocked(branchExists).mockResolvedValue(false)
+    await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false, DEFAULT_TAG_FORMAT)
+    expect(vi.mocked(logger.error)).toHaveBeenCalled()
+    const errorCall = vi.mocked(logger.error).mock.calls[0]?.[0]
+    expect(errorCall?.reason).toContain("my-test-app")
+    expect(errorCall?.reason).toContain("helm/values.yaml")
+    expect(errorCall?.reason).toContain("targetBranch")
   })
 })

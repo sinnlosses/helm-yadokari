@@ -494,10 +494,10 @@
   {
     "id": "T-052",
     "task": "build-plans の失敗ログから「どのアプリで失敗したか」が分からない問題を直す。`buildPlan()` が投げるエラー（build-plans.ts:141 の「values.yaml が見つかりません: <valuesPath>」、helm-target-branch-target.ts:33 の「向き先ブランチ \"<branch>\" がchartリポジトリに見つかりません」）は、`planTarget()` の catch で `settleAsError()` に渡り、chartAndApps単位のログコンテキスト（chartDir/tenantId/clientId/chartProjectId/chartProjectName）と一緒に出力される。しかしアプリ名は含まれないため、1つのclientに複数アプリがあると、どのアプリの設定が原因かがログから特定できない（オールオアナッシングでclient全体がERRORになるぶん、原因の特定はより重要）。エラーメッセージにアプリの識別情報（`app.projectName`、可能なら該当の `valuesPath`/`anchor`）を含める。`settleAsError()` のシグネチャや共通のエラー方針は変えず、投げる側でメッセージを組み立てる方針とする。完了条件: 失敗時のメッセージにアプリ名が含まれることを検証するテストを1件足し、`pnpm check` を通すこと",
-    "status": "todo",
+    "status": "done",
     "difficulty": "haiku",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "buildAppUpdatePlan() 全体を try/catch で囲み、steps/shared/step-outcome.ts に追加した rethrowWithAppContext() で「[アプリ: <projectName>] <元のメッセージ>」に包んで投げ直す。向き先ブランチのエラーには valuesPath・anchor も追加。致命的エラー（401/5xx/ネットワーク障害）は包まずそのまま投げる（new Error(..., {cause}) で包むと extractHttpStatus() が status を辿れず FatalError に昇格できなくなるため）。テスト2件追加。pnpm check（28ファイル305テスト、303→305）通過。haikuのサブエージェントに委譲したが、初回実装は isFatalError の判定を build-plans.ts に直接置いておりT-022で集約したエラー方針が分散するため、メイン側で step-outcome.ts への集約に直してから受け入れた",
     "dependencies": []
   },
   {

@@ -21,7 +21,12 @@ import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
 import { left, partitionMap, right } from "../utils/partition.js"
 import { reduceAsync } from "../utils/sequential.js"
-import { buildLogContext, describePlan, settleAsError } from "./shared/step-outcome.js"
+import {
+  buildLogContext,
+  describePlan,
+  rethrowWithAppContext,
+  settleAsError,
+} from "./shared/step-outcome.js"
 import {
   type ApplyHelmTargetsAcc,
   applyHelmTargetBranchTargets,
@@ -186,6 +191,9 @@ async function buildPlan(
  *    全箇所について設定値との差分をチェック
  * 5. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば最新パイプラインを取得して
  *    `AppUpdatePlan`を組み立てる
+ *
+ * 処理中に投げられた例外は`rethrowWithAppContext()`でアプリ名を付けて投げ直す（T-052）。
+ * 致命的エラーの扱いを含む方針は`steps/shared/step-outcome.ts`に集約している。
  */
 async function buildAppUpdatePlan(
   context: BuildPlanContext,
@@ -193,72 +201,76 @@ async function buildAppUpdatePlan(
   app: AppConfig,
 ): Promise<BuildChartUpdateAcc> {
   const { gitlab, dryRun, tagFormat, loadValuesYamlContent, branchExists } = context
-  const { valuesYamlCache: cacheWithCurrentTags, previousTags } = await readCurrentImageTags(
-    loadValuesYamlContent,
-    acc.valuesYamlCache,
-    app.chart,
-  )
-  const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat, previousTags)
+  try {
+    const { valuesYamlCache: cacheWithCurrentTags, previousTags } = await readCurrentImageTags(
+      loadValuesYamlContent,
+      acc.valuesYamlCache,
+      app.chart,
+    )
+    const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat, previousTags)
 
-  const initialTargetsAcc: ApplyImageTagAcc = {
-    valuesYamlCache: cacheWithCurrentTags,
-    modifiedValuesPaths: acc.modifiedValuesPaths,
-    updates: [],
-  }
-  const afterChartTargets = await applyImageTagTargets(
-    loadValuesYamlContent,
-    latestTag,
-    initialTargetsAcc,
-    app.chart,
-  )
+    const initialTargetsAcc: ApplyImageTagAcc = {
+      valuesYamlCache: cacheWithCurrentTags,
+      modifiedValuesPaths: acc.modifiedValuesPaths,
+      updates: [],
+    }
+    const afterChartTargets = await applyImageTagTargets(
+      loadValuesYamlContent,
+      latestTag,
+      initialTargetsAcc,
+      app.chart,
+    )
 
-  const helmTargetBranch = app.helmTargetBranch
-  const initialHelmTargetsAcc: ApplyHelmTargetsAcc = {
-    valuesYamlCache: afterChartTargets.valuesYamlCache,
-    modifiedValuesPaths: afterChartTargets.modifiedValuesPaths,
-    updates: [],
-  }
-  const afterHelmTargets = helmTargetBranch
-    ? await applyHelmTargetBranchTargets(
-        branchExists,
-        loadValuesYamlContent,
-        helmTargetBranch,
-        initialHelmTargetsAcc,
-      )
-    : initialHelmTargetsAcc
+    const helmTargetBranch = app.helmTargetBranch
+    const initialHelmTargetsAcc: ApplyHelmTargetsAcc = {
+      valuesYamlCache: afterChartTargets.valuesYamlCache,
+      modifiedValuesPaths: afterChartTargets.modifiedValuesPaths,
+      updates: [],
+    }
+    const afterHelmTargets = helmTargetBranch
+      ? await applyHelmTargetBranchTargets(
+          branchExists,
+          loadValuesYamlContent,
+          helmTargetBranch,
+          initialHelmTargetsAcc,
+        )
+      : initialHelmTargetsAcc
 
-  const { valuesYamlCache, modifiedValuesPaths } = afterHelmTargets
-  const { updates } = afterChartTargets
-  const helmTargetBranchUpdates = afterHelmTargets.updates
+    const { valuesYamlCache, modifiedValuesPaths } = afterHelmTargets
+    const { updates } = afterChartTargets
+    const helmTargetBranchUpdates = afterHelmTargets.updates
 
-  if (updates.length === 0 && helmTargetBranchUpdates.length === 0) {
-    logger.info({
-      event: "check_app",
-      projectName: app.projectName,
-      result: "SKIPPED",
-      reason: "already_up_to_date",
-      tag: latestTag.tag.name,
-    })
-    return { plans: acc.plans, valuesYamlCache, modifiedValuesPaths }
-  }
+    if (updates.length === 0 && helmTargetBranchUpdates.length === 0) {
+      logger.info({
+        event: "check_app",
+        projectName: app.projectName,
+        result: "SKIPPED",
+        reason: "already_up_to_date",
+        tag: latestTag.tag.name,
+      })
+      return { plans: acc.plans, valuesYamlCache, modifiedValuesPaths }
+    }
 
-  // dryRun時はMRを作らないため（planTarget()でSKIPPEDになる）、MR本文組み立てで必要な
-  // パイプライン情報は不要。APIコストを削減するため取得をスキップする
-  const pipeline = dryRun
-    ? undefined
-    : await getLatestPipelineForRef(gitlab, app.projectId, latestTag.tag.name)
-  const plan: AppUpdatePlan = {
-    app,
-    latestTag: latestTag.tag,
-    pipeline,
-    updates,
-    helmTargetBranchUpdates,
-  }
+    // dryRun時はMRを作らないため（planTarget()でSKIPPEDになる）、MR本文組み立てで必要な
+    // パイプライン情報は不要。APIコストを削減するため取得をスキップする
+    const pipeline = dryRun
+      ? undefined
+      : await getLatestPipelineForRef(gitlab, app.projectId, latestTag.tag.name)
+    const plan: AppUpdatePlan = {
+      app,
+      latestTag: latestTag.tag,
+      pipeline,
+      updates,
+      helmTargetBranchUpdates,
+    }
 
-  return {
-    plans: [...acc.plans, plan],
-    valuesYamlCache,
-    modifiedValuesPaths,
+    return {
+      plans: [...acc.plans, plan],
+      valuesYamlCache,
+      modifiedValuesPaths,
+    }
+  } catch (err) {
+    rethrowWithAppContext(err, app.projectName)
   }
 }
 
