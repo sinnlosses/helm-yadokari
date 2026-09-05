@@ -457,7 +457,6 @@ function makePlan(
     pipeline: PipelineInfo
     previousTag: TagName | undefined
     projectName: string
-    latestTagCreated: boolean
     updates: AppUpdatePlan["updates"]
     helmTargetBranchUpdates: AppUpdatePlan["helmTargetBranchUpdates"]
   }> = {},
@@ -475,7 +474,6 @@ function makePlan(
       builtAt: new Date("2026-01-01T00:00:00Z"),
     },
     pipeline: overrides.pipeline,
-    latestTagCreated: overrides.latestTagCreated ?? false,
     updates: overrides.updates ?? [
       {
         target: {
@@ -573,7 +571,7 @@ describe("buildMrDescription", () => {
 
     expect(description).toContain("## イメージタグ")
     expect(description).toContain(
-      "| リポジトリ | 旧タグ | 新タグ | 比較 | 打刻日時(JST) | パイプライン |",
+      "| リポジトリ | 書き込み先 | 旧タグ | 新タグ | 比較 | パイプライン |",
     )
     const row = description.split("\n").find((line) => line.includes("my-app"))
     expect(row).toContain("[main-build-at-20251231-000000](")
@@ -597,26 +595,24 @@ describe("buildMrDescription", () => {
       }),
     ])
 
-    expect(description.split("\n").filter((line) => line.includes("my-app"))).toHaveLength(2)
+    const rows = description.split("\n").filter((line) => line.includes("my-app"))
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toContain("`a.yaml`（アンカー: x）")
+    expect(rows[1]).toContain("`b.yaml`（アンカー: y）")
   })
 
-  it("打刻日時は新しいタグを作成したときだけJSTで表示する", async () => {
-    const description = await buildMrDescription(makeShowClient(), [
-      makePlan({ latestTagCreated: true }),
-    ])
+  it("書き込み先の列に valuesPath とアンカー名を出す", async () => {
+    const description = await buildMrDescription(makeShowClient(), [makePlan()])
 
-    // builtAt は 2026-01-01T00:00:00Z なので JST では 09:00:00
-    expect(description).toContain("2026-01-01 09:00:00")
-  })
-
-  it("既存タグを再利用したときの打刻日時は - にする", async () => {
-    const description = await buildMrDescription(makeShowClient(), [
-      makePlan({ latestTagCreated: false }),
-    ])
-
-    expect(description).not.toContain("2026-01-01 09:00:00")
     const row = description.split("\n").find((line) => line.includes("my-app"))
-    expect(row).toContain("| - |")
+    expect(row).toContain("`values.yaml`（アンカー: appVersion）")
+  })
+
+  it("打刻日時の列は出さない", async () => {
+    const description = await buildMrDescription(makeShowClient(), [makePlan()])
+
+    expect(description).not.toContain("打刻日時")
+    expect(description).not.toContain("2026-01-01 09:00:00")
   })
 
   it("パイプラインは状態を出さずリンクだけにする", async () => {

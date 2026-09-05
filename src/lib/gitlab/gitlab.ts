@@ -273,31 +273,9 @@ function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): string {
 }
 
 /**
- * 打刻日時をJSTで `yyyy-MM-dd HH:mm:ss` 形式にする。タグ名に埋め込まれる日時はUTCなので、
- * MR本文ではレビュアーが読みやすいJSTに直して表示する（T-036）。
- */
-function formatJst(date: Date): string {
-  const parts = new Intl.DateTimeFormat("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date)
-  const part = (type: Intl.DateTimeFormatPartTypes): string =>
-    parts.find((p) => p.type === type)?.value ?? ""
-  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")}`
-}
-
-/**
  * イメージタグの更新1箇所分をテーブルの1行にする（T-036）。1アプリが複数箇所を書き換える
- * 場合（T-014）は、同じリポジトリの行が箇所の数だけ並ぶ。
- *
- * - 打刻日時は、このツールが今回タグを作成したときだけ表示する（既存タグの再利用時は `-`）
- * - パイプラインは状態を出さずリンクだけにする
+ * 場合（T-014）は同じリポジトリの行が箇所の数だけ並ぶため、書き込み先の列で区別する。
+ * パイプラインは状態を出さずリンクだけにし、値が無いセルは `-` で埋める。
  */
 function buildImageTagRow(webUrl: GitLabUrl, plan: AppUpdatePlan, update: ImageTagUpdate): string {
   const previousTagText = update.previousTag
@@ -308,10 +286,10 @@ function buildImageTagRow(webUrl: GitLabUrl, plan: AppUpdatePlan, update: ImageT
     : "-"
   const cells = [
     plan.app.projectName,
+    `\`${update.target.valuesPath}\`（アンカー: ${update.target.anchor}）`,
     previousTagText,
     `[${plan.latestTag.name}](${buildTagUrl(webUrl, plan.latestTag.name)})`,
     compareText,
-    plan.latestTagCreated ? formatJst(plan.latestTag.builtAt) : "-",
     plan.pipeline ? `[パイプライン](${plan.pipeline.webUrl})` : "-",
   ]
   return `| ${cells.join(" | ")} |`
@@ -364,7 +342,7 @@ export async function buildMrDescription(
   const imageTagSection = [
     "## イメージタグ",
     "",
-    "| リポジトリ | 旧タグ | 新タグ | 比較 | 打刻日時(JST) | パイプライン |",
+    "| リポジトリ | 書き込み先 | 旧タグ | 新タグ | 比較 | パイプライン |",
     "| --- | --- | --- | --- | --- | --- |",
     ...rows,
   ].join("\n")

@@ -14,15 +14,14 @@ import { logger } from "../../../utils/logger.js"
  * 進行にビハインドしている場合を含む）は、このツール自身が追跡ブランチの最新コミットに
  * 対して新しいタグを作成し、それを最新タグとして扱う（dryRun のときは実際の作成は
  * スキップし、作成予定のタグ名だけを使う）。タグの命名規則は`tagFormat`（`TAG_FORMAT`
- * 環境変数由来）に従う。既存タグを再利用したか新規作成したかは`created`で返す（MR本文の
- * 打刻日時の表示に使う、T-036）。
+ * 環境変数由来）に従う。
  */
 export async function resolveLatestTag(
   gitlab: GitlabClient,
   app: AppConfig,
   dryRun: boolean,
   tagFormat: TagFormat,
-): Promise<{ tag: ParsedTag; created: boolean }> {
+): Promise<ParsedTag> {
   const [tags, headSha] = await Promise.all([
     listTags(gitlab, app.projectId),
     getBranchHeadSha(gitlab, app.projectId, app.branchToSync),
@@ -33,7 +32,7 @@ export async function resolveLatestTag(
     tagFormat,
   )
   const existingTagCommitSha = tags.find((tag) => tag.name === existingTag?.name)?.commitSha
-  if (existingTag && existingTagCommitSha === headSha) return { tag: existingTag, created: false }
+  if (existingTag && existingTagCommitSha === headSha) return existingTag
 
   const newTag = buildNewTag(app.branchToSync, new Date(), tagFormat)
   if (!dryRun) {
@@ -46,5 +45,5 @@ export async function resolveLatestTag(
     tag: newTag.name,
     dryRun,
   })
-  return { tag: newTag, created: true }
+  return newTag
 }
