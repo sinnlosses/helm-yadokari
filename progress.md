@@ -1,6 +1,6 @@
 # 現在の状態
 
-最終更新: 2026-09-06（T-038〜T-047 を完了。`tasks.json` の47タスクがすべて `done`）
+最終更新: 2026-09-06（T-038〜T-053 を完了。`tasks.json` の53タスクがすべて `done`）
 
 T-001〜T-037・T-043（要件定義・CLI実装・GitLab実機検証・スキーマ再設計・MR分割単位の変更・
 MR文面の再設計など）は完了済み。当時の詳細な記録は
@@ -49,21 +49,32 @@ MR文面の再設計など）は完了済み。当時の詳細な記録は
   `config/README.md`（運用ルール）に置き換えた。記述例は `docs/requirements.md` 4.4節が正典なので
   情報の損失はない。実機で `pnpm lint:validate-config:remote` が終了コード0になることを確認
 
-**最終状態**: `pnpm check`（tsc・oxlint・config検証・oxfmt・vitest **28ファイル302テスト**）通過。
-`tasks.json` の47タスクはすべて `done` / `passes: true`。
+**build-plans の改善（T-048〜T-053、サブエージェント委譲運用の初適用）**
+
+- **T-051(haiku)**: dryRun時に不要な `getLatestPipelineForRef()` を呼ばないようにした
+- **T-052(haiku)**: 失敗ログにアプリ名が出ず原因アプリを特定できなかった問題を解消。
+  `steps/shared/step-outcome.ts` に `rethrowWithAppContext()` を追加。**致命的エラーだけは
+  包まずそのまま投げる**（`new Error(..., {cause})` で包むと `extractHttpStatus()` が
+  ステータスを辿れず FatalError に昇格できなくなるため）
+- **T-048(sonnet)**: `readCurrentImageTags()` が読んだ `previousTags` を
+  `applyImageTagTargets()` にも渡し、同じアンカーの二重読み取りを解消
+- **T-049(sonnet)**: `LatestTagResolution.pointsAtTrackedHead`（クロージャ）を
+  `trackedHeadTagNames: ReadonlySet<TagName>`（データ）に置き換え
+- **T-050(sonnet)**: `valuesYamlCache` + `modifiedValuesPaths` を `ValuesYamlDraft` 1本に統合。
+  詰め替えが消え、`buildFileUpdates()` の internal error も型レベルで不要になった
+- **T-053(opus)**: アプリ単位の逐次実行は**現状維持**と決定。読み取りだけの先行並列化は
+  技術的には可能だが、削減幅（1アプリ2〜3往復）に対してタグ作成の副作用が並列・前倒しで
+  走る代償が大きい。理由と再検討条件を docs/architecture.md に明記
+
+**最終状態**: `pnpm check`（tsc・oxlint・config検証・oxfmt・vitest **28ファイル308テスト**）通過。
+`tasks.json` の53タスクはすべて `done` / `passes: true`。
 
 ## 次にやること
 
-- **build-plans の改善（T-048〜T-053、このセッションの最後に登録）**: `src/steps/build-plans.ts`
-  と `sub-steps/build-plans/` を読み直して挙げた6件。着手順は
-  T-048（反映済みタグの二重読み取り）→ T-049（`pointsAtTrackedHead`のデータ化）→
-  T-050（values.yaml下書き状態の型統合）が依存関係の順。T-051（dryRun時のパイプライン取得の
-  スキップ）とT-052（失敗ログにアプリ名）は依存なしでいつでも着手できる。
-  T-053（アプリ単位の逐次実行の見直し）はT-050の後
-- このセッションのT-038〜T-047分は3コミット（504250b / 8413909 / e323b9b）で記録済み。
-  **pushはまだしていない**
+- **すべてのタスクが `done`**（53件）。次の作業は新しく洗い出してから
 - T-043（追跡ブランチ切り替え）は実機未検証。スモークテストで `branchToSync` を切り替える
   シナリオを追加すると確認できる
+- **push はまだしていない**（このセッションの11コミットはローカルのみ）
 - 実機検証で残置したMR（!24、!25）とブランチ2本の後片付け（不要になったら
   `SMOKE_CHART_PROJECT_ID=86061211 npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply`）
 - 検証が完全に終わったら、テスト用のGitLabアクセストークンを失効させる（ユーザー対応）

@@ -432,10 +432,10 @@
   {
     "id": "T-053",
     "task": "アプリ単位を逐次実行している設計（T-003で意図的に据え置いた判断）を、実行時間の観点から見直すか、改めて現状維持と決めて明文化する。`buildPlan()`（src/steps/build-plans.ts:166-170）は `reduceAsync` で1アプリずつ処理する。理由は values.yaml の書き換えを同じキャッシュに積み上げる必要があるためで、これは正当。一方、1アプリあたり `listTags` + `getBranchHeadSha`（resolve-latest-tag.ts:50-53、この2つは既にPromise.allで並列）と `getLatestPipelineForRef` という**ソースリポジトリ側への読み取り**が含まれ、これらは values.yaml のキャッシュとは無関係なので先に全アプリ分をまとめて解決できる余地がある。検討すること: (a) 読み取りフェーズ（タグ一覧・HEAD SHA）を `mapWithConcurrency` で先に並列解決し、書き換えフェーズだけを逐次にする案の是非、(b) その場合 `resolveLatestTag()` が持つタグ作成（副作用）をどちらのフェーズに置くか、(c) 1clientあたりのアプリ数が実運用でどのくらいかを踏まえた費用対効果、(d) T-042で `verify-config` に入れた並列化（キャッシュはPromise共有の `getOrFetchShared()` を使う）との一貫性。現状維持と決めた場合は、その理由を docs/architecture.md の「コードからは読み取れない設計判断」に追記して決着させる（T-003・T-022と同じ扱い）",
-    "status": "todo",
+    "status": "done",
     "difficulty": "opus",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "コード変更なし（判断のみ）。現状維持（アプリ単位は逐次）と決め、理由を docs/architecture.md の「コードからは読み取れない設計判断」に追記した。要点: 読み取りだけの先行並列化は技術的には可能（T-032の重複防止により、あるアンカーの読み取りは別アンカーへの書き込みに影響されない）が、1アプリあたりのAPI往復が実質2〜3回で削減幅が小さい一方、resolveLatestTag() のタグ作成という副作用が並列・前倒しで走ることになり、下書きの並列共有にはT-042と同じ getOrFetchShared() が要る。夜間の定期実行という前提では割に合わない。遅い場合はまず CONCURRENCY_LIMIT を上げる。再検討の条件（1clientに数十アプリが登録され実測でボトルネックになったとき）も明記した",
     "dependencies": ["T-050"]
   }
 ]
