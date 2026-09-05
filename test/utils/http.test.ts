@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest"
 import {
   extractHttpStatus,
   isFatalError,
-  isFatalStatus,
   isNotFoundError,
   toErrorMessage,
 } from "../../src/utils/http.js"
@@ -61,38 +60,6 @@ describe("isNotFoundError", () => {
   })
 })
 
-describe("isFatalStatus", () => {
-  it("undefined のとき false を返す", () => {
-    expect(isFatalStatus(undefined)).toBe(false)
-  })
-
-  it("401 のとき true を返す", () => {
-    expect(isFatalStatus(401)).toBe(true)
-  })
-
-  it("403 のとき false を返す (プロジェクト固有のアクセス権限エラーの可能性があるため)", () => {
-    expect(isFatalStatus(403)).toBe(false)
-  })
-
-  it("5xx 系のとき true を返す", () => {
-    expect(isFatalStatus(500)).toBe(true)
-    expect(isFatalStatus(502)).toBe(true)
-    expect(isFatalStatus(503)).toBe(true)
-  })
-
-  it("200 のとき false を返す", () => {
-    expect(isFatalStatus(200)).toBe(false)
-  })
-
-  it("404 のとき false を返す", () => {
-    expect(isFatalStatus(404)).toBe(false)
-  })
-
-  it("402 (fatal リストにない) のとき false を返す", () => {
-    expect(isFatalStatus(402)).toBe(false)
-  })
-})
-
 describe("isFatalError", () => {
   it("HTTP 401 エラーのとき true を返す", () => {
     expect(isFatalError(makeHttpError(401))).toBe(true)
@@ -108,6 +75,16 @@ describe("isFatalError", () => {
 
   it("HTTP 404 エラーのとき false を返す", () => {
     expect(isFatalError(makeHttpError(404))).toBe(false)
+  })
+
+  it("500番台のその他のステータスのとき true を返す", () => {
+    expect(isFatalError(makeHttpError(502))).toBe(true)
+    expect(isFatalError(makeHttpError(503))).toBe(true)
+  })
+
+  it("fatal 扱いしないステータス(200/402)のとき false を返す", () => {
+    expect(isFatalError(makeHttpError(200))).toBe(false)
+    expect(isFatalError(makeHttpError(402))).toBe(false)
   })
 
   it("ECONNREFUSED のとき true を返す", () => {

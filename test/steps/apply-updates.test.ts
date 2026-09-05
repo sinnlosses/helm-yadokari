@@ -1,18 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../../src/lib/gitlab/gitlab.js")
+vi.mock("../../src/lib/gitlab/mr-content.js")
 vi.mock("../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
 import type { GitlabClient } from "../../src/lib/gitlab/gitlab.js"
+import { commitFileUpdates, createMergeRequest } from "../../src/lib/gitlab/gitlab.js"
 import {
   buildMrDescription,
   buildMrTitle,
   buildUpdateBranch,
-  commitFileUpdates,
-  createMergeRequest,
-} from "../../src/lib/gitlab/gitlab.js"
+} from "../../src/lib/gitlab/mr-content.js"
 import { applyUpdates } from "../../src/steps/apply-updates.js"
 import type { ChartUpdateTarget } from "../../src/types.js"
 import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../src/types.js"
@@ -82,7 +82,7 @@ describe("applyUpdates", () => {
       target.chartAndApps.clientId,
       target.plans,
     )
-    expect(buildMrDescription).toHaveBeenCalledWith(mockGitlab, target.plans)
+    expect(buildMrDescription).toHaveBeenCalledWith(expect.any(Function), target.plans)
     expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[4]).toBe(
       "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
     )

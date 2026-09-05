@@ -23,7 +23,7 @@ export function isNotFoundError(error: unknown): boolean {
 
 // 403 はトークンが特定プロジェクトへのアクセス権を持たない場合に発生しうるため fatal 扱いしない。
 // 401（認証失敗）と 5xx（サーバー障害）は全プロジェクトに影響するため即時終了する。
-export function isFatalStatus(status: number | undefined): boolean {
+function isFatalStatus(status: number | undefined): boolean {
   if (status === undefined) return false
   return status === 401 || status >= 500
 }

@@ -1,4 +1,4 @@
-import { loadConfig } from "./lib/config.js"
+import { loadConfig } from "./lib/config/config.js"
 import {
   ACCESS_TOKEN,
   CONCURRENCY_LIMIT,

@@ -1,8 +1,5 @@
-import {
-  type GitlabClient,
-  buildUpdateBranch,
-  openMergeRequestExists,
-} from "../lib/gitlab/gitlab.js"
+import { type GitlabClient, openMergeRequestExists } from "../lib/gitlab/gitlab.js"
+import { buildUpdateBranch } from "../lib/gitlab/mr-content.js"
 import type { ChartAndApps, ChartUpdateResult } from "../types.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../src/lib/gitlab/gitlab.js")
-vi.mock("../src/lib/config.js")
+vi.mock("../src/lib/config/config.js")
 vi.mock("../src/lib/env.js", () => ({
   GITLAB_URL: "https://gitlab.test",
   ACCESS_TOKEN: "test-token",
@@ -16,7 +16,7 @@ vi.mock("../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
-import { loadConfig } from "../src/lib/config.js"
+import { loadConfig } from "../src/lib/config/config.js"
 import {
   commitFileUpdates,
   createClient,

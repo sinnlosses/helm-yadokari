@@ -1,4 +1,4 @@
-import { loadConfig } from "../../src/lib/config.js"
+import { loadConfig } from "../../src/lib/config/config.js"
 import type { Config } from "../../src/types.js"
 
 // config/ の検証スクリプト。2つのモードを持つ:
@@ -39,12 +39,13 @@ if (remote) {
     )
   })
   const { createClient } = await import("../../src/lib/gitlab/gitlab.js")
-  const { verifyConfigExistence } = await import("../../src/lib/verify-config.js")
+  const { verifyConfigExistence } = await import("../../src/lib/verify-config/verify-config.js")
 
-  const { ACCESS_TOKEN, GITLAB_URL } = gitlabEnv
+  const { ACCESS_TOKEN, CONCURRENCY_LIMIT, GITLAB_URL } = gitlabEnv
   const problems = await verifyConfigExistence(
     createClient(GITLAB_URL, ACCESS_TOKEN),
     chartAndAppsList,
+    CONCURRENCY_LIMIT,
   )
   if (problems.length > 0) {
     console.error(`config ERROR: GitLab上に存在しない設定が ${problems.length} 件あります`)

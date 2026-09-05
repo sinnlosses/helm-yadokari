@@ -1,11 +1,10 @@
 import {
   type GitlabClient,
-  buildMrDescription,
-  buildMrTitle,
-  buildUpdateBranch,
   commitFileUpdates,
   createMergeRequest,
+  getProjectWebUrl,
 } from "../lib/gitlab/gitlab.js"
+import { buildMrDescription, buildMrTitle, buildUpdateBranch } from "../lib/gitlab/mr-content.js"
 import type { ChartUpdateResult, ChartUpdateTarget } from "../types.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
@@ -50,7 +49,7 @@ async function applyUpdate(
       updateBranch,
       chart.mrTargetBranch,
       mrTitle,
-      await buildMrDescription(gitlab, plans),
+      await buildMrDescription((projectId) => getProjectWebUrl(gitlab, projectId), plans),
     )
     logger.info({ ...logContext, result: "CREATED", apps: plans.map(describePlan) })
     return "CREATED"

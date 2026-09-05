@@ -6,9 +6,9 @@ vi.mock("../../src/utils/logger.js", () => ({
 }))
 
 import type { GitlabClient } from "../../src/lib/gitlab/gitlab.js"
-import { buildUpdateBranch, openMergeRequestExists } from "../../src/lib/gitlab/gitlab.js"
+import { openMergeRequestExists } from "../../src/lib/gitlab/gitlab.js"
 import { filterTargets } from "../../src/steps/filter-targets.js"
-import { toBranchName, toChartDirName, toClientId, toTenantId } from "../../src/types.js"
+import { toChartDirName, toClientId, toTenantId } from "../../src/types.js"
 import { FatalError } from "../../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../helpers.js"
 
@@ -17,9 +17,6 @@ const mockGitlab = {} as unknown as GitlabClient
 describe("filterTargets", () => {
   beforeEach(() => {
     vi.mocked(openMergeRequestExists).mockResolvedValue(false)
-    vi.mocked(buildUpdateBranch).mockImplementation((tenantId, clientId) =>
-      toBranchName(`feature/yadokari/${tenantId}/${clientId}`),
-    )
   })
 
   afterEach(() => {
