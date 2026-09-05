@@ -242,7 +242,11 @@ async function buildAppUpdatePlan(
     return { plans: acc.plans, valuesYamlCache, modifiedValuesPaths }
   }
 
-  const pipeline = await getLatestPipelineForRef(gitlab, app.projectId, latestTag.tag.name)
+  // dryRun時はMRを作らないため（planTarget()でSKIPPEDになる）、MR本文組み立てで必要な
+  // パイプライン情報は不要。APIコストを削減するため取得をスキップする
+  const pipeline = dryRun
+    ? undefined
+    : await getLatestPipelineForRef(gitlab, app.projectId, latestTag.tag.name)
   const plan: AppUpdatePlan = {
     app,
     latestTag: latestTag.tag,

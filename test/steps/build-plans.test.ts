@@ -169,4 +169,17 @@ describe("buildPlans", () => {
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
   })
+
+  it("dryRunのときgetLatestPipelineForRefを呼ばない", async () => {
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([makeApp()])],
+      3,
+      true,
+      DEFAULT_TAG_FORMAT,
+    )
+    expect(toApply).toEqual([])
+    expect(settled).toEqual(["SKIPPED"])
+    expect(vi.mocked(getLatestPipelineForRef)).not.toHaveBeenCalled()
+  })
 })

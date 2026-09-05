@@ -13,7 +13,9 @@
     "status": "done",
     "passes": true,
     "evidence": "commit 2cb9b97, e9127b5。pnpm check（tsc --noEmit + oxlint + oxfmt --check + vitest）が152テスト全てpassで通過。/code-review（Standards軸: 明文化標準への違反0件。Spec軸: engines未設定とアプリ単位no-opログ欠落を指摘、両方とも e9127b5 で修正済み）。実際の値をGITLAB_URLに設定してnode dist/src/index.jsを実行し、config/teamA-chart/を読み込んでエラーを構造化ログに正しく出力すること・非ゼロ終了することを確認",
-    "dependencies": ["T-001"]
+    "dependencies": [
+      "T-001"
+    ]
   },
   {
     "id": "T-003",
@@ -21,7 +23,9 @@
     "status": "done",
     "passes": true,
     "evidence": "ユーザー判断: 夜間のpipeline schedule実行が前提のため、アプリ単位の処理は現状の逐次のままでよいと決定。コード変更なし。docs/requirements.md 4.3節の「chartリポジトリ間はp-limitで並列」という記述と、アプリ単位（chartグループ内）は逐次という実装の差異は、意図的な設計判断として記録のみ行う",
-    "dependencies": ["T-002"]
+    "dependencies": [
+      "T-002"
+    ]
   },
   {
     "id": "T-004",
@@ -29,7 +33,9 @@
     "status": "done",
     "passes": true,
     "evidence": "commit f0124d0。詳細な経緯は docs/history/tasks-archive.md の T-004 節",
-    "dependencies": ["T-002"]
+    "dependencies": [
+      "T-002"
+    ]
   },
   {
     "id": "T-005",
@@ -45,7 +51,9 @@
     "status": "done",
     "passes": true,
     "evidence": "commit 17f38c3, 1b62791。build-plans.ts: currentTag→previousTagRaw、content系→valuesYamlContent系。apply-updates.ts: title→mrTitle（+コミットメッセージにも流用する旨のコメント追加）。いずれも非公開ローカル変数のみで公開シグネチャ変更なし。pnpm check（204テスト）通過。/code-review（固定点5c2a90a）実施、Standardsはハード違反0件、Specの指摘（mrTitleの二重用途が名前だけでは伝わらない／JSDocの「反映」表記）を反映済み。「chartリポジトリ vs chartグループ」表記ゆれはdocs/requirements.mdという確定済み要件文書側の話であり、変数名・メソッド名の範囲外として今回は対応せず据え置き",
-    "dependencies": ["T-005"]
+    "dependencies": [
+      "T-005"
+    ]
   },
   {
     "id": "T-007",
@@ -53,7 +61,9 @@
     "status": "done",
     "passes": true,
     "evidence": "commit 6183f15。pnpm check（204テスト）通過。詳細な経緯は docs/history/tasks-archive.md の T-007 節",
-    "dependencies": ["T-006"]
+    "dependencies": [
+      "T-006"
+    ]
   },
   {
     "id": "T-008",
@@ -61,7 +71,9 @@
     "status": "done",
     "passes": true,
     "evidence": "commit 8289a13。pnpm check（204テスト）通過。詳細な経緯は docs/history/tasks-archive.md の T-008 節",
-    "dependencies": ["T-007"]
+    "dependencies": [
+      "T-007"
+    ]
   },
   {
     "id": "T-009",
@@ -69,7 +81,9 @@
     "status": "done",
     "passes": true,
     "evidence": "commit eb1344e。pnpm check（204テスト）通過。以前のセッションで未コミットのまま作業ツリーに残っていたものを、このセッションでTARGET_CHART_DIR/TARGET_CLIENT機能の変更と切り分けて単独コミットとして記録",
-    "dependencies": ["T-007"]
+    "dependencies": [
+      "T-007"
+    ]
   },
   {
     "id": "T-010",
@@ -77,7 +91,9 @@
     "status": "done",
     "passes": true,
     "evidence": "commit e902f9c。loadConfig()にConfigTargetフィルタを追加、TARGET_CLIENTは\"<tenantId>/<clientId>\"をカンマ区切りで複数指定可能。指定対象がconfig/配下に見つからない場合は例外。.gitlab-ci.ymlのpipeline inputsにも追加。pnpm check（222テスト）通過。T-004のgitlab.com実機検証でも動作確認済み",
-    "dependencies": ["T-002"]
+    "dependencies": [
+      "T-002"
+    ]
   },
   {
     "id": "T-011",
@@ -85,7 +101,9 @@
     "status": "done",
     "passes": true,
     "evidence": "commit e59c410。pnpm check（236テスト）通過。詳細な経緯は docs/history/tasks-archive.md の T-011 節",
-    "dependencies": ["T-002"]
+    "dependencies": [
+      "T-002"
+    ]
   },
   {
     "id": "T-012",
@@ -93,7 +111,9 @@
     "status": "done",
     "passes": true,
     "evidence": "pnpm check（237テスト）通過。詳細な経緯は docs/history/tasks-archive.md の T-012 節",
-    "dependencies": ["T-011"]
+    "dependencies": [
+      "T-011"
+    ]
   },
   {
     "id": "T-013",
@@ -109,7 +129,9 @@
     "status": "done",
     "passes": true,
     "evidence": "pnpm check（234テスト）通過。詳細な経緯は docs/history/tasks-archive.md の T-014 節",
-    "dependencies": ["T-011"]
+    "dependencies": [
+      "T-011"
+    ]
   },
   {
     "id": "T-015",
@@ -117,7 +139,9 @@
     "status": "done",
     "passes": true,
     "evidence": "ユーザー判断によりクローズ（コード変更なし）。T-021のセッションでユーザーから「T-015はもはや問題ないんじゃないか。定期実行後に手動実行したくなったら、定期実行されて作られたMRを閉じればいいから」との指摘。T-021で「MRが存在せずブランチが存在する場合は削除する」仕様（`deleteBranch()`）を実装したことで、MRを閉じれば次回実行時に固定ブランチが自動的に削除・作り直されるようになり、定期実行と手動実行が同じブランチに混ざる懸念は「先に該当MRを閉じる」という運用でカバーできると判断。手動/定期実行を区別する仕組み自体は導入しないことで決着",
-    "dependencies": ["T-021"]
+    "dependencies": [
+      "T-021"
+    ]
   },
   {
     "id": "T-016",
@@ -125,7 +149,9 @@
     "status": "done",
     "passes": true,
     "evidence": "pnpm check（248テスト）通過。詳細な経緯は docs/history/tasks-archive.md の T-016 節",
-    "dependencies": ["T-013"]
+    "dependencies": [
+      "T-013"
+    ]
   },
   {
     "id": "T-017",
@@ -133,7 +159,9 @@
     "status": "done",
     "passes": true,
     "evidence": "pnpm check（254テスト）通過。詳細な経緯は docs/history/tasks-archive.md の T-017 節",
-    "dependencies": ["T-016"]
+    "dependencies": [
+      "T-016"
+    ]
   },
   {
     "id": "T-018",
@@ -141,7 +169,9 @@
     "status": "done",
     "passes": true,
     "evidence": "コード変更なし（判断・要件定義のみ）。詳細な経緯は docs/history/tasks-archive.md の T-018 節",
-    "dependencies": ["T-002"]
+    "dependencies": [
+      "T-002"
+    ]
   },
   {
     "id": "T-019",
@@ -149,7 +179,9 @@
     "status": "done",
     "passes": true,
     "evidence": "コード変更なし（判断・要件定義のみ）。詳細な経緯は docs/history/tasks-archive.md の T-019 節",
-    "dependencies": ["T-002"]
+    "dependencies": [
+      "T-002"
+    ]
   },
   {
     "id": "T-020",
@@ -157,7 +189,9 @@
     "status": "done",
     "passes": true,
     "evidence": "コード変更なし（判断・要件定義のみ）。詳細な経緯は docs/history/tasks-archive.md の T-020 節。【2026-09-05 実機確認】gitlab.com（yadokari-smoke-test-chart, projectId 86061211）で1chartディレクトリ配下の tenant1/client1・tenant1/client2 を定義して実行し、feature/yadokari/tenant1/client1 と .../client2 の2ブランチ＋MR !11/!12 が独立して作られること、client1にオープン中MRがあってもclient2はブロックされないこと、片方がERROR（存在しないアンカー）でも他方はCREATEDになり終了コードが1（PARTIAL_FAILURE）になることを確認",
-    "dependencies": ["T-019"]
+    "dependencies": [
+      "T-019"
+    ]
   },
   {
     "id": "T-021",
@@ -165,7 +199,9 @@
     "status": "done",
     "passes": true,
     "evidence": "コード変更なし（判断・要件定義のみ）。詳細な経緯は docs/history/tasks-archive.md の T-021 節。【2026-09-05 実機確認】MR !12 をクローズしブランチを残した状態で再実行し、feature/yadokari/tenant1/client2 のHEADが 6226e559→97e2c7f1 に変わり履歴が「main(c96614e1)＋新コミット1つ」のみ（＝追加コミットではなく削除して作り直し）になること、新MR !13 が作成されることを確認",
-    "dependencies": ["T-020"]
+    "dependencies": [
+      "T-020"
+    ]
   },
   {
     "id": "T-022",
@@ -245,7 +281,9 @@
     "status": "done",
     "passes": true,
     "evidence": "docs/architecture.md を227→153行に整理。(a) 冒頭に「各関数の詳しい振る舞いはコード側のJSDocが正典。このドキュメントは責務の要約と、コードを読んでも分からないことだけを書く」と方針を明記し、JSDocを逐語で写していた箇所（build-plans.tsの4手順、gitlab.tsのcommitFileUpdatesの挙動、config.tsの検証3パターンと絞り込みの仕様、helm.tsの実装詳細など）を、steps/lib/utils それぞれ1行1ファイルの責務テーブルに置き換えた。config/のスキーマ仕様は T-028 で正典と定めた docs/requirements.md 4.4節へのポインタに変更。(b) 本文に混在していた変更履歴（「以前は〜」「T-021。以前は〜」）を独立した「コードからは読み取れない設計判断」節に集約し、8項目の1〜3行エントリ（なぜtag.tsがlib/gitlab/にあるか、なぜjs-yamlでなくyamlか、なぜapp-update-plan.tsを廃したか、なぜサブステップがGitLabクライアントを受け取らないか等）＋詳細はT-030で作った docs/history/tasks-archive.md 参照、という形にした。「新しいコードを置く場所の判断基準」「既知の制約・注意点」は現役の判断材料なのでそのまま残し、逐次実行の理由（キャッシュ共有）とT-003の判断だけ補った。pnpm check（20ファイル272テスト）通過。コミットは未実施（ユーザー承認待ち）",
-    "dependencies": ["T-030"]
+    "dependencies": [
+      "T-030"
+    ]
   },
   {
     "id": "T-032",
@@ -253,7 +291,10 @@
     "status": "done",
     "passes": true,
     "evidence": "認証不要のローカル検証（config.ts に validateNoDuplicateProjectIds / validateNoDuplicateTargets を追加、テスト6件）と、GitLabへ問い合わせる実在チェック（src/lib/verify-config.ts の verifyConfigExistence、テスト10件）の2段構成にした。後者は scripts/lint/validate-config.ts の --remote（pnpm lint:validate-config:remote）から呼び、.gitlab-ci.yml に validate-config-remote ジョブ（MR/push/web）を追加。ユーザー判断で ACCESS_TOKEN は Protected: OFF とし、ジョブは条件付きスキップにせず必ず実行する（認証情報が無い場合は「実在チェックを実行できません（環境変数 ... が未設定です）」と表示して exit 1）。実機確認: 正しい config-test/ は OK、わざと壊した設定で「branchToSync/アンカー/helm.branchToSync/projectId」の4件を同時に検出し終了コード1、mrTargetBranch不在時も従来の誤解を招くメッセージ（values.yamlが見つかりません）ではなく原因1件のみを報告することを確認。pnpm check（21ファイル288テスト）通過",
-    "dependencies": ["T-020", "T-021"]
+    "dependencies": [
+      "T-020",
+      "T-021"
+    ]
   },
   {
     "id": "T-033",
@@ -261,7 +302,9 @@
     "status": "done",
     "passes": true,
     "evidence": "docs/smoke-test.md（手順・期待結果・繰り返し時の注意）と scripts/smoke/smoke-fixture.ts（setup/reset、既定dry-run、SMOKE_CHART_PROJECT_ID必須）、config-test/yadokari-smoke-test-chart/tenant2/{client1,client2} を追加。実機結果: summary {CREATED:2, SKIPPED:0, ERROR:0}・終了コード0で、client1 はMR !14（sample-qa-sprint と sample-develop-client のタグ2件＋向き先ブランチ main→release/2026-q1 の計3アンカー）、client2 はMR !15（タグ2件）を独立したブランチに作成。向き先ブランチ用に chartリポジトリへ release/2026-q1 を新規作成し、書き込み前の実在検証を通ることも確認。MRを残したまま再実行すると両clientが SKIPPED(mr_exists) になることも確認（手順書の注意書きの裏取り）",
-    "dependencies": ["T-032"]
+    "dependencies": [
+      "T-032"
+    ]
   },
   {
     "id": "T-034",
@@ -269,7 +312,9 @@
     "status": "done",
     "passes": true,
     "evidence": "決定（ユーザーと合意）: タイトルは種別ごとの件数を出し件数の単位は書き換え箇所数、本文は「## イメージタグ」「## Helmの向き先ブランチ」の2セクション、イメージタグに差分が無いアプリの節は出さない。src/lib/gitlab/gitlab.ts の buildMrTitle()/buildMrDescription() を書き換え、向き先ブランチの更新を valuesPath+anchor で一意化する uniqueHelmTargetBranchUpdates() を追加（複数アプリへの割り当てによる重複計上・重複表示を解消）。test/lib/gitlab/gitlab.test.ts に10テスト追加（箇所数カウント・種別出し分け・0件時の括弧なし・セクション構成・差分なしアプリの除外・重複まとめ）。pnpm check（21ファイル296テスト）通過。実機のMR !16/!17 で `(image tag 2, helm branch 1)` / `(image tag 2)` と2セクション構成を確認",
-    "dependencies": ["T-033"]
+    "dependencies": [
+      "T-033"
+    ]
   },
   {
     "id": "T-035",
@@ -277,7 +322,9 @@
     "status": "done",
     "passes": true,
     "evidence": "scripts/smoke/smoke-fixture.ts の SEED_FILES を実タグ（sample-qa-sprint は既存の main-build-at-20260903-171213、sample-develop-client は同リポジトリのコミットが1つしかないため同じコミットに作成した main-build-at-20260101-000000）に変更し、setup が ensureSeedTags() でシードタグの実在を保証するようにした（シードタグより新しいタグが無い場合は警告）。docs/smoke-test.md に前提と制約（develop-client の比較リンクは差分が空になる）を追記。実機で reset→setup→実行のループを回し、MR !16/!17 の旧タグリンク・比較リンクがすべて実在タグを指すことを確認",
-    "dependencies": ["T-033"]
+    "dependencies": [
+      "T-033"
+    ]
   },
   {
     "id": "T-036",
@@ -285,7 +332,9 @@
     "status": "done",
     "passes": true,
     "evidence": "src/lib/gitlab/gitlab.ts に buildImageTagRow() を新設し、イメージタグ節を「リポジトリ / ファイル / アンカー / 旧タグ / 新タグ / 比較 / パイプライン」の7列テーブルに、向き先ブランチ節も「旧ブランチ / 新ブランチ / ファイル / アンカー」の4列テーブルに変更。比較・パイプラインはURLをそのまま置き（GitLabが自動リンクする）、値が無いセル（パイプライン無し・旧タグ未設定で比較不可）は「-」に統一。旧タグ・新タグはタグ名をラベルにしたリンクのまま。打刻日時列を出し分けるために一度追加した AppUpdatePlan.latestTagCreated・resolveLatestTag() の {tag, created} 戻り値・formatJst() は、列が不採用になった時点で撤去した（未使用コードを残さないため）。test/lib/gitlab/gitlab.test.ts のdescription系テストを全面書き換え（14テスト。列構成・ファイル/アンカーの分割・URL直書き・打刻日時を出さないこと・重複まとめを含む）。pnpm check（21ファイル295テスト）通過。実機のMR !22/!23 で表示を確認",
-    "dependencies": ["T-034"]
+    "dependencies": [
+      "T-034"
+    ]
   },
   {
     "id": "T-037",
@@ -293,7 +342,9 @@
     "status": "done",
     "passes": true,
     "evidence": "(1) sub-steps/build-plans/types.ts に LatestTagResolution 型（tag ＋ pointsAtTrackedHead）を追加し、resolveLatestTag() が「values.yamlの現在値が追跡ブランチのHEADを指すタグか」を判定する関数を返すようにした（タグ一覧とHEAD SHAは既に取得済みなのでAPI呼び出しは増えない）。image-tag-target.ts の1箇所分の判定に、現在値がHEADを指すタグなら更新しない分岐を追加。test/steps/build-plans.test.ts に3テスト追加（HEADを指す旧タグはより新しいタグがあってもSKIPPED／古いコミットを指す旧タグは従来どおり更新／タグ名でない値も従来どおり更新）。docs/requirements.md 4.1節に仕様として追記。(2) MR本文のイメージタグ表に「追跡ブランチ」列を追加（列は リポジトリ / 追跡ブランチ / ファイル / アンカー / 旧タグ / 新タグ / 比較 / パイプライン）。pnpm check（21ファイル299テスト）通過。実機で再検証し、tenant2/client1 の sample-develop-client が新ルールで更新対象から外れ（MR !24 は image tag 1 件のみ）、values.yaml の該当アンカーが据え置かれることを確認",
-    "dependencies": ["T-036"]
+    "dependencies": [
+      "T-036"
+    ]
   },
   {
     "id": "T-038",
@@ -302,7 +353,9 @@
     "difficulty": "opus",
     "passes": true,
     "evidence": "ユーザー判断で選択肢(a)を採用: config/ には実運用の登録だけを置き、架空の設定例は置かない。config/teamA-chart/（chart.yaml・config.yaml・anchors.yaml）を削除し、代わりに config/README.md に運用ルール（正典は docs/requirements.md 4.4節／架空の例を置くと validate-config-remote が必ず落ちる／登録0件のあいだは検証対象なしでパスする）を置いた。削除した内容は requirements.md 4.4節に同等のYAML例が既にあるため情報の損失なし（削除ファイルにあった \"anchor-setting.yaml\" という古い名前のコメントも消えた）。README の Quick Start 手順（cp -r config/teamA-chart …）・プロジェクト構成ツリー、docs/architecture.md も更新。実機確認: pnpm lint:validate-config → 「0 chart groups, 0 apps」でOK、pnpm lint:validate-config:remote → 実トークンで「config OK（実在チェック）」・終了コード0。pnpm check（28ファイル302テスト）通過",
-    "dependencies": ["T-032"]
+    "dependencies": [
+      "T-032"
+    ]
   },
   {
     "id": "T-039",
@@ -311,7 +364,9 @@
     "difficulty": "sonnet",
     "passes": true,
     "evidence": "(1) docs/requirements.md 4.2節を「状態は記載せずリンクのみ（T-036）」に修正、(2) README Featuresの「パイプライン状態を可視化」を「パイプラインへの導線」に書き換え、(3) READMEのmermaid図にT-037の分岐（反映済みタグが追跡ブランチのHEADを指すならSKIPPED）を追加、(4) docs/glossary.md「反映済みタグ」にT-037の例外とT-043の再例外を追記、(5) docs/architecture.md「ディレクトリ構成の勘所」に scripts/smoke/smoke-fixture.ts を追加、(6) progress.md をこのセッションの内容に更新。あわせてT-045・T-046のファイル移動に伴う architecture.md 内のファイル名参照も直した",
-    "dependencies": ["T-037"]
+    "dependencies": [
+      "T-037"
+    ]
   },
   {
     "id": "T-040",
@@ -320,7 +375,9 @@
     "difficulty": "sonnet",
     "passes": true,
     "evidence": "(1) T-036以降どこからも読まれていなかった PipelineInfo.status と、そのためだけにあった PipelineStatus 型（11リテラル＋string）を削除し、PipelineInfo を webUrl だけにした。ログに出す価値も無いと判断（MR本文はリンクだけを出す仕様、T-036）。(2) isFatalStatus() を非公開にし、直接呼んでいた7テストは isFatalError() 経由に寄せた（401/403/404/500は既存テストと重複するため、未カバーだった502/503/200/402の4ケースを2テストとして追加）。getProjectWebUrl() はT-044で apply-updates.ts が注入するようになったため公開のまま据え置き。pnpm check（21ファイル299テスト。304 − isFatalStatus 7件 + 2件）通過",
-    "dependencies": ["T-036"]
+    "dependencies": [
+      "T-036"
+    ]
   },
   {
     "id": "T-041",
@@ -329,7 +386,11 @@
     "difficulty": "sonnet",
     "passes": true,
     "evidence": "3ファイルを src/ の構成に合わせて分割。(1) test/lib/config.test.ts（938行）→ test/lib/config/{config,schema,validate,helm-target-branch}.test.ts（347/98/288/190行）＋ 使い捨てconfigディレクトリを作る fixture.ts（useConfigDir()。beforeEach/afterEachの登録込み）。(2) test/lib/gitlab/gitlab.test.ts（723行）→ gitlab.test.ts 434行 ＋ mr-content.test.ts 299行。(3) test/steps/build-plans.test.ts（609行、フラットな29テスト）→ build-plans.test.ts 172行（振り分け・オールオアナッシング・エラー方針）＋ test/steps/sub-steps/build-plans/{resolve-latest-tag,image-tag-target,helm-target-branch-target}.test.ts（244/128/173行）。実装は変更しておらず、pnpm check は分割前と同じ 299テスト（28ファイル）でpass",
-    "dependencies": ["T-036", "T-044", "T-045"]
+    "dependencies": [
+      "T-036",
+      "T-044",
+      "T-045"
+    ]
   },
   {
     "id": "T-042",
@@ -338,7 +399,10 @@
     "difficulty": "opus",
     "passes": true,
     "evidence": "verifyConfigExistence() の chartAndApps 単位を mapWithConcurrency() で並列化し、concurrencyLimit を引数に追加（scripts/lint/validate-config.ts が env の CONCURRENCY_LIMIT を渡す）。結果は入力順を保った配列を flat() するだけなので、問題の出力順は config/ の並び順のまま。app単位はキャッシュのヒット率を保つため逐次のまま。キャッシュは並列だと二重fetchする穴（getOrFetch は解決済みの値だけをキャッシュするため、1件目の解決前に始まった2件目が未キャッシュと判定される）があったので、Promiseを共有する getOrFetchShared() を utils/cache.ts に追加し remote-cache.ts で使う（失敗したPromiseはキャッシュから削除して再試行可能にする）。逐次側の既存2箇所（build-plans・mr-content）は同時アクセスが無いため getOrFetch のまま。テスト3件追加（同時呼び出しでfetchは1回／失敗はキャッシュしない／並列でも問題は入力順）。pnpm check（28ファイル302テスト）通過。実機での再計測は未実施",
-    "dependencies": ["T-032", "T-046"]
+    "dependencies": [
+      "T-032",
+      "T-046"
+    ]
   },
   {
     "id": "T-043",
@@ -346,7 +410,9 @@
     "status": "done",
     "passes": true,
     "evidence": "image-tag-target.ts に読み取り専用の readCurrentImageTags() を追加し、resolveLatestTag() に反映済みタグを渡して「現在の branchToSync でパースできない反映済みタグがあるか」で切り替えを検知（タグ名には {branch} が必ず含まれるため名前のパースだけで判定でき、GitLabへの問い合わせは増えない）。切り替え時はHEADと一致する既存タグがあっても再利用せず新規作成する。T-037 の pointsAtTrackedHead() には「現在の追跡ブランチ由来のタグであること」を条件に追加し、切り替え時は同じコミットを指していてもスキップされないようにした。アンカーが見つからない箇所（反映済みタグ無し）は書き込み時にERRORになるため強制作成の対象外。create_tag ログに reason（tracked_branch_changed / no_tag_at_branch_head）を追加。test/steps/build-plans.test.ts に5テスト追加（切り替え時の新規作成／旧タグが新ブランチHEADを指す場合も更新＝T-037の例外／dryRunでは作成しない／同一ブランチなら既存タグ再利用／アンカー無しはタグを作らずERROR）。docs/requirements.md 4.1節・architecture.md・README を更新。refactor/repo-cleanup を main にマージして pnpm check（21ファイル304テスト）通過。実機未検証",
-    "dependencies": ["T-037"]
+    "dependencies": [
+      "T-037"
+    ]
   },
   {
     "id": "T-044",
@@ -400,7 +466,9 @@
     "difficulty": "sonnet",
     "passes": false,
     "evidence": "",
-    "dependencies": ["T-048"]
+    "dependencies": [
+      "T-048"
+    ]
   },
   {
     "id": "T-050",
@@ -409,15 +477,18 @@
     "difficulty": "sonnet",
     "passes": false,
     "evidence": "",
-    "dependencies": ["T-048", "T-049"]
+    "dependencies": [
+      "T-048",
+      "T-049"
+    ]
   },
   {
     "id": "T-051",
     "task": "`DRY_RUN=true` のときに不要なGitLab API呼び出し（パイプライン取得）をやめる。`buildAppUpdatePlan()`（src/steps/build-plans.ts:245）は差分があったアプリごとに `getLatestPipelineForRef()` を呼ぶが、この結果を使うのはMR本文の組み立て（lib/gitlab/mr-content.ts の `buildImageTagRow()`）だけで、dryRun時は `planTarget()` が SKIPPED を返してMRを作らない。dryRunのログに使う `describePlan()`（src/steps/shared/step-outcome.ts:27-41）もパイプラインを見ていないため、dryRun時のこの呼び出しは完全に無駄（差分があるアプリの数だけAPIを叩いている）。dryRunのときは `pipeline: undefined` にしてAPI呼び出しをスキップする。完了条件: dryRun時に `getLatestPipelineForRef` が呼ばれないことを検証するテストを1件足し、`pnpm check` を通すこと",
-    "status": "todo",
+    "status": "done",
     "difficulty": "haiku",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "buildAppUpdatePlan() で dryRun のとき getLatestPipelineForRef() を呼ばず pipeline: undefined にした（差分があるアプリの数だけ無駄なAPIを叩いていた）。test/steps/build-plans.test.ts に検証テスト1件追加。pnpm check（28ファイル303テスト、302→303）通過。haikuのサブエージェントに委譲し、メイン側で差分と pnpm check を確認して受け入れた（difficultyに応じた委譲運用の初回適用）",
     "dependencies": []
   },
   {
@@ -436,6 +507,8 @@
     "difficulty": "opus",
     "passes": false,
     "evidence": "",
-    "dependencies": ["T-050"]
+    "dependencies": [
+      "T-050"
+    ]
   }
 ]
