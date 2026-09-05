@@ -149,6 +149,50 @@ function validateProjectLinkage(
 }
 
 /**
+ * 同じ`projectId`のappが1ファイル内に複数書かれていないか検証する。CLIは`projectId`を
+ * キーに2ファイルを突き合わせるため、重複していると片方の設定が黙って無視され、
+ * 同じ書き込み先へ別々のタグを順番に書いて最後の値だけが残る（T-032）。
+ */
+function validateNoDuplicateProjectIds(
+  filePath: string,
+  apps: readonly { readonly projectId: ProjectId; readonly projectName: ProjectName }[],
+): void {
+  const seen = new Set<ProjectId>()
+  const duplicated = apps.filter((app) => {
+    if (seen.has(app.projectId)) return true
+    seen.add(app.projectId)
+    return false
+  })
+  if (duplicated.length > 0) {
+    const list = [...new Set(duplicated.map((app) => `projectId ${app.projectId}`))].join(", ")
+    throw new Error(`${filePath}: 同じappが複数回定義されています（${list}）`)
+  }
+}
+
+/** `valuesPath`+`anchor`の組を、エラーメッセージ用のラベル付きで表す */
+type LabeledTarget = { readonly target: AnchorTarget; readonly label: string }
+
+/**
+ * 1つのclient内で、同じ`valuesPath`+`anchor`（＝values.yamlの同じ1箇所）を複数の設定が
+ * 書き込み先にしていないか検証する。重複していると後から処理した側の値だけが残り、
+ * MRには両方を更新したように表示されるため、静かに誤った結果になる（T-032）。
+ * イメージタグ用（`apps[].chart[]`）と向き先ブランチ用（`helm.chart[]`）の衝突も対象にする。
+ */
+function validateNoDuplicateTargets(anchorsPath: string, targets: readonly LabeledTarget[]): void {
+  const seen = new Map<string, string>()
+  for (const { target, label } of targets) {
+    const key = `${target.valuesPath}#${target.anchor}`
+    const previousLabel = seen.get(key)
+    if (previousLabel !== undefined) {
+      throw new Error(
+        `${anchorsPath}: 同じ書き込み先（${target.valuesPath} のアンカー "${target.anchor}"）が複数指定されています（${previousLabel} / ${label}）`,
+      )
+    }
+    seen.set(key, label)
+  }
+}
+
+/**
  * config.yamlの`helm.branchToSync`（書き込む値）とanchors.yamlの`helm.chart[]`
  * （書き込み先の`valuesPath`+`anchor`一覧）を、app単位の`HelmTargetBranchConfig`に振り分ける。
  * 振り分けは`helm.chart[].valuesPath`とapp自身の`chart[].valuesPath`の一致で行う（どのappの
@@ -233,7 +277,18 @@ function loadClientChartAndApps(
 
       const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
       const anchors = loadAnchors(clientDirPath)
+      validateNoDuplicateProjectIds(configYamlPath, apps)
+      validateNoDuplicateProjectIds(anchorsPath, anchors.apps)
       validateProjectLinkage(configYamlPath, anchorsPath, apps, anchors.apps)
+      validateNoDuplicateTargets(anchorsPath, [
+        ...anchors.apps.flatMap((anchorApp) =>
+          anchorApp.chart.map((target) => ({
+            target,
+            label: `app "${anchorApp.projectName}" の chart[]`,
+          })),
+        ),
+        ...(anchors.helmChart ?? []).map((target) => ({ target, label: "helm.chart[]" })),
+      ])
 
       const anchorAppByProjectId = new Map(
         anchors.apps.map((anchorApp) => [anchorApp.projectId, anchorApp]),

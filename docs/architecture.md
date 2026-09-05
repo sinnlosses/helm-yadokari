@@ -48,6 +48,7 @@
 | `gitlab/gitlab.ts` | `@gitbeaker/rest` のラッパー。固定ブランチ名・MRタイトル・MR本文の組み立ても含む |
 | `gitlab/tag.ts`    | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証   |
 | `config.ts`        | `config/` の2階層固定構成の読み込み・Zod検証・2ファイル間の整合性検証            |
+| `verify-config.ts` | `config/`の値がGitLab上に実在するかの検証（`--remote`のlintから呼ぶ、T-032）     |
 | `helm.ts`          | `values.yaml` のYAMLアンカー位置の値の読み書き                                   |
 | `env.ts`           | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）             |
 
@@ -114,6 +115,11 @@
 - **`chart.yaml`/`config.yaml`/`anchors.yaml` の3ファイル分割**: あまり変更されないchart構造
   （`anchors.yaml`）と、頻繁に変更される運用値（`config.yaml`）を分けるため。両者は
   `projectId` で突き合わせて整合性を検証する（T-017）
+- **設定ミスの検知は「形」と「実在」で2段に分けている**: ローカルのYAMLだけで分かること
+  （型・対応関係・重複）は`config.ts`が`loadConfig()`時に例外を投げ、GitLabに問い合わせないと
+  分からないこと（projectId・ブランチ・valuesPath・アンカーの実在）は`verify-config.ts`が
+  問題の一覧を返す。前者は認証不要なので全パイプラインで、後者はトークンがある
+  パイプラインでのみ実行する（T-032）
 - **MRの単位は `(chartリポジトリ, tenantId, clientId)`**: クライアントごとに独立して
   マージ判断・保留できるようにするため。オールオアナッシングの範囲もこの単位（T-019、T-020）
 
@@ -123,8 +129,10 @@
 - `config-test/`: 実GitLabインスタンスへの手動スモークテスト用フィクスチャ
   （`CONFIG_PATH=config-test DRY_RUN=true` で使う）。`config/`と同じスキーマだが本番の登録対象
   ではなく、CIからも参照されない
-- `scripts/lint/validate-config.ts`: `config/` の文法チェック専用スクリプト
-  （`pnpm lint:validate-config` から実行、`pnpm lint` に含まれる）
+- `scripts/lint/validate-config.ts`: `config/` の検証スクリプト。既定はローカルのYAMLのみ
+  （`pnpm lint:validate-config`、認証不要なので`pnpm lint`に含まれる）、`--remote` を付けると
+  GitLabへ問い合わせて projectId・ブランチ・valuesPath・アンカーの実在も検証する
+  （`pnpm lint:validate-config:remote`、CIの`validate-config-remote`ジョブが実行）
 - `dist/`: `pnpm build` の生成物。gitignore対象、手で編集しない
 - `docs/requirements.md`: 確定した要件。`docs/requirements-grilling.md`: 要件定義時のQ&Aログ
   （検討経緯の参照用、変更不要）。`docs/history/`: 完了タスク・過去セッションのアーカイブ

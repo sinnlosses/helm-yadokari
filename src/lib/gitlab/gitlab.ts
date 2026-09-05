@@ -54,6 +54,19 @@ export async function listTags(gitlab: GitlabClient, projectId: ProjectId): Prom
   return tags.map((tag) => ({ name: toTagName(tag.name), commitSha: tag.commit.id }))
 }
 
+/**
+ * プロジェクトが存在し、アクセストークンで参照できるかを返す（404のときのみ false）。
+ * 設定ファイルに書かれた projectId の実在確認に使う。
+ */
+export async function projectExists(gitlab: GitlabClient, projectId: ProjectId): Promise<boolean> {
+  return withRetry(() =>
+    withNotFoundFallback(async () => {
+      await gitlab.Projects.show(projectId)
+      return true
+    }, false),
+  )
+}
+
 export async function branchExists(
   gitlab: GitlabClient,
   projectId: ProjectId,

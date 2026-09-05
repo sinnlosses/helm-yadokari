@@ -26,7 +26,8 @@ chart リポジトリ単位で1つの Merge Request を作成する。クラス�
 pnpm check                            # tsc --noEmit + lint + format:check + test をまとめて実行（変更後は必ずこれを通す）
 pnpm test                             # テスト全体
 npx vitest run test/lib/gitlab/tag.test.ts # 単体テストファイルのみ実行
-pnpm lint                             # oxlint + config/ のバリデーション
+pnpm lint                             # oxlint + config/ のバリデーション（ローカルのみ）
+pnpm lint:validate-config:remote      # config/ の値がGitLab上に実在するか検証（要 .env、読み取りのみ）
 pnpm format                           # oxfmt で自動整形
 pnpm dev                              # tsx でローカル実行（.env を読み込む）
 pnpm build && pnpm start              # ビルドしてから実行
@@ -71,7 +72,9 @@ pnpm build && pnpm start              # ビルドしてから実行
 ## CI/CD
 
 `.gitlab-ci.yml` 参照。`check`（型チェック・lint・test・build）→ `update-app-versions`
-（pipeline schedule / 手動実行時のみ本体を実行）という構成。`renovate` ジョブはこのCLI自体の
+（pipeline schedule / 手動実行時のみ本体を実行）という構成。`validate-config-remote` は
+`config/` の値がGitLab上に実在するかをMR時点で検証するジョブ（読み取りのみ。`ACCESS_TOKEN` が
+パイプラインから参照できるときだけ実行される、T-032）。`renovate` ジョブはこのCLI自体の
 依存パッケージ更新用（別スケジュールで `RENOVATE=true` を指定）。
 
 ## コーディング規約・レビュー方針

@@ -97,6 +97,14 @@ T-001〜T-021（要件定義・CLI実装・GitLab実機検証・スキーマ再�
   - 検証で作成したブランチ2本・MR（!11、!13）はユーザーの意向で**残置**。片付ける場合は
     MRをクローズし `feature/yadokari/tenant1/client1` / `.../client2` を削除する
 
+- **T-032完了**: 設定ミスの検知をCIで2段構えにした。(1) 認証不要のローカル検証を強化
+  （projectId重複・同じ`valuesPath`+`anchor`の奪い合いを`loadConfig()`で例外に。既存の
+  `check`ジョブでそのまま効く）、(2) `src/lib/verify-config.ts` を新設し
+  `pnpm lint:validate-config:remote`（`--remote`）でprojectId・ブランチ・valuesPath・
+  アンカーの実在をGitLabに問い合わせて検証、`.gitlab-ci.yml`に`validate-config-remote`
+  ジョブを追加（MR/push/web、`ACCESS_TOKEN`がある場合のみ）。実機でわざと壊した設定を
+  4件同時に検出できること・終了コード1になることを確認。pnpm check（21ファイル288テスト）通過
+
 ## 次にやること
 
 - `refactor/repo-cleanup` を main へマージする（`git switch main && git merge --ff-only refactor/repo-cleanup`）。

@@ -204,6 +204,12 @@ apps:
   逆に`anchors.yaml`に`config.yaml`側に存在しないappが定義されている場合（孤児設定）、
   同じ`projectId`なのに`projectName`が食い違っている場合は、いずれも設定エラーになる
   （`config.yaml`と`anchors.yaml`の紐づけを検証する仕組みが働く）
+- 同じ`projectId`のappが1つのファイル内に複数書かれている場合も設定エラーになる（T-032）。
+  CLIは`projectId`をキーに2ファイルを突き合わせるため、重複していると片方が黙って無視され、
+  同じ書き込み先へ別々のタグを順に書いて最後の値だけが残る
+- 1つのclient内で、同じ`valuesPath`+`anchor`の組（＝values.yamlの同じ1箇所）が複数の
+  書き込み先として指定されている場合も設定エラーになる（T-032）。`apps[].chart[]`同士の重複、
+  `apps[].chart[]`と`helm.chart[]`の衝突（イメージタグと向き先ブランチが同じ箇所を奪い合う）が対象
 - ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/` の
   2階層（tenantId/clientId）に統一する。テナント分けが不要なchartでも、ダミーの
   1つのtenantId/clientIdディレクトリ配下に置く

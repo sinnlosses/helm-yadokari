@@ -246,5 +246,13 @@
     "passes": true,
     "evidence": "docs/architecture.md を227→153行に整理。(a) 冒頭に「各関数の詳しい振る舞いはコード側のJSDocが正典。このドキュメントは責務の要約と、コードを読んでも分からないことだけを書く」と方針を明記し、JSDocを逐語で写していた箇所（build-plans.tsの4手順、gitlab.tsのcommitFileUpdatesの挙動、config.tsの検証3パターンと絞り込みの仕様、helm.tsの実装詳細など）を、steps/lib/utils それぞれ1行1ファイルの責務テーブルに置き換えた。config/のスキーマ仕様は T-028 で正典と定めた docs/requirements.md 4.4節へのポインタに変更。(b) 本文に混在していた変更履歴（「以前は〜」「T-021。以前は〜」）を独立した「コードからは読み取れない設計判断」節に集約し、8項目の1〜3行エントリ（なぜtag.tsがlib/gitlab/にあるか、なぜjs-yamlでなくyamlか、なぜapp-update-plan.tsを廃したか、なぜサブステップがGitLabクライアントを受け取らないか等）＋詳細はT-030で作った docs/history/tasks-archive.md 参照、という形にした。「新しいコードを置く場所の判断基準」「既知の制約・注意点」は現役の判断材料なのでそのまま残し、逐次実行の理由（キャッシュ共有）とT-003の判断だけ補った。pnpm check（20ファイル272テスト）通過。コミットは未実施（ユーザー承認待ち）",
     "dependencies": ["T-030"]
+  },
+  {
+    "id": "T-032",
+    "task": "存在しないアンカー・存在しないブランチ・架空のprojectIdといった「YAMLの形は正しいが実体が無い」設定ミスを、本番実行時のERRORではなくCIで事前に検知できるようにする。監査時点では pnpm lint:validate-config（＝CIのcheckジョブ）がローカルのYAMLしか見ておらず、これらは素通りしていた。あわせて、config.yaml内のprojectId重複や同じvaluesPath+anchorの奪い合いのように、実機を見なくても分かるのに検知できていなかった設定ミスも塞ぐ",
+    "status": "done",
+    "passes": true,
+    "evidence": "認証不要のローカル検証（config.ts に validateNoDuplicateProjectIds / validateNoDuplicateTargets を追加、テスト6件）と、GitLabへ問い合わせる実在チェック（src/lib/verify-config.ts の verifyConfigExistence、テスト10件）の2段構成にした。後者は scripts/lint/validate-config.ts の --remote（pnpm lint:validate-config:remote）から呼び、.gitlab-ci.yml に validate-config-remote ジョブ（MR/push/web、ACCESS_TOKENがある場合のみ）を追加。実機確認: 正しい config-test/ は OK、わざと壊した設定で「branchToSync/アンカー/helm.branchToSync/projectId」の4件を同時に検出し終了コード1、mrTargetBranch不在時も従来の誤解を招くメッセージ（values.yamlが見つかりません）ではなく原因1件のみを報告することを確認。pnpm check（21ファイル288テスト）通過",
+    "dependencies": ["T-020", "T-021"]
   }
 ]

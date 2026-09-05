@@ -229,6 +229,9 @@ helm:
 
 - `config.yaml` と `anchors.yaml` の app の対応が取れない（片方にしかない、同じ `projectId`
   なのに `projectName` が食い違う）
+- 同じ `projectId` のappが1ファイル内に複数ある
+- 同じ `valuesPath` + `anchor`（values.yamlの同じ1箇所）が複数の書き込み先として指定されている
+  （app同士の重複、イメージタグと向き先ブランチの衝突）
 - `helm.branchToSync` と `helm.chart[]` のどちらか片方だけが指定されている
 - `helm.branchToSync` を指定しているのに、配下の**全アプリ**の**全 `chart[].valuesPath`** が
   `helm.chart[]` でカバーされていない（向き先ブランチはclient内で共通という前提のため）
@@ -236,11 +239,21 @@ helm:
 各フィールドの完全な仕様・制約の一覧は [`docs/requirements.md`](./docs/requirements.md) の
 「4.4 アプリの登録・設定」が正典です（このREADMEはセットアップに必要な範囲の要約です）。
 
-設定ファイルの文法チェックのみ実行する場合:
+### 設定ファイルの検証
 
 ```bash
+# 文法・整合性のチェック（GitLabへの接続不要。pnpm check にも含まれる）
 pnpm lint:validate-config
+
+# 上記に加えて、projectId・ブランチ・valuesPath・アンカーが GitLab 上に実在するかを検証
+# （読み取りのみ。タグ・ブランチ・MR は作りません。GITLAB_URL / ACCESS_TOKEN が必要）
+pnpm lint:validate-config:remote
 ```
+
+存在しないアンカーやブランチを指定した設定は、実行時に該当clientが `ERROR` になるまで
+気づけません。これをMRの時点で止めるために、`--remote` 版をCIの `validate-config-remote`
+ジョブとして実行しています（MR・push・手動実行時。`ACCESS_TOKEN` がパイプラインから
+参照できる場合のみ動作します。詳細は `.gitlab-ci.yml` のコメント参照）。
 
 ## エラーハンドリング
 

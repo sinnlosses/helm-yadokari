@@ -713,3 +713,226 @@ describe("loadConfig（target絞り込み）", () => {
     ).toThrow("no-such-tenant/no-such-client")
   })
 })
+
+describe("loadConfig（重複指定の検証）", () => {
+  const CHART_YAML = `
+chart:
+  projectId: 888
+  projectName: teamA-chart
+  mrTargetBranch: develop
+`
+
+  it("config.yamlに同じprojectIdのappが2件あるとき例外をスローする", () => {
+    writeChartYaml("teamA-chart", CHART_YAML)
+    writeConfigYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      `
+apps:
+  - projectId: 1
+    projectName: my-app
+    branchToSync: main
+  - projectId: 1
+    projectName: my-app
+    branchToSync: develop
+`,
+    )
+    writeAnchorsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      `
+apps:
+  - projectId: 1
+    projectName: my-app
+    chart:
+      - valuesPath: charts/my-app/values.yaml
+        anchor: myAppVersion
+`,
+    )
+
+    expect(() => loadConfig(tmpDir)).toThrow("projectId 1")
+  })
+
+  it("anchors.yamlに同じprojectIdのappが2件あるとき例外をスローする", () => {
+    writeChartYaml("teamA-chart", CHART_YAML)
+    writeConfigYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      `
+apps:
+  - projectId: 1
+    projectName: my-app
+    branchToSync: main
+`,
+    )
+    writeAnchorsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      `
+apps:
+  - projectId: 1
+    projectName: my-app
+    chart:
+      - valuesPath: charts/my-app/values.yaml
+        anchor: myAppVersion
+  - projectId: 1
+    projectName: my-app
+    chart:
+      - valuesPath: charts/my-app/values.yaml
+        anchor: otherAnchor
+`,
+    )
+
+    expect(() => loadConfig(tmpDir)).toThrow("projectId 1")
+  })
+
+  it("別々のappが同じ valuesPath + anchor を指しているとき例外をスローする", () => {
+    writeChartYaml("teamA-chart", CHART_YAML)
+    writeConfigYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      `
+apps:
+  - projectId: 1
+    projectName: app-one
+    branchToSync: main
+  - projectId: 2
+    projectName: app-two
+    branchToSync: main
+`,
+    )
+    writeAnchorsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      `
+apps:
+  - projectId: 1
+    projectName: app-one
+    chart:
+      - valuesPath: charts/shared/values.yaml
+        anchor: sharedAnchor
+  - projectId: 2
+    projectName: app-two
+    chart:
+      - valuesPath: charts/shared/values.yaml
+        anchor: sharedAnchor
+`,
+    )
+
+    expect(() => loadConfig(tmpDir)).toThrow("sharedAnchor")
+  })
+
+  it("1つのappが同じ valuesPath + anchor を2回指定しているとき例外をスローする", () => {
+    writeChartYaml("teamA-chart", CHART_YAML)
+    writeConfigYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      `
+apps:
+  - projectId: 1
+    projectName: my-app
+    branchToSync: main
+`,
+    )
+    writeAnchorsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      `
+apps:
+  - projectId: 1
+    projectName: my-app
+    chart:
+      - valuesPath: charts/my-app/values.yaml
+        anchor: myAppVersion
+      - valuesPath: charts/my-app/values.yaml
+        anchor: myAppVersion
+`,
+    )
+
+    expect(() => loadConfig(tmpDir)).toThrow("myAppVersion")
+  })
+
+  it("イメージタグとHelm向き先ブランチが同じ valuesPath + anchor を奪い合うとき例外をスローする", () => {
+    writeChartYaml("teamA-chart", CHART_YAML)
+    writeConfigYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      `
+helm:
+  branchToSync: release/2026-q1
+apps:
+  - projectId: 1
+    projectName: my-app
+    branchToSync: main
+`,
+    )
+    writeAnchorsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      `
+apps:
+  - projectId: 1
+    projectName: my-app
+    chart:
+      - valuesPath: charts/my-app/values.yaml
+        anchor: myAppVersion
+helm:
+  chart:
+    - valuesPath: charts/my-app/values.yaml
+      anchor: myAppVersion
+`,
+    )
+
+    expect(() => loadConfig(tmpDir)).toThrow("myAppVersion")
+  })
+
+  it("valuesPathが同じでもanchorが違えば読み込める", () => {
+    writeChartYaml("teamA-chart", CHART_YAML)
+    writeConfigYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      `
+apps:
+  - projectId: 1
+    projectName: app-one
+    branchToSync: main
+  - projectId: 2
+    projectName: app-two
+    branchToSync: main
+`,
+    )
+    writeAnchorsYaml(
+      "teamA-chart",
+      "tenantId1",
+      "clientId1",
+      `
+apps:
+  - projectId: 1
+    projectName: app-one
+    chart:
+      - valuesPath: charts/shared/values.yaml
+        anchor: appOneVersion
+  - projectId: 2
+    projectName: app-two
+    chart:
+      - valuesPath: charts/shared/values.yaml
+        anchor: appTwoVersion
+`,
+    )
+
+    const { chartAndAppsList } = loadConfig(tmpDir)
+
+    expect(chartAndAppsList[0]?.apps).toHaveLength(2)
+  })
+})

@@ -8,6 +8,7 @@
     "lint": "oxlint src && pnpm lint:validate-config",
     "lint:fix": "oxlint src --fix",
     "lint:validate-config": "tsx scripts/lint/validate-config.ts",
+    "lint:validate-config:remote": "tsx --env-file-if-exists=.env scripts/lint/validate-config.ts --remote",
     "format": "oxfmt .",
     "format:check": "oxfmt . --check",
     "test": "vitest run",

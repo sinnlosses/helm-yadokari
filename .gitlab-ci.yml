@@ -125,6 +125,24 @@ check:
     - if: '$CI_PIPELINE_SOURCE == "web"'
   timeout: 15 minutes
 
+# config/ に書かれた projectId・ブランチ・valuesPath・アンカーが GitLab 上に実在するかを
+# MR の時点で検証する（読み取りのみ。タグ・ブランチ・MR は作らない）。
+# 【重要】このジョブは ACCESS_TOKEN / GITLAB_URL を MR パイプラインで参照できる必要がある。
+#   CI/CD Variables を Protected: ON にしていると保護ブランチ以外では空になるため、
+#   read_api だけを持つ非Protectedのトークンを ACCESS_TOKEN として用意するか、
+#   このジョブ用に別変数を使うこと。トークンが空のときはジョブ自体を実行しない
+#   （＝実在チェックが行われないだけで、MR はブロックされない）。
+validate-config-remote:
+  extends: .node-setup
+  stage: validate
+  script:
+    - pnpm lint:validate-config:remote
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $ACCESS_TOKEN != ""'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $ACCESS_TOKEN != ""'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $ACCESS_TOKEN != ""'
+  timeout: 10 minutes
+
 update-app-versions:
   extends: .node-setup
   stage: deploy
