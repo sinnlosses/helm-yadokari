@@ -22,7 +22,7 @@ export type BuildPlansResult = {
   readonly settled: ChartUpdateResult[]
 }
 
-type PlanOutcome =
+type PlanResult =
   | { readonly status: "apply"; readonly target: ChartUpdateTarget }
   | { readonly status: "settled"; readonly result: ChartUpdateResult }
 
@@ -40,7 +40,7 @@ export async function buildPlans(
   dryRun: boolean,
 ): Promise<BuildPlansResult> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
-    buildPlanForChartAndApps(gitlab, chartAndApps, dryRun),
+    process(gitlab, chartAndApps, dryRun),
   )
 
   return outcomes.reduce<BuildPlansResult>(
@@ -52,27 +52,11 @@ export async function buildPlans(
   )
 }
 
-function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
-  return {
-    projectName: plan.app.projectName,
-    latestTag: plan.latestTag.name,
-    updates: plan.updates.map((update) => ({
-      valuesPath: update.target.valuesPath,
-      previousTag: update.previousTag,
-    })),
-    helmTargetBranchUpdates: plan.helmTargetBranchUpdates.map((update) => ({
-      valuesPath: update.target.valuesPath,
-      previousBranch: update.previousBranch,
-      newBranch: update.newBranch,
-    })),
-  }
-}
-
-async function buildPlanForChartAndApps(
+async function process(
   gitlab: GitlabClient,
   chartAndApps: ChartAndApps,
   dryRun: boolean,
-): Promise<PlanOutcome> {
+): Promise<PlanResult> {
   const logContext = {
     event: "update_chart",
     chartDir: chartAndApps.chartDir,
@@ -81,7 +65,7 @@ async function buildPlanForChartAndApps(
   }
 
   try {
-    const { plans, files } = await buildChartUpdate(gitlab, chartAndApps, dryRun)
+    const { plans, files } = await buildPlan(gitlab, chartAndApps, dryRun)
     if (plans.length === 0) {
       logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })
       return { status: "settled", result: "SKIPPED" }
@@ -107,6 +91,22 @@ async function buildPlanForChartAndApps(
   }
 }
 
+function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
+  return {
+    projectName: plan.app.projectName,
+    latestTag: plan.latestTag.name,
+    updates: plan.updates.map((update) => ({
+      valuesPath: update.target.valuesPath,
+      previousTag: update.previousTag,
+    })),
+    helmTargetBranchUpdates: plan.helmTargetBranchUpdates.map((update) => ({
+      valuesPath: update.target.valuesPath,
+      previousBranch: update.previousBranch,
+      newBranch: update.newBranch,
+    })),
+  }
+}
+
 /**
  * 1つのchartAndAppsについて、配下の全アプリを`buildAppUpdatePlan()`（1アプリ分の
  * サブステップ）に順番に渡し、差分があったアプリだけの計画を積み上げる。同じvalues.yamlを
@@ -114,7 +114,7 @@ async function buildPlanForChartAndApps(
  * 並列化はせず1つずつ処理する。最終的に書き換えのあったファイルだけを`buildFileUpdates()`で
  * `FileUpdate[]`にする。
  */
-async function buildChartUpdate(
+async function buildPlan(
   gitlab: GitlabClient,
   chartAndApps: ChartAndApps,
   dryRun: boolean,
