@@ -73,8 +73,9 @@ pnpm build && pnpm start              # ビルドしてから実行
 
 `.gitlab-ci.yml` 参照。`check`（型チェック・lint・test・build）→ `update-app-versions`
 （pipeline schedule / 手動実行時のみ本体を実行）という構成。`validate-config-remote` は
-`config/` の値がGitLab上に実在するかをMR時点で検証するジョブ（読み取りのみ。`ACCESS_TOKEN` が
-パイプラインから参照できるときだけ実行される、T-032）。`renovate` ジョブはこのCLI自体の
+`config/` の値がGitLab上に実在するかをMR時点で検証するジョブ（読み取りのみ。MR/push/手動実行で
+必ず走り、`ACCESS_TOKEN`が参照できないときはスキップせず失敗する。そのため同変数は
+Protected: OFF で登録する、T-032）。`renovate` ジョブはこのCLI自体の
 依存パッケージ更新用（別スケジュールで `RENOVATE=true` を指定）。
 
 ## コーディング規約・レビュー方針

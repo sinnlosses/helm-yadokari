@@ -252,8 +252,9 @@ pnpm lint:validate-config:remote
 
 存在しないアンカーやブランチを指定した設定は、実行時に該当clientが `ERROR` になるまで
 気づけません。これをMRの時点で止めるために、`--remote` 版をCIの `validate-config-remote`
-ジョブとして実行しています（MR・push・手動実行時。`ACCESS_TOKEN` がパイプラインから
-参照できる場合のみ動作します。詳細は `.gitlab-ci.yml` のコメント参照）。
+ジョブとして**必ず実行**しています（MR・push・手動実行時）。`GITLAB_URL` / `ACCESS_TOKEN` が
+参照できない場合もスキップせずエラーで停止するため、CI/CD Variables の Protected は
+OFF にしてください（詳細は下記「CI/CD」章と `.gitlab-ci.yml` のコメント参照）。
 
 ## エラーハンドリング
 
@@ -278,8 +279,13 @@ pnpm lint:validate-config:remote
 
    | 変数名         | Masked | Protected | 説明                                                                       |
    | -------------- | :----: | :-------: | -------------------------------------------------------------------------- |
-   | `GITLAB_URL`   |        |           | GitLab インスタンスの URL                                                  |
-   | `ACCESS_TOKEN` |   ✓    |     ✓     | Group/Project Access Token（`read_api` + `write_repository` + MR作成権限） |
+   | `GITLAB_URL`   |        |     —     | GitLab インスタンスの URL                                                  |
+   | `ACCESS_TOKEN` |   ✓    |     —     | Group/Project Access Token（`read_api` + `write_repository` + MR作成権限） |
+
+   **Protected は OFF にしてください。** ON にすると保護ブランチ以外のパイプラインで変数が
+   空になり、MR時に設定の実在チェック（`validate-config-remote` ジョブ）が実行できずに
+   失敗します。設定ミスをMRで確実に止める運用を優先しているため、このジョブは変数が
+   無いときにスキップせずエラーで停止します。
 
 2. **CI/CD > Schedules** でスケジュールを作成する
 

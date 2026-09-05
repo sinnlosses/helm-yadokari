@@ -29,11 +29,19 @@ const where = configPath ?? "config"
 console.log(`config OK: ${chartAndAppsList.length} chart groups, ${appCount} apps (${where})`)
 
 if (remote) {
-  // 環境変数（GITLAB_URL/ACCESS_TOKEN）を要求するため、--remote のときだけ読み込む
-  const { ACCESS_TOKEN, GITLAB_URL } = await import("../../src/lib/env.js")
+  // 環境変数（GITLAB_URL/ACCESS_TOKEN）を要求するため、--remote のときだけ読み込む。
+  // 認証情報が無いときは黙って成功させず、理由を明示して失敗させる（このチェックが
+  // 素通りすると、存在しないアンカー・ブランチがそのままマージされてしまうため）
+  const gitlabEnv = await import("../../src/lib/env.js").catch((err: unknown) => {
+    fail(
+      `実在チェックを実行できません（${err instanceof Error ? err.message : String(err)}）。` +
+        `GITLAB_URL と ACCESS_TOKEN を設定してください`,
+    )
+  })
   const { createClient } = await import("../../src/lib/gitlab/gitlab.js")
   const { verifyConfigExistence } = await import("../../src/lib/verify-config.js")
 
+  const { ACCESS_TOKEN, GITLAB_URL } = gitlabEnv
   const problems = await verifyConfigExistence(
     createClient(GITLAB_URL, ACCESS_TOKEN),
     chartAndAppsList,

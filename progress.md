@@ -102,8 +102,11 @@ T-001〜T-021（要件定義・CLI実装・GitLab実機検証・スキーマ再�
   `check`ジョブでそのまま効く）、(2) `src/lib/verify-config.ts` を新設し
   `pnpm lint:validate-config:remote`（`--remote`）でprojectId・ブランチ・valuesPath・
   アンカーの実在をGitLabに問い合わせて検証、`.gitlab-ci.yml`に`validate-config-remote`
-  ジョブを追加（MR/push/web、`ACCESS_TOKEN`がある場合のみ）。実機でわざと壊した設定を
-  4件同時に検出できること・終了コード1になることを確認。pnpm check（21ファイル288テスト）通過
+  ジョブを追加（MR/push/web）。ユーザー判断で`ACCESS_TOKEN`は**Protected: OFF**とし、
+  ジョブは条件付きスキップにせず必ず実行する（認証情報が無ければ理由を表示して失敗）。
+  実機でわざと壊した設定を4件同時に検出できること・終了コード1になること、認証情報が
+  無い場合に「実在チェックを実行できません」で停止することを確認。
+  pnpm check（21ファイル288テスト）通過
 
 ## 次にやること
 
