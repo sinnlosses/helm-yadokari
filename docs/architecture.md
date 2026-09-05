@@ -13,28 +13,39 @@
     オープン中のMRが既にあるchartAndAppsを除外する
   - `build-plans.ts`: `buildPlans()`。chartAndAppsごとの更新計画を並列に構築し、
     差分がないもの・dryRunのものは settled（SKIPPED）へ、反映が必要なものは
-    `toApply` へ振り分ける。1つのchartAndApps分の計算（`buildChartUpdate()`）・
-    追跡ブランチ由来の最新タグ判定（`resolveLatestTag()`）・ログ用サマリ組み立て
-    （`describePlan()`）は、このファイルの外からは呼ばれないため非公開関数としてここに書く。
-    1アプリ（`AppConfig.chart`）が複数の書き換え箇所（WebAPI/バッチ/デーモンなど）を
-    持つ場合は、`applyAppToChartUpdate()`が`app.chart`を`reduce`で1箇所ずつ処理し
-    （`applyImageTagTarget()`）、同じ最新タグに対して差分があった箇所だけを
-    `AppUpdatePlan.updates`に積む（全箇所が反映済みならそのアプリ自体を計画に含めない）
-    - 追跡ブランチ由来の最新タグが、追跡ブランチの現在のHEADコミット（`getBranchHeadSha()`）と
-      一致しない場合（1件も見つからない場合に加え、見つかった最新タグが追跡ブランチの進行に
-      ビハインドしている場合を含む）はエラーにせず、`lib/gitlab/tag.ts` の `buildNewTag()` で
-      タグ名を組み立て、`lib/gitlab/gitlab.ts` の `createTag()` で実際に作成してから続行する
+    `toApply` へ振り分ける。ログ用サマリ組み立て（`describePlan()`）・chartAndApps単位の
+    try/catch判定（`buildPlanForChartAndApps()`）はこのファイルの外からは呼ばれないため
+    非公開関数としてここに書く。1つのchartAndApps分の実処理（`buildChartUpdate()`）は
+    ファイルが大きくなったため`steps/sub-steps/build-plans/`ディレクトリへ切り出している
+    （`sub-steps/`はどのstepにも属する「フラットな3ステップ」には含めない、内部実装専用の
+    置き場所。このディレクトリ配下は他のステップやprocess()からは参照されない。呼び出し元は
+    依然としてbuild-plans.ts1つだけなので、原則2「複数箇所から呼ばれない限りlib/には
+    置かない」の考え方は変わらない。単に1ファイル内の非公開関数を複数ファイルに分けただけ）
+    - `sub-steps/build-plans/resolve-latest-tag.ts`: `resolveLatestTag()`。追跡ブランチ由来の
+      最新タグが、追跡ブランチの現在のHEADコミット（`getBranchHeadSha()`）と一致しない場合
+      （1件も見つからない場合に加え、見つかった最新タグが追跡ブランチの進行にビハインド
+      している場合を含む）はエラーにせず、`lib/gitlab/tag.ts` の `buildNewTag()` でタグ名を
+      組み立て、`lib/gitlab/gitlab.ts` の `createTag()` で実際に作成してから続行する
       （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
-    - `app.helmTargetBranch`（Helmの向き先ブランチ。T-016）が設定されているアプリは、
-      `applyHelmTargetBranchTarget()`が`app.chart`と同じ`valuesYamlCache`を共有しつつ、
-      `helmTargetBranch.targets`（anchors.yamlトップレベル`helm.chart[]`のうち
-      `valuesPath`がこのappの`chart[].valuesPath`と一致する箇所すべて）を1箇所ずつ処理し、
-      設定値（`helmTargetBranch.branch`）と`values.yaml`側の現在値を比較する。
-      差分があれば書き込み前に`lib/gitlab/gitlab.ts`の`branchExists()`でそのブランチが
-      chartリポジトリ上に実在するかを検証し（存在しなければ例外を投げてそのchartAndApps全体を
-      ERRORにする）、`AppUpdatePlan.helmTargetBranchUpdates`に積む。タグ更新と異なり
-      「最新値の自動判定」は行わず、config.yamlに人間が書いた値をそのまま比較対象にする。
-      同じブランチ名の存在確認はchartAndApps内で1回だけになるよう`branchExistsCache`で共有する
+    - `sub-steps/build-plans/image-tag-target.ts`: `applyImageTagTarget()`。1アプリ
+      （`AppConfig.chart`）が複数の書き換え箇所（WebAPI/バッチ/デーモンなど）を持つ場合に、
+      `app.chart`を`reduce`で1箇所ずつ処理し、同じ最新タグに対して差分があった箇所だけを
+      `AppUpdatePlan.updates`に積む（全箇所が反映済みならそのアプリ自体を計画に含めない）
+    - `sub-steps/build-plans/helm-target-branch-target.ts`: `applyHelmTargetBranchTarget()`。
+      `app.helmTargetBranch`（Helmの向き先ブランチ。T-016）が設定されているアプリは、
+      `image-tag-target.ts`と同じ`valuesYamlCache`を共有しつつ、`helmTargetBranch.targets`
+      （anchors.yamlトップレベル`helm.chart[]`のうち`valuesPath`がこのappの
+      `chart[].valuesPath`と一致する箇所すべて）を1箇所ずつ処理し、設定値
+      （`helmTargetBranch.branch`）と`values.yaml`側の現在値を比較する。差分があれば
+      書き込み前に`lib/gitlab/gitlab.ts`の`branchExists()`でそのブランチがchartリポジトリ上に
+      実在するかを検証し（存在しなければ例外を投げてそのchartAndApps全体をERRORにする）、
+      `AppUpdatePlan.helmTargetBranchUpdates`に積む。タグ更新と異なり「最新値の自動判定」は
+      行わず、config.yamlに人間が書いた値をそのまま比較対象にする。同じブランチ名の存在確認は
+      chartAndApps内で1回だけになるよう`branchExistsCache`で共有する
+    - `sub-steps/build-plans/chart-update.ts`: `buildChartUpdate()`。上記3つを束ね、
+      chartAndApps配下の全アプリを`reduce`で1つずつ処理する（`applyAppToChartUpdate()`）。
+      同じvalues.yamlを参照する複数アプリ・複数箇所の変更は`valuesYamlCache`に積み重ねて
+      まとめ、最終的に`buildFileUpdates()`で書き換えのあったファイルだけを`FileUpdate[]`にする
   - `apply-updates.ts`: `applyUpdates()`。`toApply` の各chartAndAppsに対してコミット・
     MR作成を並列実行する。ログ用サマリ組み立て（`describePlan()`）はここでも非公開関数
     として個別に持つ（`build-plans.ts` のものとほぼ同じ形だが、共有するために `lib/` へ
@@ -102,7 +113,12 @@
 
 - `process()` が直接呼ぶ、フラットなパイプラインの1段 → `steps/`。他のステップファイルを
   import しない
-- 呼び出し元が `steps/` の1ファイルだけ → そのファイル内の非公開（exportしない）関数
+- 呼び出し元が `steps/` の1ファイルだけ → そのファイル内の非公開（exportしない）関数。
+  1ファイルが大きくなりすぎた場合は、`steps/sub-steps/<step名>/`（例:
+  `steps/sub-steps/build-plans/`）へ非公開関数を複数ファイルに分割してよい（`steps/`直下は
+  「process()が直接呼ぶフラットな3ステップ」だけに保ち、`sub-steps/`配下は各stepの内部実装
+  専用と分かるようにする）。呼び出し元が引き続きそのstepファイル1つだけである限り、
+  ファイルを分けても`lib/`への昇格理由にはならない（原則2は変わらない）
 - 複数の場所から呼ばれる、かつ特定の技術・外部システム・ファイル形式に依存する
   （GitLab API、Helm chart形式、`config/`のYAML形式、環境変数など）→ 対応する `lib/`
   ファイル。新しい技術/形式を扱うなら新しい `lib/` ファイルを作ってよい

@@ -402,6 +402,46 @@
     `chartAndApps`の二重表記（`1chartAndApps分の更新内容（chartAndApps＋...)`）も
     「対象を表す`chartAndApps`フィールド」と言い換えて解消
   - `pnpm check`（253テスト）通過
+- **`src/steps/build-plans.ts`の分割**: ユーザーから「395行と長いので、stepを分割して
+  ファイルを分けたりlib/utilsに移せるか検討してほしい」と依頼された
+  - `lib/`/`utils/`への移動は該当なし: 中の非公開関数（`resolveLatestTag()`・
+    `applyImageTagTarget()`・`applyHelmTargetBranchTarget()`・`buildFileUpdates()`・
+    `buildChartUpdate()`）はいずれも呼び出し元がbuild-plans.ts（またはその内部）1箇所だけで、
+    CLAUDE.md原則2「複数箇所から呼ばれない限りlib/には置かない」に照らすと昇格理由が無い
+  - ファイル分割は実施。`steps/build-plans/`ディレクトリを新設し、非公開関数を関心ごとに
+    4ファイルへ分離: `resolve-latest-tag.ts`（最新タグ判定・タグ自動作成）・
+    `image-tag-target.ts`（イメージタグの差分検出・書き換え）・
+    `helm-target-branch-target.ts`（Helm向き先ブランチの差分検出・書き換え）・
+    `chart-update.ts`（上記3つを束ねてchartAndApps単位の更新計画を組み立てる
+    `buildChartUpdate()`）。`build-plans.ts`本体は395行→97行に縮小し、`buildPlans()`・
+    `describePlan()`・`buildPlanForChartAndApps()`のみを残した
+  - この分割は「呼び出し元がsteps/の1ファイルだけ→そのファイル内の非公開関数」という
+    既存原則をファイル単位からディレクトリ単位に広げる新パターンのため、`CLAUDE.md`
+    （原則2の注記）・`docs/architecture.md`（各ファイルの責務・新しいコードを置く場所の
+    判断基準の両方）を更新し、今後同様に長くなったstepがあれば同じ手法を使えるようにした
+  - 型の受け渡しは`import type`で解決（`LoadValuesYamlContent`型を`chart-update.ts`から
+    `image-tag-target.ts`/`helm-target-branch-target.ts`へ型のみインポートし、実行時の
+    循環参照は発生しない）
+  - `test/steps/build-plans.test.ts`は元々`buildPlans()`という公開APIのみをテストしており
+    （CLAUDE.mdのテスト方針どおり）、内部ファイル分割の影響を受けないため変更不要
+  - `pnpm check`（253テスト）通過。`pnpm build`でdist/への出力も確認。
+    `CONFIG_PATH=config-test DRY_RUN=true`でgitlab.com実機に対しても再確認
+- **`steps/build-plans/`を`steps/sub-steps/build-plans/`へ改称**: `steps/build-plans/`が
+  `steps/build-plans.ts`と隣接していて紛らわしく、「サブステップ感のある名前にできないか」と
+  指摘された。候補（`build-plans-substeps/`等）を提示する前にユーザーから直接
+  「sub-steps/build-plans かな」と指定があり、`steps/sub-steps/<step名>/`という汎用パターンを
+  採用（将来他のstepが同様に肥大化した場合も同じ場所に置ける）
+  - 4ファイル（`resolve-latest-tag.ts`・`image-tag-target.ts`・`helm-target-branch-target.ts`・
+    `chart-update.ts`）を`steps/build-plans/`から`steps/sub-steps/build-plans/`へ移動
+    （未コミットの新規ファイルだったため`git mv`ではなく`mv`）。1階層深くなった分、
+    各ファイル内の相対import（`../../lib/...`等）を`../../../lib/...`等に修正。
+    `build-plans.ts`側のimportも`./build-plans/chart-update.js`→
+    `./sub-steps/build-plans/chart-update.js`に修正
+  - `CLAUDE.md`・`docs/architecture.md`の該当箇所（新しいコードを置く場所の判断基準、
+    各ファイルの責務）を新パスに追従
+  - `dist/`に前回ビルドの`build-plans/`ディレクトリが残っていたため`rm -rf dist && pnpm build`
+    でクリーンビルドし直し、`dist/src/steps/sub-steps/build-plans/`のみになることを確認
+  - `pnpm check`（253テスト）通過。`CONFIG_PATH=config-test DRY_RUN=true`で実機再確認
 
 ## 次にやること
 
