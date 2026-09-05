@@ -274,23 +274,25 @@ function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): string {
 
 /**
  * イメージタグの更新1箇所分をテーブルの1行にする（T-036）。1アプリが複数箇所を書き換える
- * 場合（T-014）は同じリポジトリの行が箇所の数だけ並ぶため、書き込み先の列で区別する。
- * パイプラインは状態を出さずリンクだけにし、値が無いセルは `-` で埋める。
+ * 場合（T-014）は同じリポジトリの行が箇所の数だけ並ぶため、ファイル・アンカーの列で区別する。
+ * 比較・パイプラインはリンクテキストを付けずURLをそのまま載せ（GitLabが自動リンクする）、
+ * 値が無いセルは `-` で埋める。
  */
 function buildImageTagRow(webUrl: GitLabUrl, plan: AppUpdatePlan, update: ImageTagUpdate): string {
   const previousTagText = update.previousTag
     ? `[${update.previousTag}](${buildTagUrl(webUrl, update.previousTag)})`
     : "(未設定)"
-  const compareText = update.previousTag
-    ? `[比較](${webUrl}/-/compare/${encodeURIComponent(update.previousTag)}...${encodeURIComponent(plan.latestTag.name)})`
+  const compareUrl = update.previousTag
+    ? `${webUrl}/-/compare/${encodeURIComponent(update.previousTag)}...${encodeURIComponent(plan.latestTag.name)}`
     : "-"
   const cells = [
     plan.app.projectName,
-    `\`${update.target.valuesPath}\`（アンカー: ${update.target.anchor}）`,
+    `\`${update.target.valuesPath}\``,
+    `\`${update.target.anchor}\``,
     previousTagText,
     `[${plan.latestTag.name}](${buildTagUrl(webUrl, plan.latestTag.name)})`,
-    compareText,
-    plan.pipeline ? `[パイプライン](${plan.pipeline.webUrl})` : "-",
+    compareUrl,
+    plan.pipeline ? plan.pipeline.webUrl : "-",
   ]
   return `| ${cells.join(" | ")} |`
 }
@@ -298,17 +300,23 @@ function buildImageTagRow(webUrl: GitLabUrl, plan: AppUpdatePlan, update: ImageT
 /**
  * Helmの向き先ブランチの更新をテーブルにする（T-016、T-034、T-036）。
  * 向き先ブランチはclient単位で共通の値なので、イメージタグとは別のセクションに置く。
+ * 書き込み先はイメージタグの表と同じくファイル・アンカーの2列に分ける。
  */
 function buildHelmTargetBranchSection(updates: readonly HelmTargetBranchUpdate[]): string {
   return [
     "## Helmの向き先ブランチ",
     "",
-    "| 旧ブランチ | 新ブランチ | 書き込み先 |",
-    "| --- | --- | --- |",
+    "| 旧ブランチ | 新ブランチ | ファイル | アンカー |",
+    "| --- | --- | --- | --- |",
     ...updates.map((update) => {
       const previousBranchText = update.previousBranch ? `\`${update.previousBranch}\`` : "(未設定)"
-      const target = `\`${update.target.valuesPath}\`（アンカー: ${update.target.anchor}）`
-      return `| ${previousBranchText} | \`${update.newBranch}\` | ${target} |`
+      const cells = [
+        previousBranchText,
+        `\`${update.newBranch}\``,
+        `\`${update.target.valuesPath}\``,
+        `\`${update.target.anchor}\``,
+      ]
+      return `| ${cells.join(" | ")} |`
     }),
   ].join("\n")
 }
@@ -342,8 +350,8 @@ export async function buildMrDescription(
   const imageTagSection = [
     "## イメージタグ",
     "",
-    "| リポジトリ | 書き込み先 | 旧タグ | 新タグ | 比較 | パイプライン |",
-    "| --- | --- | --- | --- | --- | --- |",
+    "| リポジトリ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
     ...rows,
   ].join("\n")
 

@@ -77,9 +77,10 @@ CONFIG_PATH=config-test TARGET_CLIENT=tenant2/client1,tenant2/client2 pnpm dev
   - client1: `Auto MR by yadokari: update tenant2/client1 (image tag 2, helm branch 1)`
   - client2: `Auto MR by yadokari: update tenant2/client2 (image tag 2)`
 - MR本文は2セクションのテーブル（T-036）。「## イメージタグ」は
-  `リポジトリ / 書き込み先 / 旧タグ / 新タグ / 比較 / パイプライン` の6列で、
-  「## Helmの向き先ブランチ」は `旧ブランチ / 新ブランチ / 書き込み先` の3列。
-  タグリンク・比較リンクはすべて実在するタグを指し、値が無いセルは `-` になる
+  `リポジトリ / ファイル / アンカー / 旧タグ / 新タグ / 比較 / パイプライン` の7列で、
+  「## Helmの向き先ブランチ」は `旧ブランチ / 新ブランチ / ファイル / アンカー` の4列。
+  旧タグ・新タグはタグ名をラベルにしたリンク、比較・パイプラインはURLをそのまま表示する。
+  リンク先はすべて実在するタグ・パイプラインで、値が無いセルは `-` になる
 
 ## 繰り返し実行するときの注意
 

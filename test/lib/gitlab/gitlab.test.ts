@@ -571,12 +571,20 @@ describe("buildMrDescription", () => {
 
     expect(description).toContain("## イメージタグ")
     expect(description).toContain(
-      "| リポジトリ | 書き込み先 | 旧タグ | 新タグ | 比較 | パイプライン |",
+      "| リポジトリ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
     )
     const row = description.split("\n").find((line) => line.includes("my-app"))
     expect(row).toContain("[main-build-at-20251231-000000](")
     expect(row).toContain("[main-build-at-20260101-000000](")
-    expect(row).toContain("[比較](")
+    expect(row).toContain(
+      "https://gitlab.example.com/g/my-app/-/compare/main-build-at-20251231-000000...main-build-at-20260101-000000",
+    )
+  })
+
+  it("比較のリンクはURLをそのまま表示する", async () => {
+    const description = await buildMrDescription(makeShowClient(), [makePlan()])
+
+    expect(description).not.toContain("[比較]")
   })
 
   it("1アプリが複数箇所を書き換えるとき、箇所ごとに行を出す", async () => {
@@ -597,15 +605,15 @@ describe("buildMrDescription", () => {
 
     const rows = description.split("\n").filter((line) => line.includes("my-app"))
     expect(rows).toHaveLength(2)
-    expect(rows[0]).toContain("`a.yaml`（アンカー: x）")
-    expect(rows[1]).toContain("`b.yaml`（アンカー: y）")
+    expect(rows[0]).toContain("| `a.yaml` | `x` |")
+    expect(rows[1]).toContain("| `b.yaml` | `y` |")
   })
 
-  it("書き込み先の列に valuesPath とアンカー名を出す", async () => {
+  it("書き込み先はファイルとアンカーの2列に分ける", async () => {
     const description = await buildMrDescription(makeShowClient(), [makePlan()])
 
     const row = description.split("\n").find((line) => line.includes("my-app"))
-    expect(row).toContain("`values.yaml`（アンカー: appVersion）")
+    expect(row).toContain("| `values.yaml` | `appVersion` |")
   })
 
   it("打刻日時の列は出さない", async () => {
@@ -615,14 +623,16 @@ describe("buildMrDescription", () => {
     expect(description).not.toContain("2026-01-01 09:00:00")
   })
 
-  it("パイプラインは状態を出さずリンクだけにする", async () => {
+  it("パイプラインは状態を出さず、URLをそのまま表示する", async () => {
     const description = await buildMrDescription(makeShowClient(), [
       makePlan({
         pipeline: { status: "success", webUrl: toGitLabUrl("https://gitlab.example.com/p/1") },
       }),
     ])
 
-    expect(description).toContain("[パイプライン](https://gitlab.example.com/p/1)")
+    const row = description.split("\n").find((line) => line.includes("my-app"))
+    expect(row).toContain("| https://gitlab.example.com/p/1 |")
+    expect(description).not.toContain("[パイプライン]")
     expect(description).not.toContain("success")
   })
 
@@ -658,10 +668,10 @@ describe("buildMrDescription", () => {
     const helmSectionIndex = description.indexOf("## Helmの向き先ブランチ")
     expect(helmSectionIndex).toBeGreaterThan(description.indexOf("## イメージタグ"))
     const helmSection = description.slice(helmSectionIndex)
-    expect(helmSection).toContain("| 旧ブランチ | 新ブランチ | 書き込み先 |")
+    expect(helmSection).toContain("| 旧ブランチ | 新ブランチ | ファイル | アンカー |")
     expect(helmSection).toContain("`release/2025-q4`")
     expect(helmSection).toContain("`release/2026-q1`")
-    expect(helmSection).toContain("targetBranch")
+    expect(helmSection).toContain("| `values.yaml` | `targetBranch` |")
     expect(description.slice(0, helmSectionIndex)).not.toContain("release/2026-q1")
   })
 
