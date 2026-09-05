@@ -23,6 +23,7 @@ import {
 import {
   type ApplyTargetsAcc,
   applyImageTagTargets,
+  readCurrentImageTags,
 } from "./sub-steps/build-plans/image-tag-target.js"
 import { resolveLatestTag } from "./sub-steps/build-plans/resolve-latest-tag.js"
 import type { BuildChartUpdateAcc, LoadValuesYamlContent } from "./sub-steps/build-plans/types.js"
@@ -176,13 +177,15 @@ async function buildPlan(
 }
 
 /**
- * 1アプリ分の更新計画を組み立てる。手順は次の4つ
+ * 1アプリ分の更新計画を組み立てる。手順は次の5つ
  *
- * 1. `resolveLatestTag()` — 追跡ブランチ由来の最新タグが存在するか確認し、無ければ作成する
- * 2. `applyImageTagTargets()` — `app.chart`全箇所について、最新タグとの差分をチェックする
- * 3. `applyHelmTargetBranchTargets()` — `app.helmTargetBranch`があれば、向き先ブランチの
+ * 1. `readCurrentImageTags()` — `app.chart`全箇所の反映済みタグを読み取る
+ * 2. `resolveLatestTag()` — 追跡ブランチ由来の最新タグが存在するか確認し、無ければ作成する
+ *    （反映済みタグが現在の追跡ブランチ由来でない場合も作成する）
+ * 3. `applyImageTagTargets()` — `app.chart`全箇所について、最新タグとの差分をチェックする
+ * 4. `applyHelmTargetBranchTargets()` — `app.helmTargetBranch`があれば、向き先ブランチの
  *    全箇所について設定値との差分をチェック
- * 4. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば最新パイプラインを取得して
+ * 5. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば最新パイプラインを取得して
  *    `AppUpdatePlan`を組み立てる
  */
 async function buildAppUpdatePlan(
@@ -195,10 +198,15 @@ async function buildAppUpdatePlan(
   acc: BuildChartUpdateAcc,
   app: AppConfig,
 ): Promise<BuildChartUpdateAcc> {
-  const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat)
+  const { valuesYamlCache: cacheWithCurrentTags, previousTags } = await readCurrentImageTags(
+    loadValuesYamlContent,
+    acc.valuesYamlCache,
+    app.chart,
+  )
+  const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat, previousTags)
 
   const initialTargetsAcc: ApplyTargetsAcc = {
-    valuesYamlCache: acc.valuesYamlCache,
+    valuesYamlCache: cacheWithCurrentTags,
     modifiedValuesPaths: acc.modifiedValuesPaths,
     updates: [],
   }

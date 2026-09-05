@@ -4,23 +4,43 @@ import {
   getBranchHeadSha,
   listTags,
 } from "../../../lib/gitlab/gitlab.js"
-import { buildNewTag, findLatestParsedTag } from "../../../lib/gitlab/tag.js"
-import type { AppConfig, ParsedTag, TagFormat } from "../../../types.js"
+import { buildNewTag, findLatestParsedTag, parseTag } from "../../../lib/gitlab/tag.js"
+import type { AppConfig, BranchName, ParsedTag, TagFormat, TagName } from "../../../types.js"
 import { logger } from "../../../utils/logger.js"
 
 /**
- * 追跡ブランチ由来の最新タグを判定する。追跡ブランチの現在のHEADコミットと一致する
- * 既存タグが無い場合（1件も見つからない場合に加え、見つかった最新タグが追跡ブランチの
- * 進行にビハインドしている場合を含む）は、このツール自身が追跡ブランチの最新コミットに
- * 対して新しいタグを作成し、それを最新タグとして扱う（dryRun のときは実際の作成は
- * スキップし、作成予定のタグ名だけを使う）。タグの命名規則は`tagFormat`（`TAG_FORMAT`
- * 環境変数由来）に従う。
+ * `values.yaml`に反映済みのタグが、現在の追跡ブランチ由来ではない箇所があるかを判定する。
+ * タグ名には`{branch}`が必ず含まれるため、追跡ブランチを切り替えると反映済みタグは
+ * パースできなくなる（`TAG_FORMAT`を変更した場合も同様）。まだ何も反映されていない箇所
+ * （`undefined`）は、この後の書き込み自体が失敗するため対象に含めない。
+ */
+function hasTagFromOtherBranch(
+  previousTags: readonly (TagName | undefined)[],
+  branch: BranchName,
+  tagFormat: TagFormat,
+): boolean {
+  return previousTags.some(
+    (tag) => tag !== undefined && parseTag(tag, branch, tagFormat) === undefined,
+  )
+}
+
+/**
+ * 追跡ブランチ由来の最新タグを判定する。次のいずれかの場合は、このツール自身が追跡ブランチの
+ * 最新コミットに対して新しいタグを作成し、それを最新タグとして扱う（dryRun のときは実際の
+ * 作成はスキップし、作成予定のタグ名だけを使う）。タグの命名規則は`tagFormat`
+ * （`TAG_FORMAT`環境変数由来）に従う。
+ *
+ * - 追跡ブランチの現在のHEADコミットと一致する既存タグが無い（1件も見つからない場合に加え、
+ *   見つかった最新タグが追跡ブランチの進行にビハインドしている場合を含む）
+ * - `values.yaml`への反映済みタグが現在の追跡ブランチ由来でない（＝追跡ブランチを切り替えた）。
+ *   この場合はHEADと一致する既存タグがあっても、切り替えを明示するため新しいタグを作る
  */
 export async function resolveLatestTag(
   gitlab: GitlabClient,
   app: AppConfig,
   dryRun: boolean,
   tagFormat: TagFormat,
+  previousTags: readonly (TagName | undefined)[],
 ): Promise<ParsedTag> {
   const [tags, headSha] = await Promise.all([
     listTags(gitlab, app.projectId),
@@ -32,7 +52,8 @@ export async function resolveLatestTag(
     tagFormat,
   )
   const existingTagCommitSha = tags.find((tag) => tag.name === existingTag?.name)?.commitSha
-  if (existingTag && existingTagCommitSha === headSha) return existingTag
+  const branchChanged = hasTagFromOtherBranch(previousTags, app.branchToSync, tagFormat)
+  if (!branchChanged && existingTag && existingTagCommitSha === headSha) return existingTag
 
   const newTag = buildNewTag(app.branchToSync, new Date(), tagFormat)
   if (!dryRun) {
@@ -43,6 +64,7 @@ export async function resolveLatestTag(
     projectName: app.projectName,
     branch: app.branchToSync,
     tag: newTag.name,
+    reason: branchChanged ? "tracked_branch_changed" : "no_tag_at_branch_head",
     dryRun,
   })
   return newTag

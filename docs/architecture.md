@@ -22,12 +22,14 @@
       `buildAppUpdatePlan()`（1アプリ分の処理）に順番に渡すだけ。同じvalues.yamlを
       参照する複数アプリの変更が`valuesYamlCache`に正しく積み重なるよう、アプリ間は並列化
       しない
-    - `buildAppUpdatePlan()`: **1アプリ分**の処理。手順は4つだけ:
-      (1) `sub-steps/build-plans/resolve-latest-tag.ts`の`resolveLatestTag()`で最新タグを判定、
-      (2) `sub-steps/build-plans/image-tag-target.ts`の`applyImageTagTargets()`で`app.chart`
-      全箇所の差分をまとめてチェック、(3) `app.helmTargetBranch`があれば
+    - `buildAppUpdatePlan()`: **1アプリ分**の処理。手順は5つだけ:
+      (1) `sub-steps/build-plans/image-tag-target.ts`の`readCurrentImageTags()`で`app.chart`
+      全箇所の反映済みタグを読み取り、(2) `sub-steps/build-plans/resolve-latest-tag.ts`の
+      `resolveLatestTag()`で最新タグを判定（(1)の結果を渡して追跡ブランチの切り替えを判定させる）、
+      (3) 同じ`image-tag-target.ts`の`applyImageTagTargets()`で`app.chart`
+      全箇所の差分をまとめてチェック、(4) `app.helmTargetBranch`があれば
       `sub-steps/build-plans/helm-target-branch-target.ts`の`applyHelmTargetBranchTargets()`で
-      向き先ブランチの全箇所の差分をまとめてチェック、(4) 差分が1件も無ければSKIPPEDとして
+      向き先ブランチの全箇所の差分をまとめてチェック、(5) 差分が1件も無ければSKIPPEDとして
       ログを出して終了、あれば最新パイプラインを取得して`AppUpdatePlan`を組み立てる。
       「ステップがステップを呼ばない」原則をサブステップにも適用し、この関数は
       `sub-steps/build-plans/`配下の3つのサブステップを直接呼ぶだけで、サブステップ同士が
@@ -47,7 +49,10 @@
       公開している`applyImageTagTargets()`（複数形）が`app.chart`（1アプリが複数の書き換え
       箇所、WebAPI/バッチ/デーモンなどを持つ場合を含む）を`reduce`で先頭から処理する。
       「1箇所分の処理」と「複数箇所をループする責務」を同じファイルに閉じ込め、
-      呼び出し元（`build-plans.ts`の`buildAppUpdatePlan()`）は複数形の関数を1回呼ぶだけでよい
+      呼び出し元（`build-plans.ts`の`buildAppUpdatePlan()`）は複数形の関数を1回呼ぶだけでよい。
+      同ファイルの`readCurrentImageTags()`は書き換えを伴わない読み取り専用版で、
+      `resolveLatestTag()`に渡す「反映済みタグ」を集める（読み込んだvalues.yamlは
+      `valuesYamlCache`に載せて返すので、直後の`applyImageTagTargets()`が再取得することはない）
     - `sub-steps/build-plans/helm-target-branch-target.ts`: **1箇所（target）分**のHelm
       向き先ブランチ処理。構造は`image-tag-target.ts`と同じで、非公開の
       `applyHelmTargetBranchTarget()`（1箇所分。差分があれば`lib/gitlab/gitlab.ts`の
@@ -62,7 +67,10 @@
       （1件も見つからない場合に加え、見つかった最新タグが追跡ブランチの進行にビハインド
       している場合を含む）はエラーにせず、`lib/gitlab/tag.ts` の `buildNewTag()` でタグ名を
       組み立て、`lib/gitlab/gitlab.ts` の `createTag()` で実際に作成してから続行する
-      （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）
+      （`dryRun` のときは作成をスキップし、タグ名の計算だけ行う）。加えて、渡された反映済みタグが
+      現在の追跡ブランチ由来としてパースできない場合（＝`branchToSync`や`TAG_FORMAT`を変更した場合）は、
+      HEADと一致する既存タグがあってもそれを使わず新しいタグを作る。タグ名には`{branch}`が必ず
+      含まれるため、この「パースできるか」だけで追跡ブランチの切り替えを検知できる
     - `sub-steps/build-plans/types.ts`: `LoadValuesYamlContent`型・`BuildChartUpdateAcc`型の
       みを持つ。どちらも特定の1ファイルには属さない共有インターフェース（前者は
       `build-plans.ts`・`image-tag-target.ts`・`helm-target-branch-target.ts`の3箇所、

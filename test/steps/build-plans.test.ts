@@ -134,6 +134,63 @@ describe("buildPlans", () => {
     expect(settled).toEqual([])
   })
 
+  it("反映済みタグが追跡ブランチ由来のとき、HEADと一致する既存タグを再利用して新しいタグは作らない", async () => {
+    const { toApply } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([makeApp()])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
+    expect(createTag).not.toHaveBeenCalled()
+    expect(toApply[0]?.plans[0]?.latestTag.name).toBe(NEW_TAG)
+  })
+
+  it("追跡ブランチを変更したとき、既存タグがHEADと一致していても新しいタグを作成する", async () => {
+    // values.yaml に反映済みのタグ（main由来）が、変更後の追跡ブランチ（release/2026-q2）
+    // 由来ではないケース。既存の release/2026-q2 由来タグはHEADと一致しているが、
+    // 追跡ブランチの切り替えを明示するため新しいタグを作る
+    const existingTag = toTagName("release-2026-q2-build-at-20260101-000000")
+    vi.mocked(listTags).mockResolvedValue([{ name: existingTag, commitSha: HEAD_SHA }])
+    const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([app])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
+    expect(createTag).toHaveBeenCalledOnce()
+    expect(vi.mocked(createTag).mock.calls[0]?.[3]).toBe("release/2026-q2")
+    const latestTagName = toApply[0]?.plans[0]?.latestTag.name
+    expect(latestTagName).toMatch(/^release-2026-q2-build-at-\d{8}-\d{6}$/)
+    expect(latestTagName).not.toBe(existingTag)
+    expect(settled).toEqual([])
+  })
+
+  it("dryRun=true のとき、追跡ブランチを変更していても実際のタグ作成はしない", async () => {
+    vi.mocked(listTags).mockResolvedValue([
+      { name: toTagName("release-2026-q2-build-at-20260101-000000"), commitSha: HEAD_SHA },
+    ])
+    const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
+    await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, true, DEFAULT_TAG_FORMAT)
+    expect(createTag).not.toHaveBeenCalled()
+  })
+
+  it("反映済みタグが読めない（アンカーが無い）ときは、タグを作らずERRORにする", async () => {
+    vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &otherVersion ${OLD_TAG}\n`)
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([makeApp()])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
+    expect(createTag).not.toHaveBeenCalled()
+    expect(toApply).toEqual([])
+    expect(settled).toEqual(["ERROR"])
+  })
+
   it("dryRun=true のとき、タグが見つからなくても実際のタグ作成はしない", async () => {
     vi.mocked(listTags).mockResolvedValue([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },

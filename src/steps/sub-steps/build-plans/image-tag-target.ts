@@ -9,6 +9,35 @@ export type ApplyTargetsAcc = {
   readonly updates: readonly ImageTagUpdate[]
 }
 
+export type CurrentImageTags = {
+  readonly valuesYamlCache: ReadonlyMap<ValuesPath, string>
+  /** `targets`と同じ並び。該当アンカーが無い箇所は`undefined`（＝反映済みタグ無し） */
+  readonly previousTags: readonly (TagName | undefined)[]
+}
+
+/**
+ * `app.chart`の各箇所に現在反映されているタグを読み取る。書き換えはせず、`resolveLatestTag()`が
+ * 「反映済みタグが今の追跡ブランチ由来か」を判定するための入力を作るのが目的。読み込んだ
+ * values.yamlは`valuesYamlCache`に載せて返すので、後続の`applyImageTagTargets()`が再取得することはない。
+ */
+export async function readCurrentImageTags(
+  loadValuesYamlContent: LoadValuesYamlContent,
+  cache: ReadonlyMap<ValuesPath, string>,
+  targets: readonly ImageTagTarget[],
+): Promise<CurrentImageTags> {
+  const valuesYamlCache = new Map(cache)
+  const previousTags = await targets.reduce(
+    (accPromise, target) =>
+      accPromise.then(async (tags) => {
+        const valuesYamlContent = await loadValuesYamlContent(valuesYamlCache, target.valuesPath)
+        const previousTagRaw = getValueAtAnchor(valuesYamlContent, target.anchor)
+        return [...tags, previousTagRaw === undefined ? undefined : toTagName(previousTagRaw)]
+      }),
+    Promise.resolve<readonly (TagName | undefined)[]>([]),
+  )
+  return { valuesYamlCache, previousTags }
+}
+
 /**
  * `app.chart`のうち1箇所分について、現在の値を読み取り最新タグと比較する。差分が
  * あれば書き換え内容をキャッシュに積み、`updates`にも積む（差分が無ければキャッシュの
