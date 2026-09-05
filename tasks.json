@@ -262,5 +262,21 @@
     "passes": true,
     "evidence": "docs/smoke-test.md（手順・期待結果・繰り返し時の注意）と scripts/smoke/smoke-fixture.ts（setup/reset、既定dry-run、SMOKE_CHART_PROJECT_ID必須）、config-test/yadokari-smoke-test-chart/tenant2/{client1,client2} を追加。実機結果: summary {CREATED:2, SKIPPED:0, ERROR:0}・終了コード0で、client1 はMR !14（sample-qa-sprint と sample-develop-client のタグ2件＋向き先ブランチ main→release/2026-q1 の計3アンカー）、client2 はMR !15（タグ2件）を独立したブランチに作成。向き先ブランチ用に chartリポジトリへ release/2026-q1 を新規作成し、書き込み前の実在検証を通ることも確認。MRを残したまま再実行すると両clientが SKIPPED(mr_exists) になることも確認（手順書の注意書きの裏取り）",
     "dependencies": ["T-032"]
+  },
+  {
+    "id": "T-034",
+    "task": "MRのタイトルと本文（description）が「実際に何が変わったか」を正しく表せていないため、表現を再考して直す。T-033の実機検証で見つかった具体的な問題: (1) タイトルは `buildMrTitle()` が `Auto MR by yadokari: update <tenantId>/<clientId> ${plans.length} app image tag(s)` を返すが、`plans` にはHelmの向き先ブランチだけが変わったアプリも含まれる（build-plans.ts の判定は `updates.length === 0 && helmTargetBranchUpdates.length === 0` のときだけ除外する）。そのため image tag が1件も変わっていないのに「N app image tag(s)」と表示されうるし、実際にT-033のMR !14（image tag 2件＋向き先ブランチ1件）も「2 app image tag(s)」としか読めない。(2) 数える単位がアプリ数なので、T-014の「1アプリが複数箇所に同じタグを反映する」ケースでは3箇所書き換えても「1 app」と出る。アプリ数・箇所数・種別（image tag / 向き先ブランチ）のどれをタイトルに載せるか決める必要がある。(3) 本文はアプリ単位のセクション（### projectName、打刻日時、パイプライン）の中に向き先ブランチの行を並べているが、向き先ブランチはclient単位で共通の概念なので所属が分かりにくい。さらに、同じvaluesPathを複数アプリが共有していると、先に処理したアプリが書き換えた時点で差分が消えるため、向き先ブランチの行は最初のアプリのセクションにだけ出る（T-033のMR !14が実際にこの状態）。(4) 打刻日時・パイプラインはタグ由来の情報なので、向き先ブランチだけが変わったアプリのセクションでは無関係な情報として並ぶ。あわせて、タイトルは apply-updates.ts でコミットメッセージにも流用している点を踏まえて決めること",
+    "status": "todo",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-033"]
+  },
+  {
+    "id": "T-035",
+    "task": "スモークテスト用フィクスチャのシード値を、実在しない `placeholder` ではなく実際のタグ名にする。T-033の実機検証で、初回実行時のMR本文が旧値を `[placeholder](…/-/tags/placeholder)` とタグURLでリンクし、存在しないタグへのリンク（404）と壊れた比較URL（`/-/compare/placeholder...main-build-at-…`）を生成することが分かった。実タグをシードすれば初回から本番同様の表示になり、比較リンクも実際に機能する。実装上の制約: シード値は「最新タグより古い実在のタグ」である必要がある（同じだと差分なしで SKIPPED になりシナリオが成立しない）。sample-qa-sprint（82861978）には `main-build-at-20260903-171213` という古いタグがあるが、sample-develop-client（82861977）はHEADを指す `main-build-at-20260903-143646` の1件しか持たないため、古いコミットに追加でタグを打つ等の準備が要る。対象は scripts/smoke/smoke-fixture.ts の SEED_FILES と docs/smoke-test.md の記述。あわせて、values.yaml にタグ名でない値（初期構築時や手編集）が入っている場合にCLI側がタグURLを組み立ててしまう点（src/lib/gitlab/gitlab.ts の buildImageTagUpdateLine）を、リンクにせずプレーン表示にするなど緩和すべきかも検討する",
+    "status": "todo",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-033"]
   }
 ]
