@@ -46,7 +46,7 @@ describe("buildPlans", () => {
     vi.clearAllMocks()
   })
 
-  it("差分があるchartグループはtoApplyに含まれる", async () => {
+  it("差分があるchartAndAppsはtoApplyに含まれる", async () => {
     const group = makeChartAndApps([makeApp()])
     const { toApply, settled } = await buildPlans(mockGitlab, [group], 3, false)
     expect(toApply).toHaveLength(1)
@@ -58,7 +58,7 @@ describe("buildPlans", () => {
     expect(settled).toEqual([])
   })
 
-  it("差分がないchartグループはsettledにSKIPPEDとして入る", async () => {
+  it("差分がないchartAndAppsはsettledにSKIPPEDとして入る", async () => {
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${NEW_TAG}\n`)
     const { toApply, settled } = await buildPlans(
       mockGitlab,
@@ -331,7 +331,7 @@ describe("buildPlans", () => {
     expect(toApply[0]?.plans[0]?.helmTargetBranchUpdates).toHaveLength(1)
   })
 
-  it("指定した向き先ブランチがchartリポジトリに存在しないとき、そのchartグループ全体をERRORにする", async () => {
+  it("指定した向き先ブランチがchartリポジトリに存在しないとき、そのchartAndApps全体をERRORにする", async () => {
     const app = makeApp({
       helmTargetBranch: {
         branch: toBranchName("release/2026-q1"),

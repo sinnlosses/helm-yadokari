@@ -39,9 +39,9 @@ export async function run(): Promise<RunResult> {
  * のみに絞り込んで実行する（`loadConfig`側の`target`絞り込み。指定した対象がconfig/配下に
  * 見つからない場合は`loadConfig`が例外をスローする）。
  *
- * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがあるchartグループを除外する
- * 2. buildPlans: 残ったchartグループそれぞれの更新計画（差分）を構築する
- * 3. applyUpdates: 差分があるchartグループに対してコミット・MR作成を行う
+ * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがあるchartAndAppsを除外する
+ * 2. buildPlans: 残ったchartAndAppsそれぞれの更新計画（差分）を構築する
+ * 3. applyUpdates: 差分があるchartAndAppsに対してコミット・MR作成を行う
  */
 export async function process(): Promise<Record<ChartUpdateResult, number>> {
   const gitlab = createClient(GITLAB_URL, ACCESS_TOKEN)

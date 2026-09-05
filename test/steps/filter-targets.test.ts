@@ -23,14 +23,14 @@ describe("filterTargets", () => {
     vi.clearAllMocks()
   })
 
-  it("アプリが0件のchartグループはsettledにSKIPPEDとして入り、targetsには含まれない", async () => {
+  it("アプリが0件のchartAndAppsはsettledにSKIPPEDとして入り、targetsには含まれない", async () => {
     const group = makeChartAndApps([])
     const { targets, settled } = await filterTargets(mockGitlab, [group], 3)
     expect(targets).toEqual([])
     expect(settled).toEqual(["SKIPPED"])
   })
 
-  it("既にオープン中のMRがあるchartグループはsettledにSKIPPEDとして入り、targetsには含まれない", async () => {
+  it("既にオープン中のMRがあるchartAndAppsはsettledにSKIPPEDとして入り、targetsには含まれない", async () => {
     vi.mocked(openMergeRequestExists).mockResolvedValue(true)
     const group = makeChartAndApps([makeApp()])
     const { targets, settled } = await filterTargets(mockGitlab, [group], 3)
@@ -38,14 +38,14 @@ describe("filterTargets", () => {
     expect(settled).toEqual(["SKIPPED"])
   })
 
-  it("対象のchartグループはtargetsに含まれ、settledは空", async () => {
+  it("対象のchartAndAppsはtargetsに含まれ、settledは空", async () => {
     const group = makeChartAndApps([makeApp()])
     const { targets, settled } = await filterTargets(mockGitlab, [group], 3)
     expect(targets).toEqual([group])
     expect(settled).toEqual([])
   })
 
-  it("複数chartグループを判定順に振り分ける", async () => {
+  it("複数chartAndAppsを判定順に振り分ける", async () => {
     const noApps = { ...makeChartAndApps([]), chartDir: toChartDirName("no-apps") }
     const target = { ...makeChartAndApps([makeApp()]), chartDir: toChartDirName("target") }
     const { targets, settled } = await filterTargets(mockGitlab, [noApps, target], 3)

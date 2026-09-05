@@ -10,10 +10,10 @@
 - `src/steps/`: `process()` が直接呼ぶ、フラットな3ステップのみを置く。それぞれ
   `lib/`・`utils/` にのみ依存する
   - `filter-targets.ts`: `filterTargets()`。登録アプリが0件、または固定ブランチに
-    オープン中のMRが既にあるchartグループを除外する
-  - `build-plans.ts`: `buildPlans()`。chartグループごとの更新計画を並列に構築し、
+    オープン中のMRが既にあるchartAndAppsを除外する
+  - `build-plans.ts`: `buildPlans()`。chartAndAppsごとの更新計画を並列に構築し、
     差分がないもの・dryRunのものは settled（SKIPPED）へ、反映が必要なものは
-    `toApply` へ振り分ける。1つのchartグループ分の計算（`buildChartUpdate()`）・
+    `toApply` へ振り分ける。1つのchartAndApps分の計算（`buildChartUpdate()`）・
     追跡ブランチ由来の最新タグ判定（`resolveLatestTag()`）・ログ用サマリ組み立て
     （`describePlan()`）は、このファイルの外からは呼ばれないため非公開関数としてここに書く。
     1アプリ（`AppConfig.chart`）が複数の書き換え箇所（WebAPI/バッチ/デーモンなど）を
@@ -31,11 +31,11 @@
       `valuesPath`がこのappの`chart[].valuesPath`と一致する箇所すべて）を1箇所ずつ処理し、
       設定値（`helmTargetBranch.branch`）と`values.yaml`側の現在値を比較する。
       差分があれば書き込み前に`lib/gitlab/gitlab.ts`の`branchExists()`でそのブランチが
-      chartリポジトリ上に実在するかを検証し（存在しなければ例外を投げてそのchartグループ全体を
+      chartリポジトリ上に実在するかを検証し（存在しなければ例外を投げてそのchartAndApps全体を
       ERRORにする）、`AppUpdatePlan.helmTargetBranchUpdates`に積む。タグ更新と異なり
       「最新値の自動判定」は行わず、config.yamlに人間が書いた値をそのまま比較対象にする。
-      同じブランチ名の存在確認はchartグループ内で1回だけになるよう`branchExistsCache`で共有する
-  - `apply-updates.ts`: `applyUpdates()`。`toApply` の各chartグループに対してコミット・
+      同じブランチ名の存在確認はchartAndApps内で1回だけになるよう`branchExistsCache`で共有する
+  - `apply-updates.ts`: `applyUpdates()`。`toApply` の各chartAndAppsに対してコミット・
     MR作成を並列実行する。ログ用サマリ組み立て（`describePlan()`）はここでも非公開関数
     として個別に持つ（`build-plans.ts` のものとほぼ同じ形だが、共有するために `lib/` へ
     切り出すほどの技術依存はないため、あえて共有しない）
@@ -126,7 +126,7 @@
   slugを持たせていないため）
 - Helm CLI（`helm lint` / `helm template` 等）は呼び出さない。`values.yaml`のテキスト更新のみ行う
 - `FatalError`（401/5xx等）を検知すると、`utils/parallel.ts` の `mapWithConcurrency()` が
-  その時点で `p-limit` のキューを `clearQueue()` でクリアし、同じステップ内の他chartグループの
+  その時点で `p-limit` のキューを `clearQueue()` でクリアし、同じステップ内の他chartAndAppsの
   未着手タスクを実行させずに reject する。`process()` はステップを順番に await しているため、
   あるステップでFatalErrorが起きると後続のステップは一切開始されない（例:
   `buildPlans` でFatalErrorが起きたら `applyUpdates` は1件も呼ばれない）。
@@ -135,5 +135,5 @@
   対しては、無駄なAPI呼び出しを避けるためこの例外を設けている（gitlab-watari-dori由来のパターン）
 - 同一chartリポジトリ内の複数アプリの処理（タグ取得・パイプライン取得等）は `buildChartUpdate()`
   （`src/steps/build-plans.ts` の非公開関数）内で逐次実行している。`docs/requirements.md` 4.3節の並列実行制御
-  （`p-limit`）は現状chartグループ単位（`filterTargets`/`buildPlans`/`applyUpdates`それぞれ）
-  のみに適用しており、1chartグループ内のアプリ単位までは並列化していない
+  （`p-limit`）は現状chartAndApps単位（`filterTargets`/`buildPlans`/`applyUpdates`それぞれ）
+  のみに適用しており、1chartAndApps内のアプリ単位までは並列化していない

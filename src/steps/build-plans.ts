@@ -43,10 +43,10 @@ type PlanOutcome =
   | { readonly status: "settled"; readonly result: ChartUpdateResult }
 
 /**
- * 各chartグループの更新計画を並列に構築する。差分がないもの・dryRunのものは
+ * 各chartAndAppsの更新計画を並列に構築する。差分がないもの・dryRunのものは
  * settled（SKIPPED）に、実際に適用が必要なものは toApply にまとめて返す。
  *
- * いずれか1つのアプリの処理が失敗した場合、そのchartグループ全体をオールオアナッシングで
+ * いずれか1つのアプリの処理が失敗した場合、そのchartAndApps全体をオールオアナッシングで
  * settled（ERROR）に含める（`buildChartUpdate()` 参照）。
  */
 export async function buildPlans(
@@ -161,7 +161,7 @@ async function resolveLatestTag(
 }
 
 /**
- * 1つのchartグループについて、アプリごとに最新タグを判定し、反映済みタグと異なる
+ * 1つのchartAndAppsについて、アプリごとに最新タグを判定し、反映済みタグと異なる
  * アプリだけを更新計画に含める。同じ values.yaml を参照する複数アプリ・複数箇所の変更は、
  * 同一ファイル内に積み重ねてまとめる。
  */

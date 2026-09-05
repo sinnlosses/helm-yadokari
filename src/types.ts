@@ -226,7 +226,7 @@ export type FileUpdate = {
   readonly content: string
 }
 
-/** 差分が確定し、コミット・MR作成の対象になった1chartグループ分の更新内容 */
+/** 差分が確定し、コミット・MR作成の対象になった1chartAndApps分の更新内容 */
 export type ChartUpdateTarget = {
   readonly chartAndApps: ChartAndApps
   readonly plans: AppUpdatePlan[]

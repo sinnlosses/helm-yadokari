@@ -246,7 +246,7 @@ Helmの向き先ブランチは「1client内のapps全体で共通」という�
 指定されている場合、そのconfig.yaml配下の**全アプリ**の**全`chart[].valuesPath`**が
 `helm.chart[]` でカバーされている必要があります（1つでも漏れていると設定エラーになります）。
 `helm.branchToSync` と `helm.chart[]` は片方だけの指定も設定エラーです。書き込み前に、
-指定されたブランチ名がchartリポジトリ上に実在するか検証し、存在しなければそのchartグループ
+指定されたブランチ名がchartリポジトリ上に実在するか検証し、存在しなければそのchartAndApps
 全体を `ERROR` にします。
 
 設定ファイルの文法チェックのみ実行する場合:
@@ -325,8 +325,8 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │   ├── main.ts               # run()/process()。config読み込み→ステップ呼び出し→集計
 │   ├── types.ts              # 型定義
 │   ├── steps/                 # process()が直接呼ぶ3ステップのみ（steps同士は互いに呼ばない）
-│   │   ├── filter-targets.ts  # 対象chartグループの絞り込み（登録0件・既存MRを除外）
-│   │   ├── build-plans.ts     # 全chartグループ分の更新計画を並列構築
+│   │   ├── filter-targets.ts  # 対象chartAndAppsの絞り込み（登録0件・既存MRを除外）
+│   │   ├── build-plans.ts     # 全chartAndApps分の更新計画を並列構築
 │   │   └── apply-updates.ts   # コミット・MR作成を並列実行
 │   ├── lib/                   # 特定の技術・外部システムに依存する処理のみ
 │   │   ├── gitlab/

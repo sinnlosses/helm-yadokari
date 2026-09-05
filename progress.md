@@ -379,6 +379,29 @@
   - `pnpm check`（253テスト）通過。`pnpm lint:validate-config`で実configが新ファイル名で
     読み込めることを確認。`CONFIG_PATH=config-test DRY_RUN=true`で実行し、gitlab.com実機に
     対して設定パースからAPI呼び出しまで問題なく到達することを再確認
+- **表記ゆれ監査＋「chartグループ」の撤廃**: ユーザーから「リポジトリ全体を見渡してリファクタ
+  リング・表記ゆれの課題を洗い出してほしい」との依頼を受け、forkでCLAUDE.mdの規約を基準に
+  `src/`・`test/`・`docs/`・ルート設定ファイルを監査。Standards違反は0件、ソフトな指摘2件
+  （`utils/cache.ts`の`getOrFetch()`が`undefined`を正当な値に持つ型だと機能しない潜在的な穴、
+  `validateProjectLinkage()`の引数型インライン重複）のみで、直近3回のconfig.yaml/anchors.yaml
+  まわりの設計変更にコード・テスト・ドキュメント間の更新漏れは無いことを確認
+  - 監査を踏まえてユーザーから「chartグループという単語はなくしてもらいたい。chartAndApps
+    になったし」と指摘。型`ChartAndApps`への改名後も日本語プロースでは「chartグループ」が
+    `CLAUDE.md`・コードコメント・ドキュメント全般で使われ続けていた表記ゆれ
+  - 置き換え先候補（`chart単位`/`chartAndApps`型名そのまま/`chartリポジトリ`に統合）を提示し、
+    ユーザーは型名をそのまま使う`chartAndApps`を選択
+  - `chartグループ`の生きている用例41箇所（`README.md`・`docs/requirements.md`・
+    `docs/architecture.md`・`docs/glossary.md`・`src/main.ts`・`src/types.ts`・
+    `src/steps/{filter-targets,build-plans,apply-updates}.ts`・
+    `test/steps/{build-plans,filter-targets}.test.ts`）を`chartAndApps`に一括置換。
+    `tasks.json`/`progress.md`の過去のエントリは履歴としてそのまま残した（`CLAUDE.md`・
+    `docs/requirements-grilling.md`は元々この語を使っていないため対象外）
+  - `docs/glossary.md`の「chartリポジトリ / chartグループ」表記ゆれエントリ（この語の使い分け
+    自体を解説する箇所）は機械置換だけでは自己言及的に不自然になるため手動で書き直し、
+    「表記ゆれ（解消済み）」として今回の撤廃の経緯を記録。`ChartUpdateTarget`の定義文にあった
+    `chartAndApps`の二重表記（`1chartAndApps分の更新内容（chartAndApps＋...)`）も
+    「対象を表す`chartAndApps`フィールド」と言い換えて解消
+  - `pnpm check`（253テスト）通過
 
 ## 次にやること
 

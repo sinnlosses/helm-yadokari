@@ -13,7 +13,7 @@ import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
 
 /**
- * 更新計画があるchartグループに対して、固定ブランチへのコミットとMR作成を並列実行する。
+ * 更新計画があるchartAndAppsに対して、固定ブランチへのコミットとMR作成を並列実行する。
  */
 export async function applyUpdates(
   gitlab: GitlabClient,

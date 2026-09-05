@@ -15,8 +15,8 @@ type TargetOutcome =
   | { readonly status: "settled"; readonly result: ChartUpdateResult }
 
 /**
- * 登録アプリが0件、または固定ブランチにオープン中のMRが既にあるchartグループを除外する。
- * 除外されたchartグループの判定結果（SKIPPED/ERROR）は settled にまとめて返す。
+ * 登録アプリが0件、または固定ブランチにオープン中のMRが既にあるchartAndAppsを除外する。
+ * 除外されたchartAndAppsの判定結果（SKIPPED/ERROR）は settled にまとめて返す。
  */
 export async function filterTargets(
   gitlab: GitlabClient,

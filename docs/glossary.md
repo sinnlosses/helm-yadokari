@@ -20,11 +20,11 @@
 - **定義**: アプリのソースコードが置かれ、タグが打たれるGitLabプロジェクト。chartリポジトリ（後述）とは別のプロジェクトを指す。
 - **表記ゆれ**: コード上は「ソースリポジトリ」に対応する専用の識別子がなく、chart側の`chart.projectId`と同じ`projectId`という汎用フィールド名（`app.projectId`）が使われている。
 
-### chartリポジトリ / chartグループ
+### chartリポジトリ / chartAndApps
 
 - **英語識別子**: `ChartAndApps`（旧`ChartGroup`）
-- **定義**: 1つの`chart.yaml`（Helm chartを管理するGitLabプロジェクトの情報）と、そのプロジェクト配下で管理する全アプリ（`config.yaml`群）をまとめた集約単位。
-- **表記ゆれ**: `docs/requirements.md`は一貫して「chartリポジトリ」（GitLabプロジェクトそのもの）を使うが、`CLAUDE.md`・コード（`ChartAndApps`型）は「chartグループ」を使う。両者は同一視されがちだが、厳密には「chartグループ」は「chartリポジトリの情報＋配下の全アプリ設定」を束ねた広い概念であり、リポジトリそのものとは範囲が異なる。「chartリポジトリ間/chartグループ内」のように、並列処理やエラーハンドリングの粒度を説明する文脈でもこの2語が混在している。型名は「グループ」という語よりも中身（chart設定＋アプリ設定の集約）を表すよう`ChartAndApps`に改名されたが、日本語の業務用語としては引き続き「chartグループ」を使う。
+- **定義**: 1つの`chart.yaml`（Helm chartを管理するGitLabプロジェクトの情報）と、そのプロジェクト配下で管理する全アプリ（`config.yaml`群）をまとめた集約単位。「chartリポジトリ」はこの集約が指すGitLabプロジェクトそのものを指し、「chartAndApps」は範囲がそれより広い（chartリポジトリの情報＋配下の全アプリ設定を束ねたもの）。並列処理やエラーハンドリングの粒度を説明する文脈（「chartリポジトリ間/chartAndApps内」等）ではこの範囲の違いが意味を持つ。
+- **表記ゆれ（解消済み）**: 型名は元々「グループ」という語よりも中身（chart設定＋アプリ設定の集約）を表すよう`ChartAndApps`に改名されていたが、日本語の業務用語としては改名後も「chartグループ」という言葉が`CLAUDE.md`・コードコメント・ドキュメント全般で使われ続けており、型名との乖離があった。ユーザー指摘（「chartグループという単語はなくしてもらいたい。chartAndAppsになったし」）を受けて、日本語プロース上でも型名をそのまま`chartAndApps`と表記する方式に統一し、「chartグループ」という言い方は撤廃した。旧称への言及は`tasks.json`/`progress.md`の過去のエントリにのみ、当時の記録として残っている。
 
 ### テナント / クライアント
 
@@ -165,13 +165,13 @@
 
 ### MR（Merge Request）
 
-- **定義**: GitLab上のプルリクエストに相当する概念。1つのchartグループにつき1つのMRを作成する。
+- **定義**: GitLab上のプルリクエストに相当する概念。1つのchartAndAppsにつき1つのMRを作成する。
 
 ### 固定ブランチ
 
 - **英語識別子**: `UPDATE_BRANCH`（値は`yadokari/update`）
-- **定義**: chartグループ単位でMRを送るために使い回す、全chartグループ共通の固定ブランチ名。
-- **補足**: 要件定義の検討初期段階では`yadokari/<アプリ名>`というアプリ単位のブランチ名案だったが、議論の末に「chartグループ単位で固定」の現行仕様に変更された。この変遷は確定版の`docs/requirements.md`には残っていない。
+- **定義**: chartAndApps単位でMRを送るために使い回す、全chartAndApps共通の固定ブランチ名。
+- **補足**: 要件定義の検討初期段階では`yadokari/<アプリ名>`というアプリ単位のブランチ名案だったが、議論の末に「chartAndApps単位で固定」の現行仕様に変更された。この変遷は確定版の`docs/requirements.md`には残っていない。
 
 ### mrTargetBranch
 
@@ -180,7 +180,7 @@
 
 ### オールオアナッシング
 
-- **定義**: 同一chartグループ内で1アプリでも処理が失敗した場合、成功した他アプリの分も含めてそのchartグループ全体の更新を見送る方針。
+- **定義**: 同一chartAndApps内で1アプリでも処理が失敗した場合、成功した他アプリの分も含めてそのchartAndApps全体の更新を見送る方針。
 
 ### Group Access Token
 
@@ -194,15 +194,15 @@
 - **英語識別子**: `AppUpdatePlan`
 - **定義**: 1アプリ分の更新内容。最新タグが反映済みタグと異なる場合にのみ生成される。
 
-### chartグループ更新対象
+### chartAndApps更新対象
 
 - **英語識別子**: `ChartUpdateTarget`
-- **定義**: 差分が確定し、実際にコミット・MR作成の対象になった1chartグループ分の更新内容（`chartAndApps`＋複数の`AppUpdatePlan`＋書き換え済みファイル一覧）。
+- **定義**: 差分が確定し、実際にコミット・MR作成の対象になった1件分の更新内容（対象を表す`chartAndApps`フィールド＋複数の`AppUpdatePlan`＋書き換え済みファイル一覧）。
 
-### chartグループ処理結果
+### chartAndApps処理結果
 
 - **英語識別子**: `ChartUpdateResult`（`"CREATED"` / `"SKIPPED"` / `"ERROR"`）
-- **定義**: 1つのchartグループの処理結果を表す3値。
+- **定義**: 1つのchartAndAppsの処理結果を表す3値。
 - **表記ゆれ**: `docs/requirements.md`には`CREATED`という語自体は登場せず「MRを作る」という記述のみ。`SKIPPED`/`ERROR`はドキュメント上でも同じ語で登場する。
 
 ### 実行結果
@@ -240,4 +240,4 @@
 
 ### gitlab-watari-dori
 
-同じ作者による類似の先行プロジェクト。本リポジトリの実装時に技術スタックのテンプレートとして参照された。「chartグループ間は失敗しても他は継続するが、FatalErrorのときは即時中断する」という例外パターンの由来として`CLAUDE.md`で言及されている。要件定義書（`docs/requirements.md`/`docs/requirements-grilling.md`）には登場せず、`CLAUDE.md`と`progress.md`にのみ記録がある。
+同じ作者による類似の先行プロジェクト。本リポジトリの実装時に技術スタックのテンプレートとして参照された。「chartAndApps間は失敗しても他は継続するが、FatalErrorのときは即時中断する」という例外パターンの由来として`CLAUDE.md`で言及されている。要件定義書（`docs/requirements.md`/`docs/requirements-grilling.md`）には登場せず、`CLAUDE.md`と`progress.md`にのみ記録がある。
