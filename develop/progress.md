@@ -20,8 +20,11 @@ T-071以降だけが残る）。当時のセッションの記録は
     依存先はこのツール自身が定義する`TAG_FORMAT`という**形式**（タグを作るのも読むのも自分）。
     `lib/helm.ts`・`lib/config/schema.ts`と同格に置いた
   - `buildFeatureBranch()` → `steps/shared/feature-branch.ts`。技術依存ゼロ＋2つのstepが使う
-  - MRタイトル・本文 → `steps/apply-updates/sub-steps/mr-content.ts`。呼び出し元は
-    `apply-updates.ts`1ファイルだけ
+  - MRタイトル・本文 → `steps/apply-updates/sub-steps/build-mr-content.ts`。呼び出し元は
+    `apply-updates.ts`1ファイルだけ。**サブステップは1ファイル＝親stepが呼ぶ1ステップ**
+    （ユーザー指摘）なので、`buildMrTitle()`/`buildMrDescription()`を並べて公開せず
+    `buildMrContent()`1つが`{ title, description }`を返す形にし、web URLの解決は
+    `ResolveWebUrls`関数型で受け取る（`build-plans/sub-steps/`と同じ形）
   - `buildTagUrl()`/`buildCompareUrl()` → `lib/gitlab/web-url.ts`（新規）。`/-/tags/`・
     `/-/compare/`というGitLab固有のURLパス形式に依存する唯一の部分。「外部I/Oは`gitlab.ts`
     だけ」を保つため`gitlab.ts`には混ぜず別ファイルにした
@@ -33,7 +36,8 @@ T-071以降だけが残る）。当時のセッションの記録は
   - `buildTagUrl()`/`buildCompareUrl()` は非公開で本文経由でしか検証されていなかったため、
     export化に伴い `test/lib/gitlab/web-url.test.ts` を新設（サブパス設置のインスタンスで
     グループ/プロジェクト部分を落とさないこと・タグ名の`/`エスケープを直接検証）
-  - `pnpm check`（**30ファイル326テスト**）通過。322 + web-url の新規4件
+  - `pnpm check`（**30ファイル327テスト**）通過。322 + web-url の新規4件 +
+    サブステップへの`ResolveWebUrls`の受け渡しを検証する1件
 
 - **`verify-config` を `src/lib/` から `scripts/lint/` へ移した**（ユーザー指摘）。本体
   パイプライン（`index.ts`→`main.ts`→`steps/`）からの参照は0で、唯一の呼び出し元が
@@ -52,7 +56,7 @@ T-071以降だけが残る）。当時のセッションの記録は
 ## 次にやること
 
 `tasks.json` の6タスク（T-071〜T-076）はすべて `done`。**このセッションの最終状態**:
-`pnpm check`（tsc・oxlint・config検証・oxfmt・vitest **30ファイル326テスト**）通過。
+`pnpm check`（tsc・oxlint・config検証・oxfmt・vitest **30ファイル327テスト**）通過。
 
 - **`main` が `origin/main` より3コミットahead。pushが未実施**（外部への反映のため
   ユーザー承認が要る）

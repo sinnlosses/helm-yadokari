@@ -10,9 +10,36 @@ import type {
 } from "../../../types/types.js"
 
 /**
- * MRのタイトル・本文（Markdown）を組み立てる、外部I/Oを持たない純粋な文字列組み立て。
- * GitLab APIから解決済みのプロジェクトweb URLは呼び出し元が事前に集めて値として渡す。
+ * プロジェクトのweb URLをまとめて解決する関数。`apply-updates.ts`側でGitLabクライアントを
+ * 閉じ込めて組み立てるため、サブステップ側はGitLabを知らずに解決だけを依頼できる
+ * （`build-plans/sub-steps/types.ts`の`LoadValuesYamlContent`と同じ考え方）。
  */
+export type ResolveWebUrls = (
+  projectIds: readonly ProjectId[],
+) => Promise<ReadonlyMap<ProjectId, GitLabUrl>>
+
+/** MRのタイトルと本文（Markdown）。タイトルは`apply-updates.ts`がコミットメッセージにも流用する */
+export type MrContent = {
+  readonly title: string
+  readonly description: string
+}
+
+/**
+ * 1つの`(chartリポジトリ, tenantId, clientId)`分のMRのタイトルと本文を組み立てる
+ * （このサブステップの入口）。本文のリンクに要るweb URLだけを`resolveWebUrls`で解決する。
+ */
+export async function buildMrContent(
+  tenantId: TenantId,
+  clientId: ClientId,
+  plans: readonly AppUpdatePlan[],
+  resolveWebUrls: ResolveWebUrls,
+): Promise<MrContent> {
+  const webUrls = await resolveWebUrls(webUrlProjectIds(plans))
+  return {
+    title: buildMrTitle(tenantId, clientId, plans),
+    description: buildMrDescription(webUrls, plans),
+  }
+}
 
 /**
  * 向き先ブランチの更新は`helm.chart[]`をvaluesPath一致でアプリに振り分けた結果なので、
@@ -37,9 +64,9 @@ function uniqueHelmTargetBranchUpdates(
  * MRのタイトル。何が何件変わったかを種別ごとに示す（以前は「N app image tag(s)」と
  * 固定で、向き先ブランチだけが変わった場合もイメージタグが変わったように読めていた）。
  * 数える単位はアプリ数ではなく values.yaml の書き換え箇所数（1アプリが複数箇所を持つ
- * ケースも正しく数えるため）。`apply-updates.ts` がコミットメッセージにも流用する。
+ * ケースも正しく数えるため）。
  */
-export function buildMrTitle(
+function buildMrTitle(
   tenantId: TenantId,
   clientId: ClientId,
   plans: readonly AppUpdatePlan[],
@@ -105,8 +132,8 @@ function buildHelmTargetBranchSection(updates: readonly HelmTargetBranchUpdate[]
 }
 
 /**
- * 呼び出し元（`apply-updates.ts`）が`plans`に含まれる全`projectId`について事前に解決済みで
- * あることを前提とする。該当する`projectId`が無い場合はその前提が崩れているためエラーにする。
+ * `webUrlProjectIds()`が挙げた`projectId`はすべて解決済みである前提。該当する`projectId`が
+ * 無い場合はその前提が崩れているためエラーにする。
  */
 function resolveWebUrl(
   webUrls: ReadonlyMap<ProjectId, GitLabUrl>,
@@ -124,12 +151,12 @@ function plansWithImageTagRows(plans: readonly AppUpdatePlan[]): readonly AppUpd
   return plans.filter((plan) => plan.updates.length > 0)
 }
 
-/** `buildMrDescription()`に渡す`webUrls`を解決するために必要な`projectId` */
-export function webUrlProjectIds(plans: readonly AppUpdatePlan[]): readonly ProjectId[] {
+/** 本文の組み立てにweb URLの解決が要る`projectId`（行を持つplanの分だけ） */
+function webUrlProjectIds(plans: readonly AppUpdatePlan[]): readonly ProjectId[] {
   return plansWithImageTagRows(plans).map((plan) => plan.app.projectId)
 }
 
-export function buildMrDescription(
+function buildMrDescription(
   webUrls: ReadonlyMap<ProjectId, GitLabUrl>,
   plans: readonly AppUpdatePlan[],
 ): string {

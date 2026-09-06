@@ -186,9 +186,12 @@
   - `buildFeatureBranch()` → `steps/shared/feature-branch.ts`。技術依存はゼロで、
     `TenantId`+`ClientId`→`BranchName`というドメイン型だけの変換。`filterTargets`と
     `applyUpdates`の2つのstepから呼ばれるため`steps/shared/`の条件をそのまま満たす
-  - MRタイトル・本文 → `steps/apply-updates/sub-steps/mr-content.ts`。呼び出し元は
+  - MRタイトル・本文 → `steps/apply-updates/sub-steps/build-mr-content.ts`。呼び出し元は
     `apply-updates.ts`の1ファイルだけなので、「呼び出し元がstepsの1ファイルだけ →
-    そのstepの`sub-steps/`」という基準どおりの場所に移した
+    そのstepの`sub-steps/`」という基準どおりの場所に移した。**サブステップは1ファイル＝
+    親stepが呼ぶ1ステップ**なので、`buildMrTitle()`/`buildMrDescription()`を並べて公開せず、
+    `buildMrContent()`1つだけを公開して`{ title, description }`を返す形にしている
+    （`build-plans/sub-steps/`の各ファイルと同じ形）
   - `buildTagUrl()`/`buildCompareUrl()` → `lib/gitlab/web-url.ts`。`/-/tags/`・`/-/compare/`
     というGitLab固有のURLパス形式に依存する唯一の部分なので`lib/gitlab/`に残す。
     「外部I/Oは`gitlab.ts`だけ」を保つため`gitlab.ts`には混ぜず別ファイルにしている
@@ -207,7 +210,7 @@
   呼ぶ「サブステップがサブステップを呼ぶ」構造になるため、`build-plans.ts`の非公開関数に戻した
 - **サブステップはGitLabクライアントを受け取らない**: `LoadValuesYamlContent`・`BranchExists`
   という関数型で受け取り、GitLabクライアント・projectId・キャッシュは`build-plans.ts`側に
-  閉じ込める
+  閉じ込める。`apply-updates/sub-steps/build-mr-content.ts`の`ResolveWebUrls`も同じ形
 - **values.yamlの書き込み位置は `AnchorTarget` 1つに統一し、用途別の別名は置かない**:
   以前はイメージタグ用・Helm向き先ブランチ用に`ImageTagTarget`/`HelmTargetBranchTarget`という
   別名を用意していたが、TypeScriptは構造的型付けなので同じ形の型を別々に定義しても

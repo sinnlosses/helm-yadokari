@@ -9,7 +9,7 @@ import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { buildFeatureBranch } from "../shared/feature-branch.js"
 import { type StepOutcome, describePlan, ok, runSettled } from "../shared/step-outcome.js"
-import { buildMrDescription, buildMrTitle, webUrlProjectIds } from "./sub-steps/mr-content.js"
+import { buildMrContent } from "./sub-steps/build-mr-content.js"
 
 /**
  * 更新計画があるchartAndAppsに対して、固定ブランチへのコミットとMR作成を並列実行する。
@@ -38,16 +38,16 @@ async function applyUpdate(
 
   return runSettled(chartAndApps, async (logContext) => {
     // MRタイトルをコミットメッセージにもそのまま使い回す
-    const mrTitle = buildMrTitle(tenantId, clientId, plans)
-    const webUrls = await getProjectWebUrls(gitlab, webUrlProjectIds(plans))
-    const mrDescription = buildMrDescription(webUrls, plans)
+    const { title, description } = await buildMrContent(tenantId, clientId, plans, (projectIds) =>
+      getProjectWebUrls(gitlab, projectIds),
+    )
 
     await commitFileUpdates(
       gitlab,
       chart.projectId,
       featureBranch,
       chart.mrTargetBranch,
-      mrTitle,
+      title,
       files,
     )
     await createMergeRequest(
@@ -55,8 +55,8 @@ async function applyUpdate(
       chart.projectId,
       featureBranch,
       chart.mrTargetBranch,
-      mrTitle,
-      mrDescription,
+      title,
+      description,
     )
     logger.info({ ...logContext, result: "CREATED", apps: plans.map(describePlan) })
     return ok<ChartUpdateResult>("CREATED")

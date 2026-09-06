@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../src/lib/gitlab/gitlab.js")
-vi.mock("../../../src/steps/apply-updates/sub-steps/mr-content.js")
+vi.mock("../../../src/steps/apply-updates/sub-steps/build-mr-content.js")
 vi.mock("../../../src/steps/shared/feature-branch.js")
 vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
@@ -14,14 +14,16 @@ import {
   getProjectWebUrls,
 } from "../../../src/lib/gitlab/gitlab.js"
 import { applyUpdates } from "../../../src/steps/apply-updates/apply-updates.js"
-import {
-  buildMrDescription,
-  buildMrTitle,
-  webUrlProjectIds,
-} from "../../../src/steps/apply-updates/sub-steps/mr-content.js"
+import { buildMrContent } from "../../../src/steps/apply-updates/sub-steps/build-mr-content.js"
 import { buildFeatureBranch } from "../../../src/steps/shared/feature-branch.js"
 import type { ChartUpdateTarget } from "../../../src/types/types.js"
-import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/types/types.js"
+import {
+  toAnchorName,
+  toBranchName,
+  toProjectId,
+  toTagName,
+  toValuesPath,
+} from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../../helpers.js"
 
@@ -61,11 +63,10 @@ describe("applyUpdates", () => {
   beforeEach(() => {
     vi.mocked(commitFileUpdates).mockResolvedValue(undefined)
     vi.mocked(createMergeRequest).mockResolvedValue(undefined)
-    vi.mocked(buildMrTitle).mockReturnValue(
-      "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
-    )
-    vi.mocked(buildMrDescription).mockReturnValue("### my-app\n...")
-    vi.mocked(webUrlProjectIds).mockReturnValue([])
+    vi.mocked(buildMrContent).mockResolvedValue({
+      title: "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
+      description: "### my-app\n...",
+    })
     vi.mocked(getProjectWebUrls).mockResolvedValue(new Map())
     vi.mocked(buildFeatureBranch).mockReturnValue(
       toBranchName("feature/yadokari/tenantId1/clientId1"),
@@ -82,15 +83,15 @@ describe("applyUpdates", () => {
     expect(createMergeRequest).toHaveBeenCalledOnce()
   })
 
-  it("buildMrTitle/buildMrDescriptionの結果をコミット・MR作成に渡す", async () => {
+  it("buildMrContentの結果をコミット・MR作成に渡す", async () => {
     const target = makeTarget()
     await applyUpdates(mockGitlab, [target], 3)
-    expect(buildMrTitle).toHaveBeenCalledWith(
+    expect(buildMrContent).toHaveBeenCalledWith(
       target.chartAndApps.tenantId,
       target.chartAndApps.clientId,
       target.plans,
+      expect.any(Function),
     )
-    expect(buildMrDescription).toHaveBeenCalledWith(expect.any(Map), target.plans)
     expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[4]).toBe(
       "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
     )
@@ -98,6 +99,13 @@ describe("applyUpdates", () => {
       "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
     )
     expect(vi.mocked(createMergeRequest).mock.calls[0]?.[5]).toBe("### my-app\n...")
+  })
+
+  it("サブステップにはGitLabクライアントではなくweb URLを解決する関数を渡す", async () => {
+    await applyUpdates(mockGitlab, [makeTarget()], 3)
+    const resolveWebUrls = vi.mocked(buildMrContent).mock.calls[0]?.[3]
+    await resolveWebUrls?.([toProjectId(1)])
+    expect(getProjectWebUrls).toHaveBeenCalledWith(mockGitlab, [toProjectId(1)])
   })
 
   it("tenantId/clientIdを含む固定ブランチ名でコミット・MRを作成する", async () => {
