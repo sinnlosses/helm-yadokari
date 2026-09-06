@@ -64,6 +64,13 @@ github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。`tasks.json`
   `glossary.md`、`chart`を配列にする理由→`requirements.md`、`GitLabUrl`の理由→`architecture.md`）。
   そのため T-075 は移設不要で、削除・圧縮だけで済む
 
+### T-075: コメントの圧縮
+
+- `types.ts` 169→128行、`brand.ts` 104→88行。**コメントのみの変更**（型定義・実装・
+  エクスポートは無変更であることを `git diff` で確認）
+- 長い説明は正典にあるので移設せず削除。`ImageTagUpdate` のJSDocに残っていた旧名
+  `previousTag` も修正した
+
 ## 次にやること
 
 `tasks.json` の5タスク（T-071〜T-075）はすべて `todo`。依存があるのはT-073（T-072待ち）と

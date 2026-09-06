@@ -12,59 +12,38 @@ import type {
   ValuesPath,
 } from "./brand.js"
 
-/**
- * TARGET_CLIENTS環境変数由来、1件分のtenantId/clientIdの組
- */
+/** TARGET_CLIENTS環境変数由来の絞り込み条件1件分 */
 export type TargetClient = {
   readonly tenantId: TenantId
   readonly clientId: ClientId
 }
 
-/**
- * values.yaml内の書き込み位置1箇所分（対象ファイル＋その中でのYAMLアンカー名）
- */
+/** values.yaml内の書き込み位置1箇所分 */
 export type AnchorTarget = {
   readonly valuesPath: ValuesPath
   readonly anchorName: AnchorName
 }
 
 /**
- * config.yaml/anchors.yaml内で「Helmの向き先ブランチ」を扱うための設定。`branch`は
- * config.yamlのトップレベルフィールド`helm.branchToSync`として1ファイル（tenantId/clientId単位）
- * につき1つ、人間が直接書き換える値。`targets`は、同じディレクトリのanchors.yamlが持つ
- * `helm.chart[]`の要素のうち、このアプリの`chart[].valuesPath`と一致するものすべてを指す
- * （`valuesPath`一致でapp単位に振り分ける）。タグの命名規則のような自動生成・自動判定の
- * 仕組みは持たず、単純に`branchName`と各`targets`が指す現在値を比較する
+ * Helmの向き先ブランチを扱うための設定。`branchName`はconfig.yamlの`helm.branchToSync`由来、
+ * `targets`はanchors.yamlの`helm.chart[]`のうちvaluesPathが一致するもの
  */
 export type HelmTargetBranchConfig = {
   readonly branchName: BranchName
-  /**
-   * Helmの向き先ブランチ（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
-   * ブランチ）の書き込み先一覧。`anchors.yaml`トップレベルの`helm.chart[]`に対応する
-   */
   readonly targets: readonly AnchorTarget[]
 }
 
 /**
- * ソースリポジトリ（タグが打たれるGitLabプロジェクト）に対応する1アプリの設定。
  * `projectId`/`projectName`/`branchToSync`はconfig.yamlの運用値、`chart`は同じディレクトリの
- * `anchors.yaml`（`apps[].chart[]`）から`projectId`で引いた書き込み先
+ * `anchors.yaml`から`projectId`で引いた書き込み先
  */
 export type AppConfig = {
   readonly projectId: ProjectId
   readonly projectName: ProjectName
   readonly branchToSync: BranchName
-  /**
-   * values.yaml内でイメージタグを書き換える箇所の一覧（1件以上）。1つのソースリポジトリ
-   * （1つのタグ）に対して、WebAPI/バッチ/デーモンなど複数のデプロイ単位を管理している
-   * ケースでは、同じ最新タグを複数箇所に反映する必要があるため配列にしている。複数指定すると
-   * 同一タグを複数箇所へ反映する。値は`anchors.yaml`の`apps[].chart[]`から取得する
-   */
+  /** 同じ最新タグを複数箇所へ反映するため配列。anchors.yamlの`apps[].chart[]`由来 */
   readonly chart: readonly AnchorTarget[]
-  /**
-   * config.yamlの`helm.branchToSync`とanchors.yamlの`helm.chart`が両方指定され、
-   * `chart`のいずれかのvaluesPathがそこでカバーされている場合のみ値を持つ
-   */
+  /** config.yamlとanchors.yamlの両方でHelmの向き先ブランチが指定されている場合のみ値を持つ */
   readonly helmTargetBranch: HelmTargetBranchConfig | undefined
 }
 
@@ -75,12 +54,7 @@ export type ChartRepoConfig = {
   readonly mrTargetBranch: BranchName
 }
 
-/**
- * `config/<chartリポジトリ>/<tenantId>/<clientId>/`1つ分。chart.yamlの情報＋その
- * tenantId/clientIdディレクトリのconfig.yaml（+同じディレクトリのanchors.yaml）から
- * 得たアプリ一覧の集約。MRを作成する単位でもあり、`tenantId`/`clientId`が
- * 異なれば同じchartリポジトリでも別のChartAndApps（＝別ブランチ・別MR）になる
- */
+/** `config/<chartリポジトリ>/<tenantId>/<clientId>/`1つ分。MRを作成する単位でもある */
 export type ChartAndApps = {
   readonly chartDirName: ChartDirName
   readonly tenantId: TenantId
@@ -100,11 +74,7 @@ export type ParsedTag = {
   readonly builtAt: Date
 }
 
-/**
- * GitLab上のタグ1件分。名前だけでなく、そのタグが指すコミットのSHAも保持する。
- * 追跡ブランチ由来の最新タグが、追跡ブランチの現在のHEADコミットと一致するか
- * （＝タグがブランチの進行に追いついているか）を判定するために使う
- */
+/** GitLab上のタグ1件分。名前とそのタグが指すコミットのSHA */
 export type TagInfo = {
   readonly name: TagName
   readonly commitSha: string
@@ -115,33 +85,22 @@ export type PipelineInfo = {
   readonly webUrl: GitLabUrl
 }
 
-/**
- * `AppConfig.chart`のうち1箇所分の更新内容。反映済みタグ（`previousTag`）は
- * 書き換え箇所ごとに独立して読み取るため、同一アプリ内でも箇所によって異なりうる
- */
+/** `AppConfig.chart`のうち1箇所分の更新内容。`previousTagName`は書き換え箇所ごとに独立して読み取る */
 export type ImageTagUpdate = {
-  /** values.yaml内でイメージタグを書き換える1箇所分（`AppConfig.chart`の要素） */
   readonly target: AnchorTarget
   readonly previousTagName: TagName | undefined
 }
 
-/**
- * `AppConfig.helmTargetBranch.targets`のうち1箇所分の更新内容。反映済みブランチ名
- * （`previousBranch`）はvalues.yaml側から読み取った現在値、`newBranch`はconfig.yaml設定値
- * （`helmTargetBranch.branchName`、`targets`内の全箇所で共通）
- */
+/** `previousBranch`はvalues.yaml側の現在値、`newBranch`はconfig.yaml設定値 */
 export type HelmTargetBranchUpdate = {
-  /** Helmの向き先ブランチの書き込み先1箇所分（`HelmTargetBranchConfig.targets`の要素） */
   readonly target: AnchorTarget
   readonly previousBranch: BranchName | undefined
   readonly newBranch: BranchName
 }
 
 /**
- * 1アプリの更新内容。`chart`の書き換え箇所のうち、最新タグと異なっていたものだけを
- * `updates`に含める。`helmTargetBranchUpdates`は`AppConfig.helmTargetBranch`の`targets`のうち、
- * values.yaml側の現在値と設定値が異なる箇所だけを含める。`updates`・`helmTargetBranchUpdates`が
- * いずれも空ならこのAppUpdatePlan自体を生成しない（＝そのアプリは全箇所が反映済み）
+ * 1アプリの更新内容。`updates`・`helmTargetBranchUpdates`はそれぞれ差分がある箇所だけを含み、
+ * 両方とも空ならこのAppUpdatePlan自体を生成しない（＝そのアプリは全箇所が反映済み）
  */
 export type AppUpdatePlan = {
   readonly app: AppConfig

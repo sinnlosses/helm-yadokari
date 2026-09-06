@@ -1,8 +1,6 @@
 /**
- * ドメイン固有のブランド型と、その生成に使う factory 関数。
- * CLAUDE.mdの規約「`as` キャストは factory 関数に封じ込め、それ以外で使わない」を機械的に
- * 検証できるよう、`src/` 内で `as` を使うのはこのファイルだけにしている。
- * `src/types/types.ts` から再エクスポートしているので、利用側は `types.js` を import すればよい。
+ * ドメイン固有のブランド型と、その生成に使う factory 関数。`src/` 内で `as` を使うのは
+ * このファイルだけ。`src/types/types.ts` から再エクスポートしている。
  */
 
 declare const projectIdBrand: unique symbol
@@ -30,27 +28,18 @@ export function toTagName(s: string): TagName {
 }
 
 declare const tagFormatBrand: unique symbol
-/**
- * タグ命名規則のテンプレート文字列。`{branch}`/`{date}`/`{time}` プレースホルダを
- * ちょうど1回ずつ含む（検証は `lib/gitlab/tag.ts` の `validateTagFormat()` が行う）
- */
+/** タグ命名規則のテンプレート文字列（検証は `lib/gitlab/tag.ts` の `validateTagFormat()`） */
 export type TagFormat = string & { readonly [tagFormatBrand]: never }
 export function toTagFormat(s: string): TagFormat {
   return s as TagFormat
 }
 
 declare const gitLabUrlBrand: unique symbol
-/**
- * GitLab上のURL（インスタンスのホスト・プロジェクトのweb URL・パイプラインのURL・
- * MR本文に載せるタグや比較のURL）。`URL`オブジェクトではなく文字列のブランド型なのは、
- * 生成後の用途がMR本文（Markdown）とログへの埋め込みしかないため（詳細は
- * `docs/architecture.md`「コードからは読み取れない設計判断」）。
- */
+/** GitLab上のURL（インスタンスのホスト・プロジェクトのweb URL・パイプラインのURL等） */
 export type GitLabUrl = string & { readonly [gitLabUrlBrand]: never }
 /**
- * `GitLabUrl`の唯一の生成経路。文字列がhttp(s)のURLであることをここで検証するので、
- * 環境変数由来でもGitLab APIのレスポンス由来でも、未検証の文字列が`GitLabUrl`に
- * なることはない。`label`は「どの値が不正だったか」をメッセージに出すために渡す。
+ * `GitLabUrl`の唯一の生成経路。http(s)のURLであることをここで検証するので、未検証の
+ * 文字列が`GitLabUrl`になることはない
  */
 export function toGitLabUrl(s: string, label = "URL"): GitLabUrl {
   if (!URL.canParse(s)) {
@@ -92,12 +81,7 @@ export function toClientId(s: string): ClientId {
 }
 
 declare const anchorNameBrand: unique symbol
-/**
- * values.yaml内のYAMLアンカー名（例: `&tenant1client1AppsVersion`の`tenant1client1AppsVersion`
- * 部分）。values.yamlはオブジェクトのネストではなく、配列要素にアンカーで名前を付けた構成
- * （例: `variables: [&tenant1client1AppsVersion main, ...]`）を前提とし、このアンカー名で
- * イメージタグの値の位置を指定する
- */
+/** values.yaml内のYAMLアンカー名（例: `&appsVersion`の`appsVersion`部分） */
 export type AnchorName = string & { readonly [anchorNameBrand]: never }
 export function toAnchorName(s: string): AnchorName {
   return s as AnchorName
