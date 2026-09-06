@@ -106,6 +106,13 @@ wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラー�
 不要になった。`CLAUDE.md` 3箇所・`docs/architecture.md` 6箇所も追従。受け入れ時に、
 `docs/architecture.md` の表に残っていた `app.chart`（T-081の取りこぼし）も直した。
 
+**T-087 完了**（判断のみ、コード変更なし）。stepの入口の「並列実行 → 振り分け」の重複は
+**共通化しない**と決めた。決め手は3点 —— `applyUpdates()` だけ `partitionMap` ではなく
+`outcomes.map()` で潰すので3つ揃わない／3つを1つに寄せるには「要素から `ChartAndApps` を
+取り出す関数」という差を隠すためだけの引数が要る／重複しているのは配線であって方針ではない
+（危険なエラー方針は既に `runSettled()`・`settleAsError()` に集約済み）。理由は
+`docs/architecture.md` に記録したので、次に読む人が同じ検討をやり直さなくて済む。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした

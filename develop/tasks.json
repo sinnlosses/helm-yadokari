@@ -92,10 +92,10 @@
   {
     "id": "T-087",
     "task": "3つのステップの入口に同じ形のコードが重複していることを、共通化するか意図的な重複として残すかを決め、決めたところまで実装する。\n\n現状の事実（調査済み）: `src/steps/filter-targets/filter-targets.ts` と `src/steps/build-plans/build-plans.ts` の先頭部分が、名前以外まったく同じ2ステップになっている:\n```\nconst outcomes = await mapWithConcurrency(items, concurrencyLimit, (x) =>\n  runSettled(x, (logContext) => <1件分の関数>(..., logContext)),\n)\nconst { left, right } = partitionMap(outcomes, (outcome) =>\n  outcome.status === \"ok\" ? left(outcome.value) : right(outcome.result),\n)\n```\n`src/steps/apply-updates/apply-updates.ts` は3行目以降が違う（`partitionMap` ではなく `outcomes.map()` で `ChartUpdateResult[]` に潰す）。\n\n詰める論点:\n(a) この重複を `src/steps/shared/step-outcome.ts` に `runStepConcurrently()` のような高階関数として吸収すべきか。`runSettled()` を同ファイルに置いた時と同じ論法（「catch節をstepから消す」）が、この `partitionMap` にも当てはまるか。\n(b) 吸収した場合、各stepの入口が1〜2行になる代わりに「並列に実行する」「1件ずつ失敗を封じ込める」「成功と確定を振り分ける」が1つの名前の裏に隠れる。`docs/architecture.md` は現在「各stepでは `mapWithConcurrency()` の直下で `runSettled()` を呼び、並列に実行することと1件ずつ失敗を封じ込めることが**stepの入口に並んで見える**ようにしている」と、あえて見せる方を選んだと明記している。この判断と矛盾しないか。\n(c) `apply-updates` だけ形が違うので、共通化しても3つ全部は揃わない。2つだけのために抽象を1つ増やす価値があるか。\n(d) 残す判断をする場合、「なぜこの重複は許容するのか」を `docs/architecture.md` に1〜2行で書けるか（次に読む人が同じ疑問を持って再検討しないように）。\n\n完了条件: どちらに決めても `docs/architecture.md`「コードからは読み取れない設計判断」に理由を記録すること。共通化する判断なら実装して `pnpm check` を通し、テスト件数が変わらないこと。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "opus",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "コード変更なし（共通化しないと決定）。理由を docs/architecture.md「コードからは読み取れない設計判断」に記録した。決め手は3点: (1) applyUpdates() だけ partitionMap ではなく outcomes.map() で潰すため3つ揃わない、(2) 3つを1つの高階関数に寄せるには「要素からChartAndAppsを取り出す関数」という差を隠すためだけの引数が要る、(3) 重複しているのは配線であって方針ではない（危険なエラー方針は既に runSettled()/settleAsError() に集約済み）",
     "dependencies": []
   },
   {

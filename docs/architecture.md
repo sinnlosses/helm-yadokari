@@ -159,6 +159,20 @@
     verify-configは**問題を全件列挙して返すのが目的の別プログラム**（lintスクリプト）で、
     fatalで全体を落とす方針そのものを持たない
 
+- **stepの入口にある「並列実行 → 振り分け」の重複は、共通化せずそのまま置く**:
+  `filterTargets()`と`buildPlans()`は`mapWithConcurrency(...)` → `partitionMap(...)`の6行が
+  名前以外まったく同じで、共通化したくなる形をしている。**検討したうえで採らない**:
+  - **3つ揃わない**。`applyUpdates()`だけは`partitionMap`ではなく`outcomes.map()`で
+    `ChartUpdateResult[]`に潰す（成功時の値がそのまま結果になるため振り分けが要らない）。
+    2つのために抽象を1つ増やしても、読み手は結局2つの形を覚えることになる
+  - **共通化すると差を埋めるだけの引数が要る**。`filterTargets`/`buildPlans`は要素自身を
+    `runSettled()`に渡すが、`applyUpdates`は`target.chartAndApps`を渡す。3つを1つの
+    高階関数に寄せるには「要素から`ChartAndApps`を取り出す関数」を引数で受ける必要があり、
+    これは差を隠すためだけの引数になる
+  - **重複しているのは配線であって方針ではない**。間違えると危ないのはエラー方針の方で、
+    そこは既に`runSettled()`／`settleAsError()`に集約済み。残る`partitionMap`の呼び出しは
+    型が守ってくれる純粋な配線で、各stepが結果に固有の名前（`targets`/`toApply`）を
+    付けられる利点の方が大きい。上記「stepの入口に並んで見えるようにしている」とも整合する
 - **URLは`URL`オブジェクトではなく文字列のブランド型（`GitLabUrl`）で扱う**: 生成後の
   用途はMR本文（Markdown）とログへの埋め込みだけで、`URL`にすると`href`の正規化で
   出力文字列が変わりうる（`https://example.com` → `https://example.com/`）うえ、
