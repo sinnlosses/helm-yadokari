@@ -102,10 +102,11 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(NEW_TAG)
   })
 
-  it("追跡ブランチを変更したとき、既存タグがHEADと一致していても新しいタグを作成する", async () => {
+  it("追跡ブランチを変更したとき、変更後ブランチのHEADに既存タグがあればそれを再利用する", async () => {
     // values.yaml に反映済みのタグ（main由来）が、変更後の追跡ブランチ（release/2026-q2）
-    // 由来ではないケース。既存の release/2026-q2 由来タグはHEADと一致しているが、
-    // 追跡ブランチの切り替えを明示するため新しいタグを作る
+    // 由来ではないケース。既存の release/2026-q2 由来タグがHEADを指しているので、
+    // それを再利用すれば十分（タグ名に切り替え後のブランチ名が入るため、values.yaml から
+    // 追跡先が変わったことは読み取れる）。切り替えを明示するためだけの新規タグは作らない
     const existingTag = toTagName("release-2026-q2-build-at-20260101-000000")
     vi.mocked(listTags).mockResolvedValue([{ name: existingTag, commitSha: HEAD_SHA }])
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
@@ -116,11 +117,12 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       false,
       DEFAULT_TAG_FORMAT,
     )
-    expect(createTag).toHaveBeenCalledOnce()
-    expect(vi.mocked(createTag).mock.calls[0]?.[3]).toBe("release/2026-q2")
-    const latestTagName = toApply[0]?.plans[0]?.latestTag.name
-    expect(latestTagName).toMatch(/^release-2026-q2-build-at-\d{8}-\d{6}$/)
-    expect(latestTagName).not.toBe(existingTag)
+    expect(createTag).not.toHaveBeenCalled()
+    expect(toApply[0]?.plans[0]?.latestTag.name).toBe(existingTag)
+    // 再利用した場合でも values.yaml は更新される（反映済みタグは main 由来で、
+    // 現在の追跡ブランチ由来のHEADタグ集合には含まれないためスキップされない）
+    expect(toApply[0]?.plans[0]?.updates[0]?.previousTag).toBe(OLD_TAG)
+    expect(toApply[0]?.files[0]?.content).toMatch(new RegExp(`&appVersion ${existingTag}`))
     expect(settled).toEqual([])
   })
 
@@ -144,10 +146,10 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     expect(settled).toEqual([])
   })
 
-  it("dryRun=true のとき、追跡ブランチを変更していても実際のタグ作成はしない", async () => {
-    vi.mocked(listTags).mockResolvedValue([
-      { name: toTagName("release-2026-q2-build-at-20260101-000000"), commitSha: HEAD_SHA },
-    ])
+  it("dryRun=true のとき、追跡ブランチを変更し変更後ブランチのHEADにタグが無くても実際のタグ作成はしない", async () => {
+    // 変更後ブランチ由来のタグが1件も無いので本来なら新規作成する経路。dryRunなので
+    // 実際には作らず、作成予定の名前だけを使って以降の判定を続ける
+    vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
     await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, true, DEFAULT_TAG_FORMAT)
     expect(createTag).not.toHaveBeenCalled()
@@ -285,9 +287,7 @@ describe("resolveLatestTag（trackedHeadTagNamesの中身）", () => {
     ])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
 
-    const result = await resolveLatestTag(mockGitlab, makeApp(), false, DEFAULT_TAG_FORMAT, [
-      NEW_TAG,
-    ])
+    const result = await resolveLatestTag(mockGitlab, makeApp(), false, DEFAULT_TAG_FORMAT)
 
     expect([...result.trackedHeadTagNames]).toEqual([NEW_TAG])
   })
@@ -300,9 +300,7 @@ describe("resolveLatestTag（trackedHeadTagNamesの中身）", () => {
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
 
-    const result = await resolveLatestTag(mockGitlab, app, false, DEFAULT_TAG_FORMAT, [
-      toTagName(OLD_TAG),
-    ])
+    const result = await resolveLatestTag(mockGitlab, app, false, DEFAULT_TAG_FORMAT)
 
     expect(result.trackedHeadTagNames.size).toBe(0)
   })
@@ -316,7 +314,7 @@ describe("resolveLatestTag（trackedHeadTagNamesの中身）", () => {
     ])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
 
-    const result = await resolveLatestTag(mockGitlab, makeApp(), false, DEFAULT_TAG_FORMAT, [])
+    const result = await resolveLatestTag(mockGitlab, makeApp(), false, DEFAULT_TAG_FORMAT)
 
     expect(result.tag.name).toBe(NEW_TAG)
     expect(createTag).not.toHaveBeenCalled()

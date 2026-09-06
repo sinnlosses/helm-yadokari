@@ -79,5 +79,14 @@
     "passes": true,
     "evidence": "コード・ドキュメント33ファイルからタスク番号を削除。番号が根拠のポインタになっている文は番号なしで意味が通るよう書き直した（例: architecture.md の「T-003で意図的にこのままとする判断」→「意図的にこのままとする判断。理由は前掲の…参照」、workflow.md の difficulty 表の実タスク例→作業の性質が伝わる説明）。CLAUDE.md のコーディング規約に「コード・ドキュメントにタスク番号を書かない」を追記し、grep で機械的に確認できる旨も明記。残存は tasks.json / progress.md / docs/history/ の4ファイルのみ（＝タスク番号が識別子として機能する対象外ファイル）。pnpm check（28ファイル319テスト）通過。sonnetのサブエージェントに委譲したがセッション上限で途中終了したため、メイン側で残り1件の書き換えと、落ちる前に崩れていた3ファイルの整形（oxfmt）を仕上げて受け入れた",
     "dependencies": ["T-054", "T-056", "T-057", "T-059", "T-060", "T-061"]
+  },
+  {
+    "id": "T-063",
+    "task": "追跡ブランチを切り替えたときに、切り替え先のHEADを指す既存タグがあってもそれを再利用せず必ず新しいタグを作っていた挙動をやめる。ユーザー指摘（2026-09-06）:「切り替えた先の最新タグが追跡ブランチのHEADを指していたら新しくタグを作る必要はなくて、最新タグをvalues.yamlに設定すればいい」。従来の根拠は「追跡先が変わったことをvalues.yaml上で明示するため」だったが、タグ名には TAG_FORMAT の必須プレースホルダ {branch} が必ず含まれるため、切り替え先のHEADにある既存タグを書けば名前から追跡先の変化は読み取れる。HEADを指すタグの直接探索に変えた前タスクと同じ無駄が、切り替え経路にだけ残っていた形。",
+    "status": "done",
+    "difficulty": "opus",
+    "passes": true,
+    "evidence": "resolveLatestTag() から branchChanged ガードを外し、hasTagFromOtherBranch()・previousTags 引数・ログの reason \"tracked_branch_changed\" を削除（この判定専用のコードだったため連鎖的に不要になった）。要件「切り替え前後が同じコミットでも更新する」は、切り替え前のタグ名が現在の追跡ブランチでパースできず trackedHeadTagNames に入らないことで自動的に成立する（image-tag-target.ts 側のスキップ判定）。テスト2件を新仕様に書き換え（切り替え時に既存タグを再利用しvalues.yamlは更新される／dryRunは切り替え先HEADにタグが無いケースで検証）、resolveLatestTag を直接呼ぶ3件の引数を修正。requirements.md 4.1・README（図とFeatures）・glossary.md も同期。pnpm check（28ファイル319テスト、件数変化なし）通過",
+    "dependencies": []
   }
 ]

@@ -173,8 +173,7 @@ async function buildPlan(
  * 1アプリ分の更新計画を組み立てる。手順は次の5つ
  *
  * 1. `readCurrentImageTags()` — `app.chart`全箇所の反映済みタグを読み取る
- * 2. `resolveLatestTag()` — 追跡ブランチ由来の最新タグが存在するか確認し、無ければ作成する
- *    （反映済みタグが現在の追跡ブランチ由来でない場合も作成する）
+ * 2. `resolveLatestTag()` — 追跡ブランチのHEADを指すタグが存在するか確認し、無ければ作成する
  * 3. `applyImageTagTargets()` — `app.chart`全箇所について、最新タグとの差分をチェックする
  *    （反映済みタグは1で読んだ`previousTags`をそのまま使い、同じアンカーを読み直さない）
  * 4. `applyHelmTargetBranchTargets()` — `app.helmTargetBranch`があれば、向き先ブランチの
@@ -197,7 +196,7 @@ async function buildAppUpdatePlan(
       acc.draft,
       app.chart,
     )
-    const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat, previousTags)
+    const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat)
 
     const { draft: draftAfterChartTargets, updates } = await applyImageTagTargets(
       loadValuesYamlContent,
