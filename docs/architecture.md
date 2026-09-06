@@ -259,6 +259,21 @@
     `lib/config/config.ts`が`anchorApp.chart`を`AppConfig.imageTagTargets`に写すところで行う
     （Zodの生の型`AnchorsApp.chart`も変えない）。設定ミスのエラーメッセージが出す
     `app "..." の chart[]` というラベルもYAMLキーを指すのでそのまま
+- **環境変数はモジュールのトップレベルではなく`loadEnvConfig()`で読む**: 以前は`lib/env.ts`が
+  `export const GITLAB_URL = validateGitlabUrl(loadEnv("GITLAB_URL"))`のようなトップレベルの
+  定数で、**このファイルをimportした瞬間に検証が走って未設定なら投げる**形だった。その結果、
+  環境変数を必要としない側に3つの迂回が生まれていた:
+  `scripts/lint/validate-config.ts`が既定モードで検証を走らせないための**動的import**、
+  `vitest.config.ts`が全テストに注入していた**ダミーの`GITLAB_URL`/`ACCESS_TOKEN`**、
+  `test/main.test.ts`の**env全体の`vi.mock`**。関数化でこの3つはすべて消えた
+  - `run()`/`process()`は`EnvConfig`を引数で受け取り、生成するのは`src/index.ts`だけ。
+    テストは`vi.mock`ではなく普通のオブジェクトを渡せばよくなった
+  - 起動時に落ちる（fail fast）性質は変わらない。`index.ts`が最初に呼ぶため。むしろ
+    **エラーが構造化ログに乗るようになった**（トップレベルで投げていた頃は、`index.ts`の
+    `catch`より前のモジュール読み込み中に投げるため素のスタックトレースだった）。
+    そのため`index.ts`は`loadEnvConfig()`を`Promise`チェーンの中で呼ぶ
+  - `EnvConfig`型は「特定の外部システム（環境変数）のインターフェース」なので`lib/env.ts`に置く
+    （`ConfigTarget`が`lib/config/config.ts`にあるのと同じ分類）
 - **ブランド型にするのは「同じ`string`の別物と取り違えうる識別子」**: 数を増やすほど
   `src/types/brand.ts` は重くなるので、基準は「その値が別の識別子と**同じ型の式に並ぶ**か」に
   置く。並ばないただの文字列（エラーメッセージ・ログの本文など）はブランド型にしない。

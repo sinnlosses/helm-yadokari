@@ -59,11 +59,35 @@ export function parseTargetClients(raw: string | undefined): readonly TargetClie
   return raw.split(",").map((entry) => parseTargetClientEntry(entry.trim()))
 }
 
-export const GITLAB_URL = validateGitlabUrl(loadEnv("GITLAB_URL"))
-export const ACCESS_TOKEN = loadEnv("ACCESS_TOKEN")
-export const CONFIG_PATH = loadOptionalEnv("CONFIG_PATH")
-export const CONCURRENCY_LIMIT = parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT"))
-export const DRY_RUN = loadOptionalEnv("DRY_RUN") === "true"
-export const TARGET_CHART = parseTargetChart(loadOptionalEnv("TARGET_CHART"))
-export const TARGET_CLIENTS = parseTargetClients(loadOptionalEnv("TARGET_CLIENTS"))
-export const TAG_FORMAT = parseTagFormat(loadOptionalEnv("TAG_FORMAT"))
+/** 環境変数から読み取った実行時設定。`loadEnvConfig()`だけが生成する */
+export type EnvConfig = {
+  readonly gitlabUrl: GitLabUrl
+  readonly accessToken: string
+  readonly configPath: string | undefined
+  readonly concurrencyLimit: number
+  readonly dryRun: boolean
+  readonly targetChart: ChartDirName | undefined
+  readonly targetClients: readonly TargetClient[] | undefined
+  readonly tagFormat: TagFormat
+}
+
+/**
+ * 全環境変数を読んで検証する。未設定・不正な値があればここで例外を投げる。
+ *
+ * モジュールのトップレベルではなく関数にしてあるのは、`process.env`に触れるのを
+ * 呼び出した瞬間だけに限定するため。トップレベルの定数にすると、このファイルを
+ * import しただけで（＝環境変数を必要としない`pnpm lint:validate-config`や、
+ * 各テストからも）検証が走ってしまう。
+ */
+export function loadEnvConfig(): EnvConfig {
+  return {
+    gitlabUrl: validateGitlabUrl(loadEnv("GITLAB_URL")),
+    accessToken: loadEnv("ACCESS_TOKEN"),
+    configPath: loadOptionalEnv("CONFIG_PATH"),
+    concurrencyLimit: parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT")),
+    dryRun: loadOptionalEnv("DRY_RUN") === "true",
+    targetChart: parseTargetChart(loadOptionalEnv("TARGET_CHART")),
+    targetClients: parseTargetClients(loadOptionalEnv("TARGET_CLIENTS")),
+    tagFormat: parseTagFormat(loadOptionalEnv("TAG_FORMAT")),
+  }
+}

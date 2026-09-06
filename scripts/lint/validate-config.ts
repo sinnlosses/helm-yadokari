@@ -1,5 +1,8 @@
 import { loadConfig } from "../../src/lib/config/config.js"
+import { loadEnvConfig } from "../../src/lib/env.js"
+import { createClient } from "../../src/lib/gitlab/gitlab.js"
 import type { Config } from "../../src/types/types.js"
+import { verifyConfigExistence } from "./verify-config/verify-config.js"
 
 // config/ の検証スクリプト。2つのモードを持つ:
 //   （既定）  ローカルのYAMLだけを見る。認証情報が不要なので全パイプラインで実行できる
@@ -29,23 +32,25 @@ const where = configPath ?? "config"
 console.log(`config OK: ${chartAndAppsList.length} chart groups, ${appCount} apps (${where})`)
 
 if (remote) {
-  // 環境変数（GITLAB_URL/ACCESS_TOKEN）を要求するため、--remote のときだけ読み込む。
-  // 認証情報が無いときは黙って成功させず、理由を明示して失敗させる（このチェックが
-  // 素通りすると、存在しないアンカー・ブランチがそのままマージされてしまうため）
-  const gitlabEnv = await import("../../src/lib/env.js").catch((err: unknown) => {
-    fail(
-      `実在チェックを実行できません（${err instanceof Error ? err.message : String(err)}）。` +
-        `GITLAB_URL と ACCESS_TOKEN を設定してください`,
-    )
-  })
-  const { createClient } = await import("../../src/lib/gitlab/gitlab.js")
-  const { verifyConfigExistence } = await import("./verify-config/verify-config.js")
+  // 環境変数（GITLAB_URL/ACCESS_TOKEN）を要求するのは --remote のときだけなので、
+  // 読み込みもこの中で行う。認証情報が無いときは黙って成功させず、理由を明示して
+  // 失敗させる（このチェックが素通りすると、存在しないアンカー・ブランチが
+  // そのままマージされてしまうため）
+  const env = (() => {
+    try {
+      return loadEnvConfig()
+    } catch (err) {
+      fail(
+        `実在チェックを実行できません（${err instanceof Error ? err.message : String(err)}）。` +
+          `GITLAB_URL と ACCESS_TOKEN を設定してください`,
+      )
+    }
+  })()
 
-  const { ACCESS_TOKEN, CONCURRENCY_LIMIT, GITLAB_URL } = gitlabEnv
   const problems = await verifyConfigExistence(
-    createClient(GITLAB_URL, ACCESS_TOKEN),
+    createClient(env.gitlabUrl, env.accessToken),
     chartAndAppsList,
-    CONCURRENCY_LIMIT,
+    env.concurrencyLimit,
   )
   if (problems.length > 0) {
     console.error(`config ERROR: GitLab上に存在しない設定が ${problems.length} 件あります`)
@@ -53,6 +58,6 @@ if (remote) {
     process.exit(1)
   }
   console.log(
-    `config OK（実在チェック）: projectId・ブランチ・valuesPath・アンカーをすべて確認 (${GITLAB_URL})`,
+    `config OK（実在チェック）: projectId・ブランチ・valuesPath・アンカーをすべて確認 (${env.gitlabUrl})`,
   )
 }

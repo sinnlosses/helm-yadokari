@@ -74,10 +74,10 @@
   {
     "id": "T-085",
     "task": "`src/lib/env.ts` がモジュール読み込み時に環境変数を読んで例外を投げる設計を、そのままにするか変えるかを決め、決めたところまで実装する。\n\n現状の事実（調査済み）: `src/lib/env.ts` の末尾は `export const GITLAB_URL = validateGitlabUrl(loadEnv(\"GITLAB_URL\"))` のようなトップレベルの副作用で、**このモジュールを import した瞬間に環境変数を読んで、未設定なら throw する**。そのため周囲に3つの迂回が生まれている:\n1. `scripts/lint/validate-config.ts` が `--remote` のときだけ `await import(\"../../src/lib/env.js\").catch(...)` と**動的importで囲む**必要がある（静的importにすると、認証情報が不要な既定モードでも環境変数を要求してしまうため）\n2. `vitest.config.ts` が全テストに対して `env: { GITLAB_URL: \"https://gitlab.test\", ACCESS_TOKEN: \"test-token\" }` を注入している（env.ts を間接的にでも import するテストが落ちないようにするため）\n3. `test/main.test.ts` が `vi.mock(\"../src/lib/env.js\", () => ({...}))` で8つの定数をまるごとモックしている\n\n詰める論点:\n(a) 「環境変数を読む」を関数（例: `loadEnvConfig(): EnvConfig`）にして `src/index.ts` または `src/main.ts` の `run()` の入口で一度だけ呼び、`process()` に値として渡す形にするか。そうすると上記3つの迂回のうちどれが消えるか（`main.ts` が引数で受け取れるようになるので (3) は不要になるはず。(1) は静的importに戻せるか要確認）。\n(b) 変えることで `src/main.ts` の `process()` の引数が増える（現在は環境変数のモジュール定数を直接読んでいる）。引数を8個並べるのか、`EnvConfig` 1つにまとめるのか。すでに `filterTargets`/`buildPlans` は `concurrencyLimit`・`dryRun`・`tagFormat` を個別の引数で受け取っているので、その形と揃うか。\n(c) `CLAUDE.md`「コーディング規約」の「環境変数はすべて `src/lib/env.ts` で管理する」という規約は、関数化しても満たせるか（満たせる想定だが、規約の文言を更新する必要があるか確認する）。\n(d) 「起動時に落ちる（fail fast）」という現在の利点を失わないか。`index.ts` の入口で呼べば実質同じタイミングで落ちるはず。\n(e) 変えないと決める場合、上記3つの迂回を「意図的なコスト」として `docs/architecture.md` に記録できるか。\n\n完了条件: 決めた方針を `docs/architecture.md`「コードからは読み取れない設計判断」に記録する。変える判断なら実装し、`vitest.config.ts` の `env` 注入と `test/main.test.ts` の env モックのうち不要になったものを実際に削って `pnpm check` を通すこと（テスト件数が減らないこと）。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "opus",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "モジュールトップレベルの定数をやめ loadEnvConfig(): EnvConfig にした。run()/process() は EnvConfig を引数で受け取り、生成は src/index.ts のみ。狙いどおり3つの迂回が全部消えた（validate-config.ts の動的import、vitest.config.ts の全テストへのenv注入、main.test.ts の vi.mock(env)）——いずれもgrepで0件を確認。挙動不変を実測: 環境変数なしで既定モードは exit 0、--remote は理由付きメッセージで exit 1。副次的な改善として、環境変数エラーが index.ts の catch に載り構造化ログに出るようになった（以前は素のスタックトレース）。pnpm check（31ファイル332テスト、変化なし）通過。CLAUDE.mdの規約文言と docs/architecture.md に判断を記録",
     "dependencies": []
   },
   {

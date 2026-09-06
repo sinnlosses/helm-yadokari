@@ -93,6 +93,14 @@ wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラー�
 狙いどおり `buildPlan()` の `plans: [...plans]`（可変配列に合わせるためだけのコピー）が消えた。
 残る spread は全件確認して genuine な用途のみ。`as` は1件も増えていない。
 
+**T-085 完了**。`lib/env.ts` のトップレベル副作用をやめ、`loadEnvConfig(): EnvConfig` に
+した。`run()`/`process()` は `EnvConfig` を引数で受け取り、生成するのは `src/index.ts` だけ。
+狙いどおり**3つの迂回が全部消えた**（`validate-config.ts` の動的import、`vitest.config.ts` の
+全テストへの env 注入、`main.test.ts` の `vi.mock(env)`）。挙動不変は実測で確認
+（環境変数なしで既定モードは exit 0、`--remote` は理由付きメッセージで exit 1）。
+副次的に、環境変数エラーが `index.ts` の `catch` に載って構造化ログに出るようになった
+（以前はモジュール読み込み中に投げるため素のスタックトレースだった）。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした

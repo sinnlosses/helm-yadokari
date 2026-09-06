@@ -106,7 +106,8 @@ Protected: OFF で登録する）。`renovate` ジョブはこのCLI自体の
   （`reduce`、早期return付きのヘルパー関数など）を検討する。ループカウンタや、`try`/`catch`
   で外側のスコープに結果を持ち出す必要があるなど `let` が自然な場合はその限りではない
 - HTTP エラーハンドリングは `src/utils/http.ts` の既存ユーティリティ（`isFatalError` 等）を使う
-- 環境変数はすべて `src/lib/env.ts` で管理する
+- 環境変数はすべて `src/lib/env.ts` で管理する。読み取りは `loadEnvConfig()` を通し、
+  モジュールのトップレベルでは `process.env` に触れない（理由は `docs/architecture.md` 参照）
 - 401 / 5xx / ネットワーク障害は `FatalError` を投げて即時終了、それ以外のエラーは該当
   chart リポジトリを `ERROR` としてログ記録し処理継続する（詳細は README「エラーハンドリング」参照）
 - コード・ドキュメントにタスク番号（`develop/tasks.json` の `id`。`T-` + 3桁の連番）を書かない。

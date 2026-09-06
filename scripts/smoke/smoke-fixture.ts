@@ -1,4 +1,4 @@
-import { ACCESS_TOKEN, GITLAB_URL } from "../../src/lib/env.js"
+import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
 
 // 実機スモークテスト（docs/smoke-test.md）用のフィクスチャ操作スクリプト。
@@ -49,9 +49,10 @@ if (!Number.isInteger(projectId)) {
   process.exit(1)
 }
 
-const gitlab = createClient(GITLAB_URL, ACCESS_TOKEN)
+const env = loadEnvConfig()
+const gitlab = createClient(env.gitlabUrl, env.accessToken)
 const project = await gitlab.Projects.show(projectId)
-console.log(`対象: ${String(project.path_with_namespace)} (${GITLAB_URL})`)
+console.log(`対象: ${String(project.path_with_namespace)} (${env.gitlabUrl})`)
 console.log(apply ? "モード: --apply（実際に反映します）" : "モード: dry-run（--apply で反映）")
 
 /**
