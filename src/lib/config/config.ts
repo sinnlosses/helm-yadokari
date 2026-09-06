@@ -26,7 +26,7 @@ import {
  * （`TARGET_CHART` / `TARGET_CLIENTS` 環境変数由来）。
  */
 export type ConfigTarget = {
-  readonly chartDirName?: string
+  readonly chartDirName?: ChartDirName
   readonly clients?: readonly TargetClient[]
 }
 

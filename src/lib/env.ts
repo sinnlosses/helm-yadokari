@@ -1,5 +1,5 @@
-import type { GitLabUrl, TagFormat, TargetClient } from "../types/types.js"
-import { toClientId, toGitLabUrl, toTenantId } from "../types/types.js"
+import type { ChartDirName, GitLabUrl, TagFormat, TargetClient } from "../types/types.js"
+import { toChartDirName, toClientId, toGitLabUrl, toTenantId } from "../types/types.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "./tag-format.js"
 
 export function loadEnv(key: string): string {
@@ -36,6 +36,11 @@ export function parseTagFormat(raw: string | undefined): TagFormat {
   return validateTagFormat(raw ?? DEFAULT_TAG_FORMAT)
 }
 
+/** TARGET_CHART は config/ 直下のディレクトリ名をそのまま`ChartDirName`に変換する（形式検証はなし） */
+export function parseTargetChart(raw: string | undefined): ChartDirName | undefined {
+  return raw === undefined ? undefined : toChartDirName(raw)
+}
+
 function parseTargetClientEntry(entry: string): TargetClient {
   const parts = entry.split("/")
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
@@ -59,6 +64,6 @@ export const ACCESS_TOKEN = loadEnv("ACCESS_TOKEN")
 export const CONFIG_PATH = loadOptionalEnv("CONFIG_PATH")
 export const CONCURRENCY_LIMIT = parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT"))
 export const DRY_RUN = loadOptionalEnv("DRY_RUN") === "true"
-export const TARGET_CHART = loadOptionalEnv("TARGET_CHART")
+export const TARGET_CHART = parseTargetChart(loadOptionalEnv("TARGET_CHART"))
 export const TARGET_CLIENTS = parseTargetClients(loadOptionalEnv("TARGET_CLIENTS"))
 export const TAG_FORMAT = parseTagFormat(loadOptionalEnv("TAG_FORMAT"))

@@ -76,6 +76,12 @@ chartAndApps」の意味に使われている**こと（`FilterTargetsResult.tar
 wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラーメッセージのラベル
 `chart[]`、`docs/requirements.md` 4.4節）はすべて無変更であることを `git diff --name-only` で確認。
 
+**T-082 完了**。`ConfigTarget.chartDirName` を `ChartDirName` に、`resolveHelmTargetBranch()` の
+`projectName` を `ProjectName` にした。変換は `env.ts` の `parseTargetChart()` で行う
+（`parseTargetClients()` と同じ形）。`loadConfig()` 内の比較・`join()` はブランド型が
+`string` のサブタイプなので**無変更で通った**（無理な変換を挿入していない）。
+テストは330→332（`parseTargetChart()` の分を追加）。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした

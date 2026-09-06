@@ -5,6 +5,7 @@ import {
   loadOptionalEnv,
   parseConcurrencyLimit,
   parseTagFormat,
+  parseTargetChart,
   parseTargetClients,
   validateGitlabUrl,
 } from "../../src/lib/env.js"
@@ -104,6 +105,16 @@ describe("parseTagFormat", () => {
 
   it("不正なフォーマットのとき例外をスローする", () => {
     expect(() => parseTagFormat("{branch}-{date}")).toThrow("TAG_FORMAT")
+  })
+})
+
+describe("parseTargetChart", () => {
+  it("未指定のとき undefined を返す（空文字のディレクトリ名にはしない）", () => {
+    expect(parseTargetChart(undefined)).toBeUndefined()
+  })
+
+  it("指定されたディレクトリ名をそのまま返す", () => {
+    expect(parseTargetChart("teamA-chart")).toBe("teamA-chart")
   })
 })
 

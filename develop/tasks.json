@@ -47,10 +47,10 @@
   {
     "id": "T-082",
     "task": "ブランド型を使うべき箇所で素の `string` になっている2件を直す。このリポジトリは「`as` を使わずブランド型の生成は factory 関数に封じ込める」（`CLAUDE.md`「コーディング規約」）方針で、ドメインの識別子はブランド型で扱う。以下は既存のブランド型があるのに素の `string` のままになっている取りこぼし:\n\n(1) `src/lib/config/config.ts` の `ConfigTarget.chartDirName?: string` を `ChartDirName` にする。同じ型の `clients?: readonly TargetClient[]` はすでにブランド型（`TenantId`/`ClientId`）になっており、片方だけ素の `string` で非対称。生成元は `src/main.ts` が渡す `TARGET_CHART`（`src/lib/env.ts` の `loadOptionalEnv(\"TARGET_CHART\")`）なので、env.ts 側で `toChartDirName()` を通すか、`ConfigTarget` を組み立てる `main.ts` 側で通すかを、既存の `TARGET_CLIENTS`（env.ts の `parseTargetClients()` が `toTenantId`/`toClientId` を通している）に倣って揃えること。`loadConfig()` 内で `listSubdirectories()` 由来の素の `string` と比較・`join()` している箇所は、ブランド型が `string` のサブタイプなのでそのまま通るはず（無理な変換を挿入しないこと）。\n\n(2) `src/lib/config/helm-target-branch.ts` の `resolveHelmTargetBranch()` の引数 `projectName: string` を `ProjectName` にする。呼び出し元（`src/lib/config/config.ts`）が渡しているのはすでに `ProjectName` で、この関数のシグネチャだけが素の `string` に緩めている。用途はエラーメッセージへの埋め込みのみ。\n\n`as` は使わない（`src/types/brand.ts` の factory 関数のみ）。\n\n完了条件: `pnpm check` を通すこと。既存テスト（`test/lib/env.test.ts` / `test/lib/config/config.test.ts` / `test/lib/config/helm-target-branch.test.ts`）がそのまま、またはブランド型を使う最小修正で通ることで確認する。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "ConfigTarget.chartDirName を ChartDirName に、resolveHelmTargetBranch() の projectName を ProjectName にした。ブランド型への変換は env.ts に parseTargetChart() を新設して行う（TARGET_CLIENTS の parseTargetClients() と同じ形）。loadConfig() 内の比較・join() は ChartDirName が string のサブタイプのため無変更で通った（無理な変換を挿入していない）。as キャストは増えていない。pnpm check（31ファイル332テスト、330→332）通過。sonnetのサブエージェントに委譲し、メイン側で parseTargetChart() のテスト2件を追加した（env.ts の他の公開parse関数にテストがある慣習に合わせた）",
     "dependencies": []
   },
   {
