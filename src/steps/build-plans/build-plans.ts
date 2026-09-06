@@ -78,7 +78,9 @@ export async function buildPlans(
   tagFormat: TagFormat,
 ): Promise<BuildPlansResult> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
-    buildPlan(gitlab, chartAndApps, dryRun, tagFormat),
+    runSettled(chartAndApps, (logContext) =>
+      buildPlan(gitlab, chartAndApps, dryRun, tagFormat, logContext),
+    ),
   )
 
   const { left: toApply, right: settled } = partitionMap(outcomes, (outcome) =>
@@ -99,34 +101,33 @@ async function buildPlan(
   chartAndApps: ChartAndApps,
   dryRun: boolean,
   tagFormat: TagFormat,
+  logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartUpdateTarget>> {
-  return runSettled(chartAndApps, async (logContext) => {
-    const context: BuildPlanContext = {
-      gitlab,
-      dryRun,
-      tagFormat,
-      ...createChartAccess(gitlab, chartAndApps.chart),
-    }
-    const initialAcc: BuildChartUpdateAcc = { plans: [], draft: new Map() }
-    const { plans, draft } = await reduceAsync(chartAndApps.apps, initialAcc, (acc, app) =>
-      buildAppUpdatePlan(context, acc, app),
-    )
+  const context: BuildPlanContext = {
+    gitlab,
+    dryRun,
+    tagFormat,
+    ...createChartAccess(gitlab, chartAndApps.chart),
+  }
+  const initialAcc: BuildChartUpdateAcc = { plans: [], draft: new Map() }
+  const { plans, draft } = await reduceAsync(chartAndApps.apps, initialAcc, (acc, app) =>
+    buildAppUpdatePlan(context, acc, app),
+  )
 
-    if (plans.length === 0) {
-      logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })
-      return settle("SKIPPED")
-    }
-    if (dryRun) {
-      logger.info({
-        ...logContext,
-        result: "SKIPPED",
-        reason: "dry_run",
-        apps: plans.map(describePlan),
-      })
-      return settle("SKIPPED")
-    }
-    return ok({ chartAndApps, plans: [...plans], files: toFileUpdates(draft) })
-  })
+  if (plans.length === 0) {
+    logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })
+    return settle("SKIPPED")
+  }
+  if (dryRun) {
+    logger.info({
+      ...logContext,
+      result: "SKIPPED",
+      reason: "dry_run",
+      apps: plans.map(describePlan),
+    })
+    return settle("SKIPPED")
+  }
+  return ok({ chartAndApps, plans: [...plans], files: toFileUpdates(draft) })
 }
 
 /**

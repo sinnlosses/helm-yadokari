@@ -20,7 +20,7 @@ export async function applyUpdates(
   concurrencyLimit: number,
 ): Promise<ChartUpdateResult[]> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (target) =>
-    applyUpdate(gitlab, target),
+    runSettled(target.chartAndApps, (logContext) => applyUpdate(gitlab, target, logContext)),
   )
   return outcomes.map((outcome) => (outcome.status === "ok" ? outcome.value : outcome.result))
 }
@@ -31,33 +31,32 @@ export async function applyUpdates(
 async function applyUpdate(
   gitlab: GitlabClient,
   target: ChartUpdateTarget,
+  logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartUpdateResult>> {
   const { chartAndApps, plans, files } = target
   const { chart, tenantId, clientId } = chartAndApps
   const featureBranch = buildFeatureBranch(tenantId, clientId)
 
-  return runSettled(chartAndApps, async (logContext) => {
-    const entries = await collectMrEntries(gitlab, plans)
-    // MRタイトルをコミットメッセージにもそのまま使い回す
-    const { title, description } = buildMrContent(tenantId, clientId, entries)
+  const entries = await collectMrEntries(gitlab, plans)
+  // MRタイトルをコミットメッセージにもそのまま使い回す
+  const { title, description } = buildMrContent(tenantId, clientId, entries)
 
-    await commitFileUpdates(
-      gitlab,
-      chart.projectId,
-      featureBranch,
-      chart.mrTargetBranch,
-      title,
-      files,
-    )
-    await createMergeRequest(
-      gitlab,
-      chart.projectId,
-      featureBranch,
-      chart.mrTargetBranch,
-      title,
-      description,
-    )
-    logger.info({ ...logContext, result: "CREATED", apps: plans.map(describePlan) })
-    return ok<ChartUpdateResult>("CREATED")
-  })
+  await commitFileUpdates(
+    gitlab,
+    chart.projectId,
+    featureBranch,
+    chart.mrTargetBranch,
+    title,
+    files,
+  )
+  await createMergeRequest(
+    gitlab,
+    chart.projectId,
+    featureBranch,
+    chart.mrTargetBranch,
+    title,
+    description,
+  )
+  logger.info({ ...logContext, result: "CREATED", apps: plans.map(describePlan) })
+  return ok<ChartUpdateResult>("CREATED")
 }

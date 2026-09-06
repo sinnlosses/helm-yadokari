@@ -21,7 +21,7 @@ export async function filterTargets(
   concurrencyLimit: number,
 ): Promise<FilterTargetsResult> {
   const outcomes = await mapWithConcurrency(chartAndAppsList, concurrencyLimit, (chartAndApps) =>
-    evaluateTarget(gitlab, chartAndApps),
+    runSettled(chartAndApps, (logContext) => evaluateTarget(gitlab, chartAndApps, logContext)),
   )
 
   const { left: targets, right: settled } = partitionMap(outcomes, (outcome) =>
@@ -32,24 +32,22 @@ export async function filterTargets(
 
 /**
  * 1つのchartAndAppsが処理対象か判定する（このstepの並列処理1件分）。登録アプリが0件、
- * または固定ブランチにオープン中のMRがある場合はSKIPPED、判定中のエラーはERRORとして
- * settled 側に振り分ける。
+ * または固定ブランチにオープン中のMRがある場合はSKIPPED。
  */
 async function evaluateTarget(
   gitlab: GitlabClient,
   chartAndApps: ChartAndApps,
+  logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartAndApps>> {
-  return runSettled(chartAndApps, async (logContext) => {
-    if (chartAndApps.apps.length === 0) {
-      logger.info({ ...logContext, result: "SKIPPED", reason: "no_apps" })
-      return settle("SKIPPED")
-    }
+  if (chartAndApps.apps.length === 0) {
+    logger.info({ ...logContext, result: "SKIPPED", reason: "no_apps" })
+    return settle("SKIPPED")
+  }
 
-    const branch = buildFeatureBranch(chartAndApps.tenantId, chartAndApps.clientId)
-    if (await openMergeRequestExists(gitlab, chartAndApps.chart.projectId, branch)) {
-      logger.info({ ...logContext, result: "SKIPPED", reason: "mr_exists" })
-      return settle("SKIPPED")
-    }
-    return ok(chartAndApps)
-  })
+  const branch = buildFeatureBranch(chartAndApps.tenantId, chartAndApps.clientId)
+  if (await openMergeRequestExists(gitlab, chartAndApps.chart.projectId, branch)) {
+    logger.info({ ...logContext, result: "SKIPPED", reason: "mr_exists" })
+    return settle("SKIPPED")
+  }
+  return ok(chartAndApps)
 }
