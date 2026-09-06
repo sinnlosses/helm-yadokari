@@ -138,7 +138,7 @@ flowchart TD
 | `CONFIG_PATH`       |      | `config/`                         | 設定ファイル（ディレクトリ）のパス（作業ディレクトリ外のパスは拒否されます）                                                                                                                                      |
 | `CONCURRENCY_LIMIT` |      | `3`                               | `(chartリポジトリ, テナント/クライアント)`単位の同時処理数（1〜20の整数）                                                                                                                                         |
 | `DRY_RUN`           |      | `false`                           | `"true"` のときタグ作成・ブランチ作成・MR作成をスキップし、更新予定の内容のみログ出力します                                                                                                                       |
-| `TARGET_CHART_DIR`  |      | —                                 | 指定すると `config/` 配下の特定のchartディレクトリのみ処理対象にします（省略時は全chart）。存在しないディレクトリ名を指定するとエラー終了します                                                                   |
+| `TARGET_CHART`      |      | —                                 | 指定すると `config/` 配下の特定のchartディレクトリのみ処理対象にします（省略時は全chart）。存在しないディレクトリ名を指定した場合、または絞り込み結果が0件の場合はエラー終了します                                |
 | `TARGET_CLIENT`     |      | —                                 | 指定すると特定のtenant/clientのみ処理対象にします。`"<tenantId>/<clientId>"` 形式で、カンマ区切りで複数指定可（例: `"t1/c1,t2/c2"`。省略時は全client）。該当するtenant/clientが見つからない場合はエラー終了します |
 | `TAG_FORMAT`        |      | `{branch}-build-at-{date}-{time}` | タグ命名規則のテンプレート（詳細は「[タグ命名規則](#タグ命名規則)」参照）。`{branch}`/`{date}`/`{time}` をちょうど1回ずつ含まない場合はエラー終了します                                                           |
 
@@ -301,7 +301,7 @@ OFF にしてください（詳細は下記「CI/CD」章と `.gitlab-ci.yml` �
 | `DRY_RUN`           | boolean | `false`    | `true` のとき更新をスキップしログのみ出力                                                                              |
 | `CONCURRENCY_LIMIT` | string  | `3`        | `(chartリポジトリ, テナント/クライアント)`単位の同時処理数（1〜20の整数）                                              |
 | `CONFIG_PATH`       | string  | `""`       | 設定ファイルのパス（省略時は `config/`）                                                                               |
-| `TARGET_CHART_DIR`  | string  | `""`       | 特定のchartディレクトリのみ対象にする場合に指定（省略時は全chart）                                                     |
+| `TARGET_CHART`      | string  | `""`       | 特定のchartディレクトリのみ対象にする場合に指定（省略時は全chart）                                                     |
 | `TARGET_CLIENT`     | string  | `""`       | 特定のtenant/clientのみ対象にする場合に `"<tenantId>/<clientId>"` 形式で指定、カンマ区切りで複数可（省略時は全client） |
 | `TAG_FORMAT`        | string  | `""`       | タグ命名規則のテンプレート（省略時は `{branch}-build-at-{date}-{time}`）                                               |
 

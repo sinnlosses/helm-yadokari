@@ -6,7 +6,7 @@ import {
   DRY_RUN,
   GITLAB_URL,
   TAG_FORMAT,
-  TARGET_CHART_DIR,
+  TARGET_CHART,
   TARGET_CLIENT,
 } from "./lib/env.js"
 import { createClient } from "./lib/gitlab/gitlab.js"
@@ -24,7 +24,7 @@ export async function run(): Promise<RunResult> {
     dryRun: DRY_RUN,
     concurrencyLimit: CONCURRENCY_LIMIT,
     configPath: CONFIG_PATH,
-    targetChartDir: TARGET_CHART_DIR,
+    targetChart: TARGET_CHART,
     targetClient: TARGET_CLIENT,
     tagFormat: TAG_FORMAT,
   })
@@ -37,7 +37,7 @@ export async function run(): Promise<RunResult> {
 /**
  * config/ を読み込み、以下のステップを順に呼び出して全chartリポジトリを更新する。
  * DRY_RUN=true のときはブランチ作成・MR作成をせず、更新予定の内容のみログ出力する。
- * TARGET_CHART_DIR / TARGET_CLIENT が設定されている場合は、該当するchart/tenant/client
+ * TARGET_CHART / TARGET_CLIENT が設定されている場合は、該当するchart/tenant/client
  * のみに絞り込んで実行する（`loadConfig`側の`target`絞り込み。指定した対象がconfig/配下に
  * 見つからない場合は`loadConfig`が例外をスローする）。
  *
@@ -48,7 +48,7 @@ export async function run(): Promise<RunResult> {
 export async function process(): Promise<Record<ChartUpdateResult, number>> {
   const gitlab = createClient(GITLAB_URL, ACCESS_TOKEN)
   const { chartAndAppsList } = loadConfig(CONFIG_PATH, {
-    chartDir: TARGET_CHART_DIR,
+    chartDir: TARGET_CHART,
     clients: TARGET_CLIENT,
   })
 

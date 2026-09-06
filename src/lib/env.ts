@@ -65,6 +65,6 @@ export const ACCESS_TOKEN = loadEnv("ACCESS_TOKEN")
 export const CONFIG_PATH = loadOptionalEnv("CONFIG_PATH")
 export const CONCURRENCY_LIMIT = parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT"))
 export const DRY_RUN = loadOptionalEnv("DRY_RUN") === "true"
-export const TARGET_CHART_DIR = loadOptionalEnv("TARGET_CHART_DIR")
+export const TARGET_CHART = loadOptionalEnv("TARGET_CHART")
 export const TARGET_CLIENT = parseTargetClients(loadOptionalEnv("TARGET_CLIENT"))
 export const TAG_FORMAT = parseTagFormat(loadOptionalEnv("TAG_FORMAT"))

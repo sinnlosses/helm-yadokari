@@ -2,10 +2,10 @@
   {
     "id": "T-054",
     "task": "環境変数 `TARGET_CHART_DIR` を `TARGET_CHART` にリネームし、あわせて誤った値を指定したときに検知できるようにする。値の意味は現状のまま（`config/` 直下のディレクトリ名。例: `teamA-chart`）とユーザーが決定済み（2026-09-06）。(1) リネーム対象: src/lib/env.ts のエクスポート、src/main.ts の参照、src/lib/config/config.ts のエラーメッセージ文言（config.ts:139-142）、.env.example、README.md「環境変数」表、.gitlab-ci.yml の pipeline inputs、docs/requirements.md、test/（main.test.ts・helpers.ts・steps/filter-targets.test.ts・lib/config/ 配下）。内部の型・フィールド名（`ChartDirName`・`ChartAndApps.chartDir`・`ConfigTarget.chartDir`）は「config/ 直下のディレクトリ名」という意味のままなので変更しない。(2) 検知の穴を塞ぐ: 現状 `loadConfig()` は `config/` 直下に存在しない名前を指定したときだけエラーにする（config.ts:139）。ディレクトリは存在するが `chart.yaml` が無い場合は config.ts:157-158 で黙って無視され、絞り込み結果が0件でも「0 chart groups」で正常終了してしまう。`TARGET_CHART` / `TARGET_CLIENT` を明示指定したときに限り、対象0件をエラーにする（未指定時は素通しで0件でもエラーにしない現状の仕様は変えない。config.ts:128-133 のJSDoc参照）。(3) エラーメッセージに「`config/` 直下のディレクトリ名を指定する」ことと実在するディレクトリ名の一覧を添え、何を指定すればよいかがメッセージだけで分かるようにする。完了条件: (2)(3) を検証するテストを追加し、`pnpm check` を通すこと",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "環境変数を TARGET_CHART にリネーム（値の意味・内部フィールド名 chartDir は据え置き）。loadConfig() に isExplicitlyTargeted() を追加し、TARGET_CHART/TARGET_CLIENT を明示指定したときに限り絞り込み結果0件を例外にした（chart.yaml が無いディレクトリを指定して黙って0件で正常終了する穴を塞いだ）。エラーメッセージには formatChartDirs() で実在ディレクトリ名の一覧を添える。test/lib/config/config.test.ts に7テスト追加（0件検知4件・メッセージ2件・未指定時に0件でもエラーにしない回帰1件）。pnpm check（28ファイル315テスト、308→315）通過。sonnetのサブエージェントに委譲し、メイン側で pnpm check と差分を確認して受け入れた",
     "dependencies": []
   },
   {

@@ -12,7 +12,7 @@ spec:
       description: "設定ファイル(config/)のパス（省略時はデフォルト: config/）"
       default: ""
       type: string
-    TARGET_CHART_DIR:
+    TARGET_CHART:
       description: "特定のchartディレクトリ名のみ対象にする（省略時は全chart）。config/直下のディレクトリ名を指定"
       default: ""
       type: string
@@ -64,8 +64,8 @@ variables:
   CONFIG_PATH:
     value: "$[[ inputs.CONFIG_PATH ]]"
     description: "設定ファイルのパス（省略時はデフォルト: config/）省略可"
-  TARGET_CHART_DIR:
-    value: "$[[ inputs.TARGET_CHART_DIR ]]"
+  TARGET_CHART:
+    value: "$[[ inputs.TARGET_CHART ]]"
     description: "特定のchartディレクトリのみ対象にする場合に指定（省略時は全chart）"
   TARGET_CLIENT:
     value: "$[[ inputs.TARGET_CLIENT ]]"

@@ -8,7 +8,7 @@ vi.mock("../src/lib/env.js", () => ({
   CONFIG_PATH: undefined,
   CONCURRENCY_LIMIT: 3,
   DRY_RUN: false,
-  TARGET_CHART_DIR: undefined,
+  TARGET_CHART: undefined,
   TARGET_CLIENT: undefined,
   TAG_FORMAT: "{branch}-build-at-{date}-{time}",
 }))
@@ -80,7 +80,7 @@ describe("process", () => {
     expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
   })
 
-  it("loadConfig に CONFIG_PATH と TARGET_CHART_DIR/TARGET_CLIENT由来のtargetを渡す", async () => {
+  it("loadConfig に CONFIG_PATH と TARGET_CHART/TARGET_CLIENT由来のtargetを渡す", async () => {
     await processFn()
     expect(loadConfig).toHaveBeenCalledWith(undefined, {
       chartDir: undefined,

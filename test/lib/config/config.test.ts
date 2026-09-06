@@ -276,7 +276,13 @@ describe("loadConfig（target絞り込み）", () => {
   })
 
   it("存在しないchartDirを指定すると例外をスローする", () => {
-    expect(() => loadConfig(dir.path, { chartDir: "no-such-chart" })).toThrow("TARGET_CHART_DIR")
+    expect(() => loadConfig(dir.path, { chartDir: "no-such-chart" })).toThrow("TARGET_CHART")
+  })
+
+  it("存在しないchartDirを指定した例外メッセージに実在するディレクトリ名の一覧を含める", () => {
+    expect(() => loadConfig(dir.path, { chartDir: "no-such-chart" })).toThrow(
+      /config\/ 直下のディレクトリ名を指定してください.*teamA-chart.*teamB-chart/,
+    )
   })
 
   it("clientsを1件指定すると該当アプリのみ返す（chart横断）", () => {
@@ -343,5 +349,71 @@ describe("loadConfig（target絞り込み）", () => {
         ],
       }),
     ).toThrow("no-such-tenant/no-such-client")
+  })
+})
+
+describe("loadConfig（絞り込み結果が0件のときの検知、T-054）", () => {
+  it("target未指定でchart.yamlが無いディレクトリしか無いとき、0件のまま正常終了する（現状仕様）", () => {
+    dir.writeFile("not-a-chart/readme.txt", "hello")
+
+    expect(loadConfig(dir.path)).toEqual({ chartAndAppsList: [] })
+  })
+
+  it("chartDirを指定した先にchart.yamlが無いとき例外をスローする", () => {
+    // ディレクトリ自体は実在するので chartDirs.includes チェックは通過するが、
+    // chart.yaml が無いため絞り込み結果が0件になる
+    dir.writeFile("teamA-chart/readme.txt", "hello")
+
+    expect(() => loadConfig(dir.path, { chartDir: "teamA-chart" })).toThrow(
+      "TARGET_CHART / TARGET_CLIENT で絞り込んだ結果",
+    )
+  })
+
+  it("chartDirを指定した先にchart.yamlはあるがtenant/clientが1つも無いとき例外をスローする", () => {
+    dir.writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+
+    expect(() => loadConfig(dir.path, { chartDir: "teamA-chart" })).toThrow(
+      "TARGET_CHART / TARGET_CLIENT で絞り込んだ結果",
+    )
+  })
+
+  it("clientsを指定した先にconfig.yamlが無いディレクトリしか無いとき例外をスローする", () => {
+    dir.writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    // config.yaml を置かず、tenant/clientディレクトリだけ実在させる
+    mkdirSync(join(dir.path, "teamA-chart", "tenantId1", "clientId1"), { recursive: true })
+
+    expect(() =>
+      loadConfig(dir.path, { clients: [{ tenantId: "tenantId1", clientId: "clientId1" }] }),
+    ).toThrow("TARGET_CHART / TARGET_CLIENT で絞り込んだ結果")
+  })
+
+  it("0件エラーのメッセージに実在するディレクトリ名の一覧を含める", () => {
+    dir.writeFile("teamA-chart/readme.txt", "hello")
+    dir.writeChartYaml(
+      "teamB-chart",
+      "chart:\n  projectId: 2\n  projectName: teamB-chart\n  mrTargetBranch: main\n",
+    )
+    dir.writeConfigYaml("teamB-chart", "tenantId1", "clientId1", "apps: []\n")
+
+    expect(() => loadConfig(dir.path, { chartDir: "teamA-chart" })).toThrow(
+      /実在するディレクトリ.*teamA-chart.*teamB-chart/,
+    )
+  })
+
+  it("絞り込みで実際に1件以上ヒットしていれば例外をスローしない", () => {
+    dir.writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+    dir.writeConfigYaml("teamA-chart", "tenantId1", "clientId1", "apps: []\n")
+
+    const { chartAndAppsList } = loadConfig(dir.path, { chartDir: "teamA-chart" })
+    expect(chartAndAppsList).toHaveLength(1)
   })
 })
