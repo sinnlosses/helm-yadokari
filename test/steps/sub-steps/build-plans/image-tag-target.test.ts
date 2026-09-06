@@ -16,7 +16,7 @@ import {
 } from "../../../../src/lib/gitlab/gitlab.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../../src/lib/gitlab/tag.js"
 import { buildPlans } from "../../../../src/steps/build-plans.js"
-import { toAnchorName, toTagName, toValuesPath } from "../../../../src/types.js"
+import { toAnchorName, toTagName, toValuesPath } from "../../../../src/types/types.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../../../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient

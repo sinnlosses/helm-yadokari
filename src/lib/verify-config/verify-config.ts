@@ -1,4 +1,4 @@
-import type { AnchorTarget, AppConfig, ChartAndApps, ChartRepoConfig } from "../../types.js"
+import type { AnchorTarget, AppConfig, ChartAndApps, ChartRepoConfig } from "../../types/types.js"
 import { toErrorMessage } from "../../utils/http.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { reduceAsync } from "../../utils/sequential.js"

@@ -56,10 +56,10 @@
   {
     "id": "T-060",
     "task": "`src/types.ts`（ファイル）と `src/types/brand.ts`（ディレクトリ）が同名で並んでいる違和感を解消し、`src/types/` ディレクトリにまとめる。ファイル名は既存の規約（progress.md の注意「`src/lib/<名前>/<名前>.ts` の形で統一している。同名のファイルとディレクトリを並べない」）に合わせて `src/types/types.ts` + `src/types/brand.ts` とし、`src/types.ts` は削除する。`export * from \"./brand.js\"` の再エクスポートは維持し、利用側が types だけを import すれば済む形は変えない。import しているのは25ファイル以上あり、相対パスの階層が1つ深くなる点に注意する（例: src/lib/gitlab/tag.ts の `\"../../types.js\"` → `\"../../types/types.js\"`）。docs/architecture.md のディレクトリ構成、README のプロジェクト構成ツリーも更新する。完了条件: `pnpm check` を通すこと",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "git mv で src/types.ts → src/types/types.ts に移動し、src/types/ に集約（既存の src/lib/<名前>/<名前>.ts と同じ形）。export * from \"./brand.js\" の再エクスポートは維持したので、利用側は従来どおり types だけを import すればよい。src/test/scripts の35ファイルの相対パスを張り替え（sub-steps/build-plans/types.ts への \"./types.js\" ローカル参照は別ファイルなので据え置き）。README のプロジェクト構成ツリーも更新（architecture.md には src/types.ts への言及が無く更新箇所なし）。pnpm check（28ファイル315テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で stray import 0件・rename 認識・pnpm check を確認して受け入れた",
     "dependencies": ["T-059"]
   },
   {

@@ -17,7 +17,7 @@ import {
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../../src/lib/gitlab/tag.js"
 import { buildPlans } from "../../../../src/steps/build-plans.js"
 import { resolveLatestTag } from "../../../../src/steps/sub-steps/build-plans/resolve-latest-tag.js"
-import { toBranchName, toTagName } from "../../../../src/types.js"
+import { toBranchName, toTagName } from "../../../../src/types/types.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../../../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient

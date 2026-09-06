@@ -22,7 +22,7 @@ import {
   toProjectId,
   toTagName,
   toValuesPath,
-} from "../../../src/types.js"
+} from "../../../src/types/types.js"
 import { makeHttpError } from "../../helpers.js"
 
 function makeClient(

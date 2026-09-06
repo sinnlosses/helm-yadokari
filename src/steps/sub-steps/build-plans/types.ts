@@ -1,4 +1,10 @@
-import type { AppUpdatePlan, BranchName, ParsedTag, TagName, ValuesPath } from "../../../types.js"
+import type {
+  AppUpdatePlan,
+  BranchName,
+  ParsedTag,
+  TagName,
+  ValuesPath,
+} from "../../../types/types.js"
 import type { ValuesYamlDraft, ValuesYamlEntry } from "./values-yaml-draft.js"
 
 /** `build-plans.ts`のvalues.yaml下書き（chartAndApps単位で共有）を経由して内容を取得する関数 */

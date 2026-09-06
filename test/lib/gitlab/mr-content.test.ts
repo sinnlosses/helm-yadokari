@@ -5,7 +5,7 @@ import {
   buildMrTitle,
   buildUpdateBranch,
 } from "../../../src/lib/gitlab/mr-content.js"
-import type { AppUpdatePlan, PipelineInfo, TagName } from "../../../src/types.js"
+import type { AppUpdatePlan, PipelineInfo, TagName } from "../../../src/types/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -16,7 +16,7 @@ import {
   toTagName,
   toTenantId,
   toValuesPath,
-} from "../../../src/types.js"
+} from "../../../src/types/types.js"
 import { makeApp } from "../../helpers.js"
 
 describe("buildUpdateBranch", () => {

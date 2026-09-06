@@ -5,7 +5,7 @@ import {
   listTags,
 } from "../../../lib/gitlab/gitlab.js"
 import { buildNewTag, findLatestParsedTag, parseTag } from "../../../lib/gitlab/tag.js"
-import type { AppConfig, BranchName, TagFormat, TagInfo, TagName } from "../../../types.js"
+import type { AppConfig, BranchName, TagFormat, TagInfo, TagName } from "../../../types/types.js"
 import { logger } from "../../../utils/logger.js"
 import type { LatestTagResolution } from "./types.js"
 

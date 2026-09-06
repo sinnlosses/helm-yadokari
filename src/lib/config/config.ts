@@ -8,8 +8,8 @@ import type {
   ChartRepoConfig,
   Config,
   TargetClient,
-} from "../../types.js"
-import { toChartDirName, toClientId, toTenantId } from "../../types.js"
+} from "../../types/types.js"
+import { toChartDirName, toClientId, toTenantId } from "../../types/types.js"
 import { assertSafePath, listSubdirectories } from "../../utils/fs.js"
 import { parseYamlFile } from "../../utils/yaml.js"
 import { resolveHelmTargetBranch } from "./helm-target-branch.js"

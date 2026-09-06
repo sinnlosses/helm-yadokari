@@ -1,4 +1,4 @@
-import type { FileUpdate, ValuesPath } from "../../../types.js"
+import type { FileUpdate, ValuesPath } from "../../../types/types.js"
 
 /**
  * 1つのvaluesPathについての下書き状態。`content`は現在の内容（fetch直後は書き換え前、

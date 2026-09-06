@@ -2,7 +2,7 @@
  * ドメイン固有のブランド型と、その生成に使う factory 関数（T-047）。
  * CLAUDE.mdの規約「`as` キャストは factory 関数に封じ込め、それ以外で使わない」を機械的に
  * 検証できるよう、`src/` 内で `as` を使うのはこのファイルだけにしている。
- * `src/types.ts` から再エクスポートしているので、利用側は `types.js` を import すればよい。
+ * `src/types/types.ts` から再エクスポートしているので、利用側は `types.js` を import すればよい。
  */
 
 declare const projectIdBrand: unique symbol

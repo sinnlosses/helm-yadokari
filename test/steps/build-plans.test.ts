@@ -22,7 +22,7 @@ import {
   toProjectName,
   toTagName,
   toValuesPath,
-} from "../../src/types.js"
+} from "../../src/types/types.js"
 import { FatalError } from "../../src/utils/errors.js"
 import { logger } from "../../src/utils/logger.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../helpers.js"

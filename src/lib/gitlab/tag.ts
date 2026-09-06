@@ -1,5 +1,5 @@
-import type { BranchName, ParsedTag, TagFormat, TagName } from "../../types.js"
-import { toTagFormat, toTagName } from "../../types.js"
+import type { BranchName, ParsedTag, TagFormat, TagName } from "../../types/types.js"
+import { toTagFormat, toTagName } from "../../types/types.js"
 
 const REQUIRED_PLACEHOLDERS: readonly string[] = ["branch", "date", "time"]
 const PLACEHOLDER_PATTERN = /\{(branch|date|time)\}/g

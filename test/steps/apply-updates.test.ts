@@ -14,8 +14,8 @@ import {
   buildUpdateBranch,
 } from "../../src/lib/gitlab/mr-content.js"
 import { applyUpdates } from "../../src/steps/apply-updates.js"
-import type { ChartUpdateTarget } from "../../src/types.js"
-import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../src/types.js"
+import type { ChartUpdateTarget } from "../../src/types/types.js"
+import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../src/types/types.js"
 import { FatalError } from "../../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../helpers.js"
 

@@ -1,5 +1,5 @@
-import type { GitLabUrl, TagFormat, TargetClient } from "../types.js"
-import { toGitLabUrl } from "../types.js"
+import type { GitLabUrl, TagFormat, TargetClient } from "../types/types.js"
+import { toGitLabUrl } from "../types/types.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "./gitlab/tag.js"
 
 export function loadEnv(key: string): string {

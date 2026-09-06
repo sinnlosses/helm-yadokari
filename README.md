@@ -335,8 +335,8 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 ├── src/
 │   ├── index.ts             # エントリポイント
 │   ├── main.ts               # run()/process()。config読み込み→ステップ呼び出し→集計
-│   ├── types.ts              # 型定義（ドメインモデル。types/brand.ts を再エクスポート）
 │   ├── types/
+│   │   ├── types.ts          # 型定義（ドメインモデル。brand.ts を再エクスポート）
 │   │   └── brand.ts          # ブランド型と to* factory 関数（as キャストはここだけ）
 │   ├── steps/                 # process()が直接呼ぶ3ステップのみ（steps同士は互いに呼ばない）
 │   │   ├── filter-targets.ts  # 対象chartAndAppsの絞り込み（登録0件・既存MRを除外）

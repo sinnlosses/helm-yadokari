@@ -1,4 +1,4 @@
-import type { AppConfig, ChartAndApps } from "../src/types.js"
+import type { AppConfig, ChartAndApps } from "../src/types/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -8,7 +8,7 @@ import {
   toProjectName,
   toTenantId,
   toValuesPath,
-} from "../src/types.js"
+} from "../src/types/types.js"
 
 export const makeHttpError = (status: number): Error =>
   new Error("HTTP Error", { cause: { response: { status } } })

@@ -3,14 +3,14 @@ import { join } from "node:path"
 
 import { z } from "zod"
 
-import type { AnchorTarget } from "../../types.js"
+import type { AnchorTarget } from "../../types/types.js"
 import {
   toAnchorName,
   toBranchName,
   toProjectId,
   toProjectName,
   toValuesPath,
-} from "../../types.js"
+} from "../../types/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
 
 /**

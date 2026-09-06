@@ -8,7 +8,7 @@ vi.mock("../../src/utils/logger.js", () => ({
 import type { GitlabClient } from "../../src/lib/gitlab/gitlab.js"
 import { openMergeRequestExists } from "../../src/lib/gitlab/gitlab.js"
 import { filterTargets } from "../../src/steps/filter-targets.js"
-import { toChartDirName, toClientId, toTenantId } from "../../src/types.js"
+import { toChartDirName, toClientId, toTenantId } from "../../src/types/types.js"
 import { FatalError } from "../../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../helpers.js"
 

@@ -1,4 +1,4 @@
-export * from "./types/brand.js"
+export * from "./brand.js"
 import type {
   AnchorName,
   BranchName,
@@ -10,7 +10,7 @@ import type {
   TagName,
   TenantId,
   ValuesPath,
-} from "./types/brand.js"
+} from "./brand.js"
 
 /**
  * TARGET_CLIENT環境変数由来、1件分のtenantId/clientIdの組。config/のディレクトリ階層

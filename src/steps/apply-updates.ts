@@ -5,7 +5,7 @@ import {
   getProjectWebUrl,
 } from "../lib/gitlab/gitlab.js"
 import { buildMrDescription, buildMrTitle, buildUpdateBranch } from "../lib/gitlab/mr-content.js"
-import type { ChartUpdateResult, ChartUpdateTarget } from "../types.js"
+import type { ChartUpdateResult, ChartUpdateTarget } from "../types/types.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
 import { buildLogContext, describePlan, settleAsError } from "./shared/step-outcome.js"

@@ -1,5 +1,5 @@
 import { loadConfig } from "../../src/lib/config/config.js"
-import type { Config } from "../../src/types.js"
+import type { Config } from "../../src/types/types.js"
 
 // config/ の検証スクリプト。2つのモードを持つ:
 //   （既定）  ローカルのYAMLだけを見る。認証情報が不要なので全パイプラインで実行できる

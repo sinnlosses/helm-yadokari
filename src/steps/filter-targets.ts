@@ -1,6 +1,6 @@
 import { type GitlabClient, openMergeRequestExists } from "../lib/gitlab/gitlab.js"
 import { buildUpdateBranch } from "../lib/gitlab/mr-content.js"
-import type { ChartAndApps, ChartUpdateResult } from "../types.js"
+import type { ChartAndApps, ChartUpdateResult } from "../types/types.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"
 import { left, partitionMap, right } from "../utils/partition.js"

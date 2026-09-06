@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { getValueAtAnchor, setValueAtAnchor } from "../../src/lib/helm.js"
-import { toAnchorName } from "../../src/types.js"
+import { toAnchorName } from "../../src/types/types.js"
 
 const VARIABLES_YAML = `variables:
   - &helmVersion develop

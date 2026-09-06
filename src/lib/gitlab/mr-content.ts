@@ -8,8 +8,8 @@ import type {
   ProjectId,
   TagName,
   TenantId,
-} from "../../types.js"
-import { toBranchName } from "../../types.js"
+} from "../../types/types.js"
+import { toBranchName } from "../../types/types.js"
 import { getOrFetch } from "../../utils/cache.js"
 
 /**

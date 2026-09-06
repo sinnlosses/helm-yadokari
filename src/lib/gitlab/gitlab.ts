@@ -9,8 +9,8 @@ import type {
   TagInfo,
   TagName,
   ValuesPath,
-} from "../../types.js"
-import { toGitLabUrl, toTagName } from "../../types.js"
+} from "../../types/types.js"
+import { toGitLabUrl, toTagName } from "../../types/types.js"
 import { extractHttpStatus, isNotFoundError } from "../../utils/http.js"
 import { withRetry } from "../../utils/retry.js"
 

@@ -11,7 +11,7 @@ import {
   toProjectId,
   toProjectName,
   toValuesPath,
-} from "../../../src/types.js"
+} from "../../../src/types/types.js"
 import { makeApp, makeChartAndApps } from "../../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient

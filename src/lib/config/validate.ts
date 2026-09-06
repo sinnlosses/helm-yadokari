@@ -1,4 +1,4 @@
-import type { AnchorTarget, ProjectId, ProjectName } from "../../types.js"
+import type { AnchorTarget, ProjectId, ProjectName } from "../../types/types.js"
 
 /**
  * `config.yaml` / `anchors.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス

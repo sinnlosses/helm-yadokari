@@ -14,7 +14,7 @@ import type {
   FileUpdate,
   ProjectId,
   TagFormat,
-} from "../types.js"
+} from "../types/types.js"
 import { getOrFetch } from "../utils/cache.js"
 import { logger } from "../utils/logger.js"
 import { mapWithConcurrency } from "../utils/parallel.js"

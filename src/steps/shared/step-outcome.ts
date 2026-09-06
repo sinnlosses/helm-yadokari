@@ -1,4 +1,4 @@
-import type { AppUpdatePlan, ChartAndApps, ProjectName } from "../../types.js"
+import type { AppUpdatePlan, ChartAndApps, ProjectName } from "../../types/types.js"
 import { FatalError } from "../../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../../utils/http.js"
 import { logger } from "../../utils/logger.js"

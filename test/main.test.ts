@@ -30,7 +30,7 @@ import {
 } from "../src/lib/gitlab/gitlab.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
 import { process as processFn, run } from "../src/main.js"
-import { toGitLabUrl, toTagName } from "../src/types.js"
+import { toGitLabUrl, toTagName } from "../src/types/types.js"
 import { FatalError } from "../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "./helpers.js"
 

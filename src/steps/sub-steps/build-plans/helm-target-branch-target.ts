@@ -3,8 +3,8 @@ import type {
   AnchorTarget,
   HelmTargetBranchConfig,
   HelmTargetBranchUpdate,
-} from "../../../types.js"
-import { toBranchName } from "../../../types.js"
+} from "../../../types/types.js"
+import { toBranchName } from "../../../types/types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
 import type { ApplyTargetsAcc, BranchExists, LoadValuesYamlContent } from "./types.js"
 import type { ValuesYamlDraft } from "./values-yaml-draft.js"

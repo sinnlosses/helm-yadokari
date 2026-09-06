@@ -1,4 +1,4 @@
-import type { AnchorTarget, BranchName, HelmTargetBranchConfig } from "../../types.js"
+import type { AnchorTarget, BranchName, HelmTargetBranchConfig } from "../../types/types.js"
 
 /**
  * config.yamlの`helm.branchToSync`（書き込む値）とanchors.yamlの`helm.chart[]`

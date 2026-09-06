@@ -1,4 +1,4 @@
-import type { BranchName, ProjectId, ValuesPath } from "../../types.js"
+import type { BranchName, ProjectId, ValuesPath } from "../../types/types.js"
 import { getOrFetchShared } from "../../utils/cache.js"
 import { type GitlabClient, branchExists, getFileContent, projectExists } from "../gitlab/gitlab.js"
 
