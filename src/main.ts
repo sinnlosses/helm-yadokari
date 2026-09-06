@@ -19,7 +19,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
     targetClients: env.targetClients,
     tagFormat: env.tagFormat,
   })
-  const { value: resultCounts, duration_ms } = await timed(() => runPipeline(env))
+  const { value: resultCounts, duration_ms } = await timed(() => runProcess(env))
   logger.info({ event: "summary", ...resultCounts })
   logger.info({ event: "run_end", duration_ms })
   return resultCounts.ERROR === 0 ? "SUCCESS" : "PARTIAL_FAILURE"
@@ -36,7 +36,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
  * 2. buildPlans: 残ったchartAndAppsそれぞれの更新計画（差分）を構築する
  * 3. applyUpdates: 差分があるchartAndAppsに対してコミット・MR作成を行う
  */
-export async function runPipeline(env: EnvConfig): Promise<Record<ChartUpdateResult, number>> {
+export async function runProcess(env: EnvConfig): Promise<Record<ChartUpdateResult, number>> {
   const gitlab = createClient(env.gitlabUrl, env.accessToken)
   const { chartAndAppsList } = loadConfig(env.configPath, {
     chartDirName: env.targetChart,
