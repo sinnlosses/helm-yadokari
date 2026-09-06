@@ -464,3 +464,89 @@
 **dependencies**: T-050
 
 **evidence**: コード変更なし（判断のみ）。現状維持（アプリ単位は逐次）と決め、理由を docs/architecture.md の「コードからは読み取れない設計判断」に追記した。要点: 読み取りだけの先行並列化は技術的には可能（T-032の重複防止により、あるアンカーの読み取りは別アンカーへの書き込みに影響されない）が、1アプリあたりのAPI往復が実質2〜3回で削減幅が小さい一方、resolveLatestTag() のタグ作成という副作用が並列・前倒しで走ることになり、下書きの並列共有にはT-042と同じ getOrFetchShared() が要る。夜間の定期実行という前提では割に合わない。遅い場合はまず CONCURRENCY_LIMIT を上げる。再検討の条件（1clientに数十アプリが登録され実測でボトルネックになったとき）も明記した
+
+## T-054
+
+**タスク**: 環境変数 `TARGET_CHART_DIR` を `TARGET_CHART` にリネームし、あわせて誤った値を指定したときに検知できるようにする。値の意味は現状のまま（`config/` 直下のディレクトリ名。例: `teamA-chart`）とユーザーが決定済み（2026-09-06）。(1) リネーム対象: src/lib/env.ts のエクスポート、src/main.ts の参照、src/lib/config/config.ts のエラーメッセージ文言（config.ts:139-142）、.env.example、README.md「環境変数」表、.gitlab-ci.yml の pipeline inputs、docs/requirements.md、test/（main.test.ts・helpers.ts・steps/filter-targets.test.ts・lib/config/ 配下）。内部の型・フィールド名（`ChartDirName`・`ChartAndApps.chartDir`・`ConfigTarget.chartDir`）は「config/ 直下のディレクトリ名」という意味のままなので変更しない。(2) 検知の穴を塞ぐ: 現状 `loadConfig()` は `config/` 直下に存在しない名前を指定したときだけエラーにする（config.ts:139）。ディレクトリは存在するが `chart.yaml` が無い場合は config.ts:157-158 で黙って無視され、絞り込み結果が0件でも「0 chart groups」で正常終了してしまう。`TARGET_CHART` / `TARGET_CLIENT` を明示指定したときに限り、対象0件をエラーにする（未指定時は素通しで0件でもエラーにしない現状の仕様は変えない。config.ts:128-133 のJSDoc参照）。(3) エラーメッセージに「`config/` 直下のディレクトリ名を指定する」ことと実在するディレクトリ名の一覧を添え、何を指定すればよいかがメッセージだけで分かるようにする。完了条件: (2)(3) を検証するテストを追加し、`pnpm check` を通すこと
+
+**difficulty**: sonnet
+
+**evidence**: 環境変数を TARGET_CHART にリネーム（値の意味・内部フィールド名 chartDir は据え置き）。loadConfig() に isExplicitlyTargeted() を追加し、TARGET_CHART/TARGET_CLIENT を明示指定したときに限り絞り込み結果0件を例外にした（chart.yaml が無いディレクトリを指定して黙って0件で正常終了する穴を塞いだ）。エラーメッセージには formatChartDirs() で実在ディレクトリ名の一覧を添える。test/lib/config/config.test.ts に7テスト追加（0件検知4件・メッセージ2件・未指定時に0件でもエラーにしない回帰1件）。pnpm check（28ファイル315テスト、308→315）通過。sonnetのサブエージェントに委譲し、メイン側で pnpm check と差分を確認して受け入れた
+
+## T-055
+
+**タスク**: `TAG_FORMAT`（タグ命名規則）の制約を緩める要件を詰める。ユーザーの問題意識（2026-09-06）:「命名規則がやや厳しい印象。branch名さえ分かれば、タグの作成日時でソートすることでこのリポジトリの目的は達成できそう」。現状は `{branch}`/`{date}`/`{time}` をちょうど1回ずつ含むテンプレートが必須で（src/lib/gitlab/tag.ts の `validateTagFormat()`）、最新タグの判定はタグ名から抽出した日時（`ParsedTag.builtAt`）の比較で行っている（`findLatestParsedTag()`）。代替案は GitLab API が返すタグのコミット日時（`Tags.all()` の `tag.commit.created_at`。現状 `listTags()` は name と commit.id しか拾っていない、gitlab.ts:36-39）でソートする方式。詰める論点: (a)「どのブランチ由来のタグか」の判定を何で行うか（タグ名に branch を含める規則は残すのか、APIでブランチ到達可能性を見るのか）、(b) 同じコミットに複数タグがある場合・作成日時が同一の場合のタイブレーク、(c) 追跡ブランチ切り替えの検知（resolve-latest-tag.ts の `hasTagFromOtherBranch()` は「現在のブランチ名でパースできない」ことを根拠にしている）を新方式でどう表現するか、(d) このツール自身がタグを作るとき（`buildNewTag()`）の名前をどう決めるか（名前から日時が消える場合の一意性）、(e) `TAG_FORMAT` 環境変数を残すか・残すならデフォルト値と検証をどこまで緩めるか、(f) 既に values.yaml に反映済みの旧形式タグとの互換。必要ならタグ命名規則そのものを修正してよい（ユーザー明言）。決めた要件は docs/requirements.md（4.1節）と README「タグ命名規則」章に反映する。実装は T-056 で行う
+
+**difficulty**: opus
+
+**evidence**: コード変更なし（要件確定のみ）。ユーザー判断3点: (1) 最新タグ判定を「追跡ブランチ由来でHEADを指すタグを直接探す」方式に変更し、複数該当時はタグ名から読んだ日時の降順で選ぶ。(2) TAG*FORMAT の命名規則は緩めず現状維持（{branch}/{date}/{time} を各1回必須）。並び順・区切り文字が異なるフォーマットは既に実装が対応済みであることを実測で確認（{date}-{time}-{branch}・v{time}*{branch}\_\_{date} で生成・再パース・最新判定が動く）ため、要件とREADMEに明記するだけでよい。(3) 一意化要素が無い場合のタグ作成エラーは、date/time が常に必須である以上到達不能なので作らない。当初検討したコミット日時ソート案は却下（TagSchema.created_at は optional で、このツールが作る軽量タグには付かないことも実測で判明）。docs/requirements.md 4.1節と README「タグ命名規則」章に反映済み。実装は T-056
+
+## T-056
+
+**タスク**: T-055 で確定したタグ命名規則・最新タグ判定の仕様を実装する。影響範囲の見込み: src/lib/gitlab/tag.ts（`validateTagFormat`/`parseTag`/`compileTagPattern`/`findLatestParsedTag`/`buildNewTag`）、src/lib/gitlab/gitlab.ts の `listTags()`（作成日時を使うなら `TagInfo` に項目追加）、src/types.ts の `ParsedTag`/`TagInfo`、src/steps/sub-steps/build-plans/resolve-latest-tag.ts（`hasTagFromOtherBranch`・`resolveTrackedHeadTagNames`）、src/lib/env.ts の `parseTagFormat()`、src/lib/gitlab/mr-content.ts（MR本文の列）、.env.example・README・docs。テストは test/lib/gitlab/tag.test.ts・test/lib/env.test.ts・test/steps/sub-steps/build-plans/resolve-latest-tag.test.ts が主対象。完了条件: T-055 で決めた仕様どおりに動くことをテストで示し、`pnpm check` を通すこと。実機での確認が要る場合は docs/smoke-test.md の手順を使う
+
+**difficulty**: sonnet
+
+**dependencies**: T-055
+
+**evidence**: resolveLatestTag() を「HEADを指すタグを直接探す」方式に変更（全タグから最新を選ぶ existingTag / existingTagCommitSha の判定を削除し、trackedHeadTagNames が空でなければその中から findLatestParsedTag() で選ぶ）。決定2はコード変更不要のため回帰テストのみ追加。決定3は到達不能なので実装せず。テスト4件追加（HEADにタグがあれば別コミットの新しい名前のタグがあっても新規作成しない／HEADを指すタグが複数のとき日時降順で決定的に選ぶ／並び順違いフォーマット2種の生成・再パース・最新判定）。既存テストの修正は不要だった。README のmermaid図・Features・エラーハンドリング表、docs/glossary.md の「最新タグ」「タグ自動作成」も新方式に同期（Featuresとエラー表の取りこぼしはメイン側で修正）。pnpm check（28ファイル319テスト、315→319）通過
+
+## T-057
+
+**タスク**: README.md（390行）から冗長な記述を削る。判断基準は「READMEは使う人が最初に読む導線に絞り、詳細は正典ドキュメントへのリンクに寄せる」。主な候補: (a)「設定 > config/」章（145-246行）が chart.yaml / config.yaml / anchors.yaml のYAML例を長々と載せているが、T-028 で正典は docs/requirements.md 4.4節と決めており二重管理になっている、(b)「タグ命名規則」章（43-60行）も requirements.md と重複、(c)「プロジェクト構成」のツリー（331行以降）は docs/architecture.md のディレクトリ構成と二重管理でドリフトしやすい、(d)「仕組み」のmermaid図・「実行ログの例」・「CI/CD セットアップ手順」に重複や不要な冗長さが無いか確認する。削除ではなく要約＋リンクに置き換えるのが基本で、リンク先に無い情報は消さないこと。完了条件: 削った各ブロックについて「同じ内容が requirements.md / architecture.md / glossary.md のどこにあるか」を対応付けて示し、`pnpm check`（format:check を含む）を通すこと
+
+**difficulty**: sonnet
+
+**evidence**: README を 393→268行（-125行、約32%）に削減。削ったのは正典と二重管理だった4ブロック（config/ の3つのYAML例と設定エラー5ケース→requirements.md 4.4節、タグ命名規則の実装名・非互換の詳細→同4.1節、プロジェクト構成ツリーのsrc/配下の責務コメント約35行→architecture.md の責務テーブル、config-test/ の説明→同ディレクトリ構成の勘所）。いずれも削除ではなく要約1〜2文＋正典へのリンクに置換し、正典側に無い情報（mermaid図・実行ログ例・CI/CDセットアップ手順・環境変数表）は残した。参照先の節（4.1・4.4）が実在することとアンカーリンクの生存を確認。pnpm check（28ファイル315テスト）通過。sonnetのサブエージェントに委譲し、メイン側で正典側に実際に情報があるかを裏取りして受け入れた
+
+## T-058
+
+**タスク**: `tasks.json`（79KB / 53タスク全件done）と `progress.md` が肥大化してきたので、history へ移す運用を回せるようにし、今回分を実際にアーカイブする。docs/workflow.md「肥大化したときのアーカイブ」節には移し先（docs/history/tasks-archive.md・docs/history/progress-archive.md）と「当時の記述のまま移す」ルールだけがあり、**いつ移すか**のトリガーが無いため運用されずに溜まる。(1) 具体的なトリガーを決めて docs/workflow.md と CLAUDE.md「進捗管理とHandoff」に明記する（例: セッション開始時に `done` のタスクが N 件以上、または tasks.json が N KB を超えていたら、作業を始める前にアーカイブする）。(2) その基準に従って完了済みタスク（T-001〜T-053）を docs/history/tasks-archive.md へ移し、tasks.json は未完了タスク＋直近の完了分だけにする。既存アーカイブと同じ形式（タスクIDごとの節）で、当時の記述のまま移すこと。**アーカイブ後も `dependencies` がアーカイブ済みタスクのIDを指す**ため、その扱い（IDを残す／完了済みとみなして削る）も決めて workflow.md に書く。(3) progress.md も同様に、直近セッションより古い記述を progress-archive.md へ移す。完了条件: アーカイブ後の tasks.json が JSON として妥当で `pnpm check` が通り、移動の前後で情報が失われていないこと（移動元の件数と移動先の節数を突き合わせる）
+
+**difficulty**: sonnet
+
+**evidence**: docs/workflow.md にトリガー（セッション開始時に done が10件以上／30KB超なら検討）・移す対象（done は全件）・dependencies の扱い（tasks.json に無いIDは完了とみなす）を明記し、CLAUDE.md の手順1にも判定ステップを追記。done 53件（T-001〜T-053）を docs/history/tasks-archive.md へ移し（21節→53節、昇順。既存節は書き換えず tasks.json 側の evidence を **evidence** 行として統合）、tasks.json は 93,137→14,211バイト・62→9件になった。progress.md の旧セッション記録は progress-archive.md へ。移動前の tasks.json と突き合わせて53件すべての task 本文・evidence がアーカイブに存在することを確認（欠落0件）。pnpm check（28ファイル308テスト、作業前と同数）通過。sonnetのサブエージェントに委譲し、メイン側で方針決定・受け入れ判定・evidence 記述を行った
+
+## T-059
+
+**タスク**: `src/types.ts` の同義の型エイリアスを1つに寄せる。`ImageTagTarget` と `HelmTargetBranchTarget` はどちらも `AnchorTarget`（`valuesPath` + `anchor`）のエイリアスで、TypeScriptは構造的型付けなので別名にしても取り違えは防げない。T-024 では「どちらの用途か読み手に伝えるため」意図的に別名を残す判断をしたが、ユーザー判断（2026-09-06）で `AnchorTarget` 1つに統一する。対象は src/ の9ファイル計49箇所（src/types.ts、steps/build-plans.ts、steps/sub-steps/build-plans/{image-tag-target,values-yaml-draft,helm-target-branch-target}.ts、lib/verify-config/verify-config.ts、lib/config/{schema,helm-target-branch,validate}.ts）と test/。用途の区別は型名ではなく変数名・フィールド名・JSDocで表す。あわせて types.ts 全体を見直し、他にも実体が同じ別名が無いか確認して同様に寄せる。T-024 の判断を記録している docs/architecture.md「コードからは読み取れない設計判断」の該当項目も、現在の判断に書き換える。完了条件: `pnpm check` を通すこと
+
+**difficulty**: sonnet
+
+**evidence**: ImageTagTarget / HelmTargetBranchTarget を削除し AnchorTarget 1つに統一（型としての参照は0件。applyImageTagTarget() などの関数名は用途を表す既存の名前なので変更しない）。削除したエイリアスのJSDocは AppConfig.chart・HelmTargetBranchConfig.targets・ImageTagUpdate.target・HelmTargetBranchUpdate.target のフィールドJSDocへ移し、情報を落としていない。docs/architecture.md の設計判断も「別名を残す」から「1つに統一し用途は変数名・JSDocで表す」に書き換えた。types.ts 内に他の同義エイリアスは無し。schema.ts は元から AnchorTargetSchema 1つでスキーマ名の変更は不要だった。pnpm check（28ファイル315テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で差分と pnpm check を確認して受け入れた
+
+## T-060
+
+**タスク**: `src/types.ts`（ファイル）と `src/types/brand.ts`（ディレクトリ）が同名で並んでいる違和感を解消し、`src/types/` ディレクトリにまとめる。ファイル名は既存の規約（progress.md の注意「`src/lib/<名前>/<名前>.ts` の形で統一している。同名のファイルとディレクトリを並べない」）に合わせて `src/types/types.ts` + `src/types/brand.ts` とし、`src/types.ts` は削除する。`export * from "./brand.js"` の再エクスポートは維持し、利用側が types だけを import すれば済む形は変えない。import しているのは25ファイル以上あり、相対パスの階層が1つ深くなる点に注意する（例: src/lib/gitlab/tag.ts の `"../../types.js"` → `"../../types/types.js"`）。docs/architecture.md のディレクトリ構成、README のプロジェクト構成ツリーも更新する。完了条件: `pnpm check` を通すこと
+
+**difficulty**: sonnet
+
+**dependencies**: T-059
+
+**evidence**: git mv で src/types.ts → src/types/types.ts に移動し、src/types/ に集約（既存の src/lib/<名前>/<名前>.ts と同じ形）。export \* from "./brand.js" の再エクスポートは維持したので、利用側は従来どおり types だけを import すればよい。src/test/scripts の35ファイルの相対パスを張り替え（sub-steps/build-plans/types.ts への "./types.js" ローカル参照は別ファイルなので据え置き）。README のプロジェクト構成ツリーも更新（architecture.md には src/types.ts への言及が無く更新箇所なし）。pnpm check（28ファイル315テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で stray import 0件・rename 認識・pnpm check を確認して受け入れた
+
+## T-061
+
+**タスク**: `src/steps/` の各ステップを「ステップ名のディレクトリ + 同名の .ts」に置き換える（ユーザー指定の構成、2026-09-06）。before: steps/{filter-targets,build-plans,apply-updates}.ts + steps/sub-steps/build-plans/{helm-target-branch-target,image-tag-target,resolve-latest-tag,types,values-yaml-draft}.ts + steps/shared/step-outcome.ts。after: steps/filter-targets/filter-targets.ts、steps/build-plans/build-plans.ts + steps/build-plans/sub-steps/（上記5ファイル）、steps/apply-updates/apply-updates.ts、steps/shared/step-outcome.ts（複数ステップの共有なのでそのまま）。sub-steps をステップ配下に入れることで「そのステップからしか呼ばれない」ことを構造で表せる。test/ も同じ構成に合わせて移す（test/steps/build-plans.test.ts → test/steps/build-plans/build-plans.test.ts、test/steps/sub-steps/build-plans/_.test.ts → test/steps/build-plans/sub-steps/_.test.ts など）。CLAUDE.md「新しいコードを置く場所」の `steps/sub-steps/<step名>/` という記述、docs/architecture.md のディレクトリ構成、README のプロジェクト構成ツリーも新構成に更新する。完了条件: `pnpm check` を通し、移動でテスト件数が減っていないこと（移動前の件数と突き合わせる）
+
+**difficulty**: sonnet
+
+**evidence**: git mv でステップ名ディレクトリ構成に変更（steps/{filter-targets,build-plans,apply-updates}/<同名>.ts、sub-steps は steps/build-plans/sub-steps/ へ移動、steps/shared/ は複数ステップ共有なので据え置き）。test/ も同じ構成に追従。CLAUDE.md「新しいコードを置く場所」・docs/architecture.md・README のツリーを新構成に更新。pnpm check（28ファイル315テスト、移動前と同数＝テストファイルの取りこぼしなし）通過。git は14件すべて rename として認識、空ディレクトリの残骸なし。sonnetのサブエージェントに委譲し、メイン側でツリー・テスト件数・rename認識を確認して受け入れた
+
+## T-062
+
+**タスク**: コードとドキュメントからタスク番号（`T-001` のような参照）を削除する。ユーザー判断（2026-09-06）で範囲は「進捗管理の仕組みそのもの以外すべて」。対象: src/ の16ファイル（lib/gitlab/mr-content.ts 10件、types.ts 7件、steps/sub-steps/build-plans/{image-tag-target,types,resolve-latest-tag,values-yaml-draft}.ts、steps/build-plans.ts、steps/shared/step-outcome.ts、lib/config/{config,schema,validate,helm-target-branch}.ts、lib/verify-config/{verify-config,remote-cache}.ts、lib/gitlab/gitlab.ts、types/brand.ts）、test/ の5ファイル、scripts/smoke/smoke-fixture.ts、README.md、config/README.md、CLAUDE.md、docs/{architecture.md 21件, glossary.md 14件, requirements.md 13件, workflow.md 8件, requirements-grilling.md 9件, smoke-test.md 5件}。**対象外**（タスク番号が識別子として機能しているファイル）: tasks.json、progress.md、docs/history/tasks-archive.md、docs/history/progress-archive.md。単に番号を消すのではなく、番号が根拠へのポインタになっている文（例:「〜は T-024 で意図的に残した」「T-049でクロージャからデータに置き換えた」）は、番号なしで意味が通るように書き直す（理由そのものを残す／履歴の記述自体が不要なら文ごと削る）。docs/workflow.md の difficulty 表にある実タスク例も、番号を出さない説明に置き換える。あわせて CLAUDE.md の「コーディング規約」に「コード・ドキュメントにタスク番号を書かない（経緯は tasks.json / docs/history/ 側に持つ）」を追記する。完了条件: 対象ファイルに `T-[0-9]{3}` が1件も残らないことを grep で確認し、`pnpm check` を通すこと
+
+**difficulty**: sonnet
+
+**dependencies**: T-054, T-056, T-057, T-059, T-060, T-061
+
+**evidence**: コード・ドキュメント33ファイルからタスク番号を削除。番号が根拠のポインタになっている文は番号なしで意味が通るよう書き直した（例: architecture.md の「T-003で意図的にこのままとする判断」→「意図的にこのままとする判断。理由は前掲の…参照」、workflow.md の difficulty 表の実タスク例→作業の性質が伝わる説明）。CLAUDE.md のコーディング規約に「コード・ドキュメントにタスク番号を書かない」を追記し、grep で機械的に確認できる旨も明記。残存は tasks.json / progress.md / docs/history/ の4ファイルのみ（＝タスク番号が識別子として機能する対象外ファイル）。pnpm check（28ファイル319テスト）通過。sonnetのサブエージェントに委譲したがセッション上限で途中終了したため、メイン側で残り1件の書き換えと、落ちる前に崩れていた3ファイルの整形（oxfmt）を仕上げて受け入れた
+
+## T-063
+
+**タスク**: 追跡ブランチを切り替えたときに、切り替え先のHEADを指す既存タグがあってもそれを再利用せず必ず新しいタグを作っていた挙動をやめる。ユーザー指摘（2026-09-06）:「切り替えた先の最新タグが追跡ブランチのHEADを指していたら新しくタグを作る必要はなくて、最新タグをvalues.yamlに設定すればいい」。従来の根拠は「追跡先が変わったことをvalues.yaml上で明示するため」だったが、タグ名には TAG_FORMAT の必須プレースホルダ {branch} が必ず含まれるため、切り替え先のHEADにある既存タグを書けば名前から追跡先の変化は読み取れる。HEADを指すタグの直接探索に変えた前タスクと同じ無駄が、切り替え経路にだけ残っていた形。
+
+**difficulty**: opus
+
+**evidence**: resolveLatestTag() から branchChanged ガードを外し、hasTagFromOtherBranch()・previousTags 引数・ログの reason "tracked_branch_changed" を削除（この判定専用のコードだったため連鎖的に不要になった）。要件「切り替え前後が同じコミットでも更新する」は、切り替え前のタグ名が現在の追跡ブランチでパースできず trackedHeadTagNames に入らないことで自動的に成立する（image-tag-target.ts 側のスキップ判定）。テスト2件を新仕様に書き換え（切り替え時に既存タグを再利用しvalues.yamlは更新される／dryRunは切り替え先HEADにタグが無いケースで検証）、resolveLatestTag を直接呼ぶ3件の引数を修正。requirements.md 4.1・README（図とFeatures）・glossary.md も同期。pnpm check（28ファイル319テスト、件数変化なし）通過
