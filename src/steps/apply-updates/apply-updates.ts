@@ -2,7 +2,6 @@ import {
   type GitlabClient,
   commitFileUpdates,
   createMergeRequest,
-  getProjectWebUrls,
 } from "../../lib/gitlab/gitlab.js"
 import type { ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
@@ -38,9 +37,7 @@ async function applyUpdate(
 
   return runSettled(chartAndApps, async (logContext) => {
     // MRタイトルをコミットメッセージにもそのまま使い回す
-    const { title, description } = await buildMrContent(tenantId, clientId, plans, (projectIds) =>
-      getProjectWebUrls(gitlab, projectIds),
-    )
+    const { title, description } = await buildMrContent(gitlab, tenantId, clientId, plans)
 
     await commitFileUpdates(
       gitlab,

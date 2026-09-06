@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
+vi.mock("../../../../src/lib/gitlab/gitlab.js")
+
+import type { GitlabClient } from "../../../../src/lib/gitlab/gitlab.js"
+import { getProjectWebUrls } from "../../../../src/lib/gitlab/gitlab.js"
 import { buildMrContent } from "../../../../src/steps/apply-updates/sub-steps/build-mr-content.js"
 import type {
   AppUpdatePlan,
@@ -58,32 +62,42 @@ function makePlan(
   }
 }
 
+const mockGitlab = {} as unknown as GitlabClient
+
+afterEach(() => {
+  vi.clearAllMocks()
+})
+
 /**
  * `buildMrContent()`はタイトルと本文をまとめて返すため、各テストが見たい側だけを取り出す。
- * タイトルのテストは本文のリンクを見ないので、要求された`projectId`をすべて同じweb URLに
- * 解決するスタブで済ませる（未解決の`projectId`があると本文の組み立てが失敗するため）。
+ * タイトルのテストは本文のリンクを見ないが、未解決の`projectId`があると本文の組み立てが
+ * 失敗するため、要求された`projectId`をすべて同じweb URLに解決させる。
  */
 async function buildTitle(plans: readonly AppUpdatePlan[]): Promise<string> {
+  vi.mocked(getProjectWebUrls).mockImplementation(
+    async (_gitlab, projectIds) =>
+      new Map(projectIds.map((projectId) => [projectId, toGitLabUrl("https://example.com/g/a")])),
+  )
   const content = await buildMrContent(
+    mockGitlab,
     toTenantId("tenantId1"),
     toClientId("clientId1"),
     plans,
-    async (projectIds) =>
-      new Map(projectIds.map((projectId) => [projectId, toGitLabUrl("https://example.com/g/a")])),
   )
   return content.title
 }
 
-/** 本文のテストは解決結果そのものを見たいので、渡されたMapをそのまま返す */
+/** 本文のテストは解決結果そのものを見たいので、渡したMapがそのまま返るようにする */
 async function buildDescription(
   webUrls: ReadonlyMap<ProjectId, GitLabUrl>,
   plans: readonly AppUpdatePlan[],
 ): Promise<string> {
+  vi.mocked(getProjectWebUrls).mockResolvedValue(webUrls)
   const content = await buildMrContent(
+    mockGitlab,
     toTenantId("tenantId1"),
     toClientId("clientId1"),
     plans,
-    async () => webUrls,
   )
   return content.description
 }

@@ -208,9 +208,13 @@
 - **1アプリ分の処理を独立したサブステップファイルにしていない**: 以前
   `build-plans/sub-steps/app-update-plan.ts` に切り出していたが、それ自体が他のサブステップを
   呼ぶ「サブステップがサブステップを呼ぶ」構造になるため、`build-plans.ts`の非公開関数に戻した
-- **サブステップはGitLabクライアントを受け取らない**: `LoadValuesYamlContent`・`BranchExists`
-  という関数型で受け取り、GitLabクライアント・projectId・キャッシュは`build-plans.ts`側に
-  閉じ込める。`apply-updates/sub-steps/build-mr-content.ts`の`ResolveWebUrls`も同じ形
+- **サブステップに関数型を注入するのは、親stepが持つキャッシュを隠すときだけ**:
+  `values-yaml-draft.ts`・`helm-target-branch-target.ts`・`image-tag-target.ts`は
+  `LoadValuesYamlContent`・`BranchExists`という関数型で受け取り、GitLabクライアント・
+  chartのprojectId・**chartAndApps単位のキャッシュ**を`build-plans.ts`側に閉じ込める。
+  一方`resolve-latest-tag.ts`・`build-mr-content.ts`は`GitlabClient`をそのまま受け取る。
+  隠すべきキャッシュもprojectIdの引き回しも無いためで、関数型にしても間接層が増えるだけになる
+  （`getProjectWebUrls()`は自前で`projectId`の重複を排除する）
 - **values.yamlの書き込み位置は `AnchorTarget` 1つに統一し、用途別の別名は置かない**:
   以前はイメージタグ用・Helm向き先ブランチ用に`ImageTagTarget`/`HelmTargetBranchTarget`という
   別名を用意していたが、TypeScriptは構造的型付けなので同じ形の型を別々に定義しても

@@ -1,3 +1,4 @@
+import { type GitlabClient, getProjectWebUrls } from "../../../lib/gitlab/gitlab.js"
 import { buildCompareUrl, buildTagUrl } from "../../../lib/gitlab/web-url.js"
 import type {
   AppUpdatePlan,
@@ -9,15 +10,6 @@ import type {
   TenantId,
 } from "../../../types/types.js"
 
-/**
- * プロジェクトのweb URLをまとめて解決する関数。`apply-updates.ts`側でGitLabクライアントを
- * 閉じ込めて組み立てるため、サブステップ側はGitLabを知らずに解決だけを依頼できる
- * （`build-plans/sub-steps/types.ts`の`LoadValuesYamlContent`と同じ考え方）。
- */
-export type ResolveWebUrls = (
-  projectIds: readonly ProjectId[],
-) => Promise<ReadonlyMap<ProjectId, GitLabUrl>>
-
 /** MRのタイトルと本文（Markdown）。タイトルは`apply-updates.ts`がコミットメッセージにも流用する */
 export type MrContent = {
   readonly title: string
@@ -26,15 +18,15 @@ export type MrContent = {
 
 /**
  * 1つの`(chartリポジトリ, tenantId, clientId)`分のMRのタイトルと本文を組み立てる
- * （このサブステップの入口）。本文のリンクに要るweb URLだけを`resolveWebUrls`で解決する。
+ * （このサブステップの入口）。本文のリンクに要るプロジェクトのweb URLだけを解決する。
  */
 export async function buildMrContent(
+  gitlab: GitlabClient,
   tenantId: TenantId,
   clientId: ClientId,
   plans: readonly AppUpdatePlan[],
-  resolveWebUrls: ResolveWebUrls,
 ): Promise<MrContent> {
-  const webUrls = await resolveWebUrls(webUrlProjectIds(plans))
+  const webUrls = await getProjectWebUrls(gitlab, webUrlProjectIds(plans))
   return {
     title: buildMrTitle(tenantId, clientId, plans),
     description: buildMrDescription(webUrls, plans),
