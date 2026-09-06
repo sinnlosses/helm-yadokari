@@ -1,5 +1,5 @@
 import { getValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
-import type { ImageTagTarget, ImageTagUpdate, TagName } from "../../../types.js"
+import type { AnchorTarget, ImageTagUpdate, TagName } from "../../../types.js"
 import { toTagName } from "../../../types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
 import type { ApplyTargetsAcc, LatestTagResolution, LoadValuesYamlContent } from "./types.js"
@@ -31,10 +31,10 @@ export type CurrentImageTags = {
 export async function readCurrentImageTags(
   loadValuesYamlContent: LoadValuesYamlContent,
   draft: ValuesYamlDraft,
-  targets: readonly ImageTagTarget[],
+  targets: readonly AnchorTarget[],
 ): Promise<CurrentImageTags> {
   const draftCopy = new Map(draft)
-  const previousTags = await reduceAsync<ImageTagTarget, readonly (TagName | undefined)[]>(
+  const previousTags = await reduceAsync<AnchorTarget, readonly (TagName | undefined)[]>(
     targets,
     [],
     async (tags, target) => {
@@ -61,7 +61,7 @@ async function applyImageTagTarget(
   loadValuesYamlContent: LoadValuesYamlContent,
   latestTag: LatestTagResolution,
   acc: ApplyImageTagAcc,
-  target: ImageTagTarget,
+  target: AnchorTarget,
   previousTag: TagName | undefined,
 ): Promise<ApplyImageTagAcc> {
   const latestTagName = latestTag.tag.name
@@ -94,7 +94,7 @@ export async function applyImageTagTargets(
   loadValuesYamlContent: LoadValuesYamlContent,
   latestTag: LatestTagResolution,
   draft: ValuesYamlDraft,
-  targets: readonly ImageTagTarget[],
+  targets: readonly AnchorTarget[],
   previousTags: readonly (TagName | undefined)[],
 ): Promise<ApplyImageTagAcc> {
   const targetsWithPreviousTag = targets.map((target, index) => ({

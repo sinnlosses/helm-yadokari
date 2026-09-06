@@ -10,7 +10,16 @@ T-054以降の未完了タスクだけが残る）。当時のセッションの
 [`docs/history/progress-archive.md`](./docs/history/progress-archive.md) にある
 （`tasks.json` の `evidence` はコミットハッシュ・テスト件数・アーカイブへの参照に絞る運用）。
 
-## 完了したこと（このセッション: T-058, T-054）
+## 完了したこと（このセッション: T-058, T-054, T-059）
+
+### T-059: values.yamlの書き込み位置の型を `AnchorTarget` 1つに統一
+
+- `ImageTagTarget` / `HelmTargetBranchTarget`（どちらも `AnchorTarget` の単なるエイリアス）を
+  削除。以前は「用途を読み手に伝えるため」意図的に残していたが、ユーザー判断で統一した
+- 削除したエイリアスのJSDocは `AppConfig.chart`・`HelmTargetBranchConfig.targets`・
+  `ImageTagUpdate.target`・`HelmTargetBranchUpdate.target` のフィールドJSDocへ移送（情報は不変）
+- `applyImageTagTarget()` などの**関数名は変更しない**（型名ではなく「何を適用するか」を
+  表す名前なので、用途の区別を担う側として残す）
 
 ### T-054: `TARGET_CHART_DIR` → `TARGET_CHART` 改名＋誤設定の検知強化
 
@@ -58,15 +67,14 @@ T-054以降の未完了タスクだけが残る）。当時のセッションの
 
 ## 次にやること
 
-T-058・T-054 は完了。残り7件（すべて `todo`）。`/loop` で依存の解けたものから1件ずつ実行中:
+T-058・T-054・T-059 は完了。残り6件（すべて `todo`）。`/loop` で依存の解けたものから1件ずつ実行中:
 
 | id    | 内容                                                              | difficulty | 依存                      |
 | ----- | ----------------------------------------------------------------- | ---------- | ------------------------- |
 | T-055 | `TAG_FORMAT` の命名規則を緩める要件を詰める（タグ作成日時ソート） | opus       | -                         |
 | T-056 | T-055 で決めた仕様の実装                                          | sonnet     | T-055                     |
 | T-057 | README の冗長な記述を削る                                         | sonnet     | -                         |
-| T-059 | `src/types.ts` の同義エイリアスを `AnchorTarget` に統一           | sonnet     | -                         |
-| T-060 | `src/types.ts` と `types/brand.ts` を `src/types/` に集約         | sonnet     | T-059                     |
+| T-060 | `src/types.ts` と `types/brand.ts` を `src/types/` に集約         | sonnet     | -（T-059完了で解消）      |
 | T-061 | `src/steps/` をステップ名ディレクトリ構成に変更                   | sonnet     | -                         |
 | T-062 | コード・ドキュメントから `T-XXX` 参照を削除                       | sonnet     | T-054/056/057/059/060/061 |
 
@@ -78,8 +86,8 @@ T-058・T-054 は完了。残り7件（すべて `todo`）。`/loop` で依存�
   触る6タスクの後に回してある
 - T-043（追跡ブランチ切り替え）は実機未検証。スモークテストで `branchToSync` を切り替える
   シナリオを追加すると確認できる
-- **このセッションの変更はコミットもpushもしていない**（作業ツリーにあるだけ。`main` は
-  `origin/main`（677e7d8）と同期済みで、前セッションのコミットは push 済み）
+- **このセッションのコミットは `chore/archive-completed-tasks` ブランチにあり、push していない**
+  （`main` は `origin/main`（677e7d8）と同期済み。タスク1件＝1コミットで積んでいる）
 - 実機検証で残置したMR（!24、!25）とブランチ2本の後片付け（不要になったら
   `SMOKE_CHART_PROJECT_ID=86061211 npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply`）
 - 検証が完全に終わったら、テスト用のGitLabアクセストークンを失効させる（ユーザー対応）

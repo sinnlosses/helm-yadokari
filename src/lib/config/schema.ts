@@ -3,7 +3,7 @@ import { join } from "node:path"
 
 import { z } from "zod"
 
-import type { AnchorTarget, HelmTargetBranchTarget } from "../../types.js"
+import type { AnchorTarget } from "../../types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -29,7 +29,7 @@ export const ChartYamlSchema = z.object({
 /**
  * `apps[].chart[]`（イメージタグの書き込み先）と`helm.chart[]`（Helm向き先ブランチの
  * 書き込み先）はどちらも`valuesPath`+`anchor`という同じ形なので、スキーマも共有する
- * （型側も`AnchorTarget`とそのエイリアス、T-024）
+ * （型側も`AnchorTarget`を共有している）
  */
 const AnchorTargetSchema = z
   .object({
@@ -78,7 +78,7 @@ export type AnchorsApp = z.infer<typeof AnchorsAppSchema>
 
 export type Anchors = {
   readonly apps: readonly AnchorsApp[]
-  readonly helmChart: readonly HelmTargetBranchTarget[] | undefined
+  readonly helmChart: readonly AnchorTarget[] | undefined
 }
 
 /**

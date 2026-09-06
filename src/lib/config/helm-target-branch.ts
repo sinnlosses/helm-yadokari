@@ -1,9 +1,4 @@
-import type {
-  BranchName,
-  HelmTargetBranchConfig,
-  HelmTargetBranchTarget,
-  ImageTagTarget,
-} from "../../types.js"
+import type { AnchorTarget, BranchName, HelmTargetBranchConfig } from "../../types.js"
 
 /**
  * config.yamlの`helm.branchToSync`（書き込む値）とanchors.yamlの`helm.chart[]`
@@ -20,9 +15,9 @@ export function resolveHelmTargetBranch(
   configYamlPath: string,
   anchorsPath: string,
   branchToSync: BranchName | undefined,
-  helmChart: readonly HelmTargetBranchTarget[] | undefined,
+  helmChart: readonly AnchorTarget[] | undefined,
   projectName: string,
-  chart: readonly ImageTagTarget[],
+  chart: readonly AnchorTarget[],
 ): HelmTargetBranchConfig | undefined {
   if (branchToSync === undefined && helmChart === undefined) return undefined
   if (branchToSync === undefined) {

@@ -25,30 +25,16 @@ export type TargetClient = {
 
 /**
  * values.yaml内の書き込み位置1箇所分（対象ファイル＋その中でのYAMLアンカー名）。
- * 「何を書くか」（イメージタグ／Helmの向き先ブランチ）は位置そのものには含まれないため、
- * 用途ごとの別名（`ImageTagTarget`/`HelmTargetBranchTarget`）はこの型のエイリアスにしている
- * （TypeScriptは構造的型付けなので、同じ形の型を2つ定義しても取り違えは防げない。
- * 別名は「どちらの用途か」を読み手に伝えるためのもの、T-024）
+ * 「何を書くか」（イメージタグ／Helmの向き先ブランチ）は位置そのものには含まれない。
+ * TypeScriptは構造的型付けなので、用途ごとに別名の型を定義しても取り違えは防げないため、
+ * 型は1つに統一し、用途の区別は利用側の変数名・フィールド名・JSDocで表す
+ * （`AppConfig.chart`・`HelmTargetBranchConfig.targets`・`ImageTagUpdate.target`・
+ * `HelmTargetBranchUpdate.target`のJSDoc参照）
  */
 export type AnchorTarget = {
   readonly valuesPath: ValuesPath
   readonly anchor: AnchorName
 }
-
-/**
- * values.yaml内でイメージタグを書き換える1箇所分。1つのソースリポジトリ（1つのタグ）に
- * 対して、WebAPI/バッチ/デーモンなど複数のデプロイ単位を管理しているケースでは、同じ
- * 最新タグを複数箇所に反映する必要があるため、`AppConfig.chart`はこの型の配列として持つ
- * （T-014）。値は`anchors.yaml`の`apps[].chart[]`から取得する（T-017）
- */
-export type ImageTagTarget = AnchorTarget
-
-/**
- * Helmの向き先ブランチ（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
- * ブランチ）の書き込み先1箇所分。`anchors.yaml`トップレベルの`helm.chart[]`の1要素に
- * 対応する（T-016、T-017）
- */
-export type HelmTargetBranchTarget = AnchorTarget
 
 /**
  * config.yaml/anchors.yaml内で「Helmの向き先ブランチ」を扱うための設定。`branch`は
@@ -60,7 +46,11 @@ export type HelmTargetBranchTarget = AnchorTarget
  */
 export type HelmTargetBranchConfig = {
   readonly branch: BranchName
-  readonly targets: readonly HelmTargetBranchTarget[]
+  /**
+   * Helmの向き先ブランチ（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
+   * ブランチ）の書き込み先一覧。`anchors.yaml`トップレベルの`helm.chart[]`に対応する
+   */
+  readonly targets: readonly AnchorTarget[]
 }
 
 /**
@@ -72,8 +62,13 @@ export type AppConfig = {
   readonly projectId: ProjectId
   readonly projectName: ProjectName
   readonly branchToSync: BranchName
-  /** 同じ最新タグを反映する書き換え箇所の一覧（1件以上）。複数指定すると同一タグを複数箇所へ反映する */
-  readonly chart: readonly ImageTagTarget[]
+  /**
+   * values.yaml内でイメージタグを書き換える箇所の一覧（1件以上）。1つのソースリポジトリ
+   * （1つのタグ）に対して、WebAPI/バッチ/デーモンなど複数のデプロイ単位を管理している
+   * ケースでは、同じ最新タグを複数箇所に反映する必要があるため配列にしている。複数指定すると
+   * 同一タグを複数箇所へ反映する。値は`anchors.yaml`の`apps[].chart[]`から取得する
+   */
+  readonly chart: readonly AnchorTarget[]
   /**
    * config.yamlの`helm.branchToSync`とanchors.yamlの`helm.chart`が両方指定され、
    * `chart`のいずれかのvaluesPathがそこでカバーされている場合のみ値を持つ
@@ -133,7 +128,8 @@ export type PipelineInfo = {
  * 書き換え箇所ごとに独立して読み取るため、同一アプリ内でも箇所によって異なりうる
  */
 export type ImageTagUpdate = {
-  readonly target: ImageTagTarget
+  /** values.yaml内でイメージタグを書き換える1箇所分（`AppConfig.chart`の要素） */
+  readonly target: AnchorTarget
   readonly previousTag: TagName | undefined
 }
 
@@ -143,7 +139,8 @@ export type ImageTagUpdate = {
  * （`helmTargetBranch.branch`、`targets`内の全箇所で共通）
  */
 export type HelmTargetBranchUpdate = {
-  readonly target: HelmTargetBranchTarget
+  /** Helmの向き先ブランチの書き込み先1箇所分（`HelmTargetBranchConfig.targets`の要素） */
+  readonly target: AnchorTarget
   readonly previousBranch: BranchName | undefined
   readonly newBranch: BranchName
 }

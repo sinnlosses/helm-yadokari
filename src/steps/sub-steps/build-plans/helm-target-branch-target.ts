@@ -1,7 +1,7 @@
 import { getValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
 import type {
+  AnchorTarget,
   HelmTargetBranchConfig,
-  HelmTargetBranchTarget,
   HelmTargetBranchUpdate,
 } from "../../../types.js"
 import { toBranchName } from "../../../types.js"
@@ -23,7 +23,7 @@ async function applyHelmTargetBranchTarget(
   loadValuesYamlContent: LoadValuesYamlContent,
   helmTargetBranch: HelmTargetBranchConfig,
   acc: ApplyHelmTargetsAcc,
-  target: HelmTargetBranchTarget,
+  target: AnchorTarget,
 ): Promise<ApplyHelmTargetsAcc> {
   const { branch } = helmTargetBranch
   const draftCopy = new Map(acc.draft)

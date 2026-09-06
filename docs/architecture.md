@@ -115,9 +115,12 @@
 - **サブステップはGitLabクライアントを受け取らない**: `LoadValuesYamlContent`・`BranchExists`
   という関数型で受け取り、GitLabクライアント・projectId・キャッシュは`build-plans.ts`側に
   閉じ込める（T-027）
-- **`ImageTagTarget` と `HelmTargetBranchTarget` は同じ `AnchorTarget` のエイリアス**:
-  TypeScriptは構造的型付けなので、同じ形の型を別々に定義しても取り違えは防げない。
-  別名は用途を読み手に伝えるためだけのもの（T-024）
+- **values.yamlの書き込み位置は `AnchorTarget` 1つに統一し、用途別の別名は置かない**:
+  以前はイメージタグ用・Helm向き先ブランチ用に`ImageTagTarget`/`HelmTargetBranchTarget`という
+  別名を用意していたが、TypeScriptは構造的型付けなので同じ形の型を別々に定義しても
+  取り違えは防げず、別名は用途を読み手に伝える以上の効果が無かった。用途の区別は型名では
+  なく、利用側の変数名・フィールド名・JSDoc（`AppConfig.chart`・`HelmTargetBranchConfig.targets`
+  など）で表す
 - **`chart.yaml`/`config.yaml`/`anchors.yaml` の3ファイル分割**: あまり変更されないchart構造
   （`anchors.yaml`）と、頻繁に変更される運用値（`config.yaml`）を分けるため。両者は
   `projectId` で突き合わせて整合性を検証する（T-017）

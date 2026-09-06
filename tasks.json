@@ -47,10 +47,10 @@
   {
     "id": "T-059",
     "task": "`src/types.ts` の同義の型エイリアスを1つに寄せる。`ImageTagTarget` と `HelmTargetBranchTarget` はどちらも `AnchorTarget`（`valuesPath` + `anchor`）のエイリアスで、TypeScriptは構造的型付けなので別名にしても取り違えは防げない。T-024 では「どちらの用途か読み手に伝えるため」意図的に別名を残す判断をしたが、ユーザー判断（2026-09-06）で `AnchorTarget` 1つに統一する。対象は src/ の9ファイル計49箇所（src/types.ts、steps/build-plans.ts、steps/sub-steps/build-plans/{image-tag-target,values-yaml-draft,helm-target-branch-target}.ts、lib/verify-config/verify-config.ts、lib/config/{schema,helm-target-branch,validate}.ts）と test/。用途の区別は型名ではなく変数名・フィールド名・JSDocで表す。あわせて types.ts 全体を見直し、他にも実体が同じ別名が無いか確認して同様に寄せる。T-024 の判断を記録している docs/architecture.md「コードからは読み取れない設計判断」の該当項目も、現在の判断に書き換える。完了条件: `pnpm check` を通すこと",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "ImageTagTarget / HelmTargetBranchTarget を削除し AnchorTarget 1つに統一（型としての参照は0件。applyImageTagTarget() などの関数名は用途を表す既存の名前なので変更しない）。削除したエイリアスのJSDocは AppConfig.chart・HelmTargetBranchConfig.targets・ImageTagUpdate.target・HelmTargetBranchUpdate.target のフィールドJSDocへ移し、情報を落としていない。docs/architecture.md の設計判断も「別名を残す」から「1つに統一し用途は変数名・JSDocで表す」に書き換えた。types.ts 内に他の同義エイリアスは無し。schema.ts は元から AnchorTargetSchema 1つでスキーマ名の変更は不要だった。pnpm check（28ファイル315テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で差分と pnpm check を確認して受け入れた",
     "dependencies": []
   },
   {
