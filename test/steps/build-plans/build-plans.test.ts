@@ -14,7 +14,7 @@ import {
   getLatestPipelineForRef,
   listTags,
 } from "../../../src/lib/gitlab/gitlab.js"
-import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../src/lib/tag-format.js"
+import { DEFAULT_TAG_FORMAT } from "../../../src/lib/tag-format.js"
 import { buildPlans } from "../../../src/steps/build-plans/build-plans.js"
 import {
   toAnchorName,

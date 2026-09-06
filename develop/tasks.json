@@ -128,10 +128,10 @@
   {
     "id": "T-091",
     "task": "`pnpm lint` の対象に `test/` を含める。現在 `package.json` の `lint` は `oxlint src scripts && pnpm lint:validate-config` で、**テストコードだけ lint されていない**。`tsconfig.json` の `include` は `test/**/*.ts` を含み、`oxfmt .` はリポジトリ全体を整形しているので、lint だけが対象から外れている状態。テストコードは31ファイル・330テストあり、本体と同じ規約（`typescript/consistent-type-imports` など）が効くべき。\n\n作業内容: `package.json` の `lint` / `lint:fix` の対象に `test` を追加し、検出された指摘を修正する。`.oxlintrc.json` の `categories`（correctness: error / suspicious: warn）はそのままにする。テスト特有の書き方（`vi.mock()` のホイスティングのために import より前に置く、`as unknown as GitlabClient` のようなモック用キャストなど）が correctness に引っかかる場合は、**ルールを緩めるのではなく `.oxlintrc.json` の `overrides` で `test/**` にだけ例外を設ける**か、コード側を直すかを判断して evidence に理由を書くこと。`as` キャストの規約（`CLAUDE.md`「コーディング規約」）は `src/` を対象にしたものなので、テストのモック用キャストを無理に消す必要はない。\n\n完了条件: `pnpm lint` が `test/` も対象にして通ること、`pnpm check` 全体が通ること、テスト件数が変わらないこと。指摘が0件だった場合もその旨（何件検出され何を直したか）を evidence に書くこと。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "package.json の lint/lint:fix を oxlint src scripts test に拡張。対象に入れた途端に指摘5件（すべて no-unused-vars の死んだimport: validateTagFormat×3・makeHttpError×2）が出たので削除した。.oxlintrc.json の overrides は不要だった（vi.mock のホイスティングやモック用キャストは現行ルールに引っかからない）。test/ が実際に対象になっていることは、未使用importをわざと入れて検出されるかで確認した。pnpm check（31ファイル332テスト、変化なし）通過",
     "dependencies": []
   }
 ]

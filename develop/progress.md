@@ -128,6 +128,12 @@ wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラー�
 `reset` まで新しい環境変数を必須にしてしまっていた。環境変数名だけを持たせ、値の要求は
 `ensureSeedTags()`（`setup` のみが呼ぶ）へ移した。
 
+**T-091 完了**。`pnpm lint` の対象に `test/` を追加。入れた途端に**死んだimportが5件**
+（`validateTagFormat`×3・`makeHttpError`×2）出てきたので削除した。`.oxlintrc.json` の
+`overrides` は不要だった（`vi.mock` のホイスティングやモック用キャストは現行ルールに
+引っかからない）。`test/` が実際に対象になったことは、未使用importをわざと入れて
+検出されるかで確認した。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした
