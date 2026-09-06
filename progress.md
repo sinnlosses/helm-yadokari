@@ -135,24 +135,35 @@ T-054以降だけが残る）。当時のセッションの記録は
 
 **このセッションの最終状態**: `pnpm check`（tsc・oxlint・config検証・oxfmt・vitest
 **28ファイル319テスト**）通過（セッション開始時は308テスト。T-054で+7、T-056で+4）。
-`tasks.json` の9タスクはすべて `done` / `passes: true`。タスク1件＝1コミットで
-`chore/archive-completed-tasks` ブランチに9コミット。
+`tasks.json` の9タスクはすべて `done` / `passes: true`。タスク1件＝1コミットで積み、
+`main` に fast-forward マージして push 済み（`677e7d8..4f1caf7`）。
+
+### 実機スモークテスト（2026-09-06、`docs/smoke-test.md` の手順どおり）
+
+`summary {"CREATED":2,"SKIPPED":0,"ERROR":0}`・終了コード0。MR !26（`tenant2/client1`、
+`image tag 1, helm branch 1`）と !27（`tenant2/client2`、`image tag 1`）が作られ、
+タイトル・本文の2セクション構成・8列/4列のテーブルとも手順書の期待どおり。
+再実行が `SKIPPED (mr_exists)` になることも確認。
+
+**最新タグ判定の方式変更（HEADを指すタグの直接探索）が実機で意図どおり動くことを確認した**:
+
+- `sample-qa-sprint` はHEADを指すタグ（`main-build-at-20260903-172148`）を再利用し、
+  **新規タグを作っていない**（両リポジトリとも当日日付のタグは0件）
+- `sample-develop-client` は**HEADを指すタグが2本ある**（`main-build-at-20260101-000000` と
+  `main-build-at-20260903-143646` が同一コミット `9b81a971` を指す）。
+  「複数該当時はタグ名の日時降順」というタイブレーク規則が実際に発火し、
+  新しい方（`...143646`）が選ばれた
 
 ## 次にやること
 
 **`tasks.json` の9タスク（T-054〜T-062）はすべて `done`**。ユーザー依頼分は完了したので、
 次の作業は新しく洗い出してから。
 
-- **実機未検証の変更が2件たまっている**。どちらもスモークテスト（`docs/smoke-test.md`）で
-  確認できる:
-  - 最新タグ判定の方式変更（HEADを指すタグの直接探索）。ユニットテストは通っているが、
-    実際のGitLabのタグ・コミット構成での挙動は未確認
-  - `TARGET_CHART` の0件検知（`TARGET_CHART`/`TARGET_CLIENT` 明示時のみエラー）
+- `TARGET_CHART` の0件検知（`TARGET_CHART`/`TARGET_CLIENT` 明示時のみエラー）は実機未検証。
+  ユニットテストは通っているが、スモークテストのシナリオには含まれていない
 - 追跡ブランチ切り替えは実機未検証。スモークテストで `branchToSync` を切り替える
   シナリオを追加すると確認できる
-- **このセッションのコミットは `chore/archive-completed-tasks` ブランチにあり、push していない**
-  （`main` は `origin/main`（677e7d8）と同期済み。タスク1件＝1コミットで積んでいる）
-- 実機検証で残置したMR（!24、!25）とブランチ2本の後片付け（不要になったら
+- 今回のスモークテストで残したMR（!26、!27）とブランチ2本の後片付け（不要になったら
   `SMOKE_CHART_PROJECT_ID=86061211 npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply`）
 - 検証が完全に終わったら、テスト用のGitLabアクセストークンを失効させる（ユーザー対応）
 - 未確認のまま取り込んである方針変更（`steps/shared/` の新設、evidenceを3行以内に絞る運用、
