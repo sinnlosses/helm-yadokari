@@ -1,6 +1,6 @@
 # アーキテクチャ詳細
 
-`CLAUDE.md`のアーキテクチャ概要節に書いた2つの原則（`steps/`はフラットに`process()`からしか
+`CLAUDE.md`のアーキテクチャ概要節に書いた2つの原則（`steps/`はフラットに`runPipeline()`からしか
 呼ばれない／`lib/`は技術・外部システム・ファイル形式への依存でのみ判断する）を前提に、
 各ファイルの責務と、新しいコードを置く場所の判断基準をまとめる。
 
@@ -11,7 +11,7 @@
 
 ## 各ファイルの責務
 
-### `src/steps/` — `process()` が直接呼ぶフラットな3ステップ
+### `src/steps/` — `runPipeline()` が直接呼ぶフラットな3ステップ
 
 `lib/`・`utils/`・`steps/shared/` にのみ依存し、step同士は互いに呼ばない。
 各stepは「並列処理1件分」を担う非公開関数を1つ持ち、`<動詞>+単数形の対象`で命名する
@@ -40,7 +40,7 @@
 | ファイル                       | 責務                                                                                                              |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `resolve-latest-tag.ts`        | 追跡ブランチ由来の最新タグの判定。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成      |
-| `image-tag-target.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.chart`全箇所のループ                                            |
+| `image-tag-target.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagTargets`全箇所のループ                                  |
 | `helm-target-branch-target.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                        |
 | `shared/values-yaml-draft.ts`  | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）と、その組み立て・`FileUpdate[]`化 |
 | `shared/types.ts`              | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                          |
@@ -95,12 +95,12 @@
   スクリプトからしか呼ばれない → `scripts/<用途>/`。`src/`は`pnpm build`で`dist/`に出る
   本体の配布物なので、本体が使わないコードは`src/`に置かない（`scripts/lint/verify-config/`が
   この形。テストは`test/scripts/`配下に`scripts/`と同じ構成で置く）
-- 以下は`src/`配下の話。`process()` が直接呼ぶ、フラットなパイプラインの1段 → `steps/`。他のステップファイルを
+- 以下は`src/`配下の話。`runPipeline()` が直接呼ぶ、フラットなパイプラインの1段 → `steps/`。他のステップファイルを
   import しない
 - 呼び出し元が `steps/` の1ファイルだけ → そのファイル内の非公開（exportしない）関数。
   1ファイルが大きくなりすぎた場合は、`steps/<step名>/sub-steps/`（例:
   `steps/build-plans/sub-steps/`）へ非公開関数を複数ファイルに分割してよい（`steps/`直下は
-  「process()が直接呼ぶフラットな3ステップ」だけに保ち、`sub-steps/`配下は各stepの内部実装
+  「runPipeline()が直接呼ぶフラットな3ステップ」だけに保ち、`sub-steps/`配下は各stepの内部実装
   専用と分かるようにする）。分割したファイル同士は互いにimportせず、共有するものは
   `sub-steps/shared/`に置く。呼び出し元が引き続きそのstepファイル1つだけである限り、
   ファイルを分けても`lib/`への昇格理由にはならない（原則2は変わらない）
@@ -266,7 +266,7 @@
   `scripts/lint/validate-config.ts`が既定モードで検証を走らせないための**動的import**、
   `vitest.config.ts`が全テストに注入していた**ダミーの`GITLAB_URL`/`ACCESS_TOKEN`**、
   `test/main.test.ts`の**env全体の`vi.mock`**。関数化でこの3つはすべて消えた
-  - `run()`/`process()`は`EnvConfig`を引数で受け取り、生成するのは`src/index.ts`だけ。
+  - `run()`/`runPipeline()`は`EnvConfig`を引数で受け取り、生成するのは`src/index.ts`だけ。
     テストは`vi.mock`ではなく普通のオブジェクトを渡せばよくなった
   - 起動時に落ちる（fail fast）性質は変わらない。`index.ts`が最初に呼ぶため。むしろ
     **エラーが構造化ログに乗るようになった**（トップレベルで投げていた頃は、`index.ts`の
@@ -350,7 +350,7 @@
 - Helm CLI（`helm lint` / `helm template` 等）は呼び出さない。`values.yaml`のテキスト更新のみ行う
 - `FatalError`（401/5xx等）を検知すると、`utils/parallel.ts` の `mapWithConcurrency()` が
   その時点で `p-limit` のキューを `clearQueue()` でクリアし、同じステップ内の他chartAndAppsの
-  未着手タスクを実行させずに reject する。`process()` はステップを順番に await しているため、
+  未着手タスクを実行させずに reject する。`runPipeline()` はステップを順番に await しているため、
   あるステップでFatalErrorが起きると後続のステップは一切開始されない（例:
   `buildPlans` でFatalErrorが起きたら `applyUpdates` は1件も呼ばれない）。
   `docs/requirements.md` 4.3節の「chartリポジトリ間は失敗しても他は継続する」という記述は

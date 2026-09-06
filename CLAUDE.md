@@ -35,10 +35,10 @@ pnpm build && pnpm start              # ビルドしてから実行
 
 ## アーキテクチャ概要
 
-`src/main.ts` の `process()` が全体のオーケストレーション（`src/steps/` を順に呼ぶだけの
+`src/main.ts` の `runPipeline()` が全体のオーケストレーション（`src/steps/` を順に呼ぶだけの
 薄いレイヤー）。実装は直接読めば分かるので、ここには**コードから読み取れない設計原則**だけ書く。
 
-- **原則1**: `src/steps/` 配下は `process()` からしか呼ばれない。`steps/` 同士は互いに呼ばない。
+- **原則1**: `src/steps/` 配下は `runPipeline()` からしか呼ばれない。`steps/` 同士は互いに呼ばない。
   サブステップも同じで、`sub-steps/`直下のファイル同士は（型だけの参照も含めて）互いに
   import しない。複数のサブステップが共有するものは `sub-steps/shared/` に置き、
   サブステップの呼び分けは親stepが行う
@@ -51,7 +51,7 @@ pnpm build && pnpm start              # ビルドしてから実行
   原則2は「`src/`のどこに置くか」の基準なので、まず原則3で `src/` かどうかを決める
 - 新しいコードを置く場所:
   - 呼び出し元がCI・開発用スクリプトだけ → `scripts/<用途>/`
-  - `process()`が直接呼ぶパイプラインの1段 → `steps/`
+  - `runPipeline()`が直接呼ぶパイプラインの1段 → `steps/`
   - 呼び出し元が`steps/`の1ファイルだけ → そのファイル内の非公開関数（大きくなったら
     `steps/<step名>/sub-steps/`、例: `steps/build-plans/sub-steps/`、に分割してもよい。
     原則2は変わらない）

@@ -83,10 +83,10 @@
   {
     "id": "T-086",
     "task": "`src/main.ts` の `export async function process()` を改名する。この名前は Node.js のグローバル `process` をモジュールスコープで覆っており、同じファイルに `process.exit()` や `process.env` を書いた瞬間に静かに壊れる（実際 `src/index.ts` はグローバルの `process.exit()` を使っている）。すでに影響も出ていて、`test/main.test.ts` は `import { process as processFn, run } from \"../src/main.js\"` と別名で輸入している。`docs/architecture.md` 自身が「`process` のような汎用名は `main.ts` のオーケストレータやグローバルの `process` と紛らわしいため使わない」と各ステップの命名規則として書いており、その `main.ts` 側だけが例外になっている状態。\n\n新しい名前は `runPipeline()` を第一候補とする（`run()` が計測・ログ・終了コード判定の外枠、`runPipeline()` がステップを順に呼ぶ本体、という関係が名前から読める）。他により良い名前があると判断した場合は evidence に理由を書いて差し替えてよい。\n\n張り替える参照: `src/main.ts` の定義とJSDoc、`test/main.test.ts`（別名輸入をやめて素直に import できるようになるはず）、`CLAUDE.md`「アーキテクチャ概要」冒頭の `process()` への言及、`docs/architecture.md` 内の `process()` への言及（複数箇所。「`process()` が直接呼ぶ」という表現が各所にある）、`develop/progress.md` の該当箇所は履歴なので触らない。\n\n完了条件: `grep -rn \"process()\" src/ test/ docs/ CLAUDE.md` の結果が、グローバルの `process` を指すもの以外0件になること。`pnpm check` を通し、テスト件数が変わらないこと。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "main.ts の process() を runPipeline() に改名（グローバルの process をモジュールスコープで覆っていた）。参照を張り替えたのは src/main.ts・test/main.test.ts（別名輸入 process as processFn が不要になった）・CLAUDE.md 3箇所・docs/architecture.md 6箇所。grep 'process()' が develop//docs/history 以外で0件。pnpm check（31ファイル332テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で docs/architecture.md の表に残っていた app.chart（T-081の取りこぼし）も併せて直した",
     "dependencies": []
   },
   {

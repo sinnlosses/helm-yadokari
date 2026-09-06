@@ -20,7 +20,7 @@ import {
   openMergeRequestExists,
 } from "../src/lib/gitlab/gitlab.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
-import { process as processFn, run } from "../src/main.js"
+import { run, runPipeline } from "../src/main.js"
 import {
   toCommitSha,
   toGitLabUrl,
@@ -48,7 +48,7 @@ const OLD_TAG = "main-build-at-20251231-000000"
 const NEW_TAG = toTagName("main-build-at-20260101-000000")
 const HEAD_SHA = toCommitSha("head-sha")
 
-describe("process", () => {
+describe("runPipeline", () => {
   beforeEach(() => {
     vi.mocked(createClient).mockReturnValue(mockGitlab)
     vi.mocked(loadConfig).mockReturnValue({ chartAndAppsList: [] })
@@ -69,29 +69,29 @@ describe("process", () => {
   })
 
   it("chartAndAppsListがないとき resolve する", async () => {
-    await expect(processFn(env)).resolves.toEqual({ CREATED: 0, SKIPPED: 0, ERROR: 0 })
+    await expect(runPipeline(env)).resolves.toEqual({ CREATED: 0, SKIPPED: 0, ERROR: 0 })
   })
 
   it("全件 CREATED のとき正しい件数を返す", async () => {
     vi.mocked(loadConfig).mockReturnValue({
       chartAndAppsList: [makeChartAndApps([makeApp()]), makeChartAndApps([makeApp()])],
     })
-    await expect(processFn(env)).resolves.toEqual({ CREATED: 2, SKIPPED: 0, ERROR: 0 })
+    await expect(runPipeline(env)).resolves.toEqual({ CREATED: 2, SKIPPED: 0, ERROR: 0 })
   })
 
   it("FatalErrorが発生したとき reject する", async () => {
     vi.mocked(loadConfig).mockReturnValue({ chartAndAppsList: [makeChartAndApps([makeApp()])] })
     vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
-    await expect(processFn(env)).rejects.toThrow(FatalError)
+    await expect(runPipeline(env)).rejects.toThrow(FatalError)
   })
 
   it("createClient に GITLAB_URL と ACCESS_TOKEN を渡す", async () => {
-    await processFn(env)
+    await runPipeline(env)
     expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
   })
 
   it("loadConfig に CONFIG_PATH と TARGET_CHART/TARGET_CLIENTS由来のtargetを渡す", async () => {
-    await processFn(env)
+    await runPipeline(env)
     expect(loadConfig).toHaveBeenCalledWith(undefined, {
       chartDirName: undefined,
       clients: undefined,

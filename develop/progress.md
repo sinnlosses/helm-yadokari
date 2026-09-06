@@ -101,6 +101,11 @@ wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラー�
 副次的に、環境変数エラーが `index.ts` の `catch` に載って構造化ログに出るようになった
 （以前はモジュール読み込み中に投げるため素のスタックトレースだった）。
 
+**T-086 完了**。`main.ts` の `process()` を `runPipeline()` に改名（グローバルの `process` を
+モジュールスコープで覆っていた）。`test/main.test.ts` の別名輸入 `process as processFn` が
+不要になった。`CLAUDE.md` 3箇所・`docs/architecture.md` 6箇所も追従。受け入れ時に、
+`docs/architecture.md` の表に残っていた `app.chart`（T-081の取りこぼし）も直した。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした
