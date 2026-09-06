@@ -7,8 +7,8 @@ import { buildFeatureBranch } from "../shared/feature-branch.js"
 import { type StepOutcome, ok, runSettled, settle } from "../shared/step-outcome.js"
 
 export type FilterTargetsResult = {
-  readonly targets: ChartAndApps[]
-  readonly settled: ChartUpdateResult[]
+  readonly targets: readonly ChartAndApps[]
+  readonly settled: readonly ChartUpdateResult[]
 }
 
 /**

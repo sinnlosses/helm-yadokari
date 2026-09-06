@@ -34,8 +34,8 @@ import type { BranchExists, LoadValuesYamlContent } from "./sub-steps/shared/typ
 import { type ValuesYamlDraft, toFileUpdates } from "./sub-steps/shared/values-yaml-draft.js"
 
 export type BuildPlansResult = {
-  readonly toApply: ChartUpdateTarget[]
-  readonly settled: ChartUpdateResult[]
+  readonly toApply: readonly ChartUpdateTarget[]
+  readonly settled: readonly ChartUpdateResult[]
 }
 
 /**
@@ -124,7 +124,7 @@ async function buildPlan(
     })
     return settle("SKIPPED")
   }
-  return ok({ chartAndApps, plans: [...plans], files: toFileUpdates(draft) })
+  return ok({ chartAndApps, plans, files: toFileUpdates(draft) })
 }
 
 /**

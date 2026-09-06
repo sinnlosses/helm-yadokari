@@ -124,6 +124,6 @@ export type FileUpdate = {
 /** 差分が確定し、コミット・MR作成の対象になった1chartAndApps分の更新内容 */
 export type ChartUpdateTarget = {
   readonly chartAndApps: ChartAndApps
-  readonly plans: AppUpdatePlan[]
-  readonly files: FileUpdate[]
+  readonly plans: readonly AppUpdatePlan[]
+  readonly files: readonly FileUpdate[]
 }

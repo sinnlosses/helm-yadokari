@@ -65,10 +65,10 @@
   {
     "id": "T-084",
     "task": "ステップ間で受け渡す配列を `readonly` に揃える。このリポジトリは「変数は基本 `const`」に加えてコレクションも不変に扱う方針（`src/types/types.ts` のドメイン型はほぼ全フィールドが `readonly`、`readonly T[]` を使っている）だが、ステップの境界を跨ぐ型だけが可変配列のまま残っている:\n\n- `src/types/types.ts` の `ChartUpdateTarget.plans: AppUpdatePlan[]` / `files: FileUpdate[]`（同じ型の `chartAndApps` は `readonly` なのに、この2つだけ可変）\n- `src/steps/filter-targets/filter-targets.ts` の `FilterTargetsResult.targets: ChartAndApps[]` / `settled: ChartUpdateResult[]`（`readonly` 修飾はフィールドに付いているが、配列自体は可変）\n- `src/steps/build-plans/build-plans.ts` の `BuildPlansResult.toApply: ChartUpdateTarget[]` / `settled: ChartUpdateResult[]`\n- `src/steps/apply-updates/apply-updates.ts` の `applyUpdates()` の戻り値 `Promise<ChartUpdateResult[]>`\n- `src/utils/partition.ts` の `partitionMap()` の戻り値 `{ readonly left: L[]; readonly right: R[] }`\n\n実害の具体例: `build-plans.ts` の `buildPlan()` が `ok({ chartAndApps, plans: [...plans], files: toFileUpdates(draft) })` と、`readonly AppUpdatePlan[]` を可変配列に**コピーし直すためだけの spread** を書いている。`ChartUpdateTarget.plans` を `readonly AppUpdatePlan[]` にすればこのコピーは消える。\n\n作業内容: 上記を `readonly T[]` に変更し、それに伴って不要になるコピー（`[...plans]` など）を削る。`partitionMap()` は内部の `reduce` が可変配列を積むので、戻り値の型だけ `readonly L[]` / `readonly R[]` にすればよい（内部実装は変えなくてよい）。`toFileUpdates()` の戻り値 `FileUpdate[]` も呼び出し側が `readonly` を受けられるなら合わせる。**`as` や型アサーションで押し通さないこと** —— 型エラーが出る箇所は、その配列を本当に変更しているということなので、変更している側を直すか、そこだけ可変のまま残す判断をして evidence に理由を書く。\n\n完了条件: `pnpm check` を通し、テスト件数が変わらないこと。削除できたコピー（spread）の箇所を evidence に列挙すること。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "ChartUpdateTarget.plans/files、FilterTargetsResult・BuildPlansResult の2フィールドずつ、applyUpdates()の戻り値、partitionMap()の戻り値、toFileUpdates()の戻り値を readonly T[] にした（6ファイル・11行）。実害だった buildPlan() の `plans: [...plans]`（可変配列に合わせるためだけのコピー）が消えた。他の spread は全件確認して genuine な用途（配列連結・アキュムレータへのappend・Map/Setの配列化）のみ。as は1件も使っていない。pnpm check（31ファイル332テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で toFileUpdates() のJSDocが戻り値の型を言い換えるだけになっていたのを詰めた",
     "dependencies": []
   },
   {

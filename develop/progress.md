@@ -88,6 +88,11 @@ wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラー�
 `tag.name`（`TagName`）との取り違えが型で防げる。あわせて「何をブランド型にするか」の
 基準（別の識別子と同じ型の式に並ぶか）を `docs/architecture.md` に明文化した。
 
+**T-084 完了**。ステップ境界を跨ぐ配列（`ChartUpdateTarget.plans`/`files`、各ステップの
+戻り値、`partitionMap()`・`toFileUpdates()` の戻り値）を `readonly T[]` に揃えた。
+狙いどおり `buildPlan()` の `plans: [...plans]`（可変配列に合わせるためだけのコピー）が消えた。
+残る spread は全件確認して genuine な用途のみ。`as` は1件も増えていない。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした

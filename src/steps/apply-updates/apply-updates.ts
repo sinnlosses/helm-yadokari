@@ -18,7 +18,7 @@ export async function applyUpdates(
   gitlab: GitlabClient,
   targets: readonly ChartUpdateTarget[],
   concurrencyLimit: number,
-): Promise<ChartUpdateResult[]> {
+): Promise<readonly ChartUpdateResult[]> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (target) =>
     runSettled(target.chartAndApps, (logContext) => applyUpdate(gitlab, target, logContext)),
   )

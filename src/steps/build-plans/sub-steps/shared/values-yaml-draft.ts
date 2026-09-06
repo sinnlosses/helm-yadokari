@@ -38,11 +38,11 @@ export function writeValuesYamlDraft(
 }
 
 /**
- * 書き換えのあったファイルだけを`FileUpdate[]`にする。`modified`なエントリは`writeValuesYamlDraft()`
+ * 書き換えのあったファイルだけを取り出す。`modified`なエントリは`writeValuesYamlDraft()`
  * を経由してしか作られず必ず`content`を伴うため、以前存在した「書き換えたのに内容が無い」
  * internal errorはこの型設計では起こり得ない。
  */
-export function toFileUpdates(draft: ValuesYamlDraft): FileUpdate[] {
+export function toFileUpdates(draft: ValuesYamlDraft): readonly FileUpdate[] {
   return [...draft.entries()]
     .filter(([, entry]) => entry.modified)
     .map(([valuesPath, entry]) => ({ valuesPath, content: entry.content }))

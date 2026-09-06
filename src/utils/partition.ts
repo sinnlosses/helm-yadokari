@@ -27,7 +27,7 @@ export function right<R>(value: R): { readonly right: R } {
 export function partitionMap<T, L, R>(
   items: readonly T[],
   split: (item: T) => Sorted<L, R>,
-): { readonly left: L[]; readonly right: R[] } {
+): { readonly left: readonly L[]; readonly right: readonly R[] } {
   return items.reduce<{ left: L[]; right: R[] }>(
     (acc, item) => {
       const sorted = split(item)
