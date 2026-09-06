@@ -632,3 +632,143 @@
 **difficulty**: haiku
 
 **evidence**: git mv で tasks.json / progress.md を develop/ へ移動し、CLAUDE.md（規約のgrep除外・進捗管理の手順・関連リンク）・docs/workflow.md（5箇所）・README のプロジェクト構成ツリー・progress.md 自身の相対リンク（./docs/ → ../docs/）を張り替えた。.gitlab-ci.yml / package.json / .prettierignore / vitest.config.ts にパス参照が無いことも確認。docs/history/ 配下の言及は当時の記録なのでそのまま。pnpm check（28ファイル322テスト、変化なし）通過。haikuのサブエージェントに委譲し、メイン側で差分確認・READMEのツリー位置と行の折り返しを整えて受け入れた
+
+## T-071
+
+**タスク**: `TargetClient`（src/types/types.ts）の `tenantId`/`clientId` を `string` ではなく ブランド型 `TenantId`/`ClientId` で扱う。現状は `ChartAndApps.tenantId`/`clientId` が `TenantId`/`ClientId`（`toTenantId`/`toClientId` で生成）なのに対し、絞り込み条件である `TargetClient` だけが素の `string` になっており非対称（`src/lib/env.ts` の `parseTargetClientEntry()` が `{ tenantId: parts[0], clientId: parts[1] }` とそのまま代入している）。
+
+変更対象:
+(1) `src/types/types.ts` の `TargetClient` を `readonly tenantId: TenantId` / `readonly clientId: ClientId` に変更する。
+(2) `src/lib/env.ts` の `parseTargetClientEntry()` で `toTenantId(parts[0])` / `toClientId(parts[1])` を使って生成する（`as` は使わない。`brand.ts` の factory 関数のみで型変換する規約）。
+(3) `src/lib/config/config.ts` で `TargetClient` を比較している3箇所（`loadClientChartAndApps()` の `c.tenantId === id` / `c.tenantId === tenantId && c.clientId === id`、`clientDirExists()` の `join(path, chartDir, client.tenantId, client.clientId)`）は、比較・パス結合の相手が `listSubdirectories()`由来の素の `string`（ディレクトリ名）なので、`TargetClient` 側を 変換するのではなく比較・結合の相手を `toTenantId(id)` 等で揃えるか、あるいは 型上は互換なため変更不要かを確認し、コンパイルが通る形にする（`ConfigTarget.chartDir` は 今回のスコープ外＝素の`string`のまま。`TargetClient` のみが対象）。
+
+完了条件: `pnpm check` を通すこと。テストは既存の `test/lib/env.test.ts` / `test/lib/config/config.test.ts` がそのまま（またはブランド型を使うよう最小修正して）通ることで確認する。
+
+**difficulty**: sonnet
+
+**evidence**: TargetClient.tenantId/clientId を TenantId/ClientId に変更し、env.ts の parseTargetClientEntry() を toTenantId()/toClientId() 経由の生成に直した。config.ts の比較・パス結合3箇所はブランド型が string のサブタイプであるため型エラーにならず変更不要だった（無理な変換を挿入していない）。test/lib/config/config.test.ts に targetClient() ヘルパーを追加して9箇所のリテラルを置換。pnpm check（28ファイル322テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で差分と pnpm check を確認して受け入れた
+
+## T-072
+
+**タスク**: フィールド名と型名がズレている箇所を洗い出し、`AnchorTarget.anchor: AnchorName` → `anchorName: AnchorName` と同じリネームをどこまで横展開するか方針を決める（実装は T-073）。ユーザー指摘（2026-09-06）:「特に理由がない限り型の名前に合わせてください」。
+
+調査で分かった事実:
+
+- 型名から `Name`/`Id` 等のサフィックスを外した名前がそのままフィールド名になっている例: `AnchorTarget.anchor: AnchorName`（16箇所で参照）、`HelmTargetBranchConfig.branch: BranchName` と `ParsedTag.branch: BranchName`（4箇所）、`ChartAndApps.chartDir: ChartDirName`（12箇所）。
+- 逆に既に型名と一致しているフィールドも多い: `projectId: ProjectId`、`projectName: ProjectName`、`tenantId: TenantId`、`clientId: ClientId`、`valuesPath: ValuesPath`。
+- `src/lib/helm.ts` は関数引数として既に `anchorName: AnchorName` という命名を使っており（`findAnchorNode()`・`getValueAtAnchor()`・`setValueAtAnchor()`）、`AnchorTarget.anchor` だけが浮いている状態。
+- 一方、`branchToSync`（`AppConfig`）・`mrTargetBranch`（`ChartRepoConfig`）・`previousBranch`/`newBranch`（`HelmTargetBranchUpdate`）は、いずれも型 `BranchName` だがフィールド名に用途を表す修飾語（`~ToSync`・`mrTarget~`・`previous~`/`new~`）が付いており、単純に型名を外しただけの `branch` とは事情が異なる（「特に理由がない限り」の「理由」に当たりうる）。
+- `TagName` 型は `ParsedTag.name` / `TagInfo.name` のように「型名からプレフィックス `Tag` を外した `name`」という別パターンのズレもある（`AnchorName`→`anchor`のようにサフィックス`Name`を外すのと逆方向）。これも対象に含めるかは論点。
+- 同じ「型名 → フィールド名」のズレは、構造体のフィールドだけでなく `branch: BranchName` のような**関数の引数名**にも多数存在する（`src/lib/gitlab/gitlab.ts`・`src/lib/gitlab/tag.ts`・`src/steps/build-plans/sub-steps/*.ts` など10ファイル以上、数十箇所）。ここまで含めると非常に大きな機械的リネームになる。
+
+決めること:
+(a) リネーム対象を「型定義（`type`/`interface`）のフィールド」に限定するか、関数引数名も含めるか（範囲が大きく変わる。含めない場合はその理由を明記する）。
+(b) `branchToSync`・`mrTargetBranch`・`previousBranch`・`newBranch` のように修飾語が付いているケースを「理由がある」として除外するか、それとも `previousBranchName`/`newBranchName` のように型名も残す形にするか。
+(c) `TagName`→`name`（プレフィックスを外すパターン）を対象に含めるか。
+(d) `AnchorTarget.anchor`・`HelmTargetBranchConfig.branch`・`ParsedTag.branch`・`ChartAndApps.chartDir` の要リネーム対象を確定する。
+
+各対象について、リネーム後の名前・影響ファイル・件数まで具体的なリストにして出すこと（T-073はそのリストどおりに機械的に置換するだけにする）。決めた方針・対象外にした理由は `docs/architecture.md`「コードからは読み取れない設計判断」に記録する。
+
+**difficulty**: opus
+
+**evidence**: コード変更なし（方針決定のみ）。規則: 型定義のフィールド名はブランド型が表している語（Name等）を落とさない。適用は型定義のフィールドのみで、関数の引数名は対象外（引数は型注釈が同じ行に見えるが、フィールドはドットアクセスで宣言から離れて読まれる、という違いで線を引いた）。修飾語が「どれか」を担うもの（branchToSync・mrTargetBranch・previousBranch・newBranch）と、包含型が主語を与える name（ParsedTag.name・TagInfo.name）、gitbeakerのペイロード形状である CommitAction.filePath も対象外。リネーム対象6件を確定し T-073 に渡した。docs/architecture.md に記録
+
+## T-073
+
+**タスク**: T-072 で確定したリネーム対象6件を実施する。型の中身・意味は変えず、名前の変更のみ。判断は済んでいるので、以下のリストどおりに機械的に置換すること（迷ったら docs/architecture.md「コードからは読み取れない設計判断」の該当項目を参照）。
+
+(1) `AnchorTarget.anchor: AnchorName` → `anchorName`。参照は16箇所（src: types/types.ts・lib/config/schema.ts・lib/config/validate.ts・lib/helm.ts・lib/verify-config/verify-config.ts・lib/gitlab/mr-content.ts・steps/build-plans/sub-steps/image-tag-target.ts・同 helm-target-branch-target.ts、test: steps/build-plans/sub-steps/image-tag-target.test.ts・lib/config/schema.test.ts）。**anchors.yaml のキー名 `anchor` は変えない**。`schema.ts` の `AnchorTargetSchema` の `.transform((v): AnchorTarget => ({ valuesPath: v.valuesPath, anchor: v.anchor }))` を `anchorName: v.anchor` に直して、wire format と内部表現をここで詰め替える。
+
+(2) `HelmTargetBranchConfig.branch: BranchName` → `branchName`。生成箇所は `lib/config/helm-target-branch.ts` の `return { branch: branchToSync, targets }`。
+
+(3) `ParsedTag.branch: BranchName` → `branchName`。生成箇所は `lib/gitlab/tag.ts`（`parseTag()`・`buildNewTag()`）。
+
+(4) `ChartAndApps.chartDir: ChartDirName` → `chartDirName`（参照12箇所: steps/shared/step-outcome.ts・lib/verify-config/verify-config.ts・lib/config/config.ts・test/lib/config/config.test.ts）。あわせて `ConfigTarget.chartDir?: string`（lib/config/config.ts）も同じ概念なので `chartDirName` に揃える（**型は素の `string` のまま**。参照は main.ts の `chartDir: TARGET_CHART` も含む）。`config.ts` 内にはブランド化前のディレクトリ名を指す素の `string` のローカル変数 `chartDir` があるが、そちらは変えない（区別が付くようになるのがこのリネームの狙いの一つ）。
+
+(5) `ImageTagUpdate.previousTag: TagName | undefined` → `previousTagName`。参照は lib/gitlab/mr-content.ts（`buildImageTagRow()`）・steps/shared/step-outcome.ts（`describePlan()`）・steps/build-plans/sub-steps/image-tag-target.ts・test 側。**`AppUpdatePlan.latestTag`（`ParsedTag`）は変えない**。
+
+(6) `FileUpdate.filePath: ValuesPath` → `valuesPath`。参照は steps/build-plans/sub-steps/values-yaml-draft.ts の `toFileUpdates()`・lib/gitlab/gitlab.ts の `commitFileUpdates()`。**`CommitAction.filePath` は `gitlab.Commits.create()` に渡す gitbeaker のペイロード形状なので変えない**（`filePath: file.valuesPath` という詰め替えになる）。`getFileContent()` の引数名 `filePath` も引数なので変えない。
+
+上記以外はリネームしない（`branchToSync`・`mrTargetBranch`・`previousBranch`・`newBranch`・`ParsedTag.name`・`TagInfo.name`・関数の引数名すべて）。
+
+完了条件: 6件それぞれについて変更後の名前と影響ファイルを示し、`pnpm check` を通すこと。テスト件数が変わらないこと、`config-test/` と `config/` のYAMLを変更していないこと（wire formatは不変）も確認する。
+
+**difficulty**: sonnet
+
+**dependencies**: T-072
+
+**evidence**: 6件をリネーム（anchor→anchorName、HelmTargetBranchConfig.branch/ParsedTag.branch→branchName、chartDir→chartDirName（ConfigTarget側も）、previousTag→previousTagName、FileUpdate.filePath→valuesPath）。anchors.yaml のキー `anchor` と CommitAction.filePath（gitbeakerのペイロード形状）は不変で、詰め替えは schema.ts の .transform() と commitFileUpdates() が担う。ログキーは chartDir→chartDirName・previousTag→previousTagName に追従。pnpm check（28ファイル322テスト、変化なし）通過、config/・config-test/ のYAMLは差分なし。sonnetのサブエージェントに委譲し、メイン側で `const { branchName: branch }` と旧名に戻していたエイリアスを branchName に直して受け入れた
+
+## T-074
+
+**タスク**: コメントの書き方の方針を決める（適用は T-075）。ユーザー指摘（2026-09-06）:「コメントはシンプルかつ簡潔に、基本はコメントがなくてもわかるような実装を目指してください」。
+
+現状の事実: `src/types/types.ts`（169行）はコメント行が66行（約39%）、`src/types/brand.ts`（104行）は31行（約30%）で、JSDocが型の説明・生成元（どのYAMLキー由来か）・具体例まで長文で書かれている（例: `AnchorName` のJSDocが4行、`ChartAndApps` のJSDocが5行）。CLAUDE.mdには既に「コードからは読み取れない設計判断はdocs/architecture.mdに書く」という住み分けがあるため、型定義ファイルのJSDocは本来「その型が何であるか」という短い説明で足りるはずの箇所に、経緯・理由まで書き込まれて長くなっている可能性がある。
+
+決めること:
+(a) 「コメントを書かない」を目指す基準（型名・フィールド名から自明なら省略する／1行で済む要約に削る／複数文にわたる背景説明は`docs/architecture.md`か`docs/glossary.md`へ移すか削除する、など）。
+(b) 逆に**残すべきコメント**の基準（外部システム・ファイル形式との対応関係でコードだけでは読み取れないもの、非自明な制約や理由）。CLAUDE.mdの「コードからは読み取れない設計判断」の考え方と矛盾しないようにする。
+(c) `src/types/types.ts`・`src/types/brand.ts` を題材に、上記基準を適用した後の各コメントの扱い（削除／要約して1行に／`docs/`へ移す／そのまま残す、を型ごとに）を具体的に決める。
+(d) 決めた基準を今後の開発にも適用できるよう、`CLAUDE.md`「コーディング規約・レビュー方針」に短く追記する。
+
+決めた内容は `docs/architecture.md` または `CLAUDE.md` に記録し、`src/types/types.ts`・`src/types/brand.ts` に対する具体的な適用内容（(c)）は T-075 がそのまま実装できる粒度で書き出すこと。
+
+**difficulty**: opus
+
+**evidence**: コード変更なし（方針決定のみ）。基準: コメントはコードから読み取れないことだけを書く／型名・フィールド名の言い換えは書かない／書く場合も原則1〜2文で、それを超える背景・理由は正典（docs/architecture.md・glossary.md・requirements.md）に置き二重管理しない／残す価値があるのは「外部との対応関係」と「非自明な前提・制約」。CLAUDE.md「コーディング規約・レビュー方針」に追記。types.ts・brand.ts の長いJSDocの中身は既に正典側にあることを確認済み（アンカー方式→glossary.md、chartを配列にする理由→requirements.md 210-211行、GitLabUrlがブランド型の理由→architecture.md）なので、T-075 は移設ではなく削除・圧縮だけで済む。型ごとの扱いは T-075 の本文に列挙した
+
+## T-075
+
+**タスク**: T-074 で決めたコメント方針（CLAUDE.md「コーディング規約・レビュー方針」の該当項目）を `src/types/types.ts` と `src/types/brand.ts` に適用する。**長い説明の中身は既に正典（docs/glossary.md・docs/requirements.md・docs/architecture.md）にあることを確認済みなので、docs への移設は不要。削除と圧縮だけでよい**。型の中身・名前・エクスポートの有無は変えない。
+
+`src/types/types.ts`:
+
+- `TargetClient`: 1行に。残す情報は「TARGET_CLIENTS 環境変数由来の絞り込み条件1件分」だけ（tenantId/clientIdの組であることはフィールドを見れば分かる）
+- `AnchorTarget`: 1行に。「（対象ファイル＋その中でのYAMLアンカー名）」はフィールドの言い換えなので削る
+- `HelmTargetBranchConfig`: 6行→2行程度に。残すのは外部との対応（`branchName` は config.yaml の `helm.branchToSync` 由来、`targets` は anchors.yaml の `helm.chart[]` のうち valuesPath 一致分）。「タグの命名規則のような自動生成・自動判定の仕組みは持たず単純に比較する」は削る（`helm-target-branch.ts` を読めば分かる）。`targets` のフィールドJSDocは、親のJSDocに `helm.chart[]` 由来と書くなら削除してよい
+- `AppConfig`: 5行→2行程度に。「config.yaml の運用値」「anchors.yaml から projectId で引いた書き込み先」という対応関係だけ残す。`chart` フィールドの5行JSDocは「同じ最新タグを複数箇所へ反映するため配列」＋「anchors.yaml の apps[].chart[] 由来」の1〜2行に（配列にする理由の詳細は docs/requirements.md 4章にある）。`helmTargetBranch` フィールドJSDocは1行に
+- `ChartAndApps`: 5行→2行程度に。「`config/<chart>/<tenantId>/<clientId>/`1つ分」「MRを作成する単位」を残し、「tenantId/clientIdが異なれば別のChartAndApps」は前段から導けるので削る
+- `TagInfo`: 5行→1行に（または削除）。「名前だけでなくSHAも保持」はフィールドの言い換え、「HEADと一致するか判定するために使う」は利用側（resolve-latest-tag.ts）の話
+- `ImageTagUpdate`: 2行→1行に。**JSDoc内に旧フィールド名 `previousTag` が残っているので `previousTagName` に直すこと**。`target` フィールドのJSDoc（「values.yaml内でイメージタグを書き換える1箇所分」）は型 `AnchorTarget` から自明なので削除
+- `HelmTargetBranchUpdate`: 3行→1〜2行に。`previousBranch` が values.yaml 側の現在値、`newBranch` が config.yaml 設定値、という対応だけ残す。`target` フィールドのJSDocは削除
+- `AppUpdatePlan`: 4行→2行程度に。「`updates`・`helmTargetBranchUpdates` がいずれも空ならこの `AppUpdatePlan` 自体を生成しない」は非自明なので必ず残す
+- `ChartRepoConfig`・`Config`・`ParsedTag`・`PipelineInfo`・`FileUpdate`・`ChartUpdateTarget`・`ChartUpdateResult`・`RunResult`: 現状のまま（既に1行以下）
+
+`src/types/brand.ts`:
+
+- ファイル冒頭の4行: 2行程度に。「`src/` 内で `as` を使うのはこのファイルだけ」（機械的に検証できる根拠）は残す
+- `TagFormat`: 3行→1行に。「検証は `lib/gitlab/tag.ts` の `validateTagFormat()` が行う」は残す
+- `GitLabUrl`: 4行→1〜2行に。「`URL`オブジェクトではなく文字列のブランド型である理由」は docs/architecture.md にあるので、そこを見ろとは書かず単に削る
+- `toGitLabUrl`: 4行→1〜2行に。「唯一の生成経路で、未検証の文字列が `GitLabUrl` にならない」は残す
+- `AnchorName`: 5行→1行に。例（`&appsVersion` の `appsVersion` 部分）だけ残し、values.yaml がアンカー方式である前提の説明は削る（docs/glossary.md にある）
+- その他のブランド型: 現状のまま
+
+完了条件: 変更後の2ファイルを提示し、`pnpm check` を通すこと（コメントのみの変更なのでテスト件数は322のまま）。**コード（型定義・関数の実装）は1文字も変えないこと**を `git diff` で確認する。
+
+**difficulty**: sonnet
+
+**dependencies**: T-074
+
+**evidence**: types.ts 169→128行、brand.ts 104→88行（コメントのみの変更で、型定義・関数実装・エクスポートは無変更。git diff で +/- 行がすべてコメントであることを確認）。長い説明は正典（glossary.md・requirements.md・architecture.md）にあるため移設せず削除。ImageTagUpdate のJSDocに残っていた旧名 previousTag も previousTagName に修正。pnpm check（28ファイル322テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で TagFormat の「何であるか」が消えて文が宙に浮いていた点と TargetClient の3行JSDocを1行に直して受け入れた
+
+## T-076
+
+**タスク**: `mr-content.ts` の `buildMrDescription()` が `ResolveWebUrl`（`projectId`を受けて`Promise<GitLabUrl>`を返す関数）を受け取っている箇所を、値（解決済みのURLの集合）を渡す形に直す。ユーザー指摘（2026-09-06）:「関数を渡すことになっているが`GitLabUrl`を渡せばいいだけな気がする」。
+
+調査で分かった事実:
+
+- `mr-content.ts` の冒頭コメントは「外部I/Oを持たない純粋な文字列組み立てだけを置く」と宣言しているが、`buildMrDescription()` は実際には非同期で、`webUrlCache`（`getOrFetch()`）を使ったキャッシュ管理までこのファイル内で行っており、宣言と実装がズレている。
+- `ResolveWebUrl`が必要に見える理由（`plans`内に複数の異なる`projectId`が含まれうるためwebUrlを`projectId`ごとに解決する必要がある）は本物だが、**呼び出し時点で`plans`から必要な`projectId`の集合は全部分かっている**（`plans.map(p => p.app.projectId)`）。唯一の呼び出し元 `apply-updates.ts` の `applyUpdate()` は既に `gitlab` クライアントを持っているため、`buildMrDescription()` を呼ぶ**前に**必要な`projectId`ぶんの`webUrl`をまとめて解決してしまえる。`build-plans/sub-steps`の`LoadValuesYamlContent`/`BranchExists`が関数のままで正しい理由（アプリを1つずつ処理する過程で必要なキーが逐次分かり、同じキャッシュをアプリ間で引き継ぐ必要がある）とは事情が異なり、こちらは横展開の対象ではない。
+
+変更方針:
+(1) `src/lib/gitlab/gitlab.ts` に、複数の`projectId`ぶんのweb URLをまとめて解決する関数を追加する（例: `getProjectWebUrls(gitlab, projectIds: readonly ProjectId[]): Promise<ReadonlyMap<ProjectId, GitLabUrl>>`）。重複する`projectId`は1回だけ解決する（`[...new Set(projectIds)]`等で重複排除してから`getProjectWebUrl()`を並列に呼ぶ）。
+(2) `mr-content.ts` の `buildMrDescription()` のシグネチャを `(webUrls: ReadonlyMap<ProjectId, GitLabUrl>, plans: readonly AppUpdatePlan[]) => string` に変え、**同期関数にする**（`async`・`webUrlCache`・`getOrFetch()`を使ったreduceを削除し、単純な`.flatMap()`等に置き換える）。該当する`projectId`が`webUrls`に無い場合の扱いは既存の`resolveWebUrl()`が失敗しうる状況（GitLab APIエラー）とは異なる新しいケースなので、呼び出し元の前提（`plans`にあるすべての`projectId`について事前に解決済みである）をコメントで明記するか、無い場合にエラーを投げるかを決めて実装する。
+(3) `ResolveWebUrl` 型は不要になるため削除する。
+(4) `apply-updates.ts` の `applyUpdate()` で、`buildMrDescription()` を呼ぶ前に`getProjectWebUrls(gitlab, plans.map(p => p.app.projectId))` を呼んで結果を渡すよう変更する。
+(5) `test/lib/gitlab/mr-content.test.ts` の `makeResolveWebUrl()` ヘルパーと全呼び出し箇所（13箇所以上）を、`ReadonlyMap`を直接組み立てて渡す形に書き換える。「同じプロジェクトの web_url 取得は1回だけ呼び出す」というテストは、キャッシュの責務が`getProjectWebUrls()`側に移るため、`test/lib/gitlab/gitlab.test.ts`側に同趣旨のテスト（重複する`projectId`を渡しても`Projects.show`は一意な数だけ呼ばれる）として移設する。
+
+完了条件: `pnpm check` を通すこと。`buildMrDescription()` が同期関数になり`async`・`Promise`を含まなくなること、`grep -rn "ResolveWebUrl"` が0件になることを確認する。テスト件数が大きく変わらないこと（移設分を除き増減なし）。
+
+**difficulty**: sonnet
+
+**evidence**: buildMrDescription() を ReadonlyMap<ProjectId, GitLabUrl> を受け取る同期関数にし、ResolveWebUrl型・webUrlCache・getOrFetchのreduceを削除（mr-content.ts から async/Promise が消え、冒頭コメントの「外部I/Oを持たない純粋な文字列組み立て」と実装が一致した）。URLの解決とキャッシュは gitlab.ts の新関数 getProjectWebUrls()（重複projectIdは1回だけ解決）に移し、apply-updates.ts が事前に呼ぶ。テストは mr-content.test.ts をMap渡しに書き換え、重複排除のテストは gitlab.test.ts へ移設（28ファイル322テストで増減なし）。sonnetのサブエージェントがセッション上限で途中終了したため、メイン側で残りのテスト修正・重複排除テストの移設に加え、向き先ブランチだけのplanのURLまで取得してしまう無駄を webUrlProjectIds() の導入で解消して仕上げた
