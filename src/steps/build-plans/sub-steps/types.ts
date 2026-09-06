@@ -27,9 +27,9 @@ export type BranchExists = (branch: BranchName) => Promise<boolean>
  * `trackedHeadTagNames`は、「現在の追跡ブランチ由来（＝現在の`branchToSync`と`tagFormat`で
  * パースできる）で、かつ追跡ブランチの現在のHEADコミットを指すタグ名」の集合。values.yamlに
  * 書かれている現在値がこの集合に含まれるなら、たとえより新しい名前のタグが存在しても
- * デプロイされる中身は変わらないため更新しない（T-037）。追跡ブランチを切り替えた直後は、
+ * デプロイされる中身は変わらないため更新しない。追跡ブランチを切り替えた直後は、
  * 切り替え前のタグ名がこの集合に含まれない（現在の追跡ブランチ由来ではないため）ので、
- * HEADと同じコミットを指していてもスキップされない（T-043）。
+ * HEADと同じコミットを指していてもスキップされない。
  */
 export type LatestTagResolution = {
   readonly tag: ParsedTag
@@ -38,9 +38,9 @@ export type LatestTagResolution = {
 
 /**
  * 1アプリ分の書き換え箇所（target）を1つずつ処理する間のアキュムレータ。イメージタグ側と
- * Helm向き先ブランチ側で`updates`の要素型だけが違うため、型引数`U`で共有する（T-024）。
+ * Helm向き先ブランチ側で`updates`の要素型だけが違うため、型引数`U`で共有する。
  * `draft`はchartAndApps単位で引き継ぐ。以前は`valuesYamlCache`/`modifiedValuesPaths`の
- * 2フィールドだったが、`ValuesYamlDraft`1つにまとめた（T-050）。
+ * 2フィールドだったが、`ValuesYamlDraft`1つにまとめた。
  */
 export type ApplyTargetsAcc<U> = {
   readonly draft: ValuesYamlDraft

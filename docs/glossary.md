@@ -13,7 +13,7 @@
 ### アプリ
 
 - **英語識別子**: `AppConfig` / `app`
-- **定義**: Helm chartでデプロイされる1つのアプリケーション単位。`config/<chart>/<tenantId>/<clientId>/config.yaml`の1エントリ（運用値）と、同じディレクトリの`anchors.yaml`の対応するエントリ（chart構造）を`projectId`で結合したもの（T-017）。
+- **定義**: Helm chartでデプロイされる1つのアプリケーション単位。`config/<chart>/<tenantId>/<clientId>/config.yaml`の1エントリ（運用値）と、同じディレクトリの`anchors.yaml`の対応するエントリ（chart構造）を`projectId`で結合したもの。
 
 ### ソースリポジトリ
 
@@ -29,13 +29,13 @@
 ### テナント / クライアント
 
 - **英語識別子**: `tenantId` / `clientId`（`TenantId`/`ClientId`ブランド型、`ChartAndApps`のフィールド）
-- **定義**: 同一chartリポジトリ配下でアプリ設定をさらに分割管理する単位。`config/<chart>/<tenantId>/<clientId>/config.yaml`というディレクトリ階層で表現される。MRを作成する単位でもある（T-019）。
-- **表記ゆれ（解消済み）**: 当初`AppConfig`/`ChartAndApps`型にはtenantId/clientIdに対応するフィールドが存在せず、ディレクトリを走査してファイルを見つけるためだけに使われるディレクトリ名（永続化されないもの）だった。T-019でMRの粒度をtenantId/clientId単位に変更したのに伴い、`ChartAndApps.tenantId`/`ChartAndApps.clientId`として`TenantId`/`ClientId`ブランド型で保持するようになった。
+- **定義**: 同一chartリポジトリ配下でアプリ設定をさらに分割管理する単位。`config/<chart>/<tenantId>/<clientId>/config.yaml`というディレクトリ階層で表現される。MRを作成する単位でもある。
+- **表記ゆれ（解消済み）**: 当初`AppConfig`/`ChartAndApps`型にはtenantId/clientIdに対応するフィールドが存在せず、ディレクトリを走査してファイルを見つけるためだけに使われるディレクトリ名（永続化されないもの）だった。MRの粒度をtenantId/clientId単位に変更したのに伴い、`ChartAndApps.tenantId`/`ChartAndApps.clientId`として`TenantId`/`ClientId`ブランド型で保持するようになった。
 
 ### config.yaml / anchors.yaml
 
 - **英語識別子**: なし（ファイル名そのもの）
-- **定義**: `<tenantId>/<clientId>`ディレクトリに置く2つの設定ファイル（T-017）。`config.yaml`は
+- **定義**: `<tenantId>/<clientId>`ディレクトリに置く2つの設定ファイル。`config.yaml`は
   「どのプロジェクトのどのブランチを追跡するか」という運用値（`projectId`/`projectName`/
   `branchToSync`、Helmの向き先ブランチの値`helm.branchToSync`。頻繁に変更される）のみを持ち、
   `anchors.yaml`は「`values.yaml`のどこに書き込むか」というchart構造（`apps[].chart[]`、
@@ -71,7 +71,7 @@
   dotパスで辿る`imageTagKey`方式も過去に存在したが、実運用ではYAMLアンカー方式のみで
   十分なため削除された。過去には`imageTagAnchor`という名前だったが、ユーザー指示により
   `helm.chart[].anchor`と対になる形で`anchor`にリネームされ、さらに`apps.yaml`から
-  `anchors.yaml`へ移設された（T-017）。
+  `anchors.yaml`へ移設された。
 
 ### Helmの向き先ブランチ
 
@@ -83,7 +83,7 @@
   共通の1つの値であり、`config.yaml`のトップレベルフィールド`helm`（`apps:`配列と同階層、
   `branchToSync`を持つ1件のオブジェクト。運用値のためconfig.yaml側に置く。`anchors.yaml`
   側の`helm`も同じくオブジェクト形式で、両者とも配列表記は使わない）として人間が直接
-  書き換える。タグ命名規則のような自動生成・自動判定の仕組みは持たない（T-016）。
+  書き換える。タグ命名規則のような自動生成・自動判定の仕組みは持たない。
 - **表記ゆれ**: config.yaml上のフィールド名は`helm.branchToSync`だが、これは`AppConfig.branchToSync`
   （追跡ブランチ、ソースリポジトリ側の別概念）とは無関係。同じフィールド名が異なる2つの意味で
   使われている点に注意。
@@ -93,7 +93,7 @@
 - **英語識別子**: `anchor`（型は`AnchorName`、`HelmTargetBranchTarget`＝`AnchorTarget`のフィールド）
 - **定義**: 「Helmの向き先ブランチ」の値を`valuesPath`のどこに書き込むかを指す、
   `anchors.yaml`トップレベル`helm.chart`配列の各要素が持つフィールド（chart構造の
-  ためconfig.yamlではなくanchors.yaml側に置く、T-017）。`apps[].chart[].anchor`と
+  ためconfig.yamlではなくanchors.yaml側に置く）。`apps[].chart[].anchor`と
   同様にYAMLアンカー名で位置を指定するが、書き込む値がタグではなくブランチ名である点が
   異なる。`apps[].chart[]`とは独立したリストで、どのappの`values.yaml`に書き込むかは
   `valuesPath`の一致だけで決まる（app側に専用フィールドは持たせない）。
@@ -102,8 +102,8 @@
   （Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、1つでもvaluesPathが
   漏れていると設定エラーになる）。`helm.branchToSync`と`helm.chart[]`は片方だけの指定も
   設定エラー。過去には`apps[].chart[].helmBranchAnchor`というapp単位の任意フィールドだったが、
-  ユーザー指示によりトップレベルの独立リストへ再設計され（T-016）、さらに`apps.yaml`から
-  `anchors.yaml`へ移設された（T-017）。当初`helm`は`[{chart: [...]}]`という配列表記
+  ユーザー指示によりトップレベルの独立リストへ再設計され、さらに`apps.yaml`から
+  `anchors.yaml`へ移設された。当初`helm`は`[{chart: [...]}]`という配列表記
   だったが、ユーザーが`{chart: [...]}`という単純なオブジェクトに直接修正した。
 
 ### chartDir
@@ -131,7 +131,7 @@
 - **定義**: デフォルトは `${追跡ブランチ名の"/"を"-"に置換した値}-build-at-${yyyymmdd}-${hhmmss}`
   というフォーマット。`TAG_FORMAT`環境変数（`{branch}`/`{date}`/`{time}`プレースホルダを
   ちょうど1回ずつ含むテンプレート文字列）でカスタマイズ可能（当初は固定フォーマットだったが、
-  T-018で設定可能に変更）。`validateTagFormat()`/`parseTag()`/`buildNewTag()`が扱う。
+  後から設定可能に変更された）。`validateTagFormat()`/`parseTag()`/`buildNewTag()`が扱う。
 
 ### 打刻日時 / ビルド日時
 
@@ -146,7 +146,7 @@
   打刻日時が最も新しいものを選ぶ）。1件も見つからない場合は、新規作成されたタグがこれに
   当たる（後述の「タグ自動作成」）。「タグ名が最も新しいものを選んでからHEADと比較する」
   のではなく「HEADを指すタグを直接探す」方式にしているのは、HEADに既にタグがあるのに
-  別コミットに新しい名前のタグがあると無駄なタグを作ってしまうのを避けるため（T-056）。
+  別コミットに新しい名前のタグがあると無駄なタグを作ってしまうのを避けるため。
 
 ### 反映済みタグ
 
@@ -158,8 +158,8 @@
   書き換え前の生の文字列を`previousTagRaw`と呼んでいる。
 - **更新しない例外**: 反映済みタグが現在の追跡ブランチのHEADコミットを指している場合は、
   より新しい名前のタグが存在しても更新しない（デプロイされる中身が同じなのに差分だけが出る
-  MRを作らないため。T-037）。ただし追跡ブランチを切り替えた直後は、切り替え前後が同じ
-  コミットを指していても新しいタグを作成して反映する（T-043）。
+  MRを作らないため）。ただし追跡ブランチを切り替えた直後は、切り替え前後が同じ
+  コミットを指していても新しいタグを作成して反映する。
 
 ### タグ自動作成
 
@@ -169,7 +169,7 @@
 - **補足**: `docs/requirements-grilling.md`に記載があるとおり、当初の要件（見つからない場合は
   エラーにする）から実装時に仕様変更された経緯がある。実運用での実機検証を通じて「HEADに
   ビハインドしている場合も作成する」判定が追加され（当初は名前が一致する既存タグを無条件に
-  再利用していた）、その後T-056で「タグ名が最も新しいものを選んでからHEADと比較する」方式から
+  再利用していた）、その後「タグ名が最も新しいものを選んでからHEADと比較する」方式から
   「HEADを指すタグを直接探す」方式に変更された（無駄なタグ作成を避けるため）。
 
 ## MR・GitLab操作関連
@@ -182,8 +182,8 @@
 
 - **英語識別子**: `buildUpdateBranch(tenantId, clientId)`（値は`feature/yadokari/<tenantId>/<clientId>`）
 - **定義**: 1つのchartAndApps（`(chartリポジトリ, tenantId, clientId)`単位）でMRを送るために使い回す固定ブランチ名。tenantId/clientIdごとに異なる値になる。
-- **補足**: 要件定義の検討初期段階では`yadokari/<アプリ名>`というアプリ単位のブランチ名案だったが、議論の末に「chartリポジトリ単位で固定（`yadokari/update`）」に変更され、さらにT-019で「`(chartリポジトリ, tenantId, clientId)`単位」に変更された（同じchartリポジトリに複数のtenantId/clientIdが乗る場合、クライアントごとに独立したブランチ・MRになる）。以前は`UPDATE_BRANCH`という固定値のエクスポートだったが、tenantId/clientIdごとに値が変わるようになったため関数に変わった。
-- **バグ修正（T-021）**: 要件定義には元々「マージまたはクローズされた後の実行で、改めて固定ブランチを作り直しMRを作成する」と明記されていたが、実装（`commitFileUpdates()`）はブランチが存在する場合は削除せず追加コミットを積むだけだった。`filterTargets`が「このブランチにオープン中のMRが無い」ことを確認済みという前提を活かし、ブランチが存在すれば`deleteBranch()`で無条件に削除してから作り直すよう修正した。
+- **補足**: 要件定義の検討初期段階では`yadokari/<アプリ名>`というアプリ単位のブランチ名案だったが、議論の末に「chartリポジトリ単位で固定（`yadokari/update`）」に変更され、さらに「`(chartリポジトリ, tenantId, clientId)`単位」に変更された（同じchartリポジトリに複数のtenantId/clientIdが乗る場合、クライアントごとに独立したブランチ・MRになる）。以前は`UPDATE_BRANCH`という固定値のエクスポートだったが、tenantId/clientIdごとに値が変わるようになったため関数に変わった。
+- **バグ修正**: 要件定義には元々「マージまたはクローズされた後の実行で、改めて固定ブランチを作り直しMRを作成する」と明記されていたが、実装（`commitFileUpdates()`）はブランチが存在する場合は削除せず追加コミットを積むだけだった。`filterTargets`が「このブランチにオープン中のMRが無い」ことを確認済みという前提を活かし、ブランチが存在すれば`deleteBranch()`で無条件に削除してから作り直すよう修正した。
 
 ### mrTargetBranch
 

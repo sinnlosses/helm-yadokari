@@ -14,7 +14,7 @@ import { createClient } from "../../src/lib/gitlab/gitlab.js"
 const HELM_TARGET_BRANCH = "release/2026-q1"
 
 /**
- * values.yaml のシード値には「実在する、かつ最新より古いタグ」を使う（T-035）。
+ * values.yaml のシード値には「実在する、かつ最新より古いタグ」を使う。
  * `placeholder` のような架空の値だと、MR本文の旧タグリンク（`/-/tags/...`）と比較リンクが
  * 存在しないタグを指してしまい、初回のMRだけ壊れた見た目になるため。
  */

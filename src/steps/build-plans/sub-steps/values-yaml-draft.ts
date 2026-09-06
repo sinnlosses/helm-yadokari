@@ -12,7 +12,7 @@ export type ValuesYamlEntry = {
 
 /**
  * 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」。valuesPathごとに現在の内容と
- * 書き換えたかどうかを1つのMapにまとめて持つ（T-050）。
+ * 書き換えたかどうかを1つのMapにまとめて持つ。
  *
  * 以前は`valuesYamlCache`（内容のキャッシュ）と`modifiedValuesPaths`（書き換えた印）を
  * 別々に持ち回っており、`build-plans.ts`の`buildAppUpdatePlan()`が段階ごとに2フィールドを

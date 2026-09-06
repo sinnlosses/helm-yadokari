@@ -20,7 +20,7 @@ chartリポジトリ側に必要なもの（`smoke-fixture.ts setup` が用意�
 - ブランチ `release/2026-q1` … Helmの向き先ブランチの更新先。書き込み前に実在検証されるため、
   実際に存在している必要がある
 - ソースリポジトリのシードタグ … `values.yaml` の初期値には**実在する、かつ最新より古いタグ**を
-  使う（T-035）。架空の値（旧`placeholder`）だとMR本文の旧タグリンク・比較リンクが
+  使う。架空の値（旧`placeholder`）だとMR本文の旧タグリンク・比較リンクが
   存在しないタグを指してしまうため。`sample-develop-client` はコミットが1つしかないので、
   同じコミットに古い日時のタグ（`main-build-at-20260101-000000`）を作って代用している
   （比較リンクは開けるが差分は空になる）
@@ -41,7 +41,7 @@ chartリポジトリ側に必要なもの（`smoke-fixture.ts setup` が用意�
 | `tenant2/client2` | image tag更新のみ                                                           |
 
 各clientには2つのappを登録してあるが、`sample-develop-client` は反映済みタグが追跡ブランチの
-HEADを指すため更新対象から外れる（T-037）。「複数app登録の状態で、更新が必要なappだけが
+HEADを指すため更新対象から外れる。「複数app登録の状態で、更新が必要なappだけが
 MRに載る」ことの確認も兼ねている。
 
 それぞれ独立した固定ブランチ `feature/yadokari/tenant2/<clientId>` とMRになる。
@@ -73,18 +73,18 @@ CONFIG_PATH=config-test TARGET_CLIENT=tenant2/client1,tenant2/client2 pnpm dev
 ## 期待する結果
 
 - 終了コード 0、ログの `summary` が `{"CREATED":2,"SKIPPED":0,"ERROR":0}`
-- `sample-develop-client` はシードタグと最新タグが同じコミットを指すため、T-037のルール
-  （反映済みタグが追跡ブランチのHEADを指すなら更新しない）で更新対象から外れる。
+- `sample-develop-client` はシードタグと最新タグが同じコミットを指すため、
+  「反映済みタグが追跡ブランチのHEADを指すなら更新しない」というルールで更新対象から外れる。
   そのため各clientのMRに載るイメージタグは `sample-qa-sprint` の1件になる
 - chartリポジトリに `feature/yadokari/tenant2/client1` と `.../client2` の2ブランチ、
   それぞれに対応するMRが2件
 - `client1` の `values.yaml` は2アンカーが書き換わる（`t2c1QaSprintVersion` ＋ 向き先ブランチ。
   `t2c1DevelopClientVersion` は上記のとおり据え置き）
 - `client2` の `values.yaml` は1アンカー（`t2c2QaSprintVersion`）が書き換わる
-- MRタイトルは種別ごとの件数つき（T-034）:
+- MRタイトルは種別ごとの件数つき:
   - client1: `Auto MR by yadokari: update tenant2/client1 (image tag 1, helm branch 1)`
   - client2: `Auto MR by yadokari: update tenant2/client2 (image tag 1)`
-- MR本文は2セクションのテーブル（T-036）。「## イメージタグ」は
+- MR本文は2セクションのテーブル。「## イメージタグ」は
   `リポジトリ / 追跡ブランチ / ファイル / アンカー / 旧タグ / 新タグ / 比較 / パイプライン` の8列で、
   「## Helmの向き先ブランチ」は `旧ブランチ / 新ブランチ / ファイル / アンカー` の4列。
   旧タグ・新タグはタグ名をラベルにしたリンク、比較・パイプラインはURLをそのまま表示する。

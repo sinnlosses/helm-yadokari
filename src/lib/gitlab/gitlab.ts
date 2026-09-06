@@ -125,7 +125,7 @@ type CommitAction = { action: "create" | "update"; filePath: ValuesPath; content
  * 固定ブランチへコミットを作成する。呼び出し元（`filterTargets`）が、このブランチに
  * オープン中のMRが無いことを既に確認済みである前提のため、ブランチが既に存在する場合は
  * （マージ済み・クローズ済みいずれのMRの残骸であっても）一旦削除し、`baseBranch` から
- * 常に新規作成し直す（T-021）。これにより、過去の（もう追跡していない）変更が新しいMRの
+ * 常に新規作成し直す。これにより、過去の（もう追跡していない）変更が新しいMRの
  * 差分に紛れ込むことを防ぐ。
  *
  * ファイルごとの action（create/update）は、常に `baseBranch` に該当ファイルが既に

@@ -44,7 +44,7 @@ function formatChartDirs(chartDirs: readonly string[]): string {
  * config.yaml は `<chartDir>/<tenantId>/<clientId>/config.yaml` の2階層固定で配置される。
  * 同じディレクトリの`anchors.yaml`とprojectId単位で結合し、両ファイル間の紐づけ矛盾
  * （`validateProjectLinkage()`）を検証する。tenantId/clientIdごとに独立した`ChartAndApps`を
- * 1件返す（T-019、MRを作成する単位に対応）。該当する`config.yaml`が存在しないtenant/client
+ * 1件返す（MRを作成する単位に対応）。該当する`config.yaml`が存在しないtenant/client
  * ディレクトリからは`ChartAndApps`を作らない（空扱いのMR単位を作らないため）。
  */
 function loadClientChartAndApps(
@@ -141,7 +141,7 @@ function clientDirExists(
  * および絞り込み結果として`chartAndAppsList`が1件も無い場合（該当ディレクトリに
  * `chart.yaml`や`config.yaml`が無い場合を含む）に例外をスローする（`target`未指定時は
  * 素通しで、0件でもエラーにしない）。tenantId/clientIdごとに独立した`ChartAndApps`
- * （MRを作成する単位、T-019）を返すため、1つのchartディレクトリに複数の
+ * （MRを作成する単位）を返すため、1つのchartディレクトリに複数の
  * tenantId/clientIdがあれば`chartAndAppsList`には複数件が並ぶ。
  */
 export function loadConfig(configPath?: string, target: ConfigTarget = {}): Config {

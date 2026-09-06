@@ -128,7 +128,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
 
   it(
     "同じvaluesPath+anchorが1アプリのchartに2回現れると、1箇所しか変わっていなくても" +
-      "updatesが2件記録される（T-032の重複防止が壊れたときに気づくための回帰テスト。" +
+      "updatesが2件記録される（重複防止が壊れたときに気づくための回帰テスト。" +
       "本来この設定は loadConfig() の validateNoDuplicateTargets() で例外になり、" +
       "buildPlans() まで到達しない）",
     async () => {

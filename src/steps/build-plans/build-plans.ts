@@ -176,13 +176,13 @@ async function buildPlan(
  * 2. `resolveLatestTag()` — 追跡ブランチ由来の最新タグが存在するか確認し、無ければ作成する
  *    （反映済みタグが現在の追跡ブランチ由来でない場合も作成する）
  * 3. `applyImageTagTargets()` — `app.chart`全箇所について、最新タグとの差分をチェックする
- *    （反映済みタグは1で読んだ`previousTags`をそのまま使い、同じアンカーを読み直さない。T-048）
+ *    （反映済みタグは1で読んだ`previousTags`をそのまま使い、同じアンカーを読み直さない）
  * 4. `applyHelmTargetBranchTargets()` — `app.helmTargetBranch`があれば、向き先ブランチの
  *    全箇所について設定値との差分をチェック
  * 5. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば最新パイプラインを取得して
  *    `AppUpdatePlan`を組み立てる
  *
- * 処理中に投げられた例外は`rethrowWithAppContext()`でアプリ名を付けて投げ直す（T-052）。
+ * 処理中に投げられた例外は`rethrowWithAppContext()`でアプリ名を付けて投げ直す。
  * 致命的エラーの扱いを含む方針は`steps/shared/step-outcome.ts`に集約している。
  */
 async function buildAppUpdatePlan(

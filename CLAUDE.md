@@ -51,7 +51,7 @@ pnpm build && pnpm start              # ビルドしてから実行
   - 複数箇所から呼ばれ、技術に依存しない純粋な計算 → `utils/`
   - 複数の`steps/`から呼ばれるが、技術ではなくこのツールのドメイン型（`ChartAndApps`・
     `AppUpdatePlan`など）にだけ依存する → `steps/shared/`（結果ログの識別情報・エラー方針など。
-    `lib/`でも`utils/`でもないためT-022で新設）
+    `lib/`でも`utils/`でもないため新設した区分）
 
 各ファイルの詳しい責務・ディレクトリ構成の勘所・既知の制約は
 [`docs/architecture.md`](./docs/architecture.md) を参照。
@@ -75,7 +75,7 @@ pnpm build && pnpm start              # ビルドしてから実行
 （pipeline schedule / 手動実行時のみ本体を実行）という構成。`validate-config-remote` は
 `config/` の値がGitLab上に実在するかをMR時点で検証するジョブ（読み取りのみ。MR/push/手動実行で
 必ず走り、`ACCESS_TOKEN`が参照できないときはスキップせず失敗する。そのため同変数は
-Protected: OFF で登録する、T-032）。`renovate` ジョブはこのCLI自体の
+Protected: OFF で登録する）。`renovate` ジョブはこのCLI自体の
 依存パッケージ更新用（別スケジュールで `RENOVATE=true` を指定）。
 
 ## コーディング規約・レビュー方針
@@ -89,6 +89,11 @@ Protected: OFF で登録する、T-032）。`renovate` ジョブはこのCLI自�
 - 環境変数はすべて `src/lib/env.ts` で管理する
 - 401 / 5xx / ネットワーク障害は `FatalError` を投げて即時終了、それ以外のエラーは該当
   chart リポジトリを `ERROR` としてログ記録し処理継続する（詳細は README「エラーハンドリング」参照）
+- コード・ドキュメントにタスク番号（`tasks.json` の `id`。`T-` + 3桁の連番）を書かない。
+  変更の経緯は `tasks.json` と `docs/history/` 側に持たせ、コードやドキュメントには
+  「現在どうなっているか」と「なぜそうなっているか」だけを書く。この規約は
+  `grep -rE "T-[0-9]{3}"` が `tasks.json` / `progress.md` / `docs/history/` 以外で
+  0件になることで機械的に確認できる
 - レビュー観点は `/code-review` スキルのStandards軸（この節）とSpec軸（`docs/requirements.md`）を参照
 
 ## 導入済みスキル

@@ -220,7 +220,7 @@ describe("commitFileUpdates", () => {
     )
   })
 
-  it("ブランチが既に存在するとき、削除してからbaseBranchを起点に作り直す（T-021、オープン中MRが無いことは呼び出し元で確認済みの前提）", async () => {
+  it("ブランチが既に存在するとき、削除してからbaseBranchを起点に作り直す（オープン中MRが無いことは呼び出し元で確認済みの前提）", async () => {
     const createFn = vi.fn().mockResolvedValue({})
     const removeFn = vi.fn().mockResolvedValue(undefined)
     const client = makeClient({

@@ -6,7 +6,7 @@ import { afterEach, beforeEach } from "vitest"
 /**
  * `loadConfig()` のテスト用に、テストごとの使い捨て `config/` ディレクトリを用意する。
  * `beforeEach`/`afterEach` の登録も行うので、テストファイル側は
- * `const dir = useConfigDir()` と書くだけでよい（T-041）。
+ * `const dir = useConfigDir()` と書くだけでよい。
  */
 export type ConfigDir = {
   /** 現在のテスト用ディレクトリの絶対パス */

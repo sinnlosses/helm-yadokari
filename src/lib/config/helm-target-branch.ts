@@ -5,7 +5,7 @@ import type { AnchorTarget, BranchName, HelmTargetBranchConfig } from "../../typ
  * （書き込み先の`valuesPath`+`anchor`一覧）を、app単位の`HelmTargetBranchConfig`に振り分ける。
  * 振り分けは`helm.chart[].valuesPath`とapp自身の`chart[].valuesPath`の一致で行う（どのappの
  * values.yamlに書き込むかを、app側に専用フィールドを持たせず`valuesPath`だけで判定する）。
- * Helmの向き先ブランチは「1client内のapps全体で共通」という前提（T-013）のため、
+ * Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、
  * `branchToSync`が指定されている場合は、そのconfig.yaml配下の全アプリの全`chart[].valuesPath`が
  * `helm.chart[]`でカバーされている必要がある（1つでも漏れていれば、そのvaluesPathだけ
  * 更新対象から漏れてしまう設定ミスとして例外をスローする）。`branchToSync`と`helm.chart[]`は

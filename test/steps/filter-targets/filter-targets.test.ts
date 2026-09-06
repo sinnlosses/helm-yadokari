@@ -53,7 +53,7 @@ describe("filterTargets", () => {
     expect(settled).toEqual(["SKIPPED"])
   })
 
-  it("tenantId/clientIdを含むブランチでオープン中MRの有無を判定する（T-019）", async () => {
+  it("tenantId/clientIdを含むブランチでオープン中MRの有無を判定する", async () => {
     const group = makeChartAndApps([makeApp()], {
       tenantId: toTenantId("tenant1"),
       clientId: toClientId("client1"),

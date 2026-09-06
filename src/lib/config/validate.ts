@@ -3,7 +3,7 @@ import type { AnchorTarget, ProjectId, ProjectName } from "../../types/types.js"
 /**
  * `config.yaml` / `anchors.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス
  * （紐づけの矛盾・重複）を検証する。実体の有無（projectIdやブランチの実在）は
- * `lib/verify-config/` の担当（T-032）。
+ * `lib/verify-config/` の担当。
  */
 
 /**
@@ -52,7 +52,7 @@ export function validateProjectLinkage(
 /**
  * 同じ`projectId`のappが1ファイル内に複数書かれていないか検証する。CLIは`projectId`を
  * キーに2ファイルを突き合わせるため、重複していると片方の設定が黙って無視され、
- * 同じ書き込み先へ別々のタグを順番に書いて最後の値だけが残る（T-032）。
+ * 同じ書き込み先へ別々のタグを順番に書いて最後の値だけが残る。
  */
 export function validateNoDuplicateProjectIds(
   filePath: string,
@@ -76,7 +76,7 @@ export type LabeledTarget = { readonly target: AnchorTarget; readonly label: str
 /**
  * 1つのclient内で、同じ`valuesPath`+`anchor`（＝values.yamlの同じ1箇所）を複数の設定が
  * 書き込み先にしていないか検証する。重複していると後から処理した側の値だけが残り、
- * MRには両方を更新したように表示されるため、静かに誤った結果になる（T-032）。
+ * MRには両方を更新したように表示されるため、静かに誤った結果になる。
  * イメージタグ用（`apps[].chart[]`）と向き先ブランチ用（`helm.chart[]`）の衝突も対象にする。
  */
 export function validateNoDuplicateTargets(

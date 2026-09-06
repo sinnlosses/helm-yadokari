@@ -124,9 +124,9 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     expect(settled).toEqual([])
   })
 
-  it("追跡ブランチを変更したとき、反映済みタグが変更後ブランチのHEADを指していても更新する（T-037のスキップ対象外）", async () => {
+  it("追跡ブランチを変更したとき、反映済みタグが変更後ブランチのHEADを指していても更新する（HEAD一致によるスキップの対象外）", async () => {
     // 切り替え前後のブランチが同じコミットを指しているケース。反映済みタグ（main由来）は
-    // release/2026-q2 のHEADを指すのでT-037なら更新しないが、追跡先が変わったことを
+    // release/2026-q2 のHEADを指すので通常なら更新しないが、追跡先が変わったことを
     // values.yamlに反映するため更新する
     vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
@@ -210,7 +210,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     expect(settled).toEqual(["SKIPPED"])
   })
 
-  it("HEADに既存タグがあれば、別コミットを指すより新しい名前のタグがあっても新規タグを作らない（T-056）", async () => {
+  it("HEADに既存タグがあれば、別コミットを指すより新しい名前のタグがあっても新規タグを作らない", async () => {
     // OLD_TAG は現在のHEADを指しているが、タグ名の日時としては古い。NEW_TAG はタグ名の
     // 日時としては新しいが、HEADではない別コミットを指している（例: HEADへのタグ付け後、
     // 別ブランチや過去のコミットに対して後からタグが打たれたケース）。
@@ -270,7 +270,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
   })
 })
 
-describe("resolveLatestTag（trackedHeadTagNamesの中身、T-049）", () => {
+describe("resolveLatestTag（trackedHeadTagNamesの中身）", () => {
   afterEach(() => {
     vi.clearAllMocks()
   })
@@ -295,7 +295,7 @@ describe("resolveLatestTag（trackedHeadTagNamesの中身、T-049）", () => {
   it("追跡ブランチを切り替えた直後は、切り替え前のタグ名がHEADと同じコミットを指していても含まない", async () => {
     // release/2026-q2 に切り替えた直後、切り替え前(main)のタグがrelease/2026-q2のHEADと
     // たまたま同じコミットを指しているケース。tagFormatではrelease/2026-q2由来として
-    // パースできないため、trackedHeadTagNamesは空になる（T-043）
+    // パースできないため、trackedHeadTagNamesは空になる
     vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
@@ -307,7 +307,7 @@ describe("resolveLatestTag（trackedHeadTagNamesの中身、T-049）", () => {
     expect(result.trackedHeadTagNames.size).toBe(0)
   })
 
-  it("HEADを指すタグが複数あるとき、タグ名の日時が最も新しいものを返す（決定性のための規則、T-056）", async () => {
+  it("HEADを指すタグが複数あるとき、タグ名の日時が最も新しいものを返す（決定性のための規則）", async () => {
     // いずれもHEADと同じコミットを指すため中身は同じだが、どれを返すかは決定性のために
     // タグ名の日時で決める。新規タグ作成は発生しない。
     vi.mocked(listTags).mockResolvedValue([

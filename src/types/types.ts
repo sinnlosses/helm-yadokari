@@ -56,7 +56,7 @@ export type HelmTargetBranchConfig = {
 /**
  * ソースリポジトリ（タグが打たれるGitLabプロジェクト）に対応する1アプリの設定。
  * `projectId`/`projectName`/`branchToSync`はconfig.yamlの運用値、`chart`は同じディレクトリの
- * `anchors.yaml`（`apps[].chart[]`）から`projectId`で引いた書き込み先（T-017）
+ * `anchors.yaml`（`apps[].chart[]`）から`projectId`で引いた書き込み先
  */
 export type AppConfig = {
   readonly projectId: ProjectId
@@ -86,7 +86,7 @@ export type ChartRepoConfig = {
 /**
  * `config/<chartリポジトリ>/<tenantId>/<clientId>/`1つ分。chart.yamlの情報＋その
  * tenantId/clientIdディレクトリのconfig.yaml（+同じディレクトリのanchors.yaml）から
- * 得たアプリ一覧の集約。MRを作成する単位（T-019）でもあり、`tenantId`/`clientId`が
+ * 得たアプリ一覧の集約。MRを作成する単位でもあり、`tenantId`/`clientId`が
  * 異なれば同じchartリポジトリでも別のChartAndApps（＝別ブランチ・別MR）になる
  */
 export type ChartAndApps = {

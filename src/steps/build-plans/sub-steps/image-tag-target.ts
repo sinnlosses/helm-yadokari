@@ -20,9 +20,9 @@ export type CurrentImageTags = {
  * values.yamlは下書きに載せて返すので、後続の`applyImageTagTargets()`が再取得することはない。
  *
  * ここで返す`previousTags`は`applyImageTagTargets()`にもそのまま渡し、同じアンカーを
- * `getValueAtAnchor()`で二重に読むのを避ける（T-048）。この使い回しは、1つのclient内で
+ * `getValueAtAnchor()`で二重に読むのを避ける。この使い回しは、1つのclient内で
  * 同じ`valuesPath`+`anchor`が複数回書き込み先にならないことが`loadConfig()`時点で保証されて
- * いる（`config/validate.ts`の`validateNoDuplicateTargets()`、T-032）前提の上に成り立つ。
+ * いる（`config/validate.ts`の`validateNoDuplicateTargets()`）前提の上に成り立つ。
  * この前提が崩れて`app.chart`内に同じアンカーが2回以上現れると、後続のtargetは
  * 「直前のtargetが書き換えた後の値」ではなくここで読んだ書き換え前の値を`previousTag`として
  * 使ってしまい、実際には1箇所しか変わっていないのに2件のupdatesが記録される
@@ -52,9 +52,9 @@ export async function readCurrentImageTags(
  * `updates`にも積む（差分が無ければ`acc`をそのまま返し、values.yamlの再読み込みもしない）。
  *
  * `previousTag`は呼び出し時点で読み取り済みの値であり、ここで`getValueAtAnchor()`を
- * 呼び直すことはしない（T-048、前提は`readCurrentImageTags()`のJSDoc参照）。
+ * 呼び直すことはしない（前提は`readCurrentImageTags()`のJSDoc参照）。
  *
- * 現在値が「追跡ブランチの現在のHEADを指すタグ」の場合も更新しない（T-037）。タグ名は
+ * 現在値が「追跡ブランチの現在のHEADを指すタグ」の場合も更新しない。タグ名は
  * 違ってもデプロイされる中身は同じで、更新しても意味が無いMRになるため。
  */
 async function applyImageTagTarget(
@@ -87,8 +87,7 @@ async function applyImageTagTarget(
  * 複数箇所を扱うのはこの関数の責務で、呼び出し元（`build-plans.ts`）は
  * 「アプリのchart全体にイメージタグを適用する」という1つの操作として呼ぶだけでよい。
  *
- * `previousTags`は`readCurrentImageTags()`が返したものを`targets`と同じ並びでそのまま渡す
- * （T-048）。
+ * `previousTags`は`readCurrentImageTags()`が返したものを`targets`と同じ並びでそのまま渡す。
  */
 export async function applyImageTagTargets(
   loadValuesYamlContent: LoadValuesYamlContent,

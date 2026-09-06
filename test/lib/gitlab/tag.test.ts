@@ -217,7 +217,7 @@ describe("buildNewTag", () => {
   })
 })
 
-describe("TAG_FORMATのプレースホルダの並び順・区切り文字は任意（回帰テスト、T-056）", () => {
+describe("TAG_FORMATのプレースホルダの並び順・区切り文字は任意（回帰テスト）", () => {
   it("{date}-{time}-{branch}（デフォルトと並び順が異なる）で生成・再パース・最新判定ができる", () => {
     const format = validateTagFormat("{date}-{time}-{branch}")
     const branch = toBranchName("main")

@@ -25,7 +25,7 @@ export type RemoteCache = {
 }
 
 export function newRemoteCache(gitlab: GitlabClient): RemoteCache {
-  // chartAndApps単位の並列実行から同時に呼ばれるため、値ではなくPromiseを共有する（T-042）
+  // chartAndApps単位の並列実行から同時に呼ばれるため、値ではなくPromiseを共有する
   const projects = new Map<ProjectId, Promise<boolean>>()
   const branches = new Map<string, Promise<boolean>>()
   const files = new Map<string, Promise<FileResult>>()

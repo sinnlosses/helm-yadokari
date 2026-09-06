@@ -1,5 +1,5 @@
 /**
- * ドメイン固有のブランド型と、その生成に使う factory 関数（T-047）。
+ * ドメイン固有のブランド型と、その生成に使う factory 関数。
  * CLAUDE.mdの規約「`as` キャストは factory 関数に封じ込め、それ以外で使わない」を機械的に
  * 検証できるよう、`src/` 内で `as` を使うのはこのファイルだけにしている。
  * `src/types/types.ts` から再エクスポートしているので、利用側は `types.js` を import すればよい。
@@ -60,14 +60,14 @@ export function toChartDirName(s: string): ChartDirName {
 }
 
 declare const tenantIdBrand: unique symbol
-/** `config/<chartDir>/<tenantId>/`ディレクトリ名。MRを作成する単位の一部（T-019） */
+/** `config/<chartDir>/<tenantId>/`ディレクトリ名。MRを作成する単位の一部 */
 export type TenantId = string & { readonly [tenantIdBrand]: never }
 export function toTenantId(s: string): TenantId {
   return s as TenantId
 }
 
 declare const clientIdBrand: unique symbol
-/** `config/<chartDir>/<tenantId>/<clientId>/`ディレクトリ名。MRを作成する単位の一部（T-019） */
+/** `config/<chartDir>/<tenantId>/<clientId>/`ディレクトリ名。MRを作成する単位の一部 */
 export type ClientId = string & { readonly [clientIdBrand]: never }
 export function toClientId(s: string): ClientId {
   return s as ClientId

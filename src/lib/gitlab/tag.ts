@@ -123,7 +123,7 @@ export function buildNewTag(branch: BranchName, now: Date, format: TagFormat): P
  * 渡されたタグ名のうち、指定ブランチ由来（＝`branch`と`format`でパースできる）のものの中から、
  * 最も新しい builtAt を持つものを返す。該当するタグがひとつもない場合は undefined を返す。
  * 呼び出し元は「タグ一覧全体」だけでなく、「HEADを指すタグの集合」のような絞り込み済みの
- * タグ名リストを渡すこともある（`resolveLatestTag()`、T-056）。
+ * タグ名リストを渡すこともある（`resolveLatestTag()`）。
  */
 export function findLatestParsedTag(
   tagNames: readonly TagName[],

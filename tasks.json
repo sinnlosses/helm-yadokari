@@ -74,10 +74,10 @@
   {
     "id": "T-062",
     "task": "コードとドキュメントからタスク番号（`T-001` のような参照）を削除する。ユーザー判断（2026-09-06）で範囲は「進捗管理の仕組みそのもの以外すべて」。対象: src/ の16ファイル（lib/gitlab/mr-content.ts 10件、types.ts 7件、steps/sub-steps/build-plans/{image-tag-target,types,resolve-latest-tag,values-yaml-draft}.ts、steps/build-plans.ts、steps/shared/step-outcome.ts、lib/config/{config,schema,validate,helm-target-branch}.ts、lib/verify-config/{verify-config,remote-cache}.ts、lib/gitlab/gitlab.ts、types/brand.ts）、test/ の5ファイル、scripts/smoke/smoke-fixture.ts、README.md、config/README.md、CLAUDE.md、docs/{architecture.md 21件, glossary.md 14件, requirements.md 13件, workflow.md 8件, requirements-grilling.md 9件, smoke-test.md 5件}。**対象外**（タスク番号が識別子として機能しているファイル）: tasks.json、progress.md、docs/history/tasks-archive.md、docs/history/progress-archive.md。単に番号を消すのではなく、番号が根拠へのポインタになっている文（例:「〜は T-024 で意図的に残した」「T-049でクロージャからデータに置き換えた」）は、番号なしで意味が通るように書き直す（理由そのものを残す／履歴の記述自体が不要なら文ごと削る）。docs/workflow.md の difficulty 表にある実タスク例も、番号を出さない説明に置き換える。あわせて CLAUDE.md の「コーディング規約」に「コード・ドキュメントにタスク番号を書かない（経緯は tasks.json / docs/history/ 側に持つ）」を追記する。完了条件: 対象ファイルに `T-[0-9]{3}` が1件も残らないことを grep で確認し、`pnpm check` を通すこと",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "コード・ドキュメント33ファイルからタスク番号を削除。番号が根拠のポインタになっている文は番号なしで意味が通るよう書き直した（例: architecture.md の「T-003で意図的にこのままとする判断」→「意図的にこのままとする判断。理由は前掲の…参照」、workflow.md の difficulty 表の実タスク例→作業の性質が伝わる説明）。CLAUDE.md のコーディング規約に「コード・ドキュメントにタスク番号を書かない」を追記し、grep で機械的に確認できる旨も明記。残存は tasks.json / progress.md / docs/history/ の4ファイルのみ（＝タスク番号が識別子として機能する対象外ファイル）。pnpm check（28ファイル319テスト）通過。sonnetのサブエージェントに委譲したがセッション上限で途中終了したため、メイン側で残り1件の書き換えと、落ちる前に崩れていた3ファイルの整形（oxfmt）を仕上げて受け入れた",
     "dependencies": ["T-054", "T-056", "T-057", "T-059", "T-060", "T-061"]
   }
 ]

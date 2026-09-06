@@ -6,7 +6,7 @@ import { logger } from "../../utils/logger.js"
 // 3つのstep（filter-targets / build-plans / apply-updates）が共通で使う、
 // 「chartAndApps 1件の処理結果をどう記録し、失敗をどう扱うか」だけを置く。
 // 特定の技術・外部システムには依存しない（ドメイン型にのみ依存する）ため lib/ には置かず、
-// 「複数のstepから呼ばれる」ため特定stepの sub-steps/ にも置かない（steps/shared/ の由来はT-022）。
+// 「複数のstepから呼ばれる」ため特定stepの sub-steps/ にも置かない。
 
 /**
  * chartAndApps 1件分の処理結果ログに共通で載せる識別情報。3つのstepすべてが
@@ -41,14 +41,14 @@ export function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
 }
 
 /**
- * アプリ単位の処理で捕捉した例外に「どのアプリで起きたか」を付け足して投げ直す（T-052）。
+ * アプリ単位の処理で捕捉した例外に「どのアプリで起きたか」を付け足して投げ直す。
  * オールオアナッシングでclient全体がERRORになるため、原因のアプリがログから特定できないと
  * 調査できないことへの対策。
  *
  * 致命的エラー（401 / 5xx / ネットワーク障害）は**包まずにそのまま投げる**。`settleAsError()`は
  * 元の例外の構造（`cause.response.status` や `code`）を見て判定するため、`new Error(..., { cause })`
  * で包むとその構造が1段深くなり、`FatalError`に昇格できなくなるためである。この「何が致命的か」の
- * 判断を`settleAsError()`と同じファイルに置くことで、方針の変更漏れを防ぐ（T-022）。
+ * 判断を`settleAsError()`と同じファイルに置くことで、方針の変更漏れを防ぐ。
  */
 export function rethrowWithAppContext(err: unknown, projectName: ProjectName): never {
   if (isFatalError(err) || !(err instanceof Error)) throw err

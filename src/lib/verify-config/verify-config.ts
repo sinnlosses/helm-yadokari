@@ -160,7 +160,7 @@ async function verifyChartAndApps(
  *
  * 同じプロジェクト・ブランチ・values.yamlへの問い合わせは全chartAndAppsで共有したキャッシュで
  * 1回に抑える。chartAndApps単位は`concurrencyLimit`件ずつ並列に検証するが、結果は入力順を
- * 保った配列で返るため、報告の順序は`config/`の並び順と一致する（T-042）。
+ * 保った配列で返るため、報告の順序は`config/`の並び順と一致する。
  * アプリ単位はchartAndApps内で逐次のまま（キャッシュのヒット率を保つため）。
  */
 export async function verifyConfigExistence(

@@ -14,14 +14,14 @@ import { getOrFetch } from "../../utils/cache.js"
 
 /**
  * MRのブランチ名・タイトル・本文（Markdown）を組み立てる。外部I/Oを持たない純粋な文字列組み立て
- * だけを置き、GitLab APIの呼び出しは呼び出し元から `ResolveWebUrl` として関数で受け取る（T-044）。
+ * だけを置き、GitLab APIの呼び出しは呼び出し元から `ResolveWebUrl` として関数で受け取る。
  */
 
 /** プロジェクトのweb URLを解決する関数（`lib/gitlab/gitlab.ts` の `getProjectWebUrl` を注入する） */
 export type ResolveWebUrl = (projectId: ProjectId) => Promise<GitLabUrl>
 
 /**
- * 1つの`(chartリポジトリ, tenantId, clientId)`分の更新に使う固定ブランチ名（T-019）。
+ * 1つの`(chartリポジトリ, tenantId, clientId)`分の更新に使う固定ブランチ名。
  * 同じGitLabプロジェクト内で複数のtenantId/clientIdのMRが共存するため、IDをブランチ名に
  * 含めて分離する。
  */
@@ -32,7 +32,7 @@ export function buildUpdateBranch(tenantId: TenantId, clientId: ClientId): Branc
 /**
  * 向き先ブランチの更新は`helm.chart[]`をvaluesPath一致でアプリに振り分けた結果なので、
  * 同じ書き込み先が複数アプリの計画に現れうる。件数・表示は書き込み先（valuesPath+anchor）
- * 単位で一意にする（T-034）
+ * 単位で一意にする
  */
 function uniqueHelmTargetBranchUpdates(
   plans: readonly AppUpdatePlan[],
@@ -49,10 +49,10 @@ function uniqueHelmTargetBranchUpdates(
 }
 
 /**
- * MRのタイトル。何が何件変わったかを種別ごとに示す（T-034。以前は「N app image tag(s)」と
+ * MRのタイトル。何が何件変わったかを種別ごとに示す（以前は「N app image tag(s)」と
  * 固定で、向き先ブランチだけが変わった場合もイメージタグが変わったように読めていた）。
  * 数える単位はアプリ数ではなく values.yaml の書き換え箇所数（1アプリが複数箇所を持つ
- * ケース、T-014、も正しく数えるため）。`apply-updates.ts` がコミットメッセージにも流用する。
+ * ケースも正しく数えるため）。`apply-updates.ts` がコミットメッセージにも流用する。
  */
 export function buildMrTitle(
   tenantId: TenantId,
@@ -74,8 +74,8 @@ function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): string {
 }
 
 /**
- * イメージタグの更新1箇所分をテーブルの1行にする（T-036）。1アプリが複数箇所を書き換える
- * 場合（T-014）は同じリポジトリの行が箇所の数だけ並ぶため、ファイル・アンカーの列で区別する。
+ * イメージタグの更新1箇所分をテーブルの1行にする。1アプリが複数箇所を書き換える
+ * 場合は同じリポジトリの行が箇所の数だけ並ぶため、ファイル・アンカーの列で区別する。
  * 比較・パイプラインはリンクテキストを付けずURLをそのまま載せ（GitLabが自動リンクする）、
  * 値が無いセルは `-` で埋める。
  */
@@ -100,7 +100,7 @@ function buildImageTagRow(webUrl: GitLabUrl, plan: AppUpdatePlan, update: ImageT
 }
 
 /**
- * Helmの向き先ブランチの更新をテーブルにする（T-016、T-034、T-036）。
+ * Helmの向き先ブランチの更新をテーブルにする。
  * 向き先ブランチはclient単位で共通の値なので、イメージタグとは別のセクションに置く。
  * 書き込み先はイメージタグの表と同じくファイル・アンカーの2列に分ける。
  */

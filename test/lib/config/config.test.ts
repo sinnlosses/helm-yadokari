@@ -101,7 +101,7 @@ apps:
     expect(chartAndAppsList.map((g) => g.chartDir)).toEqual(["teamA-chart", "teamB-chart"])
   })
 
-  it("同じchartディレクトリ配下の複数tenant/clientはそれぞれ別のChartAndAppsになる（T-019）", () => {
+  it("同じchartディレクトリ配下の複数tenant/clientはそれぞれ別のChartAndAppsになる", () => {
     dir.writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -166,7 +166,7 @@ apps:
     expect(chartAndAppsList.map((g) => g.chartDir)).toEqual(["teamA-chart"])
   })
 
-  it("config.yaml が存在しないtenant/clientディレクトリはChartAndAppsを作らない（T-019）", () => {
+  it("config.yaml が存在しないtenant/clientディレクトリはChartAndAppsを作らない", () => {
     dir.writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -352,7 +352,7 @@ describe("loadConfig（target絞り込み）", () => {
   })
 })
 
-describe("loadConfig（絞り込み結果が0件のときの検知、T-054）", () => {
+describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
   it("target未指定でchart.yamlが無いディレクトリしか無いとき、0件のまま正常終了する（現状仕様）", () => {
     dir.writeFile("not-a-chart/readme.txt", "hello")
 
