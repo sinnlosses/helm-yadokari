@@ -2,10 +2,10 @@ import { getValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
 import type { AnchorTarget, ImageTagUpdate, TagName } from "../../../types/types.js"
 import { toTagName } from "../../../types/types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
-import type { LatestTagResolution } from "./resolve-latest-tag.js"
-import type { ApplyTargetsAcc, LoadValuesYamlContent } from "./types.js"
-import type { ValuesYamlDraft } from "./values-yaml-draft.js"
-import { writeValuesYamlDraft } from "./values-yaml-draft.js"
+import type { LatestTagResolution } from "./shared/types.js"
+import type { ApplyTargetsAcc, LoadValuesYamlContent } from "./shared/types.js"
+import type { ValuesYamlDraft } from "./shared/values-yaml-draft.js"
+import { writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 
 export type ApplyImageTagAcc = ApplyTargetsAcc<ImageTagUpdate>
 

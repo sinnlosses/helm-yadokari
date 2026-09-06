@@ -34,8 +34,8 @@ import {
 } from "./sub-steps/helm-target-branch-target.js"
 import { applyImageTagTargets, readCurrentImageTags } from "./sub-steps/image-tag-target.js"
 import { resolveLatestTag } from "./sub-steps/resolve-latest-tag.js"
-import type { BranchExists, LoadValuesYamlContent } from "./sub-steps/types.js"
-import { type ValuesYamlDraft, toFileUpdates } from "./sub-steps/values-yaml-draft.js"
+import type { BranchExists, LoadValuesYamlContent } from "./sub-steps/shared/types.js"
+import { type ValuesYamlDraft, toFileUpdates } from "./sub-steps/shared/values-yaml-draft.js"
 
 export type BuildPlansResult = {
   readonly toApply: ChartUpdateTarget[]

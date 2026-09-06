@@ -18,21 +18,22 @@
 （`evaluateTarget()` / `planTarget()` / `applyUpdate()`）。`process` のような汎用名は
 `main.ts` のオーケストレータやグローバルの `process` と紛らわしいため使わない。
 
-| ファイル                                | 責務                                                                    |
-| --------------------------------------- | ----------------------------------------------------------------------- |
-| `filter-targets/filter-targets.ts`      | 登録アプリ0件・固定ブランチにオープン中のMRがあるchartAndAppsを除外する |
-| `build-plans/build-plans.ts`            | 残ったchartAndAppsごとに更新計画（差分）を並列に構築する                |
-| `apply-updates/apply-updates.ts`        | 差分があるchartAndAppsにコミット・MR作成を並列実行する                  |
-| `shared/step-outcome.ts`                | 3つのstepが共有する結果ログの識別情報とエラー方針                       |
-| `build-plans/sub-steps/`                | `build-plans.ts` の内部実装専用（1アプリ・1箇所ごとの実処理）           |
-| `apply-updates/sub-steps/mr-content.ts` | MRタイトル・MR本文（Markdown）の組み立て。外部I/Oを持たない             |
-| `shared/feature-branch.ts`              | 固定ブランチ名の組み立て（`filterTargets`と`applyUpdates`が使う）       |
+| ファイル                           | 責務                                                                    |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| `filter-targets/filter-targets.ts` | 登録アプリ0件・固定ブランチにオープン中のMRがあるchartAndAppsを除外する |
+| `build-plans/build-plans.ts`       | 残ったchartAndAppsごとに更新計画（差分）を並列に構築する                |
+| `apply-updates/apply-updates.ts`   | 差分があるchartAndAppsにコミット・MR作成を並列実行する                  |
+| `shared/step-outcome.ts`           | 3つのstepが共有する結果ログの識別情報とエラー方針                       |
+| `build-plans/sub-steps/`           | `build-plans.ts` の内部実装専用（1アプリ・1箇所ごとの実処理）           |
+| `apply-updates/sub-steps/`         | `apply-updates.ts` の内部実装専用（MRタイトル・本文の組み立て）         |
+| `shared/feature-branch.ts`         | 固定ブランチ名の組み立て（`filterTargets`と`applyUpdates`が使う）       |
 
 `build-plans.ts` の階層は「全chartAndApps → 1つのchartAndApps → 1アプリ」の3段までに絞り、
 それより下の「1箇所（target）」の処理は `build-plans/sub-steps/` 側の責務にしている。
 `buildAppUpdatePlan()`（1アプリ分）はサブステップを順に呼ぶだけで、target配列をループする
 `reduce`を自分では持たない。「ステップがステップを呼ばない」原則はサブステップにも適用し、
-サブステップ同士も互いを呼ばない。
+サブステップ同士も互いを呼ばない（型だけの参照も含む）。複数のサブステップが共有するものは
+`sub-steps/shared/` に置き、サブステップの呼び分けは親stepが行う。
 
 `build-plans/sub-steps/` の各ファイル:
 
@@ -41,8 +42,8 @@
 | `resolve-latest-tag.ts`        | 追跡ブランチ由来の最新タグの判定。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成                         |
 | `image-tag-target.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.chart`全箇所のループ（反映済みタグの読み取り専用版`readCurrentImageTags()`も持つ） |
 | `helm-target-branch-target.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                                           |
-| `values-yaml-draft.ts`         | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）と、その組み立て・`FileUpdate[]`化                    |
-| `types.ts`                     | 上記と`build-plans.ts`の間で共有する型のみ                                                                                           |
+| `shared/values-yaml-draft.ts`  | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）と、その組み立て・`FileUpdate[]`化                    |
+| `shared/types.ts`              | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                             |
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
@@ -87,7 +88,8 @@
   1ファイルが大きくなりすぎた場合は、`steps/<step名>/sub-steps/`（例:
   `steps/build-plans/sub-steps/`）へ非公開関数を複数ファイルに分割してよい（`steps/`直下は
   「process()が直接呼ぶフラットな3ステップ」だけに保ち、`sub-steps/`配下は各stepの内部実装
-  専用と分かるようにする）。呼び出し元が引き続きそのstepファイル1つだけである限り、
+  専用と分かるようにする）。分割したファイル同士は互いにimportせず、共有するものは
+  `sub-steps/shared/`に置く。呼び出し元が引き続きそのstepファイル1つだけである限り、
   ファイルを分けても`lib/`への昇格理由にはならない（原則2は変わらない）
 - 複数の場所から呼ばれる、かつ特定の技術・外部システム・ファイル形式に依存する
   （GitLab API、Helm chart形式、`config/`のYAML形式、環境変数など）→ 対応する `lib/`
@@ -111,11 +113,14 @@
 | ドメイン知識を持たない汎用処理の型                                                    | その`utils/`ファイル                           | `Sorted`                                                       |
 | 複数のstepが共有する、ドメイン型にだけ依存する型                                      | `steps/shared/`                                | `StepOutcome<T>`                                               |
 | ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値）            | **その型を生み出す関数と同じファイル**         | `BuildPlanContext`・`FilterTargetsResult`・`ValuesYamlDraft`   |
-| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                             | `steps/<step名>/sub-steps/types.ts`            | `LoadValuesYamlContent`・`BranchExists`・`ApplyTargetsAcc<U>`  |
+| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                             | `steps/<step名>/sub-steps/shared/types.ts`     | `LoadValuesYamlContent`・`BranchExists`・`LatestTagResolution` |
 
 `src/types/types.ts` に利用箇所が1ファイルしかない型（`Config`・`PipelineInfo`・`RunResult`）が
-あるのは意図的で、上表の1行目に当たるため。逆に `sub-steps/types.ts` は「複数のサブステップが
+あるのは意図的で、上表の1行目に当たるため。逆に `sub-steps/shared/types.ts` は「複数のサブステップが
 共有する」という条件を満たす型だけに絞り、1ファイルからしか使われない型はそのファイルへ戻す。
+この2行は競合しうる（`LatestTagResolution` は `resolveLatestTag()` が生み出す型だが
+`image-tag-target.ts` も使う）。そのときは **`shared/` 側を優先する** — サブステップ同士が
+互いをimportしないという原則の方が、型と生成関数の同居より優先度が高い。
 
 ## コードからは読み取れない設計判断
 
@@ -208,6 +213,11 @@
 - **1アプリ分の処理を独立したサブステップファイルにしていない**: 以前
   `build-plans/sub-steps/app-update-plan.ts` に切り出していたが、それ自体が他のサブステップを
   呼ぶ「サブステップがサブステップを呼ぶ」構造になるため、`build-plans.ts`の非公開関数に戻した
+- **サブステップが共有するものは`sub-steps/shared/`に置く**: `ValuesYamlDraft`とその操作、
+  `LoadValuesYamlContent`などの関数型、`LatestTagResolution`は複数のサブステップが使うが、
+  どれかのサブステップに置くと「サブステップがサブステップをimportする」形になる。
+  `sub-steps/`直下は親stepが呼ぶステップ本体だけに保ち、共有物は`shared/`に分けることで、
+  直下のファイル同士がimportし合っていないことをディレクトリの形で確認できるようにしている
 - **サブステップに関数型を注入するのは、親stepが持つキャッシュを隠すときだけ**:
   `values-yaml-draft.ts`・`helm-target-branch-target.ts`・`image-tag-target.ts`は
   `LoadValuesYamlContent`・`BranchExists`という関数型で受け取り、GitLabクライアント・
