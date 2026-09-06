@@ -13,10 +13,7 @@ import type {
 } from "./brand.js"
 
 /**
- * TARGET_CLIENTS環境変数由来、1件分のtenantId/clientIdの組。config/のディレクトリ階層
- * `<chartDir>/<tenantId>/<clientId>/`に対応する絞り込み条件。永続化されるドメイン値では
- * なくディレクトリ名との単純な文字列比較にしか使わないため、非ブランド型のまま扱う
- * （`docs/glossary.md`の「テナント / クライアント」の項も参照）
+ * TARGET_CLIENTS環境変数由来、1件分のtenantId/clientIdの組
  */
 export type TargetClient = {
   readonly tenantId: string
@@ -24,12 +21,7 @@ export type TargetClient = {
 }
 
 /**
- * values.yaml内の書き込み位置1箇所分（対象ファイル＋その中でのYAMLアンカー名）。
- * 「何を書くか」（イメージタグ／Helmの向き先ブランチ）は位置そのものには含まれない。
- * TypeScriptは構造的型付けなので、用途ごとに別名の型を定義しても取り違えは防げないため、
- * 型は1つに統一し、用途の区別は利用側の変数名・フィールド名・JSDocで表す
- * （`AppConfig.chart`・`HelmTargetBranchConfig.targets`・`ImageTagUpdate.target`・
- * `HelmTargetBranchUpdate.target`のJSDoc参照）
+ * values.yaml内の書き込み位置1箇所分（対象ファイル＋その中でのYAMLアンカー名）
  */
 export type AnchorTarget = {
   readonly valuesPath: ValuesPath

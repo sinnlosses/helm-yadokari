@@ -1,7 +1,7 @@
 # 現在の状態
 
-最終更新: 2026-09-06（`direction.md` のユーザー指摘6件を T-064〜T-070 の7タスクとして登録し、
-`/loop` で全件完了。着手前に T-054〜T-063 の記録を history へアーカイブした）
+最終更新: 2026-09-06（T-064〜T-070を`main`へマージ・push済み。`src/types/types.ts`を見た
+ユーザーから新たに3件の指摘があり、T-071〜T-075の5タスクとして登録した）
 
 T-001〜T-063 はすべて完了し、`tasks.json` から
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へ移した（`tasks.json` には
@@ -9,72 +9,31 @@ T-064以降だけが残る）。当時のセッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある
 （`tasks.json` の `evidence` はコミットハッシュ・テスト件数・アーカイブへの参照に絞る運用）。
 
-## 完了したこと（このセッション: T-064〜T-070）
+## 完了したこと（前セッション: T-064〜T-070）
 
-タスク1件＝1コミットで `chore/register-direction-tasks` ブランチに積んだ。`main` への
-マージ・pushは未実施（ユーザー承認待ち）。
+`chore/register-direction-tasks` ブランチで7タスクを実施し、`main`へfast-forwardマージ・
+github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。詳細は
+[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) のT-064〜T-070を参照。
 
-### 前提: 指摘のタスク化とアーカイブ
+## 完了したこと（このセッション）
 
-- `direction.md` のユーザー指摘6件を、コードの現状を調べたうえで T-064〜T-070 の7タスクに
-  分解して登録した。設計判断が要る3件（エラー方針・型の配置・URLの型付け）は
-  **決定タスク（opus）と、決定どおりに手を動かす実装タスク（sonnet）に分けた**
-- アーカイブのトリガー（`done` 10件以上）に該当していたため、着手前に T-054〜T-063 を
-  `docs/history/` へ移した（`tasks-archive.md` は53節→63節）
-
-### T-065 / T-066: エラーハンドリング（`try`/`catch` を減らす）
-
-- **指摘の前提を先に確認した**: 「filter-targets で fatal が settled になる」は挙動としては
-  起きていない（`settleAsError()` が `FatalError` を投げ直し、`mapWithConcurrency` が
-  キューをクリアして reject する。401の回帰テストも既にあった）。問題は
-  `catch { return settleAsError(...) }` という**書き方が「常にERRORに計上して続行」と読める**こと
-- `steps/shared/step-outcome.ts` に `StepOutcome<T>`（+ `ok()`/`settle()`）・`runSettled()`・
-  `withAppContext()` を用意して3つのstepのcatch節を吸収。失敗の捕捉は step-outcome.ts の
-  2箇所だけになり、`grep -rn "try {" src/steps/` は**0件**
-- 2チャネル（fatalは例外・chartAndApps単位の失敗は戻り値）は維持した。`Result`型への一本化は
-  「fatalなら伝播させる」判断が各stepに戻るため却下（理由は architecture.md に記録）
-- `filter-targets` の `TargetOutcome` と `build-plans` の `PlanResult` は `StepOutcome<T>` に統合
-
-### T-067 / T-068: 型定義の配置
-
-- 全型の使われ方を数えたうえで、**型の置き場所も「新しいコードを置く場所」と同じ基準で
-  決める（利用箇所の数では決めない）**と定め、6分類の表を `docs/architecture.md` に、
-  要約を `CLAUDE.md` に追記した。`types/` を「型の物置」にしないのが狙い
-- 基準から外れていたのは2件だけで、`LatestTagResolution` を `resolve-latest-tag.ts` へ、
-  `BuildChartUpdateAcc` を `build-plans.ts` へ移動（後者は export も外した）。
-  `sub-steps/types.ts` に残るのは複数サブステップが共有する3型
-
-### T-069: URLの型付け
-
-- `GitLabUrl` は `URL` オブジェクトにせず**文字列のブランド型のまま**とした（用途がMR本文と
-  ログへの埋め込みだけで、`href` の正規化で出力が変わりうる・ミュータブル・テスト比較が煩雑）
-- 代わりに**生成経路を縛った**: `toGitLabUrl()` を http(s) 検証つきファクトリにし、
-  無検証だったGitLab API由来の2箇所（`project.web_url` / `pipeline.web_url`）も必ず通るように
-  した。`buildTagUrl()` は `GitLabUrl` を返すようにし、compare URL も `buildCompareUrl()` に
-  切り出してエスケープを2関数に閉じ込めた
-- **`new URL(path, base)` に寄せない**理由も記録した: `webUrl` はオリジンではなく
-  プロジェクトのパスまで含むURLなので、相対解決するとグループ/プロジェクト部分が捨てられる
-
-### T-064 / T-070: 名前と置き場所
-
-- 環境変数 `TARGET_CLIENT` → `TARGET_CLIENTS`（カンマ区切りで複数指定できるのに単数形だった）。
-  内部の型 `TargetClient`・`ConfigTarget.clients` は意味と単複が合っているので据え置き
-- `tasks.json` / `progress.md` を `develop/` へ移動（機能に関係しないファイルのため）。
-  CLAUDE.md・docs/workflow.md・README のパス参照を張り替えた
-
-**このセッションの最終状態**: `pnpm check`（tsc・oxlint・config検証・oxfmt・vitest
-**28ファイル322テスト**）通過（セッション開始時は319テスト。T-066で+2、T-069で+1）。
-`tasks.json` の7タスクはすべて `done` / `passes: true`。
+- `src/types/types.ts`を見たユーザーからの新規指摘3件をタスク化した（コード変更なし）:
+  1. `TargetClient.tenantId`/`clientId` を `string` ではなく `TenantId`/`ClientId` 型で
+     扱う（T-071、機械的なのでsonnet）
+  2. `AnchorTarget.anchor: AnchorName` のようにフィールド名と型名がズレている箇所の横展開
+     （T-072で対象範囲・命名を決定 → T-073で実装。全型を調査し、`branch`/`chartDir`など
+     他にも同じズレがあること、`branchToSync`等の修飾語付きは事情が異なることを整理した）
+  3. コメントを簡潔にする方針（T-074で基準を決定 → T-075で`types.ts`/`brand.ts`に適用）
 
 ## 次にやること
 
-`tasks.json` の7タスク（T-064〜T-070）はすべて `done`。ユーザー依頼分は完了したので、
-次の作業は新しく洗い出してから。
+`tasks.json` の5タスク（T-071〜T-075）はすべて `todo`。依存があるのはT-073（T-072待ち）と
+T-075（T-074待ち）だけなので、T-071・T-072・T-074はいつでも着手できる。
 
-- **`chore/register-direction-tasks` ブランチの `main` へのマージとpushが未実施**
-  （外部への反映のためユーザー承認が要る）
-- 今回の変更は**実機未検証**。特に T-069（URL検証の追加）は、GitLab APIが返す `web_url` を
-  必ず検証するようになったため、スモークテストで1回は通しておきたい
+前セッションから引き継いだ未処理:
+
+- 前回の変更（T-064〜T-070）は**実機未検証**。特にT-069（URL検証の追加）は、GitLab APIが
+  返す`web_url`を必ず検証するようになったため、スモークテストで1回は通しておきたい
 - `TARGET_CHART` の0件検知（`TARGET_CHART`/`TARGET_CLIENTS` 明示時のみエラー）も実機未検証
 - 追跡ブランチ切り替えは実機未検証。スモークテストで `branchToSync` を切り替える
   シナリオを追加すると確認できる

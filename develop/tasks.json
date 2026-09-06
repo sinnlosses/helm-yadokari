@@ -61,5 +61,50 @@
     "passes": true,
     "evidence": "git mv で tasks.json / progress.md を develop/ へ移動し、CLAUDE.md（規約のgrep除外・進捗管理の手順・関連リンク）・docs/workflow.md（5箇所）・README のプロジェクト構成ツリー・progress.md 自身の相対リンク（./docs/ → ../docs/）を張り替えた。.gitlab-ci.yml / package.json / .prettierignore / vitest.config.ts にパス参照が無いことも確認。docs/history/ 配下の言及は当時の記録なのでそのまま。pnpm check（28ファイル322テスト、変化なし）通過。haikuのサブエージェントに委譲し、メイン側で差分確認・READMEのツリー位置と行の折り返しを整えて受け入れた",
     "dependencies": []
+  },
+  {
+    "id": "T-071",
+    "task": "`TargetClient`（src/types/types.ts）の `tenantId`/`clientId` を `string` ではなく ブランド型 `TenantId`/`ClientId` で扱う。現状は `ChartAndApps.tenantId`/`clientId` が `TenantId`/`ClientId`（`toTenantId`/`toClientId` で生成）なのに対し、絞り込み条件である `TargetClient` だけが素の `string` になっており非対称（`src/lib/env.ts` の `parseTargetClientEntry()` が `{ tenantId: parts[0], clientId: parts[1] }` とそのまま代入している）。\n\n変更対象:\n(1) `src/types/types.ts` の `TargetClient` を `readonly tenantId: TenantId` / `readonly clientId: ClientId` に変更する。\n(2) `src/lib/env.ts` の `parseTargetClientEntry()` で `toTenantId(parts[0])` / `toClientId(parts[1])` を使って生成する（`as` は使わない。`brand.ts` の factory 関数のみで型変換する規約）。\n(3) `src/lib/config/config.ts` で `TargetClient` を比較している3箇所（`loadClientChartAndApps()` の `c.tenantId === id` / `c.tenantId === tenantId && c.clientId === id`、`clientDirExists()` の `join(path, chartDir, client.tenantId, client.clientId)`）は、比較・パス結合の相手が `listSubdirectories()`由来の素の `string`（ディレクトリ名）なので、`TargetClient` 側を 変換するのではなく比較・結合の相手を `toTenantId(id)` 等で揃えるか、あるいは 型上は互換なため変更不要かを確認し、コンパイルが通る形にする（`ConfigTarget.chartDir` は 今回のスコープ外＝素の`string`のまま。`TargetClient` のみが対象）。\n\n完了条件: `pnpm check` を通すこと。テストは既存の `test/lib/env.test.ts` / `test/lib/config/config.test.ts` がそのまま（またはブランド型を使うよう最小修正して）通ることで確認する。",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
+  },
+  {
+    "id": "T-072",
+    "task": "フィールド名と型名がズレている箇所を洗い出し、`AnchorTarget.anchor: AnchorName` → `anchorName: AnchorName` と同じリネームをどこまで横展開するか方針を決める（実装は T-073）。ユーザー指摘（2026-09-06）:「特に理由がない限り型の名前に合わせてください」。\n\n調査で分かった事実:\n- 型名から `Name`/`Id` 等のサフィックスを外した名前がそのままフィールド名になっている例: `AnchorTarget.anchor: AnchorName`（16箇所で参照）、`HelmTargetBranchConfig.branch: BranchName` と `ParsedTag.branch: BranchName`（4箇所）、`ChartAndApps.chartDir: ChartDirName`（12箇所）。\n- 逆に既に型名と一致しているフィールドも多い: `projectId: ProjectId`、`projectName: ProjectName`、`tenantId: TenantId`、`clientId: ClientId`、`valuesPath: ValuesPath`。\n- `src/lib/helm.ts` は関数引数として既に `anchorName: AnchorName` という命名を使っており（`findAnchorNode()`・`getValueAtAnchor()`・`setValueAtAnchor()`）、`AnchorTarget.anchor` だけが浮いている状態。\n- 一方、`branchToSync`（`AppConfig`）・`mrTargetBranch`（`ChartRepoConfig`）・`previousBranch`/`newBranch`（`HelmTargetBranchUpdate`）は、いずれも型 `BranchName` だがフィールド名に用途を表す修飾語（`~ToSync`・`mrTarget~`・`previous~`/`new~`）が付いており、単純に型名を外しただけの `branch` とは事情が異なる（「特に理由がない限り」の「理由」に当たりうる）。\n- `TagName` 型は `ParsedTag.name` / `TagInfo.name` のように「型名からプレフィックス `Tag` を外した `name`」という別パターンのズレもある（`AnchorName`→`anchor`のようにサフィックス`Name`を外すのと逆方向）。これも対象に含めるかは論点。\n- 同じ「型名 → フィールド名」のズレは、構造体のフィールドだけでなく `branch: BranchName` のような**関数の引数名**にも多数存在する（`src/lib/gitlab/gitlab.ts`・`src/lib/gitlab/tag.ts`・`src/steps/build-plans/sub-steps/*.ts` など10ファイル以上、数十箇所）。ここまで含めると非常に大きな機械的リネームになる。\n\n決めること:\n(a) リネーム対象を「型定義（`type`/`interface`）のフィールド」に限定するか、関数引数名も含めるか（範囲が大きく変わる。含めない場合はその理由を明記する）。\n(b) `branchToSync`・`mrTargetBranch`・`previousBranch`・`newBranch` のように修飾語が付いているケースを「理由がある」として除外するか、それとも `previousBranchName`/`newBranchName` のように型名も残す形にするか。\n(c) `TagName`→`name`（プレフィックスを外すパターン）を対象に含めるか。\n(d) `AnchorTarget.anchor`・`HelmTargetBranchConfig.branch`・`ParsedTag.branch`・`ChartAndApps.chartDir` の要リネーム対象を確定する。\n\n各対象について、リネーム後の名前・影響ファイル・件数まで具体的なリストにして出すこと（T-073はそのリストどおりに機械的に置換するだけにする）。決めた方針・対象外にした理由は `docs/architecture.md`「コードからは読み取れない設計判断」に記録する。",
+    "status": "todo",
+    "difficulty": "opus",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
+  },
+  {
+    "id": "T-073",
+    "task": "T-072 で確定したリネーム対象のリストどおりに、フィールド名（および T-072 が対象に含めると決めた場合は関数引数名）を型名に合わせてリネームする。型の中身・意味は変えない、名前の変更のみ。YAMLの読み込み側（`src/lib/config/schema.ts` の `.transform()`）はwire format（`anchors.yaml`/`config.yaml`のキー名。例: `anchor`）を変えずに、内部表現への変換箇所でリネーム後のフィールド名に合わせる（例: `.transform((v): AnchorTarget => ({ valuesPath: v.valuesPath, anchorName: v.anchor }))`）。\n\n完了条件: T-072 のリストの各項目について、リネーム後の名前と影響ファイルを対応付けて示し、`pnpm check` を通すこと（テスト件数が変わらないこと、`config-test/` のYAML自体は変更しない＝wire formatは不変であることも確認する）。",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-072"]
+  },
+  {
+    "id": "T-074",
+    "task": "コメントの書き方の方針を決める（適用は T-075）。ユーザー指摘（2026-09-06）:「コメントはシンプルかつ簡潔に、基本はコメントがなくてもわかるような実装を目指してください」。\n\n現状の事実: `src/types/types.ts`（169行）はコメント行が66行（約39%）、`src/types/brand.ts`（104行）は31行（約30%）で、JSDocが型の説明・生成元（どのYAMLキー由来か）・具体例まで長文で書かれている（例: `AnchorName` のJSDocが4行、`ChartAndApps` のJSDocが5行）。CLAUDE.mdには既に「コードからは読み取れない設計判断はdocs/architecture.mdに書く」という住み分けがあるため、型定義ファイルのJSDocは本来「その型が何であるか」という短い説明で足りるはずの箇所に、経緯・理由まで書き込まれて長くなっている可能性がある。\n\n決めること:\n(a) 「コメントを書かない」を目指す基準（型名・フィールド名から自明なら省略する／1行で済む要約に削る／複数文にわたる背景説明は`docs/architecture.md`か`docs/glossary.md`へ移すか削除する、など）。\n(b) 逆に**残すべきコメント**の基準（外部システム・ファイル形式との対応関係でコードだけでは読み取れないもの、非自明な制約や理由）。CLAUDE.mdの「コードからは読み取れない設計判断」の考え方と矛盾しないようにする。\n(c) `src/types/types.ts`・`src/types/brand.ts` を題材に、上記基準を適用した後の各コメントの扱い（削除／要約して1行に／`docs/`へ移す／そのまま残す、を型ごとに）を具体的に決める。\n(d) 決めた基準を今後の開発にも適用できるよう、`CLAUDE.md`「コーディング規約・レビュー方針」に短く追記する。\n\n決めた内容は `docs/architecture.md` または `CLAUDE.md` に記録し、`src/types/types.ts`・`src/types/brand.ts` に対する具体的な適用内容（(c)）は T-075 がそのまま実装できる粒度で書き出すこと。",
+    "status": "todo",
+    "difficulty": "opus",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
+  },
+  {
+    "id": "T-075",
+    "task": "T-074 で決めたコメント方針を `src/types/types.ts`・`src/types/brand.ts` に適用する。T-074 が出した「型ごとの扱い」どおりに、削除・要約・`docs/`への移動を行う。型の中身・名前・エクスポートの有無は変えない（コメントのみの変更。ただし T-073 が先に完了していればそのリネーム後の名前を前提にする）。\n\n完了条件: 変更後の2ファイルを提示し、`docs/`へ移した情報があれば移動先を示すこと。`pnpm check` を通すこと（コメントのみの変更なのでテスト件数は変わらない）。",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-074"]
   }
 ]
