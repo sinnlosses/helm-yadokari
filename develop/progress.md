@@ -1,9 +1,11 @@
 # 現在の状態
 
-最終更新: 2026-09-06（リポジトリ全体をレビューし、改善点を洗い出してタスク化した。
-コード変更なし。完了済みの T-071〜T-076 を `docs/history/tasks-archive.md` へ、
-前セッションの記録を `docs/history/progress-archive.md` へアーカイブし、
-`tasks.json` は T-077〜T-091 の15件の `todo` だけになっている）
+最終更新: 2026-09-06（リポジトリ全体をレビューして改善点を15件のタスクに起こし、
+`chore/review-followups` ブランチで**全15件を完了**した。`tasks.json` に `todo` は残っていない。
+完了済みの T-071〜T-076 と前セッションの記録は `docs/history/` へアーカイブ済み）
+
+**このセッションの最終状態**: `pnpm check`（tsc・oxlint・config検証・oxfmt・vitest
+**31ファイル332テスト**）通過。着手前は330テストで、増えた2件は `parseTargetChart()` のぶん。
 
 T-001〜T-076 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
@@ -145,18 +147,16 @@ wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラー�
 
 ## 次にやること
 
-`tasks.json` の T-077〜T-091（15件）はすべて `todo`。依存関係は T-081 → T-080 の1本だけで、
-他は独立に着手できる。着手順の目安:
+`tasks.json` の T-077〜T-091 は**全件 `done`**。次のタスクは未登録。
 
-1. まず機械的なもの（T-077 / T-079 / T-091）でノイズを消す
-2. 次に方針決めが要るもの（T-080 / T-083 / T-085 / T-087 / T-088）。いずれも
-   「決めた内容を `docs/architecture.md` に記録する」ところまでが完了条件
-3. T-090（無制限 `Promise.all`）は**低優先**。他を片付けた後でよい
-
-以下は前セッションから引き継いだ未処理事項:
-
-- **`main` が `origin/main` より2コミットahead。pushが未実施**（外部への反映のため
-  ユーザー承認が要る）
+- **`chore/review-followups` ブランチが未マージ・未push**（14コミット）。`main` 自体も
+  `origin/main` より3コミットahead。いずれも外部への反映なのでユーザー承認が要る
+- このブランチの変更は**実機未検証**。特に T-085（`loadEnvConfig()` 化。`index.ts` の起動経路が
+  変わった）と T-088（values.yaml下書きの受け渡しの作り替え）は、スモークテストで1回通したい。
+  T-089 でスモークテスト用スクリプトの環境変数が増えている点にも注意
+  （`SMOKE_QA_SPRINT_PROJECT_ID` / `SMOKE_DEVELOP_CLIENT_PROJECT_ID`。`setup` のみ必要）
+- T-064以降の変更も引き続き実機未検証。特に T-069（URL検証の追加）と T-076（MR本文のURL解決の
+  作り替え）
 - T-064以降の変更は**実機未検証**。特に T-069（URL検証の追加）と T-076（MR本文のURL解決の
   作り替え）はスモークテストで1回通しておきたい
 - `TARGET_CHART` の0件検知、追跡ブランチ切り替えも実機未検証

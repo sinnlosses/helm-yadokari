@@ -119,10 +119,10 @@
   {
     "id": "T-090",
     "task": "`CONCURRENCY_LIMIT` の外側で無制限に並列化している `Promise.all` を、そのままにするか制御下に置くかを決める（**低優先**。実害が出ているわけではなく、規模が増えたときの予防）。\n\n現状の事実（調査済み）: 同時実行数の制御は `src/utils/parallel.ts` の `mapWithConcurrency()` で chartAndApps 単位にだけ掛かっており、その内側に無制限の `Promise.all` が3箇所ある:\n- `src/lib/gitlab/gitlab.ts` の `getProjectWebUrls()` — 重複排除後の全projectIdに対して同時に `Projects.show` を投げる（1つのclientに登録されたアプリ数だけ並列）\n- `src/lib/gitlab/gitlab.ts` の `commitFileUpdates()` — 全ファイルに対して同時に `getFileContent` を投げる\n- `src/steps/build-plans/sub-steps/resolve-latest-tag.ts` — `listTags` と `getBranchHeadSha` の2本（これは固定2本なので問題ない）\n\n実効的な同時接続数は `CONCURRENCY_LIMIT`（最大20）× 1clientあたりのアプリ数になり、`CONCURRENCY_LIMIT` が「同時処理数の上限」として説明されている（README・`.gitlab-ci.yml` の description）のと食い違う。\n\n詰める論点:\n(a) 実害があるか。夜間の定期実行という前提で、GitLab側のレート制限（429）に当たる可能性はどれくらいか。当たっても `src/utils/retry.ts` の `withRetry()` が429を3回までリトライするので吸収されるのではないか。\n(b) 直すとしたら `mapWithConcurrency()` に寄せることになるが、`lib/gitlab/gitlab.ts` は `concurrencyLimit` を知らない層（引数で引き回すか、モジュール定数を読むか）。`lib/` が同時実行数の方針を持つのは責務として妥当か。それとも呼び出し側（`collect-mr-entries.ts` / `apply-updates.ts`）で制御すべきか。\n(c) 直さない判断をする場合、`CONCURRENCY_LIMIT` の説明（README の環境変数の表）に「chartAndApps単位の同時処理数であって、GitLab APIへの同時接続数の上限ではない」と1行足すだけで十分か。\n\n完了条件: 決めた内容を記録する（直さない判断ならドキュメントの1行追記、直す判断なら実装して `pnpm check` を通す）。**このタスクは他のタスクをすべて片付けた後で構わない**。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "opus",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "コード変更なし（現状は絞らないと決定）。docs/architecture.md「既知の制約・注意点」に記録した。理由: (1) 絞ると lib/gitlab/gitlab.ts に concurrencyLimit を引き回すことになり、並列度の方針を持たない層に責務がはみ出す、(2) 429 は utils/retry.ts が指数バックオフで3回再試行し、駄目でも該当chartAndAppsがERRORになるだけで実行全体は壊れない（fatal扱いではない）、(3) 既定は CONCURRENCY_LIMIT=3・1clientあたり数アプリで、最悪ケースは意図的に上限20まで上げないと起きない。README の説明は「(chartリポジトリ, テナント/クライアント)単位の同時処理数」と既に正確だったため変更不要だった。再検討トリガー（429が継続的に出る/1clientが数十アプリ）も明記",
     "dependencies": []
   },
   {
