@@ -1,18 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../src/lib/gitlab/gitlab.js")
+vi.mock("../../../../src/lib/gitlab/gitlab.js")
 
-import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
-import { branchExists, getFileContent, projectExists } from "../../../src/lib/gitlab/gitlab.js"
-import { verifyConfigExistence } from "../../../src/lib/verify-config/verify-config.js"
+import { verifyConfigExistence } from "../../../../scripts/lint/verify-config/verify-config.js"
+import type { GitlabClient } from "../../../../src/lib/gitlab/gitlab.js"
+import { branchExists, getFileContent, projectExists } from "../../../../src/lib/gitlab/gitlab.js"
 import {
   toAnchorName,
   toBranchName,
   toProjectId,
   toProjectName,
   toValuesPath,
-} from "../../../src/types/types.js"
-import { makeApp, makeChartAndApps } from "../../helpers.js"
+} from "../../../../src/types/types.js"
+import { makeApp, makeChartAndApps } from "../../../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
 

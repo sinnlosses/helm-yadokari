@@ -39,7 +39,7 @@ if (remote) {
     )
   })
   const { createClient } = await import("../../src/lib/gitlab/gitlab.js")
-  const { verifyConfigExistence } = await import("../../src/lib/verify-config/verify-config.js")
+  const { verifyConfigExistence } = await import("./verify-config/verify-config.js")
 
   const { ACCESS_TOKEN, CONCURRENCY_LIMIT, GITLAB_URL } = gitlabEnv
   const problems = await verifyConfigExistence(

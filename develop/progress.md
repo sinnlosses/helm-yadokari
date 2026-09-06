@@ -1,7 +1,7 @@
 # 現在の状態
 
-最終更新: 2026-09-06（`src/types/types.ts` 由来のユーザー指摘を T-071〜T-076 として登録し、
-`/loop /next-task` で全件完了。着手前に T-064〜T-070 を history へアーカイブした）
+最終更新: 2026-09-06（`verify-config` を `src/lib/` から `scripts/lint/` へ移動。
+T-064〜T-076 のセッション記録は history へアーカイブした）
 
 T-001〜T-070 はすべて完了し、`tasks.json` から
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へ移した（`tasks.json` には
@@ -9,85 +9,29 @@ T-071以降だけが残る）。当時のセッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある
 （`tasks.json` の `evidence` はコミットハッシュ・テスト件数・アーカイブへの参照に絞る運用）。
 
-## 完了したこと（前セッション: T-064〜T-070）
-
-`chore/register-direction-tasks` ブランチで7タスクを実施し、`main`へfast-forwardマージ・
-github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。`tasks.json` が30KBを超えたため
-この7件は [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へ移し、
-`tasks.json` は 35,440→13,838バイト（T-071以降の6件のみ）になった。
-
 ## 完了したこと（このセッション）
 
-- `src/types/types.ts`を見たユーザーからの新規指摘3件をタスク化した（コード変更なし）:
-  1. `TargetClient.tenantId`/`clientId` を `string` ではなく `TenantId`/`ClientId` 型で
-     扱う（T-071、機械的なのでsonnet）
-  2. `AnchorTarget.anchor: AnchorName` のようにフィールド名と型名がズレている箇所の横展開
-     （T-072で対象範囲・命名を決定 → T-073で実装。全型を調査し、`branch`/`chartDir`など
-     他にも同じズレがあること、`branchToSync`等の修飾語付きは事情が異なることを整理した）
-  3. コメントを簡潔にする方針（T-074で基準を決定 → T-075で`types.ts`/`brand.ts`に適用）
-- `mr-content.ts`の`buildMrDescription()`が`ResolveWebUrl`（関数）を受け取っている件を追加調査し、
-  T-076として登録した。冒頭コメントが「純粋な文字列組み立てだけ」と言いつつ実際は非同期＋
-  キャッシュ管理をしていて宣言とズレていること、必要な`projectId`集合は呼び出し前に全部
-  分かるため呼び出し元で事前解決できることまで確認済み（`build-plans/sub-steps`の
-  `LoadValuesYamlContent`/`BranchExists`とは事情が異なり、横展開の対象ではない）
-
-### T-071: TargetClient をブランド型で扱う
-
-- `TargetClient.tenantId`/`clientId` を `TenantId`/`ClientId` に変更（`ChartAndApps` 側と対称になった）。
-  `config.ts` の比較・パス結合3箇所は**ブランド型が `string` のサブタイプなので変更不要**だった
-
-### T-072: フィールド名と型名のズレの方針
-
-- 規則は「**型定義のフィールド名は、ブランド型が表している語（`Name`など）を落とさない**」。
-  `anchor: AnchorName` は「アンカーそのもの」を持っているように読めるのがズレの正体
-- **関数の引数名は対象外**（型注釈が同じ行に見える／フィールドはドットアクセスで宣言から
-  離れて読まれる、という違いで線を引いた）。修飾語が「どれか」を担うもの（`branchToSync`・
-  `mrTargetBranch`など）と、包含型が主語を与える `name` も対象外
-- リネーム対象は6件に確定（`anchor`・`HelmTargetBranchConfig.branch`・`ParsedTag.branch`・
-  `chartDir`・`previousTag`・`FileUpdate.filePath`）。実装は T-073
-
-### T-073: リネームの実施
-
-- 6件を実施（`anchorName`・`branchName`×2・`chartDirName`・`previousTagName`・
-  `FileUpdate.valuesPath`）。28ファイル・約160行の差分だが、テスト件数は322のまま
-- **wire format は不変**: `anchors.yaml` のキー `anchor` と、gitbeakerに渡す
-  `CommitAction.filePath` はそのまま。詰め替えは `schema.ts` の `.transform()` と
-  `commitFileUpdates()` が担う
-- ログのキー（`chartDir`→`chartDirName`、`previousTag`→`previousTagName`）も追従させた
-
-### T-074: コメント方針
-
-- 基準は「**コードから読み取れないことだけを書く／原則1〜2文／それを超える背景は正典（docs/）へ**」。
-  残す価値があるのは「外部との対応関係（どのYAMLキー由来か等）」と「非自明な前提・制約」。
-  `CLAUDE.md`「コーディング規約・レビュー方針」に追記した
-- `types.ts`/`brand.ts` の長いJSDocの中身は**既に正典側にある**ことを確認（アンカー方式→
-  `glossary.md`、`chart`を配列にする理由→`requirements.md`、`GitLabUrl`の理由→`architecture.md`）。
-  そのため T-075 は移設不要で、削除・圧縮だけで済む
-
-### T-075: コメントの圧縮
-
-- `types.ts` 169→128行、`brand.ts` 104→88行。**コメントのみの変更**（型定義・実装・
-  エクスポートは無変更であることを `git diff` で確認）
-- 長い説明は正典にあるので移設せず削除。`ImageTagUpdate` のJSDocに残っていた旧名
-  `previousTag` も修正した
-
-### T-076: 関数注入を値渡しに
-
-- `buildMrDescription()` を **同期関数**にし、`ResolveWebUrl`・`webUrlCache`・`getOrFetch()` の
-  reduceを削除。冒頭コメントの「外部I/Oを持たない純粋な文字列組み立て」と実装が一致した
-- URLの解決とキャッシュは `gitlab.ts` の `getProjectWebUrls()`（重複`projectId`は1回だけ解決）に
-  移し、`apply-updates.ts` が事前に呼ぶ。必要な`projectId`は `webUrlProjectIds()` が返すので、
-  **イメージタグの行を持たないplanのURLは取りに行かない**（素朴に全plan分を渡すと無駄が増える）
-- サブエージェントがsonnetのセッション上限で途中終了したため、残りのテスト修正と
-  重複排除テストの `gitlab.test.ts` への移設、上記の無駄取りはメイン側で仕上げた
+- **`verify-config` を `src/lib/` から `scripts/lint/` へ移した**（ユーザー指摘）。本体
+  パイプライン（`index.ts`→`main.ts`→`steps/`）からの参照は0で、唯一の呼び出し元が
+  `scripts/lint/validate-config.ts` だったため。`pnpm build` の `dist/` から lint専用コードが
+  消えたことを実測で確認（`find dist -name "*verify*"` が0件）。
+  - `src/lib/verify-config/` → `scripts/lint/verify-config/`、
+    `test/lib/verify-config/` → `test/scripts/lint/verify-config/`（いずれも `git mv`）
+  - あわせて: `pnpm lint` を `oxlint src scripts` に拡張（移動先が lint 対象から外れるため）、
+    `vitest.config.ts` の coverage対象に `scripts/lint/verify-config/**` を追加、
+    `CLAUDE.md` にテスト配置ルール（`scripts/` 配下は `test/scripts/`）を追記
+  - この判断の根拠は `CLAUDE.md` の**原則3**と `docs/architecture.md`「コードからは読み取れない
+    設計判断」に記録した（原則2は「`src/`のどこに置くか」の基準であって「`src/`に置くか否か」を
+    決めない、という切り分け）
+  - `pnpm check`（28ファイル**322テスト**）通過＝移動前と同数。`--remote` の実機実行は未実施
 
 ## 次にやること
 
 `tasks.json` の6タスク（T-071〜T-076）はすべて `done`。**このセッションの最終状態**:
 `pnpm check`（tsc・oxlint・config検証・oxfmt・vitest **28ファイル322テスト**）通過。
-タスク1件＝1コミットで `refactor/target-client-branded-types` ブランチに積んである。
 
-- **ブランチの `main` へのマージとpushが未実施**（外部への反映のためユーザー承認が要る）
+- **`main` が `origin/main` より1コミットahead、かつ verify-config の移動が未コミット。
+  コミットとpushが未実施**（外部への反映のためユーザー承認が要る）
 - 今回の変更（T-064以降すべて）は**実機未検証**。特に T-069（URL検証の追加）と
   T-076（MR本文のURL解決の作り替え）は、スモークテストで1回通しておきたい
 - `TARGET_CHART` の0件検知（`TARGET_CHART`/`TARGET_CLIENTS` 明示時のみエラー）も実機未検証
@@ -105,8 +49,8 @@ github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。`tasks.json`
 
 - `config/` には実運用の登録だけを置く（架空の設定例を置くとCIの `validate-config-remote` が
   必ず失敗する、T-038）。記述例は `docs/requirements.md` 4.4節、実物に近いサンプルは `config-test/`
-- `src/lib/<名前>/<名前>.ts` の形（gitlab / config / verify-config）で統一している。
-  同名のファイルとディレクトリを並べない
+- `<名前>/<名前>.ts` の形（`src/lib/` の gitlab / config、`scripts/lint/verify-config/`）で
+  統一している。同名のファイルとディレクトリを並べない
 - `.claude/` と `config/` は `.prettierignore` で `oxfmt` の対象外にしている
 - `src/lib/config/config.ts` に oxlint の `no-shadow` 警告が2件あるが、分割前からある既存の警告
   （`loadClientChartAndApps` の引数 `target` と、内側の `.map((target) => ...)`）

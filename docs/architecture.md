@@ -44,19 +44,17 @@
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
-| ファイル                         | 責務                                                                                |
-| -------------------------------- | ----------------------------------------------------------------------------------- |
-| `gitlab/gitlab.ts`               | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ         |
-| `gitlab/mr-content.ts`           | 固定ブランチ名・MRタイトル・MR本文（Markdown）の組み立て。外部I/Oを持たない         |
-| `gitlab/tag.ts`                  | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証      |
-| `config/config.ts`               | 公開API `loadConfig()`。`config/` の2階層固定構成の走査と `ChartAndApps` の組み立て |
-| `config/schema.ts`               | 3つの設定ファイルのZodスキーマと `anchors.yaml` の読み込み                          |
-| `config/validate.ts`             | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                            |
-| `config/helm-target-branch.ts`   | `helm.branchToSync` と `helm.chart[]` をapp単位に振り分ける                         |
-| `verify-config/verify-config.ts` | `config/`の値がGitLab上に実在するかの検証（`--remote`のlintから呼ぶ）               |
-| `verify-config/remote-cache.ts`  | 上記の問い合わせ（project/branch/values.yaml）のキャッシュ層                        |
-| `helm.ts`                        | `values.yaml` のYAMLアンカー位置の値の読み書き                                      |
-| `env.ts`                         | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                |
+| ファイル                       | 責務                                                                                |
+| ------------------------------ | ----------------------------------------------------------------------------------- |
+| `gitlab/gitlab.ts`             | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ         |
+| `gitlab/mr-content.ts`         | 固定ブランチ名・MRタイトル・MR本文（Markdown）の組み立て。外部I/Oを持たない         |
+| `gitlab/tag.ts`                | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証      |
+| `config/config.ts`             | 公開API `loadConfig()`。`config/` の2階層固定構成の走査と `ChartAndApps` の組み立て |
+| `config/schema.ts`             | 3つの設定ファイルのZodスキーマと `anchors.yaml` の読み込み                          |
+| `config/validate.ts`           | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                            |
+| `config/helm-target-branch.ts` | `helm.branchToSync` と `helm.chart[]` をapp単位に振り分ける                         |
+| `helm.ts`                      | `values.yaml` のYAMLアンカー位置の値の読み書き                                      |
+| `env.ts`                       | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                |
 
 `config/` のスキーマと検証ルールの仕様は `docs/requirements.md` 4.4節が正典（このファイルには
 書かない）。
@@ -77,7 +75,11 @@
 
 新しいコードを置くとき、まず「呼び出し元は何か」を考える:
 
-- `process()` が直接呼ぶ、フラットなパイプラインの1段 → `steps/`。他のステップファイルを
+- 呼び出し元が`src/index.ts`→`main.ts`→`steps/`の本体パイプラインに繋がらず、CI・開発用の
+  スクリプトからしか呼ばれない → `scripts/<用途>/`。`src/`は`pnpm build`で`dist/`に出る
+  本体の配布物なので、本体が使わないコードは`src/`に置かない（`scripts/lint/verify-config/`が
+  この形。テストは`test/scripts/`配下に`scripts/`と同じ構成で置く）
+- 以下は`src/`配下の話。`process()` が直接呼ぶ、フラットなパイプラインの1段 → `steps/`。他のステップファイルを
   import しない
 - 呼び出し元が `steps/` の1ファイルだけ → そのファイル内の非公開（exportしない）関数。
   1ファイルが大きくなりすぎた場合は、`steps/<step名>/sub-steps/`（例:
@@ -103,7 +105,7 @@
 | 型の性質                                                                              | 置き場所                                       | 例                                                             |
 | ------------------------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------- |
 | ドメイン語彙（`config/`の構造・更新計画・実行結果。目安は`docs/glossary.md`に載るか） | `src/types/types.ts`（ブランド型は`brand.ts`） | `ChartAndApps`・`AppUpdatePlan`・`ChartUpdateResult`・`Config` |
-| 特定の技術・外部システムのインターフェースの一部                                      | その`lib/`ファイル                             | `GitlabClient`・`RemoteCache`・`ConfigTarget`・`Anchors`       |
+| 特定の技術・外部システムのインターフェースの一部                                      | その`lib/`ファイル                             | `GitlabClient`・`ConfigTarget`・`Anchors`                      |
 | ドメイン知識を持たない汎用処理の型                                                    | その`utils/`ファイル                           | `Sorted`                                                       |
 | 複数のstepが共有する、ドメイン型にだけ依存する型                                      | `steps/shared/`                                | `StepOutcome<T>`                                               |
 | ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値）            | **その型を生み出す関数と同じファイル**         | `BuildPlanContext`・`FilterTargetsResult`・`ValuesYamlDraft`   |
@@ -132,7 +134,7 @@
     いま消したいものが再び分散する。例外はスコープの広い事象、戻り値はchartAndApps
     単位の結果、という役割分担で固定する
   - `lib/gitlab/gitlab.ts`の404/403フォールバック・`utils/retry.ts`・
-    `lib/verify-config/verify-config.ts`の`catch`はこの規約の対象外。前2つは
+    `scripts/lint/verify-config/verify-config.ts`の`catch`はこの規約の対象外。前2つは
     「特定のHTTPステータスを正常系に変換する」処理でchartAndApps単位の結果とは無関係、
     verify-configは**問題を全件列挙して返すのが目的の別プログラム**（lintスクリプト）で、
     fatalで全体を落とす方針そのものを持たない
@@ -193,9 +195,15 @@
 - **`chart.yaml`/`config.yaml`/`anchors.yaml` の3ファイル分割**: あまり変更されないchart構造
   （`anchors.yaml`）と、頻繁に変更される運用値（`config.yaml`）を分けるため。両者は
   `projectId` で突き合わせて整合性を検証する
+- **実在チェック（`verify-config/`）は`src/lib/`ではなく`scripts/lint/`に置く**: GitLab APIと
+  `config/`形式に依存するので`lib/`の条件（原則2）は満たすが、原則2は「`src/`のどこに置くか」の
+  基準であって「`src/`に置くか否か」を決めない。本体パイプラインからの参照は0で、唯一の
+  呼び出し元は`scripts/lint/validate-config.ts`。`src/`に置くと`pnpm build`の`dist/`に
+  本体が使わないコードが混ざり、「本体から呼ばれない」という一番効く事実が構成に現れない
 - **設定ミスの検知は「形」と「実在」で2段に分けている**: ローカルのYAMLだけで分かること
   （型・対応関係・重複）は`config/validate.ts`が`loadConfig()`時に例外を投げ、GitLabに
-  問い合わせないと分からないこと（projectId・ブランチ・valuesPath・アンカーの実在）は`verify-config/`が
+  問い合わせないと分からないこと（projectId・ブランチ・valuesPath・アンカーの実在）は
+  `scripts/lint/verify-config/`が
   問題の一覧を返す。前者は認証不要なので全パイプラインで、後者はトークンがある
   パイプラインでのみ実行する
 - **MRの単位は `(chartリポジトリ, tenantId, clientId)`**: クライアントごとに独立して
@@ -211,7 +219,8 @@
   - 採らない理由: 1アプリあたりのAPI往復は実質2〜3回（`listTags`と`getBranchHeadSha`は
     すでに`Promise.all`）で削減幅が小さい一方、`resolveLatestTag()`は**タグ作成という副作用**を
     持つため、読み取りフェーズへ移すとタグ作成が並列かつ前倒しで走ることになる。さらに
-    下書きを並列共有すると、`verify-config/remote-cache.ts`が問い合わせのPromiseを共有しているのと
+    下書きを並列共有すると、`scripts/lint/verify-config/remote-cache.ts`が問い合わせのPromiseを
+    共有しているのと
     同様の二重fetch対策（`getOrFetchShared()`）が要る。夜間の
     定期実行という前提で、MR内容とGitLabへの書き込みに関わる経路を複雑にする価値は無い
   - 遅い場合にまず動かすのは`CONCURRENCY_LIMIT`（chartAndApps単位の並列数、1〜20）。
@@ -228,6 +237,9 @@
   （`pnpm lint:validate-config`、認証不要なので`pnpm lint`に含まれる）、`--remote` を付けると
   GitLabへ問い合わせて projectId・ブランチ・valuesPath・アンカーの実在も検証する
   （`pnpm lint:validate-config:remote`、CIの`validate-config-remote`ジョブが実行）
+- `scripts/lint/verify-config/`: 上記`--remote`の実装本体。`verify-config.ts`が実在チェック、
+  `remote-cache.ts`がその問い合わせ（project/branch/values.yaml）のキャッシュ層。
+  ここだけは`scripts/`配下でテストを持つため、`vitest.config.ts`のcoverage対象に含めている
 - `scripts/smoke/smoke-fixture.ts`: `config-test/` を使った実機スモークテストの前準備・後片付け
   （`setup`/`reset`。既定はdry-runで、`--apply`を付けたときだけGitLabに書き込む）。
   手順とシナリオは `docs/smoke-test.md`

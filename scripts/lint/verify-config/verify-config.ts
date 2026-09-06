@@ -1,9 +1,14 @@
-import type { AnchorTarget, AppConfig, ChartAndApps, ChartRepoConfig } from "../../types/types.js"
-import { toErrorMessage } from "../../utils/http.js"
-import { mapWithConcurrency } from "../../utils/parallel.js"
-import { reduceAsync } from "../../utils/sequential.js"
-import type { GitlabClient } from "../gitlab/gitlab.js"
-import { getValueAtAnchor } from "../helm.js"
+import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
+import { getValueAtAnchor } from "../../../src/lib/helm.js"
+import type {
+  AnchorTarget,
+  AppConfig,
+  ChartAndApps,
+  ChartRepoConfig,
+} from "../../../src/types/types.js"
+import { toErrorMessage } from "../../../src/utils/http.js"
+import { mapWithConcurrency } from "../../../src/utils/parallel.js"
+import { reduceAsync } from "../../../src/utils/sequential.js"
 import { type RemoteCache, newRemoteCache } from "./remote-cache.js"
 
 // config/ に書かれた値がGitLab上に実在するかを検証する。ローカルのYAMLだけを見る

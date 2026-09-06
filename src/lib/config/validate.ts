@@ -3,7 +3,7 @@ import type { AnchorTarget, ProjectId, ProjectName } from "../../types/types.js"
 /**
  * `config.yaml` / `anchors.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス
  * （紐づけの矛盾・重複）を検証する。実体の有無（projectIdやブランチの実在）は
- * `lib/verify-config/` の担当。
+ * `scripts/lint/verify-config/` の担当。
  */
 
 /**

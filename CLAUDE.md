@@ -42,7 +42,12 @@ pnpm build && pnpm start              # ビルドしてから実行
 - **原則2**: `src/lib/` に置くかどうかは「特定の技術・外部システム・ファイル形式（GitLab API、
   `config/`形式、`values.yaml`形式など）に依存するか」だけで判断する。「複数箇所から呼ばれる」
   は `lib/` に置く理由にならない
+- **原則3**: `src/` は `pnpm build` で `dist/` に出る本体の配布物。本体パイプライン
+  （`index.ts`→`main.ts`→`steps/`）から呼ばれず、CI・開発用スクリプトからしか呼ばれない
+  コードは `src/` ではなく `scripts/<用途>/` に置く（`scripts/lint/verify-config/` がこの形）。
+  原則2は「`src/`のどこに置くか」の基準なので、まず原則3で `src/` かどうかを決める
 - 新しいコードを置く場所:
+  - 呼び出し元がCI・開発用スクリプトだけ → `scripts/<用途>/`
   - `process()`が直接呼ぶパイプラインの1段 → `steps/`
   - 呼び出し元が`steps/`の1ファイルだけ → そのファイル内の非公開関数（大きくなったら
     `steps/<step名>/sub-steps/`、例: `steps/build-plans/sub-steps/`、に分割してもよい。
@@ -56,8 +61,8 @@ pnpm build && pnpm start              # ビルドしてから実行
   - このツールのドメイン語彙（`config/`の構造・更新計画・実行結果。目安は
     `docs/glossary.md`に載る概念かどうか）→ `src/types/types.ts`。利用箇所が1ファイル
     だけでも動かさない。ブランド型は`src/types/brand.ts`
-  - 特定の技術・外部システムのインターフェースの一部（`GitlabClient`・`RemoteCache`・
-    `ConfigTarget`など）→ その`lib/`ファイル。汎用処理の型（`Sorted`など）→ その`utils/`ファイル
+  - 特定の技術・外部システムのインターフェースの一部（`GitlabClient`・`ConfigTarget`など）
+    → その`lib/`ファイル。汎用処理の型（`Sorted`など）→ その`utils/`ファイル
   - ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値）→
     **その型を生み出す関数と同じファイル**
   - `sub-steps/types.ts`のような型だけのファイルは、**特定の1ファイルに帰属しない型**
@@ -74,7 +79,8 @@ pnpm build && pnpm start              # ビルドしてから実行
 ## テスト方針
 
 - TDD推奨: 実装コードの前に失敗するテストを書く（`/tdd` スキル参照）
-- テストは `test/` 以下、`src/` と同じディレクトリ構成で配置する
+- テストは `test/` 以下、テスト対象と同じディレクトリ構成で配置する（`src/` 配下は
+  `test/<srcからの相対パス>`、`scripts/` 配下は `test/scripts/<...>`）
 - GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする（`test/lib/gitlab/gitlab.test.ts` 参照）。各ステップのテスト（`test/steps/*.test.ts`）も `lib/gitlab/gitlab.js` をモックし、非公開関数（`buildChartUpdate()` 等）はエクスポートされたステップの振る舞いを通して間接的に検証する
 
 **IMPORTANT**: 変更後は必ず `pnpm check` を通してから完了を報告する。テスト件数・エラーなどの

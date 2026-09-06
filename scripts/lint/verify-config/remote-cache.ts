@@ -1,6 +1,11 @@
-import type { BranchName, ProjectId, ValuesPath } from "../../types/types.js"
-import { getOrFetchShared } from "../../utils/cache.js"
-import { type GitlabClient, branchExists, getFileContent, projectExists } from "../gitlab/gitlab.js"
+import {
+  type GitlabClient,
+  branchExists,
+  getFileContent,
+  projectExists,
+} from "../../../src/lib/gitlab/gitlab.js"
+import type { BranchName, ProjectId, ValuesPath } from "../../../src/types/types.js"
+import { getOrFetchShared } from "../../../src/utils/cache.js"
 
 /**
  * 実在チェック（`verify-config.ts`）がGitLabへ投げる問い合わせのキャッシュ層。
