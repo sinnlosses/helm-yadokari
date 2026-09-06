@@ -50,8 +50,10 @@ ${追跡ブランチ名の "/" を "-" に置換した値}-build-at-${yyyymmdd}-
 
 例: 追跡ブランチが `release/foo` の場合 → `release-foo-build-at-20260902-123456`
 
-`TAG_FORMAT` 環境変数でテンプレートをカスタマイズできます（`{branch}`/`{date}`/`{time}`を
-ちょうど1回ずつ含む必要があります）。命名規則の詳細・運用途中で変更した場合の挙動は
+`TAG_FORMAT` 環境変数でテンプレートをカスタマイズできます。`{branch}`/`{date}`/`{time}` を
+ちょうど1回ずつ含む必要がありますが、**並び順と区切り文字は自由**です
+（例: `{date}-{time}-{branch}`、`v{time}_{branch}__{date}`）。
+命名規則の詳細・運用途中で変更した場合の挙動は
 [`docs/requirements.md`](./docs/requirements.md) の「4.1 バージョン判定」を参照してください。
 
 ## Quick Start

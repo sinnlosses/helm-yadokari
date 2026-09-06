@@ -11,10 +11,10 @@
   {
     "id": "T-055",
     "task": "`TAG_FORMAT`（タグ命名規則）の制約を緩める要件を詰める。ユーザーの問題意識（2026-09-06）:「命名規則がやや厳しい印象。branch名さえ分かれば、タグの作成日時でソートすることでこのリポジトリの目的は達成できそう」。現状は `{branch}`/`{date}`/`{time}` をちょうど1回ずつ含むテンプレートが必須で（src/lib/gitlab/tag.ts の `validateTagFormat()`）、最新タグの判定はタグ名から抽出した日時（`ParsedTag.builtAt`）の比較で行っている（`findLatestParsedTag()`）。代替案は GitLab API が返すタグのコミット日時（`Tags.all()` の `tag.commit.created_at`。現状 `listTags()` は name と commit.id しか拾っていない、gitlab.ts:36-39）でソートする方式。詰める論点: (a)「どのブランチ由来のタグか」の判定を何で行うか（タグ名に branch を含める規則は残すのか、APIでブランチ到達可能性を見るのか）、(b) 同じコミットに複数タグがある場合・作成日時が同一の場合のタイブレーク、(c) 追跡ブランチ切り替えの検知（resolve-latest-tag.ts の `hasTagFromOtherBranch()` は「現在のブランチ名でパースできない」ことを根拠にしている）を新方式でどう表現するか、(d) このツール自身がタグを作るとき（`buildNewTag()`）の名前をどう決めるか（名前から日時が消える場合の一意性）、(e) `TAG_FORMAT` 環境変数を残すか・残すならデフォルト値と検証をどこまで緩めるか、(f) 既に values.yaml に反映済みの旧形式タグとの互換。必要ならタグ命名規則そのものを修正してよい（ユーザー明言）。決めた要件は docs/requirements.md（4.1節）と README「タグ命名規則」章に反映する。実装は T-056 で行う",
-    "status": "todo",
+    "status": "done",
     "difficulty": "opus",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "コード変更なし（要件確定のみ）。ユーザー判断3点: (1) 最新タグ判定を「追跡ブランチ由来でHEADを指すタグを直接探す」方式に変更し、複数該当時はタグ名から読んだ日時の降順で選ぶ。(2) TAG_FORMAT の命名規則は緩めず現状維持（{branch}/{date}/{time} を各1回必須）。並び順・区切り文字が異なるフォーマットは既に実装が対応済みであることを実測で確認（{date}-{time}-{branch}・v{time}_{branch}__{date} で生成・再パース・最新判定が動く）ため、要件とREADMEに明記するだけでよい。(3) 一意化要素が無い場合のタグ作成エラーは、date/time が常に必須である以上到達不能なので作らない。当初検討したコミット日時ソート案は却下（TagSchema.created_at は optional で、このツールが作る軽量タグには付かないことも実測で判明）。docs/requirements.md 4.1節と README「タグ命名規則」章に反映済み。実装は T-056",
     "dependencies": []
   },
   {
