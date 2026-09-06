@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it } from "vitest"
 
 import {
   buildMrDescription,
@@ -135,16 +135,16 @@ describe("buildMrTitle", () => {
 })
 
 describe("buildMrDescription", () => {
-  const makeResolveWebUrl = (webUrl = "https://gitlab.example.com/g/my-app") =>
-    vi.fn().mockResolvedValue(toGitLabUrl(webUrl))
+  const makeWebUrls = (webUrl = "https://gitlab.example.com/g/my-app") =>
+    new Map([[toProjectId(1), toGitLabUrl(webUrl)]])
   const helmUpdate = {
     target: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
     previousBranch: toBranchName("release/2025-q4"),
     newBranch: toBranchName("release/2026-q1"),
   }
 
-  it("イメージタグの更新をテーブルで表示する（指定の列順）", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [makePlan()])
+  it("イメージタグの更新をテーブルで表示する（指定の列順）", () => {
+    const description = buildMrDescription(makeWebUrls(), [makePlan()])
 
     expect(description).toContain("## イメージタグ")
     expect(description).toContain(
@@ -158,14 +158,14 @@ describe("buildMrDescription", () => {
     )
   })
 
-  it("比較のリンクはURLをそのまま表示する", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [makePlan()])
+  it("比較のリンクはURLをそのまま表示する", () => {
+    const description = buildMrDescription(makeWebUrls(), [makePlan()])
 
     expect(description).not.toContain("[比較]")
   })
 
-  it("1アプリが複数箇所を書き換えるとき、箇所ごとに行を出す", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [
+  it("1アプリが複数箇所を書き換えるとき、箇所ごとに行を出す", () => {
+    const description = buildMrDescription(makeWebUrls(), [
       makePlan({
         updates: [
           {
@@ -186,29 +186,29 @@ describe("buildMrDescription", () => {
     expect(rows[1]).toContain("| `b.yaml` | `y` |")
   })
 
-  it("書き込み先はファイルとアンカーの2列に分ける", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [makePlan()])
+  it("書き込み先はファイルとアンカーの2列に分ける", () => {
+    const description = buildMrDescription(makeWebUrls(), [makePlan()])
 
     const row = description.split("\n").find((line) => line.includes("my-app"))
     expect(row).toContain("| `values.yaml` | `appVersion` |")
   })
 
-  it("そのアプリの設定（追跡ブランチ）を列に出す", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [makePlan()])
+  it("そのアプリの設定（追跡ブランチ）を列に出す", () => {
+    const description = buildMrDescription(makeWebUrls(), [makePlan()])
 
     const row = description.split("\n").find((line) => line.includes("my-app"))
     expect(row).toContain("| my-app | `main` |")
   })
 
-  it("打刻日時の列は出さない", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [makePlan()])
+  it("打刻日時の列は出さない", () => {
+    const description = buildMrDescription(makeWebUrls(), [makePlan()])
 
     expect(description).not.toContain("打刻日時")
     expect(description).not.toContain("2026-01-01 09:00:00")
   })
 
-  it("パイプラインは状態を出さず、URLをそのまま表示する", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [
+  it("パイプラインは状態を出さず、URLをそのまま表示する", () => {
+    const description = buildMrDescription(makeWebUrls(), [
       makePlan({
         pipeline: { webUrl: toGitLabUrl("https://gitlab.example.com/p/1") },
       }),
@@ -220,15 +220,15 @@ describe("buildMrDescription", () => {
     expect(description).not.toContain("success")
   })
 
-  it("パイプラインが無いとき - にする", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [makePlan()])
+  it("パイプラインが無いとき - にする", () => {
+    const description = buildMrDescription(makeWebUrls(), [makePlan()])
 
     expect(description).not.toContain("見つかりません")
     expect(description.split("\n").find((line) => line.includes("my-app"))).toMatch(/\| - \|$/)
   })
 
-  it("旧タグが未設定のとき (未設定) と表示し、比較は - にする", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [
+  it("旧タグが未設定のとき (未設定) と表示し、比較は - にする", () => {
+    const description = buildMrDescription(makeWebUrls(), [
       makePlan({ previousTagName: undefined }),
     ])
 
@@ -237,15 +237,8 @@ describe("buildMrDescription", () => {
     expect(description).not.toContain("/-/compare/")
   })
 
-  it("同じプロジェクトの web_url 取得は1回だけ呼び出す", async () => {
-    const resolveWebUrl = makeResolveWebUrl()
-    await buildMrDescription(resolveWebUrl, [makePlan(), makePlan()])
-
-    expect(resolveWebUrl).toHaveBeenCalledOnce()
-  })
-
-  it("向き先ブランチの更新は別セクションのテーブルにする", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [
+  it("向き先ブランチの更新は別セクションのテーブルにする", () => {
+    const description = buildMrDescription(makeWebUrls(), [
       makePlan({ helmTargetBranchUpdates: [helmUpdate] }),
     ])
 
@@ -259,8 +252,8 @@ describe("buildMrDescription", () => {
     expect(description.slice(0, helmSectionIndex)).not.toContain("release/2026-q1")
   })
 
-  it("向き先ブランチの旧ブランチが未設定のとき (未設定) と表示する", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [
+  it("向き先ブランチの旧ブランチが未設定のとき (未設定) と表示する", () => {
+    const description = buildMrDescription(makeWebUrls(), [
       makePlan({
         helmTargetBranchUpdates: [{ ...helmUpdate, previousBranch: undefined }],
       }),
@@ -270,14 +263,14 @@ describe("buildMrDescription", () => {
     expect(description).toContain("`release/2026-q1`")
   })
 
-  it("向き先ブランチの更新が無いとき、そのセクションを出さない", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [makePlan()])
+  it("向き先ブランチの更新が無いとき、そのセクションを出さない", () => {
+    const description = buildMrDescription(makeWebUrls(), [makePlan()])
 
     expect(description).not.toContain("向き先ブランチ")
   })
 
-  it("イメージタグに差分が無いアプリは行に出さず、全アプリ差分なしならセクションごと出さない", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [
+  it("イメージタグに差分が無いアプリは行に出さず、全アプリ差分なしならセクションごと出さない", () => {
+    const description = buildMrDescription(makeWebUrls(), [
       makePlan({
         projectName: "helm-only-app",
         updates: [],
@@ -290,8 +283,8 @@ describe("buildMrDescription", () => {
     expect(description).toContain("## Helmの向き先ブランチ")
   })
 
-  it("同じ書き込み先の向き先ブランチ更新が複数アプリにあっても1行にまとめる", async () => {
-    const description = await buildMrDescription(makeResolveWebUrl(), [
+  it("同じ書き込み先の向き先ブランチ更新が複数アプリにあっても1行にまとめる", () => {
+    const description = buildMrDescription(makeWebUrls(), [
       makePlan({ updates: [], helmTargetBranchUpdates: [helmUpdate] }),
       makePlan({ projectName: "other-app", updates: [], helmTargetBranchUpdates: [helmUpdate] }),
     ])

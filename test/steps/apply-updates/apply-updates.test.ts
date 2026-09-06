@@ -7,11 +7,16 @@ vi.mock("../../../src/utils/logger.js", () => ({
 }))
 
 import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
-import { commitFileUpdates, createMergeRequest } from "../../../src/lib/gitlab/gitlab.js"
+import {
+  commitFileUpdates,
+  createMergeRequest,
+  getProjectWebUrls,
+} from "../../../src/lib/gitlab/gitlab.js"
 import {
   buildMrDescription,
   buildMrTitle,
   buildUpdateBranch,
+  webUrlProjectIds,
 } from "../../../src/lib/gitlab/mr-content.js"
 import { applyUpdates } from "../../../src/steps/apply-updates/apply-updates.js"
 import type { ChartUpdateTarget } from "../../../src/types/types.js"
@@ -58,7 +63,9 @@ describe("applyUpdates", () => {
     vi.mocked(buildMrTitle).mockReturnValue(
       "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
     )
-    vi.mocked(buildMrDescription).mockResolvedValue("### my-app\n...")
+    vi.mocked(buildMrDescription).mockReturnValue("### my-app\n...")
+    vi.mocked(webUrlProjectIds).mockReturnValue([])
+    vi.mocked(getProjectWebUrls).mockResolvedValue(new Map())
     vi.mocked(buildUpdateBranch).mockReturnValue(
       toBranchName("feature/yadokari/tenantId1/clientId1"),
     )
@@ -82,7 +89,7 @@ describe("applyUpdates", () => {
       target.chartAndApps.clientId,
       target.plans,
     )
-    expect(buildMrDescription).toHaveBeenCalledWith(expect.any(Function), target.plans)
+    expect(buildMrDescription).toHaveBeenCalledWith(expect.any(Map), target.plans)
     expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[4]).toBe(
       "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
     )

@@ -71,6 +71,16 @@ github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。`tasks.json`
 - 長い説明は正典にあるので移設せず削除。`ImageTagUpdate` のJSDocに残っていた旧名
   `previousTag` も修正した
 
+### T-076: 関数注入を値渡しに
+
+- `buildMrDescription()` を **同期関数**にし、`ResolveWebUrl`・`webUrlCache`・`getOrFetch()` の
+  reduceを削除。冒頭コメントの「外部I/Oを持たない純粋な文字列組み立て」と実装が一致した
+- URLの解決とキャッシュは `gitlab.ts` の `getProjectWebUrls()`（重複`projectId`は1回だけ解決）に
+  移し、`apply-updates.ts` が事前に呼ぶ。必要な`projectId`は `webUrlProjectIds()` が返すので、
+  **イメージタグの行を持たないplanのURLは取りに行かない**（素朴に全plan分を渡すと無駄が増える）
+- サブエージェントがsonnetのセッション上限で途中終了したため、残りのテスト修正と
+  重複排除テストの `gitlab.test.ts` への移設、上記の無駄取りはメイン側で仕上げた
+
 ## 次にやること
 
 `tasks.json` の5タスク（T-071〜T-075）はすべて `todo`。依存があるのはT-073（T-072待ち）と

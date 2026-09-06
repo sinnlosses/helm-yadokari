@@ -24,13 +24,13 @@ import {
   getBranchHeadSha,
   getFileContent,
   getLatestPipelineForRef,
-  getProjectWebUrl,
+  getProjectWebUrls,
   listTags,
   openMergeRequestExists,
 } from "../src/lib/gitlab/gitlab.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
 import { process as processFn, run } from "../src/main.js"
-import { toGitLabUrl, toTagName } from "../src/types/types.js"
+import { toGitLabUrl, toProjectId, toTagName } from "../src/types/types.js"
 import { FatalError } from "../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "./helpers.js"
 
@@ -49,7 +49,9 @@ describe("process", () => {
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
     vi.mocked(openMergeRequestExists).mockResolvedValue(false)
     vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
-    vi.mocked(getProjectWebUrl).mockResolvedValue(toGitLabUrl("https://gitlab.test/group/my-app"))
+    vi.mocked(getProjectWebUrls).mockResolvedValue(
+      new Map([[toProjectId(1), toGitLabUrl("https://gitlab.test/group/my-app")]]),
+    )
     vi.mocked(commitFileUpdates).mockResolvedValue(undefined)
     vi.mocked(createMergeRequest).mockResolvedValue(undefined)
   })

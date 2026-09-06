@@ -10,15 +10,11 @@ import type {
   TenantId,
 } from "../../types/types.js"
 import { toBranchName, toGitLabUrl } from "../../types/types.js"
-import { getOrFetch } from "../../utils/cache.js"
 
 /**
- * MRのブランチ名・タイトル・本文（Markdown）を組み立てる。外部I/Oを持たない純粋な文字列組み立て
- * だけを置き、GitLab APIの呼び出しは呼び出し元から `ResolveWebUrl` として関数で受け取る。
+ * MRのブランチ名・タイトル・本文（Markdown）を組み立てる、外部I/Oを持たない純粋な文字列組み立て。
+ * GitLab APIから解決済みのプロジェクトweb URLは呼び出し元が事前に集めて値として渡す。
  */
-
-/** プロジェクトのweb URLを解決する関数（`lib/gitlab/gitlab.ts` の `getProjectWebUrl` を注入する） */
-export type ResolveWebUrl = (projectId: ProjectId) => Promise<GitLabUrl>
 
 /**
  * 1つの`(chartリポジトリ, tenantId, clientId)`分の更新に使う固定ブランチ名。
@@ -135,31 +131,39 @@ function buildHelmTargetBranchSection(updates: readonly HelmTargetBranchUpdate[]
   ].join("\n")
 }
 
-export async function buildMrDescription(
-  resolveWebUrl: ResolveWebUrl,
-  plans: readonly AppUpdatePlan[],
-): Promise<string> {
-  const initialAcc = {
-    rows: [] as readonly string[],
-    webUrlCache: new Map<ProjectId, GitLabUrl>(),
+/**
+ * 呼び出し元（`apply-updates.ts`）が`plans`に含まれる全`projectId`について事前に解決済みで
+ * あることを前提とする。該当する`projectId`が無い場合はその前提が崩れているためエラーにする。
+ */
+function resolveWebUrl(
+  webUrls: ReadonlyMap<ProjectId, GitLabUrl>,
+  projectId: ProjectId,
+): GitLabUrl {
+  const webUrl = webUrls.get(projectId)
+  if (webUrl === undefined) {
+    throw new Error(`web URLが解決されていないprojectIdです: ${projectId}`)
   }
+  return webUrl
+}
 
-  const { rows } = await plans
-    .filter((plan) => plan.updates.length > 0)
-    .reduce(async (accPromise, plan) => {
-      const acc = await accPromise
-      const webUrlCache = new Map(acc.webUrlCache)
-      const webUrl = await getOrFetch(webUrlCache, plan.app.projectId, () =>
-        resolveWebUrl(plan.app.projectId),
-      )
-      return {
-        rows: [
-          ...acc.rows,
-          ...plan.updates.map((update) => buildImageTagRow(webUrl, plan, update)),
-        ],
-        webUrlCache,
-      }
-    }, Promise.resolve(initialAcc))
+/** イメージタグの行を持つplanだけがweb URLを必要とする（向き先ブランチの表にはリンクが無い） */
+function plansWithImageTagRows(plans: readonly AppUpdatePlan[]): readonly AppUpdatePlan[] {
+  return plans.filter((plan) => plan.updates.length > 0)
+}
+
+/** `buildMrDescription()`に渡す`webUrls`を解決するために必要な`projectId` */
+export function webUrlProjectIds(plans: readonly AppUpdatePlan[]): readonly ProjectId[] {
+  return plansWithImageTagRows(plans).map((plan) => plan.app.projectId)
+}
+
+export function buildMrDescription(
+  webUrls: ReadonlyMap<ProjectId, GitLabUrl>,
+  plans: readonly AppUpdatePlan[],
+): string {
+  const rows = plansWithImageTagRows(plans).flatMap((plan) => {
+    const webUrl = resolveWebUrl(webUrls, plan.app.projectId)
+    return plan.updates.map((update) => buildImageTagRow(webUrl, plan, update))
+  })
 
   const imageTagSection = [
     "## イメージタグ",

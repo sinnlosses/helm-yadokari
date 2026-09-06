@@ -191,6 +191,25 @@ export async function getProjectWebUrl(
 }
 
 /**
+ * 複数プロジェクトぶんのweb URLをまとめて解決する。重複する`projectId`は1回だけ解決する。
+ */
+export async function getProjectWebUrls(
+  gitlab: GitlabClient,
+  projectIds: readonly ProjectId[],
+): Promise<ReadonlyMap<ProjectId, GitLabUrl>> {
+  const uniqueProjectIds = [...new Set(projectIds)]
+  const entries = await Promise.all(
+    uniqueProjectIds.map(
+      async (projectId): Promise<[ProjectId, GitLabUrl]> => [
+        projectId,
+        await getProjectWebUrl(gitlab, projectId),
+      ],
+    ),
+  )
+  return new Map(entries)
+}
+
+/**
  * 指定した ref（タグ名）に紐づく最新のパイプラインを返す。パイプラインが存在しない場合は undefined。
  * GitLab実機で確認済みの挙動として、`pipelines/latest` は該当プロジェクトにパイプラインが
  * 1件も無い場合、404ではなく403を返す。パイプライン情報はMR本文への参考情報にすぎず
