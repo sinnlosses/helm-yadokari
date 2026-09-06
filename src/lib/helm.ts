@@ -5,17 +5,10 @@ import type { AnchorName } from "../types/types.js"
 // Helm chart の values.yaml を操作するための処理を置く。
 // 今のところは YAMLアンカーでの値の取得・書き換えのみだが、Helm chart 固有の処理
 // （Chart.yaml の読み込みなど）が今後必要になった場合もここに追加する。
-//
-// パース・シリアライズは `yaml` パッケージのDocument（AST）を使う。`js-yaml`は
-// オブジェクトとしてしか読み書きできずアンカー名やコメント・クォートスタイルを保持
-// できないため不採用（`config/`側のYAML読み込み`utils/yaml.ts`も含め、リポジトリ全体で
-// `yaml`パッケージに統一している）。
 
 /**
  * 配列要素にYAMLアンカーで名前を付けた構成（例: `variables: [&anchorName value, ...]`）向け。
- * ネストの深さやキー名に関わらずドキュメント全体を探索し、指定したアンカー名を持つ
- * スカラーノードを返す。`js-yaml`と異なり`yaml`パッケージはASTでアンカー名を保持するため、
- * この「配列要素をアンカー名で指す」構成を扱える
+ * ネストの深さやキー名に関わらずドキュメント全体を探索し、指定したアンカー名を持つスカラーノードを返す。
  */
 function findAnchorNode(doc: Document, anchorName: AnchorName): Scalar | undefined {
   let found: Scalar | undefined

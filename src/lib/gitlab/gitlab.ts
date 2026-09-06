@@ -123,11 +123,8 @@ export async function openMergeRequestExists(
 type CommitAction = { action: "create" | "update"; filePath: ValuesPath; content: string }
 
 /**
- * 固定ブランチへコミットを作成する。呼び出し元（`filterTargets`）が、このブランチに
- * オープン中のMRが無いことを既に確認済みである前提のため、ブランチが既に存在する場合は
- * （マージ済み・クローズ済みいずれのMRの残骸であっても）一旦削除し、`baseBranch` から
- * 常に新規作成し直す。これにより、過去の（もう追跡していない）変更が新しいMRの
- * 差分に紛れ込むことを防ぐ。
+ * 指定したブランチへコミットを作成する。指定したブランチが既に存在する場合は一旦削除し、
+ * `baseBranch` から常に新規作成し直す。これにより、過去の変更が新しいMRの差分に紛れ込むことを防ぐ。
  *
  * ファイルごとの action（create/update）は、常に `baseBranch` に該当ファイルが既に
  * 存在するかで判定する（ブランチを作り直す前提のため、判定基準は常に `baseBranch` でよい）。
@@ -135,13 +132,13 @@ type CommitAction = { action: "create" | "update"; filePath: ValuesPath; content
 export async function commitFileUpdates(
   gitlab: GitlabClient,
   projectId: ProjectId,
-  branch: BranchName,
+  featureBranch: BranchName,
   baseBranch: BranchName,
   message: string,
   files: readonly FileUpdate[],
 ): Promise<void> {
-  if (await branchExists(gitlab, projectId, branch)) {
-    await deleteBranch(gitlab, projectId, branch)
+  if (await branchExists(gitlab, projectId, featureBranch)) {
+    await deleteBranch(gitlab, projectId, featureBranch)
   }
   const actions = await Promise.all(
     files.map(async (file): Promise<CommitAction> => {
@@ -154,7 +151,7 @@ export async function commitFileUpdates(
     }),
   )
   await withRetry(() =>
-    gitlab.Commits.create(projectId, branch, message, actions, { startBranch: baseBranch }),
+    gitlab.Commits.create(projectId, featureBranch, message, actions, { startBranch: baseBranch }),
   )
 }
 

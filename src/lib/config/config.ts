@@ -75,12 +75,15 @@ function loadClientChartAndApps(
       validateProjectLinkage(configYamlPath, anchorsPath, apps, anchors.apps)
       validateNoDuplicateTargets(anchorsPath, [
         ...anchors.apps.flatMap((anchorApp) =>
-          anchorApp.chart.map((target) => ({
-            target,
+          anchorApp.chart.map((anchorTarget) => ({
+            target: anchorTarget,
             label: `app "${anchorApp.projectName}" の chart[]`,
           })),
         ),
-        ...(anchors.helmChart ?? []).map((target) => ({ target, label: "helm.chart[]" })),
+        ...(anchors.helmChart ?? []).map((anchorTarget) => ({
+          target: anchorTarget,
+          label: "helm.chart[]",
+        })),
       ])
 
       const anchorAppByProjectId = new Map(
