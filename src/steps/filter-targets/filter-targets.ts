@@ -4,7 +4,7 @@ import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
 import { buildFeatureBranch } from "../shared/feature-branch.js"
-import { type StepOutcome, ok, runSettled, settle } from "../shared/step-outcome.js"
+import { type StepOutcome, ok, withHandling, settle } from "../shared/step-outcome.js"
 
 export type FilterTargetsResult = {
   readonly targets: readonly ChartAndApps[]
@@ -21,7 +21,7 @@ export async function filterTargets(
   concurrencyLimit: number,
 ): Promise<FilterTargetsResult> {
   const outcomes = await mapWithConcurrency(chartAndAppsList, concurrencyLimit, (chartAndApps) =>
-    runSettled(chartAndApps, (logContext) => evaluateTarget(gitlab, chartAndApps, logContext)),
+    withHandling(chartAndApps, (logContext) => evaluateTarget(gitlab, chartAndApps, logContext)),
   )
 
   const { left: targets, right: settled } = partitionMap(outcomes, (outcome) =>

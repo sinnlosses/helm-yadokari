@@ -7,7 +7,7 @@ import type { ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { buildFeatureBranch } from "../shared/feature-branch.js"
-import { type StepOutcome, describePlan, ok, runSettled } from "../shared/step-outcome.js"
+import { type StepOutcome, describePlan, ok, withHandling } from "../shared/step-outcome.js"
 import { buildMrContent } from "./sub-steps/build-mr-content.js"
 import { collectMrEntries } from "./sub-steps/collect-mr-entries.js"
 
@@ -20,7 +20,7 @@ export async function applyUpdates(
   concurrencyLimit: number,
 ): Promise<readonly ChartUpdateResult[]> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (target) =>
-    runSettled(target.chartAndApps, (logContext) => applyUpdate(gitlab, target, logContext)),
+    withHandling(target.chartAndApps, (logContext) => applyUpdate(gitlab, target, logContext)),
   )
   return outcomes.map((outcome) => (outcome.status === "ok" ? outcome.value : outcome.result))
 }

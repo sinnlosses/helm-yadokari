@@ -23,7 +23,7 @@ import {
   type StepOutcome,
   describePlan,
   ok,
-  runSettled,
+  withHandling,
   settle,
   withAppContext,
 } from "../shared/step-outcome.js"
@@ -79,7 +79,7 @@ export async function buildPlans(
   tagFormat: TagFormat,
 ): Promise<BuildPlansResult> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
-    runSettled(chartAndApps, (logContext) =>
+    withHandling(chartAndApps, (logContext) =>
       buildPlan(gitlab, chartAndApps, dryRun, tagFormat, logContext),
     ),
   )

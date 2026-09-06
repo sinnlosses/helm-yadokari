@@ -147,7 +147,7 @@
   `catch (err) { return settleAsError(err, logContext) }` と書いており、**fatalも
   ERRORとして計上して続行するように読めた**（実際は`settleAsError()`が`FatalError`を
   投げ直すので落ちる）。読み手が方針を誤読しないよう、catch節そのものを高階関数
-  （`runSettled()`・`withAppContext()`）に吸収し、`grep -rn "try {" src/steps/` が
+  （`withHandling()`・`withAppContext()`）に吸収し、`grep -rn "try {" src/steps/` が
   **0件**であることで「stepはエラー方針を持たない」を機械的に確認できるようにした。
   - 2チャネルを1つの`Result`型に寄せる案は採らない。fatalは「実行全体の中止」という
     スコープの違う事象で、戻り値に混ぜると各stepに「fatalなら伝播させる」判断が戻り、
@@ -179,11 +179,11 @@
     `ChartUpdateResult[]`に潰す（成功時の値がそのまま結果になるため振り分けが要らない）。
     2つのために抽象を1つ増やしても、読み手は結局2つの形を覚えることになる
   - **共通化すると差を埋めるだけの引数が要る**。`filterTargets`/`buildPlans`は要素自身を
-    `runSettled()`に渡すが、`applyUpdates`は`target.chartAndApps`を渡す。3つを1つの
+    `withHandling()`に渡すが、`applyUpdates`は`target.chartAndApps`を渡す。3つを1つの
     高階関数に寄せるには「要素から`ChartAndApps`を取り出す関数」を引数で受ける必要があり、
     これは差を隠すためだけの引数になる
   - **重複しているのは配線であって方針ではない**。間違えると危ないのはエラー方針の方で、
-    そこは既に`runSettled()`／`settleAsError()`に集約済み。残る`partitionMap`の呼び出しは
+    そこは既に`withHandling()`／`settleAsError()`に集約済み。残る`partitionMap`の呼び出しは
     型が守ってくれる純粋な配線で、各stepが結果に固有の名前（`targets`/`toApply`）を
     付けられる利点の方が大きい。上記「stepの入口に並んで見えるようにしている」とも整合する
 - **URLは`URL`オブジェクトではなく文字列のブランド型（`GitLabUrl`）で扱う**: 生成後の

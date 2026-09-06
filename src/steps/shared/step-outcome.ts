@@ -77,7 +77,7 @@ export function withAppContext<T>(projectName: ProjectName, fn: () => Promise<T>
  *   `FatalError`として投げ直し、実行全体を即時終了させる（この関数は値を返さない）
  * - それ以外は該当chartAndAppsのみ`ERROR`として記録し、他のchartAndAppsの処理は続行する
  *
- * 方針そのものを1箇所に置くための関数。3つのstepからは直接ではなく`runSettled()`経由で呼ぶ。
+ * 方針そのものを1箇所に置くための関数。3つのstepからは直接ではなく`withHandling()`経由で呼ぶ。
  */
 export function settleAsError(err: unknown, logContext: Record<string, unknown>): "ERROR" {
   if (isFatalError(err)) throw new FatalError(extractHttpStatus(err), err)
@@ -116,7 +116,7 @@ export function settle<T>(result: ChartUpdateResult): StepOutcome<T> {
  * 各stepでは`mapWithConcurrency()`の直下で呼び、「並列に実行する」ことと「1件ずつ失敗を
  * 封じ込める」ことがstepの入口に並んで見えるようにしている。
  */
-export function runSettled<T>(
+export function withHandling<T>(
   chartAndApps: ChartAndApps,
   fn: (logContext: Record<string, unknown>) => Promise<StepOutcome<T>>,
 ): Promise<StepOutcome<T>> {

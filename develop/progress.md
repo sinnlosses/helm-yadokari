@@ -112,7 +112,7 @@ wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラー�
 **共通化しない**と決めた。決め手は3点 —— `applyUpdates()` だけ `partitionMap` ではなく
 `outcomes.map()` で潰すので3つ揃わない／3つを1つに寄せるには「要素から `ChartAndApps` を
 取り出す関数」という差を隠すためだけの引数が要る／重複しているのは配線であって方針ではない
-（危険なエラー方針は既に `runSettled()`・`settleAsError()` に集約済み）。理由は
+（危険なエラー方針は既に `withHandling()`・`settleAsError()` に集約済み）。理由は
 `docs/architecture.md` に記録したので、次に読む人が同じ検討をやり直さなくて済む。
 
 **T-088 完了**。`LoadValuesYamlContent` の「呼び出し側が `new Map(acc.draft)` で複製して渡し、
