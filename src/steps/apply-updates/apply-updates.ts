@@ -43,6 +43,9 @@ async function applyUpdate(
   return runSettled(chartAndApps, async (logContext) => {
     // MRタイトルをコミットメッセージにもそのまま使い回す
     const mrTitle = buildMrTitle(tenantId, clientId, plans)
+    const webUrls = await getProjectWebUrls(gitlab, webUrlProjectIds(plans))
+    const mrDescription = buildMrDescription(webUrls, plans)
+
     await commitFileUpdates(
       gitlab,
       chart.projectId,
@@ -51,14 +54,13 @@ async function applyUpdate(
       mrTitle,
       files,
     )
-    const webUrls = await getProjectWebUrls(gitlab, webUrlProjectIds(plans))
     await createMergeRequest(
       gitlab,
       chart.projectId,
       updateBranch,
       chart.mrTargetBranch,
       mrTitle,
-      buildMrDescription(webUrls, plans),
+      mrDescription,
     )
     logger.info({ ...logContext, result: "CREATED", apps: plans.map(describePlan) })
     return ok<ChartUpdateResult>("CREATED")
