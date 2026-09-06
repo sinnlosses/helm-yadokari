@@ -192,7 +192,7 @@ export async function getProjectWebUrl(
 }
 
 /**
- * 複数プロジェクトぶんのweb URLをまとめて解決する。重複する`projectId`は1回だけ解決する。
+ * 複数プロジェクトのURLをまとめて解決する。重複する`projectId`は1回だけ解決する。
  */
 export async function getProjectWebUrls(
   gitlab: GitlabClient,

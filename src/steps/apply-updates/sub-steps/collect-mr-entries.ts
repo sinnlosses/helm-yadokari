@@ -8,27 +8,24 @@ import type {
 import type { MrEntries } from "./shared/types.js"
 
 /**
- * 1つのMRに載せる項目を計画から選び出す。イメージタグはリンクに使うweb URLを解決して
- * 添え、向き先ブランチは書き込み先単位で一意にする。
+ * 1つのMRに載せる項目をプランから抽出する。イメージタグはリンクに使うURLを解決して添え、
+ * 向き先ブランチは書き込み先単位で一意にする。
  */
 export async function collectMrEntries(
   gitlab: GitlabClient,
   plans: readonly AppUpdatePlan[],
 ): Promise<MrEntries> {
-  // 表に行を持つplanだけがweb URLを必要とする（向き先ブランチの表にはリンクが無い）
-  const plansWithRows = plans.filter((plan) => plan.updates.length > 0)
-  const webUrls = await getProjectWebUrls(
-    gitlab,
-    plansWithRows.map((plan) => plan.app.projectId),
-  )
+  const updatedPlans = plans.filter((plan) => plan.updates.length > 0)
+  const updatedProjectIds = updatedPlans.map((plan) => plan.app.projectId)
+  const webUrls = await getProjectWebUrls(gitlab, updatedProjectIds)
 
-  return {
-    imageTags: plansWithRows.flatMap((plan) => {
-      const webUrl = resolveWebUrl(webUrls, plan.app.projectId)
-      return plan.updates.map((update) => ({ plan, update, webUrl }))
-    }),
-    helmBranches: uniqueHelmTargetBranchUpdates(plans),
-  }
+  const imageTags = updatedPlans.flatMap((plan) => {
+    const webUrl = resolveWebUrl(webUrls, plan.app.projectId)
+    return plan.updates.map((update) => ({ plan, update, webUrl }))
+  })
+  const helmBranches = uniqueHelmTargetBranchUpdates(plans)
+
+  return { imageTags, helmBranches }
 }
 
 /**
