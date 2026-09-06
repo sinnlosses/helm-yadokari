@@ -55,6 +55,15 @@ github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。`tasks.json`
   `commitFileUpdates()` が担う
 - ログのキー（`chartDir`→`chartDirName`、`previousTag`→`previousTagName`）も追従させた
 
+### T-074: コメント方針
+
+- 基準は「**コードから読み取れないことだけを書く／原則1〜2文／それを超える背景は正典（docs/）へ**」。
+  残す価値があるのは「外部との対応関係（どのYAMLキー由来か等）」と「非自明な前提・制約」。
+  `CLAUDE.md`「コーディング規約・レビュー方針」に追記した
+- `types.ts`/`brand.ts` の長いJSDocの中身は**既に正典側にある**ことを確認（アンカー方式→
+  `glossary.md`、`chart`を配列にする理由→`requirements.md`、`GitLabUrl`の理由→`architecture.md`）。
+  そのため T-075 は移設不要で、削除・圧縮だけで済む
+
 ## 次にやること
 
 `tasks.json` の5タスク（T-071〜T-075）はすべて `todo`。依存があるのはT-073（T-072待ち）と

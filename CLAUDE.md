@@ -105,6 +105,11 @@ Protected: OFF で登録する）。`renovate` ジョブはこのCLI自体の
   「現在どうなっているか」と「なぜそうなっているか」だけを書く。この規約は
   `grep -rE "T-[0-9]{3}"` が `develop/` / `docs/history/` 以外で
   0件になることで機械的に確認できる
+- コメントは**コードから読み取れないことだけ**を書く。型名・フィールド名・関数名の言い換え
+  （`FileUpdate` に「1ファイル分の更新内容」など）は書かない。書く場合も**原則1〜2文**に収め、
+  それを超える背景・理由・経緯は正典（`docs/architecture.md` の設計判断、`docs/glossary.md` の
+  用語、`docs/requirements.md` の要件）に置いて二重管理しない。残す価値があるのは「外部との
+  対応関係」（どのYAMLキー由来か、GitLab APIのどの挙動に依存するか）と「非自明な前提・制約」
 - レビュー観点は `/code-review` スキルのStandards軸（この節）とSpec軸（`docs/requirements.md`）を参照
 
 ## 導入済みスキル
