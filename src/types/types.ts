@@ -34,15 +34,15 @@ export type HelmTargetBranchConfig = {
 }
 
 /**
- * `projectId`/`projectName`/`branchToSync`はconfig.yamlの運用値、`chart`は同じディレクトリの
- * `anchors.yaml`から`projectId`で引いた書き込み先
+ * `projectId`/`projectName`/`branchToSync`はconfig.yamlの運用値、`imageTagTargets`は同じ
+ * ディレクトリの`anchors.yaml`から`projectId`で引いた書き込み先
  */
 export type AppConfig = {
   readonly projectId: ProjectId
   readonly projectName: ProjectName
   readonly branchToSync: BranchName
   /** 同じ最新タグを複数箇所へ反映するため配列。anchors.yamlの`apps[].chart[]`由来 */
-  readonly chart: readonly AnchorTarget[]
+  readonly imageTagTargets: readonly AnchorTarget[]
   /** config.yamlとanchors.yamlの両方でHelmの向き先ブランチが指定されている場合のみ値を持つ */
   readonly helmTargetBranch: HelmTargetBranchConfig | undefined
 }
@@ -85,7 +85,7 @@ export type PipelineInfo = {
   readonly webUrl: GitLabUrl
 }
 
-/** `AppConfig.chart`のうち1箇所分の更新内容。`previousTagName`は書き換え箇所ごとに独立して読み取る */
+/** `AppConfig.imageTagTargets`のうち1箇所分の更新内容。`previousTagName`は書き換え箇所ごとに独立して読み取る */
 export type ImageTagUpdate = {
   readonly target: AnchorTarget
   readonly previousTagName: TagName | undefined

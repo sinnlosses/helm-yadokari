@@ -96,7 +96,7 @@ function loadClientChartAndApps(
         const { chart: appChart } = anchorApp
         return {
           ...app,
-          chart: appChart,
+          imageTagTargets: appChart,
           helmTargetBranch: resolveHelmTargetBranch(
             configYamlPath,
             anchorsPath,

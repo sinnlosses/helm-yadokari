@@ -160,7 +160,7 @@ function createChartAccess(gitlab: GitlabClient, chart: ChartRepoConfig): ChartA
  * 1アプリ分の更新計画を組み立てる。手順は次の4つ
  *
  * 1. `resolveLatestTag()` — 追跡ブランチのHEADを指すタグが存在するか確認し、無ければ作成する
- * 2. `applyImageTagTargets()` — `app.chart`全箇所について、最新タグとの差分をチェックする
+ * 2. `applyImageTagTargets()` — `app.imageTagTargets`全箇所について、最新タグとの差分をチェックする
  * 3. `applyHelmTargetBranchTargets()` — `app.helmTargetBranch`があれば、向き先ブランチの
  *    全箇所について設定値との差分をチェックする
  * 4. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば最新パイプラインを取得して
@@ -182,7 +182,7 @@ async function buildAppUpdatePlan(
       loadValuesYamlContent,
       latestTag,
       acc.draft,
-      app.chart,
+      app.imageTagTargets,
     )
 
     const afterHelmTargets = app.helmTargetBranch

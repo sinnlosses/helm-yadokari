@@ -98,7 +98,7 @@ async function verifyApp(
 
   const imageTagProblems = await verifyTargets(
     context,
-    app.chart,
+    app.imageTagTargets,
     `app "${app.projectName}" の chart[]`,
   )
 

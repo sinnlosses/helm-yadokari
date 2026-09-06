@@ -25,7 +25,7 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
     projectId: toProjectId(1),
     projectName: toProjectName("my-app"),
     branchToSync: toBranchName("main"),
-    chart: [
+    imageTagTargets: [
       {
         valuesPath: toValuesPath("values.yaml"),
         anchorName: toAnchorName("appVersion"),

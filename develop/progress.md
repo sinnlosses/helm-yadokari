@@ -72,6 +72,10 @@ chartAndApps」の意味に使われている**こと（`FilterTargetsResult.tar
 `anchors.yaml` のキー `apps[].chart[]` も不変。判断は `docs/architecture.md` に記録し、
 置換リストは T-081 の本文に確定させた。
 
+**T-081 完了**。`AppConfig.chart` → `imageTagTargets` の置換を12ファイルに適用（テスト件数不変）。
+wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラーメッセージのラベル
+`chart[]`、`docs/requirements.md` 4.4節）はすべて無変更であることを `git diff --name-only` で確認。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした

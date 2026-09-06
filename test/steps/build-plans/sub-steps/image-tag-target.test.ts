@@ -41,7 +41,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
 
   it("chart.anchorで指定したアンカーの値だけを取得・書き換える", async () => {
     const app = makeApp({
-      chart: [
+      imageTagTargets: [
         {
           valuesPath: toValuesPath("values.yaml"),
           anchorName: toAnchorName("tenant1client1AppsVersion"),
@@ -64,7 +64,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
 
   it("1アプリに複数のchartを指定すると、同じ最新タグを複数箇所へ反映する", async () => {
     const app = makeApp({
-      chart: [
+      imageTagTargets: [
         {
           valuesPath: toValuesPath("webapi.yaml"),
           anchorName: toAnchorName("webapiVersion"),
@@ -97,7 +97,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
 
   it("複数のchartのうち一部だけ差分があるとき、差分がある箇所だけをupdatesに含める", async () => {
     const app = makeApp({
-      chart: [
+      imageTagTargets: [
         {
           valuesPath: toValuesPath("webapi.yaml"),
           anchorName: toAnchorName("webapiVersion"),
@@ -133,7 +133,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       "buildPlans() まで到達しない）",
     async () => {
       const app = makeApp({
-        chart: [
+        imageTagTargets: [
           { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
           { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
         ],

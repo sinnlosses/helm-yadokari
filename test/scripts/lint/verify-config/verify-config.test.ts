@@ -83,7 +83,7 @@ describe("verifyConfigExistence", () => {
 
   it("アンカーがvalues.yamlに存在しないとき問題として返す", async () => {
     const app = makeApp({
-      chart: [
+      imageTagTargets: [
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("noSuchAnchor") },
       ],
     })
@@ -115,8 +115,12 @@ describe("verifyConfigExistence", () => {
   it("複数の問題をまとめて返す（最初の1件で止まらない）", async () => {
     vi.mocked(getFileContent).mockResolvedValue(undefined)
     const apps = [
-      makeApp({ chart: [{ valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") }] }),
-      makeApp({ chart: [{ valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") }] }),
+      makeApp({
+        imageTagTargets: [{ valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") }],
+      }),
+      makeApp({
+        imageTagTargets: [{ valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") }],
+      }),
     ]
 
     const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps(apps)], 3)
@@ -126,7 +130,7 @@ describe("verifyConfigExistence", () => {
 
   it("同じvalues.yamlは1回だけ取得する（複数箇所でキャッシュを共有する）", async () => {
     const app = makeApp({
-      chart: [
+      imageTagTargets: [
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
       ],

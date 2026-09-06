@@ -81,7 +81,7 @@ apps:
           projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
-          chart: [
+          imageTagTargets: [
             {
               valuesPath: "charts/my-app/values.yaml",
               anchorName: "appVersion",
@@ -209,7 +209,7 @@ describe("loadConfig（chartの複数指定）", () => {
     )
 
     const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.apps[0]?.chart).toEqual([
+    expect(chartAndAppsList[0]?.apps[0]?.imageTagTargets).toEqual([
       { valuesPath: "charts/webapi/values.yaml", anchorName: "appVersion" },
       { valuesPath: "charts/batch/values.yaml", anchorName: "batchAppsVersion" },
     ])

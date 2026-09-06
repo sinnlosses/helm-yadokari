@@ -155,7 +155,7 @@
 ### 反映済みタグ
 
 - **英語識別子**: `previousTagName`（型は`TagName`ブランド型、`ImageTagUpdate`のフィールド）
-- **定義**: `values.yaml`に現在書かれているタグ。`AppConfig.chart`の書き換え箇所（`AnchorTarget`）ごとに
+- **定義**: `values.yaml`に現在書かれているタグ。`AppConfig.imageTagTargets`の書き換え箇所（`AnchorTarget`）ごとに
   独立して読み取るため、1つのソースリポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を
   管理している場合、同一アプリ内でも箇所によって異なりうる（`AppUpdatePlan.updates[].previousTagName`）。
 - **表記ゆれ**: フィールド名は`previousTagName`だが、`image-tag-target.ts`内のローカル変数では

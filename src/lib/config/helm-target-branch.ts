@@ -17,7 +17,7 @@ export function resolveHelmTargetBranch(
   branchToSync: BranchName | undefined,
   helmChart: readonly AnchorTarget[] | undefined,
   projectName: string,
-  chart: readonly AnchorTarget[],
+  imageTagTargets: readonly AnchorTarget[],
 ): HelmTargetBranchConfig | undefined {
   if (branchToSync === undefined && helmChart === undefined) return undefined
   if (branchToSync === undefined) {
@@ -31,7 +31,7 @@ export function resolveHelmTargetBranch(
     )
   }
 
-  const appValuesPaths = [...new Set(chart.map((target) => target.valuesPath))]
+  const appValuesPaths = [...new Set(imageTagTargets.map((target) => target.valuesPath))]
   const uncoveredValuesPaths = appValuesPaths.filter(
     (valuesPath) => !helmChart.some((target) => target.valuesPath === valuesPath),
   )

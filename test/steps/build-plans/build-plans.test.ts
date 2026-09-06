@@ -120,7 +120,7 @@ describe("buildPlans", () => {
     const appA = makeApp({
       projectId: toProjectId(1),
       projectName: toProjectName("app-a"),
-      chart: [
+      imageTagTargets: [
         {
           valuesPath: toValuesPath("shared.yaml"),
           anchorName: toAnchorName("appAVersion"),
@@ -130,7 +130,7 @@ describe("buildPlans", () => {
     const appB = makeApp({
       projectId: toProjectId(2),
       projectName: toProjectName("app-b"),
-      chart: [
+      imageTagTargets: [
         {
           valuesPath: toValuesPath("shared.yaml"),
           anchorName: toAnchorName("appBVersion"),
