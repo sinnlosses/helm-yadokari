@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  buildFeatureBranch,
   buildMrDescription,
   buildMrTitle,
-  buildUpdateBranch,
 } from "../../../src/lib/gitlab/mr-content.js"
 import type { AppUpdatePlan, PipelineInfo, TagName } from "../../../src/types/types.js"
 import {
@@ -19,9 +19,9 @@ import {
 } from "../../../src/types/types.js"
 import { makeApp } from "../../helpers.js"
 
-describe("buildUpdateBranch", () => {
+describe("buildFeatureBranch", () => {
   it("tenantId/clientIdを含むブランチ名を組み立てる", () => {
-    expect(buildUpdateBranch(toTenantId("tenantId1"), toClientId("clientId1"))).toBe(
+    expect(buildFeatureBranch(toTenantId("tenantId1"), toClientId("clientId1"))).toBe(
       "feature/yadokari/tenantId1/clientId1",
     )
   })

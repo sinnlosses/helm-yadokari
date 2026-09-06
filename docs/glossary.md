@@ -184,7 +184,7 @@
 
 ### 固定ブランチ
 
-- **英語識別子**: `buildUpdateBranch(tenantId, clientId)`（値は`feature/yadokari/<tenantId>/<clientId>`）
+- **英語識別子**: `buildFeatureBranch(tenantId, clientId)`（値は`feature/yadokari/<tenantId>/<clientId>`）
 - **定義**: 1つのchartAndApps（`(chartリポジトリ, tenantId, clientId)`単位）でMRを送るために使い回す固定ブランチ名。tenantId/clientIdごとに異なる値になる。
 - **補足**: 要件定義の検討初期段階では`yadokari/<アプリ名>`というアプリ単位のブランチ名案だったが、議論の末に「chartリポジトリ単位で固定（`yadokari/update`）」に変更され、さらに「`(chartリポジトリ, tenantId, clientId)`単位」に変更された（同じchartリポジトリに複数のtenantId/clientIdが乗る場合、クライアントごとに独立したブランチ・MRになる）。以前は`UPDATE_BRANCH`という固定値のエクスポートだったが、tenantId/clientIdごとに値が変わるようになったため関数に変わった。
 - **バグ修正**: 要件定義には元々「マージまたはクローズされた後の実行で、改めて固定ブランチを作り直しMRを作成する」と明記されていたが、実装（`commitFileUpdates()`）はブランチが存在する場合は削除せず追加コミットを積むだけだった。`filterTargets`が「このブランチにオープン中のMRが無い」ことを確認済みという前提を活かし、ブランチが存在すれば`deleteBranch()`で無条件に削除してから作り直すよう修正した。

@@ -21,7 +21,7 @@ import { toBranchName, toGitLabUrl } from "../../types/types.js"
  * 同じGitLabプロジェクト内で複数のtenantId/clientIdのMRが共存するため、IDをブランチ名に
  * 含めて分離する。
  */
-export function buildUpdateBranch(tenantId: TenantId, clientId: ClientId): BranchName {
+export function buildFeatureBranch(tenantId: TenantId, clientId: ClientId): BranchName {
   return toBranchName(`feature/yadokari/${tenantId}/${clientId}`)
 }
 

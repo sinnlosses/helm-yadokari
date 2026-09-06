@@ -5,9 +5,9 @@ import {
   getProjectWebUrls,
 } from "../../lib/gitlab/gitlab.js"
 import {
+  buildFeatureBranch,
   buildMrDescription,
   buildMrTitle,
-  buildUpdateBranch,
   webUrlProjectIds,
 } from "../../lib/gitlab/mr-content.js"
 import type { ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
@@ -38,7 +38,7 @@ async function applyUpdate(
 ): Promise<StepOutcome<ChartUpdateResult>> {
   const { chartAndApps, plans, files } = target
   const { chart, tenantId, clientId } = chartAndApps
-  const updateBranch = buildUpdateBranch(tenantId, clientId)
+  const featureBranch = buildFeatureBranch(tenantId, clientId)
 
   return runSettled(chartAndApps, async (logContext) => {
     // MRタイトルをコミットメッセージにもそのまま使い回す
@@ -49,7 +49,7 @@ async function applyUpdate(
     await commitFileUpdates(
       gitlab,
       chart.projectId,
-      updateBranch,
+      featureBranch,
       chart.mrTargetBranch,
       mrTitle,
       files,
@@ -57,7 +57,7 @@ async function applyUpdate(
     await createMergeRequest(
       gitlab,
       chart.projectId,
-      updateBranch,
+      featureBranch,
       chart.mrTargetBranch,
       mrTitle,
       mrDescription,

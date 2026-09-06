@@ -1,5 +1,5 @@
 import { type GitlabClient, openMergeRequestExists } from "../../lib/gitlab/gitlab.js"
-import { buildUpdateBranch } from "../../lib/gitlab/mr-content.js"
+import { buildFeatureBranch } from "../../lib/gitlab/mr-content.js"
 import type { ChartAndApps, ChartUpdateResult } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
@@ -45,7 +45,7 @@ async function evaluateTarget(
       return settle("SKIPPED")
     }
 
-    const branch = buildUpdateBranch(chartAndApps.tenantId, chartAndApps.clientId)
+    const branch = buildFeatureBranch(chartAndApps.tenantId, chartAndApps.clientId)
     if (await openMergeRequestExists(gitlab, chartAndApps.chart.projectId, branch)) {
       logger.info({ ...logContext, result: "SKIPPED", reason: "mr_exists" })
       return settle("SKIPPED")

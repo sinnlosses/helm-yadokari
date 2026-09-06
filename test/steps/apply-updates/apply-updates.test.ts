@@ -13,9 +13,9 @@ import {
   getProjectWebUrls,
 } from "../../../src/lib/gitlab/gitlab.js"
 import {
+  buildFeatureBranch,
   buildMrDescription,
   buildMrTitle,
-  buildUpdateBranch,
   webUrlProjectIds,
 } from "../../../src/lib/gitlab/mr-content.js"
 import { applyUpdates } from "../../../src/steps/apply-updates/apply-updates.js"
@@ -66,7 +66,7 @@ describe("applyUpdates", () => {
     vi.mocked(buildMrDescription).mockReturnValue("### my-app\n...")
     vi.mocked(webUrlProjectIds).mockReturnValue([])
     vi.mocked(getProjectWebUrls).mockResolvedValue(new Map())
-    vi.mocked(buildUpdateBranch).mockReturnValue(
+    vi.mocked(buildFeatureBranch).mockReturnValue(
       toBranchName("feature/yadokari/tenantId1/clientId1"),
     )
   })
