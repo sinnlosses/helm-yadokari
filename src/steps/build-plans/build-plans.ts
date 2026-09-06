@@ -27,10 +27,7 @@ import {
   settle,
   withAppContext,
 } from "../shared/step-outcome.js"
-import {
-  type ApplyHelmTargetsAcc,
-  applyHelmTargetBranchTargets,
-} from "./sub-steps/helm-target-branch-target.js"
+import { applyHelmTargetBranchTargets } from "./sub-steps/helm-target-branch-target.js"
 import { applyImageTagTargets } from "./sub-steps/image-tag-target.js"
 import { resolveLatestTag } from "./sub-steps/resolve-latest-tag.js"
 import type { BranchExists, LoadValuesYamlContent } from "./sub-steps/shared/types.js"
@@ -188,12 +185,11 @@ async function buildAppUpdatePlan(
       app.chart,
     )
 
-    const helmTargetBranch = app.helmTargetBranch
-    const afterHelmTargets: ApplyHelmTargetsAcc = helmTargetBranch
+    const afterHelmTargets = app.helmTargetBranch
       ? await applyHelmTargetBranchTargets(
           branchExists,
           loadValuesYamlContent,
-          helmTargetBranch,
+          app.helmTargetBranch,
           draftAfterChartTargets,
         )
       : { draft: draftAfterChartTargets, updates: [] }
