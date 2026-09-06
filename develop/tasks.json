@@ -56,10 +56,10 @@
   {
     "id": "T-070",
     "task": "`tasks.json` と `progress.md` を新設する `develop/` ディレクトリへ移動する（ユーザー依頼、2026-09-06。理由: アプリケーションの機能に関係しない進捗管理用ファイルをリポジトリ直下から追い出す）。`git mv tasks.json develop/tasks.json`、`git mv progress.md develop/progress.md`。参照を張り替えるファイル: CLAUDE.md（「進捗管理とHandoff」の手順、「コーディング規約」のタスク番号の節にある `grep -rE \"T-[0-9]{3}\"` の除外対象の記述、「関連リンク」）、docs/workflow.md（全体。冒頭の説明・アーカイブ節のパス）、docs/glossary.md、docs/history/tasks-archive.md・docs/history/progress-archive.md 内の相対リンク（`./tasks-archive.md` 等が `develop/` からの相対で正しく解決されるか確認する）、progress.md 自身が持つ `docs/` へのリンク（`./docs/history/...` → `../docs/history/...`）、README.md にプロジェクト構成ツリーがあれば追記。`docs/history/` を `develop/` 配下に動かすかどうかは今回のスコープ外（現状のまま `docs/history/` に残す）。完了条件: 移動後に `pnpm check` が通り、移動した2ファイルとリンク元のMarkdownの相対リンクがすべて実在するパスを指していることを確認すること",
-    "status": "todo",
+    "status": "done",
     "difficulty": "haiku",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "git mv で tasks.json / progress.md を develop/ へ移動し、CLAUDE.md（規約のgrep除外・進捗管理の手順・関連リンク）・docs/workflow.md（5箇所）・README のプロジェクト構成ツリー・progress.md 自身の相対リンク（./docs/ → ../docs/）を張り替えた。.gitlab-ci.yml / package.json / .prettierignore / vitest.config.ts にパス参照が無いことも確認。docs/history/ 配下の言及は当時の記録なのでそのまま。pnpm check（28ファイル322テスト、変化なし）通過。haikuのサブエージェントに委譲し、メイン側で差分確認・READMEのツリー位置と行の折り返しを整えて受け入れた",
     "dependencies": []
   }
 ]

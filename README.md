@@ -260,6 +260,7 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 ├── config/                 # 対象アプリ設定（実運用の登録のみ。記述例は docs/requirements.md 4.4節）
 ├── config-test/            # 実GitLabに対する手動スモークテスト用の設定（CONFIG_PATH=config-test。CIからは参照されない）
 ├── docs/                   # 要件定義・アーキテクチャ・用語集など
+├── develop/                # 進捗管理（tasks.json・progress.md）。機能には関係しない作業用
 ├── .gitlab-ci.yml          # CI ジョブ定義
 └── package.json
 ```

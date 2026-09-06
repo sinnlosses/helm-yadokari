@@ -1,6 +1,7 @@
 # 進捗管理とHandoffの詳細
 
-`CLAUDE.md`の「進捗管理とHandoff」節で触れている `tasks.json` / `progress.md` のフィールド定義。
+`CLAUDE.md`の「進捗管理とHandoff」節で触れている `develop/tasks.json` /
+`develop/progress.md` のフィールド定義。
 運用ルール自体（毎セッション最初に読む、完了の判定基準など）は `CLAUDE.md` 側の短い手順を参照。
 
 ## tasks.json のフィールド
@@ -81,30 +82,32 @@
 
 ## 肥大化したときのアーカイブ
 
-`tasks.json` と `progress.md` は毎セッション冒頭に読むファイルなので、増え続けさせない:
+`develop/tasks.json` と `develop/progress.md` は毎セッション冒頭に読むファイルなので、増え続けさせない:
 
-- `tasks.json` の完了タスクの詳細な記録 → `docs/history/tasks-archive.md`
+- `develop/tasks.json` の完了タスクの詳細な記録 → `docs/history/tasks-archive.md`
   （evidenceは「コミットハッシュ・テスト件数・アーカイブへの参照」に置き換える）
-- `progress.md` の過去セッションの「完了したこと」 → `docs/history/progress-archive.md`
+- `develop/progress.md` の過去セッションの「完了したこと」 → `docs/history/progress-archive.md`
 
 アーカイブは当時の記述をそのまま移すだけにし、後から書き換えない（当時のファイル名・型名が
 現在と違っていても履歴としてそのまま残す）。
 
 ### いつ移すか（トリガー）
 
-- セッション開始時に `tasks.json` の `status: done` が **10件以上**あったら、作業を始める前に
-  アーカイブする
-- 件数が10件未満でも `tasks.json` が **30KB を超えていたら**、`done` を減らせないか検討する
+- セッション開始時に `develop/tasks.json` の `status: done` が **10件以上**あったら、
+  作業を始める前にアーカイブする
+- 件数が10件未満でも `develop/tasks.json` が **30KB を超えていたら**、`done` を減らせないか検討する
   （evidenceが肥大化しているだけの場合はevidenceの圧縮、件数自体が多い場合はアーカイブを検討）
 
 ### 何を移すか
 
 - `done` のタスクは**全件**アーカイブする（直近セッションで完了した分も含む）。直近セッションの
-  記録は `progress.md` の「完了したこと」が担うため、`tasks.json` 側に別途残す必要はない
+  記録は `develop/progress.md` の「完了したこと」が担うため、`develop/tasks.json` 側に
+  別途残す必要はない
 - タスクIDの通し番号は再利用せず、常に続きから採番する
 
 ### `dependencies` の扱い
 
 - アーカイブ済みタスクのIDを指す `dependencies` は**そのまま残す**（書き換えない）
-- **`tasks.json` に存在しないタスクIDは「アーカイブ済み＝完了」とみなす**。依存解決の際は
-  `tasks.json` の `id` 一覧に無い `dependencies` エントリを完了済みとして扱ってよい
+- **`develop/tasks.json` に存在しないタスクIDは「アーカイブ済み＝完了」とみなす**。
+  依存解決の際は
+  `develop/tasks.json` の `id` 一覧に無い `dependencies` エントリを完了済みとして扱ってよい

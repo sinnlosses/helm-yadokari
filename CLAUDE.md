@@ -100,10 +100,10 @@ Protected: OFF で登録する）。`renovate` ジョブはこのCLI自体の
 - 環境変数はすべて `src/lib/env.ts` で管理する
 - 401 / 5xx / ネットワーク障害は `FatalError` を投げて即時終了、それ以外のエラーは該当
   chart リポジトリを `ERROR` としてログ記録し処理継続する（詳細は README「エラーハンドリング」参照）
-- コード・ドキュメントにタスク番号（`tasks.json` の `id`。`T-` + 3桁の連番）を書かない。
-  変更の経緯は `tasks.json` と `docs/history/` 側に持たせ、コードやドキュメントには
+- コード・ドキュメントにタスク番号（`develop/tasks.json` の `id`。`T-` + 3桁の連番）を書かない。
+  変更の経緯は `develop/tasks.json` と `docs/history/` 側に持たせ、コードやドキュメントには
   「現在どうなっているか」と「なぜそうなっているか」だけを書く。この規約は
-  `grep -rE "T-[0-9]{3}"` が `tasks.json` / `progress.md` / `docs/history/` 以外で
+  `grep -rE "T-[0-9]{3}"` が `develop/` / `docs/history/` 以外で
   0件になることで機械的に確認できる
 - レビュー観点は `/code-review` スキルのStandards軸（この節）とSpec軸（`docs/requirements.md`）を参照
 
@@ -115,10 +115,11 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 
 ## 進捗管理とHandoff
 
-会話やセッションが切れても再開できるよう、状態はチャットではなく `tasks.json` / `progress.md`
-に記録する（フィールド定義・書き方は [`docs/workflow.md`](./docs/workflow.md) 参照）。
+会話やセッションが切れても再開できるよう、状態はチャットではなく `develop/` 配下の
+`tasks.json` / `progress.md` に記録する（フィールド定義・書き方は [`docs/workflow.md`](./docs/workflow.md) 参照）。
 
-1. セッション開始時に `progress.md` と `tasks.json` を読む。アーカイブすべきタイミングかどうか
+1. セッション開始時に `develop/progress.md` と `develop/tasks.json` を読む。アーカイブすべき
+   タイミングかどうか
    （`done` の件数・`tasks.json` のサイズ）を確認し、該当すれば作業前にアーカイブする
    （トリガー・手順は `docs/workflow.md`「肥大化したときのアーカイブ」参照）
 2. `tasks.json` から依存が完了済みの `todo` タスクを1つ選ぶ
@@ -129,7 +130,7 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
    切り替え方」参照）。着手して想定より判断が必要だと分かったら、その場で押し切らず
    `difficulty` を上げてから再開する（基準は `docs/workflow.md`）
 4. 完了の判定はテスト結果・生成物・実行ログなど検証可能な証拠で行う（宣言だけで合格にしない）
-5. `tasks.json` の `status`/`passes`/`evidence` と `progress.md` を更新する
+5. `develop/tasks.json` の `status`/`passes`/`evidence` と `develop/progress.md` を更新する
 
 **IMPORTANT**: 以下は必ず人間の承認を得てから行う — 外部への公開・送信、破壊的なgit操作、
 本番/共有環境への反映、認証情報や権限の変更。
@@ -137,7 +138,7 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 ## 関連リンク
 
 - アーキテクチャ詳細（各ファイルの責務、ディレクトリ構成の勘所、既知の制約）: `docs/architecture.md`
-- 進捗管理の詳細（tasks.json/progress.mdのフィールド定義・evidenceの粒度・アーカイブ運用）: `docs/workflow.md`
+- 進捗管理の詳細（`develop/` の tasks.json・progress.md のフィールド定義・evidenceの粒度・アーカイブ運用）: `docs/workflow.md`
 - 完了タスク・過去セッションの詳細な記録: `docs/history/tasks-archive.md` / `docs/history/progress-archive.md`
   （セッション開始時に読む必要はない。過去の判断の経緯をたどりたいときだけ参照する）
 - 要件定義: `docs/requirements.md`
