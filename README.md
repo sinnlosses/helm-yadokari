@@ -50,13 +50,9 @@ ${追跡ブランチ名の "/" を "-" に置換した値}-build-at-${yyyymmdd}-
 
 例: 追跡ブランチが `release/foo` の場合 → `release-foo-build-at-20260902-123456`
 
-`TAG_FORMAT` 環境変数でテンプレートをカスタマイズできます。`{branch}`（"/"を"-"に置換した
-追跡ブランチ名）・`{date}`（`yyyymmdd`）・`{time}`（`hhmmss`）の3プレースホルダをちょうど
-1回ずつ含める必要があり、順序や区切り文字は自由に変更できます（例: `{date}-{time}-{branch}`）。
-このフォーマットは新規タグの作成（`buildNewTag`）と既存タグの判定（`parseTag`）の両方に
-使われるため、運用途中で変更すると過去に作成済みのタグは追跡ブランチ由来のタグとして
-認識されなくなる点に注意してください（`values.yaml` の反映済みタグもパースできなくなるため、
-追跡ブランチを切り替えたときと同じく新しいタグが作成されます）。
+`TAG_FORMAT` 環境変数でテンプレートをカスタマイズできます（`{branch}`/`{date}`/`{time}`を
+ちょうど1回ずつ含む必要があります）。命名規則の詳細・運用途中で変更した場合の挙動は
+[`docs/requirements.md`](./docs/requirements.md) の「4.1 バージョン判定」を参照してください。
 
 ## Quick Start
 
@@ -156,93 +152,19 @@ config/
         anchors.yaml        # chart構造（values.yaml内のどこに書き込むか）
 ```
 
-`config.yaml`（よく変更する）と `anchors.yaml`（滅多に変更しない）でファイルを
-分けています。`config.yaml` は「どのプロジェクトのどのブランチを追跡するか」といった運用値
-のみを持ち、`anchors.yaml` は「`values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
-書き込むか」というchart構造を持ちます。両者は `projectId` で対応付け、`anchors.yaml`
-側にも同じ `projectId`/`projectName` を重複して書くことで、`anchors.yaml` 単体を見ても
-「どのappの設定か」が分かるようにしています。
-
-```yaml
-# config/teamA-chart/chart.yaml
-chart:
-  projectId: 888 # values.yamlを更新するGitLabプロジェクトID
-  projectName: teamA-chart
-  mrTargetBranch: develop # MR作成先のベースブランチ
-```
-
-```yaml
-# config/teamA-chart/tenantId1/clientId1/config.yaml
-apps:
-  - projectId: 1 # タグを取得するGitLabプロジェクトID（ソースリポジトリ）
-    projectName: my-app
-    branchToSync: main # 追跡するブランチ
-```
-
-```yaml
-# config/teamA-chart/tenantId1/clientId1/anchors.yaml
-apps:
-  - projectId: 1 # config.yaml と一致させる
-    projectName: my-app # config.yaml と一致させる
-    chart:
-      - valuesPath: charts/my-app/values.yaml
-        anchor: myAppVersion # values.yaml内のYAMLアンカー名
-```
-
-`apps[].chart[].anchor` は、`values.yaml` 内のイメージタグの位置をYAMLアンカー名で指定する
-フィールドです。`values.yaml` はオブジェクトのネストではなく、配列要素にYAMLアンカーで名前を
-付けた構成（例: `variables: [&myAppVersion main, ...]`）を前提とし、指定したアンカー名を持つ
-YAML上のスカラー値を、ネストの深さ・キー名に関わらず直接書き換えます。`chart` は1件以上の
-配列なので、1つのソースリポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を管理して
-いる場合は、複数要素を指定すれば同じ最新タグをまとめて反映できます。
+`config.yaml`（よく変更する）と `anchors.yaml`（滅多に変更しない）でファイルを分けています。
+`config.yaml` は「どのプロジェクトのどのブランチを追跡するか」といった運用値のみを、
+`anchors.yaml` は「`values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に書き込むか」という
+chart構造のみを持ち、両者は `projectId` で対応付けます。Helmの向き先ブランチ（values.yamlの
+パラメータを受け取ってk8sリソースを実際に構築するブランチ。`mrTargetBranch` ＝ 値定義ブランチ
+とは別物）の追従・更新も、この設定でMRの対象に含められます。
 
 ディレクトリ階層は常に `<chartリポジトリ>/<tenantId>/<clientId>/` の2階層で固定です。
 テナント分けが不要な場合もダミーの1つの tenantId/clientId ディレクトリ配下に置いてください。
 
-**Helmの向き先ブランチ**（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
-ブランチ。`mrTargetBranch` ＝ 値定義ブランチとは別物）の追従・更新もMRの対象に含められます。
-書き込む値は `config.yaml` の `helm.branchToSync`（tenantId/clientId単位に1件、人間が直接
-書き換える運用）、書き込み先は `anchors.yaml` の `helm.chart[]`（`apps[].chart[]` とは独立した
-リスト）で、両者は `valuesPath` の一致だけで各appに紐付きます:
-
-```yaml
-# config.yaml トップレベル。apps: 配列と同階層
-helm:
-  branchToSync: release/2026-q1
-apps:
-  - projectId: 1
-    projectName: my-app
-    branchToSync: main
-```
-
-```yaml
-# anchors.yaml トップレベル（config.yaml の helm.branchToSync の値をどこに書くか）
-apps:
-  - projectId: 1
-    projectName: my-app
-    chart:
-      - valuesPath: charts/my-app/values.yaml
-        anchor: myAppVersion
-helm:
-  chart:
-    # helm.branchToSync の値をこの valuesPath 内のこのアンカーに書き込む
-    - valuesPath: charts/my-app/values.yaml
-      anchor: myAppTargetBranch
-```
-
-設定エラー（実行前に例外で停止）になる主なケース:
-
-- `config.yaml` と `anchors.yaml` の app の対応が取れない（片方にしかない、同じ `projectId`
-  なのに `projectName` が食い違う）
-- 同じ `projectId` のappが1ファイル内に複数ある
-- 同じ `valuesPath` + `anchor`（values.yamlの同じ1箇所）が複数の書き込み先として指定されている
-  （app同士の重複、イメージタグと向き先ブランチの衝突）
-- `helm.branchToSync` と `helm.chart[]` のどちらか片方だけが指定されている
-- `helm.branchToSync` を指定しているのに、配下の**全アプリ**の**全 `chart[].valuesPath`** が
-  `helm.chart[]` でカバーされていない（向き先ブランチはclient内で共通という前提のため）
-
-各フィールドの完全な仕様・制約の一覧は [`docs/requirements.md`](./docs/requirements.md) の
-「4.4 アプリの登録・設定」が正典です（このREADMEはセットアップに必要な範囲の要約です）。
+各ファイルの記述例・フィールドの完全な仕様・制約（`config.yaml`/`anchors.yaml` 間の対応チェック、
+重複禁止など、設定ミスは実行前に例外で停止します）は [`docs/requirements.md`](./docs/requirements.md)
+の「4.4 アプリの登録・設定」が正典です（`config-test/` にも実物の記述例があります）。
 
 ### 設定ファイルの検証
 
@@ -332,62 +254,15 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 
 ```
 .
-├── src/
-│   ├── index.ts             # エントリポイント
-│   ├── main.ts               # run()/process()。config読み込み→ステップ呼び出し→集計
-│   ├── types/
-│   │   ├── types.ts          # 型定義（ドメインモデル。brand.ts を再エクスポート）
-│   │   └── brand.ts          # ブランド型と to* factory 関数（as キャストはここだけ）
-│   ├── steps/                 # process()が直接呼ぶ3ステップのみ（steps同士は互いに呼ばない）
-│   │   ├── filter-targets/
-│   │   │   └── filter-targets.ts  # 対象chartAndAppsの絞り込み（登録0件・既存MRを除外）
-│   │   ├── build-plans/
-│   │   │   ├── build-plans.ts # 全chartAndApps分の更新計画を並列構築
-│   │   │   └── sub-steps/     # このstepの内部実装専用（build-plans.tsからのみ呼ばれる）
-│   │   │       ├── resolve-latest-tag.ts          # 最新タグの判定・不足時のタグ自動作成
-│   │   │       ├── image-tag-target.ts            # イメージタグの差分検出・書き換え
-│   │   │       ├── helm-target-branch-target.ts   # Helm向き先ブランチの差分検出・書き換え
-│   │   │       ├── values-yaml-draft.ts           # values.yamlの下書き状態の組み立て
-│   │   │       └── types.ts                       # サブステップ間で共有する型
-│   │   ├── apply-updates/
-│   │   │   └── apply-updates.ts   # コミット・MR作成を並列実行
-│   │   └── shared/            # 複数stepが共有する結果ログ・エラー方針
-│   │       └── step-outcome.ts
-│   ├── lib/                   # 特定の技術・外部システムに依存する処理のみ
-│   │   ├── gitlab/
-│   │   │   ├── gitlab.ts      # GitLab API クライアント操作（タグ作成、コミット、MR作成など）
-│   │   │   ├── mr-content.ts  # ブランチ名・MRタイトル・MR本文の組み立て（純粋関数）
-│   │   │   └── tag.ts         # タグ命名規則のパース・最新タグ判定・新規タグ組み立て（純粋関数）
-│   │   ├── config/
-│   │   │   ├── config.ts      # config/ の走査・ChartAndApps の組み立て（公開API loadConfig）
-│   │   │   ├── schema.ts      # 設定ファイル3種の Zod スキーマ
-│   │   │   ├── validate.ts    # 紐づけ・重複の検証（GitLabに問い合わせない範囲）
-│   │   │   └── helm-target-branch.ts # helm.branchToSync/helm.chart[] のapp単位への振り分け
-│   │   ├── helm.ts            # Helm chart の values.yaml 操作（YAMLアンカー読み書き）
-│   │   └── env.ts             # 環境変数ユーティリティ
-│   └── utils/                 # ドメイン知識を持たない、または純粋な汎用ユーティリティ
-│       ├── errors.ts          # カスタムエラー
-│       ├── http.ts            # HTTP ユーティリティ
-│       ├── retry.ts           # 指数バックオフリトライ
-│       ├── timer.ts           # 実行時間計測
-│       ├── logger.ts          # 構造化 JSON ロガー
-│       ├── parallel.ts        # mapWithConcurrency（p-limit + FatalError時の即時中断）
-│       ├── fs.ts              # パストラバーサル検証・サブディレクトリ列挙
-│       ├── yaml.ts            # YAMLファイル読み込み + Zodバリデーション
-│       ├── partition.ts       # partitionMap（判別可能ユニオンの配列を2つに振り分け）
-│       ├── sequential.ts      # reduceAsync（配列を順に処理する非同期reduce）
-│       └── cache.ts           # getOrFetch（Mapベースの非同期メモ化）
+├── src/                    # steps/ → lib/ → utils/ の3層構成
 ├── test/                   # テスト（src/ と同じディレクトリ構成）
-├── scripts/
-│   ├── lint/validate-config.ts  # config/ の検証（pnpm lint:validate-config、--remote で実在チェック）
-│   └── smoke/smoke-fixture.ts   # 実機スモークテストのフィクスチャ操作（docs/smoke-test.md）
+├── scripts/                # config/ の検証・スモークテスト用スクリプト
 ├── config/                 # 対象アプリ設定（実運用の登録のみ。記述例は docs/requirements.md 4.4節）
-├── config-test/            # 実GitLabに対する手動スモークテスト用の設定（CONFIG_PATH=config-test）
+├── config-test/            # 実GitLabに対する手動スモークテスト用の設定（CONFIG_PATH=config-test。CIからは参照されない）
 ├── docs/                   # 要件定義・アーキテクチャ・用語集など
 ├── .gitlab-ci.yml          # CI ジョブ定義
 └── package.json
 ```
 
-`config-test/` は本番の対象アプリ設定ではなく、実際の GitLab インスタンスに対して
-`CONFIG_PATH=config-test DRY_RUN=true` で疎通・動作確認するための手動検証用フィクスチャです
-（CIからは参照されません）。
+`src/` 配下の各ファイルの責務・ディレクトリ構成の勘所（`config-test/`・`scripts/` の使い方を
+含む）・既知の制約は [`docs/architecture.md`](./docs/architecture.md) を参照してください。

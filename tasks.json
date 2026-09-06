@@ -29,10 +29,10 @@
   {
     "id": "T-057",
     "task": "README.md（390行）から冗長な記述を削る。判断基準は「READMEは使う人が最初に読む導線に絞り、詳細は正典ドキュメントへのリンクに寄せる」。主な候補: (a)「設定 > config/」章（145-246行）が chart.yaml / config.yaml / anchors.yaml のYAML例を長々と載せているが、T-028 で正典は docs/requirements.md 4.4節と決めており二重管理になっている、(b)「タグ命名規則」章（43-60行）も requirements.md と重複、(c)「プロジェクト構成」のツリー（331行以降）は docs/architecture.md のディレクトリ構成と二重管理でドリフトしやすい、(d)「仕組み」のmermaid図・「実行ログの例」・「CI/CD セットアップ手順」に重複や不要な冗長さが無いか確認する。削除ではなく要約＋リンクに置き換えるのが基本で、リンク先に無い情報は消さないこと。完了条件: 削った各ブロックについて「同じ内容が requirements.md / architecture.md / glossary.md のどこにあるか」を対応付けて示し、`pnpm check`（format:check を含む）を通すこと",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "README を 393→268行（-125行、約32%）に削減。削ったのは正典と二重管理だった4ブロック（config/ の3つのYAML例と設定エラー5ケース→requirements.md 4.4節、タグ命名規則の実装名・非互換の詳細→同4.1節、プロジェクト構成ツリーのsrc/配下の責務コメント約35行→architecture.md の責務テーブル、config-test/ の説明→同ディレクトリ構成の勘所）。いずれも削除ではなく要約1〜2文＋正典へのリンクに置換し、正典側に無い情報（mermaid図・実行ログ例・CI/CDセットアップ手順・環境変数表）は残した。参照先の節（4.1・4.4）が実在することとアンカーリンクの生存を確認。pnpm check（28ファイル315テスト）通過。sonnetのサブエージェントに委譲し、メイン側で正典側に実際に情報があるかを裏取りして受け入れた",
     "dependencies": []
   },
   {
