@@ -23,14 +23,14 @@ import {
 /**
  * 特定のchartディレクトリ・特定のtenantId/clientIdの組（複数可）に処理対象を絞り込む
  * ためのフィルタ。手動トリガー時に全chart/全clientではなく一部だけを実行したい場合に使う
- * （`TARGET_CHART` / `TARGET_CLIENT` 環境変数由来）。
+ * （`TARGET_CHART` / `TARGET_CLIENTS` 環境変数由来）。
  */
 export type ConfigTarget = {
   readonly chartDir?: string
   readonly clients?: readonly TargetClient[]
 }
 
-/** `target` で明示的に絞り込みが指定されているか（`TARGET_CHART` / `TARGET_CLIENT` のいずれか） */
+/** `target` で明示的に絞り込みが指定されているか（`TARGET_CHART` / `TARGET_CLIENTS` のいずれか） */
 function isExplicitlyTargeted(target: ConfigTarget): boolean {
   return target.chartDir !== undefined || target.clients !== undefined
 }
@@ -136,7 +136,7 @@ function clientDirExists(
  * `config/<chartディレクトリ>/chart.yaml` + `config/<chartディレクトリ>/<tenantId>/<clientId>/config.yaml`
  * （+ 同じディレクトリの`anchors.yaml`）という2階層固定のディレクトリ構成を再帰的に
  * 読み込む。chart.yaml のないディレクトリは無視する。`target` を指定すると該当chart/tenant・
- * clientのみに絞り込む。`target`（`TARGET_CHART` / `TARGET_CLIENT`）を明示的に指定したとき
+ * clientのみに絞り込む。`target`（`TARGET_CHART` / `TARGET_CLIENTS`）を明示的に指定したとき
  * に限り、指定したディレクトリ名・tenant/client組がtypo等でconfig/配下に見つからない場合、
  * および絞り込み結果として`chartAndAppsList`が1件も無い場合（該当ディレクトリに
  * `chart.yaml`や`config.yaml`が無い場合を含む）に例外をスローする（`target`未指定時は
@@ -162,7 +162,7 @@ export function loadConfig(configPath?: string, target: ConfigTarget = {}): Conf
   )
   if (missingClients.length > 0) {
     const missingList = missingClients.map((c) => `${c.tenantId}/${c.clientId}`).join(", ")
-    throw new Error(`TARGET_CLIENT で指定された "${missingList}" が見つかりません`)
+    throw new Error(`TARGET_CLIENTS で指定された "${missingList}" が見つかりません`)
   }
 
   const chartAndAppsList = targetChartDirs.flatMap((chartDir): ChartAndApps[] => {
@@ -175,7 +175,7 @@ export function loadConfig(configPath?: string, target: ConfigTarget = {}): Conf
 
   if (isExplicitlyTargeted(target) && chartAndAppsList.length === 0) {
     throw new Error(
-      "TARGET_CHART / TARGET_CLIENT で絞り込んだ結果、対象となるchartが1件も見つかりませんでした。" +
+      "TARGET_CHART / TARGET_CLIENTS で絞り込んだ結果、対象となるchartが1件も見つかりませんでした。" +
         "config/ 直下のディレクトリ名を指定し、そのディレクトリに chart.yaml と config.yaml が" +
         `両方存在するか確認してください（実在するディレクトリ: ${formatChartDirs(chartDirs)}）`,
     )

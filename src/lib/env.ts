@@ -45,13 +45,13 @@ export function parseTagFormat(raw: string | undefined): TagFormat {
 function parseTargetClientEntry(entry: string): TargetClient {
   const parts = entry.split("/")
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    throw new Error(`TARGET_CLIENT は "<tenantId>/<clientId>" 形式で指定してください: "${entry}"`)
+    throw new Error(`TARGET_CLIENTS は "<tenantId>/<clientId>" 形式で指定してください: "${entry}"`)
   }
   return { tenantId: parts[0], clientId: parts[1] }
 }
 
 /**
- * TARGET_CLIENT は `<tenantId>/<clientId>` 形式の組をカンマ区切りで複数指定できる
+ * TARGET_CLIENTS は `<tenantId>/<clientId>` 形式の組をカンマ区切りで複数指定できる
  * （例: "tenantId1/clientId1,tenantId2/clientId2"）。config/ のディレクトリ階層
  * `<chartDir>/<tenantId>/<clientId>/` に対応する2値の組を、1変数でまとめて渡すため。
  */
@@ -66,5 +66,5 @@ export const CONFIG_PATH = loadOptionalEnv("CONFIG_PATH")
 export const CONCURRENCY_LIMIT = parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT"))
 export const DRY_RUN = loadOptionalEnv("DRY_RUN") === "true"
 export const TARGET_CHART = loadOptionalEnv("TARGET_CHART")
-export const TARGET_CLIENT = parseTargetClients(loadOptionalEnv("TARGET_CLIENT"))
+export const TARGET_CLIENTS = parseTargetClients(loadOptionalEnv("TARGET_CLIENTS"))
 export const TAG_FORMAT = parseTagFormat(loadOptionalEnv("TAG_FORMAT"))

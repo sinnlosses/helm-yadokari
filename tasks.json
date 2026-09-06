@@ -2,10 +2,10 @@
   {
     "id": "T-064",
     "task": "環境変数 `TARGET_CLIENT` を `TARGET_CLIENTS` にリネームする。この変数は `<tenantId>/<clientId>` の組を**カンマ区切りで複数指定できる**（src/lib/env.ts の `parseTargetClients()`、JSDoc に「複数指定できる」と明記済み）のに名前が単数形で、単一指定しかできないと誤読される。単数形のままの `TARGET_CHART`（単一のディレクトリ名しか取らない）との対比も付く。リネーム対象: src/lib/env.ts のエクスポート名、src/main.ts の参照（`clients: TARGET_CLIENT` と run_start ログの `targetClient` キー）、エラーメッセージ文言（env.ts の `parseTargetClientEntry()`、src/lib/config/config.ts の絞り込みエラー）、.env.example、README.md「環境変数」表、.gitlab-ci.yml の pipeline inputs、docs/requirements.md、docs/smoke-test.md、test/（env.test.ts・main.test.ts・helpers.ts・lib/config/ 配下・steps/filter-targets/）。内部の型・フィールド名（`TargetClient`・`ConfigTarget.clients`）は既に意味と単複が合っているので変更しない。完了条件: `grep -rn \"TARGET_CLIENT\\b\"` が0件になり、`pnpm check` を通すこと",
-    "status": "todo",
+    "status": "done",
     "difficulty": "haiku",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "環境変数を TARGET_CLIENTS にリネーム（src/lib/env.ts のエクスポート・エラーメッセージ、main.ts の参照と run_start ログのキー targetClient→targetClients、config.ts のエラーメッセージとJSDoc、types.ts のJSDoc、.env.example、README、.gitlab-ci.yml の inputs と variables、docs/requirements.md・smoke-test.md、test/ 3ファイル）。内部の型 TargetClient・ConfigTarget.clients は据え置き。tasks.json/progress.md/docs/history/direction.md を除いて grep -rn \"TARGET_CLIENT\\b\" が0件。pnpm check（28ファイル319テスト、変化なし）通過。haikuのサブエージェントに委譲し、メイン側で差分・grep・pnpm check を確認して受け入れた",
     "dependencies": []
   },
   {

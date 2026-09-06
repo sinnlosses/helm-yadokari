@@ -62,13 +62,13 @@ npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
 pnpm lint:validate-config:remote config-test
 
 # 4. 何が起きるかだけ見る（書き込みなし）
-CONFIG_PATH=config-test TARGET_CLIENT=tenant2/client1,tenant2/client2 DRY_RUN=true pnpm dev
+CONFIG_PATH=config-test TARGET_CLIENTS=tenant2/client1,tenant2/client2 DRY_RUN=true pnpm dev
 
 # 5. 実際にMRを作る
-CONFIG_PATH=config-test TARGET_CLIENT=tenant2/client1,tenant2/client2 pnpm dev
+CONFIG_PATH=config-test TARGET_CLIENTS=tenant2/client1,tenant2/client2 pnpm dev
 ```
 
-`TARGET_CLIENT` を外すと `config-test/` 配下の全client（`tenant1/*` を含む）が対象になる。
+`TARGET_CLIENTS` を外すと `config-test/` 配下の全client（`tenant1/*` を含む）が対象になる。
 
 ## 期待する結果
 

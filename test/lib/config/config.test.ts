@@ -328,7 +328,7 @@ describe("loadConfig（target絞り込み）", () => {
   it("存在しないtenantId/clientIdの組み合わせのとき例外をスローする", () => {
     expect(() =>
       loadConfig(dir.path, { clients: [{ tenantId: "tenantId1", clientId: "no-such-client" }] }),
-    ).toThrow("TARGET_CLIENT")
+    ).toThrow("TARGET_CLIENTS")
   })
 
   it("chartDirは存在するがclientsが一致しないとき例外をスローする", () => {
@@ -337,7 +337,7 @@ describe("loadConfig（target絞り込み）", () => {
         chartDir: "teamA-chart",
         clients: [{ tenantId: "tenantId1", clientId: "clientId2" }],
       }),
-    ).toThrow("TARGET_CLIENT")
+    ).toThrow("TARGET_CLIENTS")
   })
 
   it("複数指定したclientsのうち1件でも見つからないとき例外をスローし、見つからなかったものを明示する", () => {
@@ -365,7 +365,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
     dir.writeFile("teamA-chart/readme.txt", "hello")
 
     expect(() => loadConfig(dir.path, { chartDir: "teamA-chart" })).toThrow(
-      "TARGET_CHART / TARGET_CLIENT で絞り込んだ結果",
+      "TARGET_CHART / TARGET_CLIENTS で絞り込んだ結果",
     )
   })
 
@@ -376,7 +376,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
     )
 
     expect(() => loadConfig(dir.path, { chartDir: "teamA-chart" })).toThrow(
-      "TARGET_CHART / TARGET_CLIENT で絞り込んだ結果",
+      "TARGET_CHART / TARGET_CLIENTS で絞り込んだ結果",
     )
   })
 
@@ -390,7 +390,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
 
     expect(() =>
       loadConfig(dir.path, { clients: [{ tenantId: "tenantId1", clientId: "clientId1" }] }),
-    ).toThrow("TARGET_CHART / TARGET_CLIENT で絞り込んだ結果")
+    ).toThrow("TARGET_CHART / TARGET_CLIENTS で絞り込んだ結果")
   })
 
   it("0件エラーのメッセージに実在するディレクトリ名の一覧を含める", () => {

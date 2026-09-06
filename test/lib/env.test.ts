@@ -133,22 +133,22 @@ describe("parseTargetClients", () => {
   })
 
   it("区切り文字がないエントリがあるとき例外をスローする", () => {
-    expect(() => parseTargetClients("tenantId1")).toThrow("TARGET_CLIENT")
+    expect(() => parseTargetClients("tenantId1")).toThrow("TARGET_CLIENTS")
   })
 
   it("区切り文字が2つ以上あるエントリがあるとき例外をスローする", () => {
-    expect(() => parseTargetClients("tenantId1/clientId1/extra")).toThrow("TARGET_CLIENT")
+    expect(() => parseTargetClients("tenantId1/clientId1/extra")).toThrow("TARGET_CLIENTS")
   })
 
   it("複数件のうち1件でも不正な形式のとき例外をスローする", () => {
-    expect(() => parseTargetClients("tenantId1/clientId1,tenantId2")).toThrow("TARGET_CLIENT")
+    expect(() => parseTargetClients("tenantId1/clientId1,tenantId2")).toThrow("TARGET_CLIENTS")
   })
 
   it("tenantIdが空のとき例外をスローする", () => {
-    expect(() => parseTargetClients("/clientId1")).toThrow("TARGET_CLIENT")
+    expect(() => parseTargetClients("/clientId1")).toThrow("TARGET_CLIENTS")
   })
 
   it("clientIdが空のとき例外をスローする", () => {
-    expect(() => parseTargetClients("tenantId1/")).toThrow("TARGET_CLIENT")
+    expect(() => parseTargetClients("tenantId1/")).toThrow("TARGET_CLIENTS")
   })
 })

@@ -288,17 +288,17 @@ helm:
 ### 4.5 特定chart・特定client限定実行
 
 - 通常は `config/` 配下に登録された全chartリポジトリ・全アプリを対象に実行するが、
-  `TARGET_CHART` / `TARGET_CLIENT` を指定することで対象を絞り込んだ実行もできる
+  `TARGET_CHART` / `TARGET_CLIENTS` を指定することで対象を絞り込んだ実行もできる
   （手動での動作確認・特定チームからの緊急更新依頼など、全件実行が不要な場面向け）
 - `TARGET_CHART`: `config/` 直下の特定のchartディレクトリ名を1つ指定し、そのchart
   リポジトリのみを対象にする
-- `TARGET_CLIENT`: `"<tenantId>/<clientId>"` 形式で特定のtenant/clientを指定し、
+- `TARGET_CLIENTS`: `"<tenantId>/<clientId>"` 形式で特定のtenant/clientを指定し、
   該当するconfig.yamlのみを対象にする。カンマ区切りで複数のtenant/client組を指定でき、
   指定した組のいずれかに一致するconfig.yamlがすべて対象になる（`TARGET_CHART`と
   組み合わせ可能。組み合わせた場合はその両方に一致するものだけが対象になる）
-- 指定した`TARGET_CHART`、または`TARGET_CLIENT`内の各tenant/client組が
+- 指定した`TARGET_CHART`、または`TARGET_CLIENTS`内の各tenant/client組が
   `config/`配下に1件も見つからない場合は、typo等に気づけるようエラーとして即時終了する
-  （`TARGET_CLIENT`に複数指定した場合、1件でも見つからない組があればエラーにする。
+  （`TARGET_CLIENTS`に複数指定した場合、1件でも見つからない組があればエラーにする。
   ディレクトリ自体は存在していても`chart.yaml`/`config.yaml`が無く、絞り込み結果として
   対象アプリが1件も残らない場合も同様にエラーにする。対象0件のまま正常終了はしない）
 - どちらも未指定の場合の挙動（全件実行）は変わらない
