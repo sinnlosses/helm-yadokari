@@ -113,6 +113,9 @@ Protected: OFF で登録する）。`renovate` ジョブはこのCLI自体の
 `.claude/skills/` に導入済み（一覧は毎セッションのスキル案内を参照）。`code-review` のみ、
 issueトラッカー連携を前提とする元の記述を未設定でも動くよう汎用化してある。
 
+このプロジェクト独自のスキルとして `next-task`（`develop/tasks.json` の未着手タスクを1件
+実行する）もある。`/loop /next-task` で全件`done`になるまでの自動進行に使う。
+
 ## 進捗管理とHandoff
 
 会話やセッションが切れても再開できるよう、状態はチャットではなく `develop/` 配下の
