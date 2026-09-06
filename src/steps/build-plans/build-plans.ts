@@ -12,9 +12,10 @@ import type {
   ChartRepoConfig,
   ChartUpdateResult,
   ChartUpdateTarget,
+  ProjectId,
   TagFormat,
 } from "../../types/types.js"
-import { getOrFetch } from "../../utils/cache.js"
+import { getOrFetchShared } from "../../utils/cache.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
@@ -42,21 +43,17 @@ export type BuildPlansResult = {
   readonly settled: readonly ChartUpdateResult[]
 }
 
-/**
- * 1つのchartAndAppsのGitLabアクセスを、chartのprojectIdとchartAndApps単位のキャッシュごと
- * 閉じ込めた関数の組。サブステップ側はGitLabを知らずに済む。
- */
-type ChartAccess = {
+/** 1つのchartAndAppsを処理する間ずっと変わらない文脈。アプリごとに変わる値と分けて渡す */
+type BuildPlanContext = {
+  readonly gitlab: GitlabClient
+  readonly dryRun: boolean
+  readonly tagFormat: TagFormat
   readonly loadValuesYamlContent: LoadValuesYamlContent
   readonly branchExists: BranchExists
 }
 
-/** 1つのchartAndAppsを処理する間ずっと変わらない文脈。アプリごとに変わる値と分けて渡す */
-type BuildPlanContext = ChartAccess & {
-  readonly gitlab: GitlabClient
-  readonly dryRun: boolean
-  readonly tagFormat: TagFormat
-}
+/** projectId+ブランチ名単位でブランチの実在確認をキャッシュする、バッチ全体で共有する関数 */
+type CachedBranchExists = (projectId: ProjectId, branch: BranchName) => Promise<boolean>
 
 /** アプリを1つずつ処理しながら積み上げる、1つのchartAndApps分の更新計画 */
 type BuildChartUpdateAcc = {
@@ -78,9 +75,11 @@ export async function buildPlans(
   dryRun: boolean,
   tagFormat: TagFormat,
 ): Promise<BuildPlansResult> {
+  const branchExists = createCachedBranchExists(gitlab)
+
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
     withHandling(chartAndApps, (logContext) =>
-      buildPlan(gitlab, chartAndApps, dryRun, tagFormat, logContext),
+      buildPlan(gitlab, chartAndApps, dryRun, tagFormat, branchExists, logContext),
     ),
   )
 
@@ -102,17 +101,20 @@ async function buildPlan(
   chartAndApps: ChartAndApps,
   dryRun: boolean,
   tagFormat: TagFormat,
+  branchExists: CachedBranchExists,
   logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartUpdateTarget>> {
+  const { chart } = chartAndApps
   const context: BuildPlanContext = {
     gitlab,
     dryRun,
     tagFormat,
-    ...createChartAccess(gitlab, chartAndApps.chart),
+    loadValuesYamlContent: createValuesYamlLoader(gitlab, chart),
+    branchExists: (branch) => branchExists(chart.projectId, branch),
   }
   const initialAcc: BuildChartUpdateAcc = { plans: [], draft: new Map() }
   const { plans, draft } = await reduceAsync(chartAndApps.apps, initialAcc, (acc, app) =>
-    buildAppUpdatePlan(context, acc, app),
+    withAppContext(app.projectName, async () => buildAppUpdatePlan(context, acc, app)),
   )
 
   if (plans.length === 0) {
@@ -132,12 +134,15 @@ async function buildPlan(
 }
 
 /**
- * chartリポジトリへの読み取りをキャッシュ付きで閉じ込める。values.yamlの内容は下書きを
- * 兼ねるためアプリをまたいで引き継ぎ、ブランチの実在確認はこのchartAndApps内で
- * 同じブランチ名につき1回だけになるよう専用のキャッシュを持つ。
+ * values.yamlの内容を読み込む関数を、chartリポジトリ1つ分に閉じ込めて組み立てる。読み込み
+ * 結果は下書き（`ValuesYamlDraft`）を兼ねるため、そのchartAndApps内のアプリをまたいで
+ * 引き継がれる（下書き自体は`buildPlan()`側でアプリごとに積み上げる）。
  */
-function createChartAccess(gitlab: GitlabClient, chart: ChartRepoConfig): ChartAccess {
-  const loadValuesYamlContent: LoadValuesYamlContent = async (draft, valuesPath) => {
+function createValuesYamlLoader(
+  gitlab: GitlabClient,
+  chart: ChartRepoConfig,
+): LoadValuesYamlContent {
+  return async (draft, valuesPath) => {
     const cached = draft.get(valuesPath)
     if (cached !== undefined) return { content: cached.content, draft }
 
@@ -147,14 +152,21 @@ function createChartAccess(gitlab: GitlabClient, chart: ChartRepoConfig): ChartA
     }
     return { content, draft: cacheValuesYamlDraft(draft, valuesPath, content) }
   }
+}
 
-  const branchExistsCache = new Map<BranchName, boolean>()
-  const branchExists: BranchExists = (branch) =>
-    getOrFetch(branchExistsCache, branch, () =>
-      branchExistsOnGitlab(gitlab, chart.projectId, branch),
+/**
+ * ブランチの実在確認をprojectId+ブランチ名単位でバッチ全体を通してキャッシュする。同じ
+ * chartディレクトリ配下の複数tenant/client（＝複数chartAndApps）が同じchart.projectIdを
+ * 共有するため、chartAndApps単位でなくバッチ単位（`buildPlans()`で1つ生成）にすることで
+ * 問い合わせを使い回せる。`mapWithConcurrency`によりchartAndAppsは並列実行されるため、
+ * 同時に来た同じキーの問い合わせも1回にまとめる`getOrFetchShared`を使う。
+ */
+function createCachedBranchExists(gitlab: GitlabClient): CachedBranchExists {
+  const cache = new Map<string, Promise<boolean>>()
+  return (projectId, branch) =>
+    getOrFetchShared(cache, `${projectId}:${branch}`, () =>
+      branchExistsOnGitlab(gitlab, projectId, branch),
     )
-
-  return { loadValuesYamlContent, branchExists }
 }
 
 /**
@@ -176,53 +188,49 @@ async function buildAppUpdatePlan(
   app: AppConfig,
 ): Promise<BuildChartUpdateAcc> {
   const { gitlab, dryRun, tagFormat, loadValuesYamlContent, branchExists } = context
-  return withAppContext(app.projectName, async () => {
-    const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat)
 
-    const { draft: draftAfterChartTargets, updates } = await applyImageTagTargets(
-      loadValuesYamlContent,
-      latestTag,
-      acc.draft,
-      app.imageTagTargets,
-    )
+  const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat)
 
-    const afterHelmTargets = app.helmTargetBranch
-      ? await applyHelmTargetBranchTargets(
-          branchExists,
-          loadValuesYamlContent,
-          app.helmTargetBranch,
-          draftAfterChartTargets,
-        )
-      : { draft: draftAfterChartTargets, updates: [] }
-    const { draft, updates: helmTargetBranchUpdates } = afterHelmTargets
+  const { draft: draftAfterChartTargets, updates } = await applyImageTagTargets(
+    loadValuesYamlContent,
+    latestTag,
+    acc.draft,
+    app.imageTagTargets,
+  )
 
-    if (updates.length === 0 && helmTargetBranchUpdates.length === 0) {
-      logger.info({
-        event: "check_app",
-        projectName: app.projectName,
-        result: "SKIPPED",
-        reason: "already_up_to_date",
-        tag: latestTag.tag.name,
-      })
-      return { plans: acc.plans, draft }
-    }
+  const afterHelmTargets = app.helmTargetBranch
+    ? await applyHelmTargetBranchTargets(
+        branchExists,
+        loadValuesYamlContent,
+        app.helmTargetBranch,
+        draftAfterChartTargets,
+      )
+    : { draft: draftAfterChartTargets, updates: [] }
+  const { draft, updates: helmTargetBranchUpdates } = afterHelmTargets
 
-    // dryRun時はMRを作らないため（`buildPlan()`でSKIPPEDになる）、MR本文組み立てで必要な
-    // パイプライン情報は不要。APIコストを削減するため取得をスキップする
-    const pipeline = dryRun
-      ? undefined
-      : await getLatestPipelineForRef(gitlab, app.projectId, latestTag.tag.name)
-    const plan: AppUpdatePlan = {
-      app,
-      latestTag: latestTag.tag,
-      pipeline,
-      updates,
-      helmTargetBranchUpdates,
-    }
+  if (updates.length === 0 && helmTargetBranchUpdates.length === 0) {
+    logger.info({
+      event: "check_app",
+      projectName: app.projectName,
+      result: "SKIPPED",
+      reason: "already_up_to_date",
+      tag: latestTag.tag.name,
+    })
+    return { plans: acc.plans, draft }
+  }
 
-    return {
-      plans: [...acc.plans, plan],
-      draft,
-    }
-  })
+  // dryRun時はMRを作らないため（`buildPlan()`でSKIPPEDになる）、MR本文組み立てで必要な
+  // パイプライン情報は不要。APIコストを削減するため取得をスキップする
+  const pipeline = dryRun
+    ? undefined
+    : await getLatestPipelineForRef(gitlab, app.projectId, latestTag.tag.name)
+  const plan: AppUpdatePlan = {
+    app,
+    latestTag: latestTag.tag,
+    pipeline,
+    updates,
+    helmTargetBranchUpdates,
+  }
+
+  return { plans: [...acc.plans, plan], draft }
 }

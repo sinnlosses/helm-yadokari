@@ -19,6 +19,7 @@ import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import {
   toAnchorName,
   toBranchName,
+  toClientId,
   toCommitSha,
   toProjectName,
   toTagName,
@@ -202,5 +203,29 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     expect(errorCall?.reason).toContain("my-test-app")
     expect(errorCall?.reason).toContain("helm/values.yaml")
     expect(errorCall?.reason).toContain("targetBranch")
+  })
+
+  it("同じchart.projectId・同じブランチ名の向き先ブランチ確認は、複数chartAndAppsにまたがってもGitLab APIへの問い合わせを1回にまとめる", async () => {
+    const helmTargetBranch = {
+      branchName: toBranchName("release/2026-q1"),
+      targets: [
+        {
+          valuesPath: toValuesPath("values.yaml"),
+          anchorName: toAnchorName("targetBranch"),
+        },
+      ],
+    }
+    vi.mocked(getFileContent).mockResolvedValue(
+      `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
+    )
+    // 同じchartディレクトリ配下の別tenant/client（chart.projectIdは既定値で共通）
+    const groupA = makeChartAndApps([makeApp({ helmTargetBranch })], {
+      clientId: toClientId("clientA"),
+    })
+    const groupB = makeChartAndApps([makeApp({ helmTargetBranch })], {
+      clientId: toClientId("clientB"),
+    })
+    await buildPlans(mockGitlab, [groupA, groupB], 3, false, DEFAULT_TAG_FORMAT)
+    expect(branchExists).toHaveBeenCalledTimes(1)
   })
 })
