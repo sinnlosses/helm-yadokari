@@ -27,6 +27,13 @@ export function toTagName(s: string): TagName {
   return s as TagName
 }
 
+declare const commitShaBrand: unique symbol
+/** GitLab APIが返すコミットSHA。タグ名との取り違えを型で防ぐためにブランド型にしている */
+export type CommitSha = string & { readonly [commitShaBrand]: never }
+export function toCommitSha(s: string): CommitSha {
+  return s as CommitSha
+}
+
 declare const tagFormatBrand: unique symbol
 /** タグ命名規則のテンプレート文字列（検証は `lib/tag-format.ts` の `validateTagFormat()`） */
 export type TagFormat = string & { readonly [tagFormatBrand]: never }

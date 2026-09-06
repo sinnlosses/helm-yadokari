@@ -30,7 +30,7 @@ import {
 } from "../src/lib/gitlab/gitlab.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
 import { process as processFn, run } from "../src/main.js"
-import { toGitLabUrl, toProjectId, toTagName } from "../src/types/types.js"
+import { toCommitSha, toGitLabUrl, toProjectId, toTagName } from "../src/types/types.js"
 import { FatalError } from "../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "./helpers.js"
 
@@ -38,7 +38,7 @@ const mockGitlab = {} as unknown as GitlabClient
 
 const OLD_TAG = "main-build-at-20251231-000000"
 const NEW_TAG = toTagName("main-build-at-20260101-000000")
-const HEAD_SHA = "head-sha"
+const HEAD_SHA = toCommitSha("head-sha")
 
 describe("process", () => {
   beforeEach(() => {

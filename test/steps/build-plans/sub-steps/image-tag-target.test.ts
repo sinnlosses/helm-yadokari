@@ -16,14 +16,14 @@ import {
 } from "../../../../src/lib/gitlab/gitlab.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../../src/lib/tag-format.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
-import { toAnchorName, toTagName, toValuesPath } from "../../../../src/types/types.js"
+import { toAnchorName, toCommitSha, toTagName, toValuesPath } from "../../../../src/types/types.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../../../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
 
 const OLD_TAG = "main-build-at-20251231-000000"
 const NEW_TAG = toTagName("main-build-at-20260101-000000")
-const HEAD_SHA = "head-sha"
+const HEAD_SHA = toCommitSha("head-sha")
 
 describe("buildPlans（イメージタグの書き込み先）", () => {
   beforeEach(() => {

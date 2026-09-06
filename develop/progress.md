@@ -82,6 +82,12 @@ wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラー�
 `string` のサブタイプなので**無変更で通った**（無理な変換を挿入していない）。
 テストは330→332（`parseTargetChart()` の分を追加）。
 
+**T-083 完了**。`CommitSha` ブランド型を導入した。決め手は「TypeScriptは `string` と
+ブランド型の比較は許すが、**ブランド型どうしの比較は `TS2367` で弾く**」ことを実地で
+確認したこと。これで中核判定 `tag.commitSha === headSha` のすぐ近くにある
+`tag.name`（`TagName`）との取り違えが型で防げる。あわせて「何をブランド型にするか」の
+基準（別の識別子と同じ型の式に並ぶか）を `docs/architecture.md` に明文化した。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした

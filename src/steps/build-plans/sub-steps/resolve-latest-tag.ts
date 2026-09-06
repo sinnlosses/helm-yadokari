@@ -5,7 +5,14 @@ import {
   listTags,
 } from "../../../lib/gitlab/gitlab.js"
 import { buildNewTag, findLatestParsedTag, parseTag } from "../../../lib/tag-format.js"
-import type { AppConfig, BranchName, TagFormat, TagInfo, TagName } from "../../../types/types.js"
+import type {
+  AppConfig,
+  BranchName,
+  CommitSha,
+  TagFormat,
+  TagInfo,
+  TagName,
+} from "../../../types/types.js"
 import { logger } from "../../../utils/logger.js"
 import type { LatestTagResolution } from "./shared/types.js"
 
@@ -18,7 +25,7 @@ import type { LatestTagResolution } from "./shared/types.js"
  */
 function resolveTrackedHeadTagNames(
   tags: readonly TagInfo[],
-  headSha: string | undefined,
+  headSha: CommitSha | undefined,
   branch: BranchName,
   tagFormat: TagFormat,
 ): ReadonlySet<TagName> {

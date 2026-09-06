@@ -19,6 +19,7 @@ import { buildPlans } from "../../../src/steps/build-plans/build-plans.js"
 import {
   toAnchorName,
   toChartDirName,
+  toCommitSha,
   toProjectId,
   toProjectName,
   toTagName,
@@ -32,7 +33,7 @@ const mockGitlab = {} as unknown as GitlabClient
 
 const OLD_TAG = "main-build-at-20251231-000000"
 const NEW_TAG = toTagName("main-build-at-20260101-000000")
-const HEAD_SHA = "head-sha"
+const HEAD_SHA = toCommitSha("head-sha")
 
 describe("buildPlans", () => {
   beforeEach(() => {

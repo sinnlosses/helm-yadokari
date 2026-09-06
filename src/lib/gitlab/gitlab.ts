@@ -2,6 +2,7 @@ import { Gitlab } from "@gitbeaker/rest"
 
 import type {
   BranchName,
+  CommitSha,
   FileUpdate,
   GitLabUrl,
   PipelineInfo,
@@ -10,7 +11,7 @@ import type {
   TagName,
   ValuesPath,
 } from "../../types/types.js"
-import { toGitLabUrl, toTagName } from "../../types/types.js"
+import { toCommitSha, toGitLabUrl, toTagName } from "../../types/types.js"
 import { extractHttpStatus, isNotFoundError } from "../../utils/http.js"
 import { withRetry } from "../../utils/retry.js"
 
@@ -35,7 +36,7 @@ async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promi
 /** タグ名とそれが指すコミットSHAの一覧を返す */
 export async function listTags(gitlab: GitlabClient, projectId: ProjectId): Promise<TagInfo[]> {
   const tags = await withRetry(() => gitlab.Tags.all(projectId))
-  return tags.map((tag) => ({ name: toTagName(tag.name), commitSha: tag.commit.id }))
+  return tags.map((tag) => ({ name: toTagName(tag.name), commitSha: toCommitSha(tag.commit.id) }))
 }
 
 /**
@@ -78,11 +79,11 @@ export async function getBranchHeadSha(
   gitlab: GitlabClient,
   projectId: ProjectId,
   branch: BranchName,
-): Promise<string | undefined> {
+): Promise<CommitSha | undefined> {
   return withRetry(() =>
     withNotFoundFallback(async () => {
       const result = await gitlab.Branches.show(projectId, branch)
-      return result.commit.id
+      return toCommitSha(result.commit.id)
     }, undefined),
   )
 }

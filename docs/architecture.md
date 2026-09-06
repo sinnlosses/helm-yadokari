@@ -259,6 +259,16 @@
     `lib/config/config.ts`が`anchorApp.chart`を`AppConfig.imageTagTargets`に写すところで行う
     （Zodの生の型`AnchorsApp.chart`も変えない）。設定ミスのエラーメッセージが出す
     `app "..." の chart[]` というラベルもYAMLキーを指すのでそのまま
+- **ブランド型にするのは「同じ`string`の別物と取り違えうる識別子」**: 数を増やすほど
+  `src/types/brand.ts` は重くなるので、基準は「その値が別の識別子と**同じ型の式に並ぶ**か」に
+  置く。並ばないただの文字列（エラーメッセージ・ログの本文など）はブランド型にしない。
+  - この基準で`CommitSha`を追加した。`resolveTrackedHeadTagNames()`の
+    `tag.commitSha === headSha` はこのツールの中核判定（そのタグは追跡ブランチのHEADを
+    指しているか）で、同じ式の近くに`tag.name`（`TagName`）が並ぶ。素の`string`のままだと
+    `tag.commitSha === tag.name` がコンパイルを通ってしまう（TypeScriptは`string`と
+    ブランド型の比較を許す）が、両方がブランド型なら重なりが無いものとして`TS2367`で弾かれる
+  - 生成経路は`lib/gitlab/gitlab.ts`の2箇所（`listTags()`・`getBranchHeadSha()`）だけ。
+    形式の検証は付けない（GitLabが返す値をそのまま比較するだけで、短縮SHAを弾く理由も無い）
 - **`chart.yaml`/`config.yaml`/`anchors.yaml` の3ファイル分割**: あまり変更されないchart構造
   （`anchors.yaml`）と、頻繁に変更される運用値（`config.yaml`）を分けるため。両者は
   `projectId` で突き合わせて整合性を検証する

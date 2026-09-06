@@ -17,14 +17,14 @@ import {
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../../src/lib/tag-format.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import { resolveLatestTag } from "../../../../src/steps/build-plans/sub-steps/resolve-latest-tag.js"
-import { toBranchName, toTagName } from "../../../../src/types/types.js"
+import { toBranchName, toCommitSha, toTagName } from "../../../../src/types/types.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../../../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
 
 const OLD_TAG = "main-build-at-20251231-000000"
 const NEW_TAG = toTagName("main-build-at-20260101-000000")
-const HEAD_SHA = "head-sha"
+const HEAD_SHA = toCommitSha("head-sha")
 
 describe("buildPlans（タグの解決・自動作成）", () => {
   beforeEach(() => {
@@ -76,8 +76,8 @@ describe("buildPlans（タグの解決・自動作成）", () => {
   it("追跡ブランチ由来の最新タグが追跡ブランチの現在のHEADコミットにビハインドしているとき、新しいタグを作成する", async () => {
     // タグ名は一致するが、コミットSHAが現在のブランチHEADと異なる
     // （＝タグ作成後に追跡ブランチへ新しいコミットが積まれた）ケース
-    vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: "old-sha" }])
-    vi.mocked(getBranchHeadSha).mockResolvedValue("new-sha")
+    vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: toCommitSha("old-sha") }])
+    vi.mocked(getBranchHeadSha).mockResolvedValue(toCommitSha("new-sha"))
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       [makeChartAndApps([makeApp()])],
@@ -221,7 +221,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     // 新方式では OLD_TAG を見つけて再利用し、新規タグを作らない。
     vi.mocked(listTags).mockResolvedValue([
       { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
-      { name: NEW_TAG, commitSha: "other-commit-sha" },
+      { name: NEW_TAG, commitSha: toCommitSha("other-commit-sha") },
     ])
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
 
@@ -240,7 +240,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
 
   it("旧タグが古いコミットを指すときは従来どおり更新する", async () => {
     vi.mocked(listTags).mockResolvedValue([
-      { name: toTagName(OLD_TAG), commitSha: "older-sha" },
+      { name: toTagName(OLD_TAG), commitSha: toCommitSha("older-sha") },
       { name: NEW_TAG, commitSha: HEAD_SHA },
     ])
 
@@ -283,7 +283,7 @@ describe("resolveLatestTag（trackedHeadTagNamesの中身）", () => {
     vi.mocked(listTags).mockResolvedValue([
       { name: NEW_TAG, commitSha: HEAD_SHA },
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
-      { name: toTagName(OLD_TAG), commitSha: "older-sha" },
+      { name: toTagName(OLD_TAG), commitSha: toCommitSha("older-sha") },
     ])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
 

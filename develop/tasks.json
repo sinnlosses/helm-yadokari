@@ -56,10 +56,10 @@
   {
     "id": "T-083",
     "task": "コミットSHAにブランド型を導入するかどうかを決め、決めたところまで実装する。\n\n現状の事実（調査済み）: `src/types/types.ts` の `TagInfo.commitSha` が素の `string`、`src/lib/gitlab/gitlab.ts` の `getBranchHeadSha()` の戻り値も `Promise<string | undefined>`。この2つは `src/steps/build-plans/sub-steps/resolve-latest-tag.ts` の `resolveTrackedHeadTagNames()` で `tag.commitSha === headSha` と比較され、**この比較の正しさがツールの中核の判定（HEADを指すタグがあるか）そのもの**。一方で `ProjectId` / `BranchName` / `TagName` / `ValuesPath` などの識別子はすべてブランド型になっており、SHAだけが素の `string`。\n\n詰める論点:\n(a) `CommitSha` ブランド型を新設する価値があるか。この値は「GitLab APIから受け取って比較するだけ」で外部から組み立てない（`toCommitSha()` の呼び出し元は `gitlab.ts` の2箇所だけ）。取り違えのリスクは実際どれだけあるか（同じスコープに他の `string` 型の値 —— `tag.name` 等 —— が並ぶか）。\n(b) ブランド型を増やすコスト（`src/types/brand.ts` が既に10種類あり、増やすほど「全部ブランド型にすべき」という圧力が生まれる）と、既存のブランド型を導入した判断基準との一貫性。`docs/architecture.md` に「何をブランド型にするかの基準」が書かれていない場合、この機会に1〜3行で明文化できるか。\n(c) 導入しないと決める場合、`TagInfo.commitSha` のJSDocに「GitLab APIが返すコミットSHA。比較専用」と書くだけで十分か。\n\n完了条件: 決めた内容を `docs/architecture.md`「コードからは読み取れない設計判断」に短く記録する。導入する判断なら `src/types/brand.ts` に `CommitSha` と `toCommitSha()` を足し、`gitlab.ts` の生成2箇所を通して `pnpm check` を通すこと。導入しない判断なら記録のみでコード変更なし。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "opus",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "CommitSha ブランド型を導入すると決めて実装した。決め手は、TypeScriptが string とブランド型の比較は許すのにブランド型どうしの比較は TS2367 で弾くことを実地確認したこと（別ファイルで検証）。これにより中核判定 tag.commitSha === headSha の近くにある tag.name(TagName) との取り違えが型で防げる。生成経路は gitlab.ts の listTags()/getBranchHeadSha() の2箇所のみ、形式検証は付けない。「何をブランド型にするか」の基準（別の識別子と同じ型の式に並ぶか）も docs/architecture.md に明文化。pnpm check（31ファイル332テスト、変化なし）通過",
     "dependencies": []
   },
   {

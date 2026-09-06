@@ -2,6 +2,7 @@ export * from "./brand.js"
 import type {
   AnchorName,
   BranchName,
+  CommitSha,
   ChartDirName,
   ClientId,
   GitLabUrl,
@@ -77,7 +78,7 @@ export type ParsedTag = {
 /** GitLab上のタグ1件分。名前とそのタグが指すコミットのSHA */
 export type TagInfo = {
   readonly name: TagName
-  readonly commitSha: string
+  readonly commitSha: CommitSha
 }
 
 /** タグに紐づく最新パイプラインの情報 */
