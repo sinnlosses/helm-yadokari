@@ -96,4 +96,22 @@ describe("filterTargets", () => {
     expect(targets).toEqual([])
     expect(settled).toEqual(["ERROR"])
   })
+
+  it("非fatalなAPIエラーは該当chartAndAppsだけをERRORにし、他のchartAndAppsの処理は続行する", async () => {
+    const failing = makeChartAndApps([makeApp()], {
+      tenantId: toTenantId("tenantFail"),
+      clientId: toClientId("clientFail"),
+    })
+    const ok = makeChartAndApps([makeApp()], {
+      tenantId: toTenantId("tenantOk"),
+      clientId: toClientId("clientOk"),
+    })
+    vi.mocked(openMergeRequestExists).mockImplementation(async (_gitlab, _projectId, branch) => {
+      if (branch === "feature/yadokari/tenantFail/clientFail") throw makeHttpError(403)
+      return false
+    })
+    const { targets, settled } = await filterTargets(mockGitlab, [failing, ok], 3)
+    expect(targets).toEqual([ok])
+    expect(settled).toEqual(["ERROR"])
+  })
 })

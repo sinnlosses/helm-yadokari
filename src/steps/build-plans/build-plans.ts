@@ -21,10 +21,12 @@ import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
 import { reduceAsync } from "../../utils/sequential.js"
 import {
-  buildLogContext,
+  type StepOutcome,
   describePlan,
-  rethrowWithAppContext,
-  settleAsError,
+  ok,
+  runSettled,
+  settle,
+  withAppContext,
 } from "../shared/step-outcome.js"
 import {
   type ApplyHelmTargetsAcc,
@@ -54,10 +56,6 @@ type BuildPlanContext = {
   readonly branchExists: BranchExists
 }
 
-type PlanResult =
-  | { readonly status: "apply"; readonly target: ChartUpdateTarget }
-  | { readonly status: "settled"; readonly result: ChartUpdateResult }
-
 /**
  * 各chartAndAppsの更新計画を並列に構築する。差分がないもの・dryRunのものは
  * settled（SKIPPED）に、実際に適用が必要なものは toApply にまとめて返す。
@@ -77,7 +75,7 @@ export async function buildPlans(
   )
 
   const { left: toApply, right: settled } = partitionMap(outcomes, (outcome) =>
-    outcome.status === "apply" ? left(outcome.target) : right(outcome.result),
+    outcome.status === "ok" ? left(outcome.value) : right(outcome.result),
   )
   return { toApply, settled }
 }
@@ -92,14 +90,12 @@ async function planTarget(
   chartAndApps: ChartAndApps,
   dryRun: boolean,
   tagFormat: TagFormat,
-): Promise<PlanResult> {
-  const logContext = buildLogContext(chartAndApps)
-
-  try {
+): Promise<StepOutcome<ChartUpdateTarget>> {
+  return runSettled(chartAndApps, async (logContext) => {
     const { plans, files } = await buildPlan(gitlab, chartAndApps, dryRun, tagFormat)
     if (plans.length === 0) {
       logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })
-      return { status: "settled", result: "SKIPPED" }
+      return settle("SKIPPED")
     }
     if (dryRun) {
       logger.info({
@@ -108,12 +104,10 @@ async function planTarget(
         reason: "dry_run",
         apps: plans.map(describePlan),
       })
-      return { status: "settled", result: "SKIPPED" }
+      return settle("SKIPPED")
     }
-    return { status: "apply", target: { chartAndApps, plans, files } }
-  } catch (err) {
-    return { status: "settled", result: settleAsError(err, logContext) }
-  }
+    return ok({ chartAndApps, plans, files })
+  })
 }
 
 /**
@@ -181,7 +175,7 @@ async function buildPlan(
  * 5. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば最新パイプラインを取得して
  *    `AppUpdatePlan`を組み立てる
  *
- * 処理中に投げられた例外は`rethrowWithAppContext()`でアプリ名を付けて投げ直す。
+ * 処理中に投げられた例外は`withAppContext()`がアプリ名を付けて投げ直す。
  * 致命的エラーの扱いを含む方針は`steps/shared/step-outcome.ts`に集約している。
  */
 async function buildAppUpdatePlan(
@@ -190,7 +184,7 @@ async function buildAppUpdatePlan(
   app: AppConfig,
 ): Promise<BuildChartUpdateAcc> {
   const { gitlab, dryRun, tagFormat, loadValuesYamlContent, branchExists } = context
-  try {
+  return withAppContext(app.projectName, async () => {
     const { draft: draftWithCurrentTags, previousTags } = await readCurrentImageTags(
       loadValuesYamlContent,
       acc.draft,
@@ -245,7 +239,5 @@ async function buildAppUpdatePlan(
       plans: [...acc.plans, plan],
       draft,
     }
-  } catch (err) {
-    rethrowWithAppContext(err, app.projectName)
-  }
+  })
 }

@@ -8,7 +8,7 @@ import { buildMrDescription, buildMrTitle, buildUpdateBranch } from "../../lib/g
 import type { ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
-import { buildLogContext, describePlan, settleAsError } from "../shared/step-outcome.js"
+import { type StepOutcome, describePlan, ok, runSettled } from "../shared/step-outcome.js"
 
 /**
  * 更新計画があるchartAndAppsに対して、固定ブランチへのコミットとMR作成を並列実行する。
@@ -18,7 +18,10 @@ export async function applyUpdates(
   targets: readonly ChartUpdateTarget[],
   concurrencyLimit: number,
 ): Promise<ChartUpdateResult[]> {
-  return mapWithConcurrency(targets, concurrencyLimit, (target) => applyUpdate(gitlab, target))
+  const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (target) =>
+    applyUpdate(gitlab, target),
+  )
+  return outcomes.map((outcome) => (outcome.status === "ok" ? outcome.value : outcome.result))
 }
 
 /**
@@ -26,13 +29,13 @@ export async function applyUpdates(
  */
 async function applyUpdate(
   gitlab: GitlabClient,
-  { chartAndApps, plans, files }: ChartUpdateTarget,
-): Promise<ChartUpdateResult> {
-  const logContext = buildLogContext(chartAndApps)
+  target: ChartUpdateTarget,
+): Promise<StepOutcome<ChartUpdateResult>> {
+  const { chartAndApps, plans, files } = target
   const { chart, tenantId, clientId } = chartAndApps
   const updateBranch = buildUpdateBranch(tenantId, clientId)
 
-  try {
+  return runSettled(chartAndApps, async (logContext) => {
     // MRタイトルをコミットメッセージにもそのまま使い回す
     const mrTitle = buildMrTitle(tenantId, clientId, plans)
     await commitFileUpdates(
@@ -52,8 +55,6 @@ async function applyUpdate(
       await buildMrDescription((projectId) => getProjectWebUrl(gitlab, projectId), plans),
     )
     logger.info({ ...logContext, result: "CREATED", apps: plans.map(describePlan) })
-    return "CREATED"
-  } catch (err) {
-    return settleAsError(err, logContext)
-  }
+    return ok<ChartUpdateResult>("CREATED")
+  })
 }

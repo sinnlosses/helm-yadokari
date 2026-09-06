@@ -18,6 +18,7 @@ import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../src/lib/gitlab/t
 import { buildPlans } from "../../../src/steps/build-plans/build-plans.js"
 import {
   toAnchorName,
+  toChartDirName,
   toProjectId,
   toProjectName,
   toTagName,
@@ -168,6 +169,27 @@ describe("buildPlans", () => {
       DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
+    expect(settled).toEqual(["ERROR"])
+  })
+
+  it("非fatalなAPIエラーは該当chartAndAppsだけをERRORにし、他のchartAndAppsの処理は続行する", async () => {
+    const appFail = makeApp({ projectId: toProjectId(1), projectName: toProjectName("app-fail") })
+    const appOk = makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-ok") })
+    const failing = { ...makeChartAndApps([appFail]), chartDir: toChartDirName("failing") }
+    const ok = { ...makeChartAndApps([appOk]), chartDir: toChartDirName("ok") }
+    vi.mocked(listTags).mockImplementation(async (_client, projectId) => {
+      if (projectId === 1) throw makeHttpError(403)
+      return [{ name: NEW_TAG, commitSha: HEAD_SHA }]
+    })
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      [failing, ok],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
+    expect(toApply).toHaveLength(1)
+    expect(toApply[0]?.chartAndApps).toBe(ok)
     expect(settled).toEqual(["ERROR"])
   })
 
