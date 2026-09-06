@@ -1,11 +1,11 @@
 # 現在の状態
 
-最終更新: 2026-09-06（T-064〜T-070を`main`へマージ・push済み。`src/types/types.ts`を見た
-ユーザーから新たに3件の指摘があり、T-071〜T-075の5タスクとして登録した）
+最終更新: 2026-09-06（`src/types/types.ts` 由来のユーザー指摘を T-071〜T-076 として登録し、
+`/loop /next-task` で全件完了。着手前に T-064〜T-070 を history へアーカイブした）
 
-T-001〜T-063 はすべて完了し、`tasks.json` から
+T-001〜T-070 はすべて完了し、`tasks.json` から
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へ移した（`tasks.json` には
-T-064以降だけが残る）。当時のセッションの記録は
+T-071以降だけが残る）。当時のセッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある
 （`tasks.json` の `evidence` はコミットハッシュ・テスト件数・アーカイブへの参照に絞る運用）。
 
@@ -83,13 +83,13 @@ github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。`tasks.json`
 
 ## 次にやること
 
-`tasks.json` の5タスク（T-071〜T-075）はすべて `todo`。依存があるのはT-073（T-072待ち）と
-T-075（T-074待ち）だけなので、T-071・T-072・T-074はいつでも着手できる。
+`tasks.json` の6タスク（T-071〜T-076）はすべて `done`。**このセッションの最終状態**:
+`pnpm check`（tsc・oxlint・config検証・oxfmt・vitest **28ファイル322テスト**）通過。
+タスク1件＝1コミットで `refactor/target-client-branded-types` ブランチに積んである。
 
-前セッションから引き継いだ未処理:
-
-- 前回の変更（T-064〜T-070）は**実機未検証**。特にT-069（URL検証の追加）は、GitLab APIが
-  返す`web_url`を必ず検証するようになったため、スモークテストで1回は通しておきたい
+- **ブランチの `main` へのマージとpushが未実施**（外部への反映のためユーザー承認が要る）
+- 今回の変更（T-064以降すべて）は**実機未検証**。特に T-069（URL検証の追加）と
+  T-076（MR本文のURL解決の作り替え）は、スモークテストで1回通しておきたい
 - `TARGET_CHART` の0件検知（`TARGET_CHART`/`TARGET_CLIENTS` 明示時のみエラー）も実機未検証
 - 追跡ブランチ切り替えは実機未検証。スモークテストで `branchToSync` を切り替える
   シナリオを追加すると確認できる
