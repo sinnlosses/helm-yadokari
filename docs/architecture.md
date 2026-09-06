@@ -241,8 +241,24 @@
   以前はイメージタグ用・Helm向き先ブランチ用に`ImageTagTarget`/`HelmTargetBranchTarget`という
   別名を用意していたが、TypeScriptは構造的型付けなので同じ形の型を別々に定義しても
   取り違えは防げず、別名は用途を読み手に伝える以上の効果が無かった。用途の区別は型名では
-  なく、利用側の変数名・フィールド名・JSDoc（`AppConfig.chart`・`HelmTargetBranchConfig.targets`
-  など）で表す
+  なく、利用側の変数名・フィールド名・JSDoc（`AppConfig.imageTagTargets`・
+  `HelmTargetBranchConfig.targets`など）で表す
+- **`AppConfig`が持つ書き込み位置のフィールド名は`imageTagTargets`**: 元は`chart`だったが、
+  `ChartAndApps.chart`（`ChartRepoConfig`＝chartリポジトリそのものの情報）と同名で中身が
+  まったく違い、`build-plans.ts`の中で数十行の距離に同居していた。上の項で「用途の区別は
+  フィールド名が担う」と決めている以上、`chart`という名前が用途を何も語らないのは矛盾する。
+  - **`targets`にはしない**。このコードベースの`targets`は既に「処理対象のchartAndApps」の
+    意味で使われており（`FilterTargetsResult.targets`・`buildPlans()`/`applyUpdates()`の引数）、
+    3つ目の意味を足すことになる。`imageTagTargets`なら`applyImageTagTargets()`・
+    `ImageTagUpdate`という既存の語彙とそのまま繋がる
+  - `HelmTargetBranchConfig.targets`は**変えない**。包含する型名が用途を与えており、
+    `helmTargetBranch.targets`で読めるため（`helmTargetBranch.helmTargetBranchTargets`は冗長）
+  - `ChartAndApps.chart`も**変えない**。型名`ChartAndApps`が示すとおり`.chart`と`.apps`の
+    2つで対になっている
+  - **wire formatは不変**: `anchors.yaml`のキーは`apps[].chart[]`のまま。詰め替えは
+    `lib/config/config.ts`が`anchorApp.chart`を`AppConfig.imageTagTargets`に写すところで行う
+    （Zodの生の型`AnchorsApp.chart`も変えない）。設定ミスのエラーメッセージが出す
+    `app "..." の chart[]` というラベルもYAMLキーを指すのでそのまま
 - **`chart.yaml`/`config.yaml`/`anchors.yaml` の3ファイル分割**: あまり変更されないchart構造
   （`anchors.yaml`）と、頻繁に変更される運用値（`config.yaml`）を分けるため。両者は
   `projectId` で突き合わせて整合性を検証する

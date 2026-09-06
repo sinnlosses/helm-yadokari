@@ -64,6 +64,14 @@ CI設定を読み、改善点を洗い出して `tasks.json` に15件登録し�
 `docs/history/` へ退避し、冒頭に「全項目対応済み・対応先は `tasks-archive.md` と
 `docs/architecture.md`」の注記を付けた（本文6項目は無変更）。
 
+**T-080 完了**（方針決めのみ、コード変更なし）。`AppConfig.chart` → `imageTagTargets` に
+改名すると決めた。決め手は、`targets` という候補が**既にこのコードベースで「処理対象の
+chartAndApps」の意味に使われている**こと（`FilterTargetsResult.targets`・`buildPlans()`/
+`applyUpdates()` の引数）で、3つ目の意味を足すのを避けた。`HelmTargetBranchConfig.targets`
+（包含する型名が用途を与える）と `ChartAndApps.chart`（`.chart` と `.apps` で対）は据え置き、
+`anchors.yaml` のキー `apps[].chart[]` も不変。判断は `docs/architecture.md` に記録し、
+置換リストは T-081 の本文に確定させた。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした
