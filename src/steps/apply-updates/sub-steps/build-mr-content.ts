@@ -10,7 +10,9 @@ import type {
   TenantId,
 } from "../../../types/types.js"
 
-/** MRのタイトルと本文（Markdown）。タイトルは`apply-updates.ts`がコミットメッセージにも流用する */
+/**
+ * MRのタイトルと本文（Markdown）
+ */
 export type MrContent = {
   readonly title: string
   readonly description: string
@@ -18,7 +20,6 @@ export type MrContent = {
 
 /**
  * 1つの`(chartリポジトリ, tenantId, clientId)`分のMRのタイトルと本文を組み立てる
- * （このサブステップの入口）。本文のリンクに要るプロジェクトのweb URLだけを解決する。
  */
 export async function buildMrContent(
   gitlab: GitlabClient,
