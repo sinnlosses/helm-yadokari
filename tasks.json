@@ -29,15 +29,15 @@
   {
     "id": "T-067",
     "task": "型定義をどこに置くかの方針を決める（適用は T-068）。ユーザーの問題意識（2026-09-06）:「`src/types/` にあったり、filter-targets のようにファイル内にあったり、build-plans/sub-steps/types.ts にあったりで一貫した設計方針が無く、ブレて見える」。現状の分布（調査済み）: `src/types/types.ts` + `src/types/brand.ts` にドメイン型を集約する一方、`src/steps/filter-targets/filter-targets.ts`（`FilterTargetsResult`・`TargetOutcome`）、`src/steps/build-plans/build-plans.ts`（`BuildPlansResult`・`BuildPlanContext`・`PlanResult`）、`src/steps/build-plans/sub-steps/types.ts`（6型）、同 sub-steps の各ファイル（`ValuesYamlDraft` 等）、`src/lib/`（`GitlabClient`・`RemoteCache`・`ConfigTarget`・`Anchors` 等）、`src/utils/partition.ts`（`Sorted`）に分散している。詰める論点: (a) 判断軸を CLAUDE.md の原則2（技術・外部システム・ファイル形式に依存するか）と揃えられるか。すなわち「型もそれを使うコードと同じ場所に置き、`src/types/` にはステップ横断のドメイン型だけを置く」という軸で現状を説明できるか、説明できない例外はどれか。(b) `sub-steps/types.ts` のように型だけを集めたファイルを作ってよい条件（使う側が複数ファイルにまたがるときだけ、など）。(c) 1ファイル内でしか使わない型（`TargetOutcome`・`BuildPlanContext`）は今のままそのファイルに置く、で確定してよいか。(d) `lib/` の型（`GitlabClient` 等）を `src/types/` に動かす必要が無いことの根拠。方針は CLAUDE.md「アーキテクチャ概要」の「新しいコードを置く場所」に型の行を足す形で明文化し、詳細が要れば docs/architecture.md に書く。**この時点で「動かす対象と動かさない対象の一覧」まで出すこと**（T-068 はそのリストどおりに動かすだけにする）",
-    "status": "todo",
+    "status": "done",
     "difficulty": "opus",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "コード変更なし（方針決定のみ）。型の置き場所も「新しいコードを置く場所」と同じ基準で決める（利用箇所の数では決めない）と定め、6分類の表を docs/architecture.md に、要約を CLAUDE.md「アーキテクチャ概要」に追記した。要点: ドメイン語彙は src/types/types.ts（利用箇所が1ファイルの Config・PipelineInfo・RunResult も意図的に残す）、技術のインターフェースは lib/、ステップ内部の作業用の型は「その型を生み出す関数と同じファイル」、sub-steps/types.ts は「特定の1ファイルに帰属しない共有型」だけに絞る。全型の使われ方を数えた結果、この基準から外れているのは2件だけ（LatestTagResolution・BuildChartUpdateAcc）で、移動対象として T-068 に確定させた",
     "dependencies": []
   },
   {
     "id": "T-068",
-    "task": "T-067 で決めた型定義の配置方針を適用する（T-067 が出した「動かす対象の一覧」どおりに型を移動し、import を張り替える）。移動に伴って型の中身・名前は変えない（名前を変える必要が出た場合は別タスクに切る）。完了条件: T-067 の一覧の各項目について移動後の位置を対応付けて示し、`pnpm check` を通すこと（テスト件数が変わらないこと＝移動でテストが対象から外れていないことも確認する）。T-067 が「現状維持＋方針の明文化のみ」と決めた場合はこのタスクを `passes: true` で閉じてよい",
+    "task": "T-067 で決めた型定義の配置方針（docs/architecture.md「新しいコードを置く場所の判断基準」の型の表、および CLAUDE.md「アーキテクチャ概要」の要約）に合わせて、基準から外れている型2件を移動する。全型の使われ方を数えた結果、動かすのはこの2件だけで、他は現状の位置が基準どおりなので触らない。\n\n(1) `LatestTagResolution` を `src/steps/build-plans/sub-steps/types.ts` から `src/steps/build-plans/sub-steps/resolve-latest-tag.ts` へ移す。理由: これは `resolveLatestTag()` が組み立てる戻り値の型で、「その型を生み出す関数と同じファイル」に置く分類に当たる（同じ分類の先例として `ValuesYamlDraft` が `values-yaml-draft.ts` に、`ApplyHelmTargetsAcc` が `helm-target-branch-target.ts` にある）。参照元は `resolve-latest-tag.ts` と `image-tag-target.ts` の2ファイル。JSDoc（`trackedHeadTagNames` の説明）は一字一句そのまま移すこと。\n\n(2) `BuildChartUpdateAcc` を同 `types.ts` から `src/steps/build-plans/build-plans.ts` へ移す。理由: 参照しているのは `build-plans.ts` だけで（`buildPlan()` と非公開関数 `buildAppUpdatePlan()` の間で受け渡すアキュムレータ）、`types.ts` の条件「複数のサブステップが共有する型」を満たさない。JSDocはそのまま移すこと。移動後の `types.ts` に残るのは `LoadValuesYamlContent` / `BranchExists` / `ApplyTargetsAcc<U>` の3つ（いずれも複数のサブステップから参照されている）。\n\n型の中身・名前・エクスポートの有無は変えない。import の張り替えのみ行う。\n\n完了条件: 移動した2型それぞれについて移動後の位置と参照元を示し、`pnpm check` を通すこと（テスト件数が変わらないこと＝移動でテストが対象から外れていないことも確認する）。",
     "status": "todo",
     "difficulty": "sonnet",
     "passes": false,
