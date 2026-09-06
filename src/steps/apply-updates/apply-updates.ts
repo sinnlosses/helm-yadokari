@@ -9,6 +9,7 @@ import { mapWithConcurrency } from "../../utils/parallel.js"
 import { buildFeatureBranch } from "../shared/feature-branch.js"
 import { type StepOutcome, describePlan, ok, runSettled } from "../shared/step-outcome.js"
 import { buildMrContent } from "./sub-steps/build-mr-content.js"
+import { collectMrEntries } from "./sub-steps/collect-mr-entries.js"
 
 /**
  * 更新計画があるchartAndAppsに対して、固定ブランチへのコミットとMR作成を並列実行する。
@@ -36,8 +37,9 @@ async function applyUpdate(
   const featureBranch = buildFeatureBranch(tenantId, clientId)
 
   return runSettled(chartAndApps, async (logContext) => {
+    const entries = await collectMrEntries(gitlab, plans)
     // MRタイトルをコミットメッセージにもそのまま使い回す
-    const { title, description } = await buildMrContent(gitlab, tenantId, clientId, plans)
+    const { title, description } = buildMrContent(tenantId, clientId, entries)
 
     await commitFileUpdates(
       gitlab,

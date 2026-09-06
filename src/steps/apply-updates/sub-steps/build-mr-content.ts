@@ -1,14 +1,6 @@
-import { type GitlabClient, getProjectWebUrls } from "../../../lib/gitlab/gitlab.js"
 import { buildCompareUrl, buildTagUrl } from "../../../lib/gitlab/web-url.js"
-import type {
-  AppUpdatePlan,
-  ClientId,
-  GitLabUrl,
-  HelmTargetBranchUpdate,
-  ImageTagUpdate,
-  ProjectId,
-  TenantId,
-} from "../../../types/types.js"
+import type { ClientId, HelmTargetBranchUpdate, TenantId } from "../../../types/types.js"
+import type { ImageTagEntry, MrEntries } from "./shared/types.js"
 
 /**
  * MRのタイトルと本文（Markdown）
@@ -21,83 +13,72 @@ export type MrContent = {
 /**
  * 1つの`(chartリポジトリ, tenantId, clientId)`分のMRのタイトルと本文を組み立てる
  */
-export async function buildMrContent(
-  gitlab: GitlabClient,
+export function buildMrContent(
   tenantId: TenantId,
   clientId: ClientId,
-  plans: readonly AppUpdatePlan[],
-): Promise<MrContent> {
-  const webUrls = await getProjectWebUrls(gitlab, webUrlProjectIds(plans))
+  entries: MrEntries,
+): MrContent {
   return {
-    title: buildMrTitle(tenantId, clientId, plans),
-    description: buildMrDescription(webUrls, plans),
+    title: buildMrTitle(tenantId, clientId, entries),
+    description: buildMrDescription(entries),
   }
-}
-
-/**
- * 向き先ブランチの更新は`helm.chart[]`をvaluesPath一致でアプリに振り分けた結果なので、
- * 同じ書き込み先が複数アプリの計画に現れうる。件数・表示は書き込み先（valuesPath+anchorName）
- * 単位で一意にする
- */
-function uniqueHelmTargetBranchUpdates(
-  plans: readonly AppUpdatePlan[],
-): readonly HelmTargetBranchUpdate[] {
-  const byTarget = new Map(
-    plans.flatMap((plan) =>
-      plan.helmTargetBranchUpdates.map((update): [string, HelmTargetBranchUpdate] => [
-        `${update.target.valuesPath}#${update.target.anchorName}`,
-        update,
-      ]),
-    ),
-  )
-  return [...byTarget.values()]
 }
 
 /**
  * MRのタイトル。何が何件変わったかを種別ごとに示す（以前は「N app image tag(s)」と
  * 固定で、向き先ブランチだけが変わった場合もイメージタグが変わったように読めていた）。
- * 数える単位はアプリ数ではなく values.yaml の書き換え箇所数（1アプリが複数箇所を持つ
- * ケースも正しく数えるため）。
+ * 数える単位はアプリ数ではなく values.yaml の書き換え箇所数で、本文のテーブルの行と
+ * 同じ配列を数える。
  */
-function buildMrTitle(
-  tenantId: TenantId,
-  clientId: ClientId,
-  plans: readonly AppUpdatePlan[],
-): string {
-  const imageTagCount = plans.reduce((count, plan) => count + plan.updates.length, 0)
-  const helmBranchCount = uniqueHelmTargetBranchUpdates(plans).length
+function buildMrTitle(tenantId: TenantId, clientId: ClientId, entries: MrEntries): string {
   const parts = [
-    ...(imageTagCount > 0 ? [`image tag ${imageTagCount}`] : []),
-    ...(helmBranchCount > 0 ? [`helm branch ${helmBranchCount}`] : []),
+    ...(entries.imageTags.length > 0 ? [`image tag ${entries.imageTags.length}`] : []),
+    ...(entries.helmBranches.length > 0 ? [`helm branch ${entries.helmBranches.length}`] : []),
   ]
   const summary = parts.length > 0 ? ` (${parts.join(", ")})` : ""
   return `Auto MR by yadokari: update ${tenantId}/${clientId}${summary}`
 }
 
+function buildMrDescription(entries: MrEntries): string {
+  return [
+    ...(entries.imageTags.length > 0 ? [buildImageTagSection(entries.imageTags)] : []),
+    ...(entries.helmBranches.length > 0
+      ? [buildHelmTargetBranchSection(entries.helmBranches)]
+      : []),
+  ].join("\n\n")
+}
+
 /**
- * イメージタグの更新1箇所分をテーブルの1行にする。1アプリが複数箇所を書き換える
- * 場合は同じリポジトリの行が箇所の数だけ並ぶため、ファイル・アンカーの列で区別する。
- * 比較・パイプラインはリンクテキストを付けずURLをそのまま載せ（GitLabが自動リンクする）、
- * 値が無いセルは `-` で埋める。
+ * イメージタグの更新をテーブルにする。1アプリが複数箇所を書き換える場合は同じリポジトリの
+ * 行が箇所の数だけ並ぶため、ファイル・アンカーの列で区別する。比較・パイプラインは
+ * リンクテキストを付けずURLをそのまま載せ（GitLabが自動リンクする）、値が無いセルは `-` で埋める。
  */
-function buildImageTagRow(webUrl: GitLabUrl, plan: AppUpdatePlan, update: ImageTagUpdate): string {
-  const previousTagText = update.previousTagName
-    ? `[${update.previousTagName}](${buildTagUrl(webUrl, update.previousTagName)})`
-    : "(未設定)"
-  const compareUrl = update.previousTagName
-    ? buildCompareUrl(webUrl, update.previousTagName, plan.latestTag.name)
-    : "-"
-  const cells = [
-    plan.app.projectName,
-    `\`${plan.app.branchToSync}\``,
-    `\`${update.target.valuesPath}\``,
-    `\`${update.target.anchorName}\``,
-    previousTagText,
-    `[${plan.latestTag.name}](${buildTagUrl(webUrl, plan.latestTag.name)})`,
-    compareUrl,
-    plan.pipeline ? plan.pipeline.webUrl : "-",
-  ]
-  return `| ${cells.join(" | ")} |`
+function buildImageTagSection(entries: readonly ImageTagEntry[]): string {
+  return [
+    "## イメージタグ",
+    "",
+    "| リポジトリ | 追跡ブランチ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ...entries.map(({ plan, update, webUrl }) => {
+      const previousTagText = update.previousTagName
+        ? `[${update.previousTagName}](${buildTagUrl(webUrl, update.previousTagName)})`
+        : "(未設定)"
+      const compareUrl = update.previousTagName
+        ? buildCompareUrl(webUrl, update.previousTagName, plan.latestTag.name)
+        : "-"
+      const cells = [
+        plan.app.projectName,
+        `\`${plan.app.branchToSync}\``,
+        `\`${update.target.valuesPath}\``,
+        `\`${update.target.anchorName}\``,
+        previousTagText,
+        `[${plan.latestTag.name}](${buildTagUrl(webUrl, plan.latestTag.name)})`,
+        compareUrl,
+        plan.pipeline ? plan.pipeline.webUrl : "-",
+      ]
+      return `| ${cells.join(" | ")} |`
+    }),
+  ].join("\n")
 }
 
 /**
@@ -122,53 +103,4 @@ function buildHelmTargetBranchSection(updates: readonly HelmTargetBranchUpdate[]
       return `| ${cells.join(" | ")} |`
     }),
   ].join("\n")
-}
-
-/**
- * `webUrlProjectIds()`が挙げた`projectId`はすべて解決済みである前提。該当する`projectId`が
- * 無い場合はその前提が崩れているためエラーにする。
- */
-function resolveWebUrl(
-  webUrls: ReadonlyMap<ProjectId, GitLabUrl>,
-  projectId: ProjectId,
-): GitLabUrl {
-  const webUrl = webUrls.get(projectId)
-  if (webUrl === undefined) {
-    throw new Error(`web URLが解決されていないprojectIdです: ${projectId}`)
-  }
-  return webUrl
-}
-
-/** イメージタグの行を持つplanだけがweb URLを必要とする（向き先ブランチの表にはリンクが無い） */
-function plansWithImageTagRows(plans: readonly AppUpdatePlan[]): readonly AppUpdatePlan[] {
-  return plans.filter((plan) => plan.updates.length > 0)
-}
-
-/** 本文の組み立てにweb URLの解決が要る`projectId`（行を持つplanの分だけ） */
-function webUrlProjectIds(plans: readonly AppUpdatePlan[]): readonly ProjectId[] {
-  return plansWithImageTagRows(plans).map((plan) => plan.app.projectId)
-}
-
-function buildMrDescription(
-  webUrls: ReadonlyMap<ProjectId, GitLabUrl>,
-  plans: readonly AppUpdatePlan[],
-): string {
-  const rows = plansWithImageTagRows(plans).flatMap((plan) => {
-    const webUrl = resolveWebUrl(webUrls, plan.app.projectId)
-    return plan.updates.map((update) => buildImageTagRow(webUrl, plan, update))
-  })
-
-  const imageTagSection = [
-    "## イメージタグ",
-    "",
-    "| リポジトリ | 追跡ブランチ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- |",
-    ...rows,
-  ].join("\n")
-
-  const helmUpdates = uniqueHelmTargetBranchUpdates(plans)
-  return [
-    ...(rows.length > 0 ? [imageTagSection] : []),
-    ...(helmUpdates.length > 0 ? [buildHelmTargetBranchSection(helmUpdates)] : []),
-  ].join("\n\n")
 }

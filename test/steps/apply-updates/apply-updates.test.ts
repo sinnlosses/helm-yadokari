@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../src/lib/gitlab/gitlab.js")
 vi.mock("../../../src/steps/apply-updates/sub-steps/build-mr-content.js")
+vi.mock("../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js")
 vi.mock("../../../src/steps/shared/feature-branch.js")
 vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
@@ -11,6 +12,8 @@ import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
 import { commitFileUpdates, createMergeRequest } from "../../../src/lib/gitlab/gitlab.js"
 import { applyUpdates } from "../../../src/steps/apply-updates/apply-updates.js"
 import { buildMrContent } from "../../../src/steps/apply-updates/sub-steps/build-mr-content.js"
+import { collectMrEntries } from "../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js"
+import type { MrEntries } from "../../../src/steps/apply-updates/sub-steps/shared/types.js"
 import { buildFeatureBranch } from "../../../src/steps/shared/feature-branch.js"
 import type { ChartUpdateTarget } from "../../../src/types/types.js"
 import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/types/types.js"
@@ -18,6 +21,8 @@ import { FatalError } from "../../../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
+
+const MR_ENTRIES: MrEntries = { imageTags: [], helmBranches: [] }
 
 const NEW_TAG = {
   name: toTagName("main-build-at-20260101-000000"),
@@ -53,7 +58,8 @@ describe("applyUpdates", () => {
   beforeEach(() => {
     vi.mocked(commitFileUpdates).mockResolvedValue(undefined)
     vi.mocked(createMergeRequest).mockResolvedValue(undefined)
-    vi.mocked(buildMrContent).mockResolvedValue({
+    vi.mocked(collectMrEntries).mockResolvedValue(MR_ENTRIES)
+    vi.mocked(buildMrContent).mockReturnValue({
       title: "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
       description: "### my-app\n...",
     })
@@ -72,14 +78,14 @@ describe("applyUpdates", () => {
     expect(createMergeRequest).toHaveBeenCalledOnce()
   })
 
-  it("buildMrContentの結果をコミット・MR作成に渡す", async () => {
+  it("collectMrEntriesの結果からbuildMrContentを呼び、その結果をコミット・MR作成に渡す", async () => {
     const target = makeTarget()
     await applyUpdates(mockGitlab, [target], 3)
+    expect(collectMrEntries).toHaveBeenCalledWith(mockGitlab, target.plans)
     expect(buildMrContent).toHaveBeenCalledWith(
-      mockGitlab,
       target.chartAndApps.tenantId,
       target.chartAndApps.clientId,
-      target.plans,
+      MR_ENTRIES,
     )
     expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[4]).toBe(
       "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",

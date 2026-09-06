@@ -1,8 +1,9 @@
 # 現在の状態
 
-最終更新: 2026-09-06（`lib/gitlab/` の分割を依存対象ベースで見直し。
-`verify-config` を `src/lib/` から `scripts/lint/` へ移動。
-T-064〜T-076 のセッション記録は history へアーカイブした）
+最終更新: 2026-09-06（サブステップ同士のimportを `sub-steps/shared/` に追い出し、
+`apply-updates` のMR組み立てを「項目の収集」と「Markdownの組み立て」の2サブステップに分けた。
+`lib/gitlab/` の分割を依存対象ベースで見直し。`verify-config` を `src/lib/` から
+`scripts/lint/` へ移動。T-064〜T-076 のセッション記録は history へアーカイブした）
 
 T-001〜T-070 はすべて完了し、`tasks.json` から
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へ移した（`tasks.json` には
@@ -11,6 +12,31 @@ T-071以降だけが残る）。当時のセッションの記録は
 （`tasks.json` の `evidence` はコミットハッシュ・テスト件数・アーカイブへの参照に絞る運用）。
 
 ## 完了したこと（このセッション）
+
+- **サブステップ同士のimportを `sub-steps/shared/` に追い出した**（ユーザー指摘:
+  「サブステップ同士は関わってはいけない」）。`docs/architecture.md`には以前からその原則が
+  書いてあったが、`values-yaml-draft.ts`が`image-tag-target.ts`・`helm-target-branch-target.ts`
+  から呼ばれ、`LatestTagResolution`が`resolve-latest-tag.ts`から参照されていた。原因は
+  `sub-steps/`直下に「親stepが呼ぶステップ本体」と「それらが共有する型・データ操作」が
+  混在していたこと。`{types,values-yaml-draft}.ts`を`sub-steps/shared/`へ移し、
+  `LatestTagResolution`も`shared/types.ts`へ移した。型の置き場所の基準「その型を生み出す
+  関数と同じファイル」と競合する場合は`shared/`を優先すると`docs/architecture.md`に明記。
+  `grep 'from "./[^s]' src/steps/*/sub-steps/*.ts` が0件であることで機械的に確認できる
+- **`apply-updates`のMR組み立てを2つのサブステップに分けた**（ユーザー指摘:
+  「1度しか使わない1行の関数が乱立している」）。`build-mr-content.ts`が「MRに載せる項目の
+  選別」と「Markdownの組み立て」の2つの仕事を持ち、`plansWithImageTagRows()`・
+  `webUrlProjectIds()`・`resolveWebUrl()`という1行関数と、タイトル/本文で2回呼ばれる
+  `uniqueHelmTargetBranchUpdates()`に分裂していた。
+  - `collect-mr-entries.ts`（新規）: `plans`→`MrEntries { imageTags, helmBranches }`。
+    web URLの解決と向き先ブランチの重複排除をここに集約。1行関数3つは1パスに吸収されて消えた
+  - `build-mr-content.ts`: `MrEntries`→`{ title, description }`の**同期・純粋関数**になった
+    （GitLab依存と`async`が消え、テストから`vi.mock`が不要になった）
+  - **タイトルの件数と本文のテーブルの行が同じ配列から数えられるようになった**。以前は
+    タイトルが`plans.reduce()`、本文が`plans`の絞り込みと別ロジックで、ずれても気づけなかった
+  - サブステップ同士は呼ばず、`applyUpdate()`が2つを順に呼ぶ。共有する型（`MrEntries`・
+    `ImageTagEntry`）は`apply-updates/sub-steps/shared/types.ts`
+  - テストも2ファイルに分割し、`makePlan()`は`test/helpers.ts`へ移した
+    （31ファイル330テスト、326→330）
 
 - **`lib/gitlab/` の分割基準を「ファイル長」から「依存対象」へ見直した**（ユーザー指摘:
   「ファイルの長さを考慮して分割しただけでキレイと感じない」）。`gitlab.ts`から切り出された
@@ -58,9 +84,9 @@ T-071以降だけが残る）。当時のセッションの記録は
 ## 次にやること
 
 `tasks.json` の6タスク（T-071〜T-076）はすべて `done`。**このセッションの最終状態**:
-`pnpm check`（tsc・oxlint・config検証・oxfmt・vitest **30ファイル326テスト**）通過。
+`pnpm check`（tsc・oxlint・config検証・oxfmt・vitest **31ファイル330テスト**）通過。
 
-- **`main` が `origin/main` より3コミットahead。pushが未実施**（外部への反映のため
+- **`main` が `origin/main` より2コミットahead。pushが未実施**（外部への反映のため
   ユーザー承認が要る）
 - 今回の変更（T-064以降すべて）は**実機未検証**。特に T-069（URL検証の追加）と
   T-076（MR本文のURL解決の作り替え）は、スモークテストで1回通しておきたい

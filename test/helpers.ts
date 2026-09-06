@@ -1,4 +1,10 @@
-import type { AppConfig, ChartAndApps } from "../src/types/types.js"
+import type {
+  AppConfig,
+  AppUpdatePlan,
+  ChartAndApps,
+  PipelineInfo,
+  TagName,
+} from "../src/types/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -6,6 +12,7 @@ import {
   toClientId,
   toProjectId,
   toProjectName,
+  toTagName,
   toTenantId,
   toValuesPath,
 } from "../src/types/types.js"
@@ -44,5 +51,42 @@ export function makeChartAndApps(
     },
     apps,
     ...overrides,
+  }
+}
+
+export function makePlan(
+  overrides: Partial<{
+    pipeline: PipelineInfo
+    previousTagName: TagName | undefined
+    projectName: string
+    updates: AppUpdatePlan["updates"]
+    helmTargetBranchUpdates: AppUpdatePlan["helmTargetBranchUpdates"]
+  }> = {},
+): AppUpdatePlan {
+  const previousTagName =
+    "previousTagName" in overrides
+      ? overrides.previousTagName
+      : toTagName("main-build-at-20251231-000000")
+  return {
+    app: makeApp({
+      projectId: toProjectId(1),
+      projectName: toProjectName(overrides.projectName ?? "my-app"),
+    }),
+    latestTag: {
+      name: toTagName("main-build-at-20260101-000000"),
+      branchName: toBranchName("main"),
+      builtAt: new Date("2026-01-01T00:00:00Z"),
+    },
+    pipeline: overrides.pipeline,
+    updates: overrides.updates ?? [
+      {
+        target: {
+          valuesPath: toValuesPath("values.yaml"),
+          anchorName: toAnchorName("appVersion"),
+        },
+        previousTagName,
+      },
+    ],
+    helmTargetBranchUpdates: overrides.helmTargetBranchUpdates ?? [],
   }
 }

@@ -25,7 +25,7 @@
 | `apply-updates/apply-updates.ts`   | 差分があるchartAndAppsにコミット・MR作成を並列実行する                  |
 | `shared/step-outcome.ts`           | 3つのstepが共有する結果ログの識別情報とエラー方針                       |
 | `build-plans/sub-steps/`           | `build-plans.ts` の内部実装専用（1アプリ・1箇所ごとの実処理）           |
-| `apply-updates/sub-steps/`         | `apply-updates.ts` の内部実装専用（MRタイトル・本文の組み立て）         |
+| `apply-updates/sub-steps/`         | `apply-updates.ts` の内部実装専用（MR項目の収集と本文の組み立て）       |
 | `shared/feature-branch.ts`         | 固定ブランチ名の組み立て（`filterTargets`と`applyUpdates`が使う）       |
 
 `build-plans.ts` の階層は「全chartAndApps → 1つのchartAndApps → 1アプリ」の3段までに絞り、
@@ -44,6 +44,19 @@
 | `helm-target-branch-target.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                                           |
 | `shared/values-yaml-draft.ts`  | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）と、その組み立て・`FileUpdate[]`化                    |
 | `shared/types.ts`              | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                             |
+
+`apply-updates/sub-steps/` の各ファイル:
+
+| ファイル                | 責務                                                                                                           |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `collect-mr-entries.ts` | 計画からMRに載せる項目（`MrEntries`）を選ぶ。リンク用のweb URL解決と、向き先ブランチの書き込み先単位の重複排除 |
+| `build-mr-content.ts`   | `MrEntries`をMRのタイトルとMarkdown本文にする。外部I/Oを持たない同期の純粋関数                                 |
+| `shared/types.ts`       | 上記2つが受け渡す`MrEntries`・`ImageTagEntry`                                                                  |
+
+`applyUpdate()`がこの2つを順に呼ぶ。項目の選別（何をMRに載せるか）とMarkdownの組み立てを分けて
+あるのは、**タイトルの件数と本文のテーブルの行を同じ配列から数えるため**。以前は
+「タイトル用に`plans`を`reduce`して数える」「本文用に`plans`を絞り込んで行にする」が別々の
+ロジックで、件数と行数がずれても気づけない形だった。
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
@@ -191,11 +204,10 @@
   - `buildFeatureBranch()` → `steps/shared/feature-branch.ts`。技術依存はゼロで、
     `TenantId`+`ClientId`→`BranchName`というドメイン型だけの変換。`filterTargets`と
     `applyUpdates`の2つのstepから呼ばれるため`steps/shared/`の条件をそのまま満たす
-  - MRタイトル・本文 → `steps/apply-updates/sub-steps/build-mr-content.ts`。呼び出し元は
-    `apply-updates.ts`の1ファイルだけなので、「呼び出し元がstepsの1ファイルだけ →
-    そのstepの`sub-steps/`」という基準どおりの場所に移した。**サブステップは1ファイル＝
-    親stepが呼ぶ1ステップ**なので、`buildMrTitle()`/`buildMrDescription()`を並べて公開せず、
-    `buildMrContent()`1つだけを公開して`{ title, description }`を返す形にしている
+  - MRの組み立て → `steps/apply-updates/sub-steps/`。呼び出し元は`apply-updates.ts`の
+    1ファイルだけなので、「呼び出し元がstepsの1ファイルだけ → そのstepの`sub-steps/`」という
+    基準どおりの場所に移した。**サブステップは1ファイル＝親stepが呼ぶ1ステップ**なので、
+    `buildMrTitle()`/`buildMrDescription()`のような内部関数は並べて公開しない
     （`build-plans/sub-steps/`の各ファイルと同じ形）
   - `buildTagUrl()`/`buildCompareUrl()` → `lib/gitlab/web-url.ts`。`/-/tags/`・`/-/compare/`
     というGitLab固有のURLパス形式に依存する唯一の部分なので`lib/gitlab/`に残す。
