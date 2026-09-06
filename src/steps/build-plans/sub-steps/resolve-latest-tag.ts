@@ -53,10 +53,14 @@ function resolveTrackedHeadTagNames(
  * 作成はスキップし、作成予定のタグ名だけを使う）。タグの命名規則は`tagFormat`
  * （`TAG_FORMAT`環境変数由来）に従う。
  *
- * - 追跡ブランチの現在のHEADコミットと一致する既存タグが無い（1件も見つからない場合に加え、
- *   見つかった最新タグが追跡ブランチの進行にビハインドしている場合を含む）
+ * - 追跡ブランチの現在のHEADコミットを指す、追跡ブランチ由来のタグが1件も無い
  * - `values.yaml`への反映済みタグが現在の追跡ブランチ由来でない（＝追跡ブランチを切り替えた）。
  *   この場合はHEADと一致する既存タグがあっても、切り替えを明示するため新しいタグを作る
+ *
+ * このツールの目的は「追跡ブランチの最新コミットの中身をデプロイさせること」なので、
+ * 「タグ名が最も新しいものを選んでからHEADと比較する」のではなく、**HEADを指すタグを
+ * 直接探す**（T-056）。こうすることで、HEADに既にタグが付いているのに、別の（古い）コミットを
+ * 指すより新しい名前のタグがあるせいで無駄な新規タグを作ってしまう問題を避けられる。
  *
  * あわせて`trackedHeadTagNames`（values.yamlの現在値が追跡ブランチのHEADを指すタグかどうかの
  * 判定に使う集合）を返す。現在値がこの集合に含まれるなら、より新しい名前のタグがあっても
@@ -74,16 +78,15 @@ export async function resolveLatestTag(
     getBranchHeadSha(gitlab, app.projectId, app.branchToSync),
   ])
   const trackedHeadTagNames = resolveTrackedHeadTagNames(tags, headSha, app.branchToSync, tagFormat)
-
-  const existingTag = findLatestParsedTag(
-    tags.map((tag) => tag.name),
-    app.branchToSync,
-    tagFormat,
-  )
-  const existingTagCommitSha = tags.find((tag) => tag.name === existingTag?.name)?.commitSha
   const branchChanged = hasTagFromOtherBranch(previousTags, app.branchToSync, tagFormat)
-  if (!branchChanged && existingTag && existingTagCommitSha === headSha) {
-    return { tag: existingTag, trackedHeadTagNames }
+
+  if (!branchChanged && trackedHeadTagNames.size > 0) {
+    // HEADを指すタグはどれも同じコミットを指すため中身は同じだが、返す値を一意に決める
+    // ためだけに、タグ名から読み取った日時が最も新しいものを選ぶ（決定性のための規則）。
+    const latestAtHead = findLatestParsedTag([...trackedHeadTagNames], app.branchToSync, tagFormat)
+    if (latestAtHead) {
+      return { tag: latestAtHead, trackedHeadTagNames }
+    }
   }
 
   const newTag = buildNewTag(app.branchToSync, new Date(), tagFormat)

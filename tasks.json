@@ -20,10 +20,10 @@
   {
     "id": "T-056",
     "task": "T-055 で確定したタグ命名規則・最新タグ判定の仕様を実装する。影響範囲の見込み: src/lib/gitlab/tag.ts（`validateTagFormat`/`parseTag`/`compileTagPattern`/`findLatestParsedTag`/`buildNewTag`）、src/lib/gitlab/gitlab.ts の `listTags()`（作成日時を使うなら `TagInfo` に項目追加）、src/types.ts の `ParsedTag`/`TagInfo`、src/steps/sub-steps/build-plans/resolve-latest-tag.ts（`hasTagFromOtherBranch`・`resolveTrackedHeadTagNames`）、src/lib/env.ts の `parseTagFormat()`、src/lib/gitlab/mr-content.ts（MR本文の列）、.env.example・README・docs。テストは test/lib/gitlab/tag.test.ts・test/lib/env.test.ts・test/steps/sub-steps/build-plans/resolve-latest-tag.test.ts が主対象。完了条件: T-055 で決めた仕様どおりに動くことをテストで示し、`pnpm check` を通すこと。実機での確認が要る場合は docs/smoke-test.md の手順を使う",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "resolveLatestTag() を「HEADを指すタグを直接探す」方式に変更（全タグから最新を選ぶ existingTag / existingTagCommitSha の判定を削除し、trackedHeadTagNames が空でなければその中から findLatestParsedTag() で選ぶ）。決定2はコード変更不要のため回帰テストのみ追加。決定3は到達不能なので実装せず。テスト4件追加（HEADにタグがあれば別コミットの新しい名前のタグがあっても新規作成しない／HEADを指すタグが複数のとき日時降順で決定的に選ぶ／並び順違いフォーマット2種の生成・再パース・最新判定）。既存テストの修正は不要だった。README のmermaid図・Features・エラーハンドリング表、docs/glossary.md の「最新タグ」「タグ自動作成」も新方式に同期（Featuresとエラー表の取りこぼしはメイン側で修正）。pnpm check（28ファイル319テスト、315→319）通過",
     "dependencies": ["T-055"]
   },
   {

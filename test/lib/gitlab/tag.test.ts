@@ -216,3 +216,37 @@ describe("buildNewTag", () => {
     expect(tag.name).toBe("20260902-123456-main")
   })
 })
+
+describe("TAG_FORMATのプレースホルダの並び順・区切り文字は任意（回帰テスト、T-056）", () => {
+  it("{date}-{time}-{branch}（デフォルトと並び順が異なる）で生成・再パース・最新判定ができる", () => {
+    const format = validateTagFormat("{date}-{time}-{branch}")
+    const branch = toBranchName("main")
+    const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
+
+    const tag = buildNewTag(branch, now, format)
+    expect(tag.name).toBe("20260902-123456-main")
+
+    const reparsed = parseTag(tag.name, branch, format)
+    expect(reparsed?.builtAt).toEqual(now)
+
+    const older = buildNewTag(branch, new Date(Date.UTC(2026, 0, 1, 0, 0, 0)), format)
+    const latest = findLatestParsedTag([older.name, tag.name], branch, format)
+    expect(latest?.name).toBe(tag.name)
+  })
+
+  it("v{time}_{branch}__{date}（区切り文字が複数種類混在）で生成・再パース・最新判定ができる", () => {
+    const format = validateTagFormat("v{time}_{branch}__{date}")
+    const branch = toBranchName("release/2026-q2")
+    const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
+
+    const tag = buildNewTag(branch, now, format)
+    expect(tag.name).toBe("v123456_release-2026-q2__20260902")
+
+    const reparsed = parseTag(tag.name, branch, format)
+    expect(reparsed?.builtAt).toEqual(now)
+
+    const older = buildNewTag(branch, new Date(Date.UTC(2026, 0, 1, 0, 0, 0)), format)
+    const latest = findLatestParsedTag([tag.name, older.name], branch, format)
+    expect(latest?.name).toBe(tag.name)
+  })
+})

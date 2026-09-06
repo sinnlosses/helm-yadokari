@@ -210,6 +210,32 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     expect(settled).toEqual(["SKIPPED"])
   })
 
+  it("HEADに既存タグがあれば、別コミットを指すより新しい名前のタグがあっても新規タグを作らない（T-056）", async () => {
+    // OLD_TAG は現在のHEADを指しているが、タグ名の日時としては古い。NEW_TAG はタグ名の
+    // 日時としては新しいが、HEADではない別コミットを指している（例: HEADへのタグ付け後、
+    // 別ブランチや過去のコミットに対して後からタグが打たれたケース）。
+    // 「タグ名が最も新しいものを選んでからHEADと比較する」旧方式なら NEW_TAG を選び、
+    // HEADと不一致のため無駄な新規タグを作ってしまうが、「HEADを指すタグを直接探す」
+    // 新方式では OLD_TAG を見つけて再利用し、新規タグを作らない。
+    vi.mocked(listTags).mockResolvedValue([
+      { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
+      { name: NEW_TAG, commitSha: "other-commit-sha" },
+    ])
+    vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
+
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([makeApp()])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
+
+    expect(createTag).not.toHaveBeenCalled()
+    expect(toApply).toEqual([])
+    expect(settled).toEqual(["SKIPPED"])
+  })
+
   it("旧タグが古いコミットを指すときは従来どおり更新する", async () => {
     vi.mocked(listTags).mockResolvedValue([
       { name: toTagName(OLD_TAG), commitSha: "older-sha" },
@@ -279,5 +305,20 @@ describe("resolveLatestTag（trackedHeadTagNamesの中身、T-049）", () => {
     ])
 
     expect(result.trackedHeadTagNames.size).toBe(0)
+  })
+
+  it("HEADを指すタグが複数あるとき、タグ名の日時が最も新しいものを返す（決定性のための規則、T-056）", async () => {
+    // いずれもHEADと同じコミットを指すため中身は同じだが、どれを返すかは決定性のために
+    // タグ名の日時で決める。新規タグ作成は発生しない。
+    vi.mocked(listTags).mockResolvedValue([
+      { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
+      { name: NEW_TAG, commitSha: HEAD_SHA },
+    ])
+    vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
+
+    const result = await resolveLatestTag(mockGitlab, makeApp(), false, DEFAULT_TAG_FORMAT, [])
+
+    expect(result.tag.name).toBe(NEW_TAG)
+    expect(createTag).not.toHaveBeenCalled()
   })
 })
