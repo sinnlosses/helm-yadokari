@@ -34,12 +34,22 @@ import {
 } from "./sub-steps/helm-target-branch-target.js"
 import { applyImageTagTargets, readCurrentImageTags } from "./sub-steps/image-tag-target.js"
 import { resolveLatestTag } from "./sub-steps/resolve-latest-tag.js"
-import type { BranchExists, BuildChartUpdateAcc, LoadValuesYamlContent } from "./sub-steps/types.js"
-import { toFileUpdates } from "./sub-steps/values-yaml-draft.js"
+import type { BranchExists, LoadValuesYamlContent } from "./sub-steps/types.js"
+import { type ValuesYamlDraft, toFileUpdates } from "./sub-steps/values-yaml-draft.js"
 
 export type BuildPlansResult = {
   readonly toApply: ChartUpdateTarget[]
   readonly settled: ChartUpdateResult[]
+}
+
+/**
+ * 1つのchartAndApps分の更新計画を組み立てる過程のアキュムレータ。`build-plans.ts`の
+ * `buildPlan()`がアプリを1つずつ処理するたびに更新し、同ファイル内の
+ * 非公開関数`buildAppUpdatePlan()`との間で受け渡しする。
+ */
+type BuildChartUpdateAcc = {
+  readonly plans: readonly AppUpdatePlan[]
+  readonly draft: ValuesYamlDraft
 }
 
 /**

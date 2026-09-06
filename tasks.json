@@ -38,10 +38,10 @@
   {
     "id": "T-068",
     "task": "T-067 で決めた型定義の配置方針（docs/architecture.md「新しいコードを置く場所の判断基準」の型の表、および CLAUDE.md「アーキテクチャ概要」の要約）に合わせて、基準から外れている型2件を移動する。全型の使われ方を数えた結果、動かすのはこの2件だけで、他は現状の位置が基準どおりなので触らない。\n\n(1) `LatestTagResolution` を `src/steps/build-plans/sub-steps/types.ts` から `src/steps/build-plans/sub-steps/resolve-latest-tag.ts` へ移す。理由: これは `resolveLatestTag()` が組み立てる戻り値の型で、「その型を生み出す関数と同じファイル」に置く分類に当たる（同じ分類の先例として `ValuesYamlDraft` が `values-yaml-draft.ts` に、`ApplyHelmTargetsAcc` が `helm-target-branch-target.ts` にある）。参照元は `resolve-latest-tag.ts` と `image-tag-target.ts` の2ファイル。JSDoc（`trackedHeadTagNames` の説明）は一字一句そのまま移すこと。\n\n(2) `BuildChartUpdateAcc` を同 `types.ts` から `src/steps/build-plans/build-plans.ts` へ移す。理由: 参照しているのは `build-plans.ts` だけで（`buildPlan()` と非公開関数 `buildAppUpdatePlan()` の間で受け渡すアキュムレータ）、`types.ts` の条件「複数のサブステップが共有する型」を満たさない。JSDocはそのまま移すこと。移動後の `types.ts` に残るのは `LoadValuesYamlContent` / `BranchExists` / `ApplyTargetsAcc<U>` の3つ（いずれも複数のサブステップから参照されている）。\n\n型の中身・名前・エクスポートの有無は変えない。import の張り替えのみ行う。\n\n完了条件: 移動した2型それぞれについて移動後の位置と参照元を示し、`pnpm check` を通すこと（テスト件数が変わらないこと＝移動でテストが対象から外れていないことも確認する）。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "LatestTagResolution を sub-steps/types.ts → sub-steps/resolve-latest-tag.ts へ（参照元は resolve-latest-tag.ts 自身と image-tag-target.ts）、BuildChartUpdateAcc を同 types.ts → build-plans.ts へ移動（参照元は build-plans.ts のみだったため、メイン側で export も外して非公開にした）。JSDocは一字一句そのまま。types.ts に残るのは複数サブステップ共有の3型（LoadValuesYamlContent / BranchExists / ApplyTargetsAcc<U>）。pnpm check（28ファイル321テスト、変化なし＝移動でテストが対象から外れていない）通過。sonnetのサブエージェントに委譲し、メイン側で差分を確認して受け入れた",
     "dependencies": ["T-067"]
   },
   {
