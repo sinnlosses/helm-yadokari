@@ -102,7 +102,9 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 会話やセッションが切れても再開できるよう、状態はチャットではなく `tasks.json` / `progress.md`
 に記録する（フィールド定義・書き方は [`docs/workflow.md`](./docs/workflow.md) 参照）。
 
-1. セッション開始時に `progress.md` と `tasks.json` を読む
+1. セッション開始時に `progress.md` と `tasks.json` を読む。アーカイブすべきタイミングかどうか
+   （`done` の件数・`tasks.json` のサイズ）を確認し、該当すれば作業前にアーカイブする
+   （トリガー・手順は `docs/workflow.md`「肥大化したときのアーカイブ」参照）
 2. `tasks.json` から依存が完了済みの `todo` タスクを1つ選ぶ
 3. 作業する。タスクの `difficulty`（`haiku`/`sonnet`/`opus`）は必要な判断の重さを表す。
    `haiku`/`sonnet` のタスクは**そのモデルを指定したサブエージェントに委譲**し、`opus` の

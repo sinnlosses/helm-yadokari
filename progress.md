@@ -1,80 +1,74 @@
 # 現在の状態
 
-最終更新: 2026-09-06（T-038〜T-053 を完了。`tasks.json` の53タスクがすべて `done`）
+最終更新: 2026-09-06（T-058でtasks.json/progress.mdのアーカイブ運用を整備し、`done`だった
+T-001〜T-053の記録を history へ移した。tasks.jsonに残るのは T-054〜T-062 の9件）
 
-T-001〜T-037・T-043（要件定義・CLI実装・GitLab実機検証・スキーマ再設計・MR分割単位の変更・
-MR文面の再設計など）は完了済み。当時の詳細な記録は
-[`docs/history/progress-archive.md`](./docs/history/progress-archive.md) に、タスク単位の詳細な
-証跡は [`docs/history/tasks-archive.md`](./docs/history/tasks-archive.md) に退避してある
+T-001〜T-053（要件定義・CLI実装・GitLab実機検証・スキーマ再設計・MR分割単位の変更・
+MR文面の再設計・ファイル分割など）はすべて完了し、`tasks.json` から
+[`docs/history/tasks-archive.md`](./docs/history/tasks-archive.md) へ移した（`tasks.json` には
+T-054以降の未完了タスクだけが残る）。当時のセッションの記録は
+[`docs/history/progress-archive.md`](./docs/history/progress-archive.md) にある
 （`tasks.json` の `evidence` はコミットハッシュ・テスト件数・アーカイブへの参照に絞る運用）。
-1つ前のセッション（T-022〜T-037・T-043、リファクタリング監査2回分）の記録も
-`docs/history/progress-archive.md` にある。
 
-## 完了したこと（このセッション: T-038〜T-047 の9件）
+## 完了したこと（このセッション: T-058）
 
-**200行超ファイルの整理（3回目の監査で登録した4件）**
+`tasks.json`（93KB、`done` 53件）と `progress.md` の肥大化が放置されていた（アーカイブの
+移し先だけがあり、いつ移すかのトリガーが無かった）ため、トリガーを明文化し実際にアーカイブした。
 
-- **T-044完了**: `lib/gitlab/gitlab.ts`（364行）をAPIラッパー（214行）と
-  `lib/gitlab/mr-content.ts`（165行、外部I/Oなし）に分割。`buildMrDescription()` は
-  GitLabクライアントではなく `ResolveWebUrl = (projectId) => Promise<GitLabUrl>` を受け取り、
-  `apply-updates.ts` が `getProjectWebUrl` を注入する（T-027と同じ関数型注入）
-- **T-045完了**: `lib/config.ts`（380行）を `lib/config/` の4ファイルへ
-  （config.ts 163 / schema.ts 93 / validate.ts 97 / helm-target-branch.ts 51）
-- **T-046完了**: `lib/verify-config.ts`（227行）を `lib/verify-config/` へ。
-  100行あった `verifyChartAndApps()` を約40行にし、app単位を `verifyApp()` に切り出した。
-  キャッシュ層は `newRemoteCache(gitlab)` が `hasProject`/`hasBranch`/`loadValuesYaml` を返す形にし、
-  `gitlab`・`caches` の引き回しを廃止（`verifyTarget` は8引数→3引数）
-- **T-047完了**: `types.ts`（267行）からブランド型11個を `types/brand.ts` へ。
-  `export * from "./types/brand.js"` の再エクスポートで25ファイルのimportは無変更
-- **T-041完了**: テスト3ファイルを src/ の構成に合わせて分割。
-  `test/lib/config.test.ts`（938行）→ `test/lib/config/` 4ファイル＋`fixture.ts`（`useConfigDir()`）、
-  `gitlab.test.ts`（723行）→ gitlab 434行 + mr-content 299行、
-  `build-plans.test.ts`（609行）→ 本体172行 + `test/steps/sub-steps/build-plans/` 3ファイル
-
-**2回目の監査で登録した残り**
-
-- **T-040完了**: T-036以降どこからも読まれていなかった `PipelineInfo.status` と
-  `PipelineStatus` 型を削除（`PipelineInfo` は `webUrl` のみ）。`isFatalStatus()` を非公開にし、
-  テストを `isFatalError()` 経由に寄せた
-- **T-039完了**: T-034〜T-037の仕様変更に追従できていなかったドキュメントを同期
-  （requirements.md 4.2節のパイプライン状態、README Features、READMEのmermaid図にT-037の分岐、
-  glossary.mdの「反映済みタグ」、architecture.mdの`scripts/smoke/`）
-- **T-042完了**: `verifyConfigExistence()` の chartAndApps 単位を `mapWithConcurrency()` で並列化
-  （`concurrencyLimit` を引数に追加、出力順は入力順のまま）。**並列化で表面化する穴**として、
-  `getOrFetch()` が解決済みの値だけをキャッシュするため同時呼び出しで二重fetchすることが分かり、
-  Promiseを共有する `getOrFetchShared()`（失敗時はキャッシュから削除）を追加して
-  `remote-cache.ts` で使うようにした。逐次のままの2箇所（build-plans・mr-content）は `getOrFetch` のまま
-- **T-038完了（ユーザー判断）**: CIの `validate-config-remote` が架空の設定例で必ず失敗する問題を、
-  「`config/` には実運用の登録だけを置く」方針で解消。`config/teamA-chart/` を削除し
-  `config/README.md`（運用ルール）に置き換えた。記述例は `docs/requirements.md` 4.4節が正典なので
-  情報の損失はない。実機で `pnpm lint:validate-config:remote` が終了コード0になることを確認
-
-**build-plans の改善（T-048〜T-053、サブエージェント委譲運用の初適用）**
-
-- **T-051(haiku)**: dryRun時に不要な `getLatestPipelineForRef()` を呼ばないようにした
-- **T-052(haiku)**: 失敗ログにアプリ名が出ず原因アプリを特定できなかった問題を解消。
-  `steps/shared/step-outcome.ts` に `rethrowWithAppContext()` を追加。**致命的エラーだけは
-  包まずそのまま投げる**（`new Error(..., {cause})` で包むと `extractHttpStatus()` が
-  ステータスを辿れず FatalError に昇格できなくなるため）
-- **T-048(sonnet)**: `readCurrentImageTags()` が読んだ `previousTags` を
-  `applyImageTagTargets()` にも渡し、同じアンカーの二重読み取りを解消
-- **T-049(sonnet)**: `LatestTagResolution.pointsAtTrackedHead`（クロージャ）を
-  `trackedHeadTagNames: ReadonlySet<TagName>`（データ）に置き換え
-- **T-050(sonnet)**: `valuesYamlCache` + `modifiedValuesPaths` を `ValuesYamlDraft` 1本に統合。
-  詰め替えが消え、`buildFileUpdates()` の internal error も型レベルで不要になった
-- **T-053(opus)**: アプリ単位の逐次実行は**現状維持**と決定。読み取りだけの先行並列化は
-  技術的には可能だが、削減幅（1アプリ2〜3往復）に対してタグ作成の副作用が並列・前倒しで
-  走る代償が大きい。理由と再検討条件を docs/architecture.md に明記
+- **トリガーの明文化**: `docs/workflow.md`「肥大化したときのアーカイブ」節に、(1)
+  セッション開始時に `done` が10件以上ならアーカイブする、(2) 10件未満でも `tasks.json` が
+  30KBを超えたら `done` を減らせないか検討する、という具体的な基準を追記。`dependencies` が
+  アーカイブ済みタスクIDを指す場合は書き換えず残し、「`tasks.json` に存在しないIDはアーカイブ
+  済み＝完了とみなす」ルールも明記した。`CLAUDE.md`「進捗管理とHandoff」の手順1にも、
+  セッション開始時にこのトリガーを確認する旨を1〜2行で追記
+- **tasks.json → tasks-archive.md**: `done` だった T-001〜T-053 の53件全件を
+  `docs/history/tasks-archive.md` へ移した。既存21節（T-004等）は当時の `**タスク**`・
+  `**当時のevidence**` を書き換えずに残し、`tasks.json` 側のevidenceを `**evidence**` 行として
+  追記（節を循環参照させる「詳細な経緯は…この節を参照」という自己参照の文言のみ削除）。
+  節が無かった32件は同じ書式で新設し、`difficulty`/`dependencies` を持つタスクはその行も追加。
+  節はT-001から昇順に並べ直した（既存21節も含む）
+- **tasks.json のサイズ削減**: 93,137バイト（62件、うちdone 53件）→ 14,211バイト（9件、
+  T-054〜T-062のみ、すべて`status: todo`で内容は変更していない）。`docs/history/tasks-archive.md`
+  は21節・61,168バイト → 53節・120,229バイトに増えた（情報は移しただけで消していない）
+- **情報欠落の確認**: 移動前の `tasks.json` をスクラッチにコピーし、`done` 53件それぞれの
+  `task` 本文冒頭20文字と（自己参照を除いた）`evidence` 冒頭20文字が
+  `docs/history/tasks-archive.md` に含まれることをスクリプトで突き合わせ、欠落0件を確認
+- **progress.md → progress-archive.md**: 旧「完了したこと（このセッション: T-038〜T-047の9件、
+  実際の内容はT-038〜T-053）」ブロック（見出し〜「**最終状態**」段落まで）を、見出しを
+  「## 完了したこと（T-038〜T-053 のセッション）」に付け替えたうえで内容はそのまま
+  `docs/history/progress-archive.md` 末尾へ移した。同ファイルの1行目タイトルも
+  「〜T-021」→「〜T-053」に更新。`progress.md` 冒頭のサマリ段落もT-053までアーカイブ済みの
+  実態に合わせて書き換えた
 
 **最終状態**: `pnpm check`（tsc・oxlint・config検証・oxfmt・vitest **28ファイル308テスト**）通過。
-`tasks.json` の53タスクはすべて `done` / `passes: true`。
+ドキュメントの移動だけなのでテスト件数は作業前と同じ。
 
 ## 次にやること
 
-- **すべてのタスクが `done`**（53件）。次の作業は新しく洗い出してから
+T-058 は完了。残りはユーザー依頼（2026-09-06）の8件（すべて `todo`、コード変更はまだ無い）。
+依存の無いものから着手できる:
+
+| id    | 内容                                                              | difficulty | 依存                      |
+| ----- | ----------------------------------------------------------------- | ---------- | ------------------------- |
+| T-054 | `TARGET_CHART_DIR` → `TARGET_CHART` 改名＋誤設定の検知強化        | sonnet     | -                         |
+| T-055 | `TAG_FORMAT` の命名規則を緩める要件を詰める（タグ作成日時ソート） | opus       | -                         |
+| T-056 | T-055 で決めた仕様の実装                                          | sonnet     | T-055                     |
+| T-057 | README の冗長な記述を削る                                         | sonnet     | -                         |
+| T-059 | `src/types.ts` の同義エイリアスを `AnchorTarget` に統一           | sonnet     | -                         |
+| T-060 | `src/types.ts` と `types/brand.ts` を `src/types/` に集約         | sonnet     | T-059                     |
+| T-061 | `src/steps/` をステップ名ディレクトリ構成に変更                   | sonnet     | -                         |
+| T-062 | コード・ドキュメントから `T-XXX` 参照を削除                       | sonnet     | T-054/056/057/059/060/061 |
+
+- タスク化の際にユーザーへ確認した判断: (1) `T-XXX` 削除の範囲は**コード・ドキュメントのみ**で、
+  `tasks.json` / `progress.md` / `docs/history/` はタスク番号を識別子として残す。
+  (2) `TARGET_CHART` が指定する値は**`config/` 直下のディレクトリ名のまま**（意味は変えず
+  名前とエラーメッセージだけ分かりやすくする）
+- T-062 は他タスクでファイルが動く前に走らせると二度手間になるため、コード・ドキュメントを
+  触る6タスクの後に回してある
 - T-043（追跡ブランチ切り替え）は実機未検証。スモークテストで `branchToSync` を切り替える
   シナリオを追加すると確認できる
-- **push はまだしていない**（このセッションの11コミットはローカルのみ）
+- **このセッションの変更はコミットもpushもしていない**（作業ツリーにあるだけ。`main` は
+  `origin/main`（677e7d8）と同期済みで、前セッションのコミットは push 済み）
 - 実機検証で残置したMR（!24、!25）とブランチ2本の後片付け（不要になったら
   `SMOKE_CHART_PROJECT_ID=86061211 npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply`）
 - 検証が完全に終わったら、テスト用のGitLabアクセストークンを失効させる（ユーザー対応）
