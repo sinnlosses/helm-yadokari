@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../src/lib/gitlab/gitlab.js")
-vi.mock("../../../src/lib/gitlab/mr-content.js")
+vi.mock("../../../src/steps/apply-updates/sub-steps/mr-content.js")
+vi.mock("../../../src/steps/shared/feature-branch.js")
 vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
@@ -12,13 +13,13 @@ import {
   createMergeRequest,
   getProjectWebUrls,
 } from "../../../src/lib/gitlab/gitlab.js"
+import { applyUpdates } from "../../../src/steps/apply-updates/apply-updates.js"
 import {
-  buildFeatureBranch,
   buildMrDescription,
   buildMrTitle,
   webUrlProjectIds,
-} from "../../../src/lib/gitlab/mr-content.js"
-import { applyUpdates } from "../../../src/steps/apply-updates/apply-updates.js"
+} from "../../../src/steps/apply-updates/sub-steps/mr-content.js"
+import { buildFeatureBranch } from "../../../src/steps/shared/feature-branch.js"
 import type { ChartUpdateTarget } from "../../../src/types/types.js"
 import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"

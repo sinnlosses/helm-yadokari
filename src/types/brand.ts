@@ -28,7 +28,7 @@ export function toTagName(s: string): TagName {
 }
 
 declare const tagFormatBrand: unique symbol
-/** タグ命名規則のテンプレート文字列（検証は `lib/gitlab/tag.ts` の `validateTagFormat()`） */
+/** タグ命名規則のテンプレート文字列（検証は `lib/tag-format.ts` の `validateTagFormat()`） */
 export type TagFormat = string & { readonly [tagFormatBrand]: never }
 export function toTagFormat(s: string): TagFormat {
   return s as TagFormat

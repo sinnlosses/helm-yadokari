@@ -25,7 +25,7 @@ chart リポジトリ単位で1つの Merge Request を作成する。クラス�
 ```bash
 pnpm check                            # tsc --noEmit + lint + format:check + test をまとめて実行（変更後は必ずこれを通す）
 pnpm test                             # テスト全体
-npx vitest run test/lib/gitlab/tag.test.ts # 単体テストファイルのみ実行
+npx vitest run test/lib/tag-format.test.ts # 単体テストファイルのみ実行
 pnpm lint                             # oxlint + config/ のバリデーション（ローカルのみ）
 pnpm lint:validate-config:remote      # config/ の値がGitLab上に実在するか検証（要 .env、読み取りのみ）
 pnpm format                           # oxfmt で自動整形

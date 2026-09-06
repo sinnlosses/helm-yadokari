@@ -18,13 +18,15 @@
 （`evaluateTarget()` / `planTarget()` / `applyUpdate()`）。`process` のような汎用名は
 `main.ts` のオーケストレータやグローバルの `process` と紛らわしいため使わない。
 
-| ファイル                           | 責務                                                                    |
-| ---------------------------------- | ----------------------------------------------------------------------- |
-| `filter-targets/filter-targets.ts` | 登録アプリ0件・固定ブランチにオープン中のMRがあるchartAndAppsを除外する |
-| `build-plans/build-plans.ts`       | 残ったchartAndAppsごとに更新計画（差分）を並列に構築する                |
-| `apply-updates/apply-updates.ts`   | 差分があるchartAndAppsにコミット・MR作成を並列実行する                  |
-| `shared/step-outcome.ts`           | 3つのstepが共有する結果ログの識別情報とエラー方針                       |
-| `build-plans/sub-steps/`           | `build-plans.ts` の内部実装専用（1アプリ・1箇所ごとの実処理）           |
+| ファイル                                | 責務                                                                    |
+| --------------------------------------- | ----------------------------------------------------------------------- |
+| `filter-targets/filter-targets.ts`      | 登録アプリ0件・固定ブランチにオープン中のMRがあるchartAndAppsを除外する |
+| `build-plans/build-plans.ts`            | 残ったchartAndAppsごとに更新計画（差分）を並列に構築する                |
+| `apply-updates/apply-updates.ts`        | 差分があるchartAndAppsにコミット・MR作成を並列実行する                  |
+| `shared/step-outcome.ts`                | 3つのstepが共有する結果ログの識別情報とエラー方針                       |
+| `build-plans/sub-steps/`                | `build-plans.ts` の内部実装専用（1アプリ・1箇所ごとの実処理）           |
+| `apply-updates/sub-steps/mr-content.ts` | MRタイトル・MR本文（Markdown）の組み立て。外部I/Oを持たない             |
+| `shared/feature-branch.ts`              | 固定ブランチ名の組み立て（`filterTargets`と`applyUpdates`が使う）       |
 
 `build-plans.ts` の階層は「全chartAndApps → 1つのchartAndApps → 1アプリ」の3段までに絞り、
 それより下の「1箇所（target）」の処理は `build-plans/sub-steps/` 側の責務にしている。
@@ -47,8 +49,8 @@
 | ファイル                       | 責務                                                                                |
 | ------------------------------ | ----------------------------------------------------------------------------------- |
 | `gitlab/gitlab.ts`             | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ         |
-| `gitlab/mr-content.ts`         | 固定ブランチ名・MRタイトル・MR本文（Markdown）の組み立て。外部I/Oを持たない         |
-| `gitlab/tag.ts`                | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証      |
+| `gitlab/web-url.ts`            | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                    |
+| `tag-format.ts`                | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証      |
 | `config/config.ts`             | 公開API `loadConfig()`。`config/` の2階層固定構成の走査と `ChartAndApps` の組み立て |
 | `config/schema.ts`             | 3つの設定ファイルのZodスキーマと `anchors.yaml` の読み込み                          |
 | `config/validate.ts`           | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                            |
@@ -149,7 +151,7 @@
   `webUrl`はオリジンではなく**プロジェクトのパスまで含んだURL**
   （`https://host/group/proj`、サブパス設置なら`https://host/gitlab/group/proj`）なので、
   `new URL("/-/tags/x", webUrl)`はグループ/プロジェクト部分を捨てて壊れたURLになる。
-  組み立てとエスケープは`mr-content.ts`の`buildTagUrl()`/`buildCompareUrl()`に閉じ込め、
+  組み立てとエスケープは`lib/gitlab/web-url.ts`の`buildTagUrl()`/`buildCompareUrl()`に閉じ込め、
   呼び出し側が`encodeURIComponent`を書かなくて済むようにしている
 
 - **型定義のフィールド名は、ブランド型が表している語（`Name`など）を落とさない**:
@@ -172,9 +174,29 @@
   - YAMLのキー名（`anchors.yaml` の `anchor` など）は wire format なので変えない。
     内部表現への詰め替えは `lib/config/schema.ts` の `.transform()` が担う
 
-- **`gitlab/tag.ts` は外部I/Oを持たないのに `utils/` ではなく `lib/gitlab/` にある**:
-  純粋な文字列/日付処理だが「GitLabのタグ」という命名規則に強く紐づくため。`utils/`は
-  ドメイン知識を持たないものだけを置く
+- **`lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く**: 以前はここに
+  `tag.ts`（タグ命名規則）と`mr-content.ts`（固定ブランチ名・MRタイトル・MR本文）も
+  同居していたが、これは「`gitlab.ts`が長くなったので切り出した」結果で、原則2の基準では
+  説明できない配置だった。依存対象で見ると3種類の別物が混ざっていたため、次のように分けた:
+  - `tag.ts` → `lib/tag-format.ts`。GitLab APIにもGitLab固有の形式にも依存せず、依存先は
+    このツール自身が定義する`TAG_FORMAT`というテンプレート**形式**（`docs/requirements.md`
+    4.1節。タグを作るのも読むのもこのツール自身）。原則2の「ファイル形式」に当たるものとして
+    `lib/helm.ts`（`values.yaml`形式）・`lib/config/schema.ts`（`config/`形式）と同格に置く。
+    `utils/`はドメイン知識を持たないものだけを置く場所なので入れられない
+  - `buildFeatureBranch()` → `steps/shared/feature-branch.ts`。技術依存はゼロで、
+    `TenantId`+`ClientId`→`BranchName`というドメイン型だけの変換。`filterTargets`と
+    `applyUpdates`の2つのstepから呼ばれるため`steps/shared/`の条件をそのまま満たす
+  - MRタイトル・本文 → `steps/apply-updates/sub-steps/mr-content.ts`。呼び出し元は
+    `apply-updates.ts`の1ファイルだけなので、「呼び出し元がstepsの1ファイルだけ →
+    そのstepの`sub-steps/`」という基準どおりの場所に移した
+  - `buildTagUrl()`/`buildCompareUrl()` → `lib/gitlab/web-url.ts`。`/-/tags/`・`/-/compare/`
+    というGitLab固有のURLパス形式に依存する唯一の部分なので`lib/gitlab/`に残す。
+    「外部I/Oは`gitlab.ts`だけ」を保つため`gitlab.ts`には混ぜず別ファイルにしている
+- **`lib/gitlab/gitlab.ts`の`commitFileUpdates()`だけはドメイン型`FileUpdate`を知っている**:
+  「固定ブランチを消して`baseBranch`から作り直す」「create/updateの判定は常に`baseBranch`基準」
+  という方針を持ち、`filterTargets`がオープン中のMRの不在を確認済みであることも前提にしている。
+  方針をstep側へ引き上げる案は採らない。中身はブランチ確認・削除・ファイル取得・コミットという
+  4種のAPI呼び出しの手順で、stepに移すとstep側にGitLab APIの呼び出し順が漏れるため
 - **YAML処理は `yaml` パッケージに統一（`js-yaml` 不採用）**: `js-yaml`はオブジェクトとして
   しか読み書きできずアンカー名を保持できない。値の位置指定にYAMLアンカーを使う以上、
   Document（AST）を直接操作できる必要がある

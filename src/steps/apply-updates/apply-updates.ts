@@ -4,16 +4,12 @@ import {
   createMergeRequest,
   getProjectWebUrls,
 } from "../../lib/gitlab/gitlab.js"
-import {
-  buildFeatureBranch,
-  buildMrDescription,
-  buildMrTitle,
-  webUrlProjectIds,
-} from "../../lib/gitlab/mr-content.js"
 import type { ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
+import { buildFeatureBranch } from "../shared/feature-branch.js"
 import { type StepOutcome, describePlan, ok, runSettled } from "../shared/step-outcome.js"
+import { buildMrDescription, buildMrTitle, webUrlProjectIds } from "./sub-steps/mr-content.js"
 
 /**
  * 更新計画があるchartAndAppsに対して、固定ブランチへのコミットとMR作成を並列実行する。

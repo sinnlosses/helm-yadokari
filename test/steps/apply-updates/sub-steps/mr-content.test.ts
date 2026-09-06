@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  buildFeatureBranch,
   buildMrDescription,
   buildMrTitle,
-} from "../../../src/lib/gitlab/mr-content.js"
-import type { AppUpdatePlan, PipelineInfo, TagName } from "../../../src/types/types.js"
+} from "../../../../src/steps/apply-updates/sub-steps/mr-content.js"
+import type { AppUpdatePlan, PipelineInfo, TagName } from "../../../../src/types/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -16,16 +15,8 @@ import {
   toTagName,
   toTenantId,
   toValuesPath,
-} from "../../../src/types/types.js"
-import { makeApp } from "../../helpers.js"
-
-describe("buildFeatureBranch", () => {
-  it("tenantId/clientIdを含むブランチ名を組み立てる", () => {
-    expect(buildFeatureBranch(toTenantId("tenantId1"), toClientId("clientId1"))).toBe(
-      "feature/yadokari/tenantId1/clientId1",
-    )
-  })
-})
+} from "../../../../src/types/types.js"
+import { makeApp } from "../../../helpers.js"
 
 function makePlan(
   overrides: Partial<{

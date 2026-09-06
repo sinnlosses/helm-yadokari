@@ -14,7 +14,7 @@ import {
   getLatestPipelineForRef,
   listTags,
 } from "../../../../src/lib/gitlab/gitlab.js"
-import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../../src/lib/gitlab/tag.js"
+import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../../src/lib/tag-format.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import { toAnchorName, toTagName, toValuesPath } from "../../../../src/types/types.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../../../helpers.js"

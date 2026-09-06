@@ -1,6 +1,6 @@
 import type { GitLabUrl, TagFormat, TargetClient } from "../types/types.js"
 import { toClientId, toGitLabUrl, toTenantId } from "../types/types.js"
-import { DEFAULT_TAG_FORMAT, validateTagFormat } from "./gitlab/tag.js"
+import { DEFAULT_TAG_FORMAT, validateTagFormat } from "./tag-format.js"
 
 export function loadEnv(key: string): string {
   const value = process.env[key]
@@ -29,7 +29,7 @@ export function parseConcurrencyLimit(raw: string | undefined): number {
 /**
  * TAG_FORMAT は `{branch}`/`{date}`/`{time}` プレースホルダをちょうど1回ずつ含む
  * テンプレート文字列（未指定時は `DEFAULT_TAG_FORMAT`）。プレースホルダの検証・置換の
- * ロジックはタグ命名規則の本体である `lib/gitlab/tag.ts` 側に持たせ、ここでは
+ * ロジックはタグ命名規則の本体である `lib/tag-format.ts` 側に持たせ、ここでは
  * 未指定時のデフォルト適用のみ行う。
  */
 export function parseTagFormat(raw: string | undefined): TagFormat {

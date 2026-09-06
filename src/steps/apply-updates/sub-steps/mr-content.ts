@@ -1,29 +1,18 @@
+import { buildCompareUrl, buildTagUrl } from "../../../lib/gitlab/web-url.js"
 import type {
   AppUpdatePlan,
-  BranchName,
   ClientId,
   GitLabUrl,
   HelmTargetBranchUpdate,
   ImageTagUpdate,
   ProjectId,
-  TagName,
   TenantId,
-} from "../../types/types.js"
-import { toBranchName, toGitLabUrl } from "../../types/types.js"
+} from "../../../types/types.js"
 
 /**
- * MRのブランチ名・タイトル・本文（Markdown）を組み立てる、外部I/Oを持たない純粋な文字列組み立て。
+ * MRのタイトル・本文（Markdown）を組み立てる、外部I/Oを持たない純粋な文字列組み立て。
  * GitLab APIから解決済みのプロジェクトweb URLは呼び出し元が事前に集めて値として渡す。
  */
-
-/**
- * 1つの`(chartリポジトリ, tenantId, clientId)`分の更新に使う固定ブランチ名。
- * 同じGitLabプロジェクト内で複数のtenantId/clientIdのMRが共存するため、IDをブランチ名に
- * 含めて分離する。
- */
-export function buildFeatureBranch(tenantId: TenantId, clientId: ClientId): BranchName {
-  return toBranchName(`feature/yadokari/${tenantId}/${clientId}`)
-}
 
 /**
  * 向き先ブランチの更新は`helm.chart[]`をvaluesPath一致でアプリに振り分けた結果なので、
@@ -63,22 +52,6 @@ export function buildMrTitle(
   ]
   const summary = parts.length > 0 ? ` (${parts.join(", ")})` : ""
   return `Auto MR by yadokari: update ${tenantId}/${clientId}${summary}`
-}
-
-/**
- * プロジェクトのweb URL配下のページURLを組み立てる。`webUrl`はオリジンではなく
- * **プロジェクトのパスまで含んだURL**（`https://host/group/proj`、サブパス設置なら
- * `https://host/gitlab/group/proj`）なので、`new URL(path, webUrl)`ではなく連結で組み立てる
- * （前者はベースのパスを捨ててしまう）。タグ名のエスケープもここに閉じ込め、
- * 呼び出し側が`encodeURIComponent`を書かなくて済むようにする。
- */
-function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): GitLabUrl {
-  return toGitLabUrl(`${webUrl}/-/tags/${encodeURIComponent(tagName)}`)
-}
-
-/** 2つのタグ間の比較ページURL（`buildTagUrl()`と同じ組み立て方） */
-function buildCompareUrl(webUrl: GitLabUrl, from: TagName, to: TagName): GitLabUrl {
-  return toGitLabUrl(`${webUrl}/-/compare/${encodeURIComponent(from)}...${encodeURIComponent(to)}`)
 }
 
 /**

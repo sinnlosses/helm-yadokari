@@ -4,7 +4,7 @@ import {
   getBranchHeadSha,
   listTags,
 } from "../../../lib/gitlab/gitlab.js"
-import { buildNewTag, findLatestParsedTag, parseTag } from "../../../lib/gitlab/tag.js"
+import { buildNewTag, findLatestParsedTag, parseTag } from "../../../lib/tag-format.js"
 import type {
   AppConfig,
   BranchName,

@@ -6,8 +6,8 @@ import {
   findLatestParsedTag,
   parseTag,
   validateTagFormat,
-} from "../../../src/lib/gitlab/tag.js"
-import { toBranchName, toTagName } from "../../../src/types/types.js"
+} from "../../src/lib/tag-format.js"
+import { toBranchName, toTagName } from "../../src/types/types.js"
 
 describe("validateTagFormat", () => {
   it("デフォルトのフォーマットを受け入れる", () => {
