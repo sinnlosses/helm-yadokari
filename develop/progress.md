@@ -12,8 +12,9 @@ T-064以降だけが残る）。当時のセッションの記録は
 ## 完了したこと（前セッション: T-064〜T-070）
 
 `chore/register-direction-tasks` ブランチで7タスクを実施し、`main`へfast-forwardマージ・
-github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。詳細は
-[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) のT-064〜T-070を参照。
+github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。`tasks.json` が30KBを超えたため
+この7件は [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へ移し、
+`tasks.json` は 35,440→13,838バイト（T-071以降の6件のみ）になった。
 
 ## 完了したこと（このセッション）
 

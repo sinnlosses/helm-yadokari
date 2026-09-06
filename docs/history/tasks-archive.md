@@ -550,3 +550,85 @@
 **difficulty**: opus
 
 **evidence**: resolveLatestTag() から branchChanged ガードを外し、hasTagFromOtherBranch()・previousTags 引数・ログの reason "tracked_branch_changed" を削除（この判定専用のコードだったため連鎖的に不要になった）。要件「切り替え前後が同じコミットでも更新する」は、切り替え前のタグ名が現在の追跡ブランチでパースできず trackedHeadTagNames に入らないことで自動的に成立する（image-tag-target.ts 側のスキップ判定）。テスト2件を新仕様に書き換え（切り替え時に既存タグを再利用しvalues.yamlは更新される／dryRunは切り替え先HEADにタグが無いケースで検証）、resolveLatestTag を直接呼ぶ3件の引数を修正。requirements.md 4.1・README（図とFeatures）・glossary.md も同期。pnpm check（28ファイル319テスト、件数変化なし）通過
+
+## T-064
+
+**タスク**: 環境変数 `TARGET_CLIENT` を `TARGET_CLIENTS` にリネームする。この変数は `<tenantId>/<clientId>` の組を**カンマ区切りで複数指定できる**（src/lib/env.ts の `parseTargetClients()`、JSDoc に「複数指定できる」と明記済み）のに名前が単数形で、単一指定しかできないと誤読される。単数形のままの `TARGET_CHART`（単一のディレクトリ名しか取らない）との対比も付く。リネーム対象: src/lib/env.ts のエクスポート名、src/main.ts の参照（`clients: TARGET_CLIENT` と run_start ログの `targetClient` キー）、エラーメッセージ文言（env.ts の `parseTargetClientEntry()`、src/lib/config/config.ts の絞り込みエラー）、.env.example、README.md「環境変数」表、.gitlab-ci.yml の pipeline inputs、docs/requirements.md、docs/smoke-test.md、test/（env.test.ts・main.test.ts・helpers.ts・lib/config/ 配下・steps/filter-targets/）。内部の型・フィールド名（`TargetClient`・`ConfigTarget.clients`）は既に意味と単複が合っているので変更しない。完了条件: `grep -rn "TARGET_CLIENT\b"` が0件になり、`pnpm check` を通すこと
+
+**difficulty**: haiku
+
+**evidence**: 環境変数を TARGET_CLIENTS にリネーム（src/lib/env.ts のエクスポート・エラーメッセージ、main.ts の参照と run_start ログのキー targetClient→targetClients、config.ts のエラーメッセージとJSDoc、types.ts のJSDoc、.env.example、README、.gitlab-ci.yml の inputs と variables、docs/requirements.md・smoke-test.md、test/ 3ファイル）。内部の型 TargetClient・ConfigTarget.clients は据え置き。tasks.json/progress.md/docs/history/direction.md を除いて grep -rn "TARGET_CLIENT\b" が0件。pnpm check（28ファイル319テスト、変化なし）通過。haikuのサブエージェントに委譲し、メイン側で差分・grep・pnpm check を確認して受け入れた
+
+## T-065
+
+**タスク**: エラーハンドリングの方針を再設計する（実装は T-066）。ユーザーの問題意識（2026-09-06）:「fatal なものは処理を落とす、そうでないものは復帰してエラーとして計上する、これをいたるところで書くのを避けたい。try/catch をどこに置くかを決め打ちできないか」。現状の事実（調査済み）: (1) `src/steps/filter-targets/filter-targets.ts` の catch は `settleAsError()` を呼んでおり、`settleAsError()` は `isFatalError()` なら `FatalError` を投げ直すので、**fatal は settled にならず実行全体が落ちる**（`mapWithConcurrency` が `limit.clearQueue()` してから reject → `process()` → `index.ts` の catch）。ユーザーの懸念は挙動そのものではなく、`catch { return settleAsError(...) }` という**書き方が「常に ERROR として計上して続行する」ように読める**点にある。この読み違いを型・構造で防げないかを含めて検討する。なお `test/steps/filter-targets/filter-targets.test.ts` には「401エラーのとき FatalError をスローする」テストが既にあり、挙動は回帰テストで固定されている。(2) src/ の try/catch は7箇所（steps 3箇所＝各stepの並列処理1件分、lib/gitlab/gitlab.ts 2箇所＝404/403のフォールバック、utils/retry.ts、lib/verify-config/verify-config.ts）。詰める論点: (a) 「chartAndApps 1件を処理し、fatal は投げ、それ以外は ERROR に落とす」という共通の骨組みを高階関数（例: `runSettled(logContext, fn)`）や `mapWithConcurrency` 側に寄せて、各stepから catch 節そのものを消せるか。消した場合に `rethrowWithAppContext()`（アプリ名を足して投げ直す）や step ごとに違う成功時の戻り値（`TargetOutcome` / `PlanResult` / `ChartUpdateResult`）と噛み合うか。(b) 戻り値の型で fatal が混ざらないことを表現できるか（例: 成功/ERROR を表す型を返しつつ fatal だけは例外で抜ける、という現状の二重チャネルを保つか、Result型に寄せるか）。(c) lib/gitlab の 404/403 フォールバックのような「特定ステータスだけ握りつぶす」catch は骨組みの対象外とするか。(d) 方針を1箇所に集約しているという現状の設計意図（steps/shared/step-outcome.ts の冒頭コメント）をどう維持するか。決めた方針は docs/architecture.md「コードからは読み取れない設計判断」に記録する。現状維持と決めた場合も同様に理由を記録して決着させる
+
+**difficulty**: opus
+
+**evidence**: コード変更なし（方針決定のみ）。決定: (1) fatalは例外・chartAndApps単位の失敗は戻り値、という2チャネルを維持する（Result型への一本化は、各stepに「fatalなら伝播」の判断が戻るため却下）。(2) 3つのstepのcatch節を高階関数 runSettled() / withAppContext() に吸収し、steps/ 配下のtry/catchを0件にする。(3) lib/gitlab の404/403フォールバック・utils/retry.ts・verify-config.ts のcatchは対象外（前2つはHTTPステータスを正常系に変換する処理、verify-configは問題を全件列挙する別プログラム）。ユーザーが懸念した「filter-targetsでfatalがsettledになる」は挙動としては起きておらず（settleAsError()がFatalErrorを投げ直す。回帰テストもある）、問題は書き方が誤読を招くことだと切り分けた。docs/architecture.md「コードからは読み取れない設計判断」に記録。実装は T-066
+
+## T-066
+
+**タスク**: T-065 で決めたエラーハンドリング方針を実装する。目的は「fatalは実行全体を落とし、それ以外はERRORに計上して続行する」という方針を `src/steps/shared/step-outcome.ts` の1箇所だけに置き、3つのstepから `try`/`catch` を消すこと（現状は各stepが `catch (err) { return settleAsError(err, logContext) }` と書いており、fatalもERRORに計上して続行するように読める）。
+
+実装方針（T-065 の決定。詳細は docs/architecture.md「コードからは読み取れない設計判断」の該当項目）:
+
+(1) `src/steps/shared/step-outcome.ts` に、chartAndApps 1件分の結果を表す共通の型と、それを組み立てる高階関数を追加する。型は現在 `filter-targets.ts` の `TargetOutcome` と `build-plans.ts` の `PlanResult` に重複して定義されているものを1つに寄せる形にする（例: `StepOutcome<T> = { status: "ok"; value: T } | { status: "settled"; result: ChartUpdateResult }` と、生成用の `ok()` / `settled()`）。
+
+(2) 同ファイルに `runSettled<T>(chartAndApps, fn: (logContext) => Promise<StepOutcome<T>>): Promise<StepOutcome<T>>` を追加する。`buildLogContext()` の呼び出しと `try`/`catch` はこの中だけに置き、捕捉した例外は既存の `settleAsError()` に渡す（fatalは `FatalError` として投げ直され、それ以外は `ERROR` を返して settled になる）。
+
+(3) 3つのstepの並列処理1件分の関数（`evaluateTarget()` / `planTarget()` / `applyUpdate()`）を `runSettled()` に載せ替え、`try`/`catch` と `buildLogContext()` の直接呼び出しを消す。`applyUpdate()` は成功時の値が `ChartUpdateResult`（"CREATED"）なので `StepOutcome<ChartUpdateResult>` を使い、`applyUpdates()` 側で `outcome.status === "ok" ? outcome.value : outcome.result` の1行に潰す。
+
+(4) `build-plans.ts` の `buildAppUpdatePlan()` にある `try`/`catch`（`rethrowWithAppContext()` を呼ぶもの）も、`step-outcome.ts` に `withAppContext<T>(projectName, fn: () => Promise<T>): Promise<T>` を追加して吸収する。`rethrowWithAppContext()` はその内部実装にする（非公開にできるなら非公開にする）。
+
+(5) 対象外（触らない）: `src/lib/gitlab/gitlab.ts` の404/403フォールバック、`src/utils/retry.ts`、`src/lib/verify-config/verify-config.ts` の `catch`。
+
+完了条件: (a) `grep -rn "try {" src/steps/` が **0件** であること、(b) fatal（401 / 5xx / ECONNREFUSED / ENOTFOUND / ETIMEDOUT のいずれか）で実行全体が `FatalError` になりERRORとして計上されないこと、および fatal でないエラーは該当 chartAndApps だけがERRORになり他が続行することを、3つのstepそれぞれについてテストで示すこと（filter-targets には401のテストが既にあるので、build-plans・apply-updates 側を確認し不足分を足す）、(c) `pnpm check` を通すこと。既存テストの件数は減らさない。
+
+**difficulty**: sonnet
+
+**dependencies**: T-065
+
+**evidence**: steps/shared/step-outcome.ts に StepOutcome<T>（+ ok()/settle()）・runSettled()・withAppContext() を追加し、3つのstepの catch 節と buildLogContext() の直接呼び出しを吸収した（rethrowWithAppContext() は非公開化、filter-targets の TargetOutcome と build-plans の PlanResult は StepOutcome<T> に統合）。捕捉は step-outcome.ts の .catch() 2箇所だけになり、grep -rn "try {" src/steps/ は0件。テスト2件追加（filter-targets・build-plans で「非fatalなエラーは該当chartAndAppsだけERROR、他は続行」。apply-updates は既存テストが同じ観点を満たしていた）。pnpm check（28ファイル321テスト、319→321）通過。sonnetのサブエージェントに委譲し、メイン側で settle()/settled 変数の名前衝突の解消と、JSDocの動機の書き直し（grep対策ではなく捕捉の集約が目的）を行って受け入れた
+
+## T-067
+
+**タスク**: 型定義をどこに置くかの方針を決める（適用は T-068）。ユーザーの問題意識（2026-09-06）:「`src/types/` にあったり、filter-targets のようにファイル内にあったり、build-plans/sub-steps/types.ts にあったりで一貫した設計方針が無く、ブレて見える」。現状の分布（調査済み）: `src/types/types.ts` + `src/types/brand.ts` にドメイン型を集約する一方、`src/steps/filter-targets/filter-targets.ts`（`FilterTargetsResult`・`TargetOutcome`）、`src/steps/build-plans/build-plans.ts`（`BuildPlansResult`・`BuildPlanContext`・`PlanResult`）、`src/steps/build-plans/sub-steps/types.ts`（6型）、同 sub-steps の各ファイル（`ValuesYamlDraft` 等）、`src/lib/`（`GitlabClient`・`RemoteCache`・`ConfigTarget`・`Anchors` 等）、`src/utils/partition.ts`（`Sorted`）に分散している。詰める論点: (a) 判断軸を CLAUDE.md の原則2（技術・外部システム・ファイル形式に依存するか）と揃えられるか。すなわち「型もそれを使うコードと同じ場所に置き、`src/types/` にはステップ横断のドメイン型だけを置く」という軸で現状を説明できるか、説明できない例外はどれか。(b) `sub-steps/types.ts` のように型だけを集めたファイルを作ってよい条件（使う側が複数ファイルにまたがるときだけ、など）。(c) 1ファイル内でしか使わない型（`TargetOutcome`・`BuildPlanContext`）は今のままそのファイルに置く、で確定してよいか。(d) `lib/` の型（`GitlabClient` 等）を `src/types/` に動かす必要が無いことの根拠。方針は CLAUDE.md「アーキテクチャ概要」の「新しいコードを置く場所」に型の行を足す形で明文化し、詳細が要れば docs/architecture.md に書く。**この時点で「動かす対象と動かさない対象の一覧」まで出すこと**（T-068 はそのリストどおりに動かすだけにする）
+
+**difficulty**: opus
+
+**evidence**: コード変更なし（方針決定のみ）。型の置き場所も「新しいコードを置く場所」と同じ基準で決める（利用箇所の数では決めない）と定め、6分類の表を docs/architecture.md に、要約を CLAUDE.md「アーキテクチャ概要」に追記した。要点: ドメイン語彙は src/types/types.ts（利用箇所が1ファイルの Config・PipelineInfo・RunResult も意図的に残す）、技術のインターフェースは lib/、ステップ内部の作業用の型は「その型を生み出す関数と同じファイル」、sub-steps/types.ts は「特定の1ファイルに帰属しない共有型」だけに絞る。全型の使われ方を数えた結果、この基準から外れているのは2件だけ（LatestTagResolution・BuildChartUpdateAcc）で、移動対象として T-068 に確定させた
+
+## T-068
+
+**タスク**: T-067 で決めた型定義の配置方針（docs/architecture.md「新しいコードを置く場所の判断基準」の型の表、および CLAUDE.md「アーキテクチャ概要」の要約）に合わせて、基準から外れている型2件を移動する。全型の使われ方を数えた結果、動かすのはこの2件だけで、他は現状の位置が基準どおりなので触らない。
+
+(1) `LatestTagResolution` を `src/steps/build-plans/sub-steps/types.ts` から `src/steps/build-plans/sub-steps/resolve-latest-tag.ts` へ移す。理由: これは `resolveLatestTag()` が組み立てる戻り値の型で、「その型を生み出す関数と同じファイル」に置く分類に当たる（同じ分類の先例として `ValuesYamlDraft` が `values-yaml-draft.ts` に、`ApplyHelmTargetsAcc` が `helm-target-branch-target.ts` にある）。参照元は `resolve-latest-tag.ts` と `image-tag-target.ts` の2ファイル。JSDoc（`trackedHeadTagNames` の説明）は一字一句そのまま移すこと。
+
+(2) `BuildChartUpdateAcc` を同 `types.ts` から `src/steps/build-plans/build-plans.ts` へ移す。理由: 参照しているのは `build-plans.ts` だけで（`buildPlan()` と非公開関数 `buildAppUpdatePlan()` の間で受け渡すアキュムレータ）、`types.ts` の条件「複数のサブステップが共有する型」を満たさない。JSDocはそのまま移すこと。移動後の `types.ts` に残るのは `LoadValuesYamlContent` / `BranchExists` / `ApplyTargetsAcc<U>` の3つ（いずれも複数のサブステップから参照されている）。
+
+型の中身・名前・エクスポートの有無は変えない。import の張り替えのみ行う。
+
+完了条件: 移動した2型それぞれについて移動後の位置と参照元を示し、`pnpm check` を通すこと（テスト件数が変わらないこと＝移動でテストが対象から外れていないことも確認する）。
+
+**difficulty**: sonnet
+
+**dependencies**: T-067
+
+**evidence**: LatestTagResolution を sub-steps/types.ts → sub-steps/resolve-latest-tag.ts へ（参照元は resolve-latest-tag.ts 自身と image-tag-target.ts）、BuildChartUpdateAcc を同 types.ts → build-plans.ts へ移動（参照元は build-plans.ts のみだったため、メイン側で export も外して非公開にした）。JSDocは一字一句そのまま。types.ts に残るのは複数サブステップ共有の3型（LoadValuesYamlContent / BranchExists / ApplyTargetsAcc<U>）。pnpm check（28ファイル321テスト、変化なし＝移動でテストが対象から外れていない）通過。sonnetのサブエージェントに委譲し、メイン側で差分を確認して受け入れた
+
+## T-069
+
+**タスク**: URL を文字列で扱っている箇所を型で縛れないか検討し、決めた方針まで実装する。ユーザーの問題意識（2026-09-06）:「URL を string で扱っている箇所があるように見える。`URL` インターフェースを使うなど型で縛ることを検討してほしい」。現状の事実（調査済み）: `GitLabUrl` は `string` のブランド型（src/types/brand.ts）で、生成経路は3つ ―― (1) src/lib/env.ts の `validateGitlabUrl()`（`URL.canParse()` と protocol を検証済み）、(2) src/lib/gitlab/gitlab.ts の `getProjectWebUrl()`（`String(project.web_url)`、**検証なし**）、(3) 同 `getLatestPipelineForRef()`（`String(pipeline.web_url)`、**検証なし**）。組み立て側は src/lib/gitlab/mr-content.ts が `${webUrl}/-/tags/${encodeURIComponent(tagName)}` のような**文字列連結**で、`buildTagUrl()` の戻り値は素の `string`（`GitLabUrl` ですらない）。詰める論点: (a) `GitLabUrl` を `URL` オブジェクトに置き換えるか、ブランド型のままにして生成経路(2)(3)にも検証を通すか。`URL` はミュータブルで JSON ログにそのまま載せると `{}` にならないか（logger の出力・MR本文への埋め込み・テストの比較のしやすさ）を確認して判断する。(b) パスの結合を `new URL(path, base)` に寄せるべきか、GitLab の web_url がサブパス付き（例: `https://example.com/gitlab`）でも壊れないか。現状の連結方式との差を確認する。(c) MR本文に出す最終形は文字列なので、型で縛る範囲の境界をどこに引くか。(d) `TagName` などのブランド型と `encodeURIComponent` の関係（どこでエスケープするかを型で表せるか）。完了条件: 決めた方針を docs/architecture.md「コードからは読み取れない設計判断」に記録し、コード変更を伴う場合は既存のMR本文の出力が変わらないことをテストで示して `pnpm check` を通すこと
+
+**difficulty**: opus
+
+**evidence**: GitLabUrl は URL オブジェクトにせず文字列のブランド型のまま（href正規化で出力が変わる・ミュータブル・テスト比較が煩雑で、用途はMR本文とログへの埋め込みだけ）。代わりに生成経路を縛り、toGitLabUrl() を http(s) 検証つきファクトリにして env.ts の validateGitlabUrl() の検証をそこへ一本化、無検証だった GitLab API 由来の2箇所（project.web_url / pipeline.web_url）も必ず通るようにした。buildTagUrl() の戻り値を GitLabUrl にし、compare URL も buildCompareUrl() に切り出してエスケープを2関数に閉じ込めた。new URL(path, base) へ寄せない理由（webUrlはオリジンではなくプロジェクトのパスまで含むため、ベースのパスが捨てられる）も docs/architecture.md に記録。テスト1件追加（web_urlが不正ならMR本文に載る前にエラー）。pnpm check（28ファイル322テスト、321→322）通過。既存のMR本文のテストが無変更で通ることで出力が変わっていないことを確認
+
+## T-070
+
+**タスク**: `tasks.json` と `progress.md` を新設する `develop/` ディレクトリへ移動する（ユーザー依頼、2026-09-06。理由: アプリケーションの機能に関係しない進捗管理用ファイルをリポジトリ直下から追い出す）。`git mv tasks.json develop/tasks.json`、`git mv progress.md develop/progress.md`。参照を張り替えるファイル: CLAUDE.md（「進捗管理とHandoff」の手順、「コーディング規約」のタスク番号の節にある `grep -rE "T-[0-9]{3}"` の除外対象の記述、「関連リンク」）、docs/workflow.md（全体。冒頭の説明・アーカイブ節のパス）、docs/glossary.md、docs/history/tasks-archive.md・docs/history/progress-archive.md 内の相対リンク（`./tasks-archive.md` 等が `develop/` からの相対で正しく解決されるか確認する）、progress.md 自身が持つ `docs/` へのリンク（`./docs/history/...` → `../docs/history/...`）、README.md にプロジェクト構成ツリーがあれば追記。`docs/history/` を `develop/` 配下に動かすかどうかは今回のスコープ外（現状のまま `docs/history/` に残す）。完了条件: 移動後に `pnpm check` が通り、移動した2ファイルとリンク元のMarkdownの相対リンクがすべて実在するパスを指していることを確認すること
+
+**difficulty**: haiku
+
+**evidence**: git mv で tasks.json / progress.md を develop/ へ移動し、CLAUDE.md（規約のgrep除外・進捗管理の手順・関連リンク）・docs/workflow.md（5箇所）・README のプロジェクト構成ツリー・progress.md 自身の相対リンク（./docs/ → ../docs/）を張り替えた。.gitlab-ci.yml / package.json / .prettierignore / vitest.config.ts にパス参照が無いことも確認。docs/history/ 配下の言及は当時の記録なのでそのまま。pnpm check（28ファイル322テスト、変化なし）通過。haikuのサブエージェントに委譲し、メイン側で差分確認・READMEのツリー位置と行の折り返しを整えて受け入れた
