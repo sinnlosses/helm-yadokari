@@ -2,10 +2,10 @@
   {
     "id": "T-077",
     "task": "ドキュメント・コメントに残っている「実装と食い違う記述」を4箇所直す。すべて現物を確認済みで、直す内容は確定している（判断は不要、記載どおりに置換すること）。\n\n(1) `README.md` の「実行ログの例」（現在120〜121行目）の `update_chart` 行が実際の出力と違う。実際に出るキーは `src/steps/shared/step-outcome.ts` の `buildLogContext()` と `describePlan()` が決めており、`chartDir` ではなく `chartDirName`、`apps[]` の要素は `{ projectName, latestTag, updates: [{ valuesPath, previousTagName }], helmTargetBranchUpdates: [...] }`（`previousTag` というキーは存在しない）。両関数の実装を読んで、例のJSONをそのとおりに書き直す。同じ例の `run_start` 行も `src/main.ts` の `run()` が実際に出している通り（`gitlabUrl` / `configPath` / `targetChart` / `targetClients` / `tagFormat` を含む）に揃える。\n\n(2) `CLAUDE.md`「テスト方針」の最後の行にある非公開関数の例 `buildChartUpdate()` は現存しない。現在の各ステップの非公開関数は `evaluateTarget()`（filter-targets）/ `buildPlan()`（build-plans）/ `applyUpdate()`（apply-updates）なので、そのいずれかに差し替える。\n\n(3) `src/utils/partition.ts` のJSDocに載っているコード例が実際の呼び出し側と違う（例は `outcome.status === \"target\"` と `outcome.chartAndApps` を使っているが、実際の `StepOutcome<T>` は `status === \"ok\"` と `outcome.value`）。`src/steps/filter-targets/filter-targets.ts` の実際の呼び出しに合わせて例を書き直す。\n\n(4) `.gitlab-ci.yml` の `spec.inputs.CONCURRENCY_LIMIT` の description が「1以上の整数」になっているが、実際の検証（`src/lib/env.ts` の `parseConcurrencyLimit()`）は1〜20。同ファイル `variables` 側の description と README の表はすでに「1〜20の整数」なので、inputs 側をそれに揃える。\n\n完了条件: 上記4箇所を直し、`pnpm check` を通すこと（コードの挙動は変わらないのでテスト件数は変わらないはず）。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "haiku",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "README実行ログ例（chartDirName・describePlan()の形へ、run_startにgitlabUrl/tagFormat追加）、CLAUDE.mdのbuildChartUpdate()→buildPlan()、partition.tsのJSDoc例（status==='ok'/outcome.value）、.gitlab-ci.ymlのCONCURRENCY_LIMIT説明（1〜20）を修正。pnpm check（31ファイル330テスト、変化なし）通過。haikuのサブエージェントに委譲し、メイン側で2点を修正: valuesPathの例が削除済みのdotパス形式だったのでファイルパスに、run_startの未設定env（configPath/targetChart/targetClients）はJSON.stringifyがキーごと落とすため空文字列ではなく非表示に。またタスク本文の記述誤りでvariables側の『1以上の整数』が残っていたため併せて修正した",
     "dependencies": []
   },
   {

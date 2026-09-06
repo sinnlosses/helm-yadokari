@@ -84,7 +84,7 @@ pnpm build && pnpm start              # ビルドしてから実行
 - TDD推奨: 実装コードの前に失敗するテストを書く（`/tdd` スキル参照）
 - テストは `test/` 以下、テスト対象と同じディレクトリ構成で配置する（`src/` 配下は
   `test/<srcからの相対パス>`、`scripts/` 配下は `test/scripts/<...>`）
-- GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする（`test/lib/gitlab/gitlab.test.ts` 参照）。各ステップのテスト（`test/steps/*.test.ts`）も `lib/gitlab/gitlab.js` をモックし、非公開関数（`buildChartUpdate()` 等）はエクスポートされたステップの振る舞いを通して間接的に検証する
+- GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする（`test/lib/gitlab/gitlab.test.ts` 参照）。各ステップのテスト（`test/steps/*.test.ts`）も `lib/gitlab/gitlab.js` をモックし、非公開関数（`buildPlan()` 等）はエクスポートされたステップの振る舞いを通して間接的に検証する
 
 **IMPORTANT**: 変更後は必ず `pnpm check` を通してから完了を報告する。テスト件数・エラーなどの
 根拠なしに「完了しました」と言わない。

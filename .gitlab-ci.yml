@@ -5,7 +5,7 @@ spec:
       default: "false"
       type: boolean
     CONCURRENCY_LIMIT:
-      description: "(chartリポジトリ, テナント/クライアント)単位の同時処理数（1以上の整数）"
+      description: "(chartリポジトリ, テナント/クライアント)単位の同時処理数（1〜20の整数）"
       default: "3"
       type: string
     CONFIG_PATH:
@@ -60,7 +60,7 @@ variables:
     description: "true にするとブランチ作成・MR作成をスキップし、ログのみ出力します（デフォルト: false）"
   CONCURRENCY_LIMIT:
     value: "$[[ inputs.CONCURRENCY_LIMIT ]]"
-    description: "(chartリポジトリ, テナント/クライアント)単位の同時処理数（1以上の整数、デフォルト: 3）省略可"
+    description: "(chartリポジトリ, テナント/クライアント)単位の同時処理数（1〜20の整数、デフォルト: 3）省略可"
   CONFIG_PATH:
     value: "$[[ inputs.CONFIG_PATH ]]"
     description: "設定ファイルのパス（省略時はデフォルト: config/）省略可"

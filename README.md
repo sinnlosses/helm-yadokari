@@ -116,9 +116,9 @@ flowchart TD
 ### 実行ログの例
 
 ```json
-{"level":"info","timestamp":"2026-09-02T00:00:00.000Z","event":"run_start","dryRun":false,"concurrencyLimit":3}
-{"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_chart","chartDir":"teamA-chart","tenantId":"tenantId1","clientId":"clientId1","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","previousTag":"main-build-at-20260901-090000","latestTag":"main-build-at-20260902-090000"}]}
-{"level":"info","timestamp":"2026-09-02T00:00:00.456Z","event":"update_chart","chartDir":"teamB-chart","tenantId":"tenantId1","clientId":"clientId1","chartProjectId":999,"chartProjectName":"teamB-chart","result":"SKIPPED","reason":"no_diff"}
+{"level":"info","timestamp":"2026-09-02T00:00:00.000Z","event":"run_start","gitlabUrl":"https://gitlab.example.com","dryRun":false,"concurrencyLimit":3,"tagFormat":"{branch}-build-at-{date}-{time}"}
+{"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_chart","chartDirName":"teamA-chart","tenantId":"tenantId1","clientId":"clientId1","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","latestTag":"main-build-at-20260902-090000","updates":[{"valuesPath":"charts/my-app/values.yaml","previousTagName":"main-build-at-20260901-090000"}],"helmTargetBranchUpdates":[]}]}
+{"level":"info","timestamp":"2026-09-02T00:00:00.456Z","event":"update_chart","chartDirName":"teamB-chart","tenantId":"tenantId1","clientId":"clientId1","chartProjectId":999,"chartProjectName":"teamB-chart","result":"SKIPPED","reason":"no_diff"}
 {"level":"info","timestamp":"2026-09-02T00:00:00.500Z","event":"summary","CREATED":1,"SKIPPED":1,"ERROR":0}
 {"level":"info","timestamp":"2026-09-02T00:00:00.520Z","event":"run_end","duration_ms":520}
 ```

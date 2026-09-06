@@ -20,7 +20,7 @@ export function right<R>(value: R): { readonly right: R } {
  *
  * ```ts
  * const { left: targets, right: settled } = partitionMap(outcomes, (outcome) =>
- *   outcome.status === "target" ? left(outcome.chartAndApps) : right(outcome.result),
+ *   outcome.status === "ok" ? left(outcome.value) : right(outcome.result),
  * )
  * ```
  */

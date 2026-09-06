@@ -44,6 +44,14 @@ CI設定を読み、改善点を洗い出して `tasks.json` に15件登録し�
   直書き＋タグの新旧を辞書順比較している（`TAG_FORMAT` を変えると誤判定）、
   `pnpm lint` が `test/` を対象にしていない
 
+**T-077 完了**（`chore/review-followups` ブランチ）。ドキュメント・コメントの実装との乖離4箇所を
+修正（README実行ログ例・`CLAUDE.md`のテスト方針・`partition.ts`のJSDoc例・`.gitlab-ci.yml`の
+`CONCURRENCY_LIMIT`説明）。haikuに委譲したが、受け入れ時に2点直した ——
+`valuesPath` の例が削除済みのdotパス形式（`applications.my-app.image.tag`）になっていたのを
+ファイルパスに、`run_start` の未設定な環境変数は `JSON.stringify` がキーごと落とすため
+空文字列ではなく非表示に。タスク本文の記述誤りで見落としていた `variables` 側の
+「1以上の整数」も併せて修正した。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした
