@@ -101,10 +101,10 @@
   {
     "id": "T-088",
     "task": "`LoadValuesYamlContent` の「呼び出し側が複製を作って渡し、実装がそれを破壊的に埋める」という契約を、不変な形にできないか検討し、決めたところまで実装する。\n\n現状の事実（調査済み）: `src/steps/build-plans/sub-steps/shared/types.ts` の\n```\nexport type LoadValuesYamlContent = (\n  cache: Map<ValuesPath, ValuesYamlEntry>,\n  valuesPath: ValuesPath,\n) => Promise<string>\n```\nは第1引数に**Mutableな `Map`** を取る。実装（`src/steps/build-plans/build-plans.ts` の `createChartAccess()`）は `getOrFetch()` でその Map に fetch 結果を書き込む。呼び出し側（`image-tag-target.ts` / `helm-target-branch-target.ts`）は毎回\n```\nconst draftCopy = new Map(acc.draft)\nconst valuesYamlContent = await loadValuesYamlContent(draftCopy, target.valuesPath)\n```\nと手で複製を作ってから渡し、差分が無い場合も `return { ...acc, draft: draftCopy }` と「fetch結果だけ拾った下書き」を返している。他の値（`ValuesYamlDraft` は `ReadonlyMap`、アキュムレータは全フィールド `readonly`）が徹底して不変なのに、ここだけ「引数として渡した入れ物が書き変わる」規約になっており、読み手は `writeValuesYamlDraft()` のJSDoc（「呼び出し元は `new Map(acc.draft)` で複製したMutableなコピーに対して呼ぶことを想定」）を読まないと正しく使えない。\n\n詰める論点:\n(a) 戻り値を `Promise<{ content: string; draft: ValuesYamlDraft }>` にして、複製と書き込みを実装側に閉じ込められるか。そうすると呼び出し側から `new Map(...)` が消え、`ValuesYamlDraft` を `ReadonlyMap` のまま扱い続けられるか。\n(b) その形にした場合、`getOrFetch()`（`src/utils/cache.ts`、Mutableな Map を前提とする汎用キャッシュ）をそのまま使えるか。使えないなら、`createChartAccess()` の中だけで複製→書き込み→凍結という手順を踏めば済むか。\n(c) 1アプリ・1箇所ごとに Map を複製するコストは現状も同じ（今も毎回複製している）ので、性能上の悪化は無いはず。確認すること。\n(d) 変えない判断をする場合、この契約が必要な理由（`ValuesYamlDraft` を chartAndApps 単位で積み上げる設計との関係）を `docs/architecture.md` に書けるか。\n\n完了条件: 決めた内容を `docs/architecture.md`「コードからは読み取れない設計判断」に記録する。変える判断なら実装し、`grep -rn \"new Map(acc.draft)\" src/` が0件になることと `pnpm check`（テスト件数が変わらないこと）で確認する。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "opus",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "LoadValuesYamlContent を Promise<{content, draft}> を返す形に変え、複製を実装側（build-plans.ts の createChartAccess）へ寄せた。grep 'new Map(acc.draft)' が0件になり、サブステップ側は ValuesYamlDraft(ReadonlyMap) だけを扱う。コピー回数はむしろ減った（以前はtargetごとに無条件複製、今は下書きミス時と書き込み時のみ）。読み込み用 cacheValuesYamlDraft()(modified:false) と書き込み用 writeValuesYamlDraft()(modified:true) で入口を分け、toFileUpdates() が依存する不変条件を関数名で保つ形にした。pnpm check（31ファイル332テスト、変化なし）通過",
     "dependencies": []
   },
   {

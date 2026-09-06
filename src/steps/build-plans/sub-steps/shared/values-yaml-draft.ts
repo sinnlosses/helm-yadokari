@@ -22,19 +22,26 @@ export type ValuesYamlEntry = {
  */
 export type ValuesYamlDraft = ReadonlyMap<ValuesPath, ValuesYamlEntry>
 
-/**
- * 下書きの複製に書き換え後の内容を積んで返す。呼び出し元（`applyImageTagTarget()`・
- * `applyHelmTargetBranchTarget()`）は`new Map(acc.draft)`で複製したMutableなコピーに対して
- * 呼ぶことを想定しており、この関数自体はその複製を書き換えて返すだけ（呼び出し元の
- * `acc.draft`は変更しない）。
- */
+/** 書き換え後の内容を積んだ新しい下書きを返す（引数の下書きは変更しない） */
 export function writeValuesYamlDraft(
-  draftCopy: Map<ValuesPath, ValuesYamlEntry>,
+  draft: ValuesYamlDraft,
   valuesPath: ValuesPath,
   content: string,
-): Map<ValuesPath, ValuesYamlEntry> {
-  draftCopy.set(valuesPath, { content, modified: true })
-  return draftCopy
+): ValuesYamlDraft {
+  return new Map(draft).set(valuesPath, { content, modified: true })
+}
+
+/**
+ * GitLabから読んだ内容を書き換え扱いせずに積んだ新しい下書きを返す（引数の下書きは変更しない）。
+ * `modified`なエントリが`writeValuesYamlDraft()`経由でしか生まれないことを、
+ * 読み込み用の入口を分けることで保っている。
+ */
+export function cacheValuesYamlDraft(
+  draft: ValuesYamlDraft,
+  valuesPath: ValuesPath,
+  content: string,
+): ValuesYamlDraft {
+  return new Map(draft).set(valuesPath, { content, modified: false })
 }
 
 /**

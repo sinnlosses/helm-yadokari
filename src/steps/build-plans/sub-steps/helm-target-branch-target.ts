@@ -26,10 +26,12 @@ async function applyHelmTargetBranchTarget(
   target: AnchorTarget,
 ): Promise<ApplyHelmTargetsAcc> {
   const { branchName } = helmTargetBranch
-  const draftCopy = new Map(acc.draft)
-  const valuesYamlContent = await loadValuesYamlContent(draftCopy, target.valuesPath)
+  const { content: valuesYamlContent, draft } = await loadValuesYamlContent(
+    acc.draft,
+    target.valuesPath,
+  )
   const previousBranchRaw = getValueAtAnchor(valuesYamlContent, target.anchorName)
-  if (previousBranchRaw === branchName) return { ...acc, draft: draftCopy }
+  if (previousBranchRaw === branchName) return { ...acc, draft }
 
   if (!(await branchExists(branchName))) {
     throw new Error(
@@ -39,7 +41,7 @@ async function applyHelmTargetBranchTarget(
 
   return {
     draft: writeValuesYamlDraft(
-      draftCopy,
+      draft,
       target.valuesPath,
       setValueAtAnchor(valuesYamlContent, target.anchorName, branchName),
     ),

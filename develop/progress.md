@@ -113,6 +113,13 @@ wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラー�
 （危険なエラー方針は既に `runSettled()`・`settleAsError()` に集約済み）。理由は
 `docs/architecture.md` に記録したので、次に読む人が同じ検討をやり直さなくて済む。
 
+**T-088 完了**。`LoadValuesYamlContent` の「呼び出し側が `new Map(acc.draft)` で複製して渡し、
+実装が破壊的に埋める」契約をやめ、`Promise<{ content, draft }>` を返す形にした。
+サブステップ側は `ReadonlyMap` だけを扱うようになり、`new Map(acc.draft)` は0件に。
+**コピー回数はむしろ減った**（以前はtargetごとに無条件で複製、今は下書きミス時と書き込み時のみ）。
+読み込み用 `cacheValuesYamlDraft()` と書き込み用 `writeValuesYamlDraft()` で入口を分け、
+「`modified` は書き込み経由でしか生まれない」という `toFileUpdates()` の前提を関数名で保つ形にした。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした

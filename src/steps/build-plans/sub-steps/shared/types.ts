@@ -1,11 +1,23 @@
 import type { BranchName, ParsedTag, TagName, ValuesPath } from "../../../../types/types.js"
-import type { ValuesYamlDraft, ValuesYamlEntry } from "./values-yaml-draft.js"
+import type { ValuesYamlDraft } from "./values-yaml-draft.js"
 
-/** `build-plans.ts`のvalues.yaml下書き（chartAndApps単位で共有）を経由して内容を取得する関数 */
+/**
+ * `loadValuesYamlContent()`の結果。読み込んだ内容と、その内容を載せた下書き。
+ * 下書きを返すのは、GitLabから読んだ結果を次のtarget・次のアプリへ引き継ぐため。
+ */
+export type LoadedValuesYaml = {
+  readonly content: string
+  readonly draft: ValuesYamlDraft
+}
+
+/**
+ * values.yamlの内容を下書き（chartAndApps単位で共有）経由で取得する関数。下書きに無ければ
+ * GitLabから読む。渡した下書きは変更せず、読み込み結果を載せた新しい下書きを返す。
+ */
 export type LoadValuesYamlContent = (
-  cache: Map<ValuesPath, ValuesYamlEntry>,
+  draft: ValuesYamlDraft,
   valuesPath: ValuesPath,
-) => Promise<string>
+) => Promise<LoadedValuesYaml>
 
 /**
  * 指定ブランチがchartリポジトリに実在するかを返す関数。`build-plans.ts`側でGitLabクライアント・

@@ -159,6 +159,19 @@
     verify-configは**問題を全件列挙して返すのが目的の別プログラム**（lintスクリプト）で、
     fatalで全体を落とす方針そのものを持たない
 
+- **`ValuesYamlDraft`は受け取って返す。引数として渡した入れ物が書き変わる契約にしない**:
+  以前の`LoadValuesYamlContent`は第1引数に**Mutableな`Map`**を取り、呼び出し側が毎回
+  `new Map(acc.draft)`で複製してから渡し、実装がそれを埋める形だった。周囲の値
+  （`ValuesYamlDraft`は`ReadonlyMap`、アキュムレータは全フィールド`readonly`）が
+  すべて不変なのにここだけ規約が違い、`writeValuesYamlDraft()`のJSDocを読まないと
+  正しく使えなかった。`Promise<{ content, draft }>`を返す形に変え、複製を実装側へ寄せた
+  - **コピー回数はむしろ減った**。以前はtargetごとに無条件で複製していたが、今は
+    下書きにヒットしたらそのまま同じ下書きを返し、GitLabから読んだときと書き込んだときだけ
+    新しいMapを作る
+  - 読み込み用の`cacheValuesYamlDraft()`（`modified: false`）と書き込み用の
+    `writeValuesYamlDraft()`（`modified: true`）で入口を分けてあるのは、
+    「`modified`なエントリは書き込み経由でしか生まれない」という`toFileUpdates()`が
+    依存する不変条件を、関数名のレベルで保つため
 - **stepの入口にある「並列実行 → 振り分け」の重複は、共通化せずそのまま置く**:
   `filterTargets()`と`buildPlans()`は`mapWithConcurrency(...)` → `partitionMap(...)`の6行が
   名前以外まったく同じで、共通化したくなる形をしている。**検討したうえで採らない**:

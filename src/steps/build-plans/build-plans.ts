@@ -31,7 +31,11 @@ import { applyHelmTargetBranchTargets } from "./sub-steps/helm-target-branch-tar
 import { applyImageTagTargets } from "./sub-steps/image-tag-target.js"
 import { resolveLatestTag } from "./sub-steps/resolve-latest-tag.js"
 import type { BranchExists, LoadValuesYamlContent } from "./sub-steps/shared/types.js"
-import { type ValuesYamlDraft, toFileUpdates } from "./sub-steps/shared/values-yaml-draft.js"
+import {
+  type ValuesYamlDraft,
+  cacheValuesYamlDraft,
+  toFileUpdates,
+} from "./sub-steps/shared/values-yaml-draft.js"
 
 export type BuildPlansResult = {
   readonly toApply: readonly ChartUpdateTarget[]
@@ -133,19 +137,16 @@ async function buildPlan(
  * 同じブランチ名につき1回だけになるよう専用のキャッシュを持つ。
  */
 function createChartAccess(gitlab: GitlabClient, chart: ChartRepoConfig): ChartAccess {
-  const loadValuesYamlContent: LoadValuesYamlContent = (draftCopy, valuesPath) =>
-    getOrFetch(draftCopy, valuesPath, async () => {
-      const valuesYamlContent = await getFileContent(
-        gitlab,
-        chart.projectId,
-        valuesPath,
-        chart.mrTargetBranch,
-      )
-      if (valuesYamlContent === undefined) {
-        throw new Error(`values.yaml が見つかりません: ${valuesPath}`)
-      }
-      return { content: valuesYamlContent, modified: false }
-    }).then((entry) => entry.content)
+  const loadValuesYamlContent: LoadValuesYamlContent = async (draft, valuesPath) => {
+    const cached = draft.get(valuesPath)
+    if (cached !== undefined) return { content: cached.content, draft }
+
+    const content = await getFileContent(gitlab, chart.projectId, valuesPath, chart.mrTargetBranch)
+    if (content === undefined) {
+      throw new Error(`values.yaml が見つかりません: ${valuesPath}`)
+    }
+    return { content, draft: cacheValuesYamlDraft(draft, valuesPath, content) }
+  }
 
   const branchExistsCache = new Map<BranchName, boolean>()
   const branchExists: BranchExists = (branch) =>

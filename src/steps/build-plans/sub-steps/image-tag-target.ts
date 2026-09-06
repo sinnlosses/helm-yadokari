@@ -23,19 +23,21 @@ async function applyImageTagTarget(
   target: AnchorTarget,
 ): Promise<ApplyImageTagAcc> {
   const latestTagName = latestTag.tag.name
-  const draftCopy = new Map(acc.draft)
-  const valuesYamlContent = await loadValuesYamlContent(draftCopy, target.valuesPath)
+  const { content: valuesYamlContent, draft } = await loadValuesYamlContent(
+    acc.draft,
+    target.valuesPath,
+  )
   const previousTagRaw = getValueAtAnchor(valuesYamlContent, target.anchorName)
   const previousTagName = previousTagRaw === undefined ? undefined : toTagName(previousTagRaw)
 
-  if (previousTagName === latestTagName) return { ...acc, draft: draftCopy }
+  if (previousTagName === latestTagName) return { ...acc, draft }
   if (previousTagName !== undefined && latestTag.trackedHeadTagNames.has(previousTagName)) {
-    return { ...acc, draft: draftCopy }
+    return { ...acc, draft }
   }
 
   return {
     draft: writeValuesYamlDraft(
-      draftCopy,
+      draft,
       target.valuesPath,
       setValueAtAnchor(valuesYamlContent, target.anchorName, latestTagName),
     ),
