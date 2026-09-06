@@ -40,8 +40,26 @@ export function toTagFormat(s: string): TagFormat {
 }
 
 declare const gitLabUrlBrand: unique symbol
+/**
+ * GitLab上のURL（インスタンスのホスト・プロジェクトのweb URL・パイプラインのURL・
+ * MR本文に載せるタグや比較のURL）。`URL`オブジェクトではなく文字列のブランド型なのは、
+ * 生成後の用途がMR本文（Markdown）とログへの埋め込みしかないため（詳細は
+ * `docs/architecture.md`「コードからは読み取れない設計判断」）。
+ */
 export type GitLabUrl = string & { readonly [gitLabUrlBrand]: never }
-export function toGitLabUrl(s: string): GitLabUrl {
+/**
+ * `GitLabUrl`の唯一の生成経路。文字列がhttp(s)のURLであることをここで検証するので、
+ * 環境変数由来でもGitLab APIのレスポンス由来でも、未検証の文字列が`GitLabUrl`に
+ * なることはない。`label`は「どの値が不正だったか」をメッセージに出すために渡す。
+ */
+export function toGitLabUrl(s: string, label = "URL"): GitLabUrl {
+  if (!URL.canParse(s)) {
+    throw new Error(`${label} が有効な URL ではありません: "${s}"`)
+  }
+  const { protocol } = new URL(s)
+  if (protocol !== "https:" && protocol !== "http:") {
+    throw new Error(`${label} は http:// または https:// で始まる必要があります: "${s}"`)
+  }
   return s as GitLabUrl
 }
 

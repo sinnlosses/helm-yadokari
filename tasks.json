@@ -47,10 +47,10 @@
   {
     "id": "T-069",
     "task": "URL を文字列で扱っている箇所を型で縛れないか検討し、決めた方針まで実装する。ユーザーの問題意識（2026-09-06）:「URL を string で扱っている箇所があるように見える。`URL` インターフェースを使うなど型で縛ることを検討してほしい」。現状の事実（調査済み）: `GitLabUrl` は `string` のブランド型（src/types/brand.ts）で、生成経路は3つ ―― (1) src/lib/env.ts の `validateGitlabUrl()`（`URL.canParse()` と protocol を検証済み）、(2) src/lib/gitlab/gitlab.ts の `getProjectWebUrl()`（`String(project.web_url)`、**検証なし**）、(3) 同 `getLatestPipelineForRef()`（`String(pipeline.web_url)`、**検証なし**）。組み立て側は src/lib/gitlab/mr-content.ts が `${webUrl}/-/tags/${encodeURIComponent(tagName)}` のような**文字列連結**で、`buildTagUrl()` の戻り値は素の `string`（`GitLabUrl` ですらない）。詰める論点: (a) `GitLabUrl` を `URL` オブジェクトに置き換えるか、ブランド型のままにして生成経路(2)(3)にも検証を通すか。`URL` はミュータブルで JSON ログにそのまま載せると `{}` にならないか（logger の出力・MR本文への埋め込み・テストの比較のしやすさ）を確認して判断する。(b) パスの結合を `new URL(path, base)` に寄せるべきか、GitLab の web_url がサブパス付き（例: `https://example.com/gitlab`）でも壊れないか。現状の連結方式との差を確認する。(c) MR本文に出す最終形は文字列なので、型で縛る範囲の境界をどこに引くか。(d) `TagName` などのブランド型と `encodeURIComponent` の関係（どこでエスケープするかを型で表せるか）。完了条件: 決めた方針を docs/architecture.md「コードからは読み取れない設計判断」に記録し、コード変更を伴う場合は既存のMR本文の出力が変わらないことをテストで示して `pnpm check` を通すこと",
-    "status": "todo",
+    "status": "done",
     "difficulty": "opus",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "GitLabUrl は URL オブジェクトにせず文字列のブランド型のまま（href正規化で出力が変わる・ミュータブル・テスト比較が煩雑で、用途はMR本文とログへの埋め込みだけ）。代わりに生成経路を縛り、toGitLabUrl() を http(s) 検証つきファクトリにして env.ts の validateGitlabUrl() の検証をそこへ一本化、無検証だった GitLab API 由来の2箇所（project.web_url / pipeline.web_url）も必ず通るようにした。buildTagUrl() の戻り値を GitLabUrl にし、compare URL も buildCompareUrl() に切り出してエスケープを2関数に閉じ込めた。new URL(path, base) へ寄せない理由（webUrlはオリジンではなくプロジェクトのパスまで含むため、ベースのパスが捨てられる）も docs/architecture.md に記録。テスト1件追加（web_urlが不正ならMR本文に載る前にエラー）。pnpm check（28ファイル322テスト、321→322）通過。既存のMR本文のテストが無変更で通ることで出力が変わっていないことを確認",
     "dependencies": []
   },
   {

@@ -9,7 +9,7 @@ import type {
   TagName,
   TenantId,
 } from "../../types/types.js"
-import { toBranchName } from "../../types/types.js"
+import { toBranchName, toGitLabUrl } from "../../types/types.js"
 import { getOrFetch } from "../../utils/cache.js"
 
 /**
@@ -69,8 +69,20 @@ export function buildMrTitle(
   return `Auto MR by yadokari: update ${tenantId}/${clientId}${summary}`
 }
 
-function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): string {
-  return `${webUrl}/-/tags/${encodeURIComponent(tagName)}`
+/**
+ * プロジェクトのweb URL配下のページURLを組み立てる。`webUrl`はオリジンではなく
+ * **プロジェクトのパスまで含んだURL**（`https://host/group/proj`、サブパス設置なら
+ * `https://host/gitlab/group/proj`）なので、`new URL(path, webUrl)`ではなく連結で組み立てる
+ * （前者はベースのパスを捨ててしまう）。タグ名のエスケープもここに閉じ込め、
+ * 呼び出し側が`encodeURIComponent`を書かなくて済むようにする。
+ */
+function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): GitLabUrl {
+  return toGitLabUrl(`${webUrl}/-/tags/${encodeURIComponent(tagName)}`)
+}
+
+/** 2つのタグ間の比較ページURL（`buildTagUrl()`と同じ組み立て方） */
+function buildCompareUrl(webUrl: GitLabUrl, from: TagName, to: TagName): GitLabUrl {
+  return toGitLabUrl(`${webUrl}/-/compare/${encodeURIComponent(from)}...${encodeURIComponent(to)}`)
 }
 
 /**
@@ -84,7 +96,7 @@ function buildImageTagRow(webUrl: GitLabUrl, plan: AppUpdatePlan, update: ImageT
     ? `[${update.previousTag}](${buildTagUrl(webUrl, update.previousTag)})`
     : "(未設定)"
   const compareUrl = update.previousTag
-    ? `${webUrl}/-/compare/${encodeURIComponent(update.previousTag)}...${encodeURIComponent(plan.latestTag.name)}`
+    ? buildCompareUrl(webUrl, update.previousTag, plan.latestTag.name)
     : "-"
   const cells = [
     plan.app.projectName,

@@ -187,7 +187,7 @@ export async function getProjectWebUrl(
   projectId: ProjectId,
 ): Promise<GitLabUrl> {
   const project = await withRetry(() => gitlab.Projects.show(projectId))
-  return toGitLabUrl(String(project.web_url))
+  return toGitLabUrl(String(project.web_url), "GitLab APIが返したプロジェクトの web_url")
 }
 
 /**
@@ -204,7 +204,9 @@ export async function getLatestPipelineForRef(
   return withRetry(async () => {
     try {
       const pipeline = await gitlab.Pipelines.showLatest(projectId, { ref })
-      return { webUrl: toGitLabUrl(String(pipeline.web_url)) }
+      return {
+        webUrl: toGitLabUrl(String(pipeline.web_url), "GitLab APIが返したパイプラインの web_url"),
+      }
     } catch (error) {
       const status = extractHttpStatus(error)
       if (status === 404 || status === 403) return undefined

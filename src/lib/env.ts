@@ -13,15 +13,9 @@ export function loadOptionalEnv(key: string): string | undefined {
   return value?.trim() ? value : undefined
 }
 
+/** URLとしての検証は`toGitLabUrl()`が行う。ここは環境変数名をメッセージに載せるだけ */
 export function validateGitlabUrl(raw: string): GitLabUrl {
-  if (!URL.canParse(raw)) {
-    throw new Error(`GITLAB_URL が有効な URL ではありません: "${raw}"`)
-  }
-  const { protocol } = new URL(raw)
-  if (protocol !== "https:" && protocol !== "http:") {
-    throw new Error(`GITLAB_URL は http:// または https:// で始まる必要があります: "${raw}"`)
-  }
-  return toGitLabUrl(raw)
+  return toGitLabUrl(raw, "GITLAB_URL")
 }
 
 export function parseConcurrencyLimit(raw: string | undefined): number {

@@ -137,6 +137,19 @@
     verify-configは**問題を全件列挙して返すのが目的の別プログラム**（lintスクリプト）で、
     fatalで全体を落とす方針そのものを持たない
 
+- **URLは`URL`オブジェクトではなく文字列のブランド型（`GitLabUrl`）で扱う**: 生成後の
+  用途はMR本文（Markdown）とログへの埋め込みだけで、`URL`にすると`href`の正規化で
+  出力文字列が変わりうる（`https://example.com` → `https://example.com/`）うえ、
+  ミュータブルでテストの比較も煩雑になる。**型で縛るのは生成経路のほう**で、
+  `toGitLabUrl()`をhttp(s)検証つきのファクトリにし、環境変数由来もGitLab APIの
+  レスポンス由来（`project.web_url`・`pipeline.web_url`）も必ずここを通す
+- **プロジェクト配下のURLは`new URL(path, base)`ではなく文字列連結で組み立てる**:
+  `webUrl`はオリジンではなく**プロジェクトのパスまで含んだURL**
+  （`https://host/group/proj`、サブパス設置なら`https://host/gitlab/group/proj`）なので、
+  `new URL("/-/tags/x", webUrl)`はグループ/プロジェクト部分を捨てて壊れたURLになる。
+  組み立てとエスケープは`mr-content.ts`の`buildTagUrl()`/`buildCompareUrl()`に閉じ込め、
+  呼び出し側が`encodeURIComponent`を書かなくて済むようにしている
+
 - **`gitlab/tag.ts` は外部I/Oを持たないのに `utils/` ではなく `lib/gitlab/` にある**:
   純粋な文字列/日付処理だが「GitLabのタグ」という命名規則に強く紐づくため。`utils/`は
   ドメイン知識を持たないものだけを置く

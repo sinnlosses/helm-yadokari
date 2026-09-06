@@ -431,4 +431,11 @@ describe("getProjectWebUrl", () => {
       toGitLabUrl("https://gitlab.example.com/group/app"),
     )
   })
+
+  it("web_url がURLとして不正なら、その値をMR本文に載せる前にエラーにする", async () => {
+    const client = makeClient({
+      Projects: { show: vi.fn().mockResolvedValue({ web_url: "not a url" }) },
+    })
+    await expect(getProjectWebUrl(client, toProjectId(1))).rejects.toThrow("web_url")
+  })
 })
