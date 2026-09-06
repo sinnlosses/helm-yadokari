@@ -208,7 +208,7 @@ describe("commitFileUpdates", () => {
       toBranchName("yadokari/update"),
       toBranchName("develop"),
       "chore: update",
-      [{ filePath: toValuesPath("values.yaml"), content: "image:\n  tag: v2\n" }],
+      [{ valuesPath: toValuesPath("values.yaml"), content: "image:\n  tag: v2\n" }],
     )
     expect(removeFn).not.toHaveBeenCalled()
     expect(createFn).toHaveBeenCalledWith(
@@ -234,7 +234,7 @@ describe("commitFileUpdates", () => {
       toBranchName("yadokari/update"),
       toBranchName("develop"),
       "chore: update",
-      [{ filePath: toValuesPath("values.yaml"), content: "image:\n  tag: v2\n" }],
+      [{ valuesPath: toValuesPath("values.yaml"), content: "image:\n  tag: v2\n" }],
     )
     expect(removeFn).toHaveBeenCalledWith(1, "yadokari/update")
     expect(createFn).toHaveBeenCalledWith(
@@ -263,7 +263,7 @@ describe("commitFileUpdates", () => {
       toBranchName("yadokari/update"),
       toBranchName("develop"),
       "chore: update",
-      [{ filePath: toValuesPath("new/values.yaml"), content: "image:\n  tag: v2\n" }],
+      [{ valuesPath: toValuesPath("new/values.yaml"), content: "image:\n  tag: v2\n" }],
     )
     expect(repositoryFilesShow).toHaveBeenCalledWith(1, "new/values.yaml", "develop")
     expect(createFn).toHaveBeenCalledWith(
@@ -292,8 +292,8 @@ describe("commitFileUpdates", () => {
       toBranchName("develop"),
       "chore: update",
       [
-        { filePath: toValuesPath("a/values.yaml"), content: "a" },
-        { filePath: toValuesPath("b/values.yaml"), content: "b" },
+        { valuesPath: toValuesPath("a/values.yaml"), content: "a" },
+        { valuesPath: toValuesPath("b/values.yaml"), content: "b" },
       ],
     )
     const actions = createFn.mock.calls[0]?.[3]

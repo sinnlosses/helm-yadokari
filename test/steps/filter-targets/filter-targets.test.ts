@@ -46,8 +46,8 @@ describe("filterTargets", () => {
   })
 
   it("複数chartAndAppsを判定順に振り分ける", async () => {
-    const noApps = { ...makeChartAndApps([]), chartDir: toChartDirName("no-apps") }
-    const target = { ...makeChartAndApps([makeApp()]), chartDir: toChartDirName("target") }
+    const noApps = { ...makeChartAndApps([]), chartDirName: toChartDirName("no-apps") }
+    const target = { ...makeChartAndApps([makeApp()]), chartDirName: toChartDirName("target") }
     const { targets, settled } = await filterTargets(mockGitlab, [noApps, target], 3)
     expect(targets).toEqual([target])
     expect(settled).toEqual(["SKIPPED"])

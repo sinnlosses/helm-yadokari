@@ -30,14 +30,16 @@ describe("buildUpdateBranch", () => {
 function makePlan(
   overrides: Partial<{
     pipeline: PipelineInfo
-    previousTag: TagName | undefined
+    previousTagName: TagName | undefined
     projectName: string
     updates: AppUpdatePlan["updates"]
     helmTargetBranchUpdates: AppUpdatePlan["helmTargetBranchUpdates"]
   }> = {},
 ): AppUpdatePlan {
-  const previousTag =
-    "previousTag" in overrides ? overrides.previousTag : toTagName("main-build-at-20251231-000000")
+  const previousTagName =
+    "previousTagName" in overrides
+      ? overrides.previousTagName
+      : toTagName("main-build-at-20251231-000000")
   return {
     app: makeApp({
       projectId: toProjectId(1),
@@ -45,7 +47,7 @@ function makePlan(
     }),
     latestTag: {
       name: toTagName("main-build-at-20260101-000000"),
-      branch: toBranchName("main"),
+      branchName: toBranchName("main"),
       builtAt: new Date("2026-01-01T00:00:00Z"),
     },
     pipeline: overrides.pipeline,
@@ -53,9 +55,9 @@ function makePlan(
       {
         target: {
           valuesPath: toValuesPath("values.yaml"),
-          anchor: toAnchorName("appVersion"),
+          anchorName: toAnchorName("appVersion"),
         },
-        previousTag,
+        previousTagName,
       },
     ],
     helmTargetBranchUpdates: overrides.helmTargetBranchUpdates ?? [],
@@ -64,7 +66,7 @@ function makePlan(
 
 describe("buildMrTitle", () => {
   const helmUpdate = {
-    target: { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("targetBranch") },
+    target: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
     previousBranch: toBranchName("release/2025-q4"),
     newBranch: toBranchName("release/2026-q1"),
   }
@@ -79,16 +81,16 @@ describe("buildMrTitle", () => {
     const plan = makePlan({
       updates: [
         {
-          target: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("x") },
-          previousTag: undefined,
+          target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
+          previousTagName: undefined,
         },
         {
-          target: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("y") },
-          previousTag: undefined,
+          target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("y") },
+          previousTagName: undefined,
         },
         {
-          target: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("z") },
-          previousTag: undefined,
+          target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("z") },
+          previousTagName: undefined,
         },
       ],
     })
@@ -136,7 +138,7 @@ describe("buildMrDescription", () => {
   const makeResolveWebUrl = (webUrl = "https://gitlab.example.com/g/my-app") =>
     vi.fn().mockResolvedValue(toGitLabUrl(webUrl))
   const helmUpdate = {
-    target: { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("targetBranch") },
+    target: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
     previousBranch: toBranchName("release/2025-q4"),
     newBranch: toBranchName("release/2026-q1"),
   }
@@ -167,12 +169,12 @@ describe("buildMrDescription", () => {
       makePlan({
         updates: [
           {
-            target: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("x") },
-            previousTag: toTagName("main-build-at-20251231-000000"),
+            target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
+            previousTagName: toTagName("main-build-at-20251231-000000"),
           },
           {
-            target: { valuesPath: toValuesPath("b.yaml"), anchor: toAnchorName("y") },
-            previousTag: undefined,
+            target: { valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") },
+            previousTagName: undefined,
           },
         ],
       }),
@@ -227,7 +229,7 @@ describe("buildMrDescription", () => {
 
   it("旧タグが未設定のとき (未設定) と表示し、比較は - にする", async () => {
     const description = await buildMrDescription(makeResolveWebUrl(), [
-      makePlan({ previousTag: undefined }),
+      makePlan({ previousTagName: undefined }),
     ])
 
     const row = description.split("\n").find((line) => line.includes("my-app"))

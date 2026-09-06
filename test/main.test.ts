@@ -83,7 +83,7 @@ describe("process", () => {
   it("loadConfig に CONFIG_PATH と TARGET_CHART/TARGET_CLIENTS由来のtargetを渡す", async () => {
     await processFn()
     expect(loadConfig).toHaveBeenCalledWith(undefined, {
-      chartDir: undefined,
+      chartDirName: undefined,
       clients: undefined,
     })
   })

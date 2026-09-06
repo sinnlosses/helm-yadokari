@@ -26,13 +26,13 @@ import {
  * （`TARGET_CHART` / `TARGET_CLIENTS` 環境変数由来）。
  */
 export type ConfigTarget = {
-  readonly chartDir?: string
+  readonly chartDirName?: string
   readonly clients?: readonly TargetClient[]
 }
 
 /** `target` で明示的に絞り込みが指定されているか（`TARGET_CHART` / `TARGET_CLIENTS` のいずれか） */
 function isExplicitlyTargeted(target: ConfigTarget): boolean {
-  return target.chartDir !== undefined || target.clients !== undefined
+  return target.chartDirName !== undefined || target.clients !== undefined
 }
 
 /** `config/` 直下に実在するディレクトリ名の一覧を、エラーメッセージ用に整形する */
@@ -110,7 +110,7 @@ function loadClientChartAndApps(
 
       return [
         {
-          chartDir,
+          chartDirName: chartDir,
           tenantId: toTenantId(tenantId),
           clientId: toClientId(clientId),
           chart,
@@ -149,13 +149,13 @@ export function loadConfig(configPath?: string, target: ConfigTarget = {}): Conf
   assertSafePath(path, "CONFIG_PATH")
 
   const chartDirs = listSubdirectories(path)
-  if (target.chartDir && !chartDirs.includes(target.chartDir)) {
+  if (target.chartDirName && !chartDirs.includes(target.chartDirName)) {
     throw new Error(
-      `TARGET_CHART で指定された "${target.chartDir}" が config/ 配下に見つかりません。` +
+      `TARGET_CHART で指定された "${target.chartDirName}" が config/ 配下に見つかりません。` +
         `config/ 直下のディレクトリ名を指定してください（実在するディレクトリ: ${formatChartDirs(chartDirs)}）`,
     )
   }
-  const targetChartDirs = target.chartDir ? [target.chartDir] : chartDirs
+  const targetChartDirs = target.chartDirName ? [target.chartDirName] : chartDirs
 
   const missingClients = (target.clients ?? []).filter(
     (client) => !clientDirExists(path, targetChartDirs, client),

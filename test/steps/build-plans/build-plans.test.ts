@@ -55,7 +55,7 @@ describe("buildPlans", () => {
     expect(toApply[0]?.chartAndApps).toBe(group)
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(NEW_TAG)
     expect(toApply[0]?.files).toEqual([
-      { filePath: "values.yaml", content: `variables:\n  - &appVersion ${NEW_TAG}\n` },
+      { valuesPath: "values.yaml", content: `variables:\n  - &appVersion ${NEW_TAG}\n` },
     ])
     expect(settled).toEqual([])
   })
@@ -123,7 +123,7 @@ describe("buildPlans", () => {
       chart: [
         {
           valuesPath: toValuesPath("shared.yaml"),
-          anchor: toAnchorName("appAVersion"),
+          anchorName: toAnchorName("appAVersion"),
         },
       ],
     })
@@ -133,7 +133,7 @@ describe("buildPlans", () => {
       chart: [
         {
           valuesPath: toValuesPath("shared.yaml"),
-          anchor: toAnchorName("appBVersion"),
+          anchorName: toAnchorName("appBVersion"),
         },
       ],
     })
@@ -175,8 +175,8 @@ describe("buildPlans", () => {
   it("非fatalなAPIエラーは該当chartAndAppsだけをERRORにし、他のchartAndAppsの処理は続行する", async () => {
     const appFail = makeApp({ projectId: toProjectId(1), projectName: toProjectName("app-fail") })
     const appOk = makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-ok") })
-    const failing = { ...makeChartAndApps([appFail]), chartDir: toChartDirName("failing") }
-    const ok = { ...makeChartAndApps([appOk]), chartDir: toChartDirName("ok") }
+    const failing = { ...makeChartAndApps([appFail]), chartDirName: toChartDirName("failing") }
+    const ok = { ...makeChartAndApps([appOk]), chartDirName: toChartDirName("ok") }
     vi.mocked(listTags).mockImplementation(async (_client, projectId) => {
       if (projectId === 1) throw makeHttpError(403)
       return [{ name: NEW_TAG, commitSha: HEAD_SHA }]

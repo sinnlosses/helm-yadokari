@@ -46,6 +46,15 @@ github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。`tasks.json`
 - リネーム対象は6件に確定（`anchor`・`HelmTargetBranchConfig.branch`・`ParsedTag.branch`・
   `chartDir`・`previousTag`・`FileUpdate.filePath`）。実装は T-073
 
+### T-073: リネームの実施
+
+- 6件を実施（`anchorName`・`branchName`×2・`chartDirName`・`previousTagName`・
+  `FileUpdate.valuesPath`）。28ファイル・約160行の差分だが、テスト件数は322のまま
+- **wire format は不変**: `anchors.yaml` のキー `anchor` と、gitbeakerに渡す
+  `CommitAction.filePath` はそのまま。詰め替えは `schema.ts` の `.transform()` と
+  `commitFileUpdates()` が担う
+- ログのキー（`chartDir`→`chartDirName`、`previousTag`→`previousTagName`）も追従させた
+
 ## 次にやること
 
 `tasks.json` の5タスク（T-071〜T-075）はすべて `todo`。依存があるのはT-073（T-072待ち）と

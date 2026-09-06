@@ -45,5 +45,5 @@ export function writeValuesYamlDraft(
 export function toFileUpdates(draft: ValuesYamlDraft): FileUpdate[] {
   return [...draft.entries()]
     .filter(([, entry]) => entry.modified)
-    .map(([filePath, entry]) => ({ filePath, content: entry.content }))
+    .map(([valuesPath, entry]) => ({ valuesPath, content: entry.content }))
 }

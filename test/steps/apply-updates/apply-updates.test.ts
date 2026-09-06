@@ -23,7 +23,7 @@ const mockGitlab = {} as unknown as GitlabClient
 
 const NEW_TAG = {
   name: toTagName("main-build-at-20260101-000000"),
-  branch: toBranchName("main"),
+  branchName: toBranchName("main"),
   builtAt: new Date("2026-01-01T00:00:00Z"),
 }
 
@@ -39,15 +39,15 @@ function makeTarget(): ChartUpdateTarget {
           {
             target: {
               valuesPath: toValuesPath("values.yaml"),
-              anchor: toAnchorName("appVersion"),
+              anchorName: toAnchorName("appVersion"),
             },
-            previousTag: undefined,
+            previousTagName: undefined,
           },
         ],
         helmTargetBranchUpdates: [],
       },
     ],
-    files: [{ filePath: toValuesPath("values.yaml"), content: "image:\n  tag: x\n" }],
+    files: [{ valuesPath: toValuesPath("values.yaml"), content: "image:\n  tag: x\n" }],
   }
 }
 

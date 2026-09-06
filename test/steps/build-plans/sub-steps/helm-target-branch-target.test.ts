@@ -49,11 +49,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
   it("helmTargetBranchが現在値と異なるとき、helmTargetBranchUpdateに含めて書き換える", async () => {
     const app = makeApp({
       helmTargetBranch: {
-        branch: toBranchName("release/2026-q1"),
+        branchName: toBranchName("release/2026-q1"),
         targets: [
           {
             valuesPath: toValuesPath("values.yaml"),
-            anchor: toAnchorName("targetBranch"),
+            anchorName: toAnchorName("targetBranch"),
           },
         ],
       },
@@ -70,7 +70,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     )
     expect(toApply[0]?.plans[0]?.helmTargetBranchUpdates).toEqual([
       {
-        target: { valuesPath: "values.yaml", anchor: "targetBranch" },
+        target: { valuesPath: "values.yaml", anchorName: "targetBranch" },
         previousBranch: "release/2025-q4",
         newBranch: "release/2026-q1",
       },
@@ -81,11 +81,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
   it("helmTargetBranchが現在値と同じで、chart側も差分が無いとき、そのアプリはSKIPPEDになる", async () => {
     const app = makeApp({
       helmTargetBranch: {
-        branch: toBranchName("release/2026-q1"),
+        branchName: toBranchName("release/2026-q1"),
         targets: [
           {
             valuesPath: toValuesPath("values.yaml"),
-            anchor: toAnchorName("targetBranch"),
+            anchorName: toAnchorName("targetBranch"),
           },
         ],
       },
@@ -107,11 +107,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
   it("chart側の差分は無くhelmTargetBranchのみ差分があるとき、そのアプリの計画を作成する", async () => {
     const app = makeApp({
       helmTargetBranch: {
-        branch: toBranchName("release/2026-q1"),
+        branchName: toBranchName("release/2026-q1"),
         targets: [
           {
             valuesPath: toValuesPath("values.yaml"),
-            anchor: toAnchorName("targetBranch"),
+            anchorName: toAnchorName("targetBranch"),
           },
         ],
       },
@@ -134,11 +134,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
   it("指定した向き先ブランチがchartリポジトリに存在しないとき、そのchartAndApps全体をERRORにする", async () => {
     const app = makeApp({
       helmTargetBranch: {
-        branch: toBranchName("release/2026-q1"),
+        branchName: toBranchName("release/2026-q1"),
         targets: [
           {
             valuesPath: toValuesPath("values.yaml"),
-            anchor: toAnchorName("targetBranch"),
+            anchorName: toAnchorName("targetBranch"),
           },
         ],
       },
@@ -161,11 +161,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
   it("向き先ブランチの存在確認は、chartリポジトリのprojectIdに対して行う", async () => {
     const app = makeApp({
       helmTargetBranch: {
-        branch: toBranchName("release/2026-q1"),
+        branchName: toBranchName("release/2026-q1"),
         targets: [
           {
             valuesPath: toValuesPath("values.yaml"),
-            anchor: toAnchorName("targetBranch"),
+            anchorName: toAnchorName("targetBranch"),
           },
         ],
       },
@@ -182,11 +182,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     const app = makeApp({
       projectName: toProjectName("my-test-app"),
       helmTargetBranch: {
-        branch: toBranchName("release/2026-q1"),
+        branchName: toBranchName("release/2026-q1"),
         targets: [
           {
             valuesPath: toValuesPath("helm/values.yaml"),
-            anchor: toAnchorName("targetBranch"),
+            anchorName: toAnchorName("targetBranch"),
           },
         ],
       },

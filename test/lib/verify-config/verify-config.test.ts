@@ -83,7 +83,9 @@ describe("verifyConfigExistence", () => {
 
   it("アンカーがvalues.yamlに存在しないとき問題として返す", async () => {
     const app = makeApp({
-      chart: [{ valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("noSuchAnchor") }],
+      chart: [
+        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("noSuchAnchor") },
+      ],
     })
 
     const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps([app])], 3)
@@ -95,9 +97,9 @@ describe("verifyConfigExistence", () => {
   it("Helmの向き先ブランチが存在しないとき問題として返す", async () => {
     const app = makeApp({
       helmTargetBranch: {
-        branch: toBranchName("release/ghost"),
+        branchName: toBranchName("release/ghost"),
         targets: [
-          { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("targetBranch") },
+          { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
         ],
       },
     })
@@ -113,8 +115,8 @@ describe("verifyConfigExistence", () => {
   it("複数の問題をまとめて返す（最初の1件で止まらない）", async () => {
     vi.mocked(getFileContent).mockResolvedValue(undefined)
     const apps = [
-      makeApp({ chart: [{ valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("x") }] }),
-      makeApp({ chart: [{ valuesPath: toValuesPath("b.yaml"), anchor: toAnchorName("y") }] }),
+      makeApp({ chart: [{ valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") }] }),
+      makeApp({ chart: [{ valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") }] }),
     ]
 
     const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps(apps)], 3)
@@ -125,8 +127,8 @@ describe("verifyConfigExistence", () => {
   it("同じvalues.yamlは1回だけ取得する（複数箇所でキャッシュを共有する）", async () => {
     const app = makeApp({
       chart: [
-        { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("appVersion") },
-        { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("targetBranch") },
+        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
+        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
       ],
     })
 

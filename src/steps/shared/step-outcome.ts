@@ -20,7 +20,7 @@ import { logger } from "../../utils/logger.js"
 export function buildLogContext(chartAndApps: ChartAndApps): Record<string, unknown> {
   return {
     event: "update_chart",
-    chartDir: chartAndApps.chartDir,
+    chartDirName: chartAndApps.chartDirName,
     tenantId: chartAndApps.tenantId,
     clientId: chartAndApps.clientId,
     chartProjectId: chartAndApps.chart.projectId,
@@ -35,7 +35,7 @@ export function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
     latestTag: plan.latestTag.name,
     updates: plan.updates.map((update) => ({
       valuesPath: update.target.valuesPath,
-      previousTag: update.previousTag,
+      previousTagName: update.previousTagName,
     })),
     helmTargetBranchUpdates: plan.helmTargetBranchUpdates.map((update) => ({
       valuesPath: update.target.valuesPath,

@@ -46,9 +46,9 @@ async function verifyTarget(
       `${where}: ${label} の values.yaml が見つかりません（${target.valuesPath} @ ${chart.mrTargetBranch}）`,
     ]
   }
-  if (getValueAtAnchor(content, target.anchor) === undefined) {
+  if (getValueAtAnchor(content, target.anchorName) === undefined) {
     return [
-      `${where}: ${label} のアンカー "${target.anchor}" が ${target.valuesPath} に見つかりません`,
+      `${where}: ${label} のアンカー "${target.anchorName}" が ${target.valuesPath} に見つかりません`,
     ]
   }
   return []
@@ -100,11 +100,11 @@ async function verifyApp(
   const helmTargetBranch = app.helmTargetBranch
   if (helmTargetBranch === undefined) return [...branchProblems, ...imageTagProblems]
 
-  const helmBranchFound = await cache.hasBranch(chart.projectId, helmTargetBranch.branch)
+  const helmBranchFound = await cache.hasBranch(chart.projectId, helmTargetBranch.branchName)
   const helmBranchProblems = helmBranchFound
     ? []
     : [
-        `${where}: helm.branchToSync "${helmTargetBranch.branch}" が ${chart.projectName} に見つかりません`,
+        `${where}: helm.branchToSync "${helmTargetBranch.branchName}" が ${chart.projectName} に見つかりません`,
       ]
   const helmTargetProblems = await verifyTargets(context, helmTargetBranch.targets, "helm.chart[]")
   return [...branchProblems, ...imageTagProblems, ...helmBranchProblems, ...helmTargetProblems]
@@ -122,7 +122,7 @@ async function verifyChartAndApps(
   const { chart, apps } = chartAndApps
   const context: VerifyContext = {
     cache,
-    where: `${chartAndApps.chartDir}/${chartAndApps.tenantId}/${chartAndApps.clientId}`,
+    where: `${chartAndApps.chartDirName}/${chartAndApps.tenantId}/${chartAndApps.clientId}`,
     chart,
     reportedPaths: new Set<string>(),
   }
@@ -177,7 +177,7 @@ export async function verifyConfigExistence(
         return await verifyChartAndApps(cache, chartAndApps)
       } catch (err) {
         return [
-          `${chartAndApps.chartDir}/${chartAndApps.tenantId}/${chartAndApps.clientId}: 検証中にエラーが発生しました（${toErrorMessage(err)}）`,
+          `${chartAndApps.chartDirName}/${chartAndApps.tenantId}/${chartAndApps.clientId}: 検証中にエラーが発生しました（${toErrorMessage(err)}）`,
         ]
       }
     },

@@ -100,7 +100,7 @@ export function parseTag(
 
   return {
     name: tagName,
-    branch,
+    branchName: branch,
     builtAt: new Date(Date.UTC(year, month - 1, day, hour, minute, second)),
   }
 }
@@ -114,7 +114,7 @@ export function buildNewTag(branch: BranchName, now: Date, format: TagFormat): P
   const timePart = `${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`
   return {
     name: toTagName(fillTagFormat(format, branch, datePart, timePart)),
-    branch,
+    branchName: branch,
     builtAt: now,
   }
 }

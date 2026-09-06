@@ -36,7 +36,7 @@ const AnchorTargetSchema = z
     valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
     anchor: z.string().min(1, "anchor は空にできません").transform(toAnchorName),
   })
-  .transform((v): AnchorTarget => ({ valuesPath: v.valuesPath, anchor: v.anchor }))
+  .transform((v): AnchorTarget => ({ valuesPath: v.valuesPath, anchorName: v.anchor }))
 
 /** config.yaml側。運用値のみ（chart構造はanchors.yaml側が持つ） */
 const AppOperationalSchema = z.object({

@@ -144,10 +144,10 @@ export async function commitFileUpdates(
   }
   const actions = await Promise.all(
     files.map(async (file): Promise<CommitAction> => {
-      const currentContent = await getFileContent(gitlab, projectId, file.filePath, baseBranch)
+      const currentContent = await getFileContent(gitlab, projectId, file.valuesPath, baseBranch)
       return {
         action: currentContent === undefined ? "create" : "update",
-        filePath: file.filePath,
+        filePath: file.valuesPath,
         content: file.content,
       }
     }),

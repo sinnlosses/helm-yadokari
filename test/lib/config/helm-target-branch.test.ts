@@ -26,8 +26,8 @@ describe("loadConfig（helmTargetBranch）", () => {
 
     const { chartAndAppsList } = loadConfig(dir.path)
     expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toEqual({
-      branch: "release/2026-q1",
-      targets: [{ valuesPath: "a.yaml", anchor: "targetBranch" }],
+      branchName: "release/2026-q1",
+      targets: [{ valuesPath: "a.yaml", anchorName: "targetBranch" }],
     })
   })
 
@@ -180,10 +180,10 @@ describe("loadConfig（helmTargetBranch）", () => {
 
     const { chartAndAppsList } = loadConfig(dir.path)
     expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toEqual({
-      branch: "release/2026-q1",
+      branchName: "release/2026-q1",
       targets: [
-        { valuesPath: "webapi.yaml", anchor: "webapiTargetBranch" },
-        { valuesPath: "batch.yaml", anchor: "batchTargetBranch" },
+        { valuesPath: "webapi.yaml", anchorName: "webapiTargetBranch" },
+        { valuesPath: "batch.yaml", anchorName: "batchTargetBranch" },
       ],
     })
   })

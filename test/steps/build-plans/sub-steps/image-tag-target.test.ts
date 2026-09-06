@@ -44,7 +44,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       chart: [
         {
           valuesPath: toValuesPath("values.yaml"),
-          anchor: toAnchorName("tenant1client1AppsVersion"),
+          anchorName: toAnchorName("tenant1client1AppsVersion"),
         },
       ],
     })
@@ -67,11 +67,11 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       chart: [
         {
           valuesPath: toValuesPath("webapi.yaml"),
-          anchor: toAnchorName("webapiVersion"),
+          anchorName: toAnchorName("webapiVersion"),
         },
         {
           valuesPath: toValuesPath("batch.yaml"),
-          anchor: toAnchorName("batchVersion"),
+          anchorName: toAnchorName("batchVersion"),
         },
       ],
     })
@@ -89,8 +89,8 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     )
     expect(toApply[0]?.plans[0]?.updates).toHaveLength(2)
     expect(toApply[0]?.files).toHaveLength(2)
-    const webapiFile = toApply[0]?.files.find((f) => f.filePath === "webapi.yaml")
-    const batchFile = toApply[0]?.files.find((f) => f.filePath === "batch.yaml")
+    const webapiFile = toApply[0]?.files.find((f) => f.valuesPath === "webapi.yaml")
+    const batchFile = toApply[0]?.files.find((f) => f.valuesPath === "batch.yaml")
     expect(webapiFile?.content).toContain(`&webapiVersion ${NEW_TAG}`)
     expect(batchFile?.content).toContain(`&batchVersion ${NEW_TAG}`)
   })
@@ -100,11 +100,11 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       chart: [
         {
           valuesPath: toValuesPath("webapi.yaml"),
-          anchor: toAnchorName("webapiVersion"),
+          anchorName: toAnchorName("webapiVersion"),
         },
         {
           valuesPath: toValuesPath("batch.yaml"),
-          anchor: toAnchorName("batchVersion"),
+          anchorName: toAnchorName("batchVersion"),
         },
       ],
     })
@@ -123,7 +123,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     expect(toApply[0]?.plans[0]?.updates).toHaveLength(1)
     expect(toApply[0]?.plans[0]?.updates[0]?.target.valuesPath).toBe("webapi.yaml")
     expect(toApply[0]?.files).toHaveLength(1)
-    expect(toApply[0]?.files[0]?.filePath).toBe("webapi.yaml")
+    expect(toApply[0]?.files[0]?.valuesPath).toBe("webapi.yaml")
   })
 
   it(
@@ -134,8 +134,8 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     async () => {
       const app = makeApp({
         chart: [
-          { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("appVersion") },
-          { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("appVersion") },
+          { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
+          { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
         ],
       })
       vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
@@ -147,9 +147,9 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
         DEFAULT_TAG_FORMAT,
       )
       expect(toApply[0]?.plans[0]?.updates).toHaveLength(2)
-      expect(toApply[0]?.plans[0]?.updates.every((update) => update.previousTag === OLD_TAG)).toBe(
-        true,
-      )
+      expect(
+        toApply[0]?.plans[0]?.updates.every((update) => update.previousTagName === OLD_TAG),
+      ).toBe(true)
     },
   )
 })

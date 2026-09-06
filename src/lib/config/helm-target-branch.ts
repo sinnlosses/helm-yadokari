@@ -42,5 +42,5 @@ export function resolveHelmTargetBranch(
   }
 
   const targets = helmChart.filter((target) => appValuesPaths.includes(target.valuesPath))
-  return { branch: branchToSync, targets }
+  return { branchName: branchToSync, targets }
 }

@@ -121,7 +121,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(existingTag)
     // 再利用した場合でも values.yaml は更新される（反映済みタグは main 由来で、
     // 現在の追跡ブランチ由来のHEADタグ集合には含まれないためスキップされない）
-    expect(toApply[0]?.plans[0]?.updates[0]?.previousTag).toBe(OLD_TAG)
+    expect(toApply[0]?.plans[0]?.updates[0]?.previousTagName).toBe(OLD_TAG)
     expect(toApply[0]?.files[0]?.content).toMatch(new RegExp(`&appVersion ${existingTag}`))
     expect(settled).toEqual([])
   })
@@ -141,7 +141,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     )
     expect(createTag).toHaveBeenCalledOnce()
     expect(toApply).toHaveLength(1)
-    expect(toApply[0]?.plans[0]?.updates[0]?.previousTag).toBe(OLD_TAG)
+    expect(toApply[0]?.plans[0]?.updates[0]?.previousTagName).toBe(OLD_TAG)
     expect(toApply[0]?.files[0]?.content).toMatch(/&appVersion release-2026-q2-build-at-/)
     expect(settled).toEqual([])
   })
@@ -253,7 +253,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     )
 
     expect(toApply).toHaveLength(1)
-    expect(toApply[0]?.plans[0]?.updates[0]?.previousTag).toBe(OLD_TAG)
+    expect(toApply[0]?.plans[0]?.updates[0]?.previousTagName).toBe(OLD_TAG)
   })
 
   it("values.yamlの値がタグ名でないとき（初期値など）は更新する", async () => {

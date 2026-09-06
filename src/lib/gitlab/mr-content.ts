@@ -31,7 +31,7 @@ export function buildUpdateBranch(tenantId: TenantId, clientId: ClientId): Branc
 
 /**
  * 向き先ブランチの更新は`helm.chart[]`をvaluesPath一致でアプリに振り分けた結果なので、
- * 同じ書き込み先が複数アプリの計画に現れうる。件数・表示は書き込み先（valuesPath+anchor）
+ * 同じ書き込み先が複数アプリの計画に現れうる。件数・表示は書き込み先（valuesPath+anchorName）
  * 単位で一意にする
  */
 function uniqueHelmTargetBranchUpdates(
@@ -40,7 +40,7 @@ function uniqueHelmTargetBranchUpdates(
   const byTarget = new Map(
     plans.flatMap((plan) =>
       plan.helmTargetBranchUpdates.map((update): [string, HelmTargetBranchUpdate] => [
-        `${update.target.valuesPath}#${update.target.anchor}`,
+        `${update.target.valuesPath}#${update.target.anchorName}`,
         update,
       ]),
     ),
@@ -92,17 +92,17 @@ function buildCompareUrl(webUrl: GitLabUrl, from: TagName, to: TagName): GitLabU
  * 値が無いセルは `-` で埋める。
  */
 function buildImageTagRow(webUrl: GitLabUrl, plan: AppUpdatePlan, update: ImageTagUpdate): string {
-  const previousTagText = update.previousTag
-    ? `[${update.previousTag}](${buildTagUrl(webUrl, update.previousTag)})`
+  const previousTagText = update.previousTagName
+    ? `[${update.previousTagName}](${buildTagUrl(webUrl, update.previousTagName)})`
     : "(未設定)"
-  const compareUrl = update.previousTag
-    ? buildCompareUrl(webUrl, update.previousTag, plan.latestTag.name)
+  const compareUrl = update.previousTagName
+    ? buildCompareUrl(webUrl, update.previousTagName, plan.latestTag.name)
     : "-"
   const cells = [
     plan.app.projectName,
     `\`${plan.app.branchToSync}\``,
     `\`${update.target.valuesPath}\``,
-    `\`${update.target.anchor}\``,
+    `\`${update.target.anchorName}\``,
     previousTagText,
     `[${plan.latestTag.name}](${buildTagUrl(webUrl, plan.latestTag.name)})`,
     compareUrl,
@@ -128,7 +128,7 @@ function buildHelmTargetBranchSection(updates: readonly HelmTargetBranchUpdate[]
         previousBranchText,
         `\`${update.newBranch}\``,
         `\`${update.target.valuesPath}\``,
-        `\`${update.target.anchor}\``,
+        `\`${update.target.anchorName}\``,
       ]
       return `| ${cells.join(" | ")} |`
     }),

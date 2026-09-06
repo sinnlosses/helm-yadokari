@@ -40,7 +40,7 @@ export async function readCurrentImageTags(
     [],
     async (tags, target) => {
       const valuesYamlContent = await loadValuesYamlContent(draftCopy, target.valuesPath)
-      const previousTagRaw = getValueAtAnchor(valuesYamlContent, target.anchor)
+      const previousTagRaw = getValueAtAnchor(valuesYamlContent, target.anchorName)
       return [...tags, previousTagRaw === undefined ? undefined : toTagName(previousTagRaw)]
     },
   )
@@ -77,9 +77,9 @@ async function applyImageTagTarget(
     draft: writeValuesYamlDraft(
       draftCopy,
       target.valuesPath,
-      setValueAtAnchor(valuesYamlContent, target.anchor, latestTagName),
+      setValueAtAnchor(valuesYamlContent, target.anchorName, latestTagName),
     ),
-    updates: [...acc.updates, { target, previousTag }],
+    updates: [...acc.updates, { target, previousTagName: previousTag }],
   }
 }
 

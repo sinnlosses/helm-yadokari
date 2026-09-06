@@ -21,7 +21,7 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
     chart: [
       {
         valuesPath: toValuesPath("values.yaml"),
-        anchor: toAnchorName("appVersion"),
+        anchorName: toAnchorName("appVersion"),
       },
     ],
     helmTargetBranch: undefined,
@@ -31,10 +31,10 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
 
 export function makeChartAndApps(
   apps: AppConfig[],
-  overrides: Partial<Pick<ChartAndApps, "chartDir" | "tenantId" | "clientId">> = {},
+  overrides: Partial<Pick<ChartAndApps, "chartDirName" | "tenantId" | "clientId">> = {},
 ): ChartAndApps {
   return {
-    chartDir: toChartDirName("teamA-chart"),
+    chartDirName: toChartDirName("teamA-chart"),
     tenantId: toTenantId("tenantId1"),
     clientId: toClientId("clientId1"),
     chart: {

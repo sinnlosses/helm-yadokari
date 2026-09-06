@@ -50,7 +50,7 @@ describe("parseTag", () => {
     )
     expect(parsed).toBeDefined()
     expect(parsed?.name).toBe("main-build-at-20260902-123456")
-    expect(parsed?.branch).toBe("main")
+    expect(parsed?.branchName).toBe("main")
     expect(parsed?.builtAt.getUTCFullYear()).toBe(2026)
     expect(parsed?.builtAt.getUTCMonth()).toBe(8) // 0-indexed = 9月
     expect(parsed?.builtAt.getUTCDate()).toBe(2)
@@ -191,7 +191,7 @@ describe("buildNewTag", () => {
   it("branch と builtAt をそのまま保持する", () => {
     const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
     const tag = buildNewTag(toBranchName("main"), now, DEFAULT_TAG_FORMAT)
-    expect(tag.branch).toBe("main")
+    expect(tag.branchName).toBe("main")
     expect(tag.builtAt).toBe(now)
   })
 

@@ -25,7 +25,7 @@ export type TargetClient = {
  */
 export type AnchorTarget = {
   readonly valuesPath: ValuesPath
-  readonly anchor: AnchorName
+  readonly anchorName: AnchorName
 }
 
 /**
@@ -34,10 +34,10 @@ export type AnchorTarget = {
  * につき1つ、人間が直接書き換える値。`targets`は、同じディレクトリのanchors.yamlが持つ
  * `helm.chart[]`の要素のうち、このアプリの`chart[].valuesPath`と一致するものすべてを指す
  * （`valuesPath`一致でapp単位に振り分ける）。タグの命名規則のような自動生成・自動判定の
- * 仕組みは持たず、単純に`branch`と各`targets`が指す現在値を比較する
+ * 仕組みは持たず、単純に`branchName`と各`targets`が指す現在値を比較する
  */
 export type HelmTargetBranchConfig = {
-  readonly branch: BranchName
+  readonly branchName: BranchName
   /**
    * Helmの向き先ブランチ（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
    * ブランチ）の書き込み先一覧。`anchors.yaml`トップレベルの`helm.chart[]`に対応する
@@ -82,7 +82,7 @@ export type ChartRepoConfig = {
  * 異なれば同じchartリポジトリでも別のChartAndApps（＝別ブランチ・別MR）になる
  */
 export type ChartAndApps = {
-  readonly chartDir: ChartDirName
+  readonly chartDirName: ChartDirName
   readonly tenantId: TenantId
   readonly clientId: ClientId
   readonly chart: ChartRepoConfig
@@ -96,7 +96,7 @@ export type Config = {
 /** タグ名から読み取れる情報。追跡ブランチとビルド日時 */
 export type ParsedTag = {
   readonly name: TagName
-  readonly branch: BranchName
+  readonly branchName: BranchName
   readonly builtAt: Date
 }
 
@@ -122,13 +122,13 @@ export type PipelineInfo = {
 export type ImageTagUpdate = {
   /** values.yaml内でイメージタグを書き換える1箇所分（`AppConfig.chart`の要素） */
   readonly target: AnchorTarget
-  readonly previousTag: TagName | undefined
+  readonly previousTagName: TagName | undefined
 }
 
 /**
  * `AppConfig.helmTargetBranch.targets`のうち1箇所分の更新内容。反映済みブランチ名
  * （`previousBranch`）はvalues.yaml側から読み取った現在値、`newBranch`はconfig.yaml設定値
- * （`helmTargetBranch.branch`、`targets`内の全箇所で共通）
+ * （`helmTargetBranch.branchName`、`targets`内の全箇所で共通）
  */
 export type HelmTargetBranchUpdate = {
   /** Helmの向き先ブランチの書き込み先1箇所分（`HelmTargetBranchConfig.targets`の要素） */
@@ -157,7 +157,7 @@ export type RunResult = "SUCCESS" | "PARTIAL_FAILURE"
 
 /** GitLabへコミットする1ファイル分の更新内容 */
 export type FileUpdate = {
-  readonly filePath: ValuesPath
+  readonly valuesPath: ValuesPath
   readonly content: string
 }
 

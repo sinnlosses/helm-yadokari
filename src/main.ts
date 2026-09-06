@@ -48,7 +48,7 @@ export async function run(): Promise<RunResult> {
 export async function process(): Promise<Record<ChartUpdateResult, number>> {
   const gitlab = createClient(GITLAB_URL, ACCESS_TOKEN)
   const { chartAndAppsList } = loadConfig(CONFIG_PATH, {
-    chartDir: TARGET_CHART,
+    chartDirName: TARGET_CHART,
     clients: TARGET_CLIENTS,
   })
 

@@ -70,11 +70,11 @@ export function validateNoDuplicateProjectIds(
   }
 }
 
-/** `valuesPath`+`anchor`の組を、エラーメッセージ用のラベル付きで表す */
+/** `valuesPath`+`anchorName`の組を、エラーメッセージ用のラベル付きで表す */
 export type LabeledTarget = { readonly target: AnchorTarget; readonly label: string }
 
 /**
- * 1つのclient内で、同じ`valuesPath`+`anchor`（＝values.yamlの同じ1箇所）を複数の設定が
+ * 1つのclient内で、同じ`valuesPath`+`anchorName`（＝values.yamlの同じ1箇所）を複数の設定が
  * 書き込み先にしていないか検証する。重複していると後から処理した側の値だけが残り、
  * MRには両方を更新したように表示されるため、静かに誤った結果になる。
  * イメージタグ用（`apps[].chart[]`）と向き先ブランチ用（`helm.chart[]`）の衝突も対象にする。
@@ -85,11 +85,11 @@ export function validateNoDuplicateTargets(
 ): void {
   const seen = new Map<string, string>()
   for (const { target, label } of targets) {
-    const key = `${target.valuesPath}#${target.anchor}`
+    const key = `${target.valuesPath}#${target.anchorName}`
     const previousLabel = seen.get(key)
     if (previousLabel !== undefined) {
       throw new Error(
-        `${anchorsPath}: 同じ書き込み先（${target.valuesPath} のアンカー "${target.anchor}"）が複数指定されています（${previousLabel} / ${label}）`,
+        `${anchorsPath}: 同じ書き込み先（${target.valuesPath} のアンカー "${target.anchorName}"）が複数指定されています（${previousLabel} / ${label}）`,
       )
     }
     seen.set(key, label)
