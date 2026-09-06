@@ -9,10 +9,9 @@ import type {
   AppUpdatePlan,
   BranchName,
   ChartAndApps,
+  ChartRepoConfig,
   ChartUpdateResult,
   ChartUpdateTarget,
-  FileUpdate,
-  ProjectId,
   TagFormat,
 } from "../../types/types.js"
 import { getOrFetch } from "../../utils/cache.js"
@@ -32,7 +31,7 @@ import {
   type ApplyHelmTargetsAcc,
   applyHelmTargetBranchTargets,
 } from "./sub-steps/helm-target-branch-target.js"
-import { applyImageTagTargets, readCurrentImageTags } from "./sub-steps/image-tag-target.js"
+import { applyImageTagTargets } from "./sub-steps/image-tag-target.js"
 import { resolveLatestTag } from "./sub-steps/resolve-latest-tag.js"
 import type { BranchExists, LoadValuesYamlContent } from "./sub-steps/shared/types.js"
 import { type ValuesYamlDraft, toFileUpdates } from "./sub-steps/shared/values-yaml-draft.js"
@@ -43,27 +42,25 @@ export type BuildPlansResult = {
 }
 
 /**
- * 1つのchartAndApps分の更新計画を組み立てる過程のアキュムレータ。`build-plans.ts`の
- * `buildPlan()`がアプリを1つずつ処理するたびに更新し、同ファイル内の
- * 非公開関数`buildAppUpdatePlan()`との間で受け渡しする。
+ * 1つのchartAndAppsのGitLabアクセスを、chartのprojectIdとchartAndApps単位のキャッシュごと
+ * 閉じ込めた関数の組。サブステップ側はGitLabを知らずに済む。
  */
-type BuildChartUpdateAcc = {
-  readonly plans: readonly AppUpdatePlan[]
-  readonly draft: ValuesYamlDraft
+type ChartAccess = {
+  readonly loadValuesYamlContent: LoadValuesYamlContent
+  readonly branchExists: BranchExists
 }
 
-/**
- * 1つのchartAndAppsを処理する間ずっと変わらない文脈。アプリを1つずつ処理する
- * `buildAppUpdatePlan()` へ、アプリごとに変わる値（`acc`/`app`）と分けて渡す。
- * `loadValuesYamlContent`/`branchExists` はGitLabクライアント・chartのprojectId・
- * chartAndApps単位のキャッシュを閉じ込めた関数で、サブステップ側はGitLabを知らずに済む。
- */
-type BuildPlanContext = {
+/** 1つのchartAndAppsを処理する間ずっと変わらない文脈。アプリごとに変わる値と分けて渡す */
+type BuildPlanContext = ChartAccess & {
   readonly gitlab: GitlabClient
   readonly dryRun: boolean
   readonly tagFormat: TagFormat
-  readonly loadValuesYamlContent: LoadValuesYamlContent
-  readonly branchExists: BranchExists
+}
+
+/** アプリを1つずつ処理しながら積み上げる、1つのchartAndApps分の更新計画 */
+type BuildChartUpdateAcc = {
+  readonly plans: readonly AppUpdatePlan[]
+  readonly draft: ValuesYamlDraft
 }
 
 /**
@@ -81,7 +78,7 @@ export async function buildPlans(
   tagFormat: TagFormat,
 ): Promise<BuildPlansResult> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
-    planTarget(gitlab, chartAndApps, dryRun, tagFormat),
+    buildPlan(gitlab, chartAndApps, dryRun, tagFormat),
   )
 
   const { left: toApply, right: settled } = partitionMap(outcomes, (outcome) =>
@@ -92,17 +89,29 @@ export async function buildPlans(
 
 /**
  * 1つのchartAndAppsの更新計画を組み立て、結果を振り分ける（このstepの並列処理1件分）。
- * `buildPlan()`の結果を見て SKIPPED（差分無し / dryRun）・ERROR・apply のどれにするかを
- * 判定する。
+ *
+ * 同じvalues.yamlを参照する複数アプリ・複数箇所の変更が下書き（`ValuesYamlDraft`）に
+ * 積み重なるよう、配下のアプリは並列化せず1つずつ処理する。差分があったアプリが1件も
+ * 無ければSKIPPED、dryRunならMRを作らないのでこれもSKIPPEDとして振り分ける。
  */
-async function planTarget(
+async function buildPlan(
   gitlab: GitlabClient,
   chartAndApps: ChartAndApps,
   dryRun: boolean,
   tagFormat: TagFormat,
 ): Promise<StepOutcome<ChartUpdateTarget>> {
   return runSettled(chartAndApps, async (logContext) => {
-    const { plans, files } = await buildPlan(gitlab, chartAndApps, dryRun, tagFormat)
+    const context: BuildPlanContext = {
+      gitlab,
+      dryRun,
+      tagFormat,
+      ...createChartAccess(gitlab, chartAndApps.chart),
+    }
+    const initialAcc: BuildChartUpdateAcc = { plans: [], draft: new Map() }
+    const { plans, draft } = await reduceAsync(chartAndApps.apps, initialAcc, (acc, app) =>
+      buildAppUpdatePlan(context, acc, app),
+    )
+
     if (plans.length === 0) {
       logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })
       return settle("SKIPPED")
@@ -116,73 +125,47 @@ async function planTarget(
       })
       return settle("SKIPPED")
     }
-    return ok({ chartAndApps, plans, files })
+    return ok({ chartAndApps, plans: [...plans], files: toFileUpdates(draft) })
   })
 }
 
 /**
- * 1つのchartAndAppsについて、配下の全アプリ(Apps)のうち差分があったアプリだけの計画を積み上げる。
- * 同じvalues.yamlを参照する複数アプリ・複数箇所の変更が下書き（`ValuesYamlDraft`）に積み重なるよう、
- * アプリ間で並列化はせず1つずつ処理する。最終的に書き換えのあったファイルだけを`toFileUpdates()`で
- * `FileUpdate[]`にする。
+ * chartリポジトリへの読み取りをキャッシュ付きで閉じ込める。values.yamlの内容は下書きを
+ * 兼ねるためアプリをまたいで引き継ぎ、ブランチの実在確認はこのchartAndApps内で
+ * 同じブランチ名につき1回だけになるよう専用のキャッシュを持つ。
  */
-async function buildPlan(
-  gitlab: GitlabClient,
-  chartAndApps: ChartAndApps,
-  dryRun: boolean,
-  tagFormat: TagFormat,
-): Promise<{ plans: AppUpdatePlan[]; files: FileUpdate[] }> {
-  const chartProjectId: ProjectId = chartAndApps.chart.projectId
-  const baseBranch: BranchName = chartAndApps.chart.mrTargetBranch
-
-  const loadValuesYamlContent: LoadValuesYamlContent = (cache, valuesPath) =>
-    getOrFetch(cache, valuesPath, async () => {
-      const valuesYamlContent = await getFileContent(gitlab, chartProjectId, valuesPath, baseBranch)
+function createChartAccess(gitlab: GitlabClient, chart: ChartRepoConfig): ChartAccess {
+  const loadValuesYamlContent: LoadValuesYamlContent = (draftCopy, valuesPath) =>
+    getOrFetch(draftCopy, valuesPath, async () => {
+      const valuesYamlContent = await getFileContent(
+        gitlab,
+        chart.projectId,
+        valuesPath,
+        chart.mrTargetBranch,
+      )
       if (valuesYamlContent === undefined) {
         throw new Error(`values.yaml が見つかりません: ${valuesPath}`)
       }
       return { content: valuesYamlContent, modified: false }
     }).then((entry) => entry.content)
 
-  // 同じブランチ名の存在確認はこのchartAndApps内で1回だけになるようキャッシュを共有する
   const branchExistsCache = new Map<BranchName, boolean>()
   const branchExists: BranchExists = (branch) =>
     getOrFetch(branchExistsCache, branch, () =>
-      branchExistsOnGitlab(gitlab, chartProjectId, branch),
+      branchExistsOnGitlab(gitlab, chart.projectId, branch),
     )
 
-  const context: BuildPlanContext = {
-    gitlab,
-    dryRun,
-    tagFormat,
-    loadValuesYamlContent,
-    branchExists,
-  }
-  const initialAcc: BuildChartUpdateAcc = {
-    plans: [],
-    draft: new Map(),
-  }
-
-  const { plans, draft } = await reduceAsync(chartAndApps.apps, initialAcc, (acc, app) =>
-    buildAppUpdatePlan(context, acc, app),
-  )
-
-  return {
-    plans: [...plans],
-    files: toFileUpdates(draft),
-  }
+  return { loadValuesYamlContent, branchExists }
 }
 
 /**
- * 1アプリ分の更新計画を組み立てる。手順は次の5つ
+ * 1アプリ分の更新計画を組み立てる。手順は次の4つ
  *
- * 1. `readCurrentImageTags()` — `app.chart`全箇所の反映済みタグを読み取る
- * 2. `resolveLatestTag()` — 追跡ブランチのHEADを指すタグが存在するか確認し、無ければ作成する
- * 3. `applyImageTagTargets()` — `app.chart`全箇所について、最新タグとの差分をチェックする
- *    （反映済みタグは1で読んだ`previousTags`をそのまま使い、同じアンカーを読み直さない）
- * 4. `applyHelmTargetBranchTargets()` — `app.helmTargetBranch`があれば、向き先ブランチの
- *    全箇所について設定値との差分をチェック
- * 5. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば最新パイプラインを取得して
+ * 1. `resolveLatestTag()` — 追跡ブランチのHEADを指すタグが存在するか確認し、無ければ作成する
+ * 2. `applyImageTagTargets()` — `app.chart`全箇所について、最新タグとの差分をチェックする
+ * 3. `applyHelmTargetBranchTargets()` — `app.helmTargetBranch`があれば、向き先ブランチの
+ *    全箇所について設定値との差分をチェックする
+ * 4. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば最新パイプラインを取得して
  *    `AppUpdatePlan`を組み立てる
  *
  * 処理中に投げられた例外は`withAppContext()`がアプリ名を付けて投げ直す。
@@ -195,19 +178,13 @@ async function buildAppUpdatePlan(
 ): Promise<BuildChartUpdateAcc> {
   const { gitlab, dryRun, tagFormat, loadValuesYamlContent, branchExists } = context
   return withAppContext(app.projectName, async () => {
-    const { draft: draftWithCurrentTags, previousTags } = await readCurrentImageTags(
-      loadValuesYamlContent,
-      acc.draft,
-      app.chart,
-    )
     const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat)
 
     const { draft: draftAfterChartTargets, updates } = await applyImageTagTargets(
       loadValuesYamlContent,
       latestTag,
-      draftWithCurrentTags,
+      acc.draft,
       app.chart,
-      previousTags,
     )
 
     const helmTargetBranch = app.helmTargetBranch
@@ -232,7 +209,7 @@ async function buildAppUpdatePlan(
       return { plans: acc.plans, draft }
     }
 
-    // dryRun時はMRを作らないため（planTarget()でSKIPPEDになる）、MR本文組み立てで必要な
+    // dryRun時はMRを作らないため（`buildPlan()`でSKIPPEDになる）、MR本文組み立てで必要な
     // パイプライン情報は不要。APIコストを削減するため取得をスキップする
     const pipeline = dryRun
       ? undefined

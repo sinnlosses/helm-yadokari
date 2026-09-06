@@ -1,6 +1,7 @@
 # 現在の状態
 
-最終更新: 2026-09-06（サブステップ同士のimportを `sub-steps/shared/` に追い出し、
+最終更新: 2026-09-06（`build-plans` の階層を他stepと揃え、役目を終えていた
+`readCurrentImageTags()` を廃止した。サブステップ同士のimportを `sub-steps/shared/` に追い出し、
 `apply-updates` のMR組み立てを「項目の収集」と「Markdownの組み立て」の2サブステップに分けた。
 `lib/gitlab/` の分割を依存対象ベースで見直し。`verify-config` を `src/lib/` から
 `scripts/lint/` へ移動。T-064〜T-076 のセッション記録は history へアーカイブした）
@@ -13,6 +14,27 @@ T-071以降だけが残る）。当時のセッションの記録は
 
 ## 完了したこと（このセッション）
 
+- **`build-plans` の流れを他stepと同じ形に整理した**（ユーザー指摘: 「手順が5つコメントに
+  記載があるのにsub-stepsが3つ」「buildPlans→planTarget→buildPlan→buildAppUpdatePlan が
+  わかりづらい」）。
+  - **`readCurrentImageTags()` を廃止**し、`applyImageTagTarget()` が下書きから自分で
+    反映済みタグを読む形に戻した。この関数は元々`resolveLatestTag()`の追跡ブランチ切り替え
+    判定に値を渡すためのものだったが、判定が`trackedHeadTagNames`方式になった時点で
+    その役目は終わっており、残っていたのは`previousTags`を添字で引き回す配線だけだった。
+    「同じアンカーが1アプリ内に2回現れない」という壊れやすい前提も不要になった
+    （下書きの現在値を読むため、重複しても2件目は差分なしと判定される）
+  - **副作用の順序が変わる**: 「values.yamlを読む→タグ作成」から「タグ作成→values.yamlを読む」に
+    なるため、**values.yaml不在の設定ミス時に`ERROR`の前にタグが1つ作られる**。作られるタグは
+    追跡ブランチのHEADを指すので再実行時に再利用され、増え続けることはない。READMEのフロー図
+    （タグ存在確認→無ければ作成→helm設定値と比較）にはむしろ忠実になった。アンカー不在の
+    ケースは変更前からタグ作成後にエラーだったため挙動は不変
+  - **`planTarget()`を`buildPlan()`に統合**し、階層を `buildPlans → buildPlan →
+buildAppUpdatePlan` の3段に。`filterTargets → evaluateTarget` /
+    `applyUpdates → applyUpdate` と同じ「並列処理1件分の関数を読めば全体が分かる」形に揃った
+  - GitLabアクセスのクロージャ組み立ては`createChartAccess()`（非公開関数）に切り出し、
+    `ChartAccess`型として束ねた
+  - 結果、`buildAppUpdatePlan()`の手順が5→4になり、`sub-steps/`の3ファイルと1対1で対応する
+    （31ファイル330テスト、件数不変）
 - **サブステップ同士のimportを `sub-steps/shared/` に追い出した**（ユーザー指摘:
   「サブステップ同士は関わってはいけない」）。`docs/architecture.md`には以前からその原則が
   書いてあったが、`values-yaml-draft.ts`が`image-tag-target.ts`・`helm-target-branch-target.ts`

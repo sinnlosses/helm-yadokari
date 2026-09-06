@@ -127,9 +127,9 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
   })
 
   it(
-    "同じvaluesPath+anchorが1アプリのchartに2回現れると、1箇所しか変わっていなくても" +
-      "updatesが2件記録される（重複防止が壊れたときに気づくための回帰テスト。" +
-      "本来この設定は loadConfig() の validateNoDuplicateTargets() で例外になり、" +
+    "同じvaluesPath+anchorが1アプリのchartに2回現れても、2箇所目は下書きの現在値" +
+      "（＝1箇所目の書き換え後の値）を読むためupdatesは1件だけになる" +
+      "（本来この設定は loadConfig() の validateNoDuplicateTargets() で例外になり、" +
       "buildPlans() まで到達しない）",
     async () => {
       const app = makeApp({
@@ -146,10 +146,8 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
         false,
         DEFAULT_TAG_FORMAT,
       )
-      expect(toApply[0]?.plans[0]?.updates).toHaveLength(2)
-      expect(
-        toApply[0]?.plans[0]?.updates.every((update) => update.previousTagName === OLD_TAG),
-      ).toBe(true)
+      expect(toApply[0]?.plans[0]?.updates).toHaveLength(1)
+      expect(toApply[0]?.plans[0]?.updates[0]?.previousTagName).toBe(OLD_TAG)
     },
   )
 })

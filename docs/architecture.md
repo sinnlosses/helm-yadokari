@@ -15,7 +15,7 @@
 
 `lib/`・`utils/`・`steps/shared/` にのみ依存し、step同士は互いに呼ばない。
 各stepは「並列処理1件分」を担う非公開関数を1つ持ち、`<動詞>+単数形の対象`で命名する
-（`evaluateTarget()` / `planTarget()` / `applyUpdate()`）。`process` のような汎用名は
+（`evaluateTarget()` / `buildPlan()` / `applyUpdate()`）。`process` のような汎用名は
 `main.ts` のオーケストレータやグローバルの `process` と紛らわしいため使わない。
 
 | ファイル                           | 責務                                                                    |
@@ -37,13 +37,13 @@
 
 `build-plans/sub-steps/` の各ファイル:
 
-| ファイル                       | 責務                                                                                                                                 |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `resolve-latest-tag.ts`        | 追跡ブランチ由来の最新タグの判定。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成                         |
-| `image-tag-target.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.chart`全箇所のループ（反映済みタグの読み取り専用版`readCurrentImageTags()`も持つ） |
-| `helm-target-branch-target.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                                           |
-| `shared/values-yaml-draft.ts`  | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）と、その組み立て・`FileUpdate[]`化                    |
-| `shared/types.ts`              | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                             |
+| ファイル                       | 責務                                                                                                              |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `resolve-latest-tag.ts`        | 追跡ブランチ由来の最新タグの判定。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成      |
+| `image-tag-target.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.chart`全箇所のループ                                            |
+| `helm-target-branch-target.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                        |
+| `shared/values-yaml-draft.ts`  | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）と、その組み立て・`FileUpdate[]`化 |
+| `shared/types.ts`              | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                          |
 
 `apply-updates/sub-steps/` の各ファイル:
 
