@@ -1,23 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../src/lib/gitlab/gitlab.js")
-vi.mock("../../src/lib/gitlab/mr-content.js")
-vi.mock("../../src/utils/logger.js", () => ({
+vi.mock("../../../src/lib/gitlab/gitlab.js")
+vi.mock("../../../src/lib/gitlab/mr-content.js")
+vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
-import type { GitlabClient } from "../../src/lib/gitlab/gitlab.js"
-import { commitFileUpdates, createMergeRequest } from "../../src/lib/gitlab/gitlab.js"
+import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
+import { commitFileUpdates, createMergeRequest } from "../../../src/lib/gitlab/gitlab.js"
 import {
   buildMrDescription,
   buildMrTitle,
   buildUpdateBranch,
-} from "../../src/lib/gitlab/mr-content.js"
-import { applyUpdates } from "../../src/steps/apply-updates.js"
-import type { ChartUpdateTarget } from "../../src/types/types.js"
-import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../src/types/types.js"
-import { FatalError } from "../../src/utils/errors.js"
-import { makeApp, makeChartAndApps, makeHttpError } from "../helpers.js"
+} from "../../../src/lib/gitlab/mr-content.js"
+import { applyUpdates } from "../../../src/steps/apply-updates/apply-updates.js"
+import type { ChartUpdateTarget } from "../../../src/types/types.js"
+import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/types/types.js"
+import { FatalError } from "../../../src/utils/errors.js"
+import { makeApp, makeChartAndApps, makeHttpError } from "../../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
 

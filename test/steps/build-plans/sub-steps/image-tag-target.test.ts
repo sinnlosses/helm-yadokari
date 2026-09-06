@@ -15,7 +15,7 @@ import {
   listTags,
 } from "../../../../src/lib/gitlab/gitlab.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../../src/lib/gitlab/tag.js"
-import { buildPlans } from "../../../../src/steps/build-plans.js"
+import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import { toAnchorName, toTagName, toValuesPath } from "../../../../src/types/types.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../../../helpers.js"
 

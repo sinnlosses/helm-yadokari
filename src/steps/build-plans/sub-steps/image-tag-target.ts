@@ -26,7 +26,7 @@ export type CurrentImageTags = {
  * この前提が崩れて`app.chart`内に同じアンカーが2回以上現れると、後続のtargetは
  * 「直前のtargetが書き換えた後の値」ではなくここで読んだ書き換え前の値を`previousTag`として
  * 使ってしまい、実際には1箇所しか変わっていないのに2件のupdatesが記録される
- * （回帰テスト: `test/steps/sub-steps/build-plans/image-tag-target.test.ts`）。
+ * （回帰テスト: `test/steps/build-plans/sub-steps/image-tag-target.test.ts`）。
  */
 export async function readCurrentImageTags(
   loadValuesYamlContent: LoadValuesYamlContent,

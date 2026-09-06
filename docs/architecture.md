@@ -18,21 +18,21 @@
 （`evaluateTarget()` / `planTarget()` / `applyUpdate()`）。`process` のような汎用名は
 `main.ts` のオーケストレータやグローバルの `process` と紛らわしいため使わない（T-026）。
 
-| ファイル                 | 責務                                                                    |
-| ------------------------ | ----------------------------------------------------------------------- |
-| `filter-targets.ts`      | 登録アプリ0件・固定ブランチにオープン中のMRがあるchartAndAppsを除外する |
-| `build-plans.ts`         | 残ったchartAndAppsごとに更新計画（差分）を並列に構築する                |
-| `apply-updates.ts`       | 差分があるchartAndAppsにコミット・MR作成を並列実行する                  |
-| `shared/step-outcome.ts` | 3つのstepが共有する結果ログの識別情報とエラー方針（T-022）              |
-| `sub-steps/build-plans/` | `build-plans.ts` の内部実装専用（1アプリ・1箇所ごとの実処理）           |
+| ファイル                           | 責務                                                                    |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| `filter-targets/filter-targets.ts` | 登録アプリ0件・固定ブランチにオープン中のMRがあるchartAndAppsを除外する |
+| `build-plans/build-plans.ts`       | 残ったchartAndAppsごとに更新計画（差分）を並列に構築する                |
+| `apply-updates/apply-updates.ts`   | 差分があるchartAndAppsにコミット・MR作成を並列実行する                  |
+| `shared/step-outcome.ts`           | 3つのstepが共有する結果ログの識別情報とエラー方針（T-022）              |
+| `build-plans/sub-steps/`           | `build-plans.ts` の内部実装専用（1アプリ・1箇所ごとの実処理）           |
 
 `build-plans.ts` の階層は「全chartAndApps → 1つのchartAndApps → 1アプリ」の3段までに絞り、
-それより下の「1箇所（target）」の処理は `sub-steps/build-plans/` 側の責務にしている。
+それより下の「1箇所（target）」の処理は `build-plans/sub-steps/` 側の責務にしている。
 `buildAppUpdatePlan()`（1アプリ分）はサブステップを順に呼ぶだけで、target配列をループする
 `reduce`を自分では持たない。「ステップがステップを呼ばない」原則はサブステップにも適用し、
 サブステップ同士も互いを呼ばない。
 
-`sub-steps/build-plans/` の各ファイル:
+`build-plans/sub-steps/` の各ファイル:
 
 | ファイル                       | 責務                                                                                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -80,8 +80,8 @@
 - `process()` が直接呼ぶ、フラットなパイプラインの1段 → `steps/`。他のステップファイルを
   import しない
 - 呼び出し元が `steps/` の1ファイルだけ → そのファイル内の非公開（exportしない）関数。
-  1ファイルが大きくなりすぎた場合は、`steps/sub-steps/<step名>/`（例:
-  `steps/sub-steps/build-plans/`）へ非公開関数を複数ファイルに分割してよい（`steps/`直下は
+  1ファイルが大きくなりすぎた場合は、`steps/<step名>/sub-steps/`（例:
+  `steps/build-plans/sub-steps/`）へ非公開関数を複数ファイルに分割してよい（`steps/`直下は
   「process()が直接呼ぶフラットな3ステップ」だけに保ち、`sub-steps/`配下は各stepの内部実装
   専用と分かるようにする）。呼び出し元が引き続きそのstepファイル1つだけである限り、
   ファイルを分けても`lib/`への昇格理由にはならない（原則2は変わらない）
@@ -92,7 +92,7 @@
 - 複数の `steps/` から呼ばれる、かつ技術ではなくこのツールのドメイン型（`ChartAndApps`・
   `AppUpdatePlan`など）にだけ依存する → `steps/shared/`（T-022）。`utils/`は「ドメイン知識を
   一切持たない」ものだけを置く場所なのでここには入れられず、技術依存が無い以上`lib/`にも
-  置けない。特定stepの内部実装ではないため`sub-steps/`とも別にする
+  置けない。特定stepの内部実装ではないため各stepの`sub-steps/`とも別にする
 - 「stepsから呼ばれているから」「複数箇所で使うから」という理由だけで `lib/` に
   置くのは誤り。lib行きの判断基準は常に「技術・外部システム・ファイル形式への依存」
 
@@ -110,7 +110,7 @@
 - **`values.yaml` の位置指定はYAMLアンカーのみ**: オブジェクトのネストをdotパスで辿る
   `imageTagKey`方式も実装していたが、実運用ではアンカー方式で十分なため削除した（T-014）
 - **1アプリ分の処理を独立したサブステップファイルにしていない**: 以前
-  `sub-steps/build-plans/app-update-plan.ts` に切り出していたが、それ自体が他のサブステップを
+  `build-plans/sub-steps/app-update-plan.ts` に切り出していたが、それ自体が他のサブステップを
   呼ぶ「サブステップがサブステップを呼ぶ」構造になるため、`build-plans.ts`の非公開関数に戻した
 - **サブステップはGitLabクライアントを受け取らない**: `LoadValuesYamlContent`・`BranchExists`
   という関数型で受け取り、GitLabクライアント・projectId・キャッシュは`build-plans.ts`側に
@@ -182,7 +182,7 @@
   一般的なエラーを指しており、GitLab側の認証切れ・障害のような全chart共通の致命的エラーに
   対しては、無駄なAPI呼び出しを避けるためこの例外を設けている（gitlab-watari-dori由来のパターン）
 - 同一`(chartリポジトリ, tenantId, clientId)`内の複数アプリの処理（タグ取得・パイプライン
-  取得等）は `buildPlan()`（`src/steps/build-plans.ts` の非公開関数）内で逐次実行している。
+  取得等）は `buildPlan()`（`src/steps/build-plans/build-plans.ts` の非公開関数）内で逐次実行している。
   同じ`values.yaml`への複数アプリの変更を1つのキャッシュに積み重ねる必要があるため。
   `docs/requirements.md` 4.3節の並列実行制御（`p-limit`）は現状chartAndApps単位
   （`filterTargets`/`buildPlans`/`applyUpdates`それぞれ）のみに適用しており、

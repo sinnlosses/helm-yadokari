@@ -65,10 +65,10 @@
   {
     "id": "T-061",
     "task": "`src/steps/` の各ステップを「ステップ名のディレクトリ + 同名の .ts」に置き換える（ユーザー指定の構成、2026-09-06）。before: steps/{filter-targets,build-plans,apply-updates}.ts + steps/sub-steps/build-plans/{helm-target-branch-target,image-tag-target,resolve-latest-tag,types,values-yaml-draft}.ts + steps/shared/step-outcome.ts。after: steps/filter-targets/filter-targets.ts、steps/build-plans/build-plans.ts + steps/build-plans/sub-steps/（上記5ファイル）、steps/apply-updates/apply-updates.ts、steps/shared/step-outcome.ts（複数ステップの共有なのでそのまま）。sub-steps をステップ配下に入れることで「そのステップからしか呼ばれない」ことを構造で表せる。test/ も同じ構成に合わせて移す（test/steps/build-plans.test.ts → test/steps/build-plans/build-plans.test.ts、test/steps/sub-steps/build-plans/*.test.ts → test/steps/build-plans/sub-steps/*.test.ts など）。CLAUDE.md「新しいコードを置く場所」の `steps/sub-steps/<step名>/` という記述、docs/architecture.md のディレクトリ構成、README のプロジェクト構成ツリーも新構成に更新する。完了条件: `pnpm check` を通し、移動でテスト件数が減っていないこと（移動前の件数と突き合わせる）",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "git mv でステップ名ディレクトリ構成に変更（steps/{filter-targets,build-plans,apply-updates}/<同名>.ts、sub-steps は steps/build-plans/sub-steps/ へ移動、steps/shared/ は複数ステップ共有なので据え置き）。test/ も同じ構成に追従。CLAUDE.md「新しいコードを置く場所」・docs/architecture.md・README のツリーを新構成に更新。pnpm check（28ファイル315テスト、移動前と同数＝テストファイルの取りこぼしなし）通過。git は14件すべて rename として認識、空ディレクトリの残骸なし。sonnetのサブエージェントに委譲し、メイン側でツリー・テスト件数・rename認識を確認して受け入れた",
     "dependencies": []
   },
   {

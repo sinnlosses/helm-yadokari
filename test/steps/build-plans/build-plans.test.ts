@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../src/lib/gitlab/gitlab.js")
-vi.mock("../../src/utils/logger.js", () => ({
+vi.mock("../../../src/lib/gitlab/gitlab.js")
+vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
-import type { GitlabClient } from "../../src/lib/gitlab/gitlab.js"
+import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
 import {
   branchExists,
   createTag,
@@ -13,19 +13,19 @@ import {
   getFileContent,
   getLatestPipelineForRef,
   listTags,
-} from "../../src/lib/gitlab/gitlab.js"
-import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../src/lib/gitlab/tag.js"
-import { buildPlans } from "../../src/steps/build-plans.js"
+} from "../../../src/lib/gitlab/gitlab.js"
+import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../src/lib/gitlab/tag.js"
+import { buildPlans } from "../../../src/steps/build-plans/build-plans.js"
 import {
   toAnchorName,
   toProjectId,
   toProjectName,
   toTagName,
   toValuesPath,
-} from "../../src/types/types.js"
-import { FatalError } from "../../src/utils/errors.js"
-import { logger } from "../../src/utils/logger.js"
-import { makeApp, makeChartAndApps, makeHttpError } from "../helpers.js"
+} from "../../../src/types/types.js"
+import { FatalError } from "../../../src/utils/errors.js"
+import { logger } from "../../../src/utils/logger.js"
+import { makeApp, makeChartAndApps, makeHttpError } from "../../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
 

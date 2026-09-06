@@ -339,17 +339,20 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 │   │   ├── types.ts          # 型定義（ドメインモデル。brand.ts を再エクスポート）
 │   │   └── brand.ts          # ブランド型と to* factory 関数（as キャストはここだけ）
 │   ├── steps/                 # process()が直接呼ぶ3ステップのみ（steps同士は互いに呼ばない）
-│   │   ├── filter-targets.ts  # 対象chartAndAppsの絞り込み（登録0件・既存MRを除外）
-│   │   ├── build-plans.ts     # 全chartAndApps分の更新計画を並列構築
-│   │   ├── apply-updates.ts   # コミット・MR作成を並列実行
-│   │   ├── shared/            # 複数stepが共有する結果ログ・エラー方針
-│   │   │   └── step-outcome.ts
-│   │   └── sub-steps/         # 各stepの内部実装専用（step本体からのみ呼ばれる）
-│   │       └── build-plans/   # 1アプリ・1箇所(target)単位の処理
-│   │           ├── resolve-latest-tag.ts          # 最新タグの判定・不足時のタグ自動作成
-│   │           ├── image-tag-target.ts            # イメージタグの差分検出・書き換え
-│   │           ├── helm-target-branch-target.ts   # Helm向き先ブランチの差分検出・書き換え
-│   │           └── types.ts                       # サブステップ間で共有する型
+│   │   ├── filter-targets/
+│   │   │   └── filter-targets.ts  # 対象chartAndAppsの絞り込み（登録0件・既存MRを除外）
+│   │   ├── build-plans/
+│   │   │   ├── build-plans.ts # 全chartAndApps分の更新計画を並列構築
+│   │   │   └── sub-steps/     # このstepの内部実装専用（build-plans.tsからのみ呼ばれる）
+│   │   │       ├── resolve-latest-tag.ts          # 最新タグの判定・不足時のタグ自動作成
+│   │   │       ├── image-tag-target.ts            # イメージタグの差分検出・書き換え
+│   │   │       ├── helm-target-branch-target.ts   # Helm向き先ブランチの差分検出・書き換え
+│   │   │       ├── values-yaml-draft.ts           # values.yamlの下書き状態の組み立て
+│   │   │       └── types.ts                       # サブステップ間で共有する型
+│   │   ├── apply-updates/
+│   │   │   └── apply-updates.ts   # コミット・MR作成を並列実行
+│   │   └── shared/            # 複数stepが共有する結果ログ・エラー方針
+│   │       └── step-outcome.ts
 │   ├── lib/                   # 特定の技術・外部システムに依存する処理のみ
 │   │   ├── gitlab/
 │   │   │   ├── gitlab.ts      # GitLab API クライアント操作（タグ作成、コミット、MR作成など）

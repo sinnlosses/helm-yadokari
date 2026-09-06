@@ -45,7 +45,7 @@ pnpm build && pnpm start              # ビルドしてから実行
 - 新しいコードを置く場所:
   - `process()`が直接呼ぶパイプラインの1段 → `steps/`
   - 呼び出し元が`steps/`の1ファイルだけ → そのファイル内の非公開関数（大きくなったら
-    `steps/sub-steps/<step名>/`、例: `steps/sub-steps/build-plans/`、に分割してもよい。
+    `steps/<step名>/sub-steps/`、例: `steps/build-plans/sub-steps/`、に分割してもよい。
     原則2は変わらない）
   - 複数箇所から呼ばれ、技術/外部システム/ファイル形式に依存する → 対応する`lib/`ファイル
   - 複数箇所から呼ばれ、技術に依存しない純粋な計算 → `utils/`

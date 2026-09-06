@@ -3,12 +3,12 @@ import {
   commitFileUpdates,
   createMergeRequest,
   getProjectWebUrl,
-} from "../lib/gitlab/gitlab.js"
-import { buildMrDescription, buildMrTitle, buildUpdateBranch } from "../lib/gitlab/mr-content.js"
-import type { ChartUpdateResult, ChartUpdateTarget } from "../types/types.js"
-import { logger } from "../utils/logger.js"
-import { mapWithConcurrency } from "../utils/parallel.js"
-import { buildLogContext, describePlan, settleAsError } from "./shared/step-outcome.js"
+} from "../../lib/gitlab/gitlab.js"
+import { buildMrDescription, buildMrTitle, buildUpdateBranch } from "../../lib/gitlab/mr-content.js"
+import type { ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
+import { logger } from "../../utils/logger.js"
+import { mapWithConcurrency } from "../../utils/parallel.js"
+import { buildLogContext, describePlan, settleAsError } from "../shared/step-outcome.js"
 
 /**
  * 更新計画があるchartAndAppsに対して、固定ブランチへのコミットとMR作成を並列実行する。

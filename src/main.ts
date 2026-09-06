@@ -10,9 +10,9 @@ import {
   TARGET_CLIENT,
 } from "./lib/env.js"
 import { createClient } from "./lib/gitlab/gitlab.js"
-import { applyUpdates } from "./steps/apply-updates.js"
-import { buildPlans } from "./steps/build-plans.js"
-import { filterTargets } from "./steps/filter-targets.js"
+import { applyUpdates } from "./steps/apply-updates/apply-updates.js"
+import { buildPlans } from "./steps/build-plans/build-plans.js"
+import { filterTargets } from "./steps/filter-targets/filter-targets.js"
 import type { ChartUpdateResult, RunResult } from "./types/types.js"
 import { logger } from "./utils/logger.js"
 import { timed } from "./utils/timer.js"

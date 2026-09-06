@@ -3,7 +3,7 @@ import {
   branchExists as branchExistsOnGitlab,
   getFileContent,
   getLatestPipelineForRef,
-} from "../lib/gitlab/gitlab.js"
+} from "../../lib/gitlab/gitlab.js"
 import type {
   AppConfig,
   AppUpdatePlan,
@@ -14,33 +14,26 @@ import type {
   FileUpdate,
   ProjectId,
   TagFormat,
-} from "../types/types.js"
-import { getOrFetch } from "../utils/cache.js"
-import { logger } from "../utils/logger.js"
-import { mapWithConcurrency } from "../utils/parallel.js"
-import { left, partitionMap, right } from "../utils/partition.js"
-import { reduceAsync } from "../utils/sequential.js"
+} from "../../types/types.js"
+import { getOrFetch } from "../../utils/cache.js"
+import { logger } from "../../utils/logger.js"
+import { mapWithConcurrency } from "../../utils/parallel.js"
+import { left, partitionMap, right } from "../../utils/partition.js"
+import { reduceAsync } from "../../utils/sequential.js"
 import {
   buildLogContext,
   describePlan,
   rethrowWithAppContext,
   settleAsError,
-} from "./shared/step-outcome.js"
+} from "../shared/step-outcome.js"
 import {
   type ApplyHelmTargetsAcc,
   applyHelmTargetBranchTargets,
-} from "./sub-steps/build-plans/helm-target-branch-target.js"
-import {
-  applyImageTagTargets,
-  readCurrentImageTags,
-} from "./sub-steps/build-plans/image-tag-target.js"
-import { resolveLatestTag } from "./sub-steps/build-plans/resolve-latest-tag.js"
-import type {
-  BranchExists,
-  BuildChartUpdateAcc,
-  LoadValuesYamlContent,
-} from "./sub-steps/build-plans/types.js"
-import { toFileUpdates } from "./sub-steps/build-plans/values-yaml-draft.js"
+} from "./sub-steps/helm-target-branch-target.js"
+import { applyImageTagTargets, readCurrentImageTags } from "./sub-steps/image-tag-target.js"
+import { resolveLatestTag } from "./sub-steps/resolve-latest-tag.js"
+import type { BranchExists, BuildChartUpdateAcc, LoadValuesYamlContent } from "./sub-steps/types.js"
+import { toFileUpdates } from "./sub-steps/values-yaml-draft.js"
 
 export type BuildPlansResult = {
   readonly toApply: ChartUpdateTarget[]
