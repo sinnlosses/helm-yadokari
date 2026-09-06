@@ -109,7 +109,7 @@ export function settle<T>(result: ChartUpdateResult): StepOutcome<T> {
 
 /**
  * chartAndApps単位の並列処理1件分を実行する高階関数。`buildLogContext()`の呼び出しと
- * 失敗の捕捉をここ1箇所に閉じ込め、3つのstep（`evaluateTarget()`/`planTarget()`/
+ * 失敗の捕捉をここ1箇所に閉じ込め、3つのstep（`evaluateTarget()`/`buildPlan()`/
  * `applyUpdate()`）のcatch節を無くす。捕捉した例外は`settleAsError()`に渡すため、
  * fatalなら`FatalError`として投げ直され（実行全体が止まる）、それ以外は`ERROR`の
  * settled outcomeになる。
