@@ -150,6 +150,26 @@
   組み立てとエスケープは`mr-content.ts`の`buildTagUrl()`/`buildCompareUrl()`に閉じ込め、
   呼び出し側が`encodeURIComponent`を書かなくて済むようにしている
 
+- **型定義のフィールド名は、ブランド型が表している語（`Name`など）を落とさない**:
+  `anchor: AnchorName` は「アンカーそのもの」を持っているように読めるが、実際に持っているのは
+  名前だけで、この差が読み違いを生む（`src/lib/helm.ts` は引数名として既に
+  `anchorName: AnchorName` を使っており、フィールド側だけが浮いていた）。
+  - **適用するのは型定義のフィールドだけ**。関数の引数名（`branch: BranchName` など10ファイル
+    以上に散在）は対象外とする。引数は型注釈が同じ行に見えるのに対し、フィールドは
+    ドットアクセスで宣言から離れた場所で読まれる、という違いで線を引く
+  - 修飾語が「どれか」を担っているフィールド（`branchToSync`・`mrTargetBranch`・
+    `previousBranch`・`newBranch`）は対象外。`Name` を足しても曖昧さは減らず、名前が伸びるだけ
+  - 包含する型が主語を与える `name`（`ParsedTag.name`・`TagInfo.name`）も対象外。
+    `tag.name` で「タグの名前」と読める
+  - 例外的に修飾語つきでもリネームしたのは `ImageTagUpdate.previousTag` → `previousTagName`。
+    `plan.latestTag`（`ParsedTag`オブジェクト）と同じ式の中に並ぶため、文字列かオブジェクトかを
+    名前で区別できるようにした
+  - `CommitAction.filePath` は `gitlab.Commits.create()` にそのまま渡す gitbeaker の
+    ペイロード形状なので変えない。一方 `FileUpdate.filePath` は内部の型なので、
+    同じ概念を他の全箇所と同じ `valuesPath` に揃えた
+  - YAMLのキー名（`anchors.yaml` の `anchor` など）は wire format なので変えない。
+    内部表現への詰め替えは `lib/config/schema.ts` の `.transform()` が担う
+
 - **`gitlab/tag.ts` は外部I/Oを持たないのに `utils/` ではなく `lib/gitlab/` にある**:
   純粋な文字列/日付処理だが「GitLabのタグ」という命名規則に強く紐づくため。`utils/`は
   ドメイン知識を持たないものだけを置く

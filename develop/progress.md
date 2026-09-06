@@ -36,6 +36,16 @@ github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。`tasks.json`
 - `TargetClient.tenantId`/`clientId` を `TenantId`/`ClientId` に変更（`ChartAndApps` 側と対称になった）。
   `config.ts` の比較・パス結合3箇所は**ブランド型が `string` のサブタイプなので変更不要**だった
 
+### T-072: フィールド名と型名のズレの方針
+
+- 規則は「**型定義のフィールド名は、ブランド型が表している語（`Name`など）を落とさない**」。
+  `anchor: AnchorName` は「アンカーそのもの」を持っているように読めるのがズレの正体
+- **関数の引数名は対象外**（型注釈が同じ行に見える／フィールドはドットアクセスで宣言から
+  離れて読まれる、という違いで線を引いた）。修飾語が「どれか」を担うもの（`branchToSync`・
+  `mrTargetBranch`など）と、包含型が主語を与える `name` も対象外
+- リネーム対象は6件に確定（`anchor`・`HelmTargetBranchConfig.branch`・`ParsedTag.branch`・
+  `chartDir`・`previousTag`・`FileUpdate.filePath`）。実装は T-073
+
 ## 次にやること
 
 `tasks.json` の5タスク（T-071〜T-075）はすべて `todo`。依存があるのはT-073（T-072待ち）と
