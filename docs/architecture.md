@@ -296,7 +296,8 @@
   手順とシナリオは `docs/smoke-test.md`
 - `dist/`: `pnpm build` の生成物。gitignore対象、手で編集しない
 - `docs/requirements.md`: 確定した要件。`docs/requirements-grilling.md`: 要件定義時のQ&Aログ
-  （検討経緯の参照用、変更不要）。`docs/history/`: 完了タスク・過去セッションのアーカイブ
+  （検討経緯の参照用、変更不要）。`docs/history/`: 完了タスク・過去セッションのアーカイブと、
+  対応済みの指示メモ（`direction.md`）
 
 ## 既知の制約・注意点
 

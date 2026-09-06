@@ -20,10 +20,10 @@
   {
     "id": "T-079",
     "task": "リポジトリ直下の `direction.md` を `docs/history/` へ移す。このファイルは2026-09-06にユーザーが書いた指示メモ（6項目）で、内容は「TARGET_CLIENT を複数形に」「filter-targets の fatal が settled になる」「try/catch を減らす」「型の置き場所を統一」「URLを型で縛る」「tasks.json/progress.md を develop/ へ」。**6項目すべてが完了済み**で、対応の記録は `docs/history/tasks-archive.md`（T-064〜T-071 あたり）と `docs/architecture.md`「コードからは読み取れない設計判断」にある。現状はリポジトリ直下に、いつのものとも完了済みとも分からない状態で残っており、新しく読む人には「未対応の宿題リスト」に見える。\n\n作業内容: `git mv direction.md docs/history/direction.md` し、ファイル冒頭に「2026-09-06にユーザーから受けた指示メモ。全項目対応済みで、対応内容は本ディレクトリの `tasks-archive.md` と `docs/architecture.md` にある。当時の記述をそのまま残している」という2〜3行の見出し＋注記を足す（本文の6項目は書き換えない）。`docs/architecture.md`「ディレクトリ構成の勘所」の `docs/history/` の説明にも、このファイルが増えたことを1行で追記する。\n\n完了条件: `git status` で rename として認識されていること、リポジトリ直下に `direction.md` が無いこと、`grep -rn \"direction.md\" --include='*.md' .` の結果が新しい場所と整合していることを示す。`pnpm check` を通すこと。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "haiku",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "git mv でリポジトリ直下の direction.md を docs/history/ へ移動（git status で R と認識）。冒頭に「2026-09-06のユーザー指示メモ・全項目対応済み・対応先はtasks-archive.mdとarchitecture.md」の注記を追加し、本文6項目は無変更。docs/architecture.md「ディレクトリ構成の勘所」にも1行追記した。pnpm check（31ファイル330テスト、変化なし）通過。haikuのサブエージェントに委譲し、メイン側で追記1行の表現と折り返しを整えた",
     "dependencies": []
   },
   {

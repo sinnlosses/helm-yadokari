@@ -60,6 +60,10 @@ CI設定を読み、改善点を洗い出して `tasks.json` に15件登録し�
 用語集に残る実在しない識別子は `ChartGroup`・`UPDATE_BRANCH` の2つだけで、どちらも
 「旧〜」として意図的に残している歴史記述。
 
+**T-079 完了**。対応済みの指示メモ `direction.md` を `git mv` でリポジトリ直下から
+`docs/history/` へ退避し、冒頭に「全項目対応済み・対応先は `tasks-archive.md` と
+`docs/architecture.md`」の注記を付けた（本文6項目は無変更）。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした
