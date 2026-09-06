@@ -24,6 +24,11 @@ github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。詳細は
      （T-072で対象範囲・命名を決定 → T-073で実装。全型を調査し、`branch`/`chartDir`など
      他にも同じズレがあること、`branchToSync`等の修飾語付きは事情が異なることを整理した）
   3. コメントを簡潔にする方針（T-074で基準を決定 → T-075で`types.ts`/`brand.ts`に適用）
+- `mr-content.ts`の`buildMrDescription()`が`ResolveWebUrl`（関数）を受け取っている件を追加調査し、
+  T-076として登録した。冒頭コメントが「純粋な文字列組み立てだけ」と言いつつ実際は非同期＋
+  キャッシュ管理をしていて宣言とズレていること、必要な`projectId`集合は呼び出し前に全部
+  分かるため呼び出し元で事前解決できることまで確認済み（`build-plans/sub-steps`の
+  `LoadValuesYamlContent`/`BranchExists`とは事情が異なり、横展開の対象ではない）
 
 ## 次にやること
 
