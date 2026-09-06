@@ -101,6 +101,25 @@
 なぜ今の形なのか（＝別の形に「直そう」としたときに踏みうる地雷）。詳細な経緯は
 `docs/history/tasks-archive.md` の該当タスクを参照。
 
+- **エラー方針は「fatalは例外・それ以外は戻り値」の2チャネルのままにし、`steps/`配下に
+  `try`/`catch`を書かない**: 「401/5xx/ネットワーク障害なら実行全体を落とし、それ以外は
+  該当chartAndAppsだけをERRORにして続行する」という判断は`steps/shared/step-outcome.ts`の
+  `settleAsError()`1箇所にあるが、以前は3つのstepがそれぞれ
+  `catch (err) { return settleAsError(err, logContext) }` と書いており、**fatalも
+  ERRORとして計上して続行するように読めた**（実際は`settleAsError()`が`FatalError`を
+  投げ直すので落ちる）。読み手が方針を誤読しないよう、catch節そのものを高階関数
+  （`runSettled()`・`withAppContext()`）に吸収し、`grep -rn "try {" src/steps/` が
+  **0件**であることで「stepはエラー方針を持たない」を機械的に確認できるようにした。
+  - 2チャネルを1つの`Result`型に寄せる案は採らない。fatalは「実行全体の中止」という
+    スコープの違う事象で、戻り値に混ぜると各stepに「fatalなら伝播させる」判断が戻り、
+    いま消したいものが再び分散する。例外はスコープの広い事象、戻り値はchartAndApps
+    単位の結果、という役割分担で固定する
+  - `lib/gitlab/gitlab.ts`の404/403フォールバック・`utils/retry.ts`・
+    `lib/verify-config/verify-config.ts`の`catch`はこの規約の対象外。前2つは
+    「特定のHTTPステータスを正常系に変換する」処理でchartAndApps単位の結果とは無関係、
+    verify-configは**問題を全件列挙して返すのが目的の別プログラム**（lintスクリプト）で、
+    fatalで全体を落とす方針そのものを持たない
+
 - **`gitlab/tag.ts` は外部I/Oを持たないのに `utils/` ではなく `lib/gitlab/` にある**:
   純粋な文字列/日付処理だが「GitLabのタグ」という命名規則に強く紐づくため。`utils/`は
   ドメイン知識を持たないものだけを置く
