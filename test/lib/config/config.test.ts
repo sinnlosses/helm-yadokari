@@ -4,9 +4,16 @@ import { join } from "node:path"
 import { beforeEach, describe, expect, it } from "vitest"
 
 import { loadConfig } from "../../../src/lib/config/config.js"
+import type { TargetClient } from "../../../src/types/types.js"
+import { toClientId, toTenantId } from "../../../src/types/types.js"
 import { useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
+
+/** テスト用に `TargetClient`（ブランド型）を組み立てる */
+function targetClient(tenantId: string, clientId: string): TargetClient {
+  return { tenantId: toTenantId(tenantId), clientId: toClientId(clientId) }
+}
 
 describe("loadConfig（パストラバーサル）", () => {
   it(".. を含む相対パスのとき例外をスローする", () => {
@@ -287,7 +294,7 @@ describe("loadConfig（target絞り込み）", () => {
 
   it("clientsを1件指定すると該当アプリのみ返す（chart横断）", () => {
     const { chartAndAppsList } = loadConfig(dir.path, {
-      clients: [{ tenantId: "tenantId1", clientId: "clientId1" }],
+      clients: [targetClient("tenantId1", "clientId1")],
     })
     expect(chartAndAppsList.map((g) => [g.chartDir, g.apps.map((a) => a.projectName)])).toEqual([
       ["teamA-chart", ["app-1"]],
@@ -298,8 +305,8 @@ describe("loadConfig（target絞り込み）", () => {
   it("clientsを複数指定すると該当する全アプリを返す", () => {
     const { chartAndAppsList } = loadConfig(dir.path, {
       clients: [
-        { tenantId: "tenantId1", clientId: "clientId1" },
-        { tenantId: "tenantId2", clientId: "clientId2" },
+        targetClient("tenantId1", "clientId1"),
+        targetClient("tenantId2", "clientId2"),
       ],
     })
     expect(
@@ -319,7 +326,7 @@ describe("loadConfig（target絞り込み）", () => {
   it("chartDir + clients を組み合わせて絞り込める", () => {
     const { chartAndAppsList } = loadConfig(dir.path, {
       chartDir: "teamA-chart",
-      clients: [{ tenantId: "tenantId2", clientId: "clientId2" }],
+      clients: [targetClient("tenantId2", "clientId2")],
     })
     expect(chartAndAppsList).toHaveLength(1)
     expect(chartAndAppsList[0]?.apps.map((a) => a.projectName)).toEqual(["app-2"])
@@ -327,7 +334,7 @@ describe("loadConfig（target絞り込み）", () => {
 
   it("存在しないtenantId/clientIdの組み合わせのとき例外をスローする", () => {
     expect(() =>
-      loadConfig(dir.path, { clients: [{ tenantId: "tenantId1", clientId: "no-such-client" }] }),
+      loadConfig(dir.path, { clients: [targetClient("tenantId1", "no-such-client")] }),
     ).toThrow("TARGET_CLIENTS")
   })
 
@@ -335,7 +342,7 @@ describe("loadConfig（target絞り込み）", () => {
     expect(() =>
       loadConfig(dir.path, {
         chartDir: "teamA-chart",
-        clients: [{ tenantId: "tenantId1", clientId: "clientId2" }],
+        clients: [targetClient("tenantId1", "clientId2")],
       }),
     ).toThrow("TARGET_CLIENTS")
   })
@@ -344,8 +351,8 @@ describe("loadConfig（target絞り込み）", () => {
     expect(() =>
       loadConfig(dir.path, {
         clients: [
-          { tenantId: "tenantId1", clientId: "clientId1" },
-          { tenantId: "no-such-tenant", clientId: "no-such-client" },
+          targetClient("tenantId1", "clientId1"),
+          targetClient("no-such-tenant", "no-such-client"),
         ],
       }),
     ).toThrow("no-such-tenant/no-such-client")
@@ -389,7 +396,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
     mkdirSync(join(dir.path, "teamA-chart", "tenantId1", "clientId1"), { recursive: true })
 
     expect(() =>
-      loadConfig(dir.path, { clients: [{ tenantId: "tenantId1", clientId: "clientId1" }] }),
+      loadConfig(dir.path, { clients: [targetClient("tenantId1", "clientId1")] }),
     ).toThrow("TARGET_CHART / TARGET_CLIENTS で絞り込んだ結果")
   })
 

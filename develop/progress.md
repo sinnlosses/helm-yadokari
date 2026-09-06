@@ -31,6 +31,11 @@ github/gitlab両リモートへpush済み（`860717a..92eb5f0`）。`tasks.json`
   分かるため呼び出し元で事前解決できることまで確認済み（`build-plans/sub-steps`の
   `LoadValuesYamlContent`/`BranchExists`とは事情が異なり、横展開の対象ではない）
 
+### T-071: TargetClient をブランド型で扱う
+
+- `TargetClient.tenantId`/`clientId` を `TenantId`/`ClientId` に変更（`ChartAndApps` 側と対称になった）。
+  `config.ts` の比較・パス結合3箇所は**ブランド型が `string` のサブタイプなので変更不要**だった
+
 ## 次にやること
 
 `tasks.json` の5タスク（T-071〜T-075）はすべて `todo`。依存があるのはT-073（T-072待ち）と

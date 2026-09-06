@@ -16,8 +16,8 @@ import type {
  * TARGET_CLIENTS環境変数由来、1件分のtenantId/clientIdの組
  */
 export type TargetClient = {
-  readonly tenantId: string
-  readonly clientId: string
+  readonly tenantId: TenantId
+  readonly clientId: ClientId
 }
 
 /**

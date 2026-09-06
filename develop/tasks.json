@@ -2,10 +2,10 @@
   {
     "id": "T-071",
     "task": "`TargetClient`（src/types/types.ts）の `tenantId`/`clientId` を `string` ではなく ブランド型 `TenantId`/`ClientId` で扱う。現状は `ChartAndApps.tenantId`/`clientId` が `TenantId`/`ClientId`（`toTenantId`/`toClientId` で生成）なのに対し、絞り込み条件である `TargetClient` だけが素の `string` になっており非対称（`src/lib/env.ts` の `parseTargetClientEntry()` が `{ tenantId: parts[0], clientId: parts[1] }` とそのまま代入している）。\n\n変更対象:\n(1) `src/types/types.ts` の `TargetClient` を `readonly tenantId: TenantId` / `readonly clientId: ClientId` に変更する。\n(2) `src/lib/env.ts` の `parseTargetClientEntry()` で `toTenantId(parts[0])` / `toClientId(parts[1])` を使って生成する（`as` は使わない。`brand.ts` の factory 関数のみで型変換する規約）。\n(3) `src/lib/config/config.ts` で `TargetClient` を比較している3箇所（`loadClientChartAndApps()` の `c.tenantId === id` / `c.tenantId === tenantId && c.clientId === id`、`clientDirExists()` の `join(path, chartDir, client.tenantId, client.clientId)`）は、比較・パス結合の相手が `listSubdirectories()`由来の素の `string`（ディレクトリ名）なので、`TargetClient` 側を 変換するのではなく比較・結合の相手を `toTenantId(id)` 等で揃えるか、あるいは 型上は互換なため変更不要かを確認し、コンパイルが通る形にする（`ConfigTarget.chartDir` は 今回のスコープ外＝素の`string`のまま。`TargetClient` のみが対象）。\n\n完了条件: `pnpm check` を通すこと。テストは既存の `test/lib/env.test.ts` / `test/lib/config/config.test.ts` がそのまま（またはブランド型を使うよう最小修正して）通ることで確認する。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "TargetClient.tenantId/clientId を TenantId/ClientId に変更し、env.ts の parseTargetClientEntry() を toTenantId()/toClientId() 経由の生成に直した。config.ts の比較・パス結合3箇所はブランド型が string のサブタイプであるため型エラーにならず変更不要だった（無理な変換を挿入していない）。test/lib/config/config.test.ts に targetClient() ヘルパーを追加して9箇所のリテラルを置換。pnpm check（28ファイル322テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で差分と pnpm check を確認して受け入れた",
     "dependencies": []
   },
   {

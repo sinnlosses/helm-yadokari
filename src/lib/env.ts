@@ -1,5 +1,5 @@
 import type { GitLabUrl, TagFormat, TargetClient } from "../types/types.js"
-import { toGitLabUrl } from "../types/types.js"
+import { toClientId, toGitLabUrl, toTenantId } from "../types/types.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "./gitlab/tag.js"
 
 export function loadEnv(key: string): string {
@@ -41,7 +41,7 @@ function parseTargetClientEntry(entry: string): TargetClient {
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
     throw new Error(`TARGET_CLIENTS は "<tenantId>/<clientId>" 形式で指定してください: "${entry}"`)
   }
-  return { tenantId: parts[0], clientId: parts[1] }
+  return { tenantId: toTenantId(parts[0]), clientId: toClientId(parts[1]) }
 }
 
 /**
