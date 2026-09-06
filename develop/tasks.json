@@ -11,10 +11,10 @@
   {
     "id": "T-078",
     "task": "`docs/glossary.md` の記述を現在のコードに合わせて更新する。用語集は「日本語表記・対応するコード上の識別子・定義」の3点で書く方針なので、**識別子が実在しないと用語集としての価値が落ちる**。現状ずれているのは次の4点（いずれも確認済み）:\n\n(1) 「config.yaml / anchors.yaml」の項に出てくる `loadApps()` は存在しない。現在 `validateProjectLinkage()` を呼んでいるのは `src/lib/config/config.ts` の `loadClientChartAndApps()`。\n(2) 「chartDir」の項の見出しと英語識別子が `chartDir` だが、実際のフィールド名は `ChartAndApps.chartDirName`（型は `ChartDirName`）。\n(3) 「anchor（chart[].anchor）」と「helm.chart[].anchor」の項が、英語識別子を「`ImageTagTarget`＝`AnchorTarget` のフィールド」「`HelmTargetBranchTarget`＝`AnchorTarget` のフィールド」と書いている。`ImageTagTarget` / `HelmTargetBranchTarget` という型はすでに削除済みで（理由は `docs/architecture.md`「values.yamlの書き込み位置は `AnchorTarget` 1つに統一し、用途別の別名は置かない」）、現存するのは `AnchorTarget` だけ。\n(4) 同じ2項目の「英語識別子」が `anchor` になっているが、コード上のフィールド名は `AnchorTarget.anchorName`。`anchor` は `anchors.yaml` のYAMLキー名としてのみ残っており（`src/lib/config/schema.ts` の `AnchorTargetSchema` が `.transform()` でキー `anchor` → フィールド `anchorName` に詰め替えている）、この「wire formatのキー名と内部フィールド名が違う」ことこそ用語集に書く価値がある。\n\nこの用語集の方針（冒頭の「方針」節）は「表記ゆれが見つかっても統一・修正はせず、現状こう呼ばれているという事実だけを注記する」なので、**過去の経緯の記述（「過去には〜という名前だった」等）は消さずに残し、現在の識別子を正とする形に直す**こと。判断が必要なのは (3)(4) をどう書き分けるか（YAMLキー名と内部フィールド名の対応をどう表現するか）だけで、他は置換で済む。\n\n完了条件: 更新後の `docs/glossary.md` に出てくる `` `xxx()` `` 形式の関数名・型名がすべて `src/` `scripts/` に実在することを grep で確認して示すこと。コード変更は無いので `pnpm check` は通るはず（念のため実行する）。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "loadApps()→loadClientChartAndApps()、chartDir→chartDirName、削除済み型ImageTagTarget/HelmTargetBranchTargetへの言及3箇所をAnchorTargetへ、anchorのYAMLキー名(anchor)と内部フィールド名(anchorName)の対応をAnchorTargetSchemaの.transform()込みで明記。実在確認: 用語集の関数名・型名で実コードに無いのはChartGroup/UPDATE_BRANCHのみ（どちらも「旧〜」として意図的に残す歴史記述）。pnpm check（31ファイル330テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で「反映済みタグ」項のpreviousTag→previousTagName（T-073で改名済み）とローカル変数previousTagRawの所在（build-plans.ts→image-tag-target.ts）を追加修正した",
     "dependencies": []
   },
   {

@@ -52,6 +52,14 @@ CI設定を読み、改善点を洗い出して `tasks.json` に15件登録し�
 空文字列ではなく非表示に。タスク本文の記述誤りで見落としていた `variables` 側の
 「1以上の整数」も併せて修正した。
 
+**T-078 完了**。`docs/glossary.md` の識別子を現在のコードに合わせた（`loadApps()`→
+`loadClientChartAndApps()`、`chartDir`→`chartDirName`、削除済み型 `ImageTagTarget`/
+`HelmTargetBranchTarget` への言及→`AnchorTarget`、YAMLキー名 `anchor` と内部フィールド名
+`anchorName` の対応を `AnchorTargetSchema` の `.transform()` 込みで明記）。sonnetに委譲し、
+受け入れ時に「反映済みタグ」項の `previousTag`→`previousTagName` を追加修正。
+用語集に残る実在しない識別子は `ChartGroup`・`UPDATE_BRANCH` の2つだけで、どちらも
+「旧〜」として意図的に残している歴史記述。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした

@@ -41,7 +41,7 @@
   `anchors.yaml`は「`values.yaml`のどこに書き込むか」というchart構造（`apps[].chart[]`、
   `helm.chart[]`。滅多に変更されない）のみを持つ。両者は`projectId`で対応付ける。
   `anchors.yaml`側の各appは`projectId`に加えて`projectName`も重複して持ち、
-  `loadApps()`内の`validateProjectLinkage()`が両ファイル間の紐づけ（`config.yaml`の各appに
+  `loadClientChartAndApps()`内の`validateProjectLinkage()`が両ファイル間の紐づけ（`config.yaml`の各appに
   対応するエントリが`anchors.yaml`にあるか、逆に`anchors.yaml`に孤児エントリが
   無いか、`projectName`が食い違っていないか）を検証する。
 - **経緯**: 元々は`config.yaml`（当時は`apps.yaml`）自身が`apps[].chart[]`・`helm.chart[]`と
@@ -60,7 +60,9 @@
 
 ### anchor（chart[].anchor）
 
-- **英語識別子**: `anchor`（型は`AnchorName`ブランド型、`ImageTagTarget`＝`AnchorTarget`のフィールド）
+- **英語識別子**: `anchorName`（型は`AnchorName`ブランド型、`AnchorTarget`のフィールド）。ただし
+  `anchors.yaml`上のYAMLキー名は`anchor`のままで、`AnchorTargetSchema`（`src/lib/config/schema.ts`）
+  の`.transform()`がキー`anchor`をフィールド`anchorName`に詰め替える
 - **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`anchors.yaml`の
   `apps[].chart`配列の1要素が持つフィールド名。`variables: [&tenant1client1AppsVersion main, ...]`
   のように、配列要素にアンカーで名前を付けた構成のvalues.yamlを前提とする。1つのソース
@@ -90,7 +92,9 @@
 
 ### helm.chart\[\].anchor
 
-- **英語識別子**: `anchor`（型は`AnchorName`、`HelmTargetBranchTarget`＝`AnchorTarget`のフィールド）
+- **英語識別子**: `anchorName`（型は`AnchorName`ブランド型、`AnchorTarget`のフィールド）。YAMLキー名は
+  `anchor`のままで、`apps[].chart[].anchor`と同じ`AnchorTargetSchema`がキー`anchor`から
+  フィールド`anchorName`への詰め替えを担う
 - **定義**: 「Helmの向き先ブランチ」の値を`valuesPath`のどこに書き込むかを指す、
   `anchors.yaml`トップレベル`helm.chart`配列の各要素が持つフィールド（chart構造の
   ためconfig.yamlではなくanchors.yaml側に置く）。`apps[].chart[].anchor`と
@@ -106,9 +110,9 @@
   `anchors.yaml`へ移設された。当初`helm`は`[{chart: [...]}]`という配列表記
   だったが、ユーザーが`{chart: [...]}`という単純なオブジェクトに直接修正した。
 
-### chartDir
+### chartDirName
 
-- **英語識別子**: `chartDir`（型は`ChartDirName`ブランド型）
+- **英語識別子**: `chartDirName`（型は`ChartDirName`ブランド型、`ChartAndApps`のフィールド）
 - **定義**: `config/`配下でchartリポジトリに対応するディレクトリ名。ログ出力等で人間向けラベルとして使われる。
 
 ### セルフサービス方式 / 自己申告方式
@@ -150,12 +154,12 @@
 
 ### 反映済みタグ
 
-- **英語識別子**: `previousTag`
-- **定義**: `values.yaml`に現在書かれているタグ。`AppConfig.chart`の書き換え箇所（`ImageTagTarget`）ごとに
+- **英語識別子**: `previousTagName`（型は`TagName`ブランド型、`ImageTagUpdate`のフィールド）
+- **定義**: `values.yaml`に現在書かれているタグ。`AppConfig.chart`の書き換え箇所（`AnchorTarget`）ごとに
   独立して読み取るため、1つのソースリポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を
-  管理している場合、同一アプリ内でも箇所によって異なりうる（`AppUpdatePlan.updates[].previousTag`）。
-- **表記ゆれ**: 型のフィールド名は`previousTag`だが、`build-plans.ts`内のローカル変数では
-  書き換え前の生の文字列を`previousTagRaw`と呼んでいる。
+  管理している場合、同一アプリ内でも箇所によって異なりうる（`AppUpdatePlan.updates[].previousTagName`）。
+- **表記ゆれ**: フィールド名は`previousTagName`だが、`image-tag-target.ts`内のローカル変数では
+  values.yamlから読んだ直後の生の文字列（ブランド型に通す前）を`previousTagRaw`と呼んでいる。
 - **更新しない例外**: 反映済みタグが現在の追跡ブランチのHEADコミットを指している場合は、
   より新しい名前のタグが存在しても更新しない（デプロイされる中身が同じなのに差分だけが出る
   MRを作らないため）。ただし追跡ブランチを切り替えた直後は、切り替え前のタグ名が現在の
