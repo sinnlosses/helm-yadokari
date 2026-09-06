@@ -110,10 +110,10 @@
   {
     "id": "T-089",
     "task": "`scripts/smoke/smoke-fixture.ts` の2つの問題を直す。どちらも実機スモークテスト用スクリプト（`docs/smoke-test.md` の手順から呼ぶ）の話で、本体パイプラインには影響しない。\n\n(1) **ソースリポジトリのprojectIdがハードコードされている**。`SEED_TAGS` に `projectId: 82861978` / `82861977` が直書きされており、chartリポジトリ側だけが `SMOKE_CHART_PROJECT_ID` 環境変数で外出しされているのと非対称。別のGitLabインスタンス・別のフィクスチャで再現しようとすると、このスクリプトを書き換えるしかない。chart側と同じやり方（環境変数で明示、未設定なら理由を出して `process.exit(1)`）に揃えること。変数名は `SMOKE_APP_PROJECT_IDS` のようにカンマ区切りで2件受ける形か、`SMOKE_QA_SPRINT_PROJECT_ID` / `SMOKE_DEVELOP_CLIENT_PROJECT_ID` のように個別に受ける形か、`config-test/` 配下の実際の設定（`yadokari-smoke-test-chart/*/*/config.yaml`）との対応が読み取りやすい方を選ぶ。`docs/smoke-test.md` の手順（projectIdの表と実行コマンド例）も合わせて更新すること。\n\n(2) **タグの新旧をタグ名の辞書順で判定している**。`ensureSeedTags()` の `const hasNewerTag = names.some((name) => name > tag)` は文字列の大小比較で「シードタグより新しいタグがあるか」を判定しており、`TAG_FORMAT` を既定（`{branch}-build-at-{date}-{time}`）から変えると誤判定する（例: `{date}-{time}-{branch}` なら辞書順と時刻順は一致しない）。このリポジトリはタグ名のパース・比較を `src/lib/tag-format.ts` に集約しており（`parseTag()` / `findLatestParsedTag()`）、スクリプト側も同じ関数を使うべき。`src/lib/env.ts` の `TAG_FORMAT` と `parseTag()` を使って `builtAt` で比較する形に直すこと（`SEED_TAGS` の `branch` はすでに各エントリが持っている）。\n\n完了条件: `pnpm check` を通すこと。このスクリプトは実機がないと動かせないので、実行そのものは完了条件に含めない。代わりに (2) について「既定の `TAG_FORMAT` で従来と同じ判定になること」を、変更後のコードを読んで説明すること（`docs/smoke-test.md` の該当箇所を更新したことも示す）。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "(1) ソースリポジトリのprojectIdを SMOKE_QA_SPRINT_PROJECT_ID / SMOKE_DEVELOP_CLIENT_PROJECT_ID に外出しし、chart側と同じ requireProjectId() で未設定なら理由付きで終了する形に統一。(2) タグの新旧判定を辞書順比較から lib/tag-format.ts の parseTag()/findLatestParsedTag() による builtAt 比較に変更（既定フォーマットは日時が末尾固定桁なので辞書順と一致し、従来と同じ判定になる）。docs/smoke-test.md も更新。pnpm check（31ファイル332テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で回帰を1件修正: SEED_TAGSがモジュール直下でprojectIdを要求していたため、chartリポジトリしか触らない reset まで新環境変数を必須にしてしまっていた（環境変数名だけを持たせ、値の要求は ensureSeedTags() に移動。reset がSMOKE_CHART_PROJECT_ID だけで起動することを実行して確認）",
     "dependencies": []
   },
   {

@@ -120,6 +120,14 @@ wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラー�
 読み込み用 `cacheValuesYamlDraft()` と書き込み用 `writeValuesYamlDraft()` で入口を分け、
 「`modified` は書き込み経由でしか生まれない」という `toFileUpdates()` の前提を関数名で保つ形にした。
 
+**T-089 完了**。スモークテスト用スクリプトのソースリポジトリ projectId を環境変数
+（`SMOKE_QA_SPRINT_PROJECT_ID` / `SMOKE_DEVELOP_CLIENT_PROJECT_ID`）へ外出しし、
+タグの新旧判定を辞書順比較から `lib/tag-format.ts` の `parseTag()`/`findLatestParsedTag()`
+による `builtAt` 比較に直した（`TAG_FORMAT` を変えても誤判定しない）。受け入れ時に回帰を1件修正 ——
+`SEED_TAGS` がモジュール直下で projectId を要求していたため、chartリポジトリしか触らない
+`reset` まで新しい環境変数を必須にしてしまっていた。環境変数名だけを持たせ、値の要求は
+`ensureSeedTags()`（`setup` のみが呼ぶ）へ移した。
+
 **検討したが登録しなかったもの**（次に同じ調査をしないための記録）:
 
 - `src/utils/logger.ts` の `redact()` がトップレベルのキーしか伏せない件 —— 現状ネストした

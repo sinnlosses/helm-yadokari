@@ -9,11 +9,15 @@
 
 ## 使うGitLabリソース
 
-| 役割                      | プロジェクト                                 | projectId  |
-| ------------------------- | -------------------------------------------- | ---------- |
-| chartリポジトリ           | `sinnlosses-group/yadokari-smoke-test-chart` | `86061211` |
-| ソースリポジトリ（app 1） | `sinnlosses-group/sample-qa-sprint`          | `82861978` |
-| ソースリポジトリ（app 2） | `sinnlosses-group/sample-develop-client`     | `82861977` |
+| 役割                      | プロジェクト                                 | projectId  | 環境変数                          |
+| ------------------------- | -------------------------------------------- | ---------- | --------------------------------- |
+| chartリポジトリ           | `sinnlosses-group/yadokari-smoke-test-chart` | `86061211` | `SMOKE_CHART_PROJECT_ID`          |
+| ソースリポジトリ（app 1） | `sinnlosses-group/sample-qa-sprint`          | `82861978` | `SMOKE_QA_SPRINT_PROJECT_ID`      |
+| ソースリポジトリ（app 2） | `sinnlosses-group/sample-develop-client`     | `82861977` | `SMOKE_DEVELOP_CLIENT_PROJECT_ID` |
+
+projectIdは別のGitLabインスタンス・別のフィクスチャで検証する場合に差し替えられるよう、
+`smoke-fixture.ts` はすべてこれらの環境変数から読み取る（ハードコードなし、未設定なら
+理由を出して終了する）。表のprojectIdは現在のスモークテスト用プロジェクトの実際の値。
 
 chartリポジトリ側に必要なもの（`smoke-fixture.ts setup` が用意する）:
 
@@ -51,6 +55,8 @@ MRに載る」ことの確認も兼ねている。
 ```bash
 # 0. 認証情報（.env に GITLAB_URL / ACCESS_TOKEN）と対象プロジェクトを用意
 export SMOKE_CHART_PROJECT_ID=86061211
+export SMOKE_QA_SPRINT_PROJECT_ID=82861978
+export SMOKE_DEVELOP_CLIENT_PROJECT_ID=82861977
 
 # 1. 前回の検証結果を片付ける（MRクローズ＋固定ブランチ削除）。--apply なしは dry-run
 npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply
@@ -99,5 +105,6 @@ CONFIG_PATH=config-test TARGET_CLIENTS=tenant2/client1,tenant2/client2 pnpm dev
 - ソースリポジトリの追跡ブランチのHEADに一致するタグが無い場合、CLIがタグを新規作成する
   （＝ソースリポジトリへの書き込みが発生する）。現在のスモークテスト用リポジトリは
   HEADに一致するタグがあるため、通常は既存タグが再利用される
-- `smoke-fixture.ts` は事故防止のため `SMOKE_CHART_PROJECT_ID` の明示を必須にしており、
-  `--apply` を付けない限り何も変更しない
+- `smoke-fixture.ts` は事故防止のため projectId の明示を必須にしており、`--apply` を
+  付けない限り何も変更しない。`setup` は3つとも必要だが、`reset` はchartリポジトリしか
+  触らないので `SMOKE_CHART_PROJECT_ID` だけで実行できる

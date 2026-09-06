@@ -1,5 +1,7 @@
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
+import { findLatestParsedTag, parseTag } from "../../src/lib/tag-format.js"
+import { toBranchName, toTagName } from "../../src/types/types.js"
 
 // 実機スモークテスト（docs/smoke-test.md）用のフィクスチャ操作スクリプト。
 //
@@ -9,23 +11,28 @@ import { createClient } from "../../src/lib/gitlab/gitlab.js"
 //            ブランチを削除する。次の検証をやり直せる状態に戻す
 //
 // 既定はdry-run（何をするかを表示するだけ）。実際に反映するには --apply を付ける。
-// 対象プロジェクトは事故防止のため必ず SMOKE_CHART_PROJECT_ID で明示する。
+// 対象プロジェクトは事故防止のため必ず環境変数（SMOKE_CHART_PROJECT_ID /
+// SMOKE_QA_SPRINT_PROJECT_ID / SMOKE_DEVELOP_CLIENT_PROJECT_ID）で明示する。
 
 const HELM_TARGET_BRANCH = "release/2026-q1"
 
 /**
- * values.yaml のシード値には「実在する、かつ最新より古いタグ」を使う。
- * `placeholder` のような架空の値だと、MR本文の旧タグリンク（`/-/tags/...`）と比較リンクが
- * 存在しないタグを指してしまい、初回のMRだけ壊れた見た目になるため。
+ * 環境変数からprojectIdを読み取る。未設定・非整数の場合は理由を出して即終了する。
+ * 対象プロジェクトを取り違えると誤ったGitLabプロジェクトに書き込んでしまうため、
+ * chart・ソースリポジトリのどちらも既定値を持たせずこの関数経由での明示を必須にしている。
  */
-const SEED_TAGS = {
-  qaSprint: { projectId: 82861978, branch: "main", tag: "main-build-at-20260903-171213" },
-  developClient: { projectId: 82861977, branch: "main", tag: "main-build-at-20260101-000000" },
-} as const
-
-const SEED_FILES: Record<string, string> = {
-  "charts/smoke-tenant2/client1/values.yaml": `variables:\n  - &t2c1QaSprintVersion ${SEED_TAGS.qaSprint.tag}\n  - &t2c1DevelopClientVersion ${SEED_TAGS.developClient.tag}\n  - &t2c1HelmTargetBranch main\n`,
-  "charts/smoke-tenant2/client2/values.yaml": `variables:\n  - &t2c2QaSprintVersion ${SEED_TAGS.qaSprint.tag}\n  - &t2c2DevelopClientVersion ${SEED_TAGS.developClient.tag}\n`,
+function requireProjectId(envVarName: string, description: string): number {
+  const raw = process.env[envVarName]
+  if (!raw?.trim()) {
+    console.error(`環境変数 ${envVarName}（${description}のprojectId）が未設定です`)
+    process.exit(1)
+  }
+  const projectId = Number(raw)
+  if (!Number.isInteger(projectId)) {
+    console.error(`${envVarName} は整数で指定してください: "${raw}"`)
+    process.exit(1)
+  }
+  return projectId
 }
 
 const [command] = process.argv.slice(2)
@@ -36,17 +43,35 @@ if (command !== "setup" && command !== "reset") {
   process.exit(1)
 }
 
-const rawProjectId = process.env["SMOKE_CHART_PROJECT_ID"]
-if (!rawProjectId?.trim()) {
-  console.error(
-    "環境変数 SMOKE_CHART_PROJECT_ID（スモークテスト用chartリポジトリのprojectId）が未設定です",
-  )
-  process.exit(1)
-}
-const projectId = Number(rawProjectId)
-if (!Number.isInteger(projectId)) {
-  console.error(`SMOKE_CHART_PROJECT_ID は整数で指定してください: "${rawProjectId}"`)
-  process.exit(1)
+const projectId = requireProjectId("SMOKE_CHART_PROJECT_ID", "スモークテスト用chartリポジトリ")
+
+/**
+ * values.yaml のシード値には「実在する、かつ最新より古いタグ」を使う。
+ * `placeholder` のような架空の値だと、MR本文の旧タグリンク（`/-/tags/...`）と比較リンクが
+ * 存在しないタグを指してしまい、初回のMRだけ壊れた見た目になるため。
+ * projectIdは環境変数名が `config-test/yadokari-smoke-test-chart/` 側の projectName
+ * （`sample-qa-sprint` / `sample-develop-client`）と対応するように名付けている。
+ * 実際に読むのは`setup`のときだけ（`reset`はchartリポジトリしか触らない）なので、
+ * ここには環境変数名だけを持たせ、値の要求は`ensureSeedTags()`で行う。
+ */
+const SEED_TAGS = {
+  qaSprint: {
+    projectIdEnvVar: "SMOKE_QA_SPRINT_PROJECT_ID",
+    label: "ソースリポジトリ sample-qa-sprint",
+    branch: "main",
+    tag: "main-build-at-20260903-171213",
+  },
+  developClient: {
+    projectIdEnvVar: "SMOKE_DEVELOP_CLIENT_PROJECT_ID",
+    label: "ソースリポジトリ sample-develop-client",
+    branch: "main",
+    tag: "main-build-at-20260101-000000",
+  },
+} as const
+
+const SEED_FILES: Record<string, string> = {
+  "charts/smoke-tenant2/client1/values.yaml": `variables:\n  - &t2c1QaSprintVersion ${SEED_TAGS.qaSprint.tag}\n  - &t2c1DevelopClientVersion ${SEED_TAGS.developClient.tag}\n  - &t2c1HelmTargetBranch main\n`,
+  "charts/smoke-tenant2/client2/values.yaml": `variables:\n  - &t2c2QaSprintVersion ${SEED_TAGS.qaSprint.tag}\n  - &t2c2DevelopClientVersion ${SEED_TAGS.developClient.tag}\n`,
 }
 
 const env = loadEnvConfig()
@@ -62,7 +87,8 @@ console.log(apply ? "モード: --apply（実際に反映します）" : "モー
  * 成立しないので、その場合は警告する。
  */
 async function ensureSeedTags(): Promise<void> {
-  for (const { projectId: sourceProjectId, branch, tag } of Object.values(SEED_TAGS)) {
+  for (const { projectIdEnvVar, label, branch, tag } of Object.values(SEED_TAGS)) {
+    const sourceProjectId = requireProjectId(projectIdEnvVar, label)
     const tags = await gitlab.Tags.all(sourceProjectId)
     const names = tags.map((t) => String(t.name))
     if (names.includes(tag)) {
@@ -71,7 +97,11 @@ async function ensureSeedTags(): Promise<void> {
       console.log(`- シードタグ ${tag} を project ${sourceProjectId} の ${branch} に作成`)
       if (apply) await gitlab.Tags.create(sourceProjectId, tag, branch)
     }
-    const hasNewerTag = names.some((name) => name > tag)
+    const branchName = toBranchName(branch)
+    const seedTag = parseTag(toTagName(tag), branchName, env.tagFormat)
+    const latestTag = findLatestParsedTag(names.map(toTagName), branchName, env.tagFormat)
+    const hasNewerTag =
+      seedTag !== undefined && latestTag !== undefined && latestTag.builtAt > seedTag.builtAt
     if (!hasNewerTag) {
       console.log(
         `  ⚠ project ${sourceProjectId} に ${tag} より新しいタグがありません。` +
