@@ -73,8 +73,7 @@ async function buildPlan(
   branchExists: CachedBranchExists,
   logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartUpdateTarget>> {
-  const { chart } = chartAndApps
-  const valuesYamlSource: ValuesYamlSource = { gitlab, chart }
+  const valuesYamlSource: ValuesYamlSource = { gitlab, chart: chartAndApps.chart }
 
   const appsWithLatestTag = await resolveLatestTags(gitlab, chartAndApps.apps, dryRun, tagFormat)
   const { plans, draft: draftAfterApps } = await stageImageTagUpdates(
@@ -85,7 +84,7 @@ async function buildPlan(
   const { draft, updates: helmTargetBranchUpdates } = chartAndApps.helmTargetBranch
     ? await stageHelmTargetBranchUpdates(
         valuesYamlSource,
-        (branch) => branchExists(chart.projectId, branch),
+        (branch) => branchExists(chartAndApps.chart.projectId, branch),
         chartAndApps.helmTargetBranch,
         draftAfterApps,
       )
