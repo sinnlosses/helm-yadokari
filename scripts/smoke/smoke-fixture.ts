@@ -1,3 +1,4 @@
+import { isFeatureBranch } from "../../src/domain/feature-branch.js"
 import { findLatestParsedTag, parseTag } from "../../src/domain/tag-format.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
@@ -144,18 +145,14 @@ async function setup(): Promise<void> {
 
 async function reset(): Promise<void> {
   const mergeRequests = await gitlab.MergeRequests.all({ projectId, state: "opened" })
-  const targets = mergeRequests.filter((mr) =>
-    String(mr.source_branch).startsWith("feature/yadokari/"),
-  )
+  const targets = mergeRequests.filter((mr) => isFeatureBranch(String(mr.source_branch)))
   for (const mr of targets) {
     console.log(`- MR !${mr.iid}（${String(mr.source_branch)}）をクローズ`)
     if (apply) await gitlab.MergeRequests.edit(projectId, Number(mr.iid), { stateEvent: "close" })
   }
 
   const branches = await gitlab.Branches.all(projectId)
-  const staleBranches = branches
-    .map((branch) => String(branch.name))
-    .filter((name) => name.startsWith("feature/yadokari/"))
+  const staleBranches = branches.map((branch) => String(branch.name)).filter(isFeatureBranch)
   for (const name of staleBranches) {
     console.log(`- ブランチ ${name} を削除`)
     if (apply) await gitlab.Branches.remove(projectId, name)

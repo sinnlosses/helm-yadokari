@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs"
 import { join } from "node:path"
 
+import { formatClientRef } from "../../domain/client-ref.js"
 import type {
   AnchorTarget,
   AppConfig,
@@ -212,7 +213,9 @@ export function loadConfig(configPath?: string, target: ConfigTarget = {}): Conf
     (client) => !clientDirExists(path, targetChartDirs, client),
   )
   if (missingClients.length > 0) {
-    const missingList = missingClients.map((c) => `${c.tenantId}/${c.clientId}`).join(", ")
+    const missingList = missingClients
+      .map((client) => formatClientRef(client.tenantId, client.clientId))
+      .join(", ")
     throw new Error(`TARGET_CLIENTS で指定された "${missingList}" が見つかりません`)
   }
 

@@ -1,3 +1,4 @@
+import { formatClientRef } from "../../../domain/client-ref.js"
 import { buildCompareUrl, buildTagUrl } from "../../../lib/gitlab/web-url.js"
 import type { ClientId, HelmTargetBranchUpdate, TenantId } from "../../../types/types.js"
 import type { ImageTagEntry, MrEntries } from "./shared/types.js"
@@ -36,7 +37,7 @@ function buildMrTitle(tenantId: TenantId, clientId: ClientId, entries: MrEntries
     ...(entries.helmBranches.length > 0 ? [`helm branch ${entries.helmBranches.length}`] : []),
   ]
   const summary = parts.length > 0 ? ` (${parts.join(", ")})` : ""
-  return `Auto MR by yadokari: update ${tenantId}/${clientId}${summary}`
+  return `Auto MR by yadokari: update ${formatClientRef(tenantId, clientId)}${summary}`
 }
 
 function buildMrDescription(entries: MrEntries): string {

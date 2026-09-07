@@ -77,10 +77,11 @@
 GitLab APIにも外部ファイル形式にも依存せず、ブランド型・ドメイン型にだけ依存する純粋な関数・
 定数を置く。helm-yadokari が「どう名付け・どう表現するか」を決めているルールそのもの。
 
-| ファイル            | 責務                                                                           |
-| ------------------- | ------------------------------------------------------------------------------ |
-| `tag-format.ts`     | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証 |
-| `feature-branch.ts` | 固定ブランチ名 `feature/yadokari/<tenantId>/<clientId>` の組み立て             |
+| ファイル            | 責務                                                                            |
+| ------------------- | ------------------------------------------------------------------------------- |
+| `tag-format.ts`     | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証  |
+| `feature-branch.ts` | 固定ブランチ名 `feature/yadokari/<tenantId>/<clientId>` の組み立てと判定        |
+| `client-ref.ts`     | `(tenantId, clientId)`の組の文字列表記 `<tenantId>/<clientId>` の組み立てと分解 |
 
 ### `src/utils/` — ドメイン知識を一切持たない汎用ユーティリティ
 

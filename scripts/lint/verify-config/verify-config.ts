@@ -1,3 +1,4 @@
+import { formatClientRef } from "../../../src/domain/client-ref.js"
 import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
 import { getValueAtAnchor } from "../../../src/lib/helm.js"
 import type {
@@ -127,7 +128,7 @@ async function verifyChartAndApps(
   const { chart, apps } = chartAndApps
   const context: VerifyContext = {
     cache,
-    where: `${chartAndApps.chartDirName}/${chartAndApps.tenantId}/${chartAndApps.clientId}`,
+    where: `${chartAndApps.chartDirName}/${formatClientRef(chartAndApps.tenantId, chartAndApps.clientId)}`,
     chart,
     reportedPaths: new Set<string>(),
   }

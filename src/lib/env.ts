@@ -1,6 +1,7 @@
+import { parseClientRef } from "../domain/client-ref.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../domain/tag-format.js"
 import type { ChartDirName, GitLabUrl, TagFormat, TargetClient } from "../types/types.js"
-import { toChartDirName, toClientId, toGitLabUrl, toTenantId } from "../types/types.js"
+import { toChartDirName, toGitLabUrl } from "../types/types.js"
 
 export function loadEnv(key: string): string {
   const value = process.env[key]
@@ -42,11 +43,11 @@ export function parseTargetChart(raw: string | undefined): ChartDirName | undefi
 }
 
 function parseTargetClientEntry(entry: string): TargetClient {
-  const parts = entry.split("/")
-  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+  const client = parseClientRef(entry)
+  if (client === undefined) {
     throw new Error(`TARGET_CLIENTS は "<tenantId>/<clientId>" 形式で指定してください: "${entry}"`)
   }
-  return { tenantId: toTenantId(parts[0]), clientId: toClientId(parts[1]) }
+  return client
 }
 
 /**
