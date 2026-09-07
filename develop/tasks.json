@@ -20,10 +20,10 @@
   {
     "id": "T-125",
     "task": "環境変数にも `config/` にも出ていない「コードに直接書かれた値」を洗い出し、パラメータ化すべきかの判断材料をユーザーに出す。**実装はしない。**\n\n## 背景\n\n利用者が設定できるのは現状2系統。\n\n- **環境変数8つ** — `GITLAB_URL` / `ACCESS_TOKEN` / `CONFIG_PATH` / `CONCURRENCY_LIMIT` / `DRY_RUN` / `TARGET_CHART` / `TARGET_CLIENTS` / `TAG_FORMAT`（正典は `README.md`「設定」章、実装は `src/lib/env.ts` の `loadEnvConfig()`）\n- **`config/` のYAML** — projectId・追跡ブランチ・`mrTargetBranch`・`valuesPath`・アンカー名（`docs/requirements.md` 4.4節）\n\n一方で**コードに直接書かれていて利用者が変えられない値**が残っている。ざっと見えているだけでも:\n\n- `src/domain/feature-branch.ts:5` `FEATURE_BRANCH_PREFIX = \"feature/yadokari/\"`（固定ブランチ名の接頭辞）\n- `src/utils/retry.ts` の `maxAttempts = 3` / `baseDelayMs = 1000` / `RETRYABLE_STATUSES = {429,502,503,504}`\n- `src/lib/env.ts` `parseConcurrencyLimit()` が課す上限「1〜20の整数」\n- `src/steps/apply-updates/sub-steps/build-mr-content.ts` のMRタイトル・本文（Markdownテーブルの列構成）と、それをコミットメッセージへ流用する取り決め（`apply-updates.ts`）\n- `src/domain/tag-format.ts` の必須プレースホルダ3種（`{branch}`/`{date}`/`{time}`）と日時のUTC固定\n\n**このリストは出発点であって完全ではない。**\n\n## やること\n\n1. `src/` 全体を走査し、環境変数にも `config/` にも出ていない、**運用で変えたくなりうる値**を列挙する\n2. 各項目に次の5点を書く: 現在値 / 位置（`file:line`）/ 変えたくなる場面 / パラメータ化するなら環境変数と `config/` のどちらが妥当か / 変えられるようにしたときの副作用（例: 固定ブランチ接頭辞を可変にすると、`isFeatureBranch()` を使う `scripts/smoke/smoke-fixture.ts` の後片付けが接頭辞を知る必要がある）\n3. 結果を `develop/parameterization-candidates.md` に書く\n4. `docs/requirements.md`「2.2 対象外とすること」に既に「やらない」と書かれている項目は、その旨を添えて候補から外す\n\n## 完了条件\n\n- `develop/parameterization-candidates.md` が存在し、全項目に上の5点が揃っている\n- どう探したか（grepのパターン・見たディレクトリ）が同ファイルに書かれている\n- **コードの変更が1行も無い**（`git diff --stat` の対象が `develop/` の追加のみ）\n- `pnpm check` が通る\n\n## 注意\n\n- **実装（環境変数の追加）はしない。** 足すかどうかはユーザーが決める\n- 出力先を `develop/` にしているのは**ユーザーの判断待ちの作業ファイル**だから。T-119 で `develop/test-inventory.md` を `docs/` 側へ移したのは、あれが「規約に付随する現在の参照情報」に変わっていたからで、判断待ちの作業ファイルを `develop/` に置く運用自体は変えていない\n- `/loop /next-task` に載せてよい",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "`develop/parameterization-candidates.md`（238行）を作成。9項目を「現在値／位置(file:line)／変えたくなる場面／env・configどちらが妥当か／副作用／推奨」で列挙し、探し方（grepパターン4種＋35ファイル目視）も同ファイルに記載。**結論は「積極的に勧める材料は薄い」**（明確に推すのは0件、中立寄りが#1の固定ブランチ接頭辞のみ。#2・#4は `docs/architecture.md` に検討済み・再検討トリガーが既にある）。コード変更0行。メイン側で file:line 4箇所を抜き取り照合し、見出しのタスク番号（規約違反）を除去した。`pnpm check` exit=0（35ファイル355テスト）。",
     "dependencies": []
   },
   {
