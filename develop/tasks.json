@@ -20,10 +20,10 @@
   {
     "id": "T-112",
     "task": "`commitFileUpdates()` がコミット前に行っている `getFileContent()` の呼び出しを、不要であることを確認したうえで取り除く。\n\n## 背景\n\n`src/lib/gitlab/gitlab.ts` の `commitFileUpdates()` は、コミットするファイルごとに `getFileContent(projectId, file.valuesPath, baseBranch)` を呼び、結果が `undefined` かどうかで CommitAction を `create` / `update` に振り分けている。\n\nしかしこのパイプラインでは `files` に入るのは `toFileUpdates()`（`src/steps/build-plans/sub-steps/shared/values-yaml-draft.ts`）が返す `modified` なエントリだけで、`modified` は `writeValuesYamlDraft()` を通ったものにしか付かない。そして `writeValuesYamlDraft()` が呼ばれる前には必ず `readValuesYamlDraft()` が同じ `projectId` + `valuesPath` + `mrTargetBranch` の取得に成功している（取得できなければ例外をスローする）。つまり**判定結果は常に `update` で、MRごとにファイル数ぶんのAPI呼び出しが無駄になっている**。\n\n## やること\n\n1. 上の不変条件を実際にコードで確認する（`files` の生成経路が本当に `toFileUpdates()` 経由に限られるか）。**確認して崩れていた場合は、取り除かずに理由を `evidence` に書いて終わる**。\n2. 成り立つなら、`getFileContent()` の呼び出しと `create`/`update` の分岐を取り除き、`action` を `update` 固定にする。関数のJSDoc（「ファイルごとの action（create/update）は、常に `baseBranch` に該当ファイルが既に存在するかで判定する」）も、実際の前提に合わせて書き直す。\n3. この不変条件は `lib/gitlab/` からは見えない（呼び出し元の性質に依存する）ため、**なぜ `update` 固定でよいかをコメントで残す**（`docs/coding-standards.md`「コメントはコードから読み取れないことだけを書く」に従い、前提・制約として書く）。\n4. 既存テストで `create` 側の分岐を検証しているものがあれば、削除の是非を `docs/coding-standards.md`「テスト」節の基準で判断する。\n\n## 完了条件\n\n- 取り除いた（または取り除かなかった理由を示した）こと。\n- `pnpm check` を通すこと。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "不変条件を確認: `commitFileUpdates()` の `src` 内の呼び出し元は apply-updates.ts の1箇所だけで、渡す `files` は `ChartUpdateTarget.files`＝build-plans.ts の `toFileUpdates(draft)` のみが構築する。`toFileUpdates()` は `modified: true` だけを返し、`modified: true` は `writeValuesYamlDraft()` 経由でしか作られず、その2つの呼び出し（stage-image-tag-updates.ts / stage-helm-target-branch-updates.ts）はどちらも直前に同じ `valuesPath` で `readValuesYamlDraft()` が成功している（読めなければ例外）。`projectId`/`baseBranch` も読み込み時と同じ `chart.projectId`/`chart.mrTargetBranch`。よって判定は常に update。`getFileContent()` の呼び出しと create/update の分岐を除去し、`CommitAction` の action を `\"update\"` に絞り、JSDocを実際の前提に書き直した（前提は lib/gitlab/ からは見えないため理由もそこに残した）。テストは create 側を検証していた2件のうち1件（actionの判定基準）を削除し、混在ケースの1件は「複数ファイルを1回のコミットにまとめ、いずれも update として送る」に書き換えて残した（`RepositoryFiles.show` のモックも不要になったので撤去）。docs/architecture.md「コミット処理だけは`lib/gitlab/`がドメイン型を知っている」節を更新。`pnpm check` exit=0、33ファイル344テスト（345→344、削除1件ぶん）。",
     "dependencies": ["T-111"]
   },
   {

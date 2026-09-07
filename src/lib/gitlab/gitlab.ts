@@ -99,14 +99,16 @@ export async function openMergeRequestExists(
   return mergeRequests.length > 0
 }
 
-type CommitAction = { action: "create" | "update"; filePath: ValuesPath; content: string }
+type CommitAction = { action: "update"; filePath: ValuesPath; content: string }
 
 /**
  * 指定したブランチへコミットを作成する。指定したブランチが既に存在する場合は一旦削除し、
  * `baseBranch` から常に新規作成し直す。これにより、過去の変更が新しいMRの差分に紛れ込むことを防ぐ。
  *
- * ファイルごとの action（create/update）は、常に `baseBranch` に該当ファイルが既に
- * 存在するかで判定する（ブランチを作り直す前提のため、判定基準は常に `baseBranch` でよい）。
+ * ファイルごとの action は常に `update`。呼び出し元がここへ渡すのは、`baseBranch` 時点の内容を
+ * 読み込めたファイルだけを書き換えた結果で、読み込めなければその時点で例外になる
+ * （`steps/build-plans/sub-steps/shared/values-yaml-draft.ts`）。つまり `baseBranch` に
+ * 存在しないファイルは渡ってこない。この前提は`lib/gitlab/`からは見えないためここに書く。
  */
 export async function commitFileUpdates(
   gitlab: GitlabClient,
@@ -119,16 +121,12 @@ export async function commitFileUpdates(
   if (await branchExists(gitlab, projectId, featureBranch)) {
     await deleteBranch(gitlab, projectId, featureBranch)
   }
-  const actions = await Promise.all(
-    files.map(async (file): Promise<CommitAction> => {
-      const currentContent = await getFileContent(gitlab, projectId, file.valuesPath, baseBranch)
-      return {
-        action: currentContent === undefined ? "create" : "update",
-        filePath: file.valuesPath,
-        content: file.content,
-      }
-    }),
-  )
+  // gitbeaker が可変配列を要求するため、ここだけ readonly にしない
+  const actions: CommitAction[] = files.map((file) => ({
+    action: "update",
+    filePath: file.valuesPath,
+    content: file.content,
+  }))
   await withRetry(() =>
     gitlab.Commits.create(projectId, featureBranch, message, actions, { startBranch: baseBranch }),
   )

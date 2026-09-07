@@ -408,10 +408,14 @@ values.yamlの読み込みは以前この形（`ReadDraftValuesYaml`）だった
 
 #### コミット処理だけは`lib/gitlab/`がドメイン型を知っている
 
-「固定ブランチを消して`baseBranch`から作り直す」「create/updateの判定は常に`baseBranch`基準」
-という方針を持つ。方針をstep側へ引き上げる案は採らない。中身はブランチ確認・削除・ファイル
-取得・コミットという4種のAPI呼び出しの**手順**で、stepに移すとstep側にGitLab APIの呼び出し順が
-漏れるため。
+「固定ブランチを消して`baseBranch`から作り直す」「ファイルの action は常に`update`」という
+方針を持つ。方針をstep側へ引き上げる案は採らない。中身はブランチ確認・削除・コミットという
+3種のAPI呼び出しの**手順**で、stepに移すとstep側にGitLab APIの呼び出し順が漏れるため。
+
+`update`固定でよい根拠は呼び出し元側の不変条件（`baseBranch`時点の内容を読めたファイルしか
+渡ってこない）で、`lib/gitlab/`からは見えない。以前はファイルごとに`getFileContent()`を引いて
+create/updateを振り分けていたが、判定結果は常に`update`でMRごとにファイル数ぶんの問い合わせが
+無駄になっていたため取り除いた。根拠は`commitFileUpdates()`のJSDocに書いてある。
 
 ### 型と命名
 
