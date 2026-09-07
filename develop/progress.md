@@ -9,6 +9,9 @@ T-001〜T-101 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
 
 ## 完了したこと（このセッション）
 
+- **T-107 完了**: `isFatalStatus` の引数を `number` に狭め、到達しない `undefined` 判定を削除
+  （`src/utils/http.ts` はカバレッジ100%に）。
+
 - **T-106 完了**: `test/` 配下のコメントをコメント基準に追従（経緯1件を削除、src側JSDocの
   丸写し1件を圧縮、言い換え1件を削除）。テストの件数・内容は変えていない。
 

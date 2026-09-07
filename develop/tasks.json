@@ -47,10 +47,10 @@
   {
     "id": "T-107",
     "task": "`src/utils/http.ts` の `isFatalStatus` の引数の型を `number | undefined` から `number` に狭め、`if (status === undefined) return false` を消す。\n\n唯一の呼び出し元（`isFatalError`）が `status !== undefined` を確認済みで、この分岐には到達しない。`docs/coding-standards.md`「避ける `undefined`」の「実行時には到達しないのに型に残っている `undefined`」に当たる。\n\n## 完了条件\n\n- `isFatalStatus` に `undefined` を渡す呼び出しが無いことを確認したうえで型を狭めていること。\n- `test/utils/http.test.ts` の既存テストを変えずに `pnpm check` が通ること。\n- `pnpm test:coverage` で `src/utils/http.ts` の branches が 31/31 になること。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "haiku",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "isFatalStatus の引数を number に狭め、到達しない undefined 判定を削除。呼び出し元は src/utils/http.ts:24 の1箇所のみで status !== undefined を確認済み。pnpm check 通過（32ファイル337テスト、テストは無変更）。カバレッジは http.ts が 100%（未到達行なし）。完了条件の「branches 31/31」は分岐そのものを消したため 29/29（100%）になった。",
     "dependencies": ["T-104"]
   },
   {

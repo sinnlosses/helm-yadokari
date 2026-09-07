@@ -38,7 +38,6 @@ function hasKey<K extends string>(obj: object, key: K): obj is Record<K, unknown
 
 // 403 はトークンが特定プロジェクトへのアクセス権を持たない場合に発生しうるため fatal 扱いしない。
 // 401（認証失敗）と 5xx（サーバー障害）は全プロジェクトに影響するため即時終了する。
-function isFatalStatus(status: number | undefined): boolean {
-  if (status === undefined) return false
+function isFatalStatus(status: number): boolean {
   return status === 401 || status >= 500
 }
