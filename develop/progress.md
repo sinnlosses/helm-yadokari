@@ -9,6 +9,27 @@ T-001〜T-109 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
 
 ## 完了したこと（このセッション）
 
+### 実機スモークテスト（2026-09-07、`docs/smoke-test.md` の手順どおり）
+
+`summary {"CREATED":2,"SKIPPED":0,"ERROR":0}`。MR !28（`tenant2/client2`、`image tag 1`）と
+!29（`tenant2/client1`、`image tag 1, helm branch 1`）が作られ、タイトル・本文の2セクション
+構成・8列/4列のテーブル・旧タグ/新タグのリンクと比較/パイプラインの生URLとも手順書の期待どおり。
+再実行が `SKIPPED (mr_exists)` になることも確認。固定ブランチ上の `values.yaml` は
+`t2c1QaSprintVersion` が新タグに、`t2c1HelmTargetBranch` が `release/2026-q1` に書き換わり、
+`t2c1DevelopClientVersion` は据え置き。
+
+**T-064以降の未検証分（URL検証の追加・MR本文のURL解決の作り替え・`loadEnvConfig()`化・
+values.yaml下書きの受け渡しの作り替え・スモークスクリプトの環境変数追加）と、このセッションで
+変えた `src/index.ts` の起動経路が実機で問題なく動くことを確認した。**
+
+- `sample-develop-client` は `SKIPPED (already_up_to_date)`。HEADを指すタグが2本ある状態での
+  タイブレーク（タグ名の日時降順で `main-build-at-20260903-143646`）も前回と同じ結果
+- `sample-qa-sprint` は既存タグ（`main-build-at-20260903-172148`）を再利用し、**新規タグを
+  作っていない**。`setup` のシードタグも両リポジトリとも「既に存在」で新規作成なし
+- 手順1〜2（`--apply`）と手順5（本番実行）はハーネスの自動承認でブロックされるため、
+  ユーザーがターミナルから直接実行した。手順3（実在チェック）・手順4（dry-run）と
+  MR本文の確認はセッション側で実行
+
 - **T-110 完了**: コミットメッセージにタスクIDを振る運用にした。既存の「タスク番号を書かない」
   規約とは衝突しない（対象がコード・ドキュメントであること、IDはアーカイブ後も
   `docs/history/` に残ること、機械的確認の grep がコミットメッセージを見ないことの3点）。
@@ -20,9 +41,8 @@ T-001〜T-109 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
 ## 次にやること
 
 - **`todo` は0件**。
-- **実機スモークテストは「いつでも実行できる」状態**（T-109 で確認済み）。実行はGitLabへの
-  書き込みを伴うので、ユーザーの承認を得てから `docs/smoke-test.md` の手順1から回す。
-  完了したらテスト用アクセストークンの失効も忘れない（下の「注意」参照）。
+- **実機スモークテストは実施済み**（上記）。残っているのは**テスト用アクセストークンの失効**
+  （ユーザー対応。下の「注意」参照）。次に回すときは `docs/smoke-test.md` の手順1から。
 - `develop/test-inventory.md` の「要調査で残す判断にしたもの」「埋めない穴」5件は、
   判断を変えたくなったらリスト側の理由を先に更新する取り決め。
 - 次のコミットからは件名の先頭にタスクIDを置く（`docs/workflow.md`「コミットメッセージ」）。
@@ -45,6 +65,6 @@ T-001〜T-109 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
   `git push`/`git fetch` は両方に対して行われる
 - gitlab.com 上に検証用の `sinnlosses-group/yadokari-smoke-test-chart` プロジェクトが存在する
   （削除せず残置）
-- T-064以降の変更（URL検証の追加・MR本文のURL解決の作り替え・`loadEnvConfig()` 化・
-  values.yaml 下書きの受け渡しの作り替え・スモークスクリプトの環境変数追加）は実機未検証。
-  検証が完全に終わったら、テスト用のGitLabアクセストークンを失効させる（ユーザー対応）
+- T-064以降の変更は2026-09-07の実機スモークテストで検証済み。**テスト用のGitLab
+  アクセストークンの失効はまだ（ユーザー対応）**。gitlab.com 上には今回作ったMR !28/!29 と
+  固定ブランチ2本が残っている（次回の `reset` で片付く）
