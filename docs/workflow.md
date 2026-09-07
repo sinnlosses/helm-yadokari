@@ -1,8 +1,8 @@
 # 進捗管理とHandoffの詳細
 
-`CLAUDE.md`の「進捗管理とHandoff」節で触れている `develop/tasks.json` /
-`develop/progress.md` のフィールド定義。
-運用ルール自体（毎セッション最初に読む、完了の判定基準など）は `CLAUDE.md` 側の短い手順を参照。
+`CLAUDE.md`の「進捗管理とHandoff」節にある5手順の詳細（`develop/tasks.json` /
+`develop/progress.md` のフィールド定義、difficultyの基準と委譲の書き方、evidenceの粒度、
+アーカイブのトリガーと手順）。**手順そのものはCLAUDE.md側が正典**で、ここには繰り返さない。
 
 ## tasks.json のフィールド
 

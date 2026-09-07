@@ -1,13 +1,19 @@
 # アーキテクチャ詳細
 
-`CLAUDE.md`のアーキテクチャ概要節に書いた2つの原則（`steps/`はフラットに`runPipeline()`からしか
-呼ばれない／`lib/`は技術・外部システム・ファイル形式への依存でのみ判断する）を前提に、
-各ファイルの責務と、新しいコードを置く場所の判断基準をまとめる。
+## このドキュメントの読み方
 
-**各関数の詳しい振る舞い（引数・戻り値・分岐条件）はコード側のJSDocが正典。** このドキュメントは
-1〜2行の責務の要約と、コードを読んでも分からないこと（なぜその置き場所なのか、なぜその案を
-採らなかったのか）だけを書く。過去の設計変更の詳細な経緯は
-[`docs/history/tasks-archive.md`](./history/tasks-archive.md) にタスクIDごとに残してある。
+| 知りたいこと                                     | 見る場所                                                      |
+| ------------------------------------------------ | ------------------------------------------------------------- |
+| 各関数の引数・戻り値・分岐条件                   | **コード側のJSDocが正典**（このドキュメントには書かない）     |
+| 新しいコードをどのディレクトリに置くか           | 「新しいコードを置く場所」（原則の要約だけCLAUDE.mdにある）   |
+| 各ファイルが何をするか                           | 「各ファイルの責務」                                          |
+| なぜ今の形なのか（別の形に直そうとする前に読む） | 「設計判断（なぜ今の形なのか）」                              |
+| 踏みやすい落とし穴                               | 「既知の制約・注意点」                                        |
+| `config/`のスキーマ・検証ルールの仕様            | `docs/requirements.md` 4.4節が正典                            |
+| 過去の設計変更の詳細な経緯                       | [`docs/history/tasks-archive.md`](./history/tasks-archive.md) |
+
+**各関数の詳しい振る舞いはコード側のJSDocが正典。** ここには1〜2行の責務の要約と、コードを
+読んでも分からないこと（なぜその置き場所なのか、なぜその案を採らなかったのか）だけを書く。
 
 ## 各ファイルの責務
 
@@ -15,8 +21,7 @@
 
 `lib/`・`utils/`・`domain/`・`steps/shared/` にのみ依存し、step同士は互いに呼ばない。
 各stepは「並列処理1件分」を担う非公開関数を1つ持ち、`<動詞>+単数形の対象`で命名する
-（`evaluateTarget()` / `buildPlan()` / `applyUpdate()`）。`process` のような汎用名は
-`main.ts` のオーケストレータやグローバルの `process` と紛らわしいため使わない。
+（`process` のような汎用名は、オーケストレータやグローバルの `process` と紛らわしいため使わない）。
 
 | ファイル                           | 責務                                                                    |
 | ---------------------------------- | ----------------------------------------------------------------------- |
@@ -25,17 +30,11 @@
 | `apply-updates/apply-updates.ts`   | 差分があるchartAndAppsにコミット・MR作成を並列実行する                  |
 | `shared/step-outcome.ts`           | 3つのstepが共有する処理結果の型・結果ログの識別情報・エラー方針         |
 | `shared/describe-plan.ts`          | 更新計画1件をログ用のサマリに整形する（dryRun時とMR作成時で共有）       |
-| `build-plans/sub-steps/`           | `build-plans.ts` の内部実装専用（1アプリ・1箇所ごとの実処理）           |
-| `apply-updates/sub-steps/`         | `apply-updates.ts` の内部実装専用（MR項目の収集と本文の組み立て）       |
 
-`build-plans.ts` の階層は「全chartAndApps → 1つのchartAndApps → 1アプリ」の3段までに絞り、
-それより下の「1箇所（target）」の処理は `build-plans/sub-steps/` 側の責務にしている。
-`buildAppUpdatePlan()`（1アプリ分）はサブステップを順に呼ぶだけで、target配列をループする
-`reduce`を自分では持たない。「ステップがステップを呼ばない」原則はサブステップにも適用し、
-サブステップ同士も互いを呼ばない（型だけの参照も含む）。複数のサブステップが共有するものは
-`sub-steps/shared/` に置き、サブステップの呼び分けは親stepが行う。
+#### `build-plans/sub-steps/`
 
-`build-plans/sub-steps/` の各ファイル:
+親stepの階層は「全chartAndApps → 1つのchartAndApps → 1アプリ」の3段までに絞り、それより下の
+「1箇所（target）」の処理をここに置く。1アプリ分の処理はサブステップを順に呼ぶだけにする。
 
 | ファイル                              | 責務                                                                                                              |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -45,7 +44,7 @@
 | `shared/values-yaml-draft.ts`         | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）と、その組み立て・`FileUpdate[]`化 |
 | `shared/types.ts`                     | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                          |
 
-`apply-updates/sub-steps/` の各ファイル:
+#### `apply-updates/sub-steps/`
 
 | ファイル                | 責務                                                                                                           |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -53,10 +52,8 @@
 | `build-mr-content.ts`   | `MrEntries`をMRのタイトルとMarkdown本文にする。外部I/Oを持たない同期の純粋関数                                 |
 | `shared/types.ts`       | 上記2つが受け渡す`MrEntries`・`ImageTagEntry`                                                                  |
 
-`applyUpdate()`がこの2つを順に呼ぶ。項目の選別（何をMRに載せるか）とMarkdownの組み立てを分けて
-あるのは、**タイトルの件数と本文のテーブルの行を同じ配列から数えるため**。以前は
-「タイトル用に`plans`を`reduce`して数える」「本文用に`plans`を絞り込んで行にする」が別々の
-ロジックで、件数と行数がずれても気づけない形だった。
+項目の選別（何をMRに載せるか）とMarkdownの組み立てを分けてあるのは、**タイトルの件数と本文の
+テーブルの行を同じ配列から数えるため**。別々に数えていた頃は、件数と行数がずれても気づけなかった。
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
@@ -71,9 +68,6 @@
 | `helm.ts`                  | `values.yaml` のYAMLアンカー位置の値の読み書き                                          |
 | `env.ts`                   | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                    |
 
-`config/` のスキーマと検証ルールの仕様は `docs/requirements.md` 4.4節が正典（このファイルには
-書かない）。
-
 ### `src/domain/` — このツールの取り決めを tech非依存で表す
 
 GitLab APIにも外部ファイル形式にも依存せず、ブランド型・ドメイン型にだけ依存する純粋な関数・
@@ -87,320 +81,333 @@ GitLab APIにも外部ファイル形式にも依存せず、ブランド型・�
 
 ### `src/utils/` — ドメイン知識を一切持たない汎用ユーティリティ
 
-| ファイル                                                        | 責務                                                                           |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `parallel.ts`                                                   | `mapWithConcurrency()`。並列実行＋`FatalError`検知時の未着手タスクのキャンセル |
-| `sequential.ts`                                                 | `reduceAsync()`。配列を順に処理する非同期reduce（`parallel.ts`の逐次版）       |
-| `partition.ts`                                                  | `partitionMap()`。判別可能ユニオンの配列を中身を取り出しつつ2つに振り分ける    |
-| `cache.ts`                                                      | `getOrFetchShared()`。並列向けに実行中のPromiseを共有するキャッシュ            |
-| `fs.ts`                                                         | パストラバーサル検証・サブディレクトリ列挙                                     |
-| `yaml.ts`                                                       | YAMLファイル読み込み + Zodバリデーション                                       |
-| `errors.ts` / `http.ts` / `retry.ts` / `timer.ts` / `logger.ts` | カスタムエラー・HTTPステータス判定・リトライ・実行時間計測・構造化ログ         |
+| ファイル                                                        | 責務                                                                   |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `parallel.ts`                                                   | 並列実行＋`FatalError`検知時の未着手タスクのキャンセル                 |
+| `sequential.ts`                                                 | 配列を順に処理する非同期reduce（`parallel.ts`の逐次版）                |
+| `partition.ts`                                                  | 判別可能ユニオンの配列を中身を取り出しつつ2つに振り分ける              |
+| `cache.ts`                                                      | 並列向けに実行中のPromiseを共有するキャッシュ                          |
+| `fs.ts`                                                         | パストラバーサル検証・サブディレクトリ列挙                             |
+| `yaml.ts`                                                       | YAMLファイル読み込み + Zodバリデーション                               |
+| `errors.ts` / `http.ts` / `retry.ts` / `timer.ts` / `logger.ts` | カスタムエラー・HTTPステータス判定・リトライ・実行時間計測・構造化ログ |
 
-## 新しいコードを置く場所の判断基準
+## 新しいコードを置く場所
 
-新しいコードを置くとき、まず「呼び出し元は何か」を考える:
+CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**。まず「呼び出し元は何か」を考える。
 
-- 呼び出し元が`src/index.ts`→`main.ts`→`steps/`の本体パイプラインに繋がらず、CI・開発用の
-  スクリプトからしか呼ばれない → `scripts/<用途>/`。`src/`は`pnpm build`で`dist/`に出る
-  本体の配布物なので、本体が使わないコードは`src/`に置かない（`scripts/lint/verify-config/`が
-  この形。テストは`test/scripts/`配下に`scripts/`と同じ構成で置く）
-- 以下は`src/`配下の話。`runPipeline()` が直接呼ぶ、フラットなパイプラインの1段 → `steps/`。他のステップファイルを
-  import しない
-- 呼び出し元が `steps/` の1ファイルだけ → そのファイル内の非公開（exportしない）関数。
-  1ファイルが大きくなりすぎた場合は、`steps/<step名>/sub-steps/`（例:
-  `steps/build-plans/sub-steps/`）へ非公開関数を複数ファイルに分割してよい（`steps/`直下は
-  「runPipeline()が直接呼ぶフラットな3ステップ」だけに保ち、`sub-steps/`配下は各stepの内部実装
-  専用と分かるようにする）。分割したファイル同士は互いにimportせず、共有するものは
-  `sub-steps/shared/`に置く。呼び出し元が引き続きそのstepファイル1つだけである限り、
-  ファイルを分けても`lib/`への昇格理由にはならない（原則2は変わらない）
-- 複数の場所から呼ばれる、かつ特定の技術・外部システム・ファイル形式に依存する
-  （GitLab API、Helm chart形式、`config/`のYAML形式、環境変数など）→ 対応する `lib/`
-  ファイル。新しい技術/形式を扱うなら新しい `lib/` ファイルを作ってよい
-- 複数の場所から呼ばれる、かつ技術・ドメイン知識のどちらにも依存しない純粋な計算 → `utils/`
-- 複数の場所から呼ばれる、かつ技術には依存しないが**このツールの取り決め**（タグ命名規則、
-  固定ブランチ名の付け方など）を体現している純粋な関数・定数 → `domain/`。「技術/外部システム/
-  ファイル形式への依存」が無いので`lib/`ではなく、ドメイン知識を持つので`utils/`でもない。
-  呼び出し元は`steps/`に限らない（`lib/env.ts`・`scripts/`からも呼ばれてよい）
-- 複数の `steps/` から呼ばれる、かつ**step処理の配線**（結果ログ・エラー方針など）で、
-  このツールのドメイン型（`ChartAndApps`・`AppUpdatePlan`など）にだけ依存する → `steps/shared/`。
-  ここに入るのは「stepオーケストレーションの共通部品」であって、ドメインの取り決めそのもの
-  （それは`domain/`）ではない。特定stepの内部実装ではないため各stepの`sub-steps/`とも別にする
-- 「stepsから呼ばれているから」「複数箇所で使うから」という理由だけで `lib/` に
-  置くのは誤り。lib行きの判断基準は常に「技術・外部システム・ファイル形式への依存」
+| 呼び出し元 / 性質                                                                | 置き場所                                  |
+| -------------------------------------------------------------------------------- | ----------------------------------------- |
+| CI・開発用スクリプトだけ（本体パイプラインから参照されない）                     | `scripts/<用途>/`                         |
+| `runPipeline()` が直接呼ぶパイプラインの1段                                      | `steps/`                                  |
+| `steps/` の1ファイルだけ                                                         | そのファイル内の非公開関数                |
+| 同上で、そのファイルが大きくなりすぎた                                           | `steps/<step名>/sub-steps/`               |
+| 複数のサブステップが共有する                                                     | `steps/<step名>/sub-steps/shared/`        |
+| 複数箇所から呼ばれ、技術・外部システム・ファイル形式に依存する                   | `lib/`（新しい技術/形式なら新ファイル可） |
+| 複数箇所から呼ばれ、技術にもドメイン知識にも依存しない純粋な計算                 | `utils/`                                  |
+| 複数箇所から呼ばれ、技術非依存だがこのツールの取り決めを体現する純粋な関数・定数 | `domain/`                                 |
+| 複数の`steps/`から呼ばれるstep処理の配線（結果ログ・エラー方針）                 | `steps/shared/`                           |
 
-型の置き場所も同じ基準で決める（**利用箇所の数では決めない**）。「型は`types/`にまとめる」
-という運用にしないのは、`types/`が「ドメイン語彙の一覧」ではなく「型の物置」になると、
-どの型がこのツールの語彙でどの型が実装の都合かが読み分けられなくなるため:
+補足（表だけでは判断を間違えやすい点）:
 
-| 型の性質                                                                              | 置き場所                                       | 例                                                             |
-| ------------------------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------- |
-| ドメイン語彙（`config/`の構造・更新計画・実行結果。目安は`docs/glossary.md`に載るか） | `src/types/types.ts`（ブランド型は`brand.ts`） | `ChartAndApps`・`AppUpdatePlan`・`ChartUpdateResult`・`Config` |
-| 特定の技術・外部システムのインターフェースの一部                                      | その`lib/`ファイル                             | `GitlabClient`・`ConfigTarget`・`Anchors`                      |
-| ドメイン知識を持たない汎用処理の型                                                    | その`utils/`ファイル                           | `Sorted`                                                       |
-| 複数のstepが共有する、ドメイン型にだけ依存する型                                      | `steps/shared/`                                | `StepOutcome<T>`                                               |
-| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値）            | **その型を生み出す関数と同じファイル**         | `BuildPlanContext`・`FilterTargetsResult`・`ValuesYamlDraft`   |
-| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                             | `steps/<step名>/sub-steps/shared/types.ts`     | `LoadValuesYamlContent`・`BranchExists`・`LatestTagResolution` |
+- **原則3を原則2より先に適用する**。原則2は「`src/`のどこに置くか」の基準であって、「`src/`に
+  置くか否か」は決めない。`src/`は`pnpm build`で`dist/`に出る本体の配布物なので、本体が
+  使わないコードは条件を満たしても`src/`に入れない（→「実在チェックは`scripts/lint/`に置く」）
+- **`sub-steps/`に分割しても`lib/`への昇格理由にはならない**。呼び出し元が引き続きその
+  stepファイル1つだけである限り、原則2の判定は変わらない
+- **`domain/`は`lib/`でも`utils/`でもないため新設した区分**。技術非依存なので`lib/`ではなく、
+  ドメイン知識を持つので`utils/`でもない。呼び出し元は`steps/`に限らない
+- **`steps/shared/`に入るのはstepオーケストレーションの共通部品だけ**。ドメインの取り決めその
+  ものは`domain/`（→「`lib/gitlab/`にはGitLabを知っているものだけを置く」）
+- **「stepsから呼ばれているから」「複数箇所で使うから」だけで`lib/`に置くのは誤り**。lib行きの
+  判断基準は常に「技術・外部システム・ファイル形式への依存」
 
-`src/types/types.ts` に利用箇所が1ファイルしかない型（`Config`・`PipelineInfo`・`RunResult`）が
-あるのは意図的で、上表の1行目に当たるため。逆に `sub-steps/shared/types.ts` は「複数のサブステップが
-共有する」という条件を満たす型だけに絞り、1ファイルからしか使われない型はそのファイルへ戻す。
-この2行は競合しうる（`LatestTagResolution` は `resolveLatestTag()` が生み出す型だが
-`apply-image-tag-targets.ts` も使う）。そのときは **`shared/` 側を優先する** — サブステップ同士が
-互いをimportしないという原則の方が、型と生成関数の同居より優先度が高い。
+### 1ファイルにまとめるか分けるか
 
-### 同じディレクトリの中で、1ファイルにまとめるか分けるか
+置き場所が決まったあと、そこで1ファイルにまとめるか分けるかは**行数でも関数の数でもなく
+「ファイル名が概念になっているか」で決める**。名前が関数名の言い換えではなく概念
+（`describe-plan.ts`＝更新計画をログ用に説明する、`timer.ts`＝時間を測る）なら、その名前が
+「次に何が入ってよいか」を決めてくれるので拡張できる。逆に`helpers.ts`・`utils.ts`・
+`common.ts`のような**置き場所を名前にしたファイルは作らない**（何が入ってよいか決められず、
+増えるほど誰も説明できなくなる）。
 
-置き場所（どのディレクトリか）が決まったあと、そこで1ファイルにまとめるか分けるかは
-**行数でも関数の数でもなく「ファイル名が概念になっているか」で決める**（基準の一覧は
-CLAUDE.md「コーディング規約」を参照。ここには判断の実例だけを置く）。
+**まとめる合図**（1つでも当てはまれば同居させる）:
 
-- **1公開関数だけのファイルは問題ない**: `timer.ts`・`describe-plan.ts`・`sequential.ts` は
-  いずれも公開関数1つだが、名前が関数名の言い換えではなく概念なので「次に何が入ってよいか」を
-  名前が決めてくれる。拡張しづらくなるのは関数が1つだからではなく、`helpers.ts` のように
-  置き場所を名前にしたときで、その場合は何が入ってよいか決められない
-- **`tag-format.ts`（140行）は分けない**: `TAG_FORMAT`のテンプレート表現という1つの理由で
-  全関数が一緒に書き換わり、`escapeRegExp()`/`compileTagPattern()` を複数の公開関数が
-  共有している。分けると非公開だったものを`export`に昇格させることになる
-- **`gitlab.ts`（230行）も分けない**: 公開関数は12個あるが「GitLab APIの薄いラッパー」という
-  1語彙で、`withRetry()`/`withNotFoundFallback()` を全員が共有している。行数だけを理由に
-  割ると、この共有が壊れる
-- **`config/config.ts`（239行）は分けた**: `loadConfig()`側の「ディレクトリ走査と`target`に
-  よる絞り込み」と、`chart-and-apps.ts`側の「`config.yaml`×`anchors.yaml`をprojectIdで結合して
-  `AppConfig`を組む」は変更理由が別（`TARGET_CHART`の仕様変更では後者を触らない）で、
-  非公開ヘルパーも2グループに割れていた
-- **`step-outcome.ts`から`describePlan()`を出した**: 責務が「処理結果の型**と**エラー方針**と**
-  ログ整形」になっており、「〜と〜」でしか説明できないファイルは分割のサイン
+1. 同じ理由で一緒に書き換わる
+2. 非公開ヘルパーを共有している（分けると非公開だったものを`export`に昇格させることになる。
+   分割の最も見えにくいコスト）
+3. 対になっていて片方だけでは意味が分からない（`formatClientRef`/`parseClientRef`）
+4. 呼び出し側がほぼ必ずセットでimportする
 
-## コードからは読み取れない設計判断
+**分ける合図**（1つでも当てはまれば分割する。①〜④が優先で、行数だけを理由には割らない）:
 
-なぜ今の形なのか（＝別の形に「直そう」としたときに踏みうる地雷）。詳細な経緯は
-`docs/history/tasks-archive.md` の該当タスクを参照。
+1. ファイルの責務を「〜と〜」でしか説明できない
+2. 変更理由が違う（別々の用事で開くべきファイルが同じになっている）
+3. 非公開ヘルパーが2グループに割れている
+4. 依存が違う（片方だけが外部I/Oを持つ等）
+5. 200行超、または公開関数が2語彙以上
 
-- **エラー方針は「fatalは例外・それ以外は戻り値」の2チャネルのままにし、`steps/`配下に
-  `try`/`catch`を書かない**: 「401/5xx/ネットワーク障害なら実行全体を落とし、それ以外は
-  該当chartAndAppsだけをERRORにして続行する」という判断は`steps/shared/step-outcome.ts`の
-  `settleAsError()`1箇所にあるが、以前は3つのstepがそれぞれ
-  `catch (err) { return settleAsError(err, logContext) }` と書いており、**fatalも
-  ERRORとして計上して続行するように読めた**（実際は`settleAsError()`が`FatalError`を
-  投げ直すので落ちる）。読み手が方針を誤読しないよう、catch節そのものを高階関数
-  （`withHandling()`・`withAppContext()`）に吸収し、`grep -rn "try {" src/steps/` が
-  **0件**であることで「stepはエラー方針を持たない」を機械的に確認できるようにした。
-  - 2チャネルを1つの`Result`型に寄せる案は採らない。fatalは「実行全体の中止」という
-    スコープの違う事象で、戻り値に混ぜると各stepに「fatalなら伝播させる」判断が戻り、
-    いま消したいものが再び分散する。例外はスコープの広い事象、戻り値はchartAndApps
-    単位の結果、という役割分担で固定する
-  - `lib/gitlab/gitlab.ts`の404/403フォールバック・`utils/retry.ts`・
-    `scripts/lint/verify-config/verify-config.ts`の`catch`はこの規約の対象外。前2つは
-    「特定のHTTPステータスを正常系に変換する」処理でchartAndApps単位の結果とは無関係、
-    verify-configは**問題を全件列挙して返すのが目的の別プログラム**（lintスクリプト）で、
-    fatalで全体を落とす方針そのものを持たない
+適用例:
 
-- **`ValuesYamlDraft`は受け取って返す。引数として渡した入れ物が書き変わる契約にしない**:
-  以前の`LoadValuesYamlContent`は第1引数に**Mutableな`Map`**を取り、呼び出し側が毎回
-  `new Map(acc.draft)`で複製してから渡し、実装がそれを埋める形だった。周囲の値
-  （`ValuesYamlDraft`は`ReadonlyMap`、アキュムレータは全フィールド`readonly`）が
-  すべて不変なのにここだけ規約が違い、`writeValuesYamlDraft()`のJSDocを読まないと
-  正しく使えなかった。`Promise<{ content, draft }>`を返す形に変え、複製を実装側へ寄せた
-  - **コピー回数はむしろ減った**。以前はtargetごとに無条件で複製していたが、今は
-    下書きにヒットしたらそのまま同じ下書きを返し、GitLabから読んだときと書き込んだときだけ
-    新しいMapを作る
-  - 読み込み用の`cacheValuesYamlDraft()`（`modified: false`）と書き込み用の
-    `writeValuesYamlDraft()`（`modified: true`）で入口を分けてあるのは、
-    「`modified`なエントリは書き込み経由でしか生まれない」という`toFileUpdates()`が
-    依存する不変条件を、関数名のレベルで保つため
-- **stepの入口にある「並列実行 → 振り分け」の重複は、共通化せずそのまま置く**:
-  `filterTargets()`と`buildPlans()`は`mapWithConcurrency(...)` → `partitionMap(...)`の6行が
-  名前以外まったく同じで、共通化したくなる形をしている。**検討したうえで採らない**:
-  - **3つ揃わない**。`applyUpdates()`だけは`partitionMap`ではなく`outcomes.map()`で
-    `ChartUpdateResult[]`に潰す（成功時の値がそのまま結果になるため振り分けが要らない）。
-    2つのために抽象を1つ増やしても、読み手は結局2つの形を覚えることになる
-  - **共通化すると差を埋めるだけの引数が要る**。`filterTargets`/`buildPlans`は要素自身を
-    `withHandling()`に渡すが、`applyUpdates`は`target.chartAndApps`を渡す。3つを1つの
-    高階関数に寄せるには「要素から`ChartAndApps`を取り出す関数」を引数で受ける必要があり、
-    これは差を隠すためだけの引数になる
-  - **重複しているのは配線であって方針ではない**。間違えると危ないのはエラー方針の方で、
-    そこは既に`withHandling()`／`settleAsError()`に集約済み。残る`partitionMap`の呼び出しは
-    型が守ってくれる純粋な配線で、各stepが結果に固有の名前（`targets`/`toApply`）を
-    付けられる利点の方が大きい。上記「stepの入口に並んで見えるようにしている」とも整合する
-- **URLは`URL`オブジェクトではなく文字列のブランド型（`GitLabUrl`）で扱う**: 生成後の
-  用途はMR本文（Markdown）とログへの埋め込みだけで、`URL`にすると`href`の正規化で
-  出力文字列が変わりうる（`https://example.com` → `https://example.com/`）うえ、
-  ミュータブルでテストの比較も煩雑になる。**型で縛るのは生成経路のほう**で、
-  `toGitLabUrl()`をhttp(s)検証つきのファクトリにし、環境変数由来もGitLab APIの
-  レスポンス由来（`project.web_url`・`pipeline.web_url`）も必ずここを通す
-- **プロジェクト配下のURLは`new URL(path, base)`ではなく文字列連結で組み立てる**:
-  `webUrl`はオリジンではなく**プロジェクトのパスまで含んだURL**
-  （`https://host/group/proj`、サブパス設置なら`https://host/gitlab/group/proj`）なので、
-  `new URL("/-/tags/x", webUrl)`はグループ/プロジェクト部分を捨てて壊れたURLになる。
-  組み立てとエスケープは`lib/gitlab/web-url.ts`の`buildTagUrl()`/`buildCompareUrl()`に閉じ込め、
-  呼び出し側が`encodeURIComponent`を書かなくて済むようにしている
+- **1公開関数だけのファイルは問題ない**。名前が概念なら「次に何が入ってよいか」を名前が
+  決めてくれる。拡張しづらくなるのは関数が1つだからではなく、置き場所を名前にしたとき
+- **140行でも230行でも分けなかったファイルがある**。どちらも「1つの理由で全関数が一緒に
+  書き換わる」「非公開ヘルパーを全員が共有している」に当てはまり（まとめる合図①②）、
+  行数だけを理由に割るとその共有が壊れる
+- **239行で分けたファイルもある**。変更理由が別で、非公開ヘルパーも2グループに割れていた
+  （分ける合図②③）。**行数は分けた理由ではない**
+- **単発のヘルパーに1ファイルを与えない**。「役割で括れて複数を並べられる」単位が別ファイルに
+  値する境目で（Zodスキーマ群、アサート関数群）、1関数だけのヘルパーはそこに達しない
 
-- **型定義のフィールド名は、ブランド型が表している語（`Name`など）を落とさない**:
-  `anchor: AnchorName` は「アンカーそのもの」を持っているように読めるが、実際に持っているのは
-  名前だけで、この差が読み違いを生む（`src/lib/helm.ts` は引数名として既に
-  `anchorName: AnchorName` を使っており、フィールド側だけが浮いていた）。
-  - **適用するのは型定義のフィールドだけ**。関数の引数名（`branch: BranchName` など10ファイル
-    以上に散在）は対象外とする。引数は型注釈が同じ行に見えるのに対し、フィールドは
-    ドットアクセスで宣言から離れた場所で読まれる、という違いで線を引く
-  - 修飾語が「どれか」を担っているフィールド（`branchToSync`・`mrTargetBranch`・
-    `previousBranch`・`newBranch`）は対象外。`Name` を足しても曖昧さは減らず、名前が伸びるだけ
-  - 包含する型が主語を与える `name`（`ParsedTag.name`・`TagInfo.name`）も対象外。
-    `tag.name` で「タグの名前」と読める
-  - 例外的に修飾語つきでもリネームしたのは `ImageTagUpdate.previousTag` → `previousTagName`。
-    `plan.latestTag`（`ParsedTag`オブジェクト）と同じ式の中に並ぶため、文字列かオブジェクトかを
-    名前で区別できるようにした
-  - `CommitAction.filePath` は `gitlab.Commits.create()` にそのまま渡す gitbeaker の
-    ペイロード形状なので変えない。一方 `FileUpdate.filePath` は内部の型なので、
-    同じ概念を他の全箇所と同じ `valuesPath` に揃えた
-  - YAMLのキー名（`anchors.yaml` の `anchor` など）は wire format なので変えない。
-    内部表現への詰め替えは `lib/config/schema.ts` の `.transform()` が担う
+### 型の置き場所
 
-- **`lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く**: 以前はここに
-  `tag.ts`（タグ命名規則）と`mr-content.ts`（固定ブランチ名・MRタイトル・MR本文）も
-  同居していたが、これは「`gitlab.ts`が長くなったので切り出した」結果で、原則2の基準では
-  説明できない配置だった。依存対象で見ると3種類の別物が混ざっていたため、次のように分けた:
-  - `tag.ts` → `src/domain/tag-format.ts`（当初は`lib/tag-format.ts`に置いた）。GitLab APIにも
-    GitLab固有の形式にも依存せず、依存先はこのツール自身が定義する`TAG_FORMAT`というテンプレート。
-    一度は「`values.yaml`/`config/`と同じファイル形式扱い」として`lib/`に入れたが、`lib/`の
-    判断軸は**外部システム・外部で形が決まっている形式への依存**で、自前の命名規則はそこに
-    当てはまらない。ブランド型・ドメイン型にだけ依存する取り決めとして`src/domain/`へ移した
-  - `buildFeatureBranch()` → `src/domain/feature-branch.ts`（当初は`steps/shared/`に置いた）。
-    技術依存はゼロで、`TenantId`+`ClientId`→`BranchName`という固定ブランチ名の付け方そのもの。
-    `steps/shared/`に置いていたのは「2つのstepが使う」からだったが、それは置き場所の理由に
-    ならない（`domain/`の取り決めは呼び出し元を問わない）。`steps/shared/`は
-    step処理の配線（`step-outcome.ts`・`describe-plan.ts`）だけに絞った
-  - MRの組み立て → `steps/apply-updates/sub-steps/`。呼び出し元は`apply-updates.ts`の
-    1ファイルだけなので、「呼び出し元がstepsの1ファイルだけ → そのstepの`sub-steps/`」という
-    基準どおりの場所に移した。**サブステップは1ファイル＝親stepが呼ぶ1ステップ**なので、
-    `buildMrTitle()`/`buildMrDescription()`のような内部関数は並べて公開しない
-    （`build-plans/sub-steps/`の各ファイルと同じ形）
-  - `buildTagUrl()`/`buildCompareUrl()` → `lib/gitlab/web-url.ts`。`/-/tags/`・`/-/compare/`
-    というGitLab固有のURLパス形式に依存する唯一の部分なので`lib/gitlab/`に残す。
-    「外部I/Oは`gitlab.ts`だけ」を保つため`gitlab.ts`には混ぜず別ファイルにしている
-- **`lib/gitlab/gitlab.ts`の`commitFileUpdates()`だけはドメイン型`FileUpdate`を知っている**:
-  「固定ブランチを消して`baseBranch`から作り直す」「create/updateの判定は常に`baseBranch`基準」
-  という方針を持ち、`filterTargets`がオープン中のMRの不在を確認済みであることも前提にしている。
-  方針をstep側へ引き上げる案は採らない。中身はブランチ確認・削除・ファイル取得・コミットという
-  4種のAPI呼び出しの手順で、stepに移すとstep側にGitLab APIの呼び出し順が漏れるため
-- **YAML処理は `yaml` パッケージに統一（`js-yaml` 不採用）**: `js-yaml`はオブジェクトとして
-  しか読み書きできずアンカー名を保持できない。値の位置指定にYAMLアンカーを使う以上、
-  Document（AST）を直接操作できる必要がある
-- **`values.yaml` の位置指定はYAMLアンカーのみ**: オブジェクトのネストをdotパスで辿る
-  `imageTagKey`方式も実装していたが、実運用ではアンカー方式で十分なため削除した
-- **1アプリ分の処理を独立したサブステップファイルにしていない**: 以前
-  `build-plans/sub-steps/app-update-plan.ts` に切り出していたが、それ自体が他のサブステップを
-  呼ぶ「サブステップがサブステップを呼ぶ」構造になるため、`build-plans.ts`の非公開関数に戻した
-- **サブステップが共有するものは`sub-steps/shared/`に置く**: `ValuesYamlDraft`とその操作、
-  `LoadValuesYamlContent`などの関数型、`LatestTagResolution`は複数のサブステップが使うが、
-  どれかのサブステップに置くと「サブステップがサブステップをimportする」形になる。
-  `sub-steps/`直下は親stepが呼ぶステップ本体だけに保ち、共有物は`shared/`に分けることで、
-  直下のファイル同士がimportし合っていないことをディレクトリの形で確認できるようにしている
-- **サブステップに関数型を注入するのは、親stepが持つキャッシュを隠すときだけ**:
-  `values-yaml-draft.ts`・`apply-helm-target-branch-targets.ts`・`apply-image-tag-targets.ts`は
-  `LoadValuesYamlContent`・`BranchExists`という関数型で受け取り、GitLabクライアント・
-  chartのprojectId・**chartAndApps単位のキャッシュ**を`build-plans.ts`側に閉じ込める。
-  一方`resolve-latest-tag.ts`・`build-mr-content.ts`は`GitlabClient`をそのまま受け取る。
-  隠すべきキャッシュもprojectIdの引き回しも無いためで、関数型にしても間接層が増えるだけになる
-  （`getProjectWebUrls()`は自前で`projectId`の重複を排除する）
-- **values.yamlの書き込み位置は `AnchorTarget` 1つに統一し、用途別の別名は置かない**:
-  以前はイメージタグ用・Helm向き先ブランチ用に`ImageTagTarget`/`HelmTargetBranchTarget`という
-  別名を用意していたが、TypeScriptは構造的型付けなので同じ形の型を別々に定義しても
-  取り違えは防げず、別名は用途を読み手に伝える以上の効果が無かった。用途の区別は型名では
-  なく、利用側の変数名・フィールド名・JSDoc（`AppConfig.imageTagTargets`・
-  `HelmTargetBranchConfig.targets`など）で表す
-- **`AppConfig`が持つ書き込み位置のフィールド名は`imageTagTargets`**: 元は`chart`だったが、
-  `ChartAndApps.chart`（`ChartRepoConfig`＝chartリポジトリそのものの情報）と同名で中身が
-  まったく違い、`build-plans.ts`の中で数十行の距離に同居していた。上の項で「用途の区別は
-  フィールド名が担う」と決めている以上、`chart`という名前が用途を何も語らないのは矛盾する。
-  - **`targets`にはしない**。このコードベースの`targets`は既に「処理対象のchartAndApps」の
-    意味で使われており（`FilterTargetsResult.targets`・`buildPlans()`/`applyUpdates()`の引数）、
-    3つ目の意味を足すことになる。`imageTagTargets`なら`applyImageTagTargets()`・
-    `ImageTagUpdate`という既存の語彙とそのまま繋がる
-  - `HelmTargetBranchConfig.targets`は**変えない**。包含する型名が用途を与えており、
-    `helmTargetBranch.targets`で読めるため（`helmTargetBranch.helmTargetBranchTargets`は冗長）
-  - `ChartAndApps.chart`も**変えない**。型名`ChartAndApps`が示すとおり`.chart`と`.apps`の
-    2つで対になっている
-  - **wire formatは不変**: `anchors.yaml`のキーは`apps[].chart[]`のまま。詰め替えは
-    `lib/config/chart-and-apps.ts`が`anchorApp.chart`を`AppConfig.imageTagTargets`に写すところで行う
-    （Zodの生の型`AnchorsApp.chart`も変えない）。設定ミスのエラーメッセージが出す
-    `app "..." の chart[]` というラベルもYAMLキーを指すのでそのまま
-- **`resolveHelmTargetBranch()`は`config.ts`の非公開関数**: 一時は`config/`直下の独立
-  ファイルにしていたが、1関数だけで呼び出し元も`loadClientChartAndApps()`ただ1つなので、
-  「呼び出し元が1ファイルだけなら非公開関数」の原則どおり`config.ts`に畳んだ。`schema.ts`
-  （複数箇所から使うZodスキーマ）・`validate.ts`（3つのアサート関数）のような、役割で括れて
-  複数を並べられる単位が別ファイルに値する境目で、単発のヘルパーはそこに達しない
-- **`steps/`配下のファイル名は公開関数名のケバブケースに揃える**: `filter-targets.ts`↔
-  `filterTargets()`、`resolve-latest-tag.ts`↔`resolveLatestTag()`、`collect-mr-entries.ts`↔
-  `collectMrEntries()`のように、`steps/`ツリーは1ファイル＝1公開関数でファイル名がその関数名に
-  対応している。`build-plans/sub-steps/`の`image-tag-target.ts`（`applyImageTagTargets()`）と
-  `helm-target-branch-target.ts`（`applyHelmTargetBranchTargets()`）だけが「書き込み位置
-  （target）」という概念名で付いていて対応が崩れていたため、`apply-image-tag-targets.ts`・
-  `apply-helm-target-branch-targets.ts`にリネームした。
-  - 姉妹の2ファイルは「1箇所分の処理＋全箇所のループ」という同じ形（`docs`の表で並記）なので、
-    片方だけ直すと規則が中途半端に残る。両方まとめて揃える
-  - 公開関数名（`applyImageTagTargets`など）は変えない。`apply`＝下書きへの反映、複数形＝
-    全`targets`のループ、という意味が語ごとに乗っており、短くすると非公開の1箇所版
-    （`applyImageTagTarget()`）との差が`s`以上に曖昧になる。内部の型エイリアスも関数名に
-    合わせた（`ApplyImageTagTargetsAcc`・`ApplyHelmTargetBranchTargetsAcc`）
-- **環境変数はモジュールのトップレベルではなく`loadEnvConfig()`で読む**: 以前は`lib/env.ts`が
-  `export const GITLAB_URL = validateGitlabUrl(loadEnv("GITLAB_URL"))`のようなトップレベルの
-  定数で、**このファイルをimportした瞬間に検証が走って未設定なら投げる**形だった。その結果、
-  環境変数を必要としない側に3つの迂回が生まれていた:
-  `scripts/lint/validate-config.ts`が既定モードで検証を走らせないための**動的import**、
-  `vitest.config.ts`が全テストに注入していた**ダミーの`GITLAB_URL`/`ACCESS_TOKEN`**、
-  `test/main.test.ts`の**env全体の`vi.mock`**。関数化でこの3つはすべて消えた
-  - `run()`/`runPipeline()`は`EnvConfig`を引数で受け取り、生成するのは`src/index.ts`だけ。
-    テストは`vi.mock`ではなく普通のオブジェクトを渡せばよくなった
-  - 起動時に落ちる（fail fast）性質は変わらない。`index.ts`が最初に呼ぶため。むしろ
-    **エラーが構造化ログに乗るようになった**（トップレベルで投げていた頃は、`index.ts`の
-    `catch`より前のモジュール読み込み中に投げるため素のスタックトレースだった）。
-    そのため`index.ts`は`loadEnvConfig()`を`Promise`チェーンの中で呼ぶ
-  - `EnvConfig`型は「特定の外部システム（環境変数）のインターフェース」なので`lib/env.ts`に置く
-    （`ConfigTarget`が`lib/config/config.ts`にあるのと同じ分類）
-- **ブランド型にするのは「同じ`string`の別物と取り違えうる識別子」**: 数を増やすほど
-  `src/types/brand.ts` は重くなるので、基準は「その値が別の識別子と**同じ型の式に並ぶ**か」に
-  置く。並ばないただの文字列（エラーメッセージ・ログの本文など）はブランド型にしない。
-  - この基準で`CommitSha`を追加した。`resolveTrackedHeadTagNames()`の
-    `tag.commitSha === headSha` はこのツールの中核判定（そのタグは追跡ブランチのHEADを
-    指しているか）で、同じ式の近くに`tag.name`（`TagName`）が並ぶ。素の`string`のままだと
-    `tag.commitSha === tag.name` がコンパイルを通ってしまう（TypeScriptは`string`と
-    ブランド型の比較を許す）が、両方がブランド型なら重なりが無いものとして`TS2367`で弾かれる
-  - 生成経路は`lib/gitlab/gitlab.ts`の2箇所（`listTags()`・`getBranchHeadSha()`）だけ。
-    形式の検証は付けない（GitLabが返す値をそのまま比較するだけで、短縮SHAを弾く理由も無い）
-- **`chart.yaml`/`config.yaml`/`anchors.yaml` の3ファイル分割**: あまり変更されないchart構造
-  （`anchors.yaml`）と、頻繁に変更される運用値（`config.yaml`）を分けるため。両者は
-  `projectId` で突き合わせて整合性を検証する
-- **実在チェック（`verify-config/`）は`src/lib/`ではなく`scripts/lint/`に置く**: GitLab APIと
-  `config/`形式に依存するので`lib/`の条件（原則2）は満たすが、原則2は「`src/`のどこに置くか」の
-  基準であって「`src/`に置くか否か」を決めない。本体パイプラインからの参照は0で、唯一の
-  呼び出し元は`scripts/lint/validate-config.ts`。`src/`に置くと`pnpm build`の`dist/`に
-  本体が使わないコードが混ざり、「本体から呼ばれない」という一番効く事実が構成に現れない
-- **設定ミスの検知は「形」と「実在」で2段に分けている**: ローカルのYAMLだけで分かること
-  （型・対応関係・重複）は`config/validate.ts`が`loadConfig()`時に例外を投げ、GitLabに
-  問い合わせないと分からないこと（projectId・ブランチ・valuesPath・アンカーの実在）は
-  `scripts/lint/verify-config/`が
-  問題の一覧を返す。前者は認証不要なので全パイプラインで、後者はトークンがある
-  パイプラインでのみ実行する
-- **MRの単位は `(chartリポジトリ, tenantId, clientId)`**: クライアントごとに独立して
-  マージ判断・保留できるようにするため。オールオアナッシングの範囲もこの単位
-- **アプリ単位は逐次のまま（並列化しない）**: `buildPlan()`は`reduceAsync`でアプリを1つずつ
-  処理する。直接の理由は、同じ`values.yaml`への複数アプリ・複数箇所の書き換えを1つの
-  `ValuesYamlDraft`に積み上げる必要があるため。**読み取りだけを先に並列化する案も
-  検討したうえで採らなかった**:
-  - 技術的には可能。1アプリの読み取り（`listTags`・`getBranchHeadSha`・`values.yaml`）は
-    他アプリの書き換え結果に依存しない。同じ`valuesPath`を共有していても、同じ
-    `valuesPath`+`anchor`の重複は`loadConfig()`で設定エラーになるため、
-    あるアンカーの読み取りが別のアンカーへの書き込みに影響されることはない
-  - 採らない理由: 1アプリあたりのAPI往復は実質2〜3回（`listTags`と`getBranchHeadSha`は
-    すでに`Promise.all`）で削減幅が小さい一方、`resolveLatestTag()`は**タグ作成という副作用**を
-    持つため、読み取りフェーズへ移すとタグ作成が並列かつ前倒しで走ることになる。さらに
-    下書きを並列共有すると、`scripts/lint/verify-config/remote-cache.ts`が問い合わせのPromiseを
-    共有しているのと
-    同様の二重fetch対策（`getOrFetchShared()`）が要る。夜間の
-    定期実行という前提で、MR内容とGitLabへの書き込みに関わる経路を複雑にする価値は無い
-  - 遅い場合にまず動かすのは`CONCURRENCY_LIMIT`（chartAndApps単位の並列数、1〜20）。
-    1つのclientに数十アプリが登録され、そこが実測でボトルネックになったときに再検討する
+**利用箇所の数では決めない。** 型の性質だけで決める。
+
+| 型の性質                                                                   | 置き場所                                       | 例                                                             |
+| -------------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------- |
+| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                 | `src/types/types.ts`（ブランド型は`brand.ts`） | `ChartAndApps`・`AppUpdatePlan`・`ChartUpdateResult`・`Config` |
+| 特定の技術・外部システムのインターフェースの一部                           | その`lib/`ファイル                             | `GitlabClient`・`ConfigTarget`・`Anchors`                      |
+| ドメイン知識を持たない汎用処理の型                                         | その`utils/`ファイル                           | `Sorted`                                                       |
+| 複数のstepが共有する、ドメイン型にだけ依存する型                           | `steps/shared/`                                | `StepOutcome<T>`                                               |
+| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値） | **その型を生み出す関数と同じファイル**         | `BuildPlanContext`・`FilterTargetsResult`・`ValuesYamlDraft`   |
+| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                  | `steps/<step名>/sub-steps/shared/types.ts`     | `LoadValuesYamlContent`・`BranchExists`・`LatestTagResolution` |
+
+- 「型は`types/`にまとめる」という運用にしないのは、`types/`が「ドメイン語彙の一覧」ではなく
+  「型の物置」になると、どの型がこのツールの語彙でどの型が実装の都合かが読み分けられなくなるため。
+  `src/types/types.ts` に利用箇所が1ファイルしかない型（`Config`・`PipelineInfo`・`RunResult`）が
+  あるのは意図的で、上表の1行目に当たる
+- `sub-steps/shared/types.ts`のような型だけのファイルは、**特定の1ファイルに帰属しない型**
+  （複数のサブステップが共有する関数型インターフェースや共通のアキュムレータ基底）だけに使う。
+  1ファイルからしか使われない型はそのファイルへ戻す
+- **上表の5行目と6行目は競合しうる**（`LatestTagResolution` は `resolveLatestTag()` が生み出す型
+  だが `apply-image-tag-targets.ts` も使う）。そのときは **`shared/` 側を優先する** —
+  サブステップ同士が互いをimportしないという原則の方が、型と生成関数の同居より優先度が高い
+
+## 設計判断（なぜ今の形なのか）
+
+別の形に「直そう」としたときに踏みうる地雷。**ここに書くのは今後の判断を変えるものだけ**で、
+適用済みのリネーム・移動の経緯は `docs/history/` 側が正典。
+
+### エラー処理と並列実行
+
+#### エラーは「fatalは例外・それ以外は戻り値」の2チャネル。`steps/`に`try`/`catch`を書かない
+
+「401/5xx/ネットワーク障害なら実行全体を落とし、それ以外は該当chartAndAppsだけをERRORにして
+続行する」という判断を、`steps/shared/step-outcome.ts` の1箇所だけが持つ。stepがcatchすると
+「fatalもERRORとして計上して続行する」ように読めてしまうため、catch節は高階関数に吸収した。
+**`grep -rn "try {" src/steps/` が0件であること**が「stepはエラー方針を持たない」の機械的な確認。
+
+- **2チャネルを1つの`Result`型に寄せる案は採らない**。fatalは「実行全体の中止」というスコープの
+  違う事象で、戻り値に混ぜると各stepに「fatalなら伝播させる」判断が戻り、いま消したいものが
+  再び分散する。例外はスコープの広い事象、戻り値はchartAndApps単位の結果、で固定する
+- **対象外**: `lib/`の404/403フォールバックと`utils/retry.ts`（特定のHTTPステータスを正常系に
+  変換するだけでchartAndApps単位の結果とは無関係）、`scripts/lint/verify-config/`（問題を全件
+  列挙して返すのが目的の別プログラムで、fatalで全体を落とす方針そのものを持たない）
+
+#### stepの入口にある「並列実行 → 振り分け」の重複は共通化しない
+
+3つのstepのうち2つが同じ形をしていて共通化したくなるが、**検討したうえで採らない**:
+
+- **3つ揃わない**。`applyUpdates()`だけは振り分けが要らない（成功時の値がそのまま結果になる）。
+  2つのために抽象を1つ増やしても、読み手は結局2つの形を覚えることになる
+- **共通化すると差を埋めるだけの引数が要る**。3つで`ChartAndApps`の取り出し方が違うため、
+  差を隠すためだけの引数を高階関数に足すことになる
+- **重複しているのは配線であって方針ではない**。間違えると危ないエラー方針は既に集約済みで、
+  残りは型が守ってくれる純粋な配線。各stepが結果に固有の名前を付けられる利点の方が大きい
+
+#### アプリ単位は逐次のまま（並列化しない）
+
+同じ`values.yaml`への複数アプリ・複数箇所の書き換えを1つの下書きに積み上げる必要があるため。
+並列実行制御（`p-limit`）はchartAndApps単位にのみ適用している。
+**読み取りだけを先に並列化する案も検討したうえで採らなかった**:
+
+- 技術的には可能（1アプリの読み取りは他アプリの書き換え結果に依存しない）
+- 採らない理由: 1アプリあたりのAPI往復は実質2〜3回で削減幅が小さい一方、最新タグの解決は
+  **タグ作成という副作用**を持つため、読み取りフェーズへ移すとタグ作成が並列かつ前倒しで走る。
+  さらに下書きの並列共有には二重fetch対策が要る。夜間の定期実行という前提で、MR内容とGitLabへの
+  書き込みに関わる経路を複雑にする価値は無い
+- 遅い場合にまず動かすのは`CONCURRENCY_LIMIT`。1つのclientに数十アプリが登録され、そこが実測で
+  ボトルネックになったときに再検討する
+
+### データの受け渡し
+
+#### 引数として渡した入れ物が呼び出し先で書き変わる契約にしない
+
+下書き（`ValuesYamlDraft`）は受け取って返す。以前はMutableな`Map`を渡して実装が埋める形で、
+周囲がすべて不変（`ReadonlyMap`・`readonly`フィールド）なのにここだけ規約が違い、JSDocを
+読まないと正しく使えなかった。複製の責任は実装側に寄せる。
+
+- **コピー回数はむしろ減った**。呼び出し側の無条件な複製が消え、実際に読み書きしたときだけ
+  新しいMapを作るようになったため
+- 読み込み用と書き込み用で**入口の関数を分けてある**のは、「変更済みエントリは書き込み経由でしか
+  生まれない」という不変条件を関数名のレベルで保つため
+
+#### サブステップに関数型を注入するのは、親stepが持つキャッシュを隠すときだけ
+
+`values.yaml`の読み込みとブランチ存在確認は関数型で受け取り、GitLabクライアント・projectId・
+**chartAndApps単位のキャッシュ**を親step側に閉じ込める。それ以外のサブステップは
+`GitlabClient`をそのまま受け取る。隠すべきキャッシュが無いなら、関数型にしても間接層が増える
+だけになる。
+
+#### コミット処理だけは`lib/gitlab/`がドメイン型を知っている
+
+「固定ブランチを消して`baseBranch`から作り直す」「create/updateの判定は常に`baseBranch`基準」
+という方針を持つ。方針をstep側へ引き上げる案は採らない。中身はブランチ確認・削除・ファイル
+取得・コミットという4種のAPI呼び出しの**手順**で、stepに移すとstep側にGitLab APIの呼び出し順が
+漏れるため。
+
+### 型と命名
+
+#### ブランド型にするのは「同じ`string`の別物と取り違えうる識別子」
+
+数を増やすほどブランド型の定義は重くなるので、基準は「その値が別の識別子と**同じ型の式に
+並ぶ**か」に置く。並ばないただの文字列（エラーメッセージ・ログの本文など）はブランド型にしない。
+並ぶ値を素の`string`のままにすると、TypeScriptは別物同士の比較を通してしまう（両方が
+ブランド型なら重なりが無いものとして`TS2367`で弾かれる）。
+
+生成は必ずfactory関数（`toProjectId`等）を通す。形式の検証を付けるかは値ごとに決めてよい
+（外部から受け取った値をそのまま比較するだけなら不要）。
+
+#### 型定義のフィールド名は、ブランド型が表している語（`Name`など）を落とさない
+
+`anchor: AnchorName` は「アンカーそのもの」を持っているように読めるが、実際に持っているのは
+名前だけで、この差が読み違いを生む。
+
+- **適用するのは型定義のフィールドだけ**。関数の引数名は対象外。引数は型注釈が同じ行に見えるのに
+  対し、フィールドはドットアクセスで宣言から離れた場所で読まれる、という違いで線を引く
+- 曖昧さが既に無いものは対象外。修飾語が「どれか」を担っているフィールド（`previousBranch`等）と、
+  包含する型が主語を与える`name`（`tag.name`）は、`Name`を足しても名前が伸びるだけ
+- **wire formatは変えない**。YAMLのキー名・外部ライブラリへ渡すペイロードの形は、内部の
+  読みやすさのために動かさない。内部表現への詰め替えはZodスキーマの`.transform()`が担う
+
+#### 用途別の型エイリアスを作らない
+
+values.yamlの書き込み位置は用途を問わず`AnchorTarget`1つ。TypeScriptは構造的型付けなので、
+同じ形の型を別名で定義しても取り違えは防げず、読み手に用途を伝える以上の効果が無い。
+**用途の区別は型名ではなく、利用側の変数名・フィールド名・JSDocで表す。**
+
+#### 1つの語を2つの意味に使わない
+
+そのため、値の意味を語れないフィールド名（用途を何も語らない`chart`、既に別の意味で使われて
+いる`targets`）は避ける。既存の語彙とそのまま繋がる名前を選ぶ。ただし**包含する型名が用途を
+与えている場合は短い名前のままでよい**（`helmTargetBranch.targets`・`ChartAndApps.chart`）。
+
+#### `steps/`配下はファイル名＝公開関数名のケバブケース
+
+`steps/`ツリーは1ファイル＝1公開関数で、ファイル名がその関数名に対応する
+（`filter-targets.ts`↔`filterTargets()`）。サブステップも同じで、親stepが呼ぶ1ステップだけを
+公開し、その内部関数は並べて公開しない。
+
+### ディレクトリ配置
+
+#### `lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く
+
+以前はここにタグ命名規則やMR本文の組み立ても同居していたが、それは「ファイルが長くなったので
+切り出した」結果で、原則2では説明できない配置だった。依存対象で見ると別物が混ざっていたため、
+タグ命名規則と固定ブランチ名は`domain/`へ、MRの組み立ては`apply-updates/sub-steps/`へ移した。
+
+- **「複数のstepが使う」は`steps/shared/`に置く理由にならない**。`domain/`の取り決めは呼び出し元を
+  問わない。`steps/shared/`はstep処理の配線だけに絞る
+- **自前の命名規則は`lib/`ではない**。`lib/`の判断軸は外部システム・外部で形が決まっている形式への
+  依存で、このツール自身が定義したテンプレートはそこに当てはまらない
+- GitLab固有のURLパス形式（`/-/tags/`・`/-/compare/`）に依存する部分だけは`lib/gitlab/`に残す。
+  「外部I/Oは`gitlab.ts`だけ」を保つため、I/Oを持たないURL組み立ては別ファイルにしている
+
+#### URLは`URL`オブジェクトではなく文字列のブランド型で扱う
+
+用途はMR本文とログへの埋め込みだけで、`URL`にすると正規化で出力文字列が変わりうる
+（`https://example.com` → `https://example.com/`）うえ、ミュータブルでテストの比較も煩雑になる。
+**型で縛るのは生成経路のほう**で、http(s)検証つきのファクトリを必ず通す。
+
+- **プロジェクト配下のURLは`new URL(path, base)`ではなく文字列連結で組み立てる**。基準となるURLは
+  オリジンではなく**プロジェクトのパスまで含んだURL**なので、`new URL()`はグループ/プロジェクト
+  部分を捨てて壊れたURLになる。組み立てとエスケープは`lib/gitlab/web-url.ts`に閉じ込める
+
+#### サブステップ同士は互いをimportせず、共有物は`sub-steps/shared/`に置く
+
+「ステップがステップを呼ばない」原則はサブステップにも適用し、型だけの参照も含めて互いを
+importしない。`sub-steps/`直下は親stepが呼ぶステップ本体だけに保つことで、直下のファイル同士が
+importし合っていないことをディレクトリの形で確認できる。呼び分けは親stepが行う。
+
+- **1アプリ分の処理も独立したサブステップにしない**。それ自体が他のサブステップを呼ぶ
+  「サブステップがサブステップを呼ぶ」構造になるため、親stepの非公開関数に置く
+
+#### 実在チェックは`src/lib/`ではなく`scripts/lint/`に置く
+
+GitLab APIと`config/`形式に依存するので`lib/`の条件（原則2）は満たすが、原則2は「`src/`に
+置くか否か」を決めない。本体パイプラインからの参照は0なので、`src/`に置くと`dist/`に本体が
+使わないコードが混ざり、「本体から呼ばれない」という一番効く事実が構成に現れない。
+
+### 設定・環境変数・外部形式
+
+#### 環境変数はモジュールのトップレベルではなく`loadEnvConfig()`で読む
+
+トップレベルの定数で読んでいた頃は、**importした瞬間に検証が走って未設定なら投げる**ため、
+環境変数を必要としない側（lintスクリプト・テスト）に動的importやダミー値注入といった迂回が
+3つ生まれていた。関数化でこれらはすべて消えた。
+
+- `EnvConfig`は引数で受け渡し、生成するのは`src/index.ts`だけ。テストは`vi.mock`ではなく
+  普通のオブジェクトを渡せばよい
+- 起動時に落ちる（fail fast）性質は変わらず、むしろ**エラーが構造化ログに乗るようになった**
+  （トップレベルで投げていた頃は`index.ts`のcatchより前で投げるため素のスタックトレースだった）
+
+#### 設定ミスの検知は「形」と「実在」で2段に分ける
+
+ローカルのYAMLだけで分かること（型・対応関係・重複）は`loadConfig()`時に例外を投げ、GitLabに
+問い合わせないと分からないこと（projectId・ブランチ・valuesPath・アンカーの実在）は
+lintスクリプトが問題の一覧を返す。前者は認証不要なので全パイプラインで、後者はトークンがある
+パイプラインでのみ実行する。
+
+#### `chart.yaml`/`config.yaml`/`anchors.yaml` の3ファイル分割
+
+あまり変更されないchart構造（`anchors.yaml`）と、頻繁に変更される運用値（`config.yaml`）を
+分けるため。両者は `projectId` で突き合わせて整合性を検証する。
+
+#### `values.yaml` の位置指定はYAMLアンカーのみ、YAML処理は `yaml` パッケージ
+
+`js-yaml`はオブジェクトとしてしか読み書きできずアンカー名を保持できないため採らない。値の位置
+指定にアンカーを使う以上、Document（AST）を直接操作できる必要がある。オブジェクトのネストを
+dotパスで辿る方式も実装していたが、実運用ではアンカー方式で十分なため削除した。
+
+#### MRの単位は `(chartリポジトリ, tenantId, clientId)`
+
+クライアントごとに独立してマージ判断・保留できるようにするため。オールオアナッシングの範囲も
+この単位。
+
+## 既知の制約・注意点
+
+### `CONCURRENCY_LIMIT`はGitLab APIへの同時接続数の上限ではない
+
+これはchartAndApps単位の同時処理数であって、その内側に要素数ぶんの`Promise.all`が2箇所ある
+（web URLの解決とファイルのコミット）。実効の同時接続数は`CONCURRENCY_LIMIT` × それらの件数。
+**現状は絞らない判断**:
+
+- 絞ると`lib/gitlab/`に並列度を引き回すことになるが、この層はこのツールの並列度の方針を持たない
+  （持たせると原則2の責務からはみ出す）
+- レート制限に当たっても429は指数バックオフで再試行され、それでも駄目なら該当chartAndAppsが
+  `ERROR`になって次回に持ち越されるだけで、実行全体は壊れない（429はfatal扱いではない）
+- 既定値は3で、1clientあたりのアプリ数も現状は数件。最悪ケースは意図的に上限まで上げたうえで
+  巨大なclientを作らないと起きない
+- **再検討のトリガー**: 実行ログに429が継続的に出る、または1clientのアプリ数が数十になったとき
+  （実測でボトルネックになってから動く、という前掲と同じ判断の仕方）
+
+### FatalErrorは後続ステップも止める
+
+`FatalError`（401/5xx等）を検知すると、`utils/parallel.ts`がその時点で並列実行のキューを
+クリアし、同じステップ内の他chartAndAppsの未着手タスクを実行させずに reject する。
+`runPipeline()` はステップを順番に await しているため、あるステップでFatalErrorが起きると
+**後続のステップは一切開始されない**。`docs/requirements.md` 4.3節の
+「chartリポジトリ間は失敗しても他は継続する」という記述は一般的なエラーを指しており、GitLab側の
+認証切れ・障害のような全chart共通の致命的エラーに対しては、無駄なAPI呼び出しを避けるため
+この例外を設けている（gitlab-watari-dori由来のパターン）。
+
+### その他
+
+- `values.yaml` の書き換えは `yaml` パッケージのDocument（AST）を直接操作する方式のため、
+  書き換え対象以外のコメント・クォートスタイルは概ね保持される（完全な保持を保証するもの
+  ではない）
+- タグに紐づくGitLabプロジェクトのURLは `Projects.show` で都度取得している（`config/`に
+  namespace slugを持たせていないため）
+- Helm CLI（`helm lint` / `helm template` 等）は呼び出さない。`values.yaml`のテキスト更新のみ行う
 
 ## ディレクトリ構成の勘所
 
@@ -423,41 +430,3 @@ CLAUDE.md「コーディング規約」を参照。ここには判断の実例�
 - `docs/requirements.md`: 確定した要件。`docs/requirements-grilling.md`: 要件定義時のQ&Aログ
   （検討経緯の参照用、変更不要）。`docs/history/`: 完了タスク・過去セッションのアーカイブと、
   対応済みの指示メモ（`direction.md`）
-
-## 既知の制約・注意点
-
-- **`CONCURRENCY_LIMIT`はchartAndApps単位の同時処理数であって、GitLab APIへの同時接続数の
-  上限ではない**。その内側に要素数ぶんの`Promise.all`が2箇所ある（`getProjectWebUrls()`は
-  重複排除後のprojectId数、`commitFileUpdates()`はコミットするファイル数）。実効の同時接続数は
-  `CONCURRENCY_LIMIT` × それらの件数になる。**現状は絞らない判断**:
-  - 絞ると`lib/gitlab/gitlab.ts`に`concurrencyLimit`を引き回すことになるが、この層は
-    このツールの並列度の方針を持たない（持たせると原則2の「技術・外部システムに依存する処理」
-    という責務からはみ出す）
-  - レート制限に当たっても`utils/retry.ts`が429を指数バックオフで3回まで再試行し、
-    それでも駄目なら該当chartAndAppsが`ERROR`になって次回に持ち越されるだけで、
-    実行全体は壊れない（429はfatal扱いではない）
-  - 既定の`CONCURRENCY_LIMIT`は3で、1clientあたりのアプリ数も現状は数件。上限20 ×
-    数十アプリという最悪ケースは、意図的に上限まで上げたうえで巨大なclientを作らないと起きない
-  - **再検討のトリガー**: 実行ログに429が継続的に出る、または1clientのアプリ数が数十になったとき。
-    これは前掲の「アプリ単位は逐次のまま」と同じ判断の仕方（実測でボトルネックになってから動く）
-- `values.yaml` の書き換えは `yaml` パッケージのDocument（AST）を直接操作する方式のため、
-  書き換え対象以外のコメント・クォートスタイルは概ね保持される（完全な保持を保証するもの
-  ではない）
-- タグに紐づくGitLabプロジェクトのURLは `Projects.show` で都度取得している（`config/`にnamespace
-  slugを持たせていないため）
-- Helm CLI（`helm lint` / `helm template` 等）は呼び出さない。`values.yaml`のテキスト更新のみ行う
-- `FatalError`（401/5xx等）を検知すると、`utils/parallel.ts` の `mapWithConcurrency()` が
-  その時点で `p-limit` のキューを `clearQueue()` でクリアし、同じステップ内の他chartAndAppsの
-  未着手タスクを実行させずに reject する。`runPipeline()` はステップを順番に await しているため、
-  あるステップでFatalErrorが起きると後続のステップは一切開始されない（例:
-  `buildPlans` でFatalErrorが起きたら `applyUpdates` は1件も呼ばれない）。
-  `docs/requirements.md` 4.3節の「chartリポジトリ間は失敗しても他は継続する」という記述は
-  一般的なエラーを指しており、GitLab側の認証切れ・障害のような全chart共通の致命的エラーに
-  対しては、無駄なAPI呼び出しを避けるためこの例外を設けている（gitlab-watari-dori由来のパターン）
-- 同一`(chartリポジトリ, tenantId, clientId)`内の複数アプリの処理（タグ取得・パイプライン
-  取得等）は `buildPlan()`（`src/steps/build-plans/build-plans.ts` の非公開関数）内で逐次実行している。
-  同じ`values.yaml`への複数アプリの変更を1つのキャッシュに積み重ねる必要があるため。
-  `docs/requirements.md` 4.3節の並列実行制御（`p-limit`）は現状chartAndApps単位
-  （`filterTargets`/`buildPlans`/`applyUpdates`それぞれ）のみに適用しており、
-  1chartAndApps内のアプリ単位までは並列化していない（意図的にこのままとする判断。理由は
-  本ファイル前掲の「アプリ単位は逐次のまま（並列化しない）」参照）
