@@ -448,13 +448,13 @@ describe("loadConfig（helmTargetBranch）", () => {
     )
 
     const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toEqual({
+    expect(chartAndAppsList[0]?.helmTargetBranch).toEqual({
       branchName: "release/2026-q1",
       targets: [{ valuesPath: "a.yaml", anchorName: "targetBranch" }],
     })
   })
 
-  it("どちらにも無いとき、app.helmTargetBranchはundefinedになる", () => {
+  it("どちらにも無いとき、helmTargetBranchはundefinedになる", () => {
     dir.writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
@@ -473,7 +473,7 @@ describe("loadConfig（helmTargetBranch）", () => {
     )
 
     const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toBeUndefined()
+    expect(chartAndAppsList[0]?.helmTargetBranch).toBeUndefined()
   })
 
   it("config.yamlのhelm.branchToSyncはあるがanchors.yamlのhelm.chartが無いとき例外をスローする", () => {
@@ -579,8 +579,10 @@ describe("loadConfig（helmTargetBranch）", () => {
     )
 
     const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toBeDefined()
-    expect(chartAndAppsList[0]?.apps[1]?.helmTargetBranch).toBeDefined()
+    expect(chartAndAppsList[0]?.helmTargetBranch?.targets).toEqual([
+      { valuesPath: "a.yaml", anchorName: "targetBranchA" },
+      { valuesPath: "b.yaml", anchorName: "targetBranchB" },
+    ])
   })
 
   it("1アプリのchart内で複数のvaluesPathがそれぞれhelm.chart[]と一致すると、helmTargetBranch.targetsに複数含める", () => {
@@ -602,7 +604,7 @@ describe("loadConfig（helmTargetBranch）", () => {
     )
 
     const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.apps[0]?.helmTargetBranch).toEqual({
+    expect(chartAndAppsList[0]?.helmTargetBranch).toEqual({
       branchName: "release/2026-q1",
       targets: [
         { valuesPath: "webapi.yaml", anchorName: "webapiTargetBranch" },

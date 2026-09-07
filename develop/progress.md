@@ -51,6 +51,11 @@ T-001〜T-094 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
   ようにした（Helm向き先ブランチ側の事前検証と扱いが揃った）。`resolveTrackedHeadTagNames()`
   の引数から `| undefined` も落ちた。`gitlab.ts` 側の `| undefined` は「GitLabに無い」を
   表す層なので残置（規約の「許容する」に当たる）。`pnpm check`（31ファイル336テスト、+2）。
+- **T-100 完了**。Helmの向き先ブランチを `AppConfig`（app単位）から `ChartAndApps`
+  （client単位）へ移した。**共通の値をapp単位に振り分けてから重複排除で戻す往復が消えた**
+  （`resolveHelmTargetBranch()` の振り分けと `uniqueHelmTargetBranchUpdates()` の両方）。
+  副次的に `verify-config.ts` が向き先ブランチの問題をアプリ数だけ重複報告していたのも解消。
+  MR本文は不変（テストの期待値を書き換えずに通した）。`pnpm check`（31ファイル336テスト、不変）。
 - **アーカイブ**: `develop/tasks.json` が44KBと基準（30KB）を超えたため、`done` の
   T-092〜T-094 を `docs/history/` へ移した。
 

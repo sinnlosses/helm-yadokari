@@ -78,7 +78,7 @@
 ### Helmの向き先ブランチ
 
 - **英語識別子**: `helm.branchToSync`（config.yamlのフィールド名）/
-  `AppConfig.helmTargetBranch: HelmTargetBranchConfig`（app単位に振り分けた後のコード上の型）
+  `ChartAndApps.helmTargetBranch: HelmTargetBranchConfig`（client単位で持つコード上の型）
 - **定義**: Helm chartは(1)`values.yaml`等のパラメータを定義するブランチ（既存の`mrTargetBranch`に相当）と、
   (2)そのパラメータを受け取ってk8sリソースを実際に構築するブランチの2種類で構成される、という前提のもと、
   後者を指すブランチ名。タグではなくブランチ名そのもので指定する。1つのtenantId/clientId内のapps全体で
@@ -99,8 +99,9 @@
   `anchors.yaml`トップレベル`helm.chart`配列の各要素が持つフィールド（chart構造の
   ためconfig.yamlではなくanchors.yaml側に置く）。`apps[].chart[].anchor`と
   同様にYAMLアンカー名で位置を指定するが、書き込む値がタグではなくブランチ名である点が
-  異なる。`apps[].chart[]`とは独立したリストで、どのappの`values.yaml`に書き込むかは
-  `valuesPath`の一致だけで決まる（app側に専用フィールドは持たせない）。
+  異なる。`apps[].chart[]`とは独立したリストで、app側に専用フィールドは持たせない。
+  向き先ブランチはclient内のapps全体で共通なので、コード上もapp単位に振り分けず
+  client単位（`ChartAndApps`）で1つ持ち、書き込みもappのループの外で1回だけ行う。
 - **制約**: config.yamlに`helm.branchToSync`が指定されている場合、そのconfig.yaml配下の全アプリの全
   `chart[].valuesPath`が`anchors.yaml`の`helm.chart[]`でカバーされている必要がある
   （Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、1つでもvaluesPathが

@@ -51,7 +51,7 @@ describe("collectMrEntries", () => {
       ],
     })
 
-    const entries = await collectMrEntries(mockGitlab, [plan])
+    const entries = await collectMrEntries(mockGitlab, [plan], [])
 
     expect(entries.imageTags).toHaveLength(2)
     expect(entries.imageTags.map((entry) => entry.update.target.anchorName)).toEqual(["x", "y"])
@@ -62,43 +62,28 @@ describe("collectMrEntries", () => {
   it("イメージタグに差分が無いplanは含めず、そのweb URLも要求しない", async () => {
     mockWebUrls(new Map())
 
-    const entries = await collectMrEntries(mockGitlab, [
-      makePlan({ updates: [], helmTargetBranchUpdates: [helmUpdate] }),
-    ])
+    const entries = await collectMrEntries(mockGitlab, [makePlan({ updates: [] })], [helmUpdate])
 
     expect(entries.imageTags).toEqual([])
     expect(getProjectWebUrls).toHaveBeenCalledWith(mockGitlab, [])
   })
 
-  it("同じ書き込み先の向き先ブランチ更新が複数planにあっても1件にまとめる", async () => {
-    mockWebUrls(new Map())
-
-    const entries = await collectMrEntries(mockGitlab, [
-      makePlan({ updates: [], helmTargetBranchUpdates: [helmUpdate] }),
-      makePlan({ projectName: "other-app", updates: [], helmTargetBranchUpdates: [helmUpdate] }),
-    ])
-
-    expect(entries.helmBranches).toEqual([helmUpdate])
-  })
-
-  it("書き込み先が違う向き先ブランチ更新はまとめない", async () => {
+  it("向き先ブランチの更新はclient単位で確定済みなので、そのまま並べる", async () => {
     mockWebUrls(new Map())
     const other = {
       ...helmUpdate,
       target: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("otherBranch") },
     }
 
-    const entries = await collectMrEntries(mockGitlab, [
-      makePlan({ updates: [], helmTargetBranchUpdates: [helmUpdate, other] }),
-    ])
+    const entries = await collectMrEntries(mockGitlab, [], [helmUpdate, other])
 
-    expect(entries.helmBranches).toHaveLength(2)
+    expect(entries.helmBranches).toEqual([helmUpdate, other])
   })
 
   it("web URLが解決されなかったprojectIdがあるとエラーにする", async () => {
     mockWebUrls(new Map())
 
-    await expect(collectMrEntries(mockGitlab, [makePlan()])).rejects.toThrow(
+    await expect(collectMrEntries(mockGitlab, [makePlan()], [])).rejects.toThrow(
       "web URLが解決されていないprojectIdです: 1",
     )
   })

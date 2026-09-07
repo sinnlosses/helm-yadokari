@@ -7,7 +7,7 @@ import {
 import type { ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
-import { describePlan } from "../shared/describe-plan.js"
+import { describeHelmTargetBranchUpdates, describePlan } from "../shared/describe-plan.js"
 import { type StepOutcome, ok, withHandling } from "../shared/step-outcome.js"
 import { buildMrContent } from "./sub-steps/build-mr-content.js"
 import { collectMrEntries } from "./sub-steps/collect-mr-entries.js"
@@ -34,11 +34,11 @@ async function applyUpdate(
   target: ChartUpdateTarget,
   logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartUpdateResult>> {
-  const { chartAndApps, plans, files } = target
+  const { chartAndApps, plans, helmTargetBranchUpdates, files } = target
   const { chart, tenantId, clientId } = chartAndApps
   const featureBranch = buildFeatureBranch(tenantId, clientId)
 
-  const entries = await collectMrEntries(gitlab, plans)
+  const entries = await collectMrEntries(gitlab, plans, helmTargetBranchUpdates)
   // MRタイトルをコミットメッセージにもそのまま使い回す
   const { title, description } = buildMrContent(tenantId, clientId, entries)
 
@@ -58,6 +58,11 @@ async function applyUpdate(
     title,
     description,
   )
-  logger.info({ ...logContext, result: "CREATED", apps: plans.map(describePlan) })
+  logger.info({
+    ...logContext,
+    result: "CREATED",
+    apps: plans.map(describePlan),
+    helmTargetBranchUpdates: describeHelmTargetBranchUpdates(helmTargetBranchUpdates),
+  })
   return ok<ChartUpdateResult>("CREATED")
 }

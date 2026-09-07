@@ -6,6 +6,7 @@ import type {
   AppConfig,
   ChartAndApps,
   ChartRepoConfig,
+  HelmTargetBranchConfig,
 } from "../../../src/types/types.js"
 import { toErrorMessage } from "../../../src/utils/http.js"
 import { mapWithConcurrency } from "../../../src/utils/parallel.js"
@@ -71,7 +72,7 @@ async function verifyChartAndApps(
   cache: RemoteCache,
   chartAndApps: ChartAndApps,
 ): Promise<string[]> {
-  const { chart, apps } = chartAndApps
+  const { chart, apps, helmTargetBranch } = chartAndApps
   const context: VerifyContext = {
     cache,
     where: `${chartAndApps.chartDirName}/${formatClientRef(chartAndApps.tenantId, chartAndApps.clientId)}`,
@@ -100,14 +101,18 @@ async function verifyChartAndApps(
     ...acc,
     ...(await verifyApp(context, app, baseBranchFound)),
   ])
+  const helmProblems =
+    baseBranchFound && helmTargetBranch !== undefined
+      ? await verifyHelmTargetBranch(context, helmTargetBranch)
+      : []
 
-  return [...chartProblems, ...baseBranchProblems, ...appProblems]
+  return [...chartProblems, ...baseBranchProblems, ...appProblems, ...helmProblems]
 }
 
 /**
  * 1アプリ分を検証する。ソースプロジェクト自体が見つからない場合、そこに依存する検証
  * （branchToSync）は結果が自明なので行わず、原因となる1件だけを報告する。
- * values.yaml側（`chart[]`・`helm.chart[]`）の検証は、chartリポジトリとそのベースブランチが
+ * values.yaml側（`chart[]`）の検証は、chartリポジトリとそのベースブランチが
  * 揃っているとき（`baseBranchFound`）だけ意味があるためスキップする。
  */
 async function verifyApp(
@@ -115,7 +120,7 @@ async function verifyApp(
   app: AppConfig,
   baseBranchFound: boolean,
 ): Promise<string[]> {
-  const { cache, where, chart } = context
+  const { cache, where } = context
 
   if (!(await cache.hasProject(app.projectId))) {
     return [`${where}: app "${app.projectName}" の projectId ${app.projectId} が見つかりません`]
@@ -134,18 +139,27 @@ async function verifyApp(
     app.imageTagTargets,
     `app "${app.projectName}" の chart[]`,
   )
+  return [...branchProblems, ...imageTagProblems]
+}
 
-  const helmTargetBranch = app.helmTargetBranch
-  if (helmTargetBranch === undefined) return [...branchProblems, ...imageTagProblems]
+/**
+ * Helmの向き先ブランチ（`helm.branchToSync` と `helm.chart[]`）を検証する。client単位で
+ * 1つなので、アプリの数だけ同じ問題を報告しないようアプリのループの外で1回だけ呼ぶ。
+ */
+async function verifyHelmTargetBranch(
+  context: VerifyContext,
+  helmTargetBranch: HelmTargetBranchConfig,
+): Promise<string[]> {
+  const { cache, where, chart } = context
 
-  const helmBranchFound = await cache.hasBranch(chart.projectId, helmTargetBranch.branchName)
-  const helmBranchProblems = helmBranchFound
+  const branchFound = await cache.hasBranch(chart.projectId, helmTargetBranch.branchName)
+  const branchProblems = branchFound
     ? []
     : [
         `${where}: helm.branchToSync "${helmTargetBranch.branchName}" が ${chart.projectName} に見つかりません`,
       ]
-  const helmTargetProblems = await verifyTargets(context, helmTargetBranch.targets, "helm.chart[]")
-  return [...branchProblems, ...imageTagProblems, ...helmBranchProblems, ...helmTargetProblems]
+  const targetProblems = await verifyTargets(context, helmTargetBranch.targets, "helm.chart[]")
+  return [...branchProblems, ...targetProblems]
 }
 
 /** 複数の書き込み先を同じラベルで検証する */

@@ -12,12 +12,13 @@ import type {
 import type { MrEntries } from "./shared/types.js"
 
 /**
- * 1つのMRに載せる項目をプランから抽出する。イメージタグはリンクに使うURLと最新パイプラインを
- * 解決して添え、向き先ブランチは書き込み先単位で一意にする。
+ * 1つのMRに載せる項目を抽出する。イメージタグはリンクに使うURLと最新パイプラインを解決して
+ * 添える。向き先ブランチはclient単位で確定済みなのでそのまま渡す。
  */
 export async function collectMrEntries(
   gitlab: GitlabClient,
   plans: readonly AppUpdatePlan[],
+  helmBranches: readonly HelmTargetBranchUpdate[],
 ): Promise<MrEntries> {
   const updatedPlans = plans.filter((plan) => plan.updates.length > 0)
   const updatedProjectIds = updatedPlans.map((plan) => plan.app.projectId)
@@ -35,7 +36,6 @@ export async function collectMrEntries(
     }),
   )
   const imageTags = imageTagsPerPlan.flat()
-  const helmBranches = uniqueHelmTargetBranchUpdates(plans)
 
   return { imageTags, helmBranches }
 }
@@ -53,23 +53,4 @@ function resolveWebUrl(
     throw new Error(`web URLが解決されていないprojectIdです: ${projectId}`)
   }
   return webUrl
-}
-
-/**
- * 向き先ブランチの更新は`helm.chart[]`をvaluesPath一致でアプリに振り分けた結果なので、
- * 同じ書き込み先が複数アプリの計画に現れうる。件数・表示は書き込み先（valuesPath+anchorName）
- * 単位で一意にする
- */
-function uniqueHelmTargetBranchUpdates(
-  plans: readonly AppUpdatePlan[],
-): readonly HelmTargetBranchUpdate[] {
-  const byTarget = new Map(
-    plans.flatMap((plan) =>
-      plan.helmTargetBranchUpdates.map((update): [string, HelmTargetBranchUpdate] => [
-        `${update.target.valuesPath}#${update.target.anchorName}`,
-        update,
-      ]),
-    ),
-  )
-  return [...byTarget.values()]
 }

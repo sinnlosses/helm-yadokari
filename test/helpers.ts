@@ -25,14 +25,15 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
         anchorName: toAnchorName("appVersion"),
       },
     ],
-    helmTargetBranch: undefined,
     ...overrides,
   }
 }
 
 export function makeChartAndApps(
   apps: AppConfig[],
-  overrides: Partial<Pick<ChartAndApps, "chartDirName" | "tenantId" | "clientId">> = {},
+  overrides: Partial<
+    Pick<ChartAndApps, "chartDirName" | "tenantId" | "clientId" | "helmTargetBranch">
+  > = {},
 ): ChartAndApps {
   return {
     chartDirName: toChartDirName("teamA-chart"),
@@ -44,6 +45,7 @@ export function makeChartAndApps(
       mrTargetBranch: toBranchName("develop"),
     },
     apps,
+    helmTargetBranch: undefined,
     ...overrides,
   }
 }
@@ -53,7 +55,6 @@ export function makePlan(
     previousTagName: TagName
     projectName: string
     updates: AppUpdatePlan["updates"]
-    helmTargetBranchUpdates: AppUpdatePlan["helmTargetBranchUpdates"]
   }> = {},
 ): AppUpdatePlan {
   const previousTagName = overrides.previousTagName ?? toTagName("main-build-at-20251231-000000")
@@ -76,6 +77,5 @@ export function makePlan(
         previousTagName,
       },
     ],
-    helmTargetBranchUpdates: overrides.helmTargetBranchUpdates ?? [],
   }
 }

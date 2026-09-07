@@ -27,7 +27,8 @@ export type AnchorTarget = {
 
 /**
  * Helmの向き先ブランチを扱うための設定。`branchName`はconfig.yamlの`helm.branchToSync`由来、
- * `targets`はanchors.yamlの`helm.chart[]`のうちvaluesPathが一致するもの
+ * `targets`はanchors.yamlの`helm.chart[]`のうち、client内のいずれかのappが書き込む
+ * valuesPathを指すもの。向き先ブランチはclient内のapps全体で共通なのでclient単位で持つ
  */
 export type HelmTargetBranchConfig = {
   readonly branchName: BranchName
@@ -44,8 +45,6 @@ export type AppConfig = {
   readonly branchToSync: BranchName
   /** 同じ最新タグを複数箇所へ反映するため配列。anchors.yamlの`apps[].chart[]`由来 */
   readonly imageTagTargets: readonly AnchorTarget[]
-  /** config.yamlとanchors.yamlの両方でHelmの向き先ブランチが指定されている場合のみ値を持つ */
-  readonly helmTargetBranch: HelmTargetBranchConfig | undefined
 }
 
 /** chartリポジトリ共通の設定。chart.yamlに対応する */
@@ -62,6 +61,8 @@ export type ChartAndApps = {
   readonly clientId: ClientId
   readonly chart: ChartRepoConfig
   readonly apps: readonly AppConfig[]
+  /** config.yamlとanchors.yamlの両方でHelmの向き先ブランチが指定されている場合のみ値を持つ */
+  readonly helmTargetBranch: HelmTargetBranchConfig | undefined
 }
 
 export type Config = {
@@ -100,14 +101,13 @@ export type HelmTargetBranchUpdate = {
 }
 
 /**
- * 1アプリの更新内容。`updates`・`helmTargetBranchUpdates`はそれぞれ差分がある箇所だけを含み、
- * 両方とも空ならこのAppUpdatePlan自体を生成しない（＝そのアプリは全箇所が反映済み）
+ * 1アプリの更新内容。`updates`は差分がある箇所だけを含み、空ならこのAppUpdatePlan自体を
+ * 生成しない（＝そのアプリは全箇所が反映済み）
  */
 export type AppUpdatePlan = {
   readonly app: AppConfig
   readonly latestTag: ParsedTag
   readonly updates: readonly ImageTagUpdate[]
-  readonly helmTargetBranchUpdates: readonly HelmTargetBranchUpdate[]
 }
 
 export type ChartUpdateResult = "CREATED" | "SKIPPED" | "ERROR"
@@ -120,9 +120,14 @@ export type FileUpdate = {
   readonly content: string
 }
 
-/** 差分が確定し、コミット・MR作成の対象になった1chartAndApps分の更新内容 */
+/**
+ * 差分が確定し、コミット・MR作成の対象になった1chartAndApps分の更新内容。
+ * `helmTargetBranchUpdates`がapp単位でなくここにあるのは、向き先ブランチがclient内の
+ * apps全体で共通だから（`plans`が空でもこちらに差分があればMRを作る）
+ */
 export type ChartUpdateTarget = {
   readonly chartAndApps: ChartAndApps
   readonly plans: readonly AppUpdatePlan[]
+  readonly helmTargetBranchUpdates: readonly HelmTargetBranchUpdate[]
   readonly files: readonly FileUpdate[]
 }

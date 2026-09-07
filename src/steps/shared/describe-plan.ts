@@ -1,4 +1,4 @@
-import type { AppUpdatePlan } from "../../types/types.js"
+import type { AppUpdatePlan, HelmTargetBranchUpdate } from "../../types/types.js"
 
 /** 1アプリ分の更新計画を、ログ用のサマリに変換する（dryRun時とMR作成時の両方で使う） */
 export function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
@@ -9,10 +9,16 @@ export function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
       valuesPath: update.target.valuesPath,
       previousTagName: update.previousTagName,
     })),
-    helmTargetBranchUpdates: plan.helmTargetBranchUpdates.map((update) => ({
-      valuesPath: update.target.valuesPath,
-      previousBranch: update.previousBranch,
-      newBranch: update.newBranch,
-    })),
   }
+}
+
+/** Helmの向き先ブランチの更新をログ用のサマリに変換する。client単位なのでアプリ名は持たない */
+export function describeHelmTargetBranchUpdates(
+  updates: readonly HelmTargetBranchUpdate[],
+): readonly Record<string, unknown>[] {
+  return updates.map((update) => ({
+    valuesPath: update.target.valuesPath,
+    previousBranch: update.previousBranch,
+    newBranch: update.newBranch,
+  }))
 }

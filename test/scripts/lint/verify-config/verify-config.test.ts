@@ -95,21 +95,47 @@ describe("verifyConfigExistence", () => {
   })
 
   it("Helmの向き先ブランチが存在しないとき問題として返す", async () => {
-    const app = makeApp({
-      helmTargetBranch: {
-        branchName: toBranchName("release/ghost"),
-        targets: [
-          { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
-        ],
-      },
-    })
+    const helmTargetBranch = {
+      branchName: toBranchName("release/ghost"),
+      targets: [
+        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
+      ],
+    }
     vi.mocked(branchExists).mockImplementation(
       async (_gitlab, _projectId, branch) => branch !== "release/ghost",
     )
 
-    const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps([app])], 3)
+    const problems = await verifyConfigExistence(
+      mockGitlab,
+      [makeChartAndApps([makeApp()], { helmTargetBranch })],
+      3,
+    )
 
     expect(problems.join("\n")).toContain("release/ghost")
+  })
+
+  it("Helmの向き先ブランチの問題は、アプリの数だけ重複して報告しない", async () => {
+    const helmTargetBranch = {
+      branchName: toBranchName("release/ghost"),
+      targets: [
+        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
+      ],
+    }
+    vi.mocked(branchExists).mockImplementation(
+      async (_gitlab, _projectId, branch) => branch !== "release/ghost",
+    )
+    const apps = [
+      makeApp({ projectId: toProjectId(1), projectName: toProjectName("app-1") }),
+      makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-2") }),
+    ]
+
+    const problems = await verifyConfigExistence(
+      mockGitlab,
+      [makeChartAndApps(apps, { helmTargetBranch })],
+      3,
+    )
+
+    expect(problems.filter((problem) => problem.includes("release/ghost"))).toHaveLength(1)
   })
 
   it("複数の問題をまとめて返す（最初の1件で止まらない）", async () => {

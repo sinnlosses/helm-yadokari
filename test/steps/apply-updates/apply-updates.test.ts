@@ -46,9 +46,9 @@ function makeTarget(): ChartUpdateTarget {
             previousTagName: toTagName("prev"),
           },
         ],
-        helmTargetBranchUpdates: [],
       },
     ],
+    helmTargetBranchUpdates: [],
     files: [{ valuesPath: toValuesPath("values.yaml"), content: "image:\n  tag: x\n" }],
   }
 }
@@ -80,7 +80,11 @@ describe("applyUpdates", () => {
   it("collectMrEntriesの結果からbuildMrContentを呼び、その結果をコミット・MR作成に渡す", async () => {
     const target = makeTarget()
     await applyUpdates(mockGitlab, [target], 3)
-    expect(collectMrEntries).toHaveBeenCalledWith(mockGitlab, target.plans)
+    expect(collectMrEntries).toHaveBeenCalledWith(
+      mockGitlab,
+      target.plans,
+      target.helmTargetBranchUpdates,
+    )
     expect(buildMrContent).toHaveBeenCalledWith(
       target.chartAndApps.tenantId,
       target.chartAndApps.clientId,

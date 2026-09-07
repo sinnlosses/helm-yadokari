@@ -40,17 +40,17 @@
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `resolve-latest-tag.ts`               | 追跡ブランチ由来の最新タグの判定。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成                                        |
 | `stage-image-tag-updates.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagTargets`全箇所のループ                                                                    |
-| `stage-helm-target-branch-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                                                          |
+| `stage-helm-target-branch-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）。client単位なのでappのループの外から1回だけ呼ぶ                          |
 | `shared/values-yaml-draft.ts`         | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）の読み込み（下書き優先・無ければGitLab）・書き換え・`FileUpdate[]`化 |
 | `shared/types.ts`                     | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                                            |
 
 #### `apply-updates/sub-steps/`
 
-| ファイル                | 責務                                                                                                                             |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `collect-mr-entries.ts` | 計画からMRに載せる項目（`MrEntries`）を選ぶ。リンク用のweb URLと最新パイプラインの解決、向き先ブランチの書き込み先単位の重複排除 |
-| `build-mr-content.ts`   | `MrEntries`をMRのタイトルとMarkdown本文にする。外部I/Oを持たない同期の純粋関数                                                   |
-| `shared/types.ts`       | 上記2つが受け渡す`MrEntries`・`ImageTagEntry`                                                                                    |
+| ファイル                | 責務                                                                                   |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| `collect-mr-entries.ts` | 計画からMRに載せる項目（`MrEntries`）を選ぶ。リンク用のweb URLと最新パイプラインの解決 |
+| `build-mr-content.ts`   | `MrEntries`をMRのタイトルとMarkdown本文にする。外部I/Oを持たない同期の純粋関数         |
+| `shared/types.ts`       | 上記2つが受け渡す`MrEntries`・`ImageTagEntry`                                          |
 
 項目の選別（何をMRに載せるか）とMarkdownの組み立てを分けてあるのは、**タイトルの件数と本文の
 テーブルの行を同じ配列から数えるため**。別々に数えていた頃は、件数と行数がずれても気づけなかった。
@@ -373,6 +373,25 @@ lintスクリプトが問題の一覧を返す。前者は認証不要なので�
 `js-yaml`はオブジェクトとしてしか読み書きできずアンカー名を保持できないため採らない。値の位置
 指定にアンカーを使う以上、Document（AST）を直接操作できる必要がある。オブジェクトのネストを
 dotパスで辿る方式も実装していたが、実運用ではアンカー方式で十分なため削除した。
+
+#### Helmの向き先ブランチはapp単位に振り分けずclient単位で持つ
+
+向き先ブランチは「1client内のapps全体で共通」という要件（`docs/glossary.md`）なので、
+`ChartAndApps`が1つだけ持ち、`build-plans.ts`はappのループの**外**で1回だけ適用する。
+
+以前は`AppConfig`がapp単位で持ち、`anchors.yaml`の`helm.chart[]`を`valuesPath`の一致で
+appへ振り分けていた。共通の値を複製することになるため、同じ書き込み先が複数appの計画に現れ、
+MR本文を組み立てる`collect-mr-entries.ts`が書き込み先単位で重複排除し直していた。
+`scripts/lint/verify-config/`も同じ問題をappの数だけ報告していた。client単位にすると
+振り分けと重複排除の両方が不要になる。
+
+- **`plans`が空でも向き先ブランチに差分があればMRを作る**。app単位だった頃はイメージタグに
+  差分が無いappでも「向き先ブランチだけ差分あり」の`AppUpdatePlan`が作られていたが、
+  client単位になったので`ChartUpdateTarget`側が持つ
+- **向き先ブランチのエラーにアプリ名は付かない**。`withAppContext()`はappのループの中だけに
+  掛かる。どのappの問題でもないので、`valuesPath`とアンカー名で位置を示す
+- **書き込みはイメージタグを全app分積んだ後の下書きに重ねる**。同じ`values.yaml`への
+  書き換えが失われないよう、適用の順序はappのループの後に固定する
 
 #### MRの単位は `(chartリポジトリ, tenantId, clientId)`
 

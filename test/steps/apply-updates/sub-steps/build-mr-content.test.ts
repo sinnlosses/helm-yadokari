@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest"
 
 import { buildMrContent } from "../../../../src/steps/apply-updates/sub-steps/build-mr-content.js"
 import type { MrEntries } from "../../../../src/steps/apply-updates/sub-steps/shared/types.js"
-import type { AppUpdatePlan, GitLabUrl, PipelineInfo } from "../../../../src/types/types.js"
+import type {
+  AppUpdatePlan,
+  GitLabUrl,
+  HelmTargetBranchUpdate,
+  PipelineInfo,
+} from "../../../../src/types/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -22,12 +27,10 @@ const helmUpdate = {
   newBranch: toBranchName("release/2026-q1"),
 }
 
-/**
- * `collectMrEntries()`が返す形をplansから素直に組み立てる。重複排除は`collectMrEntries()`の
- * 責務なのでここでは行わず、渡されたものをそのまま並べる。
- */
+/** `collectMrEntries()`が返す形を組み立てる。向き先ブランチはclient単位なのでplansとは別に渡す */
 function entriesOf(
   plans: readonly AppUpdatePlan[],
+  helmBranches: readonly HelmTargetBranchUpdate[] = [],
   webUrl: GitLabUrl = defaultWebUrl,
   pipeline: PipelineInfo | undefined = undefined,
 ): MrEntries {
@@ -35,7 +38,7 @@ function entriesOf(
     imageTags: plans.flatMap((plan) =>
       plan.updates.map((update) => ({ plan, update, webUrl, pipeline })),
     ),
-    helmBranches: plans.flatMap((plan) => plan.helmTargetBranchUpdates),
+    helmBranches,
   }
 }
 
@@ -76,23 +79,23 @@ describe("buildMrContent（タイトル）", () => {
   })
 
   it("イメージタグとHelm向き先ブランチの両方があるとき、種別ごとに件数を出す", () => {
-    const plan = makePlan({ helmTargetBranchUpdates: [helmUpdate] })
+    const plan = makePlan()
 
-    expect(buildTitle(entriesOf([plan]))).toBe(
+    expect(buildTitle(entriesOf([plan], [helmUpdate]))).toBe(
       "Auto MR by yadokari: update tenantId1/clientId1 (image tag 1, helm branch 1)",
     )
   })
 
   it("Helm向き先ブランチだけが変わるとき、image tag と表示しない", () => {
-    const plan = makePlan({ updates: [], helmTargetBranchUpdates: [helmUpdate] })
+    const plan = makePlan({ updates: [] })
 
-    expect(buildTitle(entriesOf([plan]))).toBe(
+    expect(buildTitle(entriesOf([plan], [helmUpdate]))).toBe(
       "Auto MR by yadokari: update tenantId1/clientId1 (helm branch 1)",
     )
   })
 
   it("件数は本文のテーブルの行数と同じ配列から数える", () => {
-    const entries = entriesOf([makePlan({ helmTargetBranchUpdates: [helmUpdate] })])
+    const entries = entriesOf([makePlan()], [helmUpdate])
     const { title, description } = buildMrContent(
       toTenantId("tenantId1"),
       toClientId("clientId1"),
@@ -175,7 +178,7 @@ describe("buildMrContent（本文）", () => {
 
   it("パイプラインは状態を出さず、URLをそのまま表示する", () => {
     const description = buildDescription(
-      entriesOf([makePlan()], defaultWebUrl, {
+      entriesOf([makePlan()], [], defaultWebUrl, {
         webUrl: toGitLabUrl("https://gitlab.example.com/p/1"),
       }),
     )
@@ -194,9 +197,7 @@ describe("buildMrContent（本文）", () => {
   })
 
   it("向き先ブランチの更新は別セクションのテーブルにする", () => {
-    const description = buildDescription(
-      entriesOf([makePlan({ helmTargetBranchUpdates: [helmUpdate] })]),
-    )
+    const description = buildDescription(entriesOf([makePlan()], [helmUpdate]))
 
     const helmSectionIndex = description.indexOf("## Helmの向き先ブランチ")
     expect(helmSectionIndex).toBeGreaterThan(description.indexOf("## イメージタグ"))
@@ -214,13 +215,7 @@ describe("buildMrContent（本文）", () => {
 
   it("イメージタグの行が1件も無いとき、そのセクションごと出さない", () => {
     const description = buildDescription(
-      entriesOf([
-        makePlan({
-          projectName: "helm-only-app",
-          updates: [],
-          helmTargetBranchUpdates: [helmUpdate],
-        }),
-      ]),
+      entriesOf([makePlan({ projectName: "helm-only-app", updates: [] })], [helmUpdate]),
     )
 
     expect(description).not.toContain("helm-only-app")

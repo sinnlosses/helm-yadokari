@@ -14,7 +14,7 @@ import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
 import { reduceAsync } from "../../utils/sequential.js"
-import { describePlan } from "../shared/describe-plan.js"
+import { describeHelmTargetBranchUpdates, describePlan } from "../shared/describe-plan.js"
 import {
   type StepOutcome,
   ok,
@@ -107,11 +107,25 @@ async function buildPlan(
     branchExists: (branch) => branchExists(chart.projectId, branch),
   }
   const initialAcc: BuildChartUpdateAcc = { plans: [], draft: new Map() }
-  const { plans, draft } = await reduceAsync(chartAndApps.apps, initialAcc, (acc, app) =>
-    withAppContext(app.projectName, async () => buildAppUpdatePlan(context, acc, app)),
+  const { plans, draft: draftAfterApps } = await reduceAsync(
+    chartAndApps.apps,
+    initialAcc,
+    (acc, app) =>
+      withAppContext(app.projectName, async () => buildAppUpdatePlan(context, acc, app)),
   )
 
-  if (plans.length === 0) {
+  // 向き先ブランチはclient内のapps全体で共通なのでappループの外で1回だけ適用する。
+  // 全アプリのイメージタグを積んだ後の下書きに重ねるため、同じvalues.yamlへの書き換えは失われない
+  const { draft, updates: helmTargetBranchUpdates } = chartAndApps.helmTargetBranch
+    ? await stageHelmTargetBranchUpdates(
+        context.valuesYamlSource,
+        context.branchExists,
+        chartAndApps.helmTargetBranch,
+        draftAfterApps,
+      )
+    : { draft: draftAfterApps, updates: [] }
+
+  if (plans.length === 0 && helmTargetBranchUpdates.length === 0) {
     logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })
     return settle("SKIPPED")
   }
@@ -121,10 +135,11 @@ async function buildPlan(
       result: "SKIPPED",
       reason: "dry_run",
       apps: plans.map(describePlan),
+      helmTargetBranchUpdates: describeHelmTargetBranchUpdates(helmTargetBranchUpdates),
     })
     return settle("SKIPPED")
   }
-  return ok({ chartAndApps, plans, files: toFileUpdates(draft) })
+  return ok({ chartAndApps, plans, helmTargetBranchUpdates, files: toFileUpdates(draft) })
 }
 
 /**
@@ -143,13 +158,11 @@ function createCachedBranchExists(gitlab: GitlabClient): CachedBranchExists {
 }
 
 /**
- * 1アプリ分の更新計画を組み立てる。手順は次の4つ
+ * 1アプリ分の更新計画を組み立てる。手順は次の3つ
  *
  * 1. `resolveLatestTag()` — 追跡ブランチのHEADを指すタグが存在するか確認し、無ければ作成する
  * 2. `stageImageTagUpdates()` — `app.imageTagTargets`全箇所について、最新タグとの差分をチェックする
- * 3. `stageHelmTargetBranchUpdates()` — `app.helmTargetBranch`があれば、向き先ブランチの
- *    全箇所について設定値との差分をチェックする
- * 4. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば`AppUpdatePlan`を組み立てる
+ * 3. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば`AppUpdatePlan`を組み立てる
  *
  * 処理中に投げられた例外は`withAppContext()`がアプリ名を付けて投げ直す。
  * 致命的エラーの扱いを含む方針は`steps/shared/step-outcome.ts`に集約している。
@@ -159,28 +172,18 @@ async function buildAppUpdatePlan(
   acc: BuildChartUpdateAcc,
   app: AppConfig,
 ): Promise<BuildChartUpdateAcc> {
-  const { gitlab, dryRun, tagFormat, valuesYamlSource, branchExists } = context
+  const { gitlab, dryRun, tagFormat, valuesYamlSource } = context
 
   const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat)
 
-  const { draft: draftAfterChartTargets, updates } = await stageImageTagUpdates(
+  const { draft, updates } = await stageImageTagUpdates(
     valuesYamlSource,
     latestTag,
     acc.draft,
     app.imageTagTargets,
   )
 
-  const afterHelmTargets = app.helmTargetBranch
-    ? await stageHelmTargetBranchUpdates(
-        valuesYamlSource,
-        branchExists,
-        app.helmTargetBranch,
-        draftAfterChartTargets,
-      )
-    : { draft: draftAfterChartTargets, updates: [] }
-  const { draft, updates: helmTargetBranchUpdates } = afterHelmTargets
-
-  if (updates.length === 0 && helmTargetBranchUpdates.length === 0) {
+  if (updates.length === 0) {
     logger.info({
       event: "check_app",
       projectName: app.projectName,
@@ -191,12 +194,7 @@ async function buildAppUpdatePlan(
     return { plans: acc.plans, draft }
   }
 
-  const plan: AppUpdatePlan = {
-    app,
-    latestTag: latestTag.tag,
-    updates,
-    helmTargetBranchUpdates,
-  }
+  const plan: AppUpdatePlan = { app, latestTag: latestTag.tag, updates }
 
   return { plans: [...acc.plans, plan], draft }
 }
