@@ -20,10 +20,37 @@
   {
     "id": "T-104",
     "task": "テストの取捨選択の基準を確定し、`pnpm test:coverage` を回して「不要・冗長・不足」の発見リストを作る。**実際の修正はこのタスクに含めず**、リストができた時点で後続タスクとして登録する。\n\n## 決定済みの方針（2026-09-07 の grilling でユーザーが確定。実装時に蒸し返さない）\n\n- **このタスクの範囲は基準の確定と発見リストまで**。削除・追加の実作業は分ける。理由: 候補が何件出るかで作業量が桁違いになり、事前に見積もれない。リストがあれば残りは `sonnet` に落とせる可能性がある（判断は基準確定で済み、あとは手続きを回すだけになるため）。\n- **削除は保守的に**。重複が証明できたものだけ消す。証明の手続きは「**消す候補を一時的にスキップして `pnpm check` が落ちないことを確認する**」（落ちないなら他のテストが守っていない＝そのテストが唯一の守り手ではない）。テストの削除は間違えても気づきにくい変更の代表格なので、ここは手続きで縛る。\n- **カバレッジに閾値は設けない**（採らなかった案: 閾値を決めて `pnpm check` に組み込み、下回ったら落とす）。理由: 閾値は「数字を満たすためのテスト」を生み、それはこのタスクが消したい冗長テストと同じ病気。穴の在り処を見る道具としてだけ使う。\n- **「不足」はエラー方針と要件に関わる穴だけ埋める**。全部の未到達行を埋めない（同じ理由）。**埋めなかった穴とその理由を成果物として残す**——次に見る人が同じ調査を繰り返さずに済むように。\n- **`build-mr-content.test.ts` の粒度は正当と見なす**（採らなかった見方: 実装の詳細に密着していて書式変更のたびに壊れるから冗長）。理由: MR本文はこのツールの主要な成果物で、レビュアーが読む唯一の出力。表示の取り決めは他に守る手段が無い。\n- 書き先は **`docs/coding-standards.md` に「テスト」節を新設**して正典にする。`CLAUDE.md`「テスト方針」の3行はそちらへ移し、`CLAUDE.md` 側は参照だけにする（`コメント`・`undefined` と同じ形に揃える）。\n\n## 背景（調査済みの事実）\n\n- 現状は31ファイル・336テスト・計4516行。行数上位は `test/lib/config/config.test.ts`(615)、`test/lib/gitlab/gitlab.test.ts`(430)、`test/steps/build-plans/sub-steps/resolve-latest-tag.test.ts`(370)、`test/lib/config/validate.test.ts`(288)、`test/domain/tag-format.test.ts`(252)。\n- **カバレッジは導入済み**: `vitest.config.ts` に `coverage: { provider: \"v8\", include: [\"src/**/*.ts\", \"scripts/lint/verify-config/**/*.ts\"] }`、`@vitest/coverage-v8` は devDependencies、`pnpm test:coverage` も定義済み。**導入は不要、回すだけ**。\n- **重複の疑いは1つ潰してある**: `test/steps/apply-updates/apply-updates.test.ts` はサブステップ (`build-mr-content.js` / `collect-mr-entries.js`) を `vi.mock()` しており（4-5行目）、配線だけを検証している。専用のサブステップテストとの二重化は起きていない。\n- 現行のテスト方針は `CLAUDE.md`「テスト方針」の3行: (1)`test/` 以下にテスト対象と同じディレクトリ構成で配置 (2)`@gitbeaker/rest` は `vi.mock` でモック (3)非公開関数はエクスポートされたステップの振る舞いを通して間接的に検証する。加えて `docs/coding-standards.md`「関数の並び順」節に「テストのためだけの `export` はしない」が間借りしている（`src/lib/env.ts` に例外あり）。\n- エラー方針: 401/5xx/ネットワーク障害は `FatalError` を投げて即時終了、それ以外は該当chartリポジトリを `ERROR` としてログ記録し処理継続。\n\n## 手順\n\n1. `docs/coding-standards.md` に「テスト」節を新設し、上の方針を書く。`CLAUDE.md`「テスト方針」の3行を移して参照に落とす。「関数の並び順」節の「テストのためだけの `export` はしない」も移すか、相互参照を張る。\n2. **「不要・冗長」の判定観点を確定させる**。狙いどころとして挙がっているのは「同じ `vi.mock` 準備を何度も書いている箇所」「型システムが既に保証している分岐を確認している箇所」「実装の内部構造をなぞっているだけで振る舞いを保証していない箇所」。**採る観点と採らない観点の両方を明示する**。\n3. `pnpm test:coverage` を回し、未到達の行を洗い出す。エラー方針と `docs/requirements.md` の要求に照らして、埋めるべき穴とそうでない穴に分ける。\n4. 発見リストを作る。削除候補は「どのテストか・なぜ冗長と見たか・スキップ確認の結果」、追加候補は「何を防ぐテストか」、埋めない穴は「なぜ埋めないか」をそれぞれ1〜2行で。\n\n## 完了条件\n\n- 新設した「テスト」節が、書いてあるとおりに適用できること（「適切に」のような、読み手によって結論が変わる語を使わない）。\n- 発見リストが `develop/` か `docs/` のどこかに成果物として残っていること（置き場所は実施時に決めてよい）。\n- **このタスクではテストを削除・追加しない**。リストに基づく修正タスクと、`test/` のコメント追従タスク（T-103 の基準を `test/` にも当てる）を `develop/tasks.json` に登録して終わる。\n- `pnpm check` を通すこと（テスト件数は不変のはず）。\n- `git add` / `git commit` はしない。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "opus",
+    "passes": true,
+    "evidence": "docs/coding-standards.md に「テスト」節を新設（置き場所とモック／カバレッジに閾値を設けない／消すかどうかの判断表＋削除の手続き2ステップ／足すかどうか）。CLAUDE.md「テスト方針」は参照1文に。発見リストは develop/test-inventory.md（削除候補9・集約候補2・要調査1・消さないと決めたもの3・追加候補4・埋めない穴5。削除候補9件は実際に skip して手続き2ステップを確認済み）。後続タスク T-105/T-106/T-107 を登録。pnpm check 通過（31ファイル337テスト、削除・追加なしで不変）。",
+    "dependencies": ["T-102"]
+  },
+  {
+    "id": "T-105",
+    "task": "`develop/test-inventory.md` の発見リストに沿って、テストの削除・集約・追加を実施する。\n\n## 決定済みの方針（実装時に蒸し返さない）\n\n- 判断基準は `docs/coding-standards.md`「テスト」節が正典。新しい基準をここで作らない。\n- **削除は必ず手続きで縛る**。同節の削除の手続き（`it.skip` にして `pnpm check` が落ちない／`pnpm test:coverage` の到達行・分岐が減らない）を、削除する1件ごとに回す。発見リストの skip確認は計測時点のものなので、実施時にもう一度取り直す。\n- **カバレッジに閾値は設けない**。数字を上げることを目的にしない。\n- 発見リストの「消さないと決めたもの」は消さない。\n- 発見リストの「埋めない穴」は埋めない。埋めない判断を変えたくなったら、リスト側の理由を先に更新する。\n\n## やること\n\n1. 削除候補9件を、1件ずつ手続きを回して削除する。手続きに引っかかったものは残し、`develop/test-inventory.md` にその結果を追記する。\n2. 重複の集約候補2件（`build-plans` 系4ファイルの `beforeEach` とモック定数、`const mockGitlab = {} as unknown as GitlabClient`）を `test/helpers.ts` に寄せる。テストの件数はここでは減らさない。\n3. 要調査1件（`test/steps/build-plans/build-plans.test.ts` とサブステップ3ファイルの経路の重なり）をテスト単位で判断する。\n4. 追加候補4件（`src/index.ts` の終了コード、`projectExists`、`loadEnvConfig()`、`verify-config.ts` の catch）のテストを書く。\n\n## 完了条件\n\n- 削除した各テストについて、手続きの2ステップを通した記録が `develop/test-inventory.md` に残っていること。\n- 追加した4件が、それぞれ対象の行に到達していることを `pnpm test:coverage` で確認できること。\n- `pnpm check` を通すこと。",
+    "status": "todo",
+    "difficulty": "sonnet",
     "passes": false,
     "evidence": "",
-    "dependencies": ["T-102"]
+    "dependencies": ["T-104"]
+  },
+  {
+    "id": "T-106",
+    "task": "`test/` 配下のコメントを `docs/coding-standards.md`「コメント」節の基準に合わせる。`src/` と `scripts/` は既に適用済みで、`test/` だけが残っている。\n\n## 決定済みの方針（実装時に蒸し返さない）\n\n- 基準は「コメント」節の判断表（今の挙動の制約・前提と外部との対応関係は残す／昔の話は正典へ移してコードから消す）をそのまま使う。**行数の目安は置かない**。\n- テスト名（`it()` の説明文）はコメントではない。言い換えのコメントが `it()` の説明文と重複しているときは、コメント側を消す。\n- 経緯をコードから消すときは、先に正典（`docs/architecture.md` / `docs/glossary.md` / `docs/requirements.md`）に書かれているかを確認する。無ければ正典に書いてから消す。\n\n## 完了条件\n\n- `test/` 配下の各コメントが判断表のどれかに当てはまること。\n- テストの件数と各テストの内容を変えないこと（コメントの追従のみ）。\n- `pnpm check` を通すこと。",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-103"]
+  },
+  {
+    "id": "T-107",
+    "task": "`src/utils/http.ts` の `isFatalStatus` の引数の型を `number | undefined` から `number` に狭め、`if (status === undefined) return false` を消す。\n\n唯一の呼び出し元（`isFatalError`）が `status !== undefined` を確認済みで、この分岐には到達しない。`docs/coding-standards.md`「避ける `undefined`」の「実行時には到達しないのに型に残っている `undefined`」に当たる。\n\n## 完了条件\n\n- `isFatalStatus` に `undefined` を渡す呼び出しが無いことを確認したうえで型を狭めていること。\n- `test/utils/http.test.ts` の既存テストを変えずに `pnpm check` が通ること。\n- `pnpm test:coverage` で `src/utils/http.ts` の branches が 31/31 になること。",
+    "status": "todo",
+    "difficulty": "haiku",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-104"]
   }
 ]

@@ -9,6 +9,11 @@ T-001〜T-101 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
 
 ## 完了したこと（このセッション）
 
+- **T-104 完了**: テストの取捨選択の基準を `docs/coding-standards.md`「テスト」節として正典化し、
+  カバレッジ計測に基づく発見リストを `develop/test-inventory.md` に残した。実作業は
+  T-105（削除・集約・追加）・T-106（`test/` のコメント追従）・T-107（`isFatalStatus` の型を狭める）
+  として登録済み。
+
 - **T-103 完了**: コメントの基準を「長さ」から「種類」に置き換え（`docs/coding-standards.md`）、
   `src/`+`scripts/` を全件見て経緯5箇所を `docs/architecture.md` の既存4節へ移した。
 
