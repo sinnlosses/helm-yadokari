@@ -130,9 +130,10 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 1. セッション開始時に `develop/progress.md` と `develop/tasks.json` を読み、アーカイブすべき
    タイミングなら作業前にアーカイブする
 2. `tasks.json` から依存が完了済みの `todo` タスクを1つ選ぶ
-3. 作業する。`difficulty` が `haiku`/`sonnet` のタスクは**そのモデルを指定したサブエージェントに
-   委譲**し、`opus` はメインセッションが自分で実行する。想定より判断が必要だと分かったら、
-   その場で押し切らず `difficulty` を上げてから再開する
+3. 作業する。既定モデルが `sonnet` なので、`difficulty` が `haiku`/`opus` のタスクは
+   **そのモデルを指定したサブエージェントに委譲**し、`sonnet` はメインセッションが自分で
+   実行する。想定より判断が必要だと分かったら、その場で押し切らず `difficulty` を上げてから
+   再開する
 4. 完了の判定はテスト結果・生成物・実行ログなど検証可能な証拠で行う（宣言だけで合格にしない）
 5. `develop/tasks.json` の `status`/`passes`/`evidence` と `develop/progress.md` を更新する
 

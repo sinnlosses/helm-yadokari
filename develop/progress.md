@@ -11,6 +11,10 @@ T-001〜T-101 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
 
 - **アーカイブ**: `develop/tasks.json` が33KBと基準（30KB）を超え、かつ全7件が `done` に
   なっていたため、T-095〜T-101 を `docs/history/` へ移した（`tasks.json` は `[]`）。
+- **既定モデルを Sonnet に変更し、委譲の向きを反転**: `~/.claude/settings.json` の `model` を
+  `opus` → `sonnet` に変更（ユーザー指示、全プロジェクトに適用）。これに伴い `difficulty` の
+  振り分けを「`sonnet` はメインが自分で実行、`haiku`/`opus` はサブエージェントに委譲」へ
+  反転させ、`docs/workflow.md`・`CLAUDE.md`・`.claude/skills/next-task/SKILL.md` を更新した。
 - **`docs/architecture.md` に導線を追加**: 41KBあり、開くだけでコンテキストを大きく使うため、
   冒頭に節見出しの索引を置き、必要な節だけを読めるようにした。
 
