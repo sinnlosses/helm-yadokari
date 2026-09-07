@@ -1845,3 +1845,103 @@ web URL はバッチ実行中に変わらない値なので、`projectId` をキ
 **difficulty**: sonnet
 
 **evidence**: 起こり得ると確認したうえで実装した（`docs/requirements.md` 4.2節に「同じ values.yaml を異なるテナント/クライアントのアプリが共有している場合」が**既知の制限**として明記されており、`validateNoDuplicateTargets()` の重複検証も1つのclient内に閉じていてclient間は見ていない。`config-test/tenant1/client1` も `charts/anchor-app/values.yaml` という共有名のパスを指す）。`GitlabBatchCache` に `getFileContent`（キーは projectId + valuesPath + ref）を足し、`readValuesYamlDraft()` の「下書きに無いときだけGitLabから読む」経路をこれに差し替えた。下書き（`ValuesYamlDraft`）は今のとおり chartAndApps 単位のまま。**キャッシュが返すのは常にGitLab上の元の内容**で、書き換え後の内容は `writeValuesYamlDraft()` が下書きにしか積まないため漏れは構造的に起きない（キャッシュを lib/gitlab/ の読み取り単位に置いたT-111 の形のおかげ）。`ValuesYamlSource` は `gitlab` の代わりに `gitlabCache` を持つ。T-112 で `commitFileUpdates()` 内の `getFileContent()` は既に消えているので重複はない。テスト1件追加（build-plans.test.ts「同じvalues.yamlを指す複数clientでは読み込みを1回にまとめ、片方の書き換えを他方に見せない」= 同じchart.projectId・同じvaluesPathの別アンカーを2clientが書き換え、`getFileContent` は1回、各clientの files は自分の書き換えだけを含む）。`pnpm check` exit=0、33ファイル345テスト（344→345）。
+
+## T-116
+
+**タスク**: dry-run の分岐の持ち方を再考し、分離できるなら分離する。できないなら現状維持の理由を残す。
+
+## 背景
+
+`dryRun` は `src/lib/env.ts` の `loadEnvConfig()` が `DRY_RUN === "true"` から作る `boolean` で、そこから**引数として4段バケツリレーされている**（`run()` → `runProcess()` → `buildPlans()` → `buildPlan()` / `createResolveLatestTags()` → `resolveLatestTag()`）。
+
+実際に振る舞いを変えている分岐は**2箇所だけ**:
+
+1. `src/steps/build-plans/build-plans.ts` の `buildPlan()`: 差分があっても `dryRun` なら `SKIPPED`（`reason: "dry_run"`）としてログに出し、`toApply` に載せない。結果として `applyUpdates()`（コミット・MR作成）へ渡らない
+2. `src/steps/build-plans/sub-steps/resolve-latest-tags.ts` の `resolveLatestTag()`: `if (!dryRun)` で `createTag()` の呼び出しだけを抑止する。タグ名は作成予定のものをそのまま使い、`create_tag` ログには `dryRun` フィールドを載せる
+
+つまり「ところどころにある」ように見えるのは**分岐の数ではなく引数の貫通**で、`dryRun` を受け取るだけで使わない関数が経路上にある。
+
+## 解くべき論点
+
+1. **そもそも分離すべきか。** 分岐が2箇所しかないことをどう評価するか。「書き込みをするかしないか」という1つの関心事が2箇所に散っていることを問題と見るか、2箇所なら追える範囲と見るか。**分離しないという結論も正解になりうる**
+2. **分離するとしてどの形か。** 検討する候補（他にあれば足す）:
+   - (a) **書き込み側にno-op実装を挿す**。`GitlabBatchCache`（読み取り）と対になる「書き込み」の層を作り、`dryRun` のときは `createTag` / `commitFileUpdates` / `createMergeRequest` を実行せずログだけ出す実装に差し替える。`dryRun` の判定は `runProcess()` の1箇所に閉じる。ただし `buildPlan()` の「dryRunならSKIPPEDに計上する」は結果集計の話なので、これだけでは消えない
+   - (b) **`buildPlan()` 側の分岐を `main.ts` へ引き上げる**。`dryRun` なら `applyUpdates()` を呼ばない、で済むか。現状は `SKIPPED` として `summary` に計上しログも出しているので、**結果の集計とログの出方が変わらないか**を確かめる必要がある
+   - (c) 現状維持。バケツリレーだけ減らす（例: `dryRun` を使わない中間関数から引数を落とす）小さな改善に留める
+3. **`dryRun` の意味を「書き込みをしない」に一本化できるか。** 今は「タグを作らない」（=(2)）と「MRを作らない」（=(1)）の2つが別々の場所で実現されている。要件上どちらも `DRY_RUN` の効果として同じ意味か、`docs/requirements.md` で確かめる
+4. **テストへの影響。** `dryRun: true` を通しているテスト（`build-plans.test.ts` の dryRun ケース、`resolve-latest-tags.test.ts`）が、分離後も同じ振る舞いを固定できるか
+
+## やること
+
+1. 上の論点1〜4を、`docs/requirements.md` の dry-run に関する記述と現在のコードを突き合わせて判断する。
+2. **分離しないと決めたなら、実装を変えずにその理由を `docs/architecture.md` の「設計判断」に1節として書いて閉じる**（`evidence` にも根拠を書く）。「分岐が2箇所しかない」「分離すると別の間接層が増える」といった判断材料を、次に同じことを考える人が読める形にする。
+3. 分離すると決めたなら実装する。`dryRun` の判定箇所が減ったこと（何箇所から何箇所になったか）を `evidence` に数で示す。
+4. どちらの結論でも、**`dryRun` を受け取るだけで使っていない関数があればその引数は落とす**。
+
+## 完了条件
+
+- 結論（分離する / しない）と、その根拠が `docs/architecture.md` に節として書かれていること。「キレイに」のような読み手によって結論が変わる語を使わない。
+- `DRY_RUN=true` のときに **GitLabへの書き込みAPI（`Tags.create` / `Commits.create` / `MergeRequests.create` / `Branches.remove`）が1つも呼ばれない**ことが、テストで示されていること（現状の振る舞いが変わらないことの確認を兼ねる）。
+- `pnpm check` を通すこと（既存345テストが減っていないこと。テストを消す場合は `docs/coding-standards.md`「消すかどうか」の手続きを踏む）。
+
+## 注意
+
+- **方針決めそのものなので、サブエージェントに委譲せず、ユーザーがいるセッションで扱う**（`docs/workflow.md`「委譲しないケース」）。`/loop` の自動進行には載せない。
+- 実装が大きくなると分かったら、この場で押し切らず後続タスクを登録して分ける。
+- `docs/requirements.md` の dry-run の要件そのものは変えない（変えたくなったらユーザーに確認する）。
+
+**difficulty**: opus
+
+**evidence**: 分離しない判断（ユーザー確認済み、2026-09-07）。`dryRun` を見ているのは2箇所だけで、`resolve-latest-tags.ts` は純粋な書き込み抑止、`build-plans.ts` の `buildPlan()` はdry-runの成果物そのもの（更新予定のログ＋SKIPPED計上）で関心事が違う。no-op層の案は (a) `applyUpdate()` が最後まで走って `result: "CREATED"` を返し summary が嘘になる (b) 「書き込み関数に到達しない」現状より「呼ぶが末端で無効化」のほうが誤って書く余地が大きい、の2点で不採用。`main.ts` へ引き上げる案も、ログ整形を持つことになり「薄いレイヤー」でなくなる／`buildLogContext()` の公開が要るため不採用。`dryRun` を受け取るだけで使っていない関数は無く（`buildPlans()` は両方に渡す）引数の貫通も減らせない。代わりに `test/main.dry-run.test.ts` を追加し、**gitbeakerの境界**（`@gitbeaker/rest` の `Gitlab`）でモックして `DRY_RUN=true` の実行で `Tags.create`/`Branches.remove`/`Commits.create`/`MergeRequests.create` が0回であることを固定した（ラッパ関数の列挙ではなくAPI境界なので、新しい書き込みを足して考え忘れても落ちる）。同じ入力で `DRY_RUN=false` なら書き込みが起きることも並べて固定し素通りを防止。`resolve-latest-tags.ts` の `if (!dryRun)` を一時的に外す変異で当該テストが落ちることを実測。判断は docs/architecture.md「dry-runは分岐を集約せず、書き込みに到達しないことをテストで守る」節が正典（新しい書き込みを足すときの確認手順も記載）。`pnpm check` exit=0、34ファイル348テスト（345→348）。
+
+## T-117
+
+**タスク**: `async`/`await` と `.then()`/`.catch()` の使い分けを設計思想として確定させ、`docs/coding-standards.md` に書く。T-118 の前段。
+
+## 背景
+
+現在 `src/` で `.then()` / `.catch()` を使っているのは次の5箇所で、残りはすべて `async`/`await`。
+
+- `src/index.ts:9-15`: `Promise.resolve().then(() => run(loadEnvConfig())).then(...).catch(...)` — 起動時の環境変数読み込みの失敗も同じ `catch` で拾うために、あえてこの形にしてある（`docs/history/tasks-archive.md` に経緯あり）
+- `src/utils/sequential.ts:17`: `items.reduce((accPromise, item) => accPromise.then((acc) => fn(acc, item)), seed)` — 配列を逐次に畳む実装そのもの
+- `src/utils/cache.ts:18`: `fetch().catch((err) => { cache.delete(key); throw err })` — 失敗した Promise をキャッシュから外して再スローする
+- `src/steps/shared/step-outcome.ts:37`: `fn().catch((err) => rethrowWithAppContext(err, projectName))`
+- `src/steps/shared/step-outcome.ts:54`: `fn(logContext).catch((err) => settle(settleAsError(err, logContext)))`
+
+`scripts/smoke/smoke-fixture.ts:128` にも1箇所ある（`show(...).then(...)`）。
+
+`docs/coding-standards.md` にはこの点の規約が無く、**どちらで書くべきかが読み手の判断に委ねられている**。上の5箇所はいずれも「`try`/`catch` で書くと `steps/` に `try`/`catch` を書かない規約（`docs/coding-standards.md`「エラーハンドリング」）と衝突する」「Promiseを値として畳む処理そのもの」といった事情があるように見えるが、**それが明文化されていない**。
+
+## 解くべき論点
+
+1. **どの立場を採るか**: (a) `async`/`await` に統一（`.then`/`.catch` は禁止）、(b) 使い分けを条件で決める、(c) どちらでもよい（規約にしない）。このリポジトリは「置き場所の判断基準を言語化する」ことを重視しているので、(c) は選びにくいはず
+2. **(b) を採る場合、条件をどう言語化するか。** 上の5箇所を全部説明できる条件でなければ意味が無い。候補の観点:
+   - `try`/`catch` を書かずにエラーを**値に変換して返す**（`step-outcome.ts` の2つ、`cache.ts`）。`steps/` に `try`/`catch` を書かない規約と直接つながる
+   - Promise を**データとして扱う**（`sequential.ts` の reduce、`cache.ts` が Promise 自体をキャッシュする）
+   - `await` できない文脈（トップレベル、`index.ts` の起動チェーン）
+3. **`utils/` と `steps/` と `lib/` で基準を変えるか**、`src/` 全体で1つにするか
+4. **`scripts/` にも同じ規約を適用するか**（`docs/coding-standards.md` の他のルールがスクリプトを対象にしているかを確かめる）
+5. **書く場所**。`docs/coding-standards.md` の「エラーハンドリング」節に足すか、新しい節を立てるか。既存の「`steps/` に `try`/`catch` を書かない」との関係が読み取れる位置にする
+
+## やること
+
+1. 上の5箇所（＋`scripts/` の1箇所）を1つずつ読み、**なぜ今その形なのか**を言葉にする。ここで「実は `await` で書ける／書いたほうが読みやすい」ものが見つかったら、それも記録する（修正は T-118）。
+2. 論点1〜5を決めて `docs/coding-standards.md` に書く。**採らなかった立場とその理由も書く**（このリポジトリの他の規約と同じ粒度で）。
+3. 決めた方針に照らして、**現状のどの箇所が方針から外れているか**を洗い出し、T-118 の `task` 本文に具体的なファイル名・行の一覧として書き込む（T-118 は登録済みなので本文を更新する）。**外れている箇所が1つも無ければ、その旨を T-118 の本文に書き、T-118 は「確認のみで実装なし」で閉じられるようにする**。
+
+## 完了条件
+
+- `docs/coding-standards.md` に方針が書かれ、**上の5箇所それぞれがその方針で説明できる**こと（節の中で個別に触れるか、条件が5箇所すべてを覆っていることを `evidence` で示す）。
+- 「統一する」と決めた場合も「使い分ける」と決めた場合も、**判断が読み手によって割れない言葉**で書くこと。「適切に」「必要に応じて」を使わない。
+- T-118 の `task` 本文が、この結論に沿った具体的な修正対象の一覧に更新されていること。
+- `pnpm check` を通すこと（このタスク自体はドキュメントのみの変更になる想定）。
+
+## 注意
+
+- **方針決めそのものなので、サブエージェントに委譲せず、ユーザーがいるセッションで扱う**（`docs/workflow.md`「委譲しないケース」）。`/loop` の自動進行には載せない。
+- **このタスクではコードを変更しない**（変更は T-118）。方針と実装を同じコミットに混ぜない。
+- `src/index.ts` の形は過去に意図して変えたもの（環境変数の読み込み失敗も `unhandled_error` として拾うため）。方針が「`await` に統一」に倒れる場合でも、**この振る舞いを壊さない書き方があるかを確かめてから決める**。
+
+**difficulty**: opus
+
+**evidence**: 方針を確定（ユーザー確認済み、2026-09-07）: 「`async`/`await` を既定とし、`.then()`/`.catch()`/`.finally()` はその Promise の結果を待たず Promise 自体を値として扱う（保持する・畳む・変換して返す）ときだけ。同じ式に `await` と `.then()` が並んだら `await` で書き直す」。`docs/coding-standards.md` に「`async`/`await` と `.then()`/`.catch()`」節を新設（「エラーハンドリング」節の直後）。**6箇所すべてをこの1条件で説明できることを確認**: 適合＝`utils/cache.ts`（PromiseをMapに保持）・`utils/sequential.ts`（reduceのアキュムレータを畳む）・`steps/shared/step-outcome.ts` 2箇所（失敗を戻り値に変換して返す）、外れる＝`src/index.ts`（結果を待って exit する制御フロー）・`scripts/smoke/smoke-fixture.ts:128`（`await` と `.then` が同居）。採らなかった立場も併記（全面禁止は `steps/` の try/catch 禁止規約と `const` 規約に正面衝突／規約にしないは実際に smoke-fixture と `withNotFoundFallback()` で書き方がブレていた）。`scripts/` にも適用すると明記。`src/index.ts` は「TLAが使えないから `.then`」ではないことを実測で確認（`type: module` + `module: ESNext` + Node22。try/catch 版で `tsc --noEmit` と `test/index.test.ts` 5件が通ることを確かめて元に戻した）。T-118 の task 本文を、修正対象2件・触らない4箇所・grep での確認手順を含む一覧に更新済み。コード変更なし。`pnpm check` exit=0、34ファイル348テスト。

@@ -5,6 +5,17 @@
 [`docs/workflow.md`](../workflow.md)「指示メモ（`develop/direction.md`）」。
 **当時の記述はそのまま残し、後から書き換えない。**
 
+## 2026-09-07（3回目）
+
+生成したタスク: T-121（`accessToken` をブランド型にする）/ T-122（`configPath` のリネームと検証）。
+タスクにしなかった項目は無し。2点とも現物で裏が取れた（`EnvConfig` 8フィールドのうち
+`gitlabUrl`/`targetChart`/`tagFormat` はブランド型なのに `accessToken` と `configPath` だけ素の
+`string`。`configPath` のパストラバーサル検証は `env.ts` ではなく後段の `loadConfig()` にある）。
+
+- env.ts の EnvConfig がよくわからない印象
+  - accessToken は string のまま使っているけど型をつけたいな
+  - configPath が具体的に何のconfigのpathかわからず、わかりやすい名前にしたいし、値の形式にvalidationもなさそうだね。形式が決まっているならvalidateしたいな
+
 ## 2026-09-07（2回目）
 
 生成したタスク: T-120（タスクの実行モデルの決め方から「メインセッションのモデル」への従属を外し、

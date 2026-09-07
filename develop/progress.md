@@ -5,7 +5,7 @@
 キャッシュの取りこぼしを棚卸しして T-111〜T-115 を登録・完了し、指示のタスク化を
 `/plan-tasks` スキルにして T-116〜T-119 を登録した）
 
-T-001〜T-115 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
+T-001〜T-117 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -148,11 +148,22 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   `docs/history/direction.md`「2026-09-07（2回目）」へ移した。`develop/tasks.json` は
   29.7KB・`done` 2件でアーカイブのトリガーには未達（次に足すと30KBを超える見込み）。
 
+- **`/plan-tasks` で T-121・T-122 を登録**。`EnvConfig` の指摘2点をタスク化した。裏取りの結果、
+  8フィールドのうち `gitlabUrl`/`targetChart`/`tagFormat` はブランド型なのに **`accessToken` と
+  `configPath` だけ素の `string`** で型の付き方が揃っておらず、`configPath` のパストラバーサル
+  検証も `env.ts` ではなく後段の `loadConfig()` にあることを確認した。指示メモは
+  `docs/history/direction.md`「2026-09-07（3回目）」へ移した。登録で `develop/tasks.json` が
+  37.6KBになり基準（30KB）を超えたため、`done` の T-116・T-117 をアーカイブ（23.5KBに縮小）。
+
 ## 次にやること
 
 - **T-118（T-117の適用、`sonnet`）と T-119（`develop/test-inventory.md` の要否判断、`sonnet`）**
   はどちらも依存が解けていて、方針決めを含まないので `/loop /next-task` に載せられる。
   T-118 の本文には修正対象2件・触らない4箇所・grepでの確認手順が書いてある。
+- **T-121（`accessToken` をブランド型にする、`sonnet`）** と
+  **T-122（`configPath` のリネームと検証、`sonnet`）** はどちらも依存なしで着手できる。
+  T-122 は `CONFIG_PATH` 環境変数名を変えるかの判断を含むが、**既定は「変えない」**
+  （CIの pipeline schedule に登録済みのため。変えたい場合はユーザー確認）。
 - **T-120（実行モデルの決め方からメインのモデルへの従属を外す、`sonnet`）**。`/next-task` の
   実行ルールそのものを書き換えるタスクなので、**完了までは旧ルール（`sonnet` はメインが実行）が
   有効**で、新ルールは次のタスクから適用する。「委譲しないケース」はモデル選択とは別の軸
