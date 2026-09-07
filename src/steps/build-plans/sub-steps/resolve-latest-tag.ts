@@ -47,6 +47,11 @@ export async function resolveLatestTag(
     listTags(gitlab, app.projectId),
     getBranchHeadSha(gitlab, app.projectId, app.branchToSync),
   ])
+  if (headSha === undefined) {
+    throw new Error(
+      `追跡ブランチ "${app.branchToSync}" がプロジェクト "${app.projectName}" に見つかりません`,
+    )
+  }
   const trackedHeadTagNames = resolveTrackedHeadTagNames(tags, headSha, app.branchToSync, tagFormat)
 
   if (trackedHeadTagNames.size > 0) {
@@ -78,11 +83,10 @@ export async function resolveLatestTag(
  * 同じコミットを指すタグ名」の集合を組み立てる。
  * 追跡ブランチを切り替えた場合、切り替え前のタグ名は現在の`branch`ではパースできないため
  * この集合には含まれない。結果として、HEADと同じコミットを指していても更新をスキップしない。
- * `headSha`が`undefined`（＝ブランチ自体が存在しない）のときは常に空集合になる。
  */
 function resolveTrackedHeadTagNames(
   tags: readonly TagInfo[],
-  headSha: CommitSha | undefined,
+  headSha: CommitSha,
   branch: BranchName,
   tagFormat: TagFormat,
 ): ReadonlySet<TagName> {

@@ -17,7 +17,14 @@ import {
 } from "../../../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import { resolveLatestTag } from "../../../../src/steps/build-plans/sub-steps/resolve-latest-tag.js"
-import { toBranchName, toCommitSha, toTagName } from "../../../../src/types/types.js"
+import {
+  toBranchName,
+  toChartDirName,
+  toCommitSha,
+  toProjectId,
+  toProjectName,
+  toTagName,
+} from "../../../../src/types/types.js"
 import { makeApp, makeChartAndApps, makeHttpError } from "../../../helpers.js"
 
 const mockGitlab = {} as unknown as GitlabClient
@@ -269,6 +276,47 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     )
 
     expect(toApply).toHaveLength(1)
+  })
+
+  it("追跡ブランチがchartリポジトリに存在しないとき、タグを作成せずそのchartAndAppsをERRORにする", async () => {
+    vi.mocked(getBranchHeadSha).mockResolvedValue(undefined)
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      [makeChartAndApps([makeApp()])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
+    expect(createTag).not.toHaveBeenCalled()
+    expect(toApply).toEqual([])
+    expect(settled).toEqual(["ERROR"])
+  })
+
+  it("追跡ブランチが存在しないchartAndAppsをERRORにしつつ、他のchartAndAppsの処理は続行する", async () => {
+    const appMissingBranch = makeApp({
+      projectId: toProjectId(1),
+      projectName: toProjectName("app-missing-branch"),
+    })
+    const appOk = makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-ok") })
+    const missing = {
+      ...makeChartAndApps([appMissingBranch]),
+      chartDirName: toChartDirName("missing"),
+    }
+    const ok = { ...makeChartAndApps([appOk]), chartDirName: toChartDirName("ok") }
+    vi.mocked(getBranchHeadSha).mockImplementation(async (_client, projectId) =>
+      projectId === 1 ? undefined : HEAD_SHA,
+    )
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      [missing, ok],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
+    expect(createTag).not.toHaveBeenCalled()
+    expect(toApply).toHaveLength(1)
+    expect(toApply[0]?.chartAndApps).toBe(ok)
+    expect(settled).toEqual(["ERROR"])
   })
 })
 

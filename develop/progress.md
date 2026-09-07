@@ -46,6 +46,11 @@ T-001〜T-094 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
   複数乗っている・デフォルトが確定しているのに運ばれる）／「消すことを目的にせず、なぜ
   生まれるかを先に問う」を明文化した。`CLAUDE.md` のルール一覧にも1行。
   `pnpm check`（31ファイル334テスト、不変）。
+- **T-099 完了**。追跡ブランチが実在しないとき、存在しないブランチへタグを作りにいって
+  GitLabの404で落ちる代わりに、`resolveLatestTag()` がその場で分かりやすい例外を投げる
+  ようにした（Helm向き先ブランチ側の事前検証と扱いが揃った）。`resolveTrackedHeadTagNames()`
+  の引数から `| undefined` も落ちた。`gitlab.ts` 側の `| undefined` は「GitLabに無い」を
+  表す層なので残置（規約の「許容する」に当たる）。`pnpm check`（31ファイル336テスト、+2）。
 - **アーカイブ**: `develop/tasks.json` が44KBと基準（30KB）を超えたため、`done` の
   T-092〜T-094 を `docs/history/` へ移した。
 

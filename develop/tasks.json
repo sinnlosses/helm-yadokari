@@ -38,10 +38,10 @@
   {
     "id": "T-099",
     "task": "`branchToSync`（アプリの追跡ブランチ）がGitLab上に存在しない場合を、分かりやすいエラーで即座に落とす。\n\n## 背景（調査済みの事実）\n\n- `resolveLatestTag()`（`src/steps/build-plans/sub-steps/resolve-latest-tag.ts:47-48`）は `getBranchHeadSha(gitlab, app.projectId, app.branchToSync)` を呼ぶ。ブランチが無ければ `undefined` が返る（`gitlab.ts:57`、404フォールバック）。\n- `undefined` は `resolveTrackedHeadTagNames()`（`:85`）へ渡され、`tag.commitSha === headSha` が常に偽になるので**空集合**になる。その結果 `resolveLatestTag()` は「HEADにタグが無い」と解釈して `createTag(gitlab, app.projectId, newTag.name, app.branchToSync)`（`:70`）へ進み、**存在しないブランチにタグを作ろうとしてGitLab側の404で落ちる**。設定ミスが、原因の読み取りにくいエラーとして後段に出る。\n- **同じ「設定されたブランチが実在するか」を、Helmの向き先ブランチ側では事前検証している**（`stage-helm-target-branch-updates.ts:54` の `if (!(await branchExists(branchName)))` → 「向き先ブランチ \"X\" がchartリポジトリに見つかりません」という具体的なメッセージ）。扱いが非対称。\n- `pnpm lint:validate-config:remote`（`verify-config.ts`）は `config/` に書かれたブランチの実在をMR時点で検証しているので、typoはマージ前に気付ける。ここで直すのは**実行時に対象ブランチが消えていた場合**の落ち方。\n\n## やること\n\n- `resolveLatestTag()` で `headSha` が `undefined` のとき、その場で例外を投げる。メッセージは Helm 向き先ブランチ側の書き方に揃え、projectName・branchToSync が読み取れるものにする。\n- 例外の種類は `FatalError` **ではなく**通常の `Error`（設定ミスは該当chartリポジトリだけの問題なので、`steps/shared/step-outcome.ts` の方針どおり ERROR 記録のうえ他のchartリポジトリの処理は継続する）。`src/steps/` に `try`/`catch` を書かないルールは維持すること。\n- 例外にしたことで `resolveTrackedHeadTagNames()` の引数 `headSha: CommitSha | undefined` から `undefined` を落とせるか確認し、落とせるなら落とす（`:81` の「`headSha`が`undefined`のときは常に空集合になる」というJSDocも不要になる）。\n- テストを追加する: 追跡ブランチが存在しないとき、タグ作成APIが**呼ばれず**、そのchartリポジトリが ERROR になり他は処理継続すること（`test/steps/build-plans/` の既存テストの流儀に合わせ、`lib/gitlab/gitlab.js` をモックして `buildPlans()` 経由で検証する）。\n\n## 完了条件\n\n- 追跡ブランチ不在時に `createTag()` が呼ばれないことがテストで示されている。\n- `pnpm check` を通す。テスト件数の増分を evidence に書く。\n- `git add` / `git commit` はしない。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "resolveLatestTag() で headSha が undefined のとき通常の Error を投げる（「追跡ブランチ \"X\" がプロジェクト \"Y\" に見つかりません」）。これで resolveTrackedHeadTagNames() の引数から | undefined を落とし、対応するJSDocの1文も削除。gitlab.ts の getBranchHeadSha() 戻り値の | undefined は「GitLabに無い」を表す層なので残置。テスト2件追加（ブランチ不在時に createTag が呼ばれずERROR／他のchartAndAppsは処理継続）。pnpm check（31ファイル336テスト、334から+2）。",
     "dependencies": []
   },
   {
