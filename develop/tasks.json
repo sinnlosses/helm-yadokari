@@ -56,10 +56,10 @@
   {
     "id": "T-108",
     "task": "`src/index.ts` の `loadEnvConfig()` の失敗が `.catch` に載らない件を直す。\n\n## 背景（確認済みの事実）\n\n冒頭コメントは「環境変数の読み込みを非同期の中で呼ぶのは、その失敗も下の catch に載せて構造化ログに出すため。トップレベルで投げると素のスタックトレースになる」と説明している。しかし実際の `run(loadEnvConfig())` は引数の `loadEnvConfig()` が先に同期評価されるため、`GITLAB_URL` 未設定などの失敗は `.catch` に載らず、モジュール評価時の例外として素のスタックトレースになる。コメントが説明している意図と実装が食い違っている。\n\n`test/index.test.ts` を書いた際に再現済み（そのケースは失敗するためテストには含めていない）。\n\n## やること\n\n- `loadEnvConfig()` の呼び出しを `.then` の中に入れるなどして、失敗が `unhandled_error` として構造化ログに出るようにする。\n- 直したうえで `test/index.test.ts` に「環境変数の読み込みの失敗も unhandled_error として記録する」ケースを足す。\n- 冒頭コメントが実装と食い違わない状態にする。\n\n## 完了条件\n\n- 追加したケースが通り、`pnpm check` が通ること。\n- `develop/test-inventory.md`「追加テストで見つかった食い違い」の記述を、直した後の状態に合わせて更新すること。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "src/index.ts を Promise.resolve().then(() => run(loadEnvConfig())) に変え、環境変数の読み込みの失敗も unhandled_error として構造化ログに出るようにした。冒頭コメントも実装に合わせて更新。test/index.test.ts に該当ケースを追加（4件→5件）。develop/test-inventory.md の該当節を修正済みの記述に更新。pnpm check 通過（32ファイル338テスト）。",
     "dependencies": ["T-105"]
   }
 ]

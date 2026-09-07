@@ -59,6 +59,17 @@ describe("index", () => {
     )
   })
 
+  it("環境変数の読み込みの失敗も unhandled_error として記録し終了コード1で終わる", async () => {
+    loadEnvConfigMock.mockImplementation(() => {
+      throw new Error("GITLAB_URL が未設定です")
+    })
+
+    expect(await importIndexAndWaitForExit()).toBe(1)
+    expect(loggerMock.error).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "unhandled_error" }),
+    )
+  })
+
   it("FatalError以外の例外のとき unhandled_error として記録し終了コード1で終わる", async () => {
     runMock.mockRejectedValue(new Error("想定外"))
 
