@@ -51,6 +51,42 @@
 - **`src/steps/` 配下に `try`/`catch` を書かない**。理由と、この規約の対象外になる箇所は
   `docs/architecture.md`「エラー方針は『fatalは例外・それ以外は戻り値』の2チャネル」参照
 
+## `async`/`await` と `.then()`/`.catch()`
+
+**`async`/`await` を既定とする。** `.then()`/`.catch()`/`.finally()` を使ってよいのは、
+**その Promise の結果を待たず、Promise 自体を値として扱う（保持する・畳む・変換して返す）とき**
+だけ。機械的なサインは「**同じ式に `await` と `.then()` が並んだら `await` で書き直す**」。
+
+`src/` で `.then()`/`.catch()` を使ってよい箇所は、この基準では次の3つ:
+
+| 箇所                               | Promiseを値として何をしているか                                                                       |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `src/utils/cache.ts`               | 実行中のPromiseを`Map`に**保持**して共有する。失敗時の後始末を付けた新しいPromiseを返すだけで待たない |
+| `src/utils/sequential.ts`          | `reduce`のアキュムレータがPromiseで、それを**畳む**                                                   |
+| `src/steps/shared/step-outcome.ts` | 失敗を戻り値・別の例外に**変換して返す**（2箇所）                                                     |
+
+- **`steps/` 配下で `try`/`catch` が書けないことは、この基準の言い換えではなく独立した制約**。
+  `step-outcome.ts` の2箇所は「`steps/`に`try`/`catch`を書かない」（上の「エラーハンドリング」節）
+  を成立させている実装そのもので、`try`/`catch` に書き換えると
+  `grep -rn "try {" src/steps/` が0件という機械的確認が壊れる
+- **`utils/sequential.ts` を `for`-`of` + `await` に直さないのは、可変のアキュムレータ（`let`）が
+  必要になり「変数は基本 `const`」と衝突するため**
+- **この規約は `scripts/` にも同じく適用する**（`pnpm lint` / `pnpm format` が `src` と同じく
+  `scripts` を対象にしているのと揃える）
+
+採らなかった立場:
+
+- **`.then()`/`.catch()` を全面禁止して `await` に統一する**: `step-outcome.ts` の2箇所が
+  `try`/`catch` でしか書けなくなり、`steps/`の規約と正面から衝突する。`sequential.ts` も
+  `const` の規約と衝突する。**既存の2つの規約を壊してまで得られるのは書き方の統一だけ**
+- **規約にしない（どちらでもよい）**: 判断が読み手ごとに割れる。実例として、
+  `scripts/smoke/smoke-fixture.ts` のファイル存在確認は `src/lib/gitlab/gitlab.ts` の
+  `withNotFoundFallback()` と同じ意図なのに書き方が違っていた
+
+`src/index.ts` の起動チェーンは、`"type": "module"` + `module: ESNext` + Node 22 で
+top-level await が使えるため `await` + `try`/`catch` で書く。`try` が
+`run(loadEnvConfig())` の引数の同期評価も覆うので、`loadEnvConfig()` の失敗も同じ `catch` に載る。
+
 ## 環境変数
 
 すべて `src/lib/env.ts` で管理し、読み取りは `loadEnvConfig()` を通す。モジュールの

@@ -131,11 +131,21 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   dry-run を考え忘れても落ちる）。`if (!dryRun)` を外す変異でテストが落ちることも実測済み。
   正典は `docs/architecture.md`「dry-runは分岐を集約せず、書き込みに到達しないことをテストで守る」節。
 
+- **T-117 完了（方針確定・コード変更なし）**: 「`async`/`await` を既定とし、`.then()`/`.catch()` は
+  **その Promise の結果を待たず Promise 自体を値として扱う**（保持する・畳む・変換して返す）
+  ときだけ」に確定。機械的なサインは「同じ式に `await` と `.then()` が並んだら `await` で書き直す」。
+  **既存6箇所すべてがこの1条件で説明できる**ことを確認し、外れるのは `src/index.ts` と
+  `scripts/smoke/smoke-fixture.ts:128` の2件だけ。`src/index.ts` が `.then` なのは
+  「TLAが使えないから」ではなかった（`type: module` + `module: ESNext` + Node22 で使える。
+  try/catch 版で `tsc` と `test/index.test.ts` 5件が通ることを実測して元に戻した）。
+  正典は `docs/coding-standards.md`「`async`/`await` と `.then()`/`.catch()`」節。
+  T-118 の本文を修正対象の一覧に更新済み。
+
 ## 次にやること
 
-- **T-117（`async`/`await` と `.then`/`.catch` の方針確定、`opus`）** は方針決めを含むので、
-  **`/loop` の自動進行に載せずユーザーがいるセッションで扱う**。T-118（T-117の適用、`sonnet`）は
-  T-117 待ち。T-119（`develop/test-inventory.md` の要否判断、`sonnet`）は依存なしで着手できる。
+- **残りは T-118（T-117の適用、`sonnet`）と T-119（`develop/test-inventory.md` の要否判断、
+  `sonnet`）の2件**。どちらも依存は解けていて、方針決めを含まないので `/loop /next-task` に
+  載せられる。T-118 の本文には修正対象2件・触らない4箇所・grepでの確認手順が書いてある。
 - 新しいGitLab読み取りをキャッシュ機構に載せる手順と「載せてよいかの判断」は
   `docs/architecture.md`「GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で
   1つ持ち回る」節にある。
