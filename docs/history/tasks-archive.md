@@ -1945,3 +1945,245 @@ web URL はバッチ実行中に変わらない値なので、`projectId` をキ
 **difficulty**: opus
 
 **evidence**: 方針を確定（ユーザー確認済み、2026-09-07）: 「`async`/`await` を既定とし、`.then()`/`.catch()`/`.finally()` はその Promise の結果を待たず Promise 自体を値として扱う（保持する・畳む・変換して返す）ときだけ。同じ式に `await` と `.then()` が並んだら `await` で書き直す」。`docs/coding-standards.md` に「`async`/`await` と `.then()`/`.catch()`」節を新設（「エラーハンドリング」節の直後）。**6箇所すべてをこの1条件で説明できることを確認**: 適合＝`utils/cache.ts`（PromiseをMapに保持）・`utils/sequential.ts`（reduceのアキュムレータを畳む）・`steps/shared/step-outcome.ts` 2箇所（失敗を戻り値に変換して返す）、外れる＝`src/index.ts`（結果を待って exit する制御フロー）・`scripts/smoke/smoke-fixture.ts:128`（`await` と `.then` が同居）。採らなかった立場も併記（全面禁止は `steps/` の try/catch 禁止規約と `const` 規約に正面衝突／規約にしないは実際に smoke-fixture と `withNotFoundFallback()` で書き方がブレていた）。`scripts/` にも適用すると明記。`src/index.ts` は「TLAが使えないから `.then`」ではないことを実測で確認（`type: module` + `module: ESNext` + Node22。try/catch 版で `tsc --noEmit` と `test/index.test.ts` 5件が通ることを確かめて元に戻した）。T-118 の task 本文を、修正対象2件・触らない4箇所・grep での確認手順を含む一覧に更新済み。コード変更なし。`pnpm check` exit=0、34ファイル348テスト。
+
+## T-118
+
+**タスク**: T-117 で確定した `async`/`await` と `.then()`/`.catch()` の方針に従い、既存コードを修正する。
+
+**dependencies**: T-117
+
+## 背景
+
+T-117 で `docs/coding-standards.md` に「`async`/`await` と `.then()`/`.catch()`」節を新設し、方針を確定した:
+
+> `async`/`await` を既定とする。`.then()`/`.catch()`/`.finally()` を使ってよいのは、その Promise の結果を待たず、Promise 自体を値として扱う（保持する・畳む・変換して返す）ときだけ。同じ式に `await` と `.then()` が並んだら `await` で書き直す。
+
+この基準に照らして**方針から外れているのは次の2箇所だけ**。残る `src/utils/cache.ts` / `src/utils/sequential.ts` / `src/steps/shared/step-outcome.ts`（2箇所）は方針に適合しているので**触らない**。
+
+## やること
+
+1. **`src/index.ts`（`Promise.resolve().then(...).then(...).catch(...)`）を top-level await + `try`/`catch` に書き換える。**
+
+   `"type": "module"` + `module: ESNext` + Node 22 なので top-level await が使える。次の形で `tsc --noEmit` と `test/index.test.ts` 5件が通ることは T-117 で実測済み（確認後に元へ戻してある）:
+
+   ```ts
+   try {
+     const result = await run(loadEnvConfig())
+     process.exit(result === "SUCCESS" ? 0 : 1)
+   } catch (err: unknown) {
+     if (err instanceof FatalError) {
+       logger.error({ event: "fatal_error", httpStatus: err.httpStatus, message: err.message })
+     } else {
+       logger.error({ event: "unhandled_error", message: String(err) })
+     }
+     process.exit(1)
+   }
+   ```
+
+   **冒頭の2行のコメント**（「環境変数の読み込みも `then` の中で呼ぶ。`run(loadEnvConfig())` と書くと引数が先に同期評価され、失敗が下の catch に載らず素のスタックトレースになる」）は、`try` が引数の同期評価も覆うので**不要になる。消す**（`docs/coding-standards.md`「コメント」参照）。
+
+2. **`scripts/smoke/smoke-fixture.ts:128` の `await gitlab.RepositoryFiles.show(...).then(() => true, () => false)` を `try`/`catch` に書き換える。**
+
+   `await` と `.then()` が同じ式に並んでいる典型。`src/lib/gitlab/gitlab.ts` の `withNotFoundFallback()` が同じ意図（存在しなければフォールバック）を `try`/`catch` で書いているので、**書き方をそちらに揃える**。`scripts/` は `steps/` ではないので `try`/`catch` を書いてよい。
+
+3. 1箇所ずつ直して `pnpm check` を通す（まとめて直してから落ちると切り分けられない）。
+4. 修正後、`src/` と `scripts/` に残る `.then(`/`.catch(` を `grep` で数え、**残ったものが `docs/coding-standards.md` の表に載っている3ファイルだけ**であることを確認する。
+
+## 完了条件
+
+- 上の2箇所を修正したことと、`grep -rn "\.then(\|\.catch(" src scripts` の結果が `src/utils/cache.ts` / `src/utils/sequential.ts` / `src/steps/shared/step-outcome.ts` の**4箇所だけ**になっていることを `evidence` に示すこと。
+- `src/index.ts` の振る舞いが変わっていないこと（`test/index.test.ts` の5件が通る。特に「環境変数の読み込みの失敗も `unhandled_error` として記録し終了コード1で終わる」）。
+- `pnpm check` を通すこと（既存348テストが減っていないこと。テスト件数を `evidence` に書く）。
+
+## 注意
+
+- **`src/utils/cache.ts` / `src/utils/sequential.ts` / `src/steps/shared/step-outcome.ts` は方針に適合しているので触らない。**
+- 振る舞いを変える修正が必要だと分かったら、その場で押し切らず別タスクとして登録する。
+- スモークスクリプトの修正は実機実行を伴わない（コードの書き換えのみ）。
+
+**difficulty**: sonnet
+
+**evidence**: `src/index.ts` を top-level await + `try`/`catch` に書き換え（不要になった冒頭コメント2行も削除）、`scripts/smoke/smoke-fixture.ts` の `await ....then(() => true, () => false)` を名前付きヘルパ `fileExists()` の `try`/`catch` に置き換えた。`grep -rn "\.then(|\.catch(" src scripts` の残りは `utils/sequential.ts`・`utils/cache.ts`・`steps/shared/step-outcome.ts`(2) の4箇所のみ。`pnpm check` exit=0（34ファイル348テスト、増減なし）。
+
+## T-119
+
+**タスク**: `develop/test-inventory.md` が今も必要かを判断し、必要な部分だけを残すか、正典を移して削除する。
+
+## 背景
+
+`develop/test-inventory.md`（14KB）は T-104 で作られた「テストの棚卸しの発見リスト」で、当時の31ファイル・337テストにカバレッジ計測を当てた結果。冒頭に「**この文書は発見リストであって、ここに書いたことはまだ実施していない**」とあるが、その後 T-105〜T-107 で削除候補9件・集約候補2件・追加候補4件はすべて実施済みで、「実施結果」節が追記されている。
+
+一方で、**まだ生きている参照が2つある**:
+
+- `docs/coding-standards.md`「足すかどうか」の末尾に「**埋めないと決めた穴は、理由を添えて書き残す**（`develop/test-inventory.md`）」とあり、規約がこのファイルを正典として指している
+- `develop/progress.md` の「次にやること」に「「要調査で残す判断にしたもの」「埋めない穴」5件は、判断を変えたくなったらリスト側の理由を先に更新する取り決め」とある
+
+つまり単純に削除はできない。加えて**内容が現在と乖離している箇所がある**（「埋めない穴」の表が `src/steps/build-plans/sub-steps/resolve-latest-tag.ts` を指しているが、このファイルは `resolve-latest-tags.ts` にリネーム済み。計測時点の件数「31ファイル337テスト」も現在は33ファイル345テスト）。
+
+## やること
+
+1. `develop/test-inventory.md` の各節を「今も参照される情報」と「役目を終えた作業記録」に仕分ける。目安:
+   - **役目を終えた**: 削除候補9件の表、重複の集約候補2件、追加候補4件、実施結果（すべて T-105〜T-107 で実施済み。経緯は `docs/history/tasks-archive.md` の該当タスクにも残っている）
+   - **今も参照される**: 「埋めない穴（5件）」「消さないと決めたもの（3件）」「要調査（1件）」（`docs/coding-standards.md` が指しているのはこれ）
+2. 仕分けた結果から置き場所を決める。候補（他にあれば足す）:
+   - (a) 生きている3節だけを残してファイルを縮め、役目を終えた部分は `docs/history/` へ移す
+   - (b) 生きている3節を `docs/coding-standards.md`「テスト」節の中へ取り込み、ファイル自体は `docs/history/` へ移して `develop/` から消す
+   - (c) ファイルごと `docs/history/` へ移し、`docs/coding-standards.md` の参照先をそちらに書き換える
+     判断材料は「`develop/` は毎セッション読むファイルの置き場、`docs/history/` は通読しないアーカイブ」という既存の役割分担（`docs/architecture.md`「ディレクトリ構成の勘所」）。
+3. 残す情報について、**現在のコードと突き合わせて内容を更新する**（リネーム済みのファイル名、`src/utils/http.ts` の「コード側を直して分岐ごと削除済み」のように既に解決したもの）。**既に解決していて残す意味が無くなった項目は、その旨を書いて落とす。**
+4. `docs/coding-standards.md` の参照先と `develop/progress.md` の「次にやること」の記述を、決めた置き場所に合わせて更新する。
+5. 移動・削除は `git mv` / `git rm` で行い、履歴を残す。
+
+## 完了条件
+
+- `develop/test-inventory.md` が「残した／縮めた／移した／消した」のどれになったかと、その理由が示されていること。
+- **`docs/coding-standards.md` から辿れる「埋めないと決めた穴」の正典が1つだけ存在すること**（参照が切れていない、かつ二重になっていない）。
+- 残した記述に、現在のコードに存在しないファイル名・関数名が含まれていないこと。
+- `pnpm check` を通すこと（ドキュメントのみの変更でも整形の対象になる）。
+
+## 注意
+
+- **ファイルの削除はユーザーが「不要なら削除をお願い」と許可済み**だが、`docs/coding-standards.md` が指す情報を失わせないこと。情報の移し先を決めてから消す。
+- アーカイブへ移す部分は**当時の記述をそのまま**にし、後から書き換えない（`docs/workflow.md`「肥大化したときのアーカイブ」と同じ扱い）。
+
+**difficulty**: sonnet
+
+**evidence**: 案(b)を採用。`develop/test-inventory.md` を `git mv` で `docs/history/test-inventory.md` へ（当時の記述は無編集）、生きていた内容は `docs/coding-standards.md`「テスト」節へ統合（「埋めない穴」は4件の表、「消さないと決めたもの」は「個別の判断（実施済み）」）。`http.ts` の1件はコード側で解決済みのため落とした。表の識別子4つは `grep` で実在確認済み。`pnpm check` exit=0（34ファイル348テスト）。
+
+## T-120
+
+**タスク**: タスクの実行モデルの決め方から「メインセッションのモデル」への従属を外し、**`difficulty` に沿ったモデルのサブエージェントへ依頼する**運用に統一する。
+
+## 背景
+
+現在の正典は `docs/workflow.md`「difficulty に応じたモデルの切り替え方」で、こう書かれている。
+
+> 既定のモデルは `sonnet`（`~/.claude/settings.json` の `model`）。振り分けは**メイン＝Sonnet を基準に決める**
+>
+> - `sonnet` → メインセッションがそのまま実行する（委譲してもモデルは変わらず、コールドスタートの分だけ損になる）
+> - `haiku` / `opus` → Agentツールで `model` を指定して委譲する
+
+つまり振り分けが**メインセッションのモデルが `sonnet` であること**に従属している。ユーザーは `/model` でメインのモデルを普通に切り替えるため、この前提は崩れる。
+
+**実例**: 2026-09-07 のセッションはメインが Opus 5 の状態で `/loop /next-task` を回し、`difficulty: sonnet` の T-112〜T-115 を「メインがそのまま実行」した。ラベルは `sonnet` なのに実行モデルは Opus で、**`difficulty` が実行モデルを表していなかった**。
+
+変えるのは「どのモデルで実行するかの決め方」だけで、**「委譲しないケース」（ユーザーへの確認が必要・会話の文脈に依存する）はモデル選択とは別の軸**（サブエージェントに投げられるかどうか）なので、そのまま残す。
+
+同じ記述が3箇所にある:
+
+- `docs/workflow.md`「difficulty に応じたモデルの切り替え方」（**正典**）
+- `.claude/skills/next-task/SKILL.md` 手順4
+- `CLAUDE.md`「進捗管理とHandoff」の手順3
+
+## やること
+
+1. `docs/workflow.md`「difficulty に応じたモデルの切り替え方」を書き換える（正典はここ1つ）。
+   - **「タスクを実行するときは、`difficulty` に沿ったモデルを指定したサブエージェントに依頼する」に統一する。** メインのモデルが何であるかは判断材料に**しない**
+   - 「既定のモデルは `sonnet`。振り分けはメイン＝Sonnet を基準に決める」と「`sonnet` → メインセッションがそのまま実行する」を落とす
+   - `sonnet` を委譲しない理由として挙がっている「コールドスタートの分だけ損になる」は、**削るのではなく「一貫性のために受け入れる」と書き換える**（コスト自体は消えないので、判断として残す）
+   - **なぜ変えたか**を1〜2文残す（メインのモデルが切り替わると `difficulty` が実行モデルを表さなくなるため）。既定モデルを opus → sonnet に反転させた過去の経緯は履歴に残っているので、ここでは繰り返さない
+2. `docs/workflow.md`「difficulty（タスクの難易度）」節に、**`difficulty` がそのまま委譲先モデルの指定になる**ことを1文足す。「判断の重さを表すラベル」という定義自体は変えない。
+3. `.claude/skills/next-task/SKILL.md` 手順4と `CLAUDE.md`「進捗管理とHandoff」手順3を、新しい正典に合わせて更新する。**判断材料を二重に書かない**（`CLAUDE.md` は要約と参照だけ）。
+4. 「委譲しないケース」の記述は**内容を変えない**。ただし新しい書き方の中で、それが「モデル選択」ではなく「サブエージェントに投げられるか」の話だと読めるようにする。
+5. 受け入れの手順（完了報告をそのまま信用せず `pnpm check` の結果で判定し、`evidence` はメイン側で書く）は**変えない**。書き換えの過程で落ちていないことを確認する。
+
+## 完了条件
+
+- `docs/workflow.md` を読んだだけで「1件のタスクをどのモデルで実行するか」が一通りに決まり、その決め方が**メインセッションのモデルに依存しない**こと。「原則として」「適切に」のような、読み手によって結論が変わる語を使わない。
+- `grep -rn "メイン\|サブエージェント\|委譲" docs/workflow.md .claude/skills/next-task/SKILL.md CLAUDE.md` の結果を突き合わせ、**3箇所の記述が互いに矛盾しないこと**を示すこと。
+- 「委譲しないケース」と受け入れ手順の記述が残っていること。
+- `pnpm check` を通すこと（ドキュメントのみの変更でも整形の対象になる）。
+
+## 注意
+
+- **`develop/tasks.json` の既存タスクの `difficulty` は遡って変えない。**
+- **方針そのものはユーザーが決めている**（2026-09-07）。是非を蒸し返さず、どう言語化するかだけを決める。
+- このタスク自身が `/next-task` の実行ルールを書き換えるので、新ルールは**完了後、次のタスクから**適用する。
+
+**difficulty**: sonnet
+
+**evidence**: `docs/workflow.md`「difficulty に応じたモデルの切り替え方」を「`difficulty` と同じモデルのサブエージェントに必ず委譲する／メインのモデルは判断材料にしない」に書き換え、`.claude/skills/next-task/SKILL.md` 手順4と `CLAUDE.md` 手順3を追随させた。`grep -rn "メイン|サブエージェント|委譲"` で3箇所を突き合わせ、矛盾なしを確認。「委譲しないケース」（モデル選択とは別の軸と明記）と受け入れ手順は残存。`pnpm check` exit=0（34ファイル348テスト）。
+
+## T-121
+
+**タスク**: `EnvConfig.accessToken` を素の `string` からブランド型にする（または、基準に照らして不要ならその根拠を残して閉じる）。
+
+## 背景
+
+`src/lib/env.ts` の `EnvConfig` は8フィールドあり、そのうち `gitlabUrl: GitLabUrl` / `targetChart: ChartDirName | undefined` / `tagFormat: TagFormat` はブランド型なのに、**`accessToken` と `configPath` だけが素の `string`** で、型の付き方が揃っていない（`configPath` は T-122 で扱う）。
+
+`accessToken` の生成は `loadEnv("ACCESS_TOKEN")` の戻り値をそのまま入れているだけで、検証も変換も無い。使い道は `createClient(host: GitLabUrl, token: string)`（`src/lib/gitlab/gitlab.ts`）の第2引数で、呼び出し元は `src/main.ts:44` / `scripts/smoke/smoke-fixture.ts:79` / `scripts/lint/validate-config.ts:50` の3箇所。
+
+**取り違えが型で防げていない実例**: `token` が素の `string` なので、`createClient(env.gitlabUrl, env.gitlabUrl)` のように**第2引数にURLを渡してもコンパイルが通る**（`GitLabUrl` は `string & brand` なので `string` に代入できる）。逆向き（`token` を `host` に渡す）はブランド型が弾く。
+
+## やること
+
+1. `docs/architecture.md`「ブランド型にするのは『同じ`string`の別物と取り違えうる識別子』」の基準に照らして判断する。基準は「その値が別の識別子と**同じ型の式に並ぶ**か」。上の `createClient` の第1・第2引数が該当するかを確かめる。
+   **基準に照らして不要と判断したなら、実装を変えずにその根拠を `evidence` に書いて閉じる**（`passes` は true でよい）。
+2. ブランド型にすると決めたなら、`src/types/brand.ts` に `AccessToken` と factory `toAccessToken()` を足す（`src/types/types.ts` からの再エクスポートも既存の並びに合わせる）。**`as` を使ってよいのは `brand.ts` だけ**（`docs/coding-standards.md`「`as` キャストを使わない」）。
+3. `EnvConfig.accessToken` の型と `createClient()` の第2引数の型を `AccessToken` にし、呼び出し3箇所を通す。
+4. **形式の検証を付けるかどうかも決める。** GitLabのアクセストークンは形式が公開仕様として固定されていない（`glpat-` 接頭辞はPersonal Access Tokenの慣習で、Group Access Token やCI変数経由の値では違いうる）。**接頭辞や長さで弾く検証は入れない**方向で検討し、入れないならその理由を factory のJSDocに1行残す。「空でないこと」は既に `loadEnv()` が担保している。
+5. **値がログ・エラーメッセージに載っていないことを確認する**（`grep -rn "accessToken" src scripts` の結果を目視）。現在 `run_start` ログには含まれていないので、その状態が保たれていることを確かめる。
+
+## 完了条件
+
+- ブランド型にしたか、しなかったか（＋その根拠）が示されていること。
+- ブランド型にした場合、`createClient()` の第2引数に `GitLabUrl` を渡すコードが**型エラーになる**こと。確認方法を `evidence` に書く（例: 一時的にそう書いて `pnpm tsc --noEmit` が落ちることを見る。確認後は元に戻す）。
+- `src/` 内で `as` を使っているのが `src/types/brand.ts` だけであること（`grep -rn " as " src` で確認）。
+- `pnpm check` を通すこと（既存348テストが減っていないこと。テスト件数を `evidence` に書く）。
+
+## 注意
+
+- **`ACCESS_TOKEN` 環境変数の名前・読み方（`loadEnv`）は変えない。**
+- トークンの実値をログ・テストの期待値・エラーメッセージに書かない。テストで使うのは `"test-token"` のようなダミーのみ（既存テストがそうなっている）。
+- `configPath` は T-122 の担当。このタスクでは触らない。
+
+**difficulty**: sonnet
+
+**evidence**: ブランド型にした。`src/types/brand.ts` に `AccessToken` と `toAccessToken()` を追加し、`EnvConfig.accessToken` と `createClient()` 第2引数の型を変更（呼び出し3箇所は `env.accessToken` 経由なので無変更）。`src/main.ts` を一時的に `createClient(env.gitlabUrl, env.gitlabUrl)` にすると `TS2345: 'GitLabUrl' is not assignable to parameter of type 'AccessToken'` で落ちることをメイン側でも実測し、`git checkout` で復元済み（`git status` 差分なし・`tsc` clean）。形式検証は入れない（`glpat-` はPATの慣習でGroup Access Token/CI変数では前提にできない）。理由は factory のJSDoc。`pnpm check` exit=0（34ファイル348テスト、増減なし）。
+
+## T-122
+
+**タスク**: `EnvConfig.configPath` の名前を実体に合わせ、値の検証を `loadEnvConfig()` の時点で行う。
+
+## 背景
+
+`src/lib/env.ts` の `EnvConfig.configPath` には2つの問題がある。
+
+**1. 名前から「何の config か」が読み取れない。** 実体は「`config/` 相当の**設定ディレクトリのルートパス**」で、`loadConfig(path)`（`src/lib/config/config.ts`）が `<path>/<chartディレクトリ>/chart.yaml` という2階層固定の構成を走査する起点になる。単一の設定ファイルのパスではなくディレクトリのパスなので、`configPath` という名前は実体より広い。
+
+**2. 検証が `loadEnvConfig()` の時点で行われていない。** 他のフィールドは `env.ts` の中で検証される（`validateGitlabUrl` / `parseConcurrencyLimit` / `parseTagFormat` / `parseTargetClients`）のに、`configPath` だけは `loadOptionalEnv("CONFIG_PATH") ?? DEFAULT_CONFIG_PATH` をそのまま入れている。パストラバーサル検証（`assertSafePath(path, "CONFIG_PATH")`、`src/utils/fs.ts`）は後段の `loadConfig()` の中にあり、**環境変数の検証は `env.ts` に集める**という方針（`docs/coding-standards.md`「環境変数」／`docs/architecture.md`「環境変数はモジュールのトップレベルではなく`loadEnvConfig()`で読む」）と揃っていない。
+
+また、指定したディレクトリが存在しない場合は `listSubdirectories()` の `readdirSync` が生の `ENOENT` を投げるだけで、どの環境変数が原因かが分からない。
+
+## 解くべき論点
+
+1. **`CONFIG_PATH` という環境変数名を変えるか。** 変えると `.env.example` / `README.md`（2箇所の表＋ディレクトリ図）/ `.gitlab-ci.yml`（inputs とジョブ変数）/ `docs/smoke-test.md` / `config/README.md` / `docs/architecture.md` に波及し、**既存のCI設定（pipeline schedule に登録済みの変数）も書き換えが要る**。既定は「**環境変数名は変えない**」（外部インターフェースなので）。変えたくなった場合はユーザーに確認する。
+2. **TypeScript側のフィールド名を何にするか。** 候補: `configDirPath` / `configRootPath` / `configDir`。`DEFAULT_CONFIG_PATH`（`src/lib/config/config.ts`）と `loadConfig(path, ...)` の引数名も揃えるか。
+3. **検証を `env.ts` に移すか、両方に置くか。** `assertSafePath()` は `loadConfig()` の中にもあり、`loadConfig()` は `scripts/lint/validate-config.ts` からコマンドライン引数のパスで直接呼ばれる（環境変数を経由しない）。**`loadConfig()` 側の検証は消せない。** `env.ts` にも足すと二重になるので、「環境変数由来の値は `env.ts` で、それ以外の入口は `loadConfig()` で」と役割を分けるか、`env.ts` 側だけにするかを決める。
+4. **存在チェックを足すか。** 「ディレクトリとして存在すること」を `env.ts` で検証すると、環境変数の検証時点でファイルシステムに触れることになる（今の `env.ts` は `process.env` しか触らない純粋な検証）。足すなら、エラーメッセージに `CONFIG_PATH` と指定値を載せる。足さないなら、生の `ENOENT` のままでよいと判断した理由を残す。
+
+## やること
+
+1. 上の論点1〜4を決める。**論点1は「変えない」が既定**で、変える場合はユーザー確認を挟む。
+2. 決めた名前にリネームする（`EnvConfig` のフィールド、`src/main.ts` の参照2箇所、`run_start` ログのキー、関連するJSDoc）。**`run_start` ログのキー名を変える場合は、それがログの互換性を壊すことを `evidence` に明記する。**
+3. 検証を論点3・4の結論どおりに実装する。`env.ts` に足す場合は既存の個別パーサ（`parseConcurrencyLimit` 等）と同じ形の関数にし、`docs/coding-standards.md`「関数の並び順」に従って配置する。
+4. テストを足す（`test/lib/env.test.ts` に個別パーサのテストが並んでいるので、そこに合わせる）。**検証を足したなら、不正な値で例外になり、メッセージに `CONFIG_PATH` が含まれることを確かめる。**
+5. `README.md` の環境変数表に説明の変更が要るか確認する（環境変数名を変えないなら表の行自体は変わらないが、説明文が実体に合っているかを見る）。
+
+## 完了条件
+
+- 決めたフィールド名と、その理由が示されていること。
+- **`CONFIG_PATH` に不正な値（パストラバーサル、および論点4で存在チェックを足したなら存在しないパス）を与えたとき、エラーメッセージに `CONFIG_PATH` と与えた値が含まれること**をテストで示すこと。
+- `grep -rn "configPath" src scripts test` の結果に、旧名が残っていないこと。
+- `pnpm check` を通すこと（既存348テストが減っていないこと。テスト件数を `evidence` に書く）。
+
+## 注意
+
+- **`CONFIG_PATH` 環境変数の名前は、ユーザーの明示的な承認なしに変えない**（CIの pipeline schedule に登録済みの変数のため）。
+- `loadConfig()` 側の `assertSafePath()` は、コマンドライン引数から呼ばれる経路があるので**消さない**。
+- `accessToken` は T-121 の担当。このタスクでは触らない。
+
+**difficulty**: sonnet
+
+**evidence**: `configPath` → `configDirPath` にリネーム（`DEFAULT_CONFIG_DIR_PATH`・`loadConfig()` の引数名も追随）。`CONFIG_PATH` 環境変数名は変えていない。`env.ts` に `parseConfigDirPath()` を新設し、`assertSafePath()` に加えディレクトリ実在チェックも行う（`loadConfig()` 側はCLI経路のため残置＝意図的な二重検証）。テスト4件追加（34ファイル348→352テスト）。`grep -rn "configPath" src scripts test` は0件。**`run_start` ログのキーが `configPath`→`configDirPath` に変わる（ログの後方互換を壊す）。** `pnpm check` exit=0。

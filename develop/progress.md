@@ -207,6 +207,10 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   テスト4件追加（348→352）。**`run_start` ログのキーが `configPath`→`configDirPath` に変わり、
   ログの後方互換を壊す**（人が読むCIログのみなので影響は限定的）。
 
+- **アーカイブ**: `develop/tasks.json` が45KBと基準（30KB）を超えたため、`done` の
+  T-118〜T-122 の5件を `docs/history/tasks-archive.md` へ移した（18KBに縮小）。
+  残るのは `todo` の T-123〜T-127 の5件。
+
 ## 次にやること
 
 - 新しいGitLab読み取りをキャッシュ機構に載せる手順と「載せてよいかの判断」は
