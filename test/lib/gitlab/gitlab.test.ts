@@ -8,11 +8,9 @@ import {
   createClient,
   createMergeRequest,
   createTag,
-  deleteBranch,
   getBranchHeadSha,
   getFileContent,
   getLatestPipelineForRef,
-  getProjectWebUrl,
   getProjectWebUrls,
   listTags,
   openMergeRequestExists,
@@ -305,15 +303,6 @@ describe("commitFileUpdates", () => {
   })
 })
 
-describe("deleteBranch", () => {
-  it("正しい引数で Branches.remove を呼び出す", async () => {
-    const removeFn = vi.fn().mockResolvedValue(undefined)
-    const client = makeClient({ Branches: { show: vi.fn(), remove: removeFn } })
-    await deleteBranch(client, toProjectId(1), toBranchName("yadokari/update"))
-    expect(removeFn).toHaveBeenCalledWith(1, "yadokari/update")
-  })
-})
-
 describe("createMergeRequest", () => {
   it("正しい引数で MergeRequests.create を呼び出す", async () => {
     const createFn = vi.fn().mockResolvedValue({})
@@ -421,26 +410,6 @@ describe("createTag", () => {
   })
 })
 
-describe("getProjectWebUrl", () => {
-  it("プロジェクトの web_url を返す", async () => {
-    const client = makeClient({
-      Projects: {
-        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/group/app" }),
-      },
-    })
-    expect(await getProjectWebUrl(client, toProjectId(1))).toBe(
-      toGitLabUrl("https://gitlab.example.com/group/app"),
-    )
-  })
-
-  it("web_url がURLとして不正なら、その値をMR本文に載せる前にエラーにする", async () => {
-    const client = makeClient({
-      Projects: { show: vi.fn().mockResolvedValue({ web_url: "not a url" }) },
-    })
-    await expect(getProjectWebUrl(client, toProjectId(1))).rejects.toThrow("web_url")
-  })
-})
-
 describe("getProjectWebUrls", () => {
   it("重複するprojectIdを渡しても一意な数だけ問い合わせる", async () => {
     const show = vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/group/app" })
@@ -450,5 +419,12 @@ describe("getProjectWebUrls", () => {
 
     expect(show).toHaveBeenCalledOnce()
     expect(webUrls.get(toProjectId(1))).toBe(toGitLabUrl("https://gitlab.example.com/group/app"))
+  })
+
+  it("web_url がURLとして不正なら、その値をMR本文に載せる前にエラーにする", async () => {
+    const client = makeClient({
+      Projects: { show: vi.fn().mockResolvedValue({ web_url: "not a url" }) },
+    })
+    await expect(getProjectWebUrls(client, [toProjectId(1)])).rejects.toThrow("web_url")
   })
 })

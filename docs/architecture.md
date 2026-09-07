@@ -85,15 +85,15 @@ GitLab APIにも外部ファイル形式にも依存せず、ブランド型・�
 
 ### `src/utils/` — ドメイン知識を一切持たない汎用ユーティリティ
 
-| ファイル                                                        | 責務                                                                               |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `parallel.ts`                                                   | `mapWithConcurrency()`。並列実行＋`FatalError`検知時の未着手タスクのキャンセル     |
-| `sequential.ts`                                                 | `reduceAsync()`。配列を順に処理する非同期reduce（`parallel.ts`の逐次版）           |
-| `partition.ts`                                                  | `partitionMap()`。判別可能ユニオンの配列を中身を取り出しつつ2つに振り分ける        |
-| `cache.ts`                                                      | `getOrFetch()`（値をキャッシュ）と `getOrFetchShared()`（並列向けにPromiseを共有） |
-| `fs.ts`                                                         | パストラバーサル検証・サブディレクトリ列挙                                         |
-| `yaml.ts`                                                       | YAMLファイル読み込み + Zodバリデーション                                           |
-| `errors.ts` / `http.ts` / `retry.ts` / `timer.ts` / `logger.ts` | カスタムエラー・HTTPステータス判定・リトライ・実行時間計測・構造化ログ             |
+| ファイル                                                        | 責務                                                                           |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `parallel.ts`                                                   | `mapWithConcurrency()`。並列実行＋`FatalError`検知時の未着手タスクのキャンセル |
+| `sequential.ts`                                                 | `reduceAsync()`。配列を順に処理する非同期reduce（`parallel.ts`の逐次版）       |
+| `partition.ts`                                                  | `partitionMap()`。判別可能ユニオンの配列を中身を取り出しつつ2つに振り分ける    |
+| `cache.ts`                                                      | `getOrFetchShared()`。並列向けに実行中のPromiseを共有するキャッシュ            |
+| `fs.ts`                                                         | パストラバーサル検証・サブディレクトリ列挙                                     |
+| `yaml.ts`                                                       | YAMLファイル読み込み + Zodバリデーション                                       |
+| `errors.ts` / `http.ts` / `retry.ts` / `timer.ts` / `logger.ts` | カスタムエラー・HTTPステータス判定・リトライ・実行時間計測・構造化ログ         |
 
 ## 新しいコードを置く場所の判断基準
 

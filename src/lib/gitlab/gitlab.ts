@@ -53,15 +53,6 @@ export async function branchExists(
   )
 }
 
-/** 指定ブランチを削除する */
-export async function deleteBranch(
-  gitlab: GitlabClient,
-  projectId: ProjectId,
-  branch: BranchName,
-): Promise<void> {
-  await withRetry(() => gitlab.Branches.remove(projectId, branch))
-}
-
 /** 指定ブランチの現在のHEADコミットSHAを返す。ブランチが存在しない場合は undefined */
 export async function getBranchHeadSha(
   gitlab: GitlabClient,
@@ -168,14 +159,6 @@ export async function createTag(
   await withRetry(() => gitlab.Tags.create(projectId, tagName, ref))
 }
 
-export async function getProjectWebUrl(
-  gitlab: GitlabClient,
-  projectId: ProjectId,
-): Promise<GitLabUrl> {
-  const project = await withRetry(() => gitlab.Projects.show(projectId))
-  return toGitLabUrl(String(project.web_url), "GitLab APIが返したプロジェクトの web_url")
-}
-
 /**
  * 複数プロジェクトのURLをまとめて解決する。重複する`projectId`は1回だけ解決する。
  */
@@ -230,4 +213,18 @@ async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promi
     if (isNotFoundError(error)) return fallback
     throw error
   }
+}
+
+/** 指定ブランチを削除する */
+async function deleteBranch(
+  gitlab: GitlabClient,
+  projectId: ProjectId,
+  branch: BranchName,
+): Promise<void> {
+  await withRetry(() => gitlab.Branches.remove(projectId, branch))
+}
+
+async function getProjectWebUrl(gitlab: GitlabClient, projectId: ProjectId): Promise<GitLabUrl> {
+  const project = await withRetry(() => gitlab.Projects.show(projectId))
+  return toGitLabUrl(String(project.web_url), "GitLab APIが返したプロジェクトの web_url")
 }
