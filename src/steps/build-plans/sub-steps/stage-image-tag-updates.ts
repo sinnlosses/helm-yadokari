@@ -2,26 +2,26 @@ import { getValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
 import type { AnchorTarget, ImageTagUpdate } from "../../../types/types.js"
 import { toTagName } from "../../../types/types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
-import type { ApplyTargetsAcc, LatestTagResolution, LoadValuesYamlContent } from "./shared/types.js"
+import type { StageUpdatesAcc, LatestTagResolution, ReadDraftValuesYaml } from "./shared/types.js"
 import type { ValuesYamlDraft } from "./shared/values-yaml-draft.js"
 import { writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 
-export type ApplyImageTagTargetsAcc = ApplyTargetsAcc<ImageTagUpdate>
+export type StageImageTagUpdatesAcc = StageUpdatesAcc<ImageTagUpdate>
 
 /**
- * 1アプリの`app.imageTagTargets`（1件以上）を先頭から順に`applyImageTagTarget()`へ渡す。
+ * 1アプリの`app.imageTagTargets`（1件以上）を先頭から順に`stageImageTagUpdate()`へ渡す。
  * 複数箇所を扱うのはこの関数の責務で、呼び出し元（`build-plans.ts`）は
  * 「アプリの全書き込み先にイメージタグを適用する」という1つの操作として呼ぶだけでよい。
  */
-export async function applyImageTagTargets(
-  loadValuesYamlContent: LoadValuesYamlContent,
+export async function stageImageTagUpdates(
+  readDraftValuesYaml: ReadDraftValuesYaml,
   latestTag: LatestTagResolution,
   draft: ValuesYamlDraft,
   targets: readonly AnchorTarget[],
-): Promise<ApplyImageTagTargetsAcc> {
-  const initialAcc: ApplyImageTagTargetsAcc = { draft, updates: [] }
+): Promise<StageImageTagUpdatesAcc> {
+  const initialAcc: StageImageTagUpdatesAcc = { draft, updates: [] }
   return reduceAsync(targets, initialAcc, (current, target) =>
-    applyImageTagTarget(loadValuesYamlContent, latestTag, current, target),
+    stageImageTagUpdate(readDraftValuesYaml, latestTag, current, target),
   )
 }
 
@@ -33,14 +33,14 @@ export async function applyImageTagTargets(
  * 現在値が「追跡ブランチの現在のHEADを指すタグ」の場合も更新しない。タグ名は
  * 違ってもデプロイされる中身は同じで、更新しても意味が無いMRになるため。
  */
-async function applyImageTagTarget(
-  loadValuesYamlContent: LoadValuesYamlContent,
+async function stageImageTagUpdate(
+  readDraftValuesYaml: ReadDraftValuesYaml,
   latestTag: LatestTagResolution,
-  acc: ApplyImageTagTargetsAcc,
+  acc: StageImageTagUpdatesAcc,
   target: AnchorTarget,
-): Promise<ApplyImageTagTargetsAcc> {
+): Promise<StageImageTagUpdatesAcc> {
   const latestTagName = latestTag.tag.name
-  const { content: valuesYamlContent, draft } = await loadValuesYamlContent(
+  const { content: valuesYamlContent, draft } = await readDraftValuesYaml(
     acc.draft,
     target.valuesPath,
   )

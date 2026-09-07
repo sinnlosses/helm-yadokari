@@ -39,8 +39,8 @@
 | ファイル                              | 責務                                                                                                              |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `resolve-latest-tag.ts`               | 追跡ブランチ由来の最新タグの判定。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成      |
-| `apply-image-tag-targets.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagTargets`全箇所のループ                                  |
-| `apply-helm-target-branch-targets.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                        |
+| `stage-image-tag-updates.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagTargets`全箇所のループ                                  |
+| `stage-helm-target-branch-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                        |
 | `shared/values-yaml-draft.ts`         | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）と、その組み立て・`FileUpdate[]`化 |
 | `shared/types.ts`                     | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                          |
 
@@ -169,7 +169,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 | ドメイン知識を持たない汎用処理の型                                         | その`utils/`ファイル                           | `Sorted`                                                       |
 | 複数のstepが共有する、ドメイン型にだけ依存する型                           | `steps/shared/`                                | `StepOutcome<T>`                                               |
 | ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値） | **その型を生み出す関数と同じファイル**         | `BuildPlanContext`・`FilterTargetsResult`・`ValuesYamlDraft`   |
-| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                  | `steps/<step名>/sub-steps/shared/types.ts`     | `LoadValuesYamlContent`・`BranchExists`・`LatestTagResolution` |
+| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                  | `steps/<step名>/sub-steps/shared/types.ts`     | `ReadDraftValuesYaml`・`BranchExists`・`LatestTagResolution`   |
 
 - 「型は`types/`にまとめる」という運用にしないのは、`types/`が「ドメイン語彙の一覧」ではなく
   「型の物置」になると、どの型がこのツールの語彙でどの型が実装の都合かが読み分けられなくなるため。
@@ -179,7 +179,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
   （複数のサブステップが共有する関数型インターフェースや共通のアキュムレータ基底）だけに使う。
   1ファイルからしか使われない型はそのファイルへ戻す
 - **上表の5行目と6行目は競合しうる**（`LatestTagResolution` は `resolveLatestTag()` が生み出す型
-  だが `apply-image-tag-targets.ts` も使う）。そのときは **`shared/` 側を優先する** —
+  だが `stage-image-tag-updates.ts` も使う）。そのときは **`shared/` 側を優先する** —
   サブステップ同士が互いをimportしないという原則の方が、型と生成関数の同居より優先度が高い
 
 ## 設計判断（なぜ今の形なのか）

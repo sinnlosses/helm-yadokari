@@ -28,15 +28,15 @@ import {
   settle,
   withAppContext,
 } from "../shared/step-outcome.js"
-import { applyHelmTargetBranchTargets } from "./sub-steps/apply-helm-target-branch-targets.js"
-import { applyImageTagTargets } from "./sub-steps/apply-image-tag-targets.js"
 import { resolveLatestTag } from "./sub-steps/resolve-latest-tag.js"
-import type { BranchExists, LoadValuesYamlContent } from "./sub-steps/shared/types.js"
+import type { BranchExists, ReadDraftValuesYaml } from "./sub-steps/shared/types.js"
 import {
   type ValuesYamlDraft,
   cacheValuesYamlDraft,
   toFileUpdates,
 } from "./sub-steps/shared/values-yaml-draft.js"
+import { stageHelmTargetBranchUpdates } from "./sub-steps/stage-helm-target-branch-updates.js"
+import { stageImageTagUpdates } from "./sub-steps/stage-image-tag-updates.js"
 
 export type BuildPlansResult = {
   readonly toApply: readonly ChartUpdateTarget[]
@@ -48,7 +48,7 @@ type BuildPlanContext = {
   readonly gitlab: GitlabClient
   readonly dryRun: boolean
   readonly tagFormat: TagFormat
-  readonly loadValuesYamlContent: LoadValuesYamlContent
+  readonly readDraftValuesYaml: ReadDraftValuesYaml
   readonly branchExists: BranchExists
 }
 
@@ -109,7 +109,7 @@ async function buildPlan(
     gitlab,
     dryRun,
     tagFormat,
-    loadValuesYamlContent: createValuesYamlLoader(gitlab, chart),
+    readDraftValuesYaml: createDraftValuesYamlReader(gitlab, chart),
     branchExists: (branch) => branchExists(chart.projectId, branch),
   }
   const initialAcc: BuildChartUpdateAcc = { plans: [], draft: new Map() }
@@ -149,14 +149,14 @@ function createCachedBranchExists(gitlab: GitlabClient): CachedBranchExists {
 }
 
 /**
- * values.yamlの内容を読み込む関数を、chartリポジトリ1つ分に閉じ込めて組み立てる。読み込み
- * 結果は下書き（`ValuesYamlDraft`）を兼ねるため、そのchartAndApps内のアプリをまたいで
- * 引き継がれる（下書き自体は`buildPlan()`側でアプリごとに積み上げる）。
+ * values.yamlの現在値を下書き（`ValuesYamlDraft`）優先で取り出す関数を、chartリポジトリ1つ分に
+ * 閉じ込めて組み立てる。下書きに無いときだけGitLabから読むため、同じchartAndApps内の別アプリが
+ * 既に書き換えた内容がそのまま次のアプリへ引き継がれる（下書き自体は`buildPlan()`側で積み上げる）。
  */
-function createValuesYamlLoader(
+function createDraftValuesYamlReader(
   gitlab: GitlabClient,
   chart: ChartRepoConfig,
-): LoadValuesYamlContent {
+): ReadDraftValuesYaml {
   return async (draft, valuesPath) => {
     const cached = draft.get(valuesPath)
     if (cached !== undefined) return { content: cached.content, draft }
@@ -173,8 +173,8 @@ function createValuesYamlLoader(
  * 1アプリ分の更新計画を組み立てる。手順は次の4つ
  *
  * 1. `resolveLatestTag()` — 追跡ブランチのHEADを指すタグが存在するか確認し、無ければ作成する
- * 2. `applyImageTagTargets()` — `app.imageTagTargets`全箇所について、最新タグとの差分をチェックする
- * 3. `applyHelmTargetBranchTargets()` — `app.helmTargetBranch`があれば、向き先ブランチの
+ * 2. `stageImageTagUpdates()` — `app.imageTagTargets`全箇所について、最新タグとの差分をチェックする
+ * 3. `stageHelmTargetBranchUpdates()` — `app.helmTargetBranch`があれば、向き先ブランチの
  *    全箇所について設定値との差分をチェックする
  * 4. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば最新パイプラインを取得して
  *    `AppUpdatePlan`を組み立てる
@@ -187,21 +187,21 @@ async function buildAppUpdatePlan(
   acc: BuildChartUpdateAcc,
   app: AppConfig,
 ): Promise<BuildChartUpdateAcc> {
-  const { gitlab, dryRun, tagFormat, loadValuesYamlContent, branchExists } = context
+  const { gitlab, dryRun, tagFormat, readDraftValuesYaml, branchExists } = context
 
   const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat)
 
-  const { draft: draftAfterChartTargets, updates } = await applyImageTagTargets(
-    loadValuesYamlContent,
+  const { draft: draftAfterChartTargets, updates } = await stageImageTagUpdates(
+    readDraftValuesYaml,
     latestTag,
     acc.draft,
     app.imageTagTargets,
   )
 
   const afterHelmTargets = app.helmTargetBranch
-    ? await applyHelmTargetBranchTargets(
+    ? await stageHelmTargetBranchUpdates(
         branchExists,
-        loadValuesYamlContent,
+        readDraftValuesYaml,
         app.helmTargetBranch,
         draftAfterChartTargets,
       )

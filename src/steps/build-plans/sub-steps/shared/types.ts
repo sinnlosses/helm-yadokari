@@ -2,10 +2,10 @@ import type { BranchName, ParsedTag, TagName, ValuesPath } from "../../../../typ
 import type { ValuesYamlDraft } from "./values-yaml-draft.js"
 
 /**
- * `loadValuesYamlContent()`の結果。読み込んだ内容と、その内容を載せた下書き。
+ * `readDraftValuesYaml()`の結果。読み込んだ内容と、その内容を載せた下書き。
  * 下書きを返すのは、GitLabから読んだ結果を次のtarget・次のアプリへ引き継ぐため。
  */
-export type LoadedValuesYaml = {
+export type DraftValuesYaml = {
   readonly content: string
   readonly draft: ValuesYamlDraft
 }
@@ -14,15 +14,15 @@ export type LoadedValuesYaml = {
  * values.yamlの内容を下書き（chartAndApps単位で共有）経由で取得する関数。下書きに無ければ
  * GitLabから読む。渡した下書きは変更せず、読み込み結果を載せた新しい下書きを返す。
  */
-export type LoadValuesYamlContent = (
+export type ReadDraftValuesYaml = (
   draft: ValuesYamlDraft,
   valuesPath: ValuesPath,
-) => Promise<LoadedValuesYaml>
+) => Promise<DraftValuesYaml>
 
 /**
  * 指定ブランチがchartリポジトリに実在するかを返す関数。`build-plans.ts`側でGitLabクライアント・
  * chartのprojectId・chartAndApps単位のキャッシュを閉じ込めて組み立てるため、サブステップ側は
- * GitLabを知らずにブランチの実在確認だけを依頼できる（`LoadValuesYamlContent`と同じ考え方）。
+ * GitLabを知らずにブランチの実在確認だけを依頼できる（`ReadDraftValuesYaml`と同じ考え方）。
  */
 export type BranchExists = (branch: BranchName) => Promise<boolean>
 
@@ -32,14 +32,14 @@ export type BranchExists = (branch: BranchName) => Promise<boolean>
  * `draft`はchartAndApps単位で引き継ぐ。以前は`valuesYamlCache`/`modifiedValuesPaths`の
  * 2フィールドだったが、`ValuesYamlDraft`1つにまとめた。
  */
-export type ApplyTargetsAcc<U> = {
+export type StageUpdatesAcc<U> = {
   readonly draft: ValuesYamlDraft
   readonly updates: readonly U[]
 }
 
 /**
  * 1アプリ分の「最新タグの判定結果」。`resolveLatestTag()`が組み立て、イメージタグの
- * 差分判定（`apply-image-tag-targets.ts`）が使う。
+ * 差分判定（`stage-image-tag-updates.ts`）が使う。
  *
  * `trackedHeadTagNames`は、「現在の追跡ブランチ由来（＝現在の`branchToSync`と`tagFormat`で
  * パースできる）で、かつ追跡ブランチの現在のHEADコミットを指すタグ名」の集合。values.yamlに

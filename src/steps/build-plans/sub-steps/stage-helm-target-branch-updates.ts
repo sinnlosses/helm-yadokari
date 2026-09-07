@@ -6,28 +6,28 @@ import type {
 } from "../../../types/types.js"
 import { toBranchName } from "../../../types/types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
-import type { ApplyTargetsAcc, BranchExists, LoadValuesYamlContent } from "./shared/types.js"
+import type { StageUpdatesAcc, BranchExists, ReadDraftValuesYaml } from "./shared/types.js"
 import type { ValuesYamlDraft } from "./shared/values-yaml-draft.js"
 import { writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 
-export type ApplyHelmTargetBranchTargetsAcc = ApplyTargetsAcc<HelmTargetBranchUpdate>
+export type StageHelmTargetBranchUpdatesAcc = StageUpdatesAcc<HelmTargetBranchUpdate>
 
 /**
- * 1アプリの`helmTargetBranch.targets`（1件以上）を先頭から順に`applyHelmTargetBranchTarget()`へ
+ * 1アプリの`helmTargetBranch.targets`（1件以上）を先頭から順に`stageHelmTargetBranchUpdate()`へ
  * 渡す。複数箇所を扱うのはこの関数の責務で、呼び出し元（`build-plans.ts`）は
  * 「アプリのHelm向き先ブランチを適用する」という1つの操作として呼ぶだけでよい。
  */
-export async function applyHelmTargetBranchTargets(
+export async function stageHelmTargetBranchUpdates(
   branchExists: BranchExists,
-  loadValuesYamlContent: LoadValuesYamlContent,
+  readDraftValuesYaml: ReadDraftValuesYaml,
   helmTargetBranch: HelmTargetBranchConfig,
   draft: ValuesYamlDraft,
-): Promise<ApplyHelmTargetBranchTargetsAcc> {
-  const initialAcc: ApplyHelmTargetBranchTargetsAcc = { draft, updates: [] }
+): Promise<StageHelmTargetBranchUpdatesAcc> {
+  const initialAcc: StageHelmTargetBranchUpdatesAcc = { draft, updates: [] }
   return reduceAsync(helmTargetBranch.targets, initialAcc, (current, target) =>
-    applyHelmTargetBranchTarget(
+    stageHelmTargetBranchUpdate(
       branchExists,
-      loadValuesYamlContent,
+      readDraftValuesYaml,
       helmTargetBranch,
       current,
       target,
@@ -41,15 +41,15 @@ export async function applyHelmTargetBranchTargets(
  * （`branchExists()`）検証したうえで書き換え内容を下書きに積み、`updates`にも積む
  * （差分が無ければ`updates`に含めない）。
  */
-async function applyHelmTargetBranchTarget(
+async function stageHelmTargetBranchUpdate(
   branchExists: BranchExists,
-  loadValuesYamlContent: LoadValuesYamlContent,
+  readDraftValuesYaml: ReadDraftValuesYaml,
   helmTargetBranch: HelmTargetBranchConfig,
-  acc: ApplyHelmTargetBranchTargetsAcc,
+  acc: StageHelmTargetBranchUpdatesAcc,
   target: AnchorTarget,
-): Promise<ApplyHelmTargetBranchTargetsAcc> {
+): Promise<StageHelmTargetBranchUpdatesAcc> {
   const { branchName } = helmTargetBranch
-  const { content: valuesYamlContent, draft } = await loadValuesYamlContent(
+  const { content: valuesYamlContent, draft } = await readDraftValuesYaml(
     acc.draft,
     target.valuesPath,
   )
