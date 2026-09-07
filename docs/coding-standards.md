@@ -184,3 +184,6 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 タスク番号はアーカイブされると意味を失う一方、コード側の記述は残り続けるため、参照先が消えた
 死んだ識別子になる。この規約は `grep -rE "T-[0-9]{3}"` が `develop/` / `docs/history/` 以外で
 0件になることで機械的に確認できる。
+
+**コミットメッセージは対象外**（この確認はワーキングツリーしか見ない）。件名の先頭にIDを置く
+運用は `docs/workflow.md`「コミットメッセージ」が正典。

@@ -38,7 +38,8 @@ description: "develop/tasks.jsonから未着手タスクを1件選んで実行�
 
 6. **記録してコミット**: `develop/tasks.json` の対象タスクの `status`/`passes`/`evidence` を
    更新する（evidenceは3行以内、後から検証できる形で）。`develop/progress.md` の
-   「完了したこと」にも1〜2文で追記する。1タスク＝1コミットとし、コミットメッセージの
+   「完了したこと」にも1〜2文で追記する。1タスク＝1コミットとし、件名の先頭にタスクIDを置く
+   （書式は `docs/workflow.md`「コミットメッセージ」が正典）。コミットメッセージの
    末尾には現在のセッションの attribution 指示（Co-Authored-By 等）に従う。
 
 7. **push はしない**: `main`へのマージ・pushは外部への反映にあたるため、明示的に頼まれた
