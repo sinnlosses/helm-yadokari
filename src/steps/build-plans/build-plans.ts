@@ -13,7 +13,7 @@ import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
 import { describeHelmTargetBranchUpdates, describePlan } from "../shared/describe-plan.js"
 import { type StepOutcome, ok, withHandling, settle } from "../shared/step-outcome.js"
-import { resolveLatestTags } from "./sub-steps/resolve-latest-tags.js"
+import { type ResolveLatestTags, createResolveLatestTags } from "./sub-steps/resolve-latest-tags.js"
 import { type ValuesYamlSource, toFileUpdates } from "./sub-steps/shared/values-yaml-draft.js"
 import { stageHelmTargetBranchUpdates } from "./sub-steps/stage-helm-target-branch-updates.js"
 import { stageImageTagUpdates } from "./sub-steps/stage-image-tag-updates.js"
@@ -41,10 +41,11 @@ export async function buildPlans(
   tagFormat: TagFormat,
 ): Promise<BuildPlansResult> {
   const branchExists = createCachedBranchExists(gitlab)
+  const resolveLatestTags = createResolveLatestTags(gitlab, dryRun, tagFormat)
 
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
     withHandling(chartAndApps, (logContext) =>
-      buildPlan(gitlab, chartAndApps, dryRun, tagFormat, branchExists, logContext),
+      buildPlan(gitlab, chartAndApps, dryRun, resolveLatestTags, branchExists, logContext),
     ),
   )
 
@@ -69,17 +70,16 @@ async function buildPlan(
   gitlab: GitlabClient,
   chartAndApps: ChartAndApps,
   dryRun: boolean,
-  tagFormat: TagFormat,
+  resolveLatestTags: ResolveLatestTags,
   branchExists: CachedBranchExists,
   logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartUpdateTarget>> {
   const valuesYamlSource: ValuesYamlSource = { gitlab, chart: chartAndApps.chart }
 
-  const appsWithLatestTag = await resolveLatestTags(gitlab, chartAndApps.apps, dryRun, tagFormat)
+  const appsWithLatestTag = await resolveLatestTags(chartAndApps.apps)
   const { plans, draft: draftAfterApps } = await stageImageTagUpdates(
     valuesYamlSource,
     appsWithLatestTag,
-    new Map(),
   )
   const { draft, updates: helmTargetBranchUpdates } = chartAndApps.helmTargetBranch
     ? await stageHelmTargetBranchUpdates(

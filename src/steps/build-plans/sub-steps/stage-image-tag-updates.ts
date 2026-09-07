@@ -22,14 +22,14 @@ type StageAppImageTagUpdatesAcc = StageUpdatesAcc<ImageTagUpdate>
  * 「このclientの全アプリのイメージタグを適用する」という1つの操作として呼ぶだけでよい。
  *
  * 同じvalues.yamlを参照する複数アプリ・複数箇所の変更が1つの下書きに積み重なるよう、
- * アプリは並列化せず1つずつ処理する。
+ * アプリは並列化せず1つずつ処理する。**下書きを作るのはこの関数**で、後続の
+ * `stageHelmTargetBranchUpdates()`はここで作られた下書きに重ねる。
  */
 export async function stageImageTagUpdates(
   source: ValuesYamlSource,
   appsWithLatestTag: readonly AppWithLatestTag[],
-  draft: ValuesYamlDraft,
 ): Promise<StageImageTagUpdatesResult> {
-  const initialResult: StageImageTagUpdatesResult = { plans: [], draft }
+  const initialResult: StageImageTagUpdatesResult = { plans: [], draft: new Map() }
   return reduceAsync(appsWithLatestTag, initialResult, (result, appWithLatestTag) =>
     withAppContext(appWithLatestTag.app.projectName, () =>
       stageAppImageTagUpdates(source, result, appWithLatestTag),

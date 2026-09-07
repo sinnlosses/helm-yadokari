@@ -13,10 +13,11 @@ import {
   listTags,
 } from "../../../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
-import { resolveLatestTags } from "../../../../src/steps/build-plans/sub-steps/resolve-latest-tags.js"
+import { createResolveLatestTags } from "../../../../src/steps/build-plans/sub-steps/resolve-latest-tags.js"
 import {
   toBranchName,
   toChartDirName,
+  toClientId,
   toCommitSha,
   toProjectId,
   toProjectName,
@@ -312,7 +313,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
   })
 })
 
-describe("resolveLatestTags（trackedHeadTagNamesの中身）", () => {
+describe("createResolveLatestTags（trackedHeadTagNamesの中身）", () => {
   afterEach(() => {
     vi.clearAllMocks()
   })
@@ -327,7 +328,11 @@ describe("resolveLatestTags（trackedHeadTagNamesの中身）", () => {
     ])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
 
-    const [result] = await resolveLatestTags(mockGitlab, [makeApp()], false, DEFAULT_TAG_FORMAT)
+    const [result] = await createResolveLatestTags(
+      mockGitlab,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )([makeApp()])
 
     expect([...(result?.latestTag.trackedHeadTagNames ?? [])]).toEqual([NEW_TAG])
   })
@@ -340,7 +345,7 @@ describe("resolveLatestTags（trackedHeadTagNamesの中身）", () => {
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
 
-    const [result] = await resolveLatestTags(mockGitlab, [app], false, DEFAULT_TAG_FORMAT)
+    const [result] = await createResolveLatestTags(mockGitlab, false, DEFAULT_TAG_FORMAT)([app])
 
     expect(result?.latestTag.trackedHeadTagNames.size).toBe(0)
   })
@@ -354,9 +359,58 @@ describe("resolveLatestTags（trackedHeadTagNamesの中身）", () => {
     ])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
 
-    const [result] = await resolveLatestTags(mockGitlab, [makeApp()], false, DEFAULT_TAG_FORMAT)
+    const [result] = await createResolveLatestTags(
+      mockGitlab,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )([makeApp()])
 
     expect(result?.latestTag.tag.name).toBe(NEW_TAG)
     expect(createTag).not.toHaveBeenCalled()
+  })
+})
+
+describe("createResolveLatestTags（同じappが複数clientに登録されているとき）", () => {
+  beforeEach(() => {
+    mockBuildPlansGitlab()
+    // HEADを指すタグが1件も無い状態にして、タグの自動作成を走らせる
+    vi.mocked(listTags).mockResolvedValue([
+      { name: toTagName(OLD_TAG), commitSha: toCommitSha("older-sha") },
+    ])
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("同じapp（projectId+追跡ブランチ）の最新タグ解決は、client数に関わらず1回だけ行う", async () => {
+    // タグ名は秒精度なので、clientごとにタグを作ると同名で2件目以降が失敗するか、
+    // 秒をまたいで同じコミットに冗長なタグが並ぶ
+    const app = makeApp()
+    const targets = [
+      makeChartAndApps([app], { clientId: toClientId("clientA") }),
+      makeChartAndApps([app], { clientId: toClientId("clientB") }),
+      makeChartAndApps([app], { clientId: toClientId("clientC") }),
+    ]
+
+    await buildPlans(mockGitlab, targets, 3, false, DEFAULT_TAG_FORMAT)
+
+    expect(listTags).toHaveBeenCalledTimes(1)
+    expect(getBranchHeadSha).toHaveBeenCalledTimes(1)
+    expect(createTag).toHaveBeenCalledTimes(1)
+  })
+
+  it("追跡ブランチが違えば別々に解決する", async () => {
+    const targets = [
+      makeChartAndApps([makeApp()], { clientId: toClientId("clientA") }),
+      makeChartAndApps([makeApp({ branchToSync: toBranchName("release/2026-q2") })], {
+        clientId: toClientId("clientB"),
+      }),
+    ]
+
+    await buildPlans(mockGitlab, targets, 3, false, DEFAULT_TAG_FORMAT)
+
+    expect(listTags).toHaveBeenCalledTimes(2)
+    expect(createTag).toHaveBeenCalledTimes(2)
   })
 })

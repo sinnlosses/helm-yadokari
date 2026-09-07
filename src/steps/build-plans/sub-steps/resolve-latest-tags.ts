@@ -13,37 +13,51 @@ import type {
   TagInfo,
   TagName,
 } from "../../../types/types.js"
+import { getOrFetchShared } from "../../../utils/cache.js"
 import { logger } from "../../../utils/logger.js"
 import { reduceAsync } from "../../../utils/sequential.js"
 import { withAppContext } from "../../shared/step-outcome.js"
 import type { AppWithLatestTag, LatestTagResolution } from "./shared/types.js"
 
+/** 1つのchartAndApps配下の全アプリぶんの最新タグを解決する関数。バッチ全体で使い回す */
+export type ResolveLatestTags = (apps: readonly AppConfig[]) => Promise<readonly AppWithLatestTag[]>
+
 /**
- * 1つのchartAndApps配下の全アプリについて、追跡ブランチ由来の最新タグを解決する。アプリを
- * 1つずつ順に処理するのはこの関数の責務で、呼び出し元（`build-plans.ts`）は「このclientの
- * 全アプリの最新タグを決める」という1つの操作として呼ぶだけでよい。
+ * 最新タグの解決を組み立てる。返す関数は、1つのchartAndApps配下の全アプリについて追跡ブランチ
+ * 由来の最新タグを解決する。アプリを1つずつ順に処理するのはこの関数の責務で、呼び出し元
+ * （`build-plans.ts`）は「このclientの全アプリの最新タグを決める」という1つの操作として
+ * 呼ぶだけでよい。解決結果はアプリと対（`AppWithLatestTag`）にして返すため、後段の差分判定
+ * （`stage-image-tag-updates.ts`）はどのタグがどのアプリのものかを引き当て直さずに済む。
  *
- * 解決結果はアプリと対（`AppWithLatestTag`）にして返す。後段の差分判定
- * （`stage-image-tag-updates.ts`）がどのタグがどのアプリのものかを引き当て直さずに済むため。
+ * 解決結果をprojectId+追跡ブランチ単位でバッチ全体を通してキャッシュするのは、**同じappが
+ * 複数のclientに登録されうる**ため。キャッシュが無いと同じappの解決がclientの数だけ走り、
+ * HEADを指すタグが無いときはタグ作成もその回数だけ実行される（タグ名は秒精度なので、同名に
+ * なれば2件目以降が失敗し、秒をまたげば同じコミットに冗長なタグが並んでclientごとに違う
+ * タグ名がvalues.yamlに書かれる）。`mapWithConcurrency`によりchartAndAppsは並列実行される
+ * ため、同時に来た同じキーの問い合わせも1回にまとめる`getOrFetchShared`を使う。
  *
- * タグ作成という副作用を持つため、アプリ間で順序が入れ替わらないよう並列化しない。
+ * キャッシュの寿命はこの関数が返すクロージャと同じで、バッチごとに`buildPlans()`が1つ作る。
  */
-export async function resolveLatestTags(
+export function createResolveLatestTags(
   gitlab: GitlabClient,
-  apps: readonly AppConfig[],
   dryRun: boolean,
   tagFormat: TagFormat,
-): Promise<readonly AppWithLatestTag[]> {
-  const initial: readonly AppWithLatestTag[] = []
-  return reduceAsync(apps, initial, async (acc, app) => [
-    ...acc,
-    {
-      app,
-      latestTag: await withAppContext(app.projectName, () =>
-        resolveLatestTag(gitlab, app, dryRun, tagFormat),
-      ),
-    },
-  ])
+): ResolveLatestTags {
+  const cache = new Map<string, Promise<LatestTagResolution>>()
+  return (apps) => {
+    const initial: readonly AppWithLatestTag[] = []
+    return reduceAsync(apps, initial, async (acc, app) => [
+      ...acc,
+      {
+        app,
+        latestTag: await withAppContext(app.projectName, () =>
+          getOrFetchShared(cache, `${app.projectId}:${app.branchToSync}`, () =>
+            resolveLatestTag(gitlab, app, dryRun, tagFormat),
+          ),
+        ),
+      },
+    ])
+  }
 }
 
 /**
