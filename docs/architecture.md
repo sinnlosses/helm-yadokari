@@ -52,6 +52,7 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{1,4\} /p' doc
 | #### stepの入口にある「並列実行 → 振り分け」の重複は共通化しない                           | 検討したうえで採らなかった共通化         |
 | #### アプリ単位は逐次のまま（並列化しない）                                                | 並列化しない理由                         |
 | #### 引数として渡した入れ物が呼び出し先で書き変わる契約にしない                            | データの受け渡しの契約                   |
+| #### GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で1つ持ち回る      | 何をキャッシュしてよいかの判断           |
 | #### サブステップに関数型を注入するのは、親stepが持つキャッシュを隠すときだけ              | DIを絞っている理由                       |
 | #### コミット処理だけは`lib/gitlab/`がドメイン型を知っている                               | 例外にしている理由                       |
 | #### ブランド型にするのは「同じ`string`の別物と取り違えうる識別子」                        | ブランド型を作る基準                     |
@@ -130,6 +131,7 @@ importせず〜」の節を参照）。
 | -------------------------- | --------------------------------------------------------------------------------------- |
 | `gitlab/gitlab.ts`         | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ             |
 | `gitlab/web-url.ts`        | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                        |
+| `gitlab/batch-cache.ts`    | バッチ1回を通して使い回すGitLab読み取りのキャッシュ。キャッシュしてよい読み取りの一覧   |
 | `config/config.ts`         | 公開API `loadConfig()`。`config/` の2階層固定構成の走査と `target` による絞り込み       |
 | `config/chart-and-apps.ts` | 1つのclientディレクトリの `config.yaml` × `anchors.yaml` を結合し `ChartAndApps` にする |
 | `config/schema.ts`         | 3つの設定ファイルのZodスキーマと `anchors.yaml` の読み込み                              |
@@ -345,10 +347,51 @@ web URL・パイプライン解決。
   手作業で詰め替えていた。「印は付いているのに内容が無い」組み合わせを型で防げず、
   実行時のinternal errorで検査していた
 
+#### GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で1つ持ち回る
+
+実行1回（バッチ）を通して使い回す読み取りは`lib/gitlab/batch-cache.ts`の`GitlabBatchCache`に
+**列挙したものだけ**がキャッシュされる（明示的なオプトイン）。`runProcess()`が1つ作り、必要な
+stepへ引数で渡す。キャッシュが必要になるたびにその場で工場関数を書いていた頃は、新しい
+問い合わせを足す人がキャッシュの要否を毎回自分で気づく必要があり、素の関数を呼ぶほうが常に
+書きやすいぶん抜けるほうへ倒れていた。
+
+**新しいGitLabへの問い合わせを足すときの判断**:
+
+1. その読み取りの値が、バッチ中に**このツール自身の書き込み**（`createTag`・`commitFileUpdates`・
+   `createMergeRequest`・ブランチ削除）で変わるか。変わるなら載せず、`gitlab.ts`の生の関数を
+   直接呼ぶ。`listTags`（`createTag`で変わる）・`openMergeRequestExists`（`createMergeRequest`で
+   変わる）・`commitFileUpdates()`内のブランチ存在確認（削除と再作成をまたぐ）がこれに当たる
+2. 変わらないなら`GitlabBatchCache`にメンバーを1つ足す。キーは引数から機械的に組み立てられる
+   ので手書きしない。読み取りごとに`Map`を分けてあるため、別の読み取りとのキー衝突も起きない
+3. **複数のAPI呼び出しとドメイン判定にまたがる「解決結果」はここに載せない。** その処理を持つ
+   サブステップが工場関数でキャッシュを持つ（`createResolveLatestTags()`。最新タグの解決は
+   `listTags`＋`getBranchHeadSha`＋タグ作成とその判定の組で、`lib/gitlab/`はドメイン判定を
+   知らない）。`build-plans.ts`にあった`createCachedBranchExists()`は逆に単一の読み取りだけを
+   包んでいたので、この機構へ移して廃止した
+
+採らなかった案:
+
+- **`createClient()`の戻り値にキャッシュを含める（キャッシュ付きクライアント）**: `GitlabClient`は
+  gitbeakerのインスタンス型そのもので、包むと`lib/gitlab/`の全関数の第1引数の意味が変わる。
+  生の呼び出しとキャッシュ付きの呼び出しの区別が`.client`/`.cache`というアクセス経路に化け、
+  **stepの引数として見えなくなる**。キャッシュの寿命もクライアントの寿命に固定され、
+  `createClient()`を使う`scripts/`（キャッシュ不要、あるいは別寿命の`newRemoteCache`を持つ）にも
+  付いてくる
+- **stepごとにキャッシュを作る**: 今キャッシュしたい読み取りはたまたまstepをまたがないが、
+  寿命の宣言がstepごとに散り、またぐ読み取りが出たときに気づけない。バッチの寿命を知っているのは
+  `runProcess()`だけなので、生成もそこに置く
+- **`utils/`にキャッシュ付きの関数を置く**: どの読み取りがバッチ中に変わらないかはGitLab固有の
+  知識なので、原則2で`lib/`。`utils/cache.ts`に残るのは技術非依存のメモ化（`getOrFetchShared()`）
+  だけで、`scripts/lint/verify-config/remote-cache.ts`も同じものを使っている
+
+`getOrFetchShared()`は「未キャッシュ」の判定に`undefined`を使う（`V extends {}`）ため、
+`GitlabBatchCache`は値を箱に入れてから載せる。これで`getFileContent`・`getLatestPipelineForRef`の
+ように`undefined`を返す読み取りも、メンバーごとに独自の箱を作らずそのまま載せられる。
+
 #### サブステップに関数型を注入するのは、親stepが持つキャッシュを隠すときだけ
 
-関数型で受け取るのはブランチ存在確認（`BranchExists`）だけで、GitLabクライアント・chartの
-projectId・**バッチ単位のキャッシュ**を親step側に閉じ込める。それ以外のサブステップは
+関数型で受け取るのはブランチ存在確認（`BranchExists`）だけで、**バッチ単位のキャッシュ**
+（`GitlabBatchCache`）とchartのprojectIdを親step側に閉じ込める。それ以外のサブステップは
 `GitlabClient`をそのまま受け取る。隠すべきキャッシュが無いなら、関数型にしても間接層が増える
 だけになる。
 

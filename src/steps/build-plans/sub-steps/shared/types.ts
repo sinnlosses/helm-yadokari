@@ -2,8 +2,8 @@ import type { AppConfig, BranchName, ParsedTag, TagName } from "../../../../type
 import type { ValuesYamlDraft } from "./values-yaml-draft.js"
 
 /**
- * 指定ブランチがchartリポジトリに実在するかを返す関数。`build-plans.ts`側でGitLabクライアント・
- * chartのprojectId・バッチ単位のキャッシュを閉じ込めて組み立てるため、サブステップ側は
+ * 指定ブランチがchartリポジトリに実在するかを返す関数。`build-plans.ts`側でバッチ単位の
+ * キャッシュ（`GitlabBatchCache`）とchartのprojectIdを閉じ込めて組み立てるため、サブステップ側は
  * キャッシュの存在を知らずにブランチの実在確認だけを依頼できる。
  */
 export type BranchExists = (branch: BranchName) => Promise<boolean>

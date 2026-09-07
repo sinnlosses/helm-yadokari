@@ -1,5 +1,7 @@
 import { vi } from "vitest"
 
+import type { GitlabBatchCache } from "../src/lib/gitlab/batch-cache.js"
+import { createGitlabBatchCache } from "../src/lib/gitlab/batch-cache.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
 import {
   branchExists,
@@ -31,6 +33,12 @@ export const makeHttpError = (status: number): Error =>
  * 足りる。`as`を使う箇所をここ1つに閉じ込めるためテスト側では組み立てない。
  */
 export const mockGitlab = {} as unknown as GitlabClient
+
+/**
+ * `buildPlans()`に渡すバッチキャッシュ。中身は本物で、包む対象の`gitlab.js`だけがモックに
+ * なる。呼び出しごとに作り直すのは、キャッシュした結果が別のテストへ持ち越されないようにするため。
+ */
+export const newBatchCache = (): GitlabBatchCache => createGitlabBatchCache(mockGitlab)
 
 export const OLD_TAG = "main-build-at-20251231-000000"
 export const NEW_TAG = toTagName("main-build-at-20260101-000000")

@@ -1,13 +1,11 @@
-import { type GitlabClient, branchExists as branchExistsOnGitlab } from "../../lib/gitlab/gitlab.js"
+import type { GitlabBatchCache } from "../../lib/gitlab/batch-cache.js"
+import type { GitlabClient } from "../../lib/gitlab/gitlab.js"
 import type {
-  BranchName,
   ChartAndApps,
   ChartUpdateResult,
   ChartUpdateTarget,
-  ProjectId,
   TagFormat,
 } from "../../types/types.js"
-import { getOrFetchShared } from "../../utils/cache.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
@@ -23,9 +21,6 @@ export type BuildPlansResult = {
   readonly settled: readonly ChartUpdateResult[]
 }
 
-/** projectId+ブランチ名単位でブランチの実在確認をキャッシュする、バッチ全体で共有する関数 */
-type CachedBranchExists = (projectId: ProjectId, branch: BranchName) => Promise<boolean>
-
 /**
  * 各chartAndAppsの更新計画を並列に構築する。差分がないもの・dryRunのものは
  * settled（SKIPPED）に、実際に適用が必要なものは toApply にまとめて返す。
@@ -35,17 +30,17 @@ type CachedBranchExists = (projectId: ProjectId, branch: BranchName) => Promise<
  */
 export async function buildPlans(
   gitlab: GitlabClient,
+  gitlabCache: GitlabBatchCache,
   targets: readonly ChartAndApps[],
   concurrencyLimit: number,
   dryRun: boolean,
   tagFormat: TagFormat,
 ): Promise<BuildPlansResult> {
-  const branchExists = createCachedBranchExists(gitlab)
   const resolveLatestTags = createResolveLatestTags(gitlab, dryRun, tagFormat)
 
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
     withHandling(chartAndApps, (logContext) =>
-      buildPlan(gitlab, chartAndApps, dryRun, resolveLatestTags, branchExists, logContext),
+      buildPlan(gitlab, gitlabCache, chartAndApps, dryRun, resolveLatestTags, logContext),
     ),
   )
 
@@ -68,10 +63,10 @@ export async function buildPlans(
  */
 async function buildPlan(
   gitlab: GitlabClient,
+  gitlabCache: GitlabBatchCache,
   chartAndApps: ChartAndApps,
   dryRun: boolean,
   resolveLatestTags: ResolveLatestTags,
-  branchExists: CachedBranchExists,
   logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartUpdateTarget>> {
   const valuesYamlSource: ValuesYamlSource = { gitlab, chart: chartAndApps.chart }
@@ -84,7 +79,7 @@ async function buildPlan(
   const { draft, updates: helmTargetBranchUpdates } = chartAndApps.helmTargetBranch
     ? await stageHelmTargetBranchUpdates(
         valuesYamlSource,
-        (branch) => branchExists(chartAndApps.chart.projectId, branch),
+        (branch) => gitlabCache.branchExists(chartAndApps.chart.projectId, branch),
         chartAndApps.helmTargetBranch,
         draftAfterApps,
       )
@@ -105,19 +100,4 @@ async function buildPlan(
     return settle("SKIPPED")
   }
   return ok({ chartAndApps, plans, helmTargetBranchUpdates, files: toFileUpdates(draft) })
-}
-
-/**
- * ブランチの実在確認をprojectId+ブランチ名単位でバッチ全体を通してキャッシュする。同じ
- * chartディレクトリ配下の複数tenant/client（＝複数chartAndApps）が同じchart.projectIdを
- * 共有するため、chartAndApps単位でなくバッチ単位（`buildPlans()`で1つ生成）にすることで
- * 問い合わせを使い回せる。`mapWithConcurrency`によりchartAndAppsは並列実行されるため、
- * 同時に来た同じキーの問い合わせも1回にまとめる`getOrFetchShared`を使う。
- */
-function createCachedBranchExists(gitlab: GitlabClient): CachedBranchExists {
-  const cache = new Map<string, Promise<boolean>>()
-  return (projectId, branch) =>
-    getOrFetchShared(cache, `${projectId}:${branch}`, () =>
-      branchExistsOnGitlab(gitlab, projectId, branch),
-    )
 }

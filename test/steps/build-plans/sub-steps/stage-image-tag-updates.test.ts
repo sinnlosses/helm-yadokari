@@ -16,6 +16,7 @@ import {
   makeChartAndApps,
   mockBuildPlansGitlab,
   mockGitlab,
+  newBatchCache,
 } from "../../../helpers.js"
 
 describe("buildPlans（イメージタグの書き込み先）", () => {
@@ -41,6 +42,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     )
     const { toApply } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([app])],
       3,
       false,
@@ -70,6 +72,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     })
     const { toApply } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([app])],
       3,
       false,
@@ -103,6 +106,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     })
     const { toApply } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([app])],
       3,
       false,
@@ -129,6 +133,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
       const { toApply } = await buildPlans(
         mockGitlab,
+        newBatchCache(),
         [makeChartAndApps([app])],
         3,
         false,

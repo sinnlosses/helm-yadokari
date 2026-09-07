@@ -26,6 +26,7 @@ import {
   makeHttpError,
   mockBuildPlansGitlab,
   mockGitlab,
+  newBatchCache,
 } from "../../helpers.js"
 
 describe("buildPlans", () => {
@@ -39,7 +40,14 @@ describe("buildPlans", () => {
 
   it("差分があるchartAndAppsはtoApplyに含まれる", async () => {
     const group = makeChartAndApps([makeApp()])
-    const { toApply, settled } = await buildPlans(mockGitlab, [group], 3, false, DEFAULT_TAG_FORMAT)
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      newBatchCache(),
+      [group],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.chartAndApps).toBe(group)
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(NEW_TAG)
@@ -53,6 +61,7 @@ describe("buildPlans", () => {
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${NEW_TAG}\n`)
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -65,6 +74,7 @@ describe("buildPlans", () => {
   it("差分があってもdryRunのときはsettledにSKIPPEDとして入り、toApplyには含まれない", async () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       true,
@@ -78,6 +88,7 @@ describe("buildPlans", () => {
     vi.mocked(getFileContent).mockResolvedValue(undefined)
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -96,6 +107,7 @@ describe("buildPlans", () => {
     })
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([appOk, appFail])],
       3,
       false,
@@ -131,6 +143,7 @@ describe("buildPlans", () => {
     )
     const { toApply } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([appA, appB])],
       3,
       false,
@@ -144,7 +157,14 @@ describe("buildPlans", () => {
   it("401エラーのとき FatalError をスローする", async () => {
     vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
     await expect(
-      buildPlans(mockGitlab, [makeChartAndApps([makeApp()])], 3, false, DEFAULT_TAG_FORMAT),
+      buildPlans(
+        mockGitlab,
+        newBatchCache(),
+        [makeChartAndApps([makeApp()])],
+        3,
+        false,
+        DEFAULT_TAG_FORMAT,
+      ),
     ).rejects.toThrow(FatalError)
   })
 
@@ -152,6 +172,7 @@ describe("buildPlans", () => {
     vi.mocked(listTags).mockRejectedValue(makeHttpError(403))
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -172,6 +193,7 @@ describe("buildPlans", () => {
     })
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [failing, ok],
       3,
       false,
@@ -185,7 +207,14 @@ describe("buildPlans", () => {
   it("values.yaml が見つからないときのエラーメッセージにアプリ名が含まれる", async () => {
     vi.mocked(getFileContent).mockResolvedValue(undefined)
     const app = makeApp({ projectName: toProjectName("test-app-name") })
-    await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, false, DEFAULT_TAG_FORMAT)
+    await buildPlans(
+      mockGitlab,
+      newBatchCache(),
+      [makeChartAndApps([app])],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
     expect(vi.mocked(logger.error)).toHaveBeenCalled()
     const errorCall = vi.mocked(logger.error).mock.calls[0]?.[0]
     expect(errorCall?.reason).toContain("test-app-name")

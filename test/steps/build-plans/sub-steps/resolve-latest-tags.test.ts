@@ -32,6 +32,7 @@ import {
   makeHttpError,
   mockBuildPlansGitlab,
   mockGitlab,
+  newBatchCache,
 } from "../../../helpers.js"
 
 describe("buildPlans（タグの解決・自動作成）", () => {
@@ -50,6 +51,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     ])
     const { toApply } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -65,6 +67,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     ])
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -83,6 +86,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.mocked(getBranchHeadSha).mockResolvedValue(toCommitSha("new-sha"))
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -96,6 +100,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
   it("反映済みタグが追跡ブランチ由来のとき、HEADと一致する既存タグを再利用して新しいタグは作らない", async () => {
     const { toApply } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -115,6 +120,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([app])],
       3,
       false,
@@ -137,6 +143,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([app])],
       3,
       false,
@@ -154,7 +161,14 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     // 実際には作らず、作成予定の名前だけを使って以降の判定を続ける
     vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
-    await buildPlans(mockGitlab, [makeChartAndApps([app])], 3, true, DEFAULT_TAG_FORMAT)
+    await buildPlans(
+      mockGitlab,
+      newBatchCache(),
+      [makeChartAndApps([app])],
+      3,
+      true,
+      DEFAULT_TAG_FORMAT,
+    )
     expect(createTag).not.toHaveBeenCalled()
   })
 
@@ -162,6 +176,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &otherVersion ${OLD_TAG}\n`)
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -176,7 +191,14 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.mocked(listTags).mockResolvedValue([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
-    await buildPlans(mockGitlab, [makeChartAndApps([makeApp()])], 3, true, DEFAULT_TAG_FORMAT)
+    await buildPlans(
+      mockGitlab,
+      newBatchCache(),
+      [makeChartAndApps([makeApp()])],
+      3,
+      true,
+      DEFAULT_TAG_FORMAT,
+    )
     expect(createTag).not.toHaveBeenCalled()
   })
 
@@ -187,6 +209,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.mocked(createTag).mockRejectedValue(makeHttpError(403))
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -205,6 +228,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
 
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -227,6 +251,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
 
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -246,6 +271,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
 
     const { toApply } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -262,6 +288,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
 
     const { toApply } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -275,6 +302,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.mocked(getBranchHeadSha).mockResolvedValue(undefined)
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()])],
       3,
       false,
@@ -301,6 +329,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     )
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [missing, ok],
       3,
       false,
@@ -393,7 +422,7 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
       makeChartAndApps([app], { clientId: toClientId("clientC") }),
     ]
 
-    await buildPlans(mockGitlab, targets, 3, false, DEFAULT_TAG_FORMAT)
+    await buildPlans(mockGitlab, newBatchCache(), targets, 3, false, DEFAULT_TAG_FORMAT)
 
     expect(listTags).toHaveBeenCalledTimes(1)
     expect(getBranchHeadSha).toHaveBeenCalledTimes(1)
@@ -408,7 +437,7 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
       }),
     ]
 
-    await buildPlans(mockGitlab, targets, 3, false, DEFAULT_TAG_FORMAT)
+    await buildPlans(mockGitlab, newBatchCache(), targets, 3, false, DEFAULT_TAG_FORMAT)
 
     expect(listTags).toHaveBeenCalledTimes(2)
     expect(createTag).toHaveBeenCalledTimes(2)

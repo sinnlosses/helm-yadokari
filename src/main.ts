@@ -1,5 +1,6 @@
 import { loadConfig } from "./lib/config/config.js"
 import type { EnvConfig } from "./lib/env.js"
+import { createGitlabBatchCache } from "./lib/gitlab/batch-cache.js"
 import { createClient } from "./lib/gitlab/gitlab.js"
 import { applyUpdates } from "./steps/apply-updates/apply-updates.js"
 import { buildPlans } from "./steps/build-plans/build-plans.js"
@@ -32,12 +33,16 @@ export async function run(env: EnvConfig): Promise<RunResult> {
  * のみに絞り込んで実行する（`loadConfig`側の`target`絞り込み。指定した対象がconfig/配下に
  * 見つからない場合は`loadConfig`が例外をスローする）。
  *
+ * GitLabへの読み取りのキャッシュ（`GitlabBatchCache`）はここで1つ作り、必要なstepへ渡す。
+ * バッチの寿命を知っているのはこの関数だけなので、生成もここに置く。
+ *
  * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがあるchartAndAppsを除外する
  * 2. buildPlans: 残ったchartAndAppsそれぞれの更新計画（差分）を構築する
  * 3. applyUpdates: 差分があるchartAndAppsに対してコミット・MR作成を行う
  */
 async function runProcess(env: EnvConfig): Promise<Record<ChartUpdateResult, number>> {
   const gitlab = createClient(env.gitlabUrl, env.accessToken)
+  const gitlabCache = createGitlabBatchCache(gitlab)
   const { chartAndAppsList } = loadConfig(env.configPath, {
     chartDirName: env.targetChart,
     clients: env.targetClients,
@@ -50,6 +55,7 @@ async function runProcess(env: EnvConfig): Promise<Record<ChartUpdateResult, num
   )
   const { toApply, settled: planned } = await buildPlans(
     gitlab,
+    gitlabCache,
     targets,
     env.concurrencyLimit,
     env.dryRun,

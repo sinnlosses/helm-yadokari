@@ -21,6 +21,7 @@ import {
   makeChartAndApps,
   mockBuildPlansGitlab,
   mockGitlab,
+  newBatchCache,
 } from "../../../helpers.js"
 
 describe("buildPlans（Helmの向き先ブランチ）", () => {
@@ -48,6 +49,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     )
     const { toApply } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([app], { helmTargetBranch })],
       3,
       false,
@@ -79,6 +81,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     )
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([app], { helmTargetBranch })],
       3,
       false,
@@ -104,6 +107,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     )
     const { toApply } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([app], { helmTargetBranch })],
       3,
       false,
@@ -131,6 +135,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     vi.mocked(branchExists).mockResolvedValue(false)
     const { toApply, settled } = await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([app], { helmTargetBranch })],
       3,
       false,
@@ -155,7 +160,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const group = makeChartAndApps([app], { helmTargetBranch })
-    await buildPlans(mockGitlab, [group], 3, false, DEFAULT_TAG_FORMAT)
+    await buildPlans(mockGitlab, newBatchCache(), [group], 3, false, DEFAULT_TAG_FORMAT)
     expect(branchExists).toHaveBeenCalledWith(mockGitlab, group.chart.projectId, "release/2026-q1")
   })
 
@@ -175,6 +180,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     vi.mocked(branchExists).mockResolvedValue(false)
     await buildPlans(
       mockGitlab,
+      newBatchCache(),
       [makeChartAndApps([makeApp()], { helmTargetBranch })],
       3,
       false,
@@ -209,7 +215,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       clientId: toClientId("clientB"),
       helmTargetBranch,
     })
-    await buildPlans(mockGitlab, [groupA, groupB], 3, false, DEFAULT_TAG_FORMAT)
+    await buildPlans(mockGitlab, newBatchCache(), [groupA, groupB], 3, false, DEFAULT_TAG_FORMAT)
     expect(branchExists).toHaveBeenCalledTimes(1)
   })
 })
