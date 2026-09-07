@@ -9,16 +9,6 @@ import { logger } from "../../utils/logger.js"
 // 「複数のstepから呼ばれる」ため特定stepの sub-steps/ にも置かない。
 
 /**
- * アプリ単位の処理を実行し、投げられた例外に「どのアプリで起きたか」を付けて投げ直す。
- * `build-plans.ts`の`buildAppUpdatePlan()`がアプリ1件を処理する間だけ使う。
- * fatalかどうかの判断は`rethrowWithAppContext()`（延いては`settleAsError()`）に委ねるため、
- * ここは失敗を拾って渡すだけでよい。
- */
-export function withAppContext<T>(projectName: ProjectName, fn: () => Promise<T>): Promise<T> {
-  return fn().catch((err: unknown) => rethrowWithAppContext(err, projectName))
-}
-
-/**
  * chartAndApps 1件分の処理結果。`filter-targets`/`build-plans`はSKIPPED/ERROR判定を持つため
  * 成功時の値（`value`）を使わずchartAndAppsをそのまま次工程に渡し、`apply-updates`は成功時の
  * 値として`ChartUpdateResult`（"CREATED"）を使う。3つのstepで別々に定義されていた
@@ -34,6 +24,16 @@ export function ok<T>(value: T): StepOutcome<T> {
 
 export function settle<T>(result: ChartUpdateResult): StepOutcome<T> {
   return { status: "settled", result }
+}
+
+/**
+ * アプリ単位の処理を実行し、投げられた例外に「どのアプリで起きたか」を付けて投げ直す。
+ * `build-plans.ts`の`buildAppUpdatePlan()`がアプリ1件を処理する間だけ使う。
+ * fatalかどうかの判断は`rethrowWithAppContext()`（延いては`settleAsError()`）に委ねるため、
+ * ここは失敗を拾って渡すだけでよい。
+ */
+export function withAppContext<T>(projectName: ProjectName, fn: () => Promise<T>): Promise<T> {
+  return fn().catch((err: unknown) => rethrowWithAppContext(err, projectName))
 }
 
 /**
