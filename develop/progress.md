@@ -1,7 +1,7 @@
 # 現在の状態
 
 最終更新: 2026-09-08（`/plan-tasks` で `develop/direction.md` の4項目を T-123〜T-127 の
-5タスクとして登録し、続けて T-120・T-118・T-119・T-121・T-122・T-123 を完了した。前回までの流れは下の「完了したこと」を参照）
+5タスクとして登録し、続けて T-120・T-118・T-119・T-121・T-122・T-123・T-124 を完了した。前回までの流れは下の「完了したこと」を参照）
 
 T-001〜T-117 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
@@ -222,6 +222,17 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   突き合わせ表は `docs/history/test-inventory.md` に日付つきで追記。**T-124 の本文を
   実装指示（3本立て）に更新済み**で、`config-test/` の projectId・valuesPath・アンカー名は
   メイン側で実値と照合した。
+
+- **T-124 完了（T-123の実装）**: `test/main.e2e.test.ts` を新設（3件）。`config.js` をモックせず
+  **`config-test/` の実ファイルを読んで** gitbeaker境界のfakeで `run()` を通し、
+  ①client単位に3件のMR（sourceBranch・targetBranch・タイトル・本文に実ファイル由来の値）、
+  ②コミットされる `values.yaml` の中身（image tag更新・`helm.branchToSync` 反映・HEAD一致は据え置き）、
+  ③`targetClients` 絞り込みでMRが1件に減ること、を固定した。
+  **素通りでないことをメイン側で変異により実測**: `configDirPath` を `config` に変えると3件とも落ち、
+  `stageHelmTargetBranchUpdates()` を no-op にすると②だけ落ちる（どちらも復元済み）。
+  fakeは `test/helpers.ts` へ寄せない判断（projectId・パスで応答を分岐させる必要があり形が違う。
+  理由はテストファイル冒頭のコメント）。**実バグの発見なし**＝実装は既存の単体テストが記述する
+  契約どおりだった。34→35ファイル、352→355テスト。
 
 ## 次にやること
 
