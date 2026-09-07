@@ -40,6 +40,12 @@ T-001〜T-094 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
   変え、CLIから呼ぶ `validate-config.ts` 側でデフォルトを当てる。`pnpm check`
   （31ファイル334テスト、不変）。**haiku への委譲がセッションのレート制限（429）で落ちた**
   ため、メインセッションが実行した。
+- **T-098 完了**。`ConfigTarget` の `?:` を `| undefined` に統一（`loadConfig` の既定値
+  `{}` は `NO_TARGET` 定数に置換）。あわせて **`docs/coding-standards.md` に「undefined」節**
+  を新設し、許容する `undefined`（外部の「無い」）／避ける `undefined`（到達しない・意味が
+  複数乗っている・デフォルトが確定しているのに運ばれる）／「消すことを目的にせず、なぜ
+  生まれるかを先に問う」を明文化した。`CLAUDE.md` のルール一覧にも1行。
+  `pnpm check`（31ファイル334テスト、不変）。
 - **アーカイブ**: `develop/tasks.json` が44KBと基準（30KB）を超えたため、`done` の
   T-092〜T-094 を `docs/history/` へ移した。
 

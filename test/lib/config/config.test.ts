@@ -271,7 +271,7 @@ describe("loadConfig（target絞り込み）", () => {
   })
 
   it("chartDirNameを指定すると該当chartのみ返す", () => {
-    const { chartAndAppsList } = loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart") })
+    const { chartAndAppsList } = loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), clients: undefined })
     expect(chartAndAppsList).toHaveLength(2)
     expect(chartAndAppsList.every((g) => g.chartDirName === "teamA-chart")).toBe(true)
     expect(
@@ -283,17 +283,18 @@ describe("loadConfig（target絞り込み）", () => {
   })
 
   it("存在しないchartDirNameを指定すると例外をスローする", () => {
-    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("no-such-chart") })).toThrow("TARGET_CHART")
+    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("no-such-chart"), clients: undefined })).toThrow("TARGET_CHART")
   })
 
   it("存在しないchartDirNameを指定した例外メッセージに実在するディレクトリ名の一覧を含める", () => {
-    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("no-such-chart") })).toThrow(
+    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("no-such-chart"), clients: undefined })).toThrow(
       /config\/ 直下のディレクトリ名を指定してください.*teamA-chart.*teamB-chart/,
     )
   })
 
   it("clientsを1件指定すると該当アプリのみ返す（chart横断）", () => {
     const { chartAndAppsList } = loadConfig(dir.path, {
+      chartDirName: undefined,
       clients: [targetClient("tenantId1", "clientId1")],
     })
     expect(chartAndAppsList.map((g) => [g.chartDirName, g.apps.map((a) => a.projectName)])).toEqual([
@@ -304,6 +305,7 @@ describe("loadConfig（target絞り込み）", () => {
 
   it("clientsを複数指定すると該当する全アプリを返す", () => {
     const { chartAndAppsList } = loadConfig(dir.path, {
+      chartDirName: undefined,
       clients: [
         targetClient("tenantId1", "clientId1"),
         targetClient("tenantId2", "clientId2"),
@@ -334,7 +336,7 @@ describe("loadConfig（target絞り込み）", () => {
 
   it("存在しないtenantId/clientIdの組み合わせのとき例外をスローする", () => {
     expect(() =>
-      loadConfig(dir.path, { clients: [targetClient("tenantId1", "no-such-client")] }),
+      loadConfig(dir.path, { chartDirName: undefined, clients: [targetClient("tenantId1", "no-such-client")] }),
     ).toThrow("TARGET_CLIENTS")
   })
 
@@ -350,6 +352,7 @@ describe("loadConfig（target絞り込み）", () => {
   it("複数指定したclientsのうち1件でも見つからないとき例外をスローし、見つからなかったものを明示する", () => {
     expect(() =>
       loadConfig(dir.path, {
+        chartDirName: undefined,
         clients: [
           targetClient("tenantId1", "clientId1"),
           targetClient("no-such-tenant", "no-such-client"),
@@ -371,7 +374,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
     // chart.yaml が無いため絞り込み結果が0件になる
     dir.writeFile("teamA-chart/readme.txt", "hello")
 
-    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart") })).toThrow(
+    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), clients: undefined })).toThrow(
       "TARGET_CHART / TARGET_CLIENTS で絞り込んだ結果",
     )
   })
@@ -382,7 +385,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
 
-    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart") })).toThrow(
+    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), clients: undefined })).toThrow(
       "TARGET_CHART / TARGET_CLIENTS で絞り込んだ結果",
     )
   })
@@ -396,7 +399,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
     mkdirSync(join(dir.path, "teamA-chart", "tenantId1", "clientId1"), { recursive: true })
 
     expect(() =>
-      loadConfig(dir.path, { clients: [targetClient("tenantId1", "clientId1")] }),
+      loadConfig(dir.path, { chartDirName: undefined, clients: [targetClient("tenantId1", "clientId1")] }),
     ).toThrow("TARGET_CHART / TARGET_CLIENTS で絞り込んだ結果")
   })
 
@@ -408,7 +411,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
     )
     dir.writeConfigYaml("teamB-chart", "tenantId1", "clientId1", "apps: []\n")
 
-    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart") })).toThrow(
+    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), clients: undefined })).toThrow(
       /実在するディレクトリ.*teamA-chart.*teamB-chart/,
     )
   })
@@ -420,7 +423,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
     )
     dir.writeConfigYaml("teamA-chart", "tenantId1", "clientId1", "apps: []\n")
 
-    const { chartAndAppsList } = loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart") })
+    const { chartAndAppsList } = loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), clients: undefined })
     expect(chartAndAppsList).toHaveLength(1)
   })
 })

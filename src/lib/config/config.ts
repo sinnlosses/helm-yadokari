@@ -24,9 +24,12 @@ export const DEFAULT_CONFIG_PATH = "config"
  * （`TARGET_CHART` / `TARGET_CLIENTS` 環境変数由来）。
  */
 export type ConfigTarget = {
-  readonly chartDirName?: ChartDirName
-  readonly clients?: readonly TargetClient[]
+  readonly chartDirName: ChartDirName | undefined
+  readonly clients: readonly TargetClient[] | undefined
 }
+
+/** `target` を省略したとき（全chart・全clientを対象にする）の既定値 */
+const NO_TARGET: ConfigTarget = { chartDirName: undefined, clients: undefined }
 
 /**
  * `config/<chartディレクトリ>/chart.yaml` + `config/<chartディレクトリ>/<tenantId>/<clientId>/config.yaml`
@@ -40,7 +43,7 @@ export type ConfigTarget = {
  * （MRを作成する単位）を返すため、1つのchartディレクトリに複数の
  * tenantId/clientIdがあれば`chartAndAppsList`には複数件が並ぶ。
  */
-export function loadConfig(path: string, target: ConfigTarget = {}): Config {
+export function loadConfig(path: string, target: ConfigTarget = NO_TARGET): Config {
   assertSafePath(path, "CONFIG_PATH")
 
   const chartDirs = listSubdirectories(path)

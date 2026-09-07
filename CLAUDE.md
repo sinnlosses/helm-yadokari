@@ -94,6 +94,9 @@ Protected: OFF で登録する）。`renovate` ジョブはこのCLI自体の
   書かない。背景・理由・経緯は正典（`docs/architecture.md` / `docs/glossary.md` /
   `docs/requirements.md`）に置いて二重管理しない
 - コード・ドキュメントにタスク番号（`T-` + 3桁）を書かない
+- 「無いかもしれない」プロパティは `readonly x: T | undefined` で書き、`?:` は使わない
+  （例外は丸ごと省略できるオプション引数の中身のみ）。`undefined` を許容するかどうかの
+  基準も含め詳細は `docs/coding-standards.md`「`undefined`」参照
 
 レビュー観点は `/code-review` スキルのStandards軸（上記＋`docs/coding-standards.md`）と
 Spec軸（`docs/requirements.md`）を参照。
