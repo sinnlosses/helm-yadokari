@@ -44,6 +44,12 @@ description: "develop/direction.md に書かれたユーザーからの指示を
    「何を移すか」参照）、`status: "todo"`、`passes: false`、`evidence: ""`。
    **`difficulty` と `dependencies` は登録時に必ず埋める**（後から付けない）。
 
+   追記したら**その場で `develop/tasks.json` のサイズと `done` の件数を見る**。
+   `docs/workflow.md`「肥大化したときのアーカイブ」のトリガー（`done` が10件以上、または
+   30KB超）に該当したらここでアーカイブする。**タスクを足してファイルを大きくした当事者は
+   このスキルなので、次のセッションへ持ち越さない**（`/next-task` の手順1でも拾われるが、
+   それは「気づかれるのが1セッション遅れる」だけで、直す場所としては遅い）。
+
 6. **指示メモを移す**: `develop/direction.md` の内容を **`docs/history/direction.md` の
    先頭に日付見出し（`## YYYY-MM-DD`）付きで追記**し、`develop/direction.md` は見出し行だけの
    状態に戻す。**当時の記述をそのまま移し、書き換えない**。見出しの直下に、その指示から
@@ -66,3 +72,4 @@ description: "develop/direction.md に書かれたユーザーからの指示を
   タスクにしなかった項目は、その理由を書く。**取りこぼしの検知点はここだけなので必ず出す**
 - 登録したタスクの件数と、それぞれの `difficulty`・`dependencies`
 - `develop/direction.md` を空にしたこと、移した先（`docs/history/direction.md` の日付見出し）
+- アーカイブしたなら、移したタスクIDと `develop/tasks.json` のサイズ（前後）
