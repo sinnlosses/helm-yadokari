@@ -43,5 +43,50 @@
     "passes": false,
     "evidence": "",
     "dependencies": []
+  },
+  {
+    "id": "T-123",
+    "task": "`docs/requirements.md` のシナリオに対する自動テストの穴を洗い出し、e2e（シナリオ）テストを足すかどうかの方針を決める。\n\n## 背景\n\n現在のテストは34ファイル348テスト（2026-09-08時点）。**パイプライン全体を通すのは2ファイルだけ**。\n\n- `test/main.test.ts` … `src/lib/gitlab/gitlab.js` と `src/lib/config/config.js` を**モジュール単位でモック**し、`run()` の戻り値（`SUCCESS`/`PARTIAL_FAILURE`）・summary の件数・`createClient`/`loadConfig` への引数・ログイベントの3種を確かめる8件。**MRのタイトル/本文とコミットされる `values.yaml` の中身は見ていない**\n- `test/main.dry-run.test.ts` … **gitbeaker（`@gitbeaker/rest`）の境界**でモックし、`DRY_RUN=true` のとき書き込みAPIが0回であることを固定する3件\n\n残りは step / sub-step / lib / utils の単体テストで、いずれも `loadConfig` をモックする。つまり **`config/` のYAML3ファイル（`chart.yaml`/`config.yaml`/`anchors.yaml`）を実際に読んでMRの中身まで通す経路は、実機スモークテスト（`docs/smoke-test.md`、手動・要GitLab）でしか通っていない**。\n\n`docs/requirements.md` 4.1〜4.5 には節ごとにシナリオ（バージョン判定 / 更新ワークフロー / 複数app・chart・client / Helmの向き先ブランチ / 絞り込み実行）が書かれているが、**要件の節と自動テストの対応は誰も突き合わせていない**。\n\n## 解くべき論点\n\n- e2eの入口と出口をどこに取るか。候補: (a) gitbeaker境界モック＋`config-test/` の実ファイルを読む（`main.dry-run.test.ts` の拡張）、(b) `lib/gitlab/` のモジュール境界モック（`main.test.ts` の拡張）、(c) 実GitLab（＝今のスモークテスト。自動化しない）\n- **何を守るのか**。単体テストが既に守っている範囲を二重化するだけなら足す価値がない（`docs/coding-standards.md`「テスト」節の追加基準）。守れていないのは「YAMLの実ファイル → MRタイトル/本文/コミット内容」の連結部分\n- 要件の節とテストの対応表を作るか（作ると要件変更のたびに更新コストが乗る）\n- 実機スモークテスト（`docs/smoke-test.md`）との役割分担。自動e2eを足したらスモークの手順を減らすのか、両方維持するのか\n\n## やること\n\n1. `docs/requirements.md` 4.1〜4.5 の要件と既存テストを突き合わせ、**自動テストで一度も通っていない経路**を列挙する\n2. 上の論点を判断し、結論（足す／足さない）と理由を **`docs/architecture.md`「設計判断」か `docs/coding-standards.md`「テスト」節のどちらか1箇所**に節として書く（両方には書かない）\n3. 「足す」と判断した場合も、**このタスクでは実装しない**。何をどの境界で何本書くかまで決めて T-124 の本文を更新する\n4. 突き合わせた結果「既存テストで足りている」なら、**やらずに理由を `evidence` に書いて閉じる**（T-124 も同時に閉じる）\n\n## 完了条件\n\n- 洗い出しの結果（要件の節 → それを通す自動テストの有無）が判断の根拠として文書に残っている\n- 結論と理由が `docs/architecture.md` または `docs/coding-standards.md` の**どちらか1箇所**に節として書かれている\n- 「足す」なら T-124 の `task` が具体的な実装指示に更新されている。「足さない」なら T-124 が `status: \"done\"` / `passes: true` / 理由入りの `evidence` で閉じている\n- `pnpm check` が通る\n\n## 注意\n\n- **実GitLabへの書き込みを伴う自動テストは作らない**（`docs/smoke-test.md` の手動手順の領分。CIから走ると本物のMRが増える）\n- テストを足す/足さないの基準の正典は `docs/coding-standards.md`「テスト」節。ここと矛盾する結論を出すならその節も直す\n- `develop/test-inventory.md`「埋めない穴」に同種の判断が既にあるかを先に見る。T-119 が完了していると移動・縮小されている可能性があるので、無ければ `docs/history/` を探す\n- `/loop /next-task` に載せてよい",
+    "status": "todo",
+    "difficulty": "opus",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
+  },
+  {
+    "id": "T-124",
+    "task": "T-123 で決めた方針に沿って、要件のシナリオを通す自動テストを実装する。\n\n## 背景\n\n**このタスクの中身は T-123 が確定させる**（何をどの境界で何本書くか）。現状の到達点（既存の全体テスト2ファイルが何を見ていて何を見ていないか）は T-123 の「背景」に書いてある。\n\n## やること\n\n1. T-123 がこの本文に書き込んだ実装指示に従ってテストを追加する\n2. **本文が更新されていない場合**（＝T-123 が「足さない」と結論した場合）は、やらずに理由を `evidence` に書いて閉じる\n3. 追加したテストが素通りでないことを、**該当の実装を1箇所壊すとそのテストが落ちる**ことで確認する（`docs/coding-standards.md`「テスト」節の手続き）\n\n## 完了条件\n\n- `pnpm check` が通り、テストファイル数・テスト件数が増えている（前後の件数を `evidence` に書く）\n- 壊して落ちることの確認結果（何を壊して何が落ちたか）が `evidence` に書かれている\n- 「足さない」で閉じる場合は、T-123 の結論への参照が `evidence` にある\n\n## 注意\n\n- 実GitLabに接続するテストは作らない\n- `/loop /next-task` に載せてよい",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-123"]
+  },
+  {
+    "id": "T-125",
+    "task": "環境変数にも `config/` にも出ていない「コードに直接書かれた値」を洗い出し、パラメータ化すべきかの判断材料をユーザーに出す。**実装はしない。**\n\n## 背景\n\n利用者が設定できるのは現状2系統。\n\n- **環境変数8つ** — `GITLAB_URL` / `ACCESS_TOKEN` / `CONFIG_PATH` / `CONCURRENCY_LIMIT` / `DRY_RUN` / `TARGET_CHART` / `TARGET_CLIENTS` / `TAG_FORMAT`（正典は `README.md`「設定」章、実装は `src/lib/env.ts` の `loadEnvConfig()`）\n- **`config/` のYAML** — projectId・追跡ブランチ・`mrTargetBranch`・`valuesPath`・アンカー名（`docs/requirements.md` 4.4節）\n\n一方で**コードに直接書かれていて利用者が変えられない値**が残っている。ざっと見えているだけでも:\n\n- `src/domain/feature-branch.ts:5` `FEATURE_BRANCH_PREFIX = \"feature/yadokari/\"`（固定ブランチ名の接頭辞）\n- `src/utils/retry.ts` の `maxAttempts = 3` / `baseDelayMs = 1000` / `RETRYABLE_STATUSES = {429,502,503,504}`\n- `src/lib/env.ts` `parseConcurrencyLimit()` が課す上限「1〜20の整数」\n- `src/steps/apply-updates/sub-steps/build-mr-content.ts` のMRタイトル・本文（Markdownテーブルの列構成）と、それをコミットメッセージへ流用する取り決め（`apply-updates.ts`）\n- `src/domain/tag-format.ts` の必須プレースホルダ3種（`{branch}`/`{date}`/`{time}`）と日時のUTC固定\n\n**このリストは出発点であって完全ではない。**\n\n## やること\n\n1. `src/` 全体を走査し、環境変数にも `config/` にも出ていない、**運用で変えたくなりうる値**を列挙する\n2. 各項目に次の5点を書く: 現在値 / 位置（`file:line`）/ 変えたくなる場面 / パラメータ化するなら環境変数と `config/` のどちらが妥当か / 変えられるようにしたときの副作用（例: 固定ブランチ接頭辞を可変にすると、`isFeatureBranch()` を使う `scripts/smoke/smoke-fixture.ts` の後片付けが接頭辞を知る必要がある）\n3. 結果を `develop/parameterization-candidates.md` に書く\n4. `docs/requirements.md`「2.2 対象外とすること」に既に「やらない」と書かれている項目は、その旨を添えて候補から外す\n\n## 完了条件\n\n- `develop/parameterization-candidates.md` が存在し、全項目に上の5点が揃っている\n- どう探したか（grepのパターン・見たディレクトリ）が同ファイルに書かれている\n- **コードの変更が1行も無い**（`git diff --stat` の対象が `develop/` の追加のみ）\n- `pnpm check` が通る\n\n## 注意\n\n- **実装（環境変数の追加）はしない。** 足すかどうかはユーザーが決める\n- 出力先を `develop/` にしているのは判断待ちの作業ファイルだから。T-119 が `develop/test-inventory.md` の置き場所を変える判断をしていたら、それに合わせる\n- `/loop /next-task` に載せてよい",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
+  },
+  {
+    "id": "T-126",
+    "task": "`config/` が登録0件のまま運用されている状態の是非を判断し、既定パス `config/` を実際に通す手段を決める。\n\n## 背景\n\n`config/` には `README.md` しか無く、登録は0件。実機検証はすべて `CONFIG_PATH=config-test` で行っており（`docs/smoke-test.md`）、**`CONFIG_PATH` 未指定の既定値 `config/`（`DEFAULT_CONFIG_PATH`、`src/lib/config/config.ts`）を通す経路は実機で一度も通っていない**。\n\n`config/README.md` は「実運用の登録だけを置く。架空の設定例を置くとCIの `validate-config-remote` が必ず失敗する」と定めている。ただし `config-test/` が指す `sinnlosses-group/yadokari-smoke-test-chart` は**実在する**ので、同じ登録を `config/` に置いても `validate-config-remote` は通る。通る代わりに、pipeline schedule の本番実行（`.gitlab-ci.yml` の `update-app-versions`）が毎回スモークテスト用プロジェクトにMRを作ることになる。\n\n指示の後半「必要ならGitLab上で実機テストするための環境を構築してほしい」は**すでに満たされている**（chartリポジトリ + ソースリポジトリ2つ + `scripts/smoke/smoke-fixture.ts` の setup/reset + `docs/smoke-test.md`。2026-09-07に実施して `{\"CREATED\":2,\"SKIPPED\":0,\"ERROR\":0}`）。残っているのは `config/` 側だけ。\n\n## 解くべき論点\n\n- `config/` を空のまま運用してよいか。空だと `validate-config-remote` は検証対象なしでパスし、schedule実行も0件で終わる（＝CIが「通っている」ことを何も保証しない）\n- 既定パス `config/` を通す手段。候補: (a) スモークテスト用の登録を `config/` に置く（schedule実行が毎回MRを作る副作用の扱いを決める）/ (b) `config-test/` のままにして、`CONFIG_PATH` 未指定でも同じ結果になることを別の方法（テスト or 一度きりの手動確認）で担保する / (c) ユーザーの実運用chartリポジトリを登録する\n- (c) を採るなら、登録に必要な情報の一覧（projectId・追跡ブランチ・`mrTargetBranch`・`valuesPath`・アンカー名）と、いきなり本番にMRを出さないための順序（`DRY_RUN=true` → `TARGET_CLIENTS` で1件だけ → 全件）\n\n## やること\n\n1. 上の論点を判断する。判断材料は `config/README.md`・`.gitlab-ci.yml` の `validate-config-remote` と `update-app-versions`・`docs/requirements.md` 4.4節\n2. 結論と理由を `config/README.md`（`config/` の運用の正典）に反映する\n3. (c) を採る場合は**ユーザーしか持っていない情報が要るのでそこで止め**、必要な情報の一覧を `evidence` に書いて閉じる。**架空の値で登録しない**\n4. 実機での実行が必要になったら、書き込みを伴う手順は実行せず、**コマンドを提示してユーザーに委ねる**\n\n## 完了条件\n\n- 論点3つに対する結論と理由が `config/README.md` に書かれている\n- `config/` にファイルを追加した場合、`pnpm lint:validate-config` が通る（`--remote` 版は `.env` が要るので、実行できなければその旨を `evidence` に書く）\n- 実行していない手順があれば、何が未実施でなぜかが `evidence` に書かれている\n- `pnpm check` が通る\n\n## 注意\n\n- **`config/` への登録は本番の pipeline schedule の対象を変える。実際に登録する前にユーザーの承認を得る**\n- 実GitLabへの書き込み（MR作成・タグ作成・ブランチ作成）はユーザー承認が必要。セッションから勝手に実行しない\n- **`/loop /next-task` には載せない**（ユーザー確認を伴うため）",
+    "status": "todo",
+    "difficulty": "opus",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
+  },
+  {
+    "id": "T-127",
+    "task": "`apply-updates` のサブステップ呼び出しの粒度を揃え、`gitlab.ts` を薄いラッパーの役割に戻す。\n\n## 背景\n\n`src/steps/apply-updates/apply-updates.ts` の `applyUpdate()` は4つを順に呼ぶが、**前半2つと後半2つで呼び先の階層が違う**。\n\n- `collectMrEntries()` / `buildMrContent()` … `apply-updates/sub-steps/` のサブステップ\n- `commitFileUpdates()` / `createMergeRequest()` … `src/lib/gitlab/gitlab.ts` の関数を直接呼んでいる\n\nつまりstepから見て「サブステップを呼ぶ」と「libを直接呼ぶ」が同じ深さに並んでいる。`build-plans` は同種の粒度ずれを解消済みで（`buildPlan()` はサブステップ3呼び出しだけ）、`apply-updates` だけ揃っていない。\n\nもう一点、`commitFileUpdates()`（`src/lib/gitlab/gitlab.ts:113`）は `branchExists()` → `deleteBranch()` → `Commits.create(..., { startBranch })` という**3種のAPIの手順**を持っており、GitLabの薄いラッパーの粒度を超えている。\n\n**ただしこれは過去に一度判断されている。** `docs/architecture.md`「コミット処理だけは`lib/gitlab/`がドメイン型を知っている」節に「方針をstep側へ引き上げる案は採らない。中身はブランチ確認・削除・コミットという3種のAPI呼び出しの**手順**で、stepに移すとstep側にGitLab APIの呼び出し順が漏れるため」と明記されている。**今回の指示はこの判断を覆すもの**で、覆すかどうかがこのタスクの主題。\n\n## 解くべき論点\n\n- 既存の判断を覆すか。覆すなら「stepにGitLab APIの呼び出し順が漏れる」という当時の理由への答えが要る（**サブステップを新設すれば漏れる先は `apply-updates/sub-steps/` であって `steps/` 直下ではない**、という整理が成り立つか）\n- 新しいサブステップの責務と名前。commit + MR作成をまとめるなら、その概念名は何か（`helpers.ts` のような置き場所名は禁止。`docs/architecture.md`「1ファイルにまとめるか分けるか」）\n- 固定ブランチの削除・作り直しをサブステップへ移すと、**現在は非公開の `deleteBranch()` を公開する**ことになる。公開範囲が広がるのを許すか\n- `commitFileUpdates()` のJSDocにある「action は常に `update`」の根拠（呼び出し元側の不変条件で、`lib/gitlab/` からは見えない）は移動先でどう表現するか\n- サブステップ同士は互いをimportしない規約（CLAUDE.md 原則1）に触れないか。共有物が要るなら `sub-steps/shared/`\n\n## やること\n\n1. 上の論点を判断する。**覆さない結論もありうる。** その場合はコードを変えず、理由を `evidence` に書いて閉じ、`docs/architecture.md` の該当節に「再検討したが維持した」ことを1〜2文足す\n2. 覆す場合:\n   - `src/steps/apply-updates/sub-steps/` に commit + MR作成をまとめたサブステップを新設し、`applyUpdate()` を「3つのサブステップ呼び出し + ログ」だけにする\n   - `gitlab.ts` の `commitFileUpdates()` から固定ブランチの削除を外し、GitLab APIの呼び出しに対応する薄い関数へ戻す\n   - `docs/architecture.md` の「コミット処理だけは`lib/gitlab/`がドメイン型を知っている」節と「`apply-updates/sub-steps/`」の表を**両方**書き換える（節の見出しも実態に合わせる）\n3. テストを追随させる（影響範囲は `test/steps/apply-updates/apply-updates.test.ts` / `test/lib/gitlab/gitlab.test.ts` / `test/main.dry-run.test.ts`）\n\n## 完了条件\n\n- `pnpm check` が通り、テスト件数が減っていない（減ったなら理由を `evidence` に書く）\n- **振る舞いが変わらない**: 固定ブランチが既にあれば削除して作り直す順序、コミットメッセージがMRタイトルと同一であること、`DRY_RUN=true` で書き込みAPIが0回であること（`test/main.dry-run.test.ts` が通ることで確認）\n- 覆した場合、`grep -n 'gitlab/gitlab.js' src/steps/apply-updates/apply-updates.ts` の結果が型のimportだけになっている\n- `docs/architecture.md` の該当2節が現状のコードと一致している\n\n## 注意\n\n- **既存の設計判断を覆すタスクなので、結論はコードだけでなく `docs/architecture.md` に必ず反映する**（正典が古いまま残るのが一番まずい）\n- `/loop /next-task` に載せてよい",
+    "status": "todo",
+    "difficulty": "opus",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
   }
 ]
