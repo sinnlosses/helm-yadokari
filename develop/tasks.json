@@ -7,5 +7,50 @@
     "passes": true,
     "evidence": "衝突しないと判断（規約の対象はコード・ドキュメント／IDはアーカイブ後も docs/history/tasks-archive.md に ## T-XXX として残る／機械的確認の grep はワーキングツリーしか見ずコミットメッセージを含まない。grep -rE 'T-[0-9]{3}' の該当は develop/ と docs/history/ の4ファイルのみで規約どおり）。書式は件名の先頭に `T-XXX: `（git log --oneline に出るため）。正典は docs/workflow.md「コミットメッセージ」節に新設し、docs/coding-standards.md には対象外である旨の2文、SKILL.md 手順6には参照を足した。過去コミットは書き換えていない。pnpm check 通過（32ファイル338テスト）。",
     "dependencies": []
+  },
+  {
+    "id": "T-111",
+    "task": "GitLabへの問い合わせをバッチ全体で使い回すためのキャッシュ機構を設計し、導入する。T-112〜T-115 の前段。\n\n## 背景\n\n実行1回（バッチ）の中で、同じ引数のGitLab問い合わせが何度も走っている箇所が複数ある（T-112〜T-115）。原因は、キャッシュが必要になるたびに**その場で工場関数を1つ書く**やり方を取っていて（`createCachedBranchExists()`（`src/steps/build-plans/build-plans.ts`）・`createResolveLatestTags()`（`src/steps/build-plans/sub-steps/resolve-latest-tags.ts`）の2箇所）、新しい呼び出しを足す人がキャッシュの要否を毎回自分で気づく必要があること。素の関数を呼ぶほうが常に書きやすいので、抜けるほうへ倒れる。\n\n## 解くべき設計上の論点\n\n1. **置き場所**。キャッシュしたい対象は `steps/build-plans/`（values.yamlの読み込み）と `steps/apply-updates/`（`getProjectWebUrl` / `getLatestPipelineForRef`）の**両方**にまたがる。CLAUDE.md 原則1により `steps/` 同士は import できないので、どちらかのstepの中に置く案は取れない。候補は (a) `main.ts` の `runProcess()` でバッチ単位に1つ作り、各stepへ引数で渡す (b) `src/lib/gitlab/` 側で `GitlabClient` を包んだ「キャッシュ付きクライアント」を作り、`createClient()` の戻り値に含める (c) それ以外。原則1・原則2（`lib/`は技術・外部システム依存で判断）と、テスト時にキャッシュを差し替え/無効化できるかで選ぶ。\n2. **何をキャッシュしてよいかの規則**。バッチ実行中に値が変わらない読み取りだけが対象。`branchExists` は `commitFileUpdates()`（`src/lib/gitlab/gitlab.ts`）の中では**削除・再作成をまたぐためキャッシュしてはいけない**（現状も生の呼び出しで正しい）。同様に `createTag` / `commitFileUpdates` / `createMergeRequest` の後で値が変わる読み取り（`listTags` など）をどう扱うかを決める。**「キャッシュ可能」を既定にせず、明示的に選んだものだけが乗る**形にするか、その逆にするかを含めて決める。\n3. **キーの作り方**。今は `${projectId}:${branch}` のようなテンプレート文字列を各所で手書きしている。引数の取り違え・キー衝突を型で防げるか（例: 関数ごとにキー生成を持たせる）を検討する。\n4. **既存2箇所の扱い**。新機構へ寄せるか、そのまま残すか。`createResolveLatestTags()` は「同じappが複数clientにあるときのタグ重複作成の防止」という**正しさのためのキャッシュ**（性能ではない）で、キャッシュを壊すと落ちるテストが付いている。移行するならその保証を落とさないこと。\n\n## やること\n\n1. 上の1〜4を決める。決めた理由（採らなかった案とその理由を含む）を `docs/architecture.md` に節として書く（正典はそちら。CLAUDE.md には二重に書かない）。\n2. 機構を実装する。`src/utils/cache.ts` の `getOrFetchShared()` は残す／包む／置き換えるのいずれかを決めたうえで扱う。\n3. 少なくとも既存2箇所のどちらか、または T-112〜T-115 のうち1件を新機構に載せて、機構が実際に使えることを示す（残りは T-112〜T-115 で行う）。\n4. 機構自体のテストを追加する（同じキーの同時呼び出しが1回にまとまること、失敗した呼び出しがキャッシュに残らないこと）。\n\n## 完了条件\n\n- `docs/architecture.md` に設計判断が書かれ、「新しいGitLab問い合わせを足す人がキャッシュの要否をどう判断するか」が読み取れること。\n- `pnpm check` を通すこと（既存338テストが減っていないこと）。\n\n## 注意\n\n- **方針決めを含むため、ユーザーがいるセッションで扱う**（`docs/workflow.md`「委譲しないケース」）。`/loop` の自動進行には載せない。",
+    "status": "todo",
+    "difficulty": "opus",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
+  },
+  {
+    "id": "T-112",
+    "task": "`commitFileUpdates()` がコミット前に行っている `getFileContent()` の呼び出しを、不要であることを確認したうえで取り除く。\n\n## 背景\n\n`src/lib/gitlab/gitlab.ts` の `commitFileUpdates()` は、コミットするファイルごとに `getFileContent(projectId, file.valuesPath, baseBranch)` を呼び、結果が `undefined` かどうかで CommitAction を `create` / `update` に振り分けている。\n\nしかしこのパイプラインでは `files` に入るのは `toFileUpdates()`（`src/steps/build-plans/sub-steps/shared/values-yaml-draft.ts`）が返す `modified` なエントリだけで、`modified` は `writeValuesYamlDraft()` を通ったものにしか付かない。そして `writeValuesYamlDraft()` が呼ばれる前には必ず `readValuesYamlDraft()` が同じ `projectId` + `valuesPath` + `mrTargetBranch` の取得に成功している（取得できなければ例外をスローする）。つまり**判定結果は常に `update` で、MRごとにファイル数ぶんのAPI呼び出しが無駄になっている**。\n\n## やること\n\n1. 上の不変条件を実際にコードで確認する（`files` の生成経路が本当に `toFileUpdates()` 経由に限られるか）。**確認して崩れていた場合は、取り除かずに理由を `evidence` に書いて終わる**。\n2. 成り立つなら、`getFileContent()` の呼び出しと `create`/`update` の分岐を取り除き、`action` を `update` 固定にする。関数のJSDoc（「ファイルごとの action（create/update）は、常に `baseBranch` に該当ファイルが既に存在するかで判定する」）も、実際の前提に合わせて書き直す。\n3. この不変条件は `lib/gitlab/` からは見えない（呼び出し元の性質に依存する）ため、**なぜ `update` 固定でよいかをコメントで残す**（`docs/coding-standards.md`「コメントはコードから読み取れないことだけを書く」に従い、前提・制約として書く）。\n4. 既存テストで `create` 側の分岐を検証しているものがあれば、削除の是非を `docs/coding-standards.md`「テスト」節の基準で判断する。\n\n## 完了条件\n\n- 取り除いた（または取り除かなかった理由を示した）こと。\n- `pnpm check` を通すこと。",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-111"]
+  },
+  {
+    "id": "T-113",
+    "task": "`getLatestPipelineForRef()` の結果をバッチ全体でキャッシュし、同じappが複数clientに登録されているときの重複問い合わせをなくす。\n\n## 背景\n\n`collectMrEntries()`（`src/steps/apply-updates/sub-steps/collect-mr-entries.ts`）は、更新のある app ごとに `getLatestPipelineForRef(gitlab, plan.app.projectId, plan.latestTag.name)` を呼ぶ。この関数は chartAndApps（＝client）単位で呼ばれるため、**同じappが複数のclientに登録されていると、同じ `projectId` + 同じタグ名に対してclientの数だけパイプライン問い合わせが走る**。\n\n最新タグの解決側は同じ理由で既に対策済み（`createResolveLatestTags()`、`src/steps/build-plans/sub-steps/resolve-latest-tags.ts`）だが、パイプライン側は残っている。値はバッチ実行中に変わらない読み取りなのでキャッシュして安全。\n\n## やること\n\n1. T-111 で決めた機構に載せて、`projectId` + タグ名をキーにバッチ全体でキャッシュする。キャッシュの寿命はバッチ1回ぶん。\n2. `mapWithConcurrency` により chartAndApps は並列実行されるため、**同時に来た同じキーの問い合わせも1回にまとめる**こと（`getOrFetchShared()` が持つ性質）。\n3. `getLatestPipelineForRef()` は 404/403 を「パイプライン無し」として `undefined` を返す。この `undefined` もキャッシュ対象に含めるかを決める（`getOrFetchShared()` の型 `V extends {}` は `undefined` を弾くので、そのままでは載らない。載せないなら、パイプラインが無いプロジェクトでは毎回問い合わせが走ることを受け入れる判断として書き残す）。\n4. キャッシュが効いていることを検証するテストを追加する（同じappを複数clientに持つ入力で、呼び出し回数が1回になること）。既存の `resolve-latest-tags` のキャッシュテストが前例になる。\n\n## 完了条件\n\n- 同じ `projectId` + タグ名の問い合わせが1回に収束することをテストで示すこと。\n- `pnpm check` を通すこと。",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-111"]
+  },
+  {
+    "id": "T-114",
+    "task": "プロジェクトのweb URL解決（`getProjectWebUrl()`）をバッチ全体でキャッシュする。\n\n## 背景\n\n`getProjectWebUrls()`（`src/lib/gitlab/gitlab.ts`）は `new Set` で `projectId` の重複を除いているが、その重複排除は**1回の呼び出しの中だけ**に閉じている。呼び出し元の `collectMrEntries()`（`src/steps/apply-updates/sub-steps/collect-mr-entries.ts`）は chartAndApps（＝client）単位で呼ばれるため、**同じappが複数のclientに登録されていると `Projects.show` がclientの数だけ実行される**。\n\nweb URL はバッチ実行中に変わらない値なので、`projectId` をキーにバッチ全体で持ち回れる。\n\n## やること\n\n1. T-111 で決めた機構に載せて、`projectId` をキーにバッチ全体でキャッシュする。\n2. 機構の置き場所によっては `getProjectWebUrls()` の `new Set` による重複排除が不要になる（キャッシュが同じ役割を担うため）。二重に持たないよう、どちらを残すか決める。\n3. `mapWithConcurrency` により chartAndApps は並列実行されるため、同時に来た同じキーの問い合わせも1回にまとめること。\n4. キャッシュが効いていることを検証するテストを追加する（同じappを複数clientに持つ入力で、呼び出し回数が1回になること）。\n\n## 完了条件\n\n- 同じ `projectId` の web URL 解決が1回に収束することをテストで示すこと。\n- `pnpm check` を通すこと。",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-111"]
+  },
+  {
+    "id": "T-115",
+    "task": "values.yaml の**GitLabからの読み込み**をバッチ全体でキャッシュする（書き換え中の下書きは今のとおり chartAndApps 単位に保つ）。\n\n## 背景\n\n`readValuesYamlDraft()`（`src/steps/build-plans/sub-steps/shared/values-yaml-draft.ts`）は下書き（`ValuesYamlDraft`）に無いときだけ `getFileContent()` を呼ぶが、**下書きの寿命は chartAndApps 1件ぶん**（`buildPlan()` が毎回新しく作る）。同じchartディレクトリ配下の複数の tenant/client は同じ `chart.projectId` を共有するので、それらが同じ `valuesPath` を指す設定になっていると、**同じファイルを client の数だけ読み直す**。\n\n## 設計上の注意（ここを取り違えると壊れる）\n\n下書きには「GitLabから読んだだけ（`modified: false`）」と「このchartAndAppsが書き換えた（`modified: true`）」の2種類が乗っている。**共有してよいのは前者だけ**で、書き換え後の内容を別のclientに見せてはいけない（clientごとに別のMR・別のブランチを作るため）。キャッシュのキーは `projectId` + `valuesPath` + `ref`（＝`chart.mrTargetBranch`）で、値は**GitLab上の元の内容**。`cacheValuesYamlDraft()` と `writeValuesYamlDraft()` で入口を分けてある既存の作りが、この区別をそのまま使える形になっているはず。\n\n## やること\n\n1. まず、**同じchart配下の複数clientが同じ `valuesPath` を指す構成が実際に起こり得るか**を `config-test/` と `docs/requirements.md`・`config/README.md` で確認する。起こり得ないなら、このタスクは実装せずその根拠を `evidence` に書いて閉じる（`passes` は true でよい）。\n2. 起こり得るなら、T-111 で決めた機構に載せて読み込みだけをバッチ全体で共有する。書き換え後の内容が別のchartAndAppsへ漏れないことを保証する。\n3. **漏れないことを検証するテストを追加する**（同じ `valuesPath` を指す2つのclientで、片方の書き換えがもう片方の読み取り結果に現れないこと）。これは性能ではなく正しさのテストなので必ず入れる。\n4. T-112 の対象（`commitFileUpdates()` 内の `getFileContent()`）とキーが一致するため、機構の置き場所によってはそちらもキャッシュに乗る。T-112 が先に済んでいれば呼び出し自体が消えているので、重複して考えないこと。\n\n## 完了条件\n\n- 実装したなら、書き換えの漏れが無いことをテストで示すこと。見送ったなら、その根拠を示すこと。\n- `pnpm check` を通すこと。",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-111", "T-112"]
   }
 ]
