@@ -125,10 +125,7 @@ async function setup(): Promise<void> {
 
   const actions = await Promise.all(
     Object.entries(SEED_FILES).map(async ([filePath, content]) => {
-      const exists = await gitlab.RepositoryFiles.show(projectId, filePath, "main").then(
-        () => true,
-        () => false,
-      )
+      const exists = await fileExists(filePath)
       return { action: exists ? ("update" as const) : ("create" as const), filePath, content }
     }),
   )
@@ -140,6 +137,16 @@ async function setup(): Promise<void> {
       "smoke test: reset tenant2 client values.yaml",
       actions,
     )
+  }
+}
+
+/** `main` にファイルがあるか。取得できなければ理由を問わず無いものとして扱う（`create`で作り直す） */
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await gitlab.RepositoryFiles.show(projectId, filePath, "main")
+    return true
+  } catch {
+    return false
   }
 }
 

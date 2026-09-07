@@ -1,7 +1,7 @@
 # 現在の状態
 
 最終更新: 2026-09-08（`/plan-tasks` で `develop/direction.md` の4項目を T-123〜T-127 の
-5タスクとして登録し、続けて T-120 を完了した。前回までの流れは下の「完了したこと」を参照）
+5タスクとして登録し、続けて T-120・T-118 を完了した。前回までの流れは下の「完了したこと」を参照）
 
 T-001〜T-117 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
@@ -173,11 +173,19 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   そこだけメインが実行し実行モデルが `difficulty` と一致しないことを明記した。
   **T-121以降はこの新ルールで実行する。**
 
+- **T-118 完了（T-117の適用）**: `src/index.ts` の `Promise.resolve().then().then().catch()` を
+  **top-level await + `try`/`catch`** に書き換え、不要になった冒頭コメント2行も削除した
+  （`try` が引数の同期評価も覆うため、コメントの前提が消えた）。
+  `scripts/smoke/smoke-fixture.ts` の `await ....then(() => true, () => false)` は
+  名前付きヘルパ `fileExists()` の `try`/`catch` にした（サブエージェントは即時実行関数で
+  書いてきたが、`withNotFoundFallback()` に揃えるという指示に沿って**メイン側で名前付き関数へ
+  直してから受け入れ**た）。残る `.then`/`.catch` は方針に適合する3ファイル4箇所のみ。
+  **T-118 は新ルール（`difficulty` と同じモデルのサブエージェントへ委譲）での実行1件目。**
+
 ## 次にやること
 
-- **T-118（T-117の適用、`sonnet`）と T-119（`develop/test-inventory.md` の要否判断、`sonnet`）**
-  はどちらも依存が解けていて、方針決めを含まないので `/loop /next-task` に載せられる。
-  T-118 の本文には修正対象2件・触らない4箇所・grepでの確認手順が書いてある。
+- **T-119（`develop/test-inventory.md` の要否判断、`sonnet`）** は依存が解けていて、
+  方針決めを含まないので `/loop /next-task` に載せられる。
 - **T-121（`accessToken` をブランド型にする、`sonnet`）** と
   **T-122（`configPath` のリネームと検証、`sonnet`）** はどちらも依存なしで着手できる。
   T-122 は `CONFIG_PATH` 環境変数名を変えるかの判断を含むが、**既定は「変えない」**
