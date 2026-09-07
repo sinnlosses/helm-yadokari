@@ -1,7 +1,5 @@
 import { type GitlabClient, branchExists as branchExistsOnGitlab } from "../../lib/gitlab/gitlab.js"
 import type {
-  AppConfig,
-  AppUpdatePlan,
   BranchName,
   ChartAndApps,
   ChartUpdateResult,
@@ -13,22 +11,10 @@ import { getOrFetchShared } from "../../utils/cache.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
-import { reduceAsync } from "../../utils/sequential.js"
 import { describeHelmTargetBranchUpdates, describePlan } from "../shared/describe-plan.js"
-import {
-  type StepOutcome,
-  ok,
-  withHandling,
-  settle,
-  withAppContext,
-} from "../shared/step-outcome.js"
-import { resolveLatestTag } from "./sub-steps/resolve-latest-tag.js"
-import type { BranchExists } from "./sub-steps/shared/types.js"
-import {
-  type ValuesYamlDraft,
-  type ValuesYamlSource,
-  toFileUpdates,
-} from "./sub-steps/shared/values-yaml-draft.js"
+import { type StepOutcome, ok, withHandling, settle } from "../shared/step-outcome.js"
+import { resolveLatestTags } from "./sub-steps/resolve-latest-tags.js"
+import { type ValuesYamlSource, toFileUpdates } from "./sub-steps/shared/values-yaml-draft.js"
 import { stageHelmTargetBranchUpdates } from "./sub-steps/stage-helm-target-branch-updates.js"
 import { stageImageTagUpdates } from "./sub-steps/stage-image-tag-updates.js"
 
@@ -37,23 +23,8 @@ export type BuildPlansResult = {
   readonly settled: readonly ChartUpdateResult[]
 }
 
-/** 1つのchartAndAppsを処理する間ずっと変わらない文脈。アプリごとに変わる値と分けて渡す */
-type BuildPlanContext = {
-  readonly gitlab: GitlabClient
-  readonly dryRun: boolean
-  readonly tagFormat: TagFormat
-  readonly valuesYamlSource: ValuesYamlSource
-  readonly branchExists: BranchExists
-}
-
 /** projectId+ブランチ名単位でブランチの実在確認をキャッシュする、バッチ全体で共有する関数 */
 type CachedBranchExists = (projectId: ProjectId, branch: BranchName) => Promise<boolean>
-
-/** アプリを1つずつ処理しながら積み上げる、1つのchartAndApps分の更新計画 */
-type BuildChartUpdateAcc = {
-  readonly plans: readonly AppUpdatePlan[]
-  readonly draft: ValuesYamlDraft
-}
 
 /**
  * 各chartAndAppsの更新計画を並列に構築する。差分がないもの・dryRunのものは
@@ -85,10 +56,14 @@ export async function buildPlans(
 
 /**
  * 1つのchartAndAppsの更新計画を組み立て、結果を振り分ける（このstepの並列処理1件分）。
+ * アプリ・書き込み先のループはいずれもサブステップの内側にあるため、ここはサブステップを
+ * 順に呼んで下書き（`ValuesYamlDraft`）を受け渡すだけになっている。
  *
- * 同じvalues.yamlを参照する複数アプリ・複数箇所の変更が下書き（`ValuesYamlDraft`）に
- * 積み重なるよう、配下のアプリは並列化せず1つずつ処理する。差分があったアプリが1件も
- * 無ければSKIPPED、dryRunならMRを作らないのでこれもSKIPPEDとして振り分ける。
+ * 向き先ブランチはclient内のapps全体で共通なので、全アプリのイメージタグを積んだ後の
+ * 下書きに重ねる。こうすることで同じvalues.yamlへの書き換えが失われない。
+ *
+ * 差分があったアプリが1件も無ければSKIPPED、dryRunならMRを作らないのでこれもSKIPPEDとして
+ * 振り分ける。
  */
 async function buildPlan(
   gitlab: GitlabClient,
@@ -99,27 +74,18 @@ async function buildPlan(
   logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartUpdateTarget>> {
   const { chart } = chartAndApps
-  const context: BuildPlanContext = {
-    gitlab,
-    dryRun,
-    tagFormat,
-    valuesYamlSource: { gitlab, chart },
-    branchExists: (branch) => branchExists(chart.projectId, branch),
-  }
-  const initialAcc: BuildChartUpdateAcc = { plans: [], draft: new Map() }
-  const { plans, draft: draftAfterApps } = await reduceAsync(
-    chartAndApps.apps,
-    initialAcc,
-    (acc, app) =>
-      withAppContext(app.projectName, async () => buildAppUpdatePlan(context, acc, app)),
-  )
+  const valuesYamlSource: ValuesYamlSource = { gitlab, chart }
 
-  // 向き先ブランチはclient内のapps全体で共通なのでappループの外で1回だけ適用する。
-  // 全アプリのイメージタグを積んだ後の下書きに重ねるため、同じvalues.yamlへの書き換えは失われない
+  const appsWithLatestTag = await resolveLatestTags(gitlab, chartAndApps.apps, dryRun, tagFormat)
+  const { plans, draft: draftAfterApps } = await stageImageTagUpdates(
+    valuesYamlSource,
+    appsWithLatestTag,
+    new Map(),
+  )
   const { draft, updates: helmTargetBranchUpdates } = chartAndApps.helmTargetBranch
     ? await stageHelmTargetBranchUpdates(
-        context.valuesYamlSource,
-        context.branchExists,
+        valuesYamlSource,
+        (branch) => branchExists(chart.projectId, branch),
         chartAndApps.helmTargetBranch,
         draftAfterApps,
       )
@@ -155,46 +121,4 @@ function createCachedBranchExists(gitlab: GitlabClient): CachedBranchExists {
     getOrFetchShared(cache, `${projectId}:${branch}`, () =>
       branchExistsOnGitlab(gitlab, projectId, branch),
     )
-}
-
-/**
- * 1アプリ分の更新計画を組み立てる。手順は次の3つ
- *
- * 1. `resolveLatestTag()` — 追跡ブランチのHEADを指すタグが存在するか確認し、無ければ作成する
- * 2. `stageImageTagUpdates()` — `app.imageTagTargets`全箇所について、最新タグとの差分をチェックする
- * 3. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば`AppUpdatePlan`を組み立てる
- *
- * 処理中に投げられた例外は`withAppContext()`がアプリ名を付けて投げ直す。
- * 致命的エラーの扱いを含む方針は`steps/shared/step-outcome.ts`に集約している。
- */
-async function buildAppUpdatePlan(
-  context: BuildPlanContext,
-  acc: BuildChartUpdateAcc,
-  app: AppConfig,
-): Promise<BuildChartUpdateAcc> {
-  const { gitlab, dryRun, tagFormat, valuesYamlSource } = context
-
-  const latestTag = await resolveLatestTag(gitlab, app, dryRun, tagFormat)
-
-  const { draft, updates } = await stageImageTagUpdates(
-    valuesYamlSource,
-    latestTag,
-    acc.draft,
-    app.imageTagTargets,
-  )
-
-  if (updates.length === 0) {
-    logger.info({
-      event: "check_app",
-      projectName: app.projectName,
-      result: "SKIPPED",
-      reason: "already_up_to_date",
-      tag: latestTag.tag.name,
-    })
-    return { plans: acc.plans, draft }
-  }
-
-  const plan: AppUpdatePlan = { app, latestTag: latestTag.tag, updates }
-
-  return { plans: [...acc.plans, plan], draft }
 }

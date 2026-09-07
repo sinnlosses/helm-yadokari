@@ -1,7 +1,8 @@
 # 現在の状態
 
-最終更新: 2026-09-07（品質の棚卸し T-102〜T-108 とスモークテストの準備確認 T-109 を完了し、
-`docs/history/` へアーカイブした。`develop/tasks.json` に残るのは `todo` の T-110 のみ）
+最終更新: 2026-09-07（品質の棚卸し T-102〜T-108 とスモークテストの準備確認 T-109 を完了して
+`docs/history/` へアーカイブし、そのあと会話由来で `build-plans` のサブステップ粒度を揃えた。
+`develop/tasks.json` に `todo` は無い）
 
 T-001〜T-109 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
@@ -34,6 +35,21 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   規約とは衝突しない（対象がコード・ドキュメントであること、IDはアーカイブ後も
   `docs/history/` に残ること、機械的確認の grep がコミットメッセージを見ないことの3点）。
   書式は件名の先頭に `T-XXX: `。正典は `docs/workflow.md`「コミットメッセージ」節。
+
+- **`build-plans` のサブステップ粒度を揃えた**（タスクID無し・会話由来）。親stepに
+  アプリのループと非公開の中間層（`buildAppUpdatePlan()`）があり、`buildPlan()` の中で
+  「1段下へ降りる呼び出し」と「同じ段のサブステップ呼び出し」が同じ深さに並んでいた。
+  **サブステップは自分の関心事について全スコープを引き受ける**（ループを内側に持つ）方針に
+  統一し、`buildPlan()` を `resolveLatestTags()` → `stageImageTagUpdates()` →
+  `stageHelmTargetBranchUpdates()` の3呼び出しだけにした。`resolve-latest-tag.ts` →
+  `resolve-latest-tags.ts` にリネームし、単数版は非公開に。アプリと最新タグの対
+  （`AppWithLatestTag`）を `sub-steps/shared/types.ts` に追加。
+  **振る舞いは不変**（`pnpm check` exit=0、32ファイル338テストで件数・内容とも変化なし）。
+  唯一の実挙動の差は、全アプリの最新タグ解決が差分判定より前にまとまること（逐次のままなので
+  タグ作成の順序と集合は不変。途中でFatalErrorが出たときにどこまでタグが作られているかだけ変わる）。
+  `docs/architecture.md` は `build-plans/sub-steps/` 節・`withAppContext()` の呼び出し元・
+  「アプリ単位は逐次のまま」節・「サブステップ同士は互いをimportせず」節を更新した
+  （CLAUDE.md の原則1〜5は変更なし）。
 
 - **アーカイブ**: `develop/tasks.json` が32KBと基準（30KB）を超えたため、`done` の
   T-102〜T-109 の8件を `docs/history/` へ移した（残りは `todo` の T-110 のみ、3KB）。

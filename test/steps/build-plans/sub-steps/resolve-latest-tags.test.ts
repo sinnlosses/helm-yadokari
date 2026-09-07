@@ -13,7 +13,7 @@ import {
   listTags,
 } from "../../../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
-import { resolveLatestTag } from "../../../../src/steps/build-plans/sub-steps/resolve-latest-tag.js"
+import { resolveLatestTags } from "../../../../src/steps/build-plans/sub-steps/resolve-latest-tags.js"
 import {
   toBranchName,
   toChartDirName,
@@ -312,7 +312,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
   })
 })
 
-describe("resolveLatestTag（trackedHeadTagNamesの中身）", () => {
+describe("resolveLatestTags（trackedHeadTagNamesの中身）", () => {
   afterEach(() => {
     vi.clearAllMocks()
   })
@@ -327,9 +327,9 @@ describe("resolveLatestTag（trackedHeadTagNamesの中身）", () => {
     ])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
 
-    const result = await resolveLatestTag(mockGitlab, makeApp(), false, DEFAULT_TAG_FORMAT)
+    const [result] = await resolveLatestTags(mockGitlab, [makeApp()], false, DEFAULT_TAG_FORMAT)
 
-    expect([...result.trackedHeadTagNames]).toEqual([NEW_TAG])
+    expect([...(result?.latestTag.trackedHeadTagNames ?? [])]).toEqual([NEW_TAG])
   })
 
   it("追跡ブランチを切り替えた直後は、切り替え前のタグ名がHEADと同じコミットを指していても含まない", async () => {
@@ -340,9 +340,9 @@ describe("resolveLatestTag（trackedHeadTagNamesの中身）", () => {
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
 
-    const result = await resolveLatestTag(mockGitlab, app, false, DEFAULT_TAG_FORMAT)
+    const [result] = await resolveLatestTags(mockGitlab, [app], false, DEFAULT_TAG_FORMAT)
 
-    expect(result.trackedHeadTagNames.size).toBe(0)
+    expect(result?.latestTag.trackedHeadTagNames.size).toBe(0)
   })
 
   it("HEADを指すタグが複数あるとき、タグ名の日時が最も新しいものを返す（決定性のための規則）", async () => {
@@ -354,9 +354,9 @@ describe("resolveLatestTag（trackedHeadTagNamesの中身）", () => {
     ])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
 
-    const result = await resolveLatestTag(mockGitlab, makeApp(), false, DEFAULT_TAG_FORMAT)
+    const [result] = await resolveLatestTags(mockGitlab, [makeApp()], false, DEFAULT_TAG_FORMAT)
 
-    expect(result.tag.name).toBe(NEW_TAG)
+    expect(result?.latestTag.tag.name).toBe(NEW_TAG)
     expect(createTag).not.toHaveBeenCalled()
   })
 })

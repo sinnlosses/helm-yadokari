@@ -99,14 +99,17 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{1,4\} /p' doc
 
 #### `build-plans/sub-steps/`
 
-親stepの階層は「全chartAndApps → 1つのchartAndApps → 1アプリ」の3段までに絞り、それより下の
-「1箇所（target）」の処理をここに置く。1アプリ分の処理はサブステップを順に呼ぶだけにする。
+親stepが持つ階層は「全chartAndApps → 1つのchartAndApps」の2段までに絞り、それより下の
+「1アプリ」「1箇所（target）」のループは各サブステップの内側に置く。**サブステップは自分の
+関心事について全スコープを引き受ける**ため、`buildPlan()`はサブステップを順に呼んで下書きを
+受け渡すだけになる（アプリのループを親stepに持たせない理由は「サブステップ同士は互いを
+importせず〜」の節を参照）。
 
 | ファイル                              | 責務                                                                                                                                                |
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resolve-latest-tag.ts`               | 追跡ブランチ由来の最新タグの判定。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成                                        |
-| `stage-image-tag-updates.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagTargets`全箇所のループ                                                                    |
-| `stage-helm-target-branch-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）。client単位なのでappのループの外から1回だけ呼ぶ                          |
+| `resolve-latest-tags.ts`              | 追跡ブランチ由来の最新タグの判定と、client配下の全アプリのループ。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成        |
+| `stage-image-tag-updates.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagTargets`全箇所＋client配下の全アプリのループ                                              |
+| `stage-helm-target-branch-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）。client単位なので全アプリのイメージタグを積んだ後に1回だけ呼ぶ           |
 | `shared/values-yaml-draft.ts`         | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）の読み込み（下書き優先・無ければGitLab）・書き換え・`FileUpdate[]`化 |
 | `shared/types.ts`                     | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                                            |
 
@@ -228,14 +231,14 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 **利用箇所の数では決めない。** 型の性質だけで決める。
 
-| 型の性質                                                                             | 置き場所                                         | 例                                                                            |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------- |
-| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                           | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ChartAndApps`・`AppUpdatePlan`・`ChartUpdateResult`・`Config`・`ParsedTag`   |
-| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                   | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`Anchors`・`AnchorsApp`・`EnvConfig`          |
-| ドメイン知識を持たない汎用処理の型                                                   | その`utils/`ファイル                             | `Sorted`                                                                      |
-| 複数のstepが共有する、ドメイン型にだけ依存する型                                     | `steps/shared/`                                  | `StepOutcome<T>`                                                              |
-| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlanContext`・`FilterTargetsResult`・`ValuesYamlDraft`・`LabeledTarget` |
-| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                            | `steps/<step名>/sub-steps/shared/types.ts`       | `BranchExists`・`LatestTagResolution`・`StageUpdatesAcc<U>`                   |
+| 型の性質                                                                             | 置き場所                                         | 例                                                                              |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                           | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ChartAndApps`・`AppUpdatePlan`・`ChartUpdateResult`・`Config`・`ParsedTag`     |
+| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                   | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`Anchors`・`AnchorsApp`・`EnvConfig`            |
+| ドメイン知識を持たない汎用処理の型                                                   | その`utils/`ファイル                             | `Sorted`                                                                        |
+| 複数のstepが共有する、ドメイン型にだけ依存する型                                     | `steps/shared/`                                  | `StepOutcome<T>`                                                                |
+| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlanContext`・`FilterTargetsResult`・`ValuesYamlDraft`・`LabeledTarget`   |
+| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                            | `steps/<step名>/sub-steps/shared/types.ts`       | `BranchExists`・`LatestTagResolution`・`AppWithLatestTag`・`StageUpdatesAcc<U>` |
 
 - 「型は`types/`にまとめる」という運用にしないのは、`types/`が「ドメイン語彙の一覧」ではなく
   「型の物置」になると、どの型がこのツールの語彙でどの型が実装の都合かが読み分けられなくなるため。
@@ -244,7 +247,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - `sub-steps/shared/types.ts`のような型だけのファイルは、**特定の1ファイルに帰属しない型**
   （複数のサブステップが共有する関数型インターフェースや共通のアキュムレータ基底）だけに使う。
   1ファイルからしか使われない型はそのファイルへ戻す
-- **上表の5行目と6行目は競合しうる**（`LatestTagResolution` は `resolveLatestTag()` が生み出す型
+- **上表の5行目と6行目は競合しうる**（`LatestTagResolution` は `resolve-latest-tags.ts` が生み出す型
   だが `stage-image-tag-updates.ts` も使う）。そのときは **`shared/` 側を優先する** —
   サブステップ同士が互いをimportしないという原則の方が、型と生成関数の同居より優先度が高い
 - **1行目と5行目も競合しうる**。`ParsedTag` は `domain/tag-format.ts` の関数が生み出す型だが、
@@ -283,8 +286,9 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 `withAppContext()`（`steps/shared/step-outcome.ts`）は、chartAndAppsの中でアプリ1件ぶんの処理を
 切り出している箇所を包み、非fatalな例外に`[アプリ: <projectName>]`を前置する。呼び出し元は
-`build-plans.ts`のアプリのループと、`apply-updates/sub-steps/collect-mr-entries.ts`のplanごとの
-web URL・パイプライン解決の2箇所。
+`build-plans/sub-steps/`のアプリのループ2箇所（`resolve-latest-tags.ts`・
+`stage-image-tag-updates.ts`）と、`apply-updates/sub-steps/collect-mr-entries.ts`のplanごとの
+web URL・パイプライン解決。
 
 - **`collect-mr-entries.ts`を対象外にしない**。chartAndAppsはオールオアナッシングでERRORになるため、
   「どのアプリで落ちたか」が要るのはアプリ単位の処理を持つ箇所すべてで同じ。ここは
@@ -313,10 +317,14 @@ web URL・パイプライン解決の2箇所。
 **読み取りだけを先に並列化する案も検討したうえで採らなかった**:
 
 - 技術的には可能（1アプリの読み取りは他アプリの書き換え結果に依存しない）
-- 採らない理由: 1アプリあたりのAPI往復は実質2〜3回で削減幅が小さい一方、最新タグの解決は
-  **タグ作成という副作用**を持つため、読み取りフェーズへ移すとタグ作成が並列かつ前倒しで走る。
-  さらに下書きの並列共有には二重fetch対策が要る。夜間の定期実行という前提で、MR内容とGitLabへの
-  書き込みに関わる経路を複雑にする価値は無い
+- 採らない理由: 1アプリあたりのAPI往復は実質2〜3回で削減幅が小さい一方、下書きの並列共有には
+  二重fetch対策が要る。さらに最新タグの解決は**タグ作成という副作用**を持つため、並列化すると
+  タグの作成順が実行ごとに変わる。夜間の定期実行という前提で、MR内容とGitLabへの書き込みに
+  関わる経路を複雑にする価値は無い
+- **フェーズの分割自体は行っている**（`resolveLatestTags()`が全アプリの最新タグを先に解決し、
+  その後`stageImageTagUpdates()`が差分を積む）。ただし逐次のままなのでタグの作成順は変わらず、
+  作られるタグの集合も変わらない（差分の有無に関わらず解決時に作る点は従来どおり）。従来と違うのは
+  途中でFatalErrorが出たときにどこまでタグが作られているかだけ
 - 遅い場合にまず動かすのは`CONCURRENCY_LIMIT`。1つのclientに数十アプリが登録され、そこが実測で
   ボトルネックになったときに再検討する
 
@@ -333,7 +341,7 @@ web URL・パイプライン解決の2箇所。
 - 読み込み用と書き込み用で**入口の関数を分けてある**のは、「変更済みエントリは書き込み経由でしか
   生まれない」という不変条件を関数名のレベルで保つため
 - **内容と「書き換えた」印は1つのエントリにまとめてある**。以前は`valuesYamlCache`（内容）と
-  `modifiedValuesPaths`（印）を別々に持ち回り、`buildAppUpdatePlan()`が段階ごとに2フィールドを
+  `modifiedValuesPaths`（印）を別々に持ち回り、1アプリ分の処理が段階ごとに2フィールドを
   手作業で詰め替えていた。「印は付いているのに内容が無い」組み合わせを型で防げず、
   実行時のinternal errorで検査していた
 
@@ -440,8 +448,12 @@ values.yamlの書き込み位置は用途を問わず`AnchorTarget`1つ。TypeSc
 importしない。`sub-steps/`直下は親stepが呼ぶステップ本体だけに保つことで、直下のファイル同士が
 importし合っていないことをディレクトリの形で確認できる。呼び分けは親stepが行う。
 
-- **1アプリ分の処理も独立したサブステップにしない**。それ自体が他のサブステップを呼ぶ
-  「サブステップがサブステップを呼ぶ」構造になるため、親stepの非公開関数に置く
+- **1アプリ分の処理を独立したサブステップにしない**。それ自体が他のサブステップを呼ぶ
+  「サブステップがサブステップを呼ぶ」構造になるため。代わりに**アプリのループを各サブステップの
+  内側へ入れる**（`resolve-latest-tags.ts`＝全アプリの最新タグ解決、`stage-image-tag-updates.ts`
+  ＝全アプリのイメージタグ反映）。親stepにアプリのループと非公開の中間層を置く形も採れるが、
+  そうすると`buildPlan()`の中で「1段下へ降りる呼び出し」と「同じ段のサブステップ呼び出し」が
+  同じ深さに並び、粒度が揃って見えなくなる。**階層はサブステップ側に隠す**
 
 #### 実在チェックは`src/lib/`ではなく`scripts/lint/`に置く
 

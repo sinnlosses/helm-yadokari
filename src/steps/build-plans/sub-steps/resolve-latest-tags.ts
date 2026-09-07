@@ -14,10 +14,40 @@ import type {
   TagName,
 } from "../../../types/types.js"
 import { logger } from "../../../utils/logger.js"
-import type { LatestTagResolution } from "./shared/types.js"
+import { reduceAsync } from "../../../utils/sequential.js"
+import { withAppContext } from "../../shared/step-outcome.js"
+import type { AppWithLatestTag, LatestTagResolution } from "./shared/types.js"
 
 /**
- * 追跡ブランチ由来の最新タグを判定する。追跡ブランチの現在のHEADコミットを指すタグが
+ * 1つのchartAndApps配下の全アプリについて、追跡ブランチ由来の最新タグを解決する。アプリを
+ * 1つずつ順に処理するのはこの関数の責務で、呼び出し元（`build-plans.ts`）は「このclientの
+ * 全アプリの最新タグを決める」という1つの操作として呼ぶだけでよい。
+ *
+ * 解決結果はアプリと対（`AppWithLatestTag`）にして返す。後段の差分判定
+ * （`stage-image-tag-updates.ts`）がどのタグがどのアプリのものかを引き当て直さずに済むため。
+ *
+ * タグ作成という副作用を持つため、アプリ間で順序が入れ替わらないよう並列化しない。
+ */
+export async function resolveLatestTags(
+  gitlab: GitlabClient,
+  apps: readonly AppConfig[],
+  dryRun: boolean,
+  tagFormat: TagFormat,
+): Promise<readonly AppWithLatestTag[]> {
+  const initial: readonly AppWithLatestTag[] = []
+  return reduceAsync(apps, initial, async (acc, app) => [
+    ...acc,
+    {
+      app,
+      latestTag: await withAppContext(app.projectName, () =>
+        resolveLatestTag(gitlab, app, dryRun, tagFormat),
+      ),
+    },
+  ])
+}
+
+/**
+ * 1アプリ分の、追跡ブランチ由来の最新タグを判定する。追跡ブランチの現在のHEADコミットを指すタグが
  * 1件も無い場合は、このツール自身がHEADコミットに新しいタグを作成し、それを最新タグとして
  * 扱う（dryRun のときは実際の作成はスキップし、作成予定のタグ名だけを使う）。タグの命名規則は
  * `tagFormat`（`TAG_FORMAT`環境変数由来）に従う。
@@ -37,7 +67,7 @@ import type { LatestTagResolution } from "./shared/types.js"
  * 更新しないため。切り替え前のタグ名は現在の`branch`ではパースできずこの集合に入らないので、
  * 切り替え時は同じコミットを指していても更新される（判定は`stage-image-tag-updates.ts`側）。
  */
-export async function resolveLatestTag(
+async function resolveLatestTag(
   gitlab: GitlabClient,
   app: AppConfig,
   dryRun: boolean,

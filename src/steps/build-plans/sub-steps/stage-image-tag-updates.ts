@@ -1,28 +1,70 @@
 import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
-import type { AnchorTarget, ImageTagUpdate } from "../../../types/types.js"
+import type { AnchorTarget, AppUpdatePlan, ImageTagUpdate } from "../../../types/types.js"
 import { toTagName } from "../../../types/types.js"
+import { logger } from "../../../utils/logger.js"
 import { reduceAsync } from "../../../utils/sequential.js"
-import type { StageUpdatesAcc, LatestTagResolution } from "./shared/types.js"
+import { withAppContext } from "../../shared/step-outcome.js"
+import type { AppWithLatestTag, StageUpdatesAcc, LatestTagResolution } from "./shared/types.js"
 import type { ValuesYamlDraft, ValuesYamlSource } from "./shared/values-yaml-draft.js"
 import { readValuesYamlDraft, writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 
-export type StageImageTagUpdatesAcc = StageUpdatesAcc<ImageTagUpdate>
+/** 差分があったアプリの更新計画と、全アプリ分を積み終えた下書き */
+export type StageImageTagUpdatesResult = {
+  readonly plans: readonly AppUpdatePlan[]
+  readonly draft: ValuesYamlDraft
+}
+
+type StageAppImageTagUpdatesAcc = StageUpdatesAcc<ImageTagUpdate>
 
 /**
- * 1アプリの`app.imageTagTargets`（1件以上）を先頭から順に`stageImageTagUpdate()`へ渡す。
- * 複数箇所を扱うのはこの関数の責務で、呼び出し元（`build-plans.ts`）は
- * 「アプリの全書き込み先にイメージタグを適用する」という1つの操作として呼ぶだけでよい。
+ * 1つのchartAndApps配下の全アプリについて、イメージタグの更新を1つの下書きに積み上げる。
+ * アプリと書き込み先の両方のループを扱うのはこの関数の責務で、呼び出し元（`build-plans.ts`）は
+ * 「このclientの全アプリのイメージタグを適用する」という1つの操作として呼ぶだけでよい。
+ *
+ * 同じvalues.yamlを参照する複数アプリ・複数箇所の変更が1つの下書きに積み重なるよう、
+ * アプリは並列化せず1つずつ処理する。
  */
 export async function stageImageTagUpdates(
   source: ValuesYamlSource,
-  latestTag: LatestTagResolution,
+  appsWithLatestTag: readonly AppWithLatestTag[],
   draft: ValuesYamlDraft,
-  targets: readonly AnchorTarget[],
-): Promise<StageImageTagUpdatesAcc> {
-  const initialAcc: StageImageTagUpdatesAcc = { draft, updates: [] }
-  return reduceAsync(targets, initialAcc, (current, target) =>
-    stageImageTagUpdate(source, latestTag, current, target),
+): Promise<StageImageTagUpdatesResult> {
+  const initialResult: StageImageTagUpdatesResult = { plans: [], draft }
+  return reduceAsync(appsWithLatestTag, initialResult, (result, appWithLatestTag) =>
+    withAppContext(appWithLatestTag.app.projectName, () =>
+      stageAppImageTagUpdates(source, result, appWithLatestTag),
+    ),
   )
+}
+
+/**
+ * 1アプリの`app.imageTagTargets`（1件以上）を先頭から順に`stageImageTagUpdate()`へ渡し、
+ * 差分が1件でもあれば`AppUpdatePlan`を1件積む。差分が無ければ理由をログに出し、下書きだけを
+ * 引き継ぐ（読み込んだvalues.yamlは次のアプリで使い回せる）。
+ */
+async function stageAppImageTagUpdates(
+  source: ValuesYamlSource,
+  result: StageImageTagUpdatesResult,
+  { app, latestTag }: AppWithLatestTag,
+): Promise<StageImageTagUpdatesResult> {
+  const initialAcc: StageAppImageTagUpdatesAcc = { draft: result.draft, updates: [] }
+  const { draft, updates } = await reduceAsync(app.imageTagTargets, initialAcc, (acc, target) =>
+    stageImageTagUpdate(source, latestTag, acc, target),
+  )
+
+  if (updates.length === 0) {
+    logger.info({
+      event: "check_app",
+      projectName: app.projectName,
+      result: "SKIPPED",
+      reason: "already_up_to_date",
+      tag: latestTag.tag.name,
+    })
+    return { plans: result.plans, draft }
+  }
+
+  const plan: AppUpdatePlan = { app, latestTag: latestTag.tag, updates }
+  return { plans: [...result.plans, plan], draft }
 }
 
 /**
@@ -36,9 +78,9 @@ export async function stageImageTagUpdates(
 async function stageImageTagUpdate(
   source: ValuesYamlSource,
   latestTag: LatestTagResolution,
-  acc: StageImageTagUpdatesAcc,
+  acc: StageAppImageTagUpdatesAcc,
   target: AnchorTarget,
-): Promise<StageImageTagUpdatesAcc> {
+): Promise<StageAppImageTagUpdatesAcc> {
   const latestTagName = latestTag.tag.name
   const { content: valuesYamlContent, draft } = await readValuesYamlDraft(
     source,
