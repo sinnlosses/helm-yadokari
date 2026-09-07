@@ -11,6 +11,7 @@ import {
   toBranchName,
   toGitLabUrl,
   toProjectId,
+  toTagName,
   toValuesPath,
 } from "../../../../src/types/types.js"
 import { makePlan } from "../../../helpers.js"
@@ -41,11 +42,11 @@ describe("collectMrEntries", () => {
       updates: [
         {
           target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
-          previousTagName: undefined,
+          previousTagName: toTagName("prev"),
         },
         {
           target: { valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") },
-          previousTagName: undefined,
+          previousTagName: toTagName("prev"),
         },
       ],
     })

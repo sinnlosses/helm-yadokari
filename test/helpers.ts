@@ -57,16 +57,13 @@ export function makeChartAndApps(
 export function makePlan(
   overrides: Partial<{
     pipeline: PipelineInfo
-    previousTagName: TagName | undefined
+    previousTagName: TagName
     projectName: string
     updates: AppUpdatePlan["updates"]
     helmTargetBranchUpdates: AppUpdatePlan["helmTargetBranchUpdates"]
   }> = {},
 ): AppUpdatePlan {
-  const previousTagName =
-    "previousTagName" in overrides
-      ? overrides.previousTagName
-      : toTagName("main-build-at-20251231-000000")
+  const previousTagName = overrides.previousTagName ?? toTagName("main-build-at-20251231-000000")
   return {
     app: makeApp({
       projectId: toProjectId(1),

@@ -1,4 +1,4 @@
-import { getValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
+import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
 import type {
   AnchorTarget,
   HelmTargetBranchConfig,
@@ -48,7 +48,11 @@ async function stageHelmTargetBranchUpdate(
     acc.draft,
     target.valuesPath,
   )
-  const previousBranchRaw = getValueAtAnchor(valuesYamlContent, target.anchorName)
+  const previousBranchRaw = getRequiredValueAtAnchor(
+    valuesYamlContent,
+    target.anchorName,
+    target.valuesPath,
+  )
   if (previousBranchRaw === branchName) return { ...acc, draft }
 
   if (!(await branchExists(branchName))) {
@@ -67,8 +71,7 @@ async function stageHelmTargetBranchUpdate(
       ...acc.updates,
       {
         target,
-        previousBranch:
-          previousBranchRaw === undefined ? undefined : toBranchName(previousBranchRaw),
+        previousBranch: toBranchName(previousBranchRaw),
         newBranch: branchName,
       },
     ],

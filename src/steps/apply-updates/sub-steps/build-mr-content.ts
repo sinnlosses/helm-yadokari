@@ -61,20 +61,14 @@ function buildImageTagSection(entries: readonly ImageTagEntry[]): string {
     "| リポジトリ | 追跡ブランチ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
     "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...entries.map(({ plan, update, webUrl }) => {
-      const previousTagText = update.previousTagName
-        ? `[${update.previousTagName}](${buildTagUrl(webUrl, update.previousTagName)})`
-        : "(未設定)"
-      const compareUrl = update.previousTagName
-        ? buildCompareUrl(webUrl, update.previousTagName, plan.latestTag.name)
-        : "-"
       const cells = [
         plan.app.projectName,
         `\`${plan.app.branchToSync}\``,
         `\`${update.target.valuesPath}\``,
         `\`${update.target.anchorName}\``,
-        previousTagText,
+        `[${update.previousTagName}](${buildTagUrl(webUrl, update.previousTagName)})`,
         `[${plan.latestTag.name}](${buildTagUrl(webUrl, plan.latestTag.name)})`,
-        compareUrl,
+        buildCompareUrl(webUrl, update.previousTagName, plan.latestTag.name),
         plan.pipeline ? plan.pipeline.webUrl : "-",
       ]
       return `| ${cells.join(" | ")} |`
@@ -94,9 +88,8 @@ function buildHelmTargetBranchSection(updates: readonly HelmTargetBranchUpdate[]
     "| 旧ブランチ | 新ブランチ | ファイル | アンカー |",
     "| --- | --- | --- | --- |",
     ...updates.map((update) => {
-      const previousBranchText = update.previousBranch ? `\`${update.previousBranch}\`` : "(未設定)"
       const cells = [
-        previousBranchText,
+        `\`${update.previousBranch}\``,
         `\`${update.newBranch}\``,
         `\`${update.target.valuesPath}\``,
         `\`${update.target.anchorName}\``,

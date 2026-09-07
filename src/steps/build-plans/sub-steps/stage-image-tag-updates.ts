@@ -1,4 +1,4 @@
-import { getValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
+import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
 import type { AnchorTarget, ImageTagUpdate } from "../../../types/types.js"
 import { toTagName } from "../../../types/types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
@@ -45,11 +45,12 @@ async function stageImageTagUpdate(
     acc.draft,
     target.valuesPath,
   )
-  const previousTagRaw = getValueAtAnchor(valuesYamlContent, target.anchorName)
-  const previousTagName = previousTagRaw === undefined ? undefined : toTagName(previousTagRaw)
+  const previousTagName = toTagName(
+    getRequiredValueAtAnchor(valuesYamlContent, target.anchorName, target.valuesPath),
+  )
 
   if (previousTagName === latestTagName) return { ...acc, draft }
-  if (previousTagName !== undefined && latestTag.trackedHeadTagNames.has(previousTagName)) {
+  if (latestTag.trackedHeadTagNames.has(previousTagName)) {
     return { ...acc, draft }
   }
 

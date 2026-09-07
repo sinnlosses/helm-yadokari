@@ -24,6 +24,11 @@ T-001〜T-094 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
   **基準は既に `docs/architecture.md` に6行の表として存在**し、`coding-standards.md` は
   そこへ明示的に委譲していた（問題はたどり着けないこと）。正典は `architecture.md` のまま
   拡充し、規約側からは導線を張るだけ、とユーザー合意のうえ本文を書き直した。
+- **T-095 完了**。values.yaml のアンカー不在を読み取り時の例外に寄せ、`previousTagName` /
+  `previousBranch` から `| undefined` を消した（実行時に到達不能な分岐だった）。MR本文の
+  「(未設定)」表示は到達不能なので削除。`lib/helm.ts` の `getValueAtAnchor()` は
+  `verify-config.ts` が全問題を集める用途で残置。`pnpm check`（31ファイル335テスト、
+  ベースラインと同数）。
 - **アーカイブ**: `develop/tasks.json` が44KBと基準（30KB）を超えたため、`done` の
   T-092〜T-094 を `docs/history/` へ移した。
 

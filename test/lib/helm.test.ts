@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import { getValueAtAnchor, setValueAtAnchor } from "../../src/lib/helm.js"
-import { toAnchorName } from "../../src/types/types.js"
+import { getRequiredValueAtAnchor, getValueAtAnchor, setValueAtAnchor } from "../../src/lib/helm.js"
+import { toAnchorName, toValuesPath } from "../../src/types/types.js"
 
 const VARIABLES_YAML = `variables:
   - &helmVersion develop
@@ -21,6 +21,28 @@ describe("getValueAtAnchor", () => {
 
   it("該当するアンカーが存在しないとき undefined を返す", () => {
     expect(getValueAtAnchor(VARIABLES_YAML, toAnchorName("noSuchAnchor"))).toBeUndefined()
+  })
+})
+
+describe("getRequiredValueAtAnchor", () => {
+  it("アンカー名に対応する値を返す", () => {
+    expect(
+      getRequiredValueAtAnchor(
+        VARIABLES_YAML,
+        toAnchorName("tenant1client1AppsVersion"),
+        toValuesPath("values.yaml"),
+      ),
+    ).toBe("main")
+  })
+
+  it("該当するアンカーが存在しないとき、valuesPathを含む例外をスローする", () => {
+    expect(() =>
+      getRequiredValueAtAnchor(
+        VARIABLES_YAML,
+        toAnchorName("noSuchAnchor"),
+        toValuesPath("values.yaml"),
+      ),
+    ).toThrow('values.yaml にアンカー "noSuchAnchor" が見つかりません (valuesPath: values.yaml)')
   })
 })
 

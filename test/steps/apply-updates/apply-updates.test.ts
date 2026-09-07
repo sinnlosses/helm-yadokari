@@ -44,7 +44,7 @@ function makeTarget(): ChartUpdateTarget {
               valuesPath: toValuesPath("values.yaml"),
               anchorName: toAnchorName("appVersion"),
             },
-            previousTagName: undefined,
+            previousTagName: toTagName("prev"),
           },
         ],
         helmTargetBranchUpdates: [],

@@ -1,6 +1,6 @@
 import { type Document, type Scalar, parseDocument, visit } from "yaml"
 
-import type { AnchorName } from "../types/types.js"
+import type { AnchorName, ValuesPath } from "../types/types.js"
 
 // Helm chart の values.yaml を操作するための処理を置く。
 // 今のところは YAMLアンカーでの値の取得・書き換えのみだが、Helm chart 固有の処理
@@ -9,10 +9,30 @@ import type { AnchorName } from "../types/types.js"
 /**
  * YAML文字列から、指定したアンカー名を持つスカラー値を取得する。
  * 該当するアンカーが存在しない場合は undefined を返す。
+ * `config/`側の設定ミスを1件目で止めず全問題を集めたい `verify-config.ts` 向け。
  */
 export function getValueAtAnchor(yamlContent: string, anchorName: AnchorName): string | undefined {
   const node = findAnchorNode(parseDocument(yamlContent), anchorName)
   return node === undefined ? undefined : String(node.value)
+}
+
+/**
+ * YAML文字列から、指定したアンカー名を持つスカラー値を取得する。
+ * 該当するアンカーが存在しない場合は例外を投げる。chartリポジトリ側のvalues.yamlから
+ * アンカーが消えたケース向けで、config/側の設定ミス検知には`getValueAtAnchor()`を使う。
+ */
+export function getRequiredValueAtAnchor(
+  yamlContent: string,
+  anchorName: AnchorName,
+  valuesPath: ValuesPath,
+): string {
+  const value = getValueAtAnchor(yamlContent, anchorName)
+  if (value === undefined) {
+    throw new Error(
+      `values.yaml にアンカー "${anchorName}" が見つかりません (valuesPath: ${valuesPath})`,
+    )
+  }
+  return value
 }
 
 /**

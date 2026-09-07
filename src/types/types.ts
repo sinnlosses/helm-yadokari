@@ -89,13 +89,13 @@ export type PipelineInfo = {
 /** `AppConfig.imageTagTargets`のうち1箇所分の更新内容。`previousTagName`は書き換え箇所ごとに独立して読み取る */
 export type ImageTagUpdate = {
   readonly target: AnchorTarget
-  readonly previousTagName: TagName | undefined
+  readonly previousTagName: TagName
 }
 
 /** `previousBranch`はvalues.yaml側の現在値、`newBranch`はconfig.yaml設定値 */
 export type HelmTargetBranchUpdate = {
   readonly target: AnchorTarget
-  readonly previousBranch: BranchName | undefined
+  readonly previousBranch: BranchName
   readonly newBranch: BranchName
 }
 

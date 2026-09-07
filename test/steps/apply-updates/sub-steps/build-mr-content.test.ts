@@ -8,6 +8,7 @@ import {
   toBranchName,
   toClientId,
   toGitLabUrl,
+  toTagName,
   toTenantId,
   toValuesPath,
 } from "../../../../src/types/types.js"
@@ -50,15 +51,15 @@ describe("buildMrContent（タイトル）", () => {
       updates: [
         {
           target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
-          previousTagName: undefined,
+          previousTagName: toTagName("prev"),
         },
         {
           target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("y") },
-          previousTagName: undefined,
+          previousTagName: toTagName("prev"),
         },
         {
           target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("z") },
-          previousTagName: undefined,
+          previousTagName: toTagName("prev"),
         },
       ],
     })
@@ -128,11 +129,11 @@ describe("buildMrContent（本文）", () => {
           updates: [
             {
               target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
-              previousTagName: undefined,
+              previousTagName: toTagName("prev"),
             },
             {
               target: { valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") },
-              previousTagName: undefined,
+              previousTagName: toTagName("prev"),
             },
           ],
         }),
@@ -186,14 +187,6 @@ describe("buildMrContent（本文）", () => {
     expect(description.split("\n").find((line) => line.includes("my-app"))).toMatch(/\| - \|$/)
   })
 
-  it("旧タグが未設定のとき (未設定) と表示し、比較は - にする", () => {
-    const description = buildDescription(entriesOf([makePlan({ previousTagName: undefined })]))
-
-    const row = description.split("\n").find((line) => line.includes("my-app"))
-    expect(row).toContain("(未設定)")
-    expect(description).not.toContain("/-/compare/")
-  })
-
   it("向き先ブランチの更新は別セクションのテーブルにする", () => {
     const description = buildDescription(
       entriesOf([makePlan({ helmTargetBranchUpdates: [helmUpdate] })]),
@@ -207,17 +200,6 @@ describe("buildMrContent（本文）", () => {
     expect(helmSection).toContain("`release/2026-q1`")
     expect(helmSection).toContain("| `values.yaml` | `targetBranch` |")
     expect(description.slice(0, helmSectionIndex)).not.toContain("release/2026-q1")
-  })
-
-  it("向き先ブランチの旧ブランチが未設定のとき (未設定) と表示する", () => {
-    const description = buildDescription(
-      entriesOf([
-        makePlan({ helmTargetBranchUpdates: [{ ...helmUpdate, previousBranch: undefined }] }),
-      ]),
-    )
-
-    expect(description).toContain("(未設定)")
-    expect(description).toContain("`release/2026-q1`")
   })
 
   it("向き先ブランチの更新が無いとき、そのセクションを出さない", () => {
