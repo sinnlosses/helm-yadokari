@@ -29,10 +29,10 @@
   {
     "id": "T-105",
     "task": "`develop/test-inventory.md` の発見リストに沿って、テストの削除・集約・追加を実施する。\n\n## 決定済みの方針（実装時に蒸し返さない）\n\n- 判断基準は `docs/coding-standards.md`「テスト」節が正典。新しい基準をここで作らない。\n- **削除は必ず手続きで縛る**。同節の削除の手続き（`it.skip` にして `pnpm check` が落ちない／`pnpm test:coverage` の到達行・分岐が減らない）を、削除する1件ごとに回す。発見リストの skip確認は計測時点のものなので、実施時にもう一度取り直す。\n- **カバレッジに閾値は設けない**。数字を上げることを目的にしない。\n- 発見リストの「消さないと決めたもの」は消さない。\n- 発見リストの「埋めない穴」は埋めない。埋めない判断を変えたくなったら、リスト側の理由を先に更新する。\n\n## やること\n\n1. 削除候補9件を、1件ずつ手続きを回して削除する。手続きに引っかかったものは残し、`develop/test-inventory.md` にその結果を追記する。\n2. 重複の集約候補2件（`build-plans` 系4ファイルの `beforeEach` とモック定数、`const mockGitlab = {} as unknown as GitlabClient`）を `test/helpers.ts` に寄せる。テストの件数はここでは減らさない。\n3. 要調査1件（`test/steps/build-plans/build-plans.test.ts` とサブステップ3ファイルの経路の重なり）をテスト単位で判断する。\n4. 追加候補4件（`src/index.ts` の終了コード、`projectExists`、`loadEnvConfig()`、`verify-config.ts` の catch）のテストを書く。\n\n## 完了条件\n\n- 削除した各テストについて、手続きの2ステップを通した記録が `develop/test-inventory.md` に残っていること。\n- 追加した4件が、それぞれ対象の行に到達していることを `pnpm test:coverage` で確認できること。\n- `pnpm check` を通すこと。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "削除候補9件を1件ずつ手続き（it.skip→pnpm check通過→カバレッジ表不変）にかけて全件削除、9件まとめて削除後もカバレッジ表が実施前と完全一致することを確認。集約2件を test/helpers.ts に寄せ（mockGitlab・OLD_TAG/NEW_TAG/HEAD_SHA・mockBuildPlansGitlab()）。要調査1件は残す判断。追加4件を7テストとして実装し、カバレッジは 97.19%→99.37%（Lines 97.54%→99.82%）。実施結果と発見は develop/test-inventory.md「実施結果」に追記。pnpm check 通過（32ファイル337テスト）。",
     "dependencies": ["T-104"]
   },
   {
@@ -52,5 +52,14 @@
     "passes": false,
     "evidence": "",
     "dependencies": ["T-104"]
+  },
+  {
+    "id": "T-108",
+    "task": "`src/index.ts` の `loadEnvConfig()` の失敗が `.catch` に載らない件を直す。\n\n## 背景（確認済みの事実）\n\n冒頭コメントは「環境変数の読み込みを非同期の中で呼ぶのは、その失敗も下の catch に載せて構造化ログに出すため。トップレベルで投げると素のスタックトレースになる」と説明している。しかし実際の `run(loadEnvConfig())` は引数の `loadEnvConfig()` が先に同期評価されるため、`GITLAB_URL` 未設定などの失敗は `.catch` に載らず、モジュール評価時の例外として素のスタックトレースになる。コメントが説明している意図と実装が食い違っている。\n\n`test/index.test.ts` を書いた際に再現済み（そのケースは失敗するためテストには含めていない）。\n\n## やること\n\n- `loadEnvConfig()` の呼び出しを `.then` の中に入れるなどして、失敗が `unhandled_error` として構造化ログに出るようにする。\n- 直したうえで `test/index.test.ts` に「環境変数の読み込みの失敗も unhandled_error として記録する」ケースを足す。\n- 冒頭コメントが実装と食い違わない状態にする。\n\n## 完了条件\n\n- 追加したケースが通り、`pnpm check` が通ること。\n- `develop/test-inventory.md`「追加テストで見つかった食い違い」の記述を、直した後の状態に合わせて更新すること。",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-105"]
   }
 ]

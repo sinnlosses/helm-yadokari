@@ -1,9 +1,21 @@
+import { vi } from "vitest"
+
+import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
+import {
+  branchExists,
+  createTag,
+  getBranchHeadSha,
+  getFileContent,
+  getLatestPipelineForRef,
+  listTags,
+} from "../src/lib/gitlab/gitlab.js"
 import type { AppConfig, AppUpdatePlan, ChartAndApps, TagName } from "../src/types/types.js"
 import {
   toAnchorName,
   toBranchName,
   toChartDirName,
   toClientId,
+  toCommitSha,
   toProjectId,
   toProjectName,
   toTagName,
@@ -13,6 +25,29 @@ import {
 
 export const makeHttpError = (status: number): Error =>
   new Error("HTTP Error", { cause: { response: { status } } })
+
+/**
+ * `vi.mock()`でモックしたGitLabクライアントの置き換え先。実体は使われないため空オブジェクトで
+ * 足りる。`as`を使う箇所をここ1つに閉じ込めるためテスト側では組み立てない。
+ */
+export const mockGitlab = {} as unknown as GitlabClient
+
+export const OLD_TAG = "main-build-at-20251231-000000"
+export const NEW_TAG = toTagName("main-build-at-20260101-000000")
+export const HEAD_SHA = toCommitSha("head-sha")
+
+/**
+ * `buildPlans()`を通すテストの既定のモック。追跡ブランチのHEADに`NEW_TAG`があり、values.yamlの
+ * 現在値が`OLD_TAG`（＝差分1件が出る）状態にする。個別のテストは必要なものだけ上書きする。
+ */
+export function mockBuildPlansGitlab(): void {
+  vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
+  vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
+  vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
+  vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
+  vi.mocked(createTag).mockResolvedValue(undefined)
+  vi.mocked(branchExists).mockResolvedValue(true)
+}
 
 export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
   return {

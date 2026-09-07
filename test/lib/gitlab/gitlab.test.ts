@@ -14,6 +14,7 @@ import {
   getProjectWebUrls,
   listTags,
   openMergeRequestExists,
+  projectExists,
 } from "../../../src/lib/gitlab/gitlab.js"
 import {
   toBranchName,
@@ -71,6 +72,18 @@ describe("listTags", () => {
   })
 })
 
+describe("projectExists", () => {
+  it("プロジェクトが存在するとき true を返す", async () => {
+    const client = makeClient({ Projects: { show: vi.fn().mockResolvedValue({ id: 1 }) } })
+    expect(await projectExists(client, toProjectId(1))).toBe(true)
+  })
+
+  it("404 のとき false を返す", async () => {
+    const client = makeClient({ Projects: { show: vi.fn().mockRejectedValue(makeHttpError(404)) } })
+    expect(await projectExists(client, toProjectId(1))).toBe(false)
+  })
+})
+
 describe("branchExists", () => {
   it("ブランチが存在するとき true を返す", async () => {
     const client = makeClient({ Branches: { show: vi.fn().mockResolvedValue({}) } })
@@ -107,12 +120,6 @@ describe("getBranchHeadSha", () => {
       await getBranchHeadSha(client, toProjectId(1), toBranchName("nonexistent")),
     ).toBeUndefined()
   })
-
-  it("404以外のエラーは再スローする", async () => {
-    const err = makeHttpError(500)
-    const client = makeClient({ Branches: { show: vi.fn().mockRejectedValue(err) } })
-    await expect(getBranchHeadSha(client, toProjectId(1), toBranchName("main"))).rejects.toBe(err)
-  })
 })
 
 describe("getFileContent", () => {
@@ -143,14 +150,6 @@ describe("getFileContent", () => {
         toBranchName("main"),
       ),
     ).toBeUndefined()
-  })
-
-  it("404以外のエラーは再スローする", async () => {
-    const err = makeHttpError(500)
-    const client = makeClient({ RepositoryFiles: { show: vi.fn().mockRejectedValue(err) } })
-    await expect(
-      getFileContent(client, toProjectId(1), toValuesPath("values.yaml"), toBranchName("main")),
-    ).rejects.toBe(err)
   })
 })
 

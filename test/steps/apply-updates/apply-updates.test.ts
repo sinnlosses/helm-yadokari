@@ -9,7 +9,6 @@ vi.mock("../../../src/utils/logger.js", () => ({
 }))
 
 import { buildFeatureBranch } from "../../../src/domain/feature-branch.js"
-import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
 import { commitFileUpdates, createMergeRequest } from "../../../src/lib/gitlab/gitlab.js"
 import { applyUpdates } from "../../../src/steps/apply-updates/apply-updates.js"
 import { buildMrContent } from "../../../src/steps/apply-updates/sub-steps/build-mr-content.js"
@@ -18,9 +17,7 @@ import type { MrEntries } from "../../../src/steps/apply-updates/sub-steps/share
 import type { ChartUpdateTarget } from "../../../src/types/types.js"
 import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"
-import { makeApp, makeChartAndApps, makeHttpError } from "../../helpers.js"
-
-const mockGitlab = {} as unknown as GitlabClient
+import { makeApp, makeChartAndApps, makeHttpError, mockGitlab } from "../../helpers.js"
 
 const MR_ENTRIES: MrEntries = { imageTags: [], helmBranches: [] }
 

@@ -5,14 +5,11 @@ vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
-import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
 import { openMergeRequestExists } from "../../../src/lib/gitlab/gitlab.js"
 import { filterTargets } from "../../../src/steps/filter-targets/filter-targets.js"
 import { toChartDirName, toClientId, toTenantId } from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"
-import { makeApp, makeChartAndApps, makeHttpError } from "../../helpers.js"
-
-const mockGitlab = {} as unknown as GitlabClient
+import { makeApp, makeChartAndApps, makeHttpError, mockGitlab } from "../../helpers.js"
 
 describe("filterTargets", () => {
   beforeEach(() => {

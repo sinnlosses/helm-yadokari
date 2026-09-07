@@ -69,3 +69,32 @@ Functions 97.13% (237/244) / Lines 97.54% (556/570)。
 | `src/steps/build-plans/sub-steps/resolve-latest-tag.ts` 61          | `trackedHeadTagNames.size > 0` の時点でパース可能なタグが1件以上あるため、`if (latestAtHead)` の偽側には到達しない                                                                                                                                                   |
 | `src/utils/http.ts` 42（`isFatalStatus` の `status === undefined`） | 唯一の呼び出し元が `status !== undefined` を確認済みで到達しない。**テストではなくコード側の問題**で、引数の型を `number` に狭めれば分岐ごと消える（`docs/coding-standards.md`「避ける `undefined`」の「実行時には到達しないのに型に残っている `undefined`」に該当） |
 | `src/steps/shared/describe-plan.ts` 19（`map` のコールバック）      | Helmの向き先ブランチ更新のログサマリが、空配列でしか組み立てられていない。更新そのものの振る舞いは `stage-helm-target-branch-updates.test.ts` が確かめており、未到達なのはログの文面だけ                                                                             |
+
+## 実施結果
+
+削除・集約・追加を実施した後の計測: Statements 99.37% / Branches 97.87% / Functions 99.59% /
+Lines 99.82%（実施前は 97.19 / 95.75 / 97.13 / 97.54）。32ファイル・337テスト。
+
+- **削除候補9件は全件削除した**。1件ずつ `it.skip` にして `pnpm check` の通過とカバレッジ表の
+  不変を確認し、9件をまとめて削除した後にもう一度カバレッジ表が実施前と完全一致することを
+  確認した（削除で減った9件は、直後に追加した7件と相殺されて総数337に戻っている）。
+- **集約2件を実施した**。`mockGitlab` と `OLD_TAG`/`NEW_TAG`/`HEAD_SHA`、`build-plans` 系の
+  `beforeEach` の中身（`mockBuildPlansGitlab()`）を `test/helpers.ts` に寄せた。
+  `as unknown as GitlabClient` はテスト本体から消え、`helpers.ts` と `gitlab.test.ts` の
+  `makeClient()` の2箇所だけになった。
+- **要調査1件は「残す」と判断した**。`build-plans.test.ts` の10件は SKIPPED/ERROR の振り分け、
+  オールオアナッシング、`FatalError` の伝播、アプリ名付きのエラーメッセージという
+  ステップ自身の契約を固定している。カバレッジが減らないことは単独では削除理由にしない
+  （「テスト」節の表の最終行）。
+- **追加4件は7テストとして実施した**（`test/index.test.ts` 4件、`projectExists` 2件、
+  `loadEnvConfig()` 2件、`verify-config.ts` の catch 1件、うち `index.ts` は1ファイルで4件）。
+  いずれも対象行に到達していることをカバレッジで確認した。
+- **埋めない穴5件は埋めていない**。実施後も同じ5箇所が未到達のまま残っている。
+
+### 追加テストで見つかった食い違い
+
+`src/index.ts` の冒頭コメントは「環境変数の読み込みを非同期の中で呼ぶのは、その失敗も下の
+catch に載せて構造化ログに出すため」と説明しているが、`run(loadEnvConfig())` は引数が先に
+同期評価されるため、`loadEnvConfig()` の失敗は `.catch` に載らずモジュール評価の例外として
+素のスタックトレースになる。テストで再現済み。コード側の修正が要るため別タスクとして登録した
+（このタスクの範囲はテストの削除・集約・追加なので、ここでは直していない）。

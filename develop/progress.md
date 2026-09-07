@@ -9,6 +9,10 @@ T-001〜T-101 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
 
 ## 完了したこと（このセッション）
 
+- **T-105 完了**: 発見リストに沿ってテストを削除9件・集約2件・追加7件。カバレッジは
+  97.19% → 99.37%（Lines 99.82%）。追加テストの過程で `src/index.ts` の `loadEnvConfig()` の
+  失敗が `.catch` に載らないことが分かり、T-108 として登録した。
+
 - **T-104 完了**: テストの取捨選択の基準を `docs/coding-standards.md`「テスト」節として正典化し、
   カバレッジ計測に基づく発見リストを `develop/test-inventory.md` に残した。実作業は
   T-105（削除・集約・追加）・T-106（`test/` のコメント追従）・T-107（`isFatalStatus` の型を狭める）

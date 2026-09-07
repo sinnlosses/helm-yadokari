@@ -33,15 +33,6 @@ describe("partitionMap", () => {
     expect(partitionMap([], split)).toEqual({ left: [], right: [] })
   })
 
-  it("片側に1件も振り分けられない場合も、もう片側は正しく積まれる", () => {
-    const outcomes: Outcome[] = [
-      { status: "kept", value: 1 },
-      { status: "kept", value: 2 },
-    ]
-
-    expect(partitionMap(outcomes, split)).toEqual({ left: [1, 2], right: [] })
-  })
-
   it("入力配列を変更しない", () => {
     const outcomes: Outcome[] = [
       { status: "kept", value: 1 },

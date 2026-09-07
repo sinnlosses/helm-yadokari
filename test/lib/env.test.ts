@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
+import { DEFAULT_TAG_FORMAT } from "../../src/domain/tag-format.js"
 import {
   loadEnv,
+  loadEnvConfig,
   loadOptionalEnv,
   parseConcurrencyLimit,
   parseTagFormat,
@@ -147,19 +149,46 @@ describe("parseTargetClients", () => {
     expect(() => parseTargetClients("tenantId1")).toThrow("TARGET_CLIENTS")
   })
 
-  it("区切り文字が2つ以上あるエントリがあるとき例外をスローする", () => {
-    expect(() => parseTargetClients("tenantId1/clientId1/extra")).toThrow("TARGET_CLIENTS")
-  })
-
   it("複数件のうち1件でも不正な形式のとき例外をスローする", () => {
     expect(() => parseTargetClients("tenantId1/clientId1,tenantId2")).toThrow("TARGET_CLIENTS")
   })
+})
 
-  it("tenantIdが空のとき例外をスローする", () => {
-    expect(() => parseTargetClients("/clientId1")).toThrow("TARGET_CLIENTS")
+describe("loadEnvConfig", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
-  it("clientIdが空のとき例外をスローする", () => {
-    expect(() => parseTargetClients("tenantId1/")).toThrow("TARGET_CLIENTS")
+  it("必須の環境変数だけが設定されているとき、省略可能な項目に既定値を入れる", () => {
+    vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
+    vi.stubEnv("ACCESS_TOKEN", "token")
+    vi.stubEnv("CONFIG_PATH", undefined)
+    vi.stubEnv("CONCURRENCY_LIMIT", undefined)
+    vi.stubEnv("DRY_RUN", undefined)
+    vi.stubEnv("TAG_FORMAT", undefined)
+    vi.stubEnv("TARGET_CHART", undefined)
+    vi.stubEnv("TARGET_CLIENTS", undefined)
+
+    expect(loadEnvConfig()).toEqual({
+      gitlabUrl: "https://gitlab.example.com",
+      accessToken: "token",
+      configPath: "config",
+      concurrencyLimit: 3,
+      dryRun: false,
+      targetChart: undefined,
+      targetClients: undefined,
+      tagFormat: DEFAULT_TAG_FORMAT,
+    })
+  })
+
+  it('DRY_RUN は文字列 "true" のときだけ dryRun を立てる', () => {
+    vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
+    vi.stubEnv("ACCESS_TOKEN", "token")
+
+    vi.stubEnv("DRY_RUN", "true")
+    expect(loadEnvConfig().dryRun).toBe(true)
+
+    vi.stubEnv("DRY_RUN", "1")
+    expect(loadEnvConfig().dryRun).toBe(false)
   })
 })

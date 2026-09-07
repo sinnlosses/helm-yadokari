@@ -3,18 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 vi.mock("../../../../src/lib/gitlab/gitlab.js")
 
 import { verifyConfigExistence } from "../../../../scripts/lint/verify-config/verify-config.js"
-import type { GitlabClient } from "../../../../src/lib/gitlab/gitlab.js"
 import { branchExists, getFileContent, projectExists } from "../../../../src/lib/gitlab/gitlab.js"
 import {
   toAnchorName,
   toBranchName,
+  toClientId,
   toProjectId,
   toProjectName,
   toValuesPath,
 } from "../../../../src/types/types.js"
-import { makeApp, makeChartAndApps } from "../../../helpers.js"
-
-const mockGitlab = {} as unknown as GitlabClient
+import { makeApp, makeChartAndApps, mockGitlab } from "../../../helpers.js"
 
 const VALUES_YAML = `variables:\n  - &appVersion main-build-at-20260101-000000\n  - &targetBranch main\n`
 
@@ -33,6 +31,26 @@ describe("verifyConfigExistence", () => {
     const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
 
     expect(problems).toEqual([])
+  })
+
+  it("1件の検証が例外で落ちても他のchartAndAppsの検証を続け、問題として返す", async () => {
+    const failing = makeChartAndApps([makeApp({ projectId: toProjectId(2) })], {
+      clientId: toClientId("clientId2"),
+    })
+    vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => {
+      if (projectId === 2) throw new Error("想定外のエラー")
+      return true
+    })
+
+    const problems = await verifyConfigExistence(
+      mockGitlab,
+      [failing, makeChartAndApps([makeApp()])],
+      3,
+    )
+
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain("clientId2")
+    expect(problems[0]).toContain("想定外のエラー")
   })
 
   it("chartリポジトリのprojectIdが存在しないとき問題として返す", async () => {

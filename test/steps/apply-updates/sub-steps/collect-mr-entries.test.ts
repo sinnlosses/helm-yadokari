@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../../src/lib/gitlab/gitlab.js")
 
-import type { GitlabClient } from "../../../../src/lib/gitlab/gitlab.js"
 import { getLatestPipelineForRef, getProjectWebUrls } from "../../../../src/lib/gitlab/gitlab.js"
 import { collectMrEntries } from "../../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js"
 import type { GitLabUrl, ProjectId } from "../../../../src/types/types.js"
@@ -14,9 +13,8 @@ import {
   toTagName,
   toValuesPath,
 } from "../../../../src/types/types.js"
-import { makePlan } from "../../../helpers.js"
+import { makePlan, mockGitlab } from "../../../helpers.js"
 
-const mockGitlab = {} as unknown as GitlabClient
 const webUrl = toGitLabUrl("https://gitlab.example.com/g/my-app")
 
 const helmUpdate = {

@@ -20,7 +20,6 @@ import {
   listTags,
   openMergeRequestExists,
 } from "../src/lib/gitlab/gitlab.js"
-import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
 import { run } from "../src/main.js"
 import {
   toCommitSha,
@@ -30,9 +29,7 @@ import {
   toTagName,
 } from "../src/types/types.js"
 import { FatalError } from "../src/utils/errors.js"
-import { makeApp, makeChartAndApps, makeHttpError } from "./helpers.js"
-
-const mockGitlab = {} as unknown as GitlabClient
+import { makeApp, makeChartAndApps, makeHttpError, mockGitlab } from "./helpers.js"
 
 const env: EnvConfig = {
   gitlabUrl: toGitLabUrl("https://gitlab.test"),

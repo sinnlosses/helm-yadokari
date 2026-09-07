@@ -6,13 +6,10 @@ vi.mock("../../../../src/utils/logger.js", () => ({
 }))
 
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../../src/domain/tag-format.js"
-import type { GitlabClient } from "../../../../src/lib/gitlab/gitlab.js"
 import {
-  branchExists,
   createTag,
   getBranchHeadSha,
   getFileContent,
-  getLatestPipelineForRef,
   listTags,
 } from "../../../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
@@ -25,22 +22,20 @@ import {
   toProjectName,
   toTagName,
 } from "../../../../src/types/types.js"
-import { makeApp, makeChartAndApps, makeHttpError } from "../../../helpers.js"
-
-const mockGitlab = {} as unknown as GitlabClient
-
-const OLD_TAG = "main-build-at-20251231-000000"
-const NEW_TAG = toTagName("main-build-at-20260101-000000")
-const HEAD_SHA = toCommitSha("head-sha")
+import {
+  HEAD_SHA,
+  NEW_TAG,
+  OLD_TAG,
+  makeApp,
+  makeChartAndApps,
+  makeHttpError,
+  mockBuildPlansGitlab,
+  mockGitlab,
+} from "../../../helpers.js"
 
 describe("buildPlans（タグの解決・自動作成）", () => {
   beforeEach(() => {
-    vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
-    vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
-    vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
-    vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
-    vi.mocked(createTag).mockResolvedValue(undefined)
-    vi.mocked(branchExists).mockResolvedValue(true)
+    mockBuildPlansGitlab()
   })
 
   afterEach(() => {

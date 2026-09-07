@@ -77,16 +77,6 @@ describe("isFatalError", () => {
     expect(isFatalError(makeHttpError(404))).toBe(false)
   })
 
-  it("500番台のその他のステータスのとき true を返す", () => {
-    expect(isFatalError(makeHttpError(502))).toBe(true)
-    expect(isFatalError(makeHttpError(503))).toBe(true)
-  })
-
-  it("fatal 扱いしないステータス(200/402)のとき false を返す", () => {
-    expect(isFatalError(makeHttpError(200))).toBe(false)
-    expect(isFatalError(makeHttpError(402))).toBe(false)
-  })
-
   it("ECONNREFUSED のとき true を返す", () => {
     const err = Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" })
     expect(isFatalError(err)).toBe(true)
