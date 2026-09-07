@@ -7,7 +7,8 @@ import {
 import type { ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
-import { type StepOutcome, describePlan, ok, withHandling } from "../shared/step-outcome.js"
+import { describePlan } from "../shared/describe-plan.js"
+import { type StepOutcome, ok, withHandling } from "../shared/step-outcome.js"
 import { buildMrContent } from "./sub-steps/build-mr-content.js"
 import { collectMrEntries } from "./sub-steps/collect-mr-entries.js"
 

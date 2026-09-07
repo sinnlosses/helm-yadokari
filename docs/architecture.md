@@ -23,7 +23,8 @@
 | `filter-targets/filter-targets.ts` | 登録アプリ0件・固定ブランチにオープン中のMRがあるchartAndAppsを除外する |
 | `build-plans/build-plans.ts`       | 残ったchartAndAppsごとに更新計画（差分）を並列に構築する                |
 | `apply-updates/apply-updates.ts`   | 差分があるchartAndAppsにコミット・MR作成を並列実行する                  |
-| `shared/step-outcome.ts`           | 3つのstepが共有する結果ログの識別情報とエラー方針                       |
+| `shared/step-outcome.ts`           | 3つのstepが共有する処理結果の型・結果ログの識別情報・エラー方針         |
+| `shared/describe-plan.ts`          | 更新計画1件をログ用のサマリに整形する（dryRun時とMR作成時で共有）       |
 | `build-plans/sub-steps/`           | `build-plans.ts` の内部実装専用（1アプリ・1箇所ごとの実処理）           |
 | `apply-updates/sub-steps/`         | `apply-updates.ts` の内部実装専用（MR項目の収集と本文の組み立て）       |
 
@@ -244,7 +245,7 @@ GitLab APIにも外部ファイル形式にも依存せず、ブランド型・�
     技術依存はゼロで、`TenantId`+`ClientId`→`BranchName`という固定ブランチ名の付け方そのもの。
     `steps/shared/`に置いていたのは「2つのstepが使う」からだったが、それは置き場所の理由に
     ならない（`domain/`の取り決めは呼び出し元を問わない）。`steps/shared/`は
-    `step-outcome.ts`（step処理の配線）だけに絞った
+    step処理の配線（`step-outcome.ts`・`describe-plan.ts`）だけに絞った
   - MRの組み立て → `steps/apply-updates/sub-steps/`。呼び出し元は`apply-updates.ts`の
     1ファイルだけなので、「呼び出し元がstepsの1ファイルだけ → そのstepの`sub-steps/`」という
     基準どおりの場所に移した。**サブステップは1ファイル＝親stepが呼ぶ1ステップ**なので、

@@ -20,9 +20,9 @@ import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
 import { reduceAsync } from "../../utils/sequential.js"
+import { describePlan } from "../shared/describe-plan.js"
 import {
   type StepOutcome,
-  describePlan,
   ok,
   withHandling,
   settle,

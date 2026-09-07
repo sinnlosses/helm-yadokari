@@ -1,9 +1,4 @@
-import type {
-  AppUpdatePlan,
-  ChartAndApps,
-  ChartUpdateResult,
-  ProjectName,
-} from "../../types/types.js"
+import type { ChartAndApps, ChartUpdateResult, ProjectName } from "../../types/types.js"
 import { FatalError } from "../../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../../utils/http.js"
 import { logger } from "../../utils/logger.js"
@@ -12,23 +7,6 @@ import { logger } from "../../utils/logger.js"
 // 「chartAndApps 1件の処理結果をどう記録し、失敗をどう扱うか」だけを置く。
 // 特定の技術・外部システムには依存しない（ドメイン型にのみ依存する）ため lib/ には置かず、
 // 「複数のstepから呼ばれる」ため特定stepの sub-steps/ にも置かない。
-
-/** 1アプリ分の更新計画を、ログ用のサマリに変換する（dryRun時とMR作成時の両方で使う） */
-export function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
-  return {
-    projectName: plan.app.projectName,
-    latestTag: plan.latestTag.name,
-    updates: plan.updates.map((update) => ({
-      valuesPath: update.target.valuesPath,
-      previousTagName: update.previousTagName,
-    })),
-    helmTargetBranchUpdates: plan.helmTargetBranchUpdates.map((update) => ({
-      valuesPath: update.target.valuesPath,
-      previousBranch: update.previousBranch,
-      newBranch: update.newBranch,
-    })),
-  }
-}
 
 /**
  * アプリ単位の処理を実行し、投げられた例外に「どのアプリで起きたか」を付けて投げ直す。
