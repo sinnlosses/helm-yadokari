@@ -106,7 +106,6 @@ export type HelmTargetBranchUpdate = {
 export type AppUpdatePlan = {
   readonly app: AppConfig
   readonly latestTag: ParsedTag
-  readonly pipeline: PipelineInfo | undefined
   readonly updates: readonly ImageTagUpdate[]
   readonly helmTargetBranchUpdates: readonly HelmTargetBranchUpdate[]
 }

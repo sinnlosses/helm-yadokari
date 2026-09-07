@@ -60,7 +60,7 @@ function buildImageTagSection(entries: readonly ImageTagEntry[]): string {
     "",
     "| リポジトリ | 追跡ブランチ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
     "| --- | --- | --- | --- | --- | --- | --- | --- |",
-    ...entries.map(({ plan, update, webUrl }) => {
+    ...entries.map(({ plan, update, webUrl, pipeline }) => {
       const cells = [
         plan.app.projectName,
         `\`${plan.app.branchToSync}\``,
@@ -69,7 +69,7 @@ function buildImageTagSection(entries: readonly ImageTagEntry[]): string {
         `[${update.previousTagName}](${buildTagUrl(webUrl, update.previousTagName)})`,
         `[${plan.latestTag.name}](${buildTagUrl(webUrl, plan.latestTag.name)})`,
         buildCompareUrl(webUrl, update.previousTagName, plan.latestTag.name),
-        plan.pipeline ? plan.pipeline.webUrl : "-",
+        pipeline ? pipeline.webUrl : "-",
       ]
       return `| ${cells.join(" | ")} |`
     }),

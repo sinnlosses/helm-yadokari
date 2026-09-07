@@ -1,10 +1,4 @@
-import type {
-  AppConfig,
-  AppUpdatePlan,
-  ChartAndApps,
-  PipelineInfo,
-  TagName,
-} from "../src/types/types.js"
+import type { AppConfig, AppUpdatePlan, ChartAndApps, TagName } from "../src/types/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -56,7 +50,6 @@ export function makeChartAndApps(
 
 export function makePlan(
   overrides: Partial<{
-    pipeline: PipelineInfo
     previousTagName: TagName
     projectName: string
     updates: AppUpdatePlan["updates"]
@@ -74,7 +67,6 @@ export function makePlan(
       branchName: toBranchName("main"),
       builtAt: new Date("2026-01-01T00:00:00Z"),
     },
-    pipeline: overrides.pipeline,
     updates: overrides.updates ?? [
       {
         target: {

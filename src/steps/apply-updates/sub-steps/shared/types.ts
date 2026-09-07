@@ -3,16 +3,19 @@ import type {
   GitLabUrl,
   HelmTargetBranchUpdate,
   ImageTagUpdate,
+  PipelineInfo,
 } from "../../../../types/types.js"
 
 /**
  * MR本文のイメージタグ表の1行分。1アプリが複数箇所を書き換える場合は同じ`plan`の
  * エントリが箇所の数だけ並ぶ。`webUrl`は`update`のリンク（タグ・比較）に使う解決済みの値。
+ * `pipeline`はGitLab上に本当にパイプラインが無い（または403）場合に`undefined`になる。
  */
 export type ImageTagEntry = {
   readonly plan: AppUpdatePlan
   readonly update: ImageTagUpdate
   readonly webUrl: GitLabUrl
+  readonly pipeline: PipelineInfo | undefined
 }
 
 /**

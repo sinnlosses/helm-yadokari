@@ -11,10 +11,10 @@
   {
     "id": "T-096",
     "task": "パイプライン情報の取得を `build-plans` から `apply-updates` へ移し、`AppUpdatePlan.pipeline` を型から消す。\n\n## 背景（調査済みの事実）\n\n- `AppUpdatePlan.pipeline: PipelineInfo | undefined`（`src/types/types.ts:109`）が `undefined` になる理由が2つ混ざっている: (a) dryRun中はAPIコスト削減のため取得しない（`build-plans.ts:199-202` のコメントと三項）、(b) GitLab上に本当にパイプラインが無い／403（`gitlab.ts:191` の `getLatestPipelineForRef`）。読む側はどちらの `undefined` かを推測しなければならない。\n- **`pipeline` の唯一の利用箇所は `build-mr-content.ts:78`（MR本文の表の1列）**。そこへ至る経路は `applyUpdates()` → `applyUpdate()` → `collectMrEntries()` / `buildMrContent()` だけで、dryRun時は `buildPlan()`（`build-plans.ts:122`）でSKIPPEDになりこの経路に入らない。つまり (a) の分岐は「MR作成が確定した後に取れば不要になる」ものでしかない。\n- `collectMrEntries()`（`collect-mr-entries.ts`）は既に `gitlab` を受け取り `getProjectWebUrls()` でMR本文用の情報をまとめて解決している。`plan.app.projectId` と `plan.latestTag.name` も手元にあるので、パイプライン取得の置き場所としてここが素直。\n\n## やること\n\n- `getLatestPipelineForRef()` の呼び出しを `build-plans.ts` の `buildAppUpdatePlan()` から `apply-updates` 側（`collect-mr-entries.ts` が第一候補）へ移す。\n- `AppUpdatePlan` から `pipeline` フィールドを削除し、MR本文が必要とする形（`MrEntries`／`shared/types.ts`）に載せ替える。**(b) 由来の `| undefined` は残す**（GitLab上に本当に無いケースは実在し、`build-mr-content.ts:78` の `-` 表示はそのまま必要）。\n- 取得は `getProjectWebUrls()` と同様、MR本文に載るアプリの分だけまとめて行う。並列度は既存の書き方に合わせること（`utils/parallel.ts` の `mapWithConcurrency` など、周囲の流儀に従う）。\n- `build-plans.ts:199-200` の dryRun 用コメントは役目を終えるので削除する。`docs/architecture.md` の `build-plans` / `apply-updates` の責務の記述に `pipeline` の取得場所が書かれていれば追従する。\n\n## 完了条件\n\n- `grep -rn \"getLatestPipelineForRef\" src/` が `lib/gitlab/gitlab.ts` と `apply-updates/` 配下だけにヒットする。\n- `AppUpdatePlan` に `pipeline` が無い。\n- `pnpm check` を通す。テスト件数の増減があれば内訳を evidence に書く。\n- `git add` / `git commit` はしない。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "getLatestPipelineForRef() の呼び出しを build-plans.ts の buildAppUpdatePlan() から collect-mr-entries.ts の collectMrEntries() へ移し、AppUpdatePlan.pipeline を削除して ImageTagEntry.pipeline に載せ替えた（GitLab上に無い/403 由来の | undefined は残置）。dryRun用コメントと三項も削除。grep で getLatestPipelineForRef は lib/gitlab/gitlab.ts と apply-updates/ 配下のみ。docs/architecture.md の collect-mr-entries.ts 責務行を追従。pnpm check（31ファイル334テスト、335から1件減）。減った1件は build-plans.test.ts の「dryRunのとき getLatestPipelineForRef を呼ばない」で、build-plans が呼ばなくなり検証対象が消滅したため削除（dryRunでSKIPPEDになる挙動は同ファイルの別テストで担保）。",
     "dependencies": []
   },
   {

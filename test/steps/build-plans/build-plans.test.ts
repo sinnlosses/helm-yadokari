@@ -12,7 +12,6 @@ import {
   createTag,
   getBranchHeadSha,
   getFileContent,
-  getLatestPipelineForRef,
   listTags,
 } from "../../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../../src/steps/build-plans/build-plans.js"
@@ -40,7 +39,6 @@ describe("buildPlans", () => {
     vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
-    vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
     vi.mocked(createTag).mockResolvedValue(undefined)
     vi.mocked(branchExists).mockResolvedValue(true)
   })
@@ -192,19 +190,6 @@ describe("buildPlans", () => {
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.chartAndApps).toBe(ok)
     expect(settled).toEqual(["ERROR"])
-  })
-
-  it("dryRunのときgetLatestPipelineForRefを呼ばない", async () => {
-    const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      [makeChartAndApps([makeApp()])],
-      3,
-      true,
-      DEFAULT_TAG_FORMAT,
-    )
-    expect(toApply).toEqual([])
-    expect(settled).toEqual(["SKIPPED"])
-    expect(vi.mocked(getLatestPipelineForRef)).not.toHaveBeenCalled()
   })
 
   it("values.yaml が見つからないときのエラーメッセージにアプリ名が含まれる", async () => {

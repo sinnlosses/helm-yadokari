@@ -37,7 +37,6 @@ function makeTarget(): ChartUpdateTarget {
       {
         app: makeApp(),
         latestTag: NEW_TAG,
-        pipeline: undefined,
         updates: [
           {
             target: {

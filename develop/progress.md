@@ -29,6 +29,12 @@ T-001〜T-094 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
   「(未設定)」表示は到達不能なので削除。`lib/helm.ts` の `getValueAtAnchor()` は
   `verify-config.ts` が全問題を集める用途で残置。`pnpm check`（31ファイル335テスト、
   ベースラインと同数）。
+- **T-096 完了**。パイプライン取得を `build-plans` から `apply-updates`
+  （`collect-mr-entries.ts`）へ移し、`AppUpdatePlan.pipeline` を削除した。dryRun由来の
+  `undefined` が消え、`ImageTagEntry.pipeline` に残る `undefined` は「GitLab上に本当に
+  無い/403」の意味だけになった。受け入れ時に projectId+タグ名の重複排除を落とした
+  （1 chartAndApps 内で projectId は一意なので、その重複は起こり得ない）。
+  `pnpm check`（31ファイル334テスト、-1件）。
 - **アーカイブ**: `develop/tasks.json` が44KBと基準（30KB）を超えたため、`done` の
   T-092〜T-094 を `docs/history/` へ移した。
 

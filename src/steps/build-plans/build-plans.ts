@@ -1,8 +1,4 @@
-import {
-  type GitlabClient,
-  branchExists as branchExistsOnGitlab,
-  getLatestPipelineForRef,
-} from "../../lib/gitlab/gitlab.js"
+import { type GitlabClient, branchExists as branchExistsOnGitlab } from "../../lib/gitlab/gitlab.js"
 import type {
   AppConfig,
   AppUpdatePlan,
@@ -153,8 +149,7 @@ function createCachedBranchExists(gitlab: GitlabClient): CachedBranchExists {
  * 2. `stageImageTagUpdates()` — `app.imageTagTargets`全箇所について、最新タグとの差分をチェックする
  * 3. `stageHelmTargetBranchUpdates()` — `app.helmTargetBranch`があれば、向き先ブランチの
  *    全箇所について設定値との差分をチェックする
- * 4. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば最新パイプラインを取得して
- *    `AppUpdatePlan`を組み立てる
+ * 4. 差分が1件も無ければSKIPPEDとしてログを出して終了、あれば`AppUpdatePlan`を組み立てる
  *
  * 処理中に投げられた例外は`withAppContext()`がアプリ名を付けて投げ直す。
  * 致命的エラーの扱いを含む方針は`steps/shared/step-outcome.ts`に集約している。
@@ -196,15 +191,9 @@ async function buildAppUpdatePlan(
     return { plans: acc.plans, draft }
   }
 
-  // dryRun時はMRを作らないため（`buildPlan()`でSKIPPEDになる）、MR本文組み立てで必要な
-  // パイプライン情報は不要。APIコストを削減するため取得をスキップする
-  const pipeline = dryRun
-    ? undefined
-    : await getLatestPipelineForRef(gitlab, app.projectId, latestTag.tag.name)
   const plan: AppUpdatePlan = {
     app,
     latestTag: latestTag.tag,
-    pipeline,
     updates,
     helmTargetBranchUpdates,
   }

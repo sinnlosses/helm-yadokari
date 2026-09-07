@@ -1,4 +1,8 @@
-import { type GitlabClient, getProjectWebUrls } from "../../../lib/gitlab/gitlab.js"
+import {
+  type GitlabClient,
+  getLatestPipelineForRef,
+  getProjectWebUrls,
+} from "../../../lib/gitlab/gitlab.js"
 import type {
   AppUpdatePlan,
   GitLabUrl,
@@ -8,8 +12,8 @@ import type {
 import type { MrEntries } from "./shared/types.js"
 
 /**
- * 1つのMRに載せる項目をプランから抽出する。イメージタグはリンクに使うURLを解決して添え、
- * 向き先ブランチは書き込み先単位で一意にする。
+ * 1つのMRに載せる項目をプランから抽出する。イメージタグはリンクに使うURLと最新パイプラインを
+ * 解決して添え、向き先ブランチは書き込み先単位で一意にする。
  */
 export async function collectMrEntries(
   gitlab: GitlabClient,
@@ -19,10 +23,18 @@ export async function collectMrEntries(
   const updatedProjectIds = updatedPlans.map((plan) => plan.app.projectId)
   const webUrls = await getProjectWebUrls(gitlab, updatedProjectIds)
 
-  const imageTags = updatedPlans.flatMap((plan) => {
-    const webUrl = resolveWebUrl(webUrls, plan.app.projectId)
-    return plan.updates.map((update) => ({ plan, update, webUrl }))
-  })
+  const imageTagsPerPlan = await Promise.all(
+    updatedPlans.map(async (plan) => {
+      const webUrl = resolveWebUrl(webUrls, plan.app.projectId)
+      const pipeline = await getLatestPipelineForRef(
+        gitlab,
+        plan.app.projectId,
+        plan.latestTag.name,
+      )
+      return plan.updates.map((update) => ({ plan, update, webUrl, pipeline }))
+    }),
+  )
+  const imageTags = imageTagsPerPlan.flat()
   const helmBranches = uniqueHelmTargetBranchUpdates(plans)
 
   return { imageTags, helmBranches }

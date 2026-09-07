@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { buildMrContent } from "../../../../src/steps/apply-updates/sub-steps/build-mr-content.js"
 import type { MrEntries } from "../../../../src/steps/apply-updates/sub-steps/shared/types.js"
-import type { AppUpdatePlan, GitLabUrl } from "../../../../src/types/types.js"
+import type { AppUpdatePlan, GitLabUrl, PipelineInfo } from "../../../../src/types/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -26,9 +26,15 @@ const helmUpdate = {
  * `collectMrEntries()`が返す形をplansから素直に組み立てる。重複排除は`collectMrEntries()`の
  * 責務なのでここでは行わず、渡されたものをそのまま並べる。
  */
-function entriesOf(plans: readonly AppUpdatePlan[], webUrl: GitLabUrl = defaultWebUrl): MrEntries {
+function entriesOf(
+  plans: readonly AppUpdatePlan[],
+  webUrl: GitLabUrl = defaultWebUrl,
+  pipeline: PipelineInfo | undefined = undefined,
+): MrEntries {
   return {
-    imageTags: plans.flatMap((plan) => plan.updates.map((update) => ({ plan, update, webUrl }))),
+    imageTags: plans.flatMap((plan) =>
+      plan.updates.map((update) => ({ plan, update, webUrl, pipeline })),
+    ),
     helmBranches: plans.flatMap((plan) => plan.helmTargetBranchUpdates),
   }
 }
@@ -169,9 +175,9 @@ describe("buildMrContent（本文）", () => {
 
   it("パイプラインは状態を出さず、URLをそのまま表示する", () => {
     const description = buildDescription(
-      entriesOf([
-        makePlan({ pipeline: { webUrl: toGitLabUrl("https://gitlab.example.com/p/1") } }),
-      ]),
+      entriesOf([makePlan()], defaultWebUrl, {
+        webUrl: toGitLabUrl("https://gitlab.example.com/p/1"),
+      }),
     )
 
     const row = description.split("\n").find((line) => line.includes("my-app"))
