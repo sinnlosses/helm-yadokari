@@ -38,10 +38,10 @@
   {
     "id": "T-106",
     "task": "`test/` 配下のコメントを `docs/coding-standards.md`「コメント」節の基準に合わせる。`src/` と `scripts/` は既に適用済みで、`test/` だけが残っている。\n\n## 決定済みの方針（実装時に蒸し返さない）\n\n- 基準は「コメント」節の判断表（今の挙動の制約・前提と外部との対応関係は残す／昔の話は正典へ移してコードから消す）をそのまま使う。**行数の目安は置かない**。\n- テスト名（`it()` の説明文）はコメントではない。言い換えのコメントが `it()` の説明文と重複しているときは、コメント側を消す。\n- 経緯をコードから消すときは、先に正典（`docs/architecture.md` / `docs/glossary.md` / `docs/requirements.md`）に書かれているかを確認する。無ければ正典に書いてから消す。\n\n## 完了条件\n\n- `test/` 配下の各コメントが判断表のどれかに当てはまること。\n- テストの件数と各テストの内容を変えないこと（コメントの追従のみ）。\n- `pnpm check` を通すこと。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "test/ 配下の全コメント（11ファイル）を判断表に照らして確認。修正3件: resolve-latest-tag.test.ts の「旧方式/新方式」の経緯を削除（今の挙動の理由は resolve-latest-tag.ts のJSDocが正典）、gitlab.test.ts の403の説明から src 側JSDocの丸写し部分を削り外部挙動だけ残す、config.test.ts の関数名の言い換え1件を削除。他は今の挙動の制約・前提または外部との対応関係に当たるため据え置き。pnpm check 通過（32ファイル337テスト、内容・件数とも変更なし）。",
     "dependencies": ["T-103"]
   },
   {

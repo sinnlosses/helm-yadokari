@@ -10,7 +10,6 @@ import { useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
 
-/** テスト用に `TargetClient`（ブランド型）を組み立てる */
 function targetClient(tenantId: string, clientId: string): TargetClient {
   return { tenantId: toTenantId(tenantId), clientId: toClientId(clientId) }
 }

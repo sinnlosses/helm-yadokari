@@ -359,8 +359,7 @@ describe("getLatestPipelineForRef", () => {
 
   it("パイプラインが1件も無いプロジェクトの(403)のとき undefined を返す", async () => {
     // GitLab実機で確認済みの挙動: pipelines/latestは該当プロジェクトにパイプラインが
-    // 1件も無い場合、404ではなく403を返す。パイプライン情報はMR本文への参考情報に
-    // すぎず更新処理の必須条件ではないため、404と同様に「パイプライン無し」として扱う
+    // 1件も無い場合、404ではなく403を返す
     const client = makeClient({
       Pipelines: { showLatest: vi.fn().mockRejectedValue(makeHttpError(403)) },
     })

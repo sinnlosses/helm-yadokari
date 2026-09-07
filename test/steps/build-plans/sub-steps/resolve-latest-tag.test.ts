@@ -218,9 +218,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     // OLD_TAG は現在のHEADを指しているが、タグ名の日時としては古い。NEW_TAG はタグ名の
     // 日時としては新しいが、HEADではない別コミットを指している（例: HEADへのタグ付け後、
     // 別ブランチや過去のコミットに対して後からタグが打たれたケース）。
-    // 「タグ名が最も新しいものを選んでからHEADと比較する」旧方式なら NEW_TAG を選び、
-    // HEADと不一致のため無駄な新規タグを作ってしまうが、「HEADを指すタグを直接探す」
-    // 新方式では OLD_TAG を見つけて再利用し、新規タグを作らない。
     vi.mocked(listTags).mockResolvedValue([
       { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
       { name: NEW_TAG, commitSha: toCommitSha("other-commit-sha") },
