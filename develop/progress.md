@@ -1,7 +1,7 @@
 # 現在の状態
 
 最終更新: 2026-09-08（`/plan-tasks` で `develop/direction.md` の4項目を T-123〜T-127 の
-5タスクとして登録し、続けて T-120・T-118・T-119 を完了した。前回までの流れは下の「完了したこと」を参照）
+5タスクとして登録し、続けて T-120・T-118・T-119・T-121 を完了した。前回までの流れは下の「完了したこと」を参照）
 
 T-001〜T-117 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
@@ -189,11 +189,18 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   当時の発見リスト（削除候補・集約候補・追加候補・実施結果）は `git mv` で
   `docs/history/test-inventory.md` に無編集のまま残してある。表に載る識別子4つは実在を確認済み。
 
+- **T-121 完了**: `EnvConfig.accessToken` をブランド型 `AccessToken` にした
+  （`src/types/brand.ts` に `toAccessToken()` を追加し、`createClient()` 第2引数の型も変更）。
+  基準は `docs/architecture.md`「ブランド型にするのは『同じ`string`の別物と取り違えうる識別子』」で、
+  `createClient(host, token)` に `GitLabUrl` と並ぶのが該当。**取り違えが型で止まることを
+  メイン側でも実測**（`createClient(env.gitlabUrl, env.gitlabUrl)` が TS2345 で落ちる。確認後復元済み）。
+  **形式検証は入れない**判断（`glpat-` はPATの慣習で、Group Access Token / CI変数経由の値では
+  前提にできない）。理由は factory のJSDocに残した。呼び出し3箇所はコード変更不要だった。
+
 ## 次にやること
 
-- **T-121（`accessToken` をブランド型にする、`sonnet`）** と
-  **T-122（`configPath` のリネームと検証、`sonnet`）** はどちらも依存なしで着手できる。
-  T-122 は `CONFIG_PATH` 環境変数名を変えるかの判断を含むが、**既定は「変えない」**
+- **T-122（`configPath` のリネームと検証、`sonnet`）** は依存なしで着手できる。
+  `CONFIG_PATH` 環境変数名を変えるかの判断を含むが、**既定は「変えない」**
   （CIの pipeline schedule に登録済みのため。変えたい場合はユーザー確認）。
 - 新しいGitLab読み取りをキャッシュ機構に載せる手順と「載せてよいかの判断」は
   `docs/architecture.md`「GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で

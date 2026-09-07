@@ -1,6 +1,7 @@
 import { Gitlab } from "@gitbeaker/rest"
 
 import type {
+  AccessToken,
   BranchName,
   CommitSha,
   FileUpdate,
@@ -17,7 +18,7 @@ import { withRetry } from "../../utils/retry.js"
 
 export type GitlabClient = InstanceType<typeof Gitlab>
 
-export function createClient(host: GitLabUrl, token: string): GitlabClient {
+export function createClient(host: GitLabUrl, token: AccessToken): GitlabClient {
   return new Gitlab({ host, token })
 }
 

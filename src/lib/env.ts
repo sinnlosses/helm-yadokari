@@ -1,7 +1,13 @@
 import { parseClientRef } from "../domain/client-ref.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../domain/tag-format.js"
-import type { ChartDirName, GitLabUrl, TagFormat, TargetClient } from "../types/types.js"
-import { toChartDirName, toGitLabUrl } from "../types/types.js"
+import type {
+  AccessToken,
+  ChartDirName,
+  GitLabUrl,
+  TagFormat,
+  TargetClient,
+} from "../types/types.js"
+import { toAccessToken, toChartDirName, toGitLabUrl } from "../types/types.js"
 import { DEFAULT_CONFIG_PATH } from "./config/config.js"
 
 export function loadEnv(key: string): string {
@@ -56,7 +62,7 @@ export function parseTargetClients(raw: string | undefined): readonly TargetClie
 /** 環境変数から読み取った実行時設定。`loadEnvConfig()`だけが生成する */
 export type EnvConfig = {
   readonly gitlabUrl: GitLabUrl
-  readonly accessToken: string
+  readonly accessToken: AccessToken
   readonly configPath: string
   readonly concurrencyLimit: number
   readonly dryRun: boolean
@@ -76,7 +82,7 @@ export type EnvConfig = {
 export function loadEnvConfig(): EnvConfig {
   return {
     gitlabUrl: validateGitlabUrl(loadEnv("GITLAB_URL")),
-    accessToken: loadEnv("ACCESS_TOKEN"),
+    accessToken: toAccessToken(loadEnv("ACCESS_TOKEN")),
     configPath: loadOptionalEnv("CONFIG_PATH") ?? DEFAULT_CONFIG_PATH,
     concurrencyLimit: parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT")),
     dryRun: loadOptionalEnv("DRY_RUN") === "true",

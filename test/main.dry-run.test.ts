@@ -15,14 +15,14 @@ import { Gitlab } from "@gitbeaker/rest"
 import { DEFAULT_CONFIG_PATH, loadConfig } from "../src/lib/config/config.js"
 import type { EnvConfig } from "../src/lib/env.js"
 import { run } from "../src/main.js"
-import { toGitLabUrl, toTagFormat } from "../src/types/types.js"
+import { toAccessToken, toGitLabUrl, toTagFormat } from "../src/types/types.js"
 import { makeApp, makeChartAndApps } from "./helpers.js"
 
 const OLD_TAG = "main-build-at-20251231-000000"
 
 const env: EnvConfig = {
   gitlabUrl: toGitLabUrl("https://gitlab.test"),
-  accessToken: "test-token",
+  accessToken: toAccessToken("test-token"),
   configPath: DEFAULT_CONFIG_PATH,
   concurrencyLimit: 3,
   dryRun: true,

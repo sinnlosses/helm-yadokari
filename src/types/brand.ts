@@ -93,3 +93,15 @@ export type AnchorName = string & { readonly [anchorNameBrand]: never }
 export function toAnchorName(s: string): AnchorName {
   return s as AnchorName
 }
+
+declare const accessTokenBrand: unique symbol
+/**
+ * GitLabのアクセストークン（`createClient`の認証情報）。`GitLabUrl`と同じ関数呼び出しに
+ * 並ぶため、取り違え防止でブランド型にしている。空でないことは`loadEnv()`が既に保証している。
+ * 接頭辞や長さでの形式検証はしない（Personal Access Tokenの`glpat-`は慣習であり、
+ * Group Access TokenやCI変数経由の値では前提にできないため）
+ */
+export type AccessToken = string & { readonly [accessTokenBrand]: never }
+export function toAccessToken(s: string): AccessToken {
+  return s as AccessToken
+}

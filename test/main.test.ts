@@ -21,13 +21,19 @@ import {
   openMergeRequestExists,
 } from "../src/lib/gitlab/gitlab.js"
 import { run } from "../src/main.js"
-import { toCommitSha, toGitLabUrl, toTagFormat, toTagName } from "../src/types/types.js"
+import {
+  toAccessToken,
+  toCommitSha,
+  toGitLabUrl,
+  toTagFormat,
+  toTagName,
+} from "../src/types/types.js"
 import { FatalError } from "../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError, mockGitlab } from "./helpers.js"
 
 const env: EnvConfig = {
   gitlabUrl: toGitLabUrl("https://gitlab.test"),
-  accessToken: "test-token",
+  accessToken: toAccessToken("test-token"),
   configPath: DEFAULT_CONFIG_PATH,
   concurrencyLimit: 3,
   dryRun: false,

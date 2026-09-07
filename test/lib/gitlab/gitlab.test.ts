@@ -17,6 +17,7 @@ import {
   projectExists,
 } from "../../../src/lib/gitlab/gitlab.js"
 import {
+  toAccessToken,
   toBranchName,
   toGitLabUrl,
   toProjectId,
@@ -49,7 +50,10 @@ function makeClient(
 
 describe("createClient", () => {
   it("Gitlab インスタンスを返す", () => {
-    const client = createClient(toGitLabUrl("https://gitlab.example.com"), "test-token")
+    const client = createClient(
+      toGitLabUrl("https://gitlab.example.com"),
+      toAccessToken("test-token"),
+    )
     expect(client).toBeInstanceOf(Gitlab)
   })
 })
