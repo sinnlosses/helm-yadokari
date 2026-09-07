@@ -189,6 +189,23 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 この表の5行目に当たる。MR本文はこのツールの主要な成果物で、レビュアーが読む唯一の出力なので、
 書式変更のたびに壊れることは冗長さの証拠にしない。
 
+**個別の判断（実施済み）**:
+
+- `test/domain/tag-format.test.ts` の「TAG_FORMATのプレースホルダの並び順・区切り文字は
+  任意（回帰テスト）」2件: skip してもカバレッジは変わらないが、過去の不具合の再発防止として
+  書かれた回帰テストなので残す（表の「回帰テスト」行）
+- `test/lib/gitlab/gitlab.test.ts`「createClient > Gitlab インスタンスを返す」: 薄いラッパの
+  確認に見えるが、skip すると `createClient` の唯一の守り手を失う（下の削除の手続き2番目の
+  基準に引っかかる）
+- `test/lib/config/schema.test.ts` 全6件と
+  `test/steps/build-plans/sub-steps/stage-image-tag-updates.test.ts` 全体: ファイルごと
+  除外してもカバレッジは1行も減らないが、拒否される設定の内容という別の振る舞いを固定して
+  いるので残す（カバレッジ不変は単独では削除理由にしない、の実例）
+- `test/steps/build-plans/build-plans.test.ts` 全件: 除外しても減るカバレッジは
+  `sub-steps/` の3ファイルと重なる1文・1分岐だけだったが、SKIPPED/ERRORの振り分け・
+  オールオアナッシング・`FatalError`の伝播・アプリ名付きのエラーメッセージという
+  ステップ自身の契約を固定しているため残す
+
 **削除の手続き**。次の2つを両方満たしたものだけ消す。片方でも満たさなければ残す。
 
 1. 候補を `it.skip` にして `pnpm check` が落ちないことを確認する（落ちるなら、他のテストが
@@ -208,8 +225,20 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 到達不能な防御的コード（`internal error:` を投げる分岐など）と、エラーメッセージの文面だけが
 変わる分岐は埋めない。
 
-**埋めないと決めた穴は、理由を添えて書き残す**（`develop/test-inventory.md`）。次に
-カバレッジを見た人が同じ調査を繰り返さずに済むようにするため。
+**埋めないと決めた穴は、理由を添えて書き残す**。次にカバレッジを見た人が同じ調査を
+繰り返さずに済むようにするため。現時点で埋めないと決めているのは次の4件（元になった調査は
+`docs/history/test-inventory.md`）:
+
+| 未到達                                                                                           | 埋めない理由                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/config/chart-and-apps.ts` の `internal error:` を投げる分岐                             | `validateProjectLinkage` を通過した後は到達しない防御的分岐                                                                                                                            |
+| `src/lib/config/config.ts` の `formatChartDirs` の `"(なし)"`                                    | エラーメッセージの文面だけが変わる分岐で、判断は変わらない                                                                                                                             |
+| `src/steps/build-plans/sub-steps/resolve-latest-tags.ts` の `if (latestAtHead)` の偽側           | `trackedHeadTagNames.size > 0` の時点でパース可能なタグが1件以上あるため到達しない                                                                                                     |
+| `src/steps/shared/describe-plan.ts` の `describeHelmTargetBranchUpdates` 内の `map` コールバック | Helmの向き先ブランチ更新のログサマリが空配列でしか組み立てられていない。更新そのものの振る舞いは `stage-helm-target-branch-updates.test.ts` が確かめており、未到達なのはログの文面だけ |
+
+（`src/utils/http.ts` の `isFatalStatus` にあった同種の分岐は、テストではなくコード側の
+問題だった。引数の型を `number` に狭めることで分岐ごと削除済み。上の「避ける`undefined`」
+節の1つ目のパターン「実行時には到達しないのに型に残っている`undefined`」の実例）
 
 ## タスク番号を書かない
 
