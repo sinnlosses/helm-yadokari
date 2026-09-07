@@ -1,8 +1,5 @@
-import {
-  type GitlabClient,
-  getLatestPipelineForRef,
-  getProjectWebUrls,
-} from "../../../lib/gitlab/gitlab.js"
+import type { GitlabBatchCache } from "../../../lib/gitlab/batch-cache.js"
+import { type GitlabClient, getProjectWebUrls } from "../../../lib/gitlab/gitlab.js"
 import type {
   AppUpdatePlan,
   GitLabUrl,
@@ -18,6 +15,7 @@ import type { MrEntries } from "./shared/types.js"
  */
 export async function collectMrEntries(
   gitlab: GitlabClient,
+  gitlabCache: GitlabBatchCache,
   plans: readonly AppUpdatePlan[],
   helmBranches: readonly HelmTargetBranchUpdate[],
 ): Promise<MrEntries> {
@@ -29,8 +27,7 @@ export async function collectMrEntries(
     updatedPlans.map(async (plan) =>
       withAppContext(plan.app.projectName, async () => {
         const webUrl = resolveWebUrl(webUrls, plan.app.projectId)
-        const pipeline = await getLatestPipelineForRef(
-          gitlab,
+        const pipeline = await gitlabCache.getLatestPipelineForRef(
           plan.app.projectId,
           plan.latestTag.name,
         )

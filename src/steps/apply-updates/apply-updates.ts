@@ -1,4 +1,5 @@
 import { buildFeatureBranch } from "../../domain/feature-branch.js"
+import type { GitlabBatchCache } from "../../lib/gitlab/batch-cache.js"
 import {
   type GitlabClient,
   commitFileUpdates,
@@ -17,11 +18,14 @@ import { collectMrEntries } from "./sub-steps/collect-mr-entries.js"
  */
 export async function applyUpdates(
   gitlab: GitlabClient,
+  gitlabCache: GitlabBatchCache,
   targets: readonly ChartUpdateTarget[],
   concurrencyLimit: number,
 ): Promise<readonly ChartUpdateResult[]> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (target) =>
-    withHandling(target.chartAndApps, (logContext) => applyUpdate(gitlab, target, logContext)),
+    withHandling(target.chartAndApps, (logContext) =>
+      applyUpdate(gitlab, gitlabCache, target, logContext),
+    ),
   )
   return outcomes.map((outcome) => (outcome.status === "ok" ? outcome.value : outcome.result))
 }
@@ -31,6 +35,7 @@ export async function applyUpdates(
  */
 async function applyUpdate(
   gitlab: GitlabClient,
+  gitlabCache: GitlabBatchCache,
   target: ChartUpdateTarget,
   logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartUpdateResult>> {
@@ -38,7 +43,7 @@ async function applyUpdate(
   const { chart, tenantId, clientId } = chartAndApps
   const featureBranch = buildFeatureBranch(tenantId, clientId)
 
-  const entries = await collectMrEntries(gitlab, plans, helmTargetBranchUpdates)
+  const entries = await collectMrEntries(gitlab, gitlabCache, plans, helmTargetBranchUpdates)
   // MRタイトルをコミットメッセージにもそのまま使い回す
   const { title, description } = buildMrContent(tenantId, clientId, entries)
 

@@ -29,10 +29,10 @@
   {
     "id": "T-113",
     "task": "`getLatestPipelineForRef()` の結果をバッチ全体でキャッシュし、同じappが複数clientに登録されているときの重複問い合わせをなくす。\n\n## 背景\n\n`collectMrEntries()`（`src/steps/apply-updates/sub-steps/collect-mr-entries.ts`）は、更新のある app ごとに `getLatestPipelineForRef(gitlab, plan.app.projectId, plan.latestTag.name)` を呼ぶ。この関数は chartAndApps（＝client）単位で呼ばれるため、**同じappが複数のclientに登録されていると、同じ `projectId` + 同じタグ名に対してclientの数だけパイプライン問い合わせが走る**。\n\n最新タグの解決側は同じ理由で既に対策済み（`createResolveLatestTags()`、`src/steps/build-plans/sub-steps/resolve-latest-tags.ts`）だが、パイプライン側は残っている。値はバッチ実行中に変わらない読み取りなのでキャッシュして安全。\n\n## やること\n\n1. T-111 で決めた機構に載せて、`projectId` + タグ名をキーにバッチ全体でキャッシュする。キャッシュの寿命はバッチ1回ぶん。\n2. `mapWithConcurrency` により chartAndApps は並列実行されるため、**同時に来た同じキーの問い合わせも1回にまとめる**こと（`getOrFetchShared()` が持つ性質）。\n3. `getLatestPipelineForRef()` は 404/403 を「パイプライン無し」として `undefined` を返す。この `undefined` もキャッシュ対象に含めるかを決める（`getOrFetchShared()` の型 `V extends {}` は `undefined` を弾くので、そのままでは載らない。載せないなら、パイプラインが無いプロジェクトでは毎回問い合わせが走ることを受け入れる判断として書き残す）。\n4. キャッシュが効いていることを検証するテストを追加する（同じappを複数clientに持つ入力で、呼び出し回数が1回になること）。既存の `resolve-latest-tags` のキャッシュテストが前例になる。\n\n## 完了条件\n\n- 同じ `projectId` + タグ名の問い合わせが1回に収束することをテストで示すこと。\n- `pnpm check` を通すこと。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "T-111 の `GitlabBatchCache` に `getLatestPipelineForRef`（キーは projectId + タグ名）を足し、`collectMrEntries()` は生の関数の代わりにこれを呼ぶ。キャッシュは `runProcess()` が作る1つを `applyUpdates()` → `applyUpdate()` → `collectMrEntries()` と渡すのでバッチ全体で共有され、`mapWithConcurrency` で同時に来た同じキーも `getOrFetchShared()` により1回にまとまる。`undefined`（パイプライン無し）もキャッシュ対象に含めた（機構側が値を箱に包むので載せられる。パイプラインが無いプロジェクトでも1回に収束する）。厳密には自作タグに後からパイプラインが現れうるが、MR本文への参考情報でしかなく同じタグにclientごとに違う答えを載せるほうが困るため載せる判断にし、理由をメンバーのJSDocと docs/architecture.md のキャッシュの節に書いた。テスト1件追加（collect-mr-entries.test.ts「同じappが複数clientに登録されていても、パイプラインの問い合わせは1回に収束する」= 同じキャッシュで2回呼んで `getLatestPipelineForRef` が1回）。`pnpm check` exit=0、33ファイル345テスト（344→345）。",
     "dependencies": ["T-111"]
   },
   {

@@ -61,7 +61,7 @@ async function runProcess(env: EnvConfig): Promise<Record<ChartUpdateResult, num
     env.dryRun,
     env.tagFormat,
   )
-  const applied = await applyUpdates(gitlab, toApply, env.concurrencyLimit)
+  const applied = await applyUpdates(gitlab, gitlabCache, toApply, env.concurrencyLimit)
 
   return summarizeResults([...filtered, ...planned, ...applied])
 }

@@ -17,7 +17,13 @@ import type { MrEntries } from "../../../src/steps/apply-updates/sub-steps/share
 import type { ChartUpdateTarget } from "../../../src/types/types.js"
 import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"
-import { makeApp, makeChartAndApps, makeHttpError, mockGitlab } from "../../helpers.js"
+import {
+  makeApp,
+  makeChartAndApps,
+  makeHttpError,
+  mockGitlab,
+  newBatchCache,
+} from "../../helpers.js"
 
 const MR_ENTRIES: MrEntries = { imageTags: [], helmBranches: [] }
 
@@ -69,16 +75,17 @@ describe("applyUpdates", () => {
   })
 
   it("成功したとき 'CREATED' を返す", async () => {
-    expect(await applyUpdates(mockGitlab, [makeTarget()], 3)).toEqual(["CREATED"])
+    expect(await applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)).toEqual(["CREATED"])
     expect(commitFileUpdates).toHaveBeenCalledOnce()
     expect(createMergeRequest).toHaveBeenCalledOnce()
   })
 
   it("collectMrEntriesの結果からbuildMrContentを呼び、その結果をコミット・MR作成に渡す", async () => {
     const target = makeTarget()
-    await applyUpdates(mockGitlab, [target], 3)
+    await applyUpdates(mockGitlab, newBatchCache(), [target], 3)
     expect(collectMrEntries).toHaveBeenCalledWith(
       mockGitlab,
+      expect.anything(),
       target.plans,
       target.helmTargetBranchUpdates,
     )
@@ -97,7 +104,7 @@ describe("applyUpdates", () => {
   })
 
   it("tenantId/clientIdを含む固定ブランチ名でコミット・MRを作成する", async () => {
-    await applyUpdates(mockGitlab, [makeTarget()], 3)
+    await applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)
     expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[2]).toBe(
       "feature/yadokari/tenantId1/clientId1",
     )
@@ -108,7 +115,7 @@ describe("applyUpdates", () => {
 
   it("mrTargetBranch をベースブランチ・MR作成先として使う", async () => {
     const target = makeTarget()
-    await applyUpdates(mockGitlab, [target], 3)
+    await applyUpdates(mockGitlab, newBatchCache(), [target], 3)
     expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[3]).toBe(
       target.chartAndApps.chart.mrTargetBranch,
     )
@@ -119,21 +126,22 @@ describe("applyUpdates", () => {
 
   it("401エラーのとき FatalError をスローする", async () => {
     vi.mocked(commitFileUpdates).mockRejectedValue(makeHttpError(401))
-    await expect(applyUpdates(mockGitlab, [makeTarget()], 3)).rejects.toThrow(FatalError)
+    await expect(applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)).rejects.toThrow(
+      FatalError,
+    )
   })
 
   it("非fatalなエラーのとき 'ERROR' を返す", async () => {
     vi.mocked(commitFileUpdates).mockRejectedValue(makeHttpError(403))
-    expect(await applyUpdates(mockGitlab, [makeTarget()], 3)).toEqual(["ERROR"])
+    expect(await applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)).toEqual(["ERROR"])
   })
 
   it("複数targetの結果を入力順を保った配列で返す", async () => {
     vi.mocked(commitFileUpdates)
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(makeHttpError(403))
-    expect(await applyUpdates(mockGitlab, [makeTarget(), makeTarget()], 3)).toEqual([
-      "CREATED",
-      "ERROR",
-    ])
+    expect(
+      await applyUpdates(mockGitlab, newBatchCache(), [makeTarget(), makeTarget()], 3),
+    ).toEqual(["CREATED", "ERROR"])
   })
 })

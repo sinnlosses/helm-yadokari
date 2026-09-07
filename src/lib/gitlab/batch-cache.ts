@@ -1,6 +1,10 @@
-import type { BranchName, ProjectId } from "../../types/types.js"
+import type { BranchName, PipelineInfo, ProjectId, TagName } from "../../types/types.js"
 import { getOrFetchShared } from "../../utils/cache.js"
-import { type GitlabClient, branchExists as branchExistsOnGitlab } from "./gitlab.js"
+import {
+  type GitlabClient,
+  branchExists as branchExistsOnGitlab,
+  getLatestPipelineForRef as getLatestPipelineForRefOnGitlab,
+} from "./gitlab.js"
 
 /**
  * 実行1回（バッチ）を通して使い回す、GitLabへの読み取りのキャッシュ。`runProcess()`が1つだけ
@@ -20,12 +24,25 @@ export type GitlabBatchCache = {
    * 変わらないため載せている。
    */
   readonly branchExists: (projectId: ProjectId, branch: BranchName) => Promise<boolean>
+
+  /**
+   * 指定したタグに紐づく最新のパイプライン（無ければ`undefined`）。このツールが作ったタグには
+   * 後からパイプラインが現れうるが、これはMR本文への参考情報でしかなく、同じタグについて
+   * clientごとに違う答えを載せるほうが困る。1回に収束させる側を選んで載せている。
+   */
+  readonly getLatestPipelineForRef: (
+    projectId: ProjectId,
+    ref: TagName,
+  ) => Promise<PipelineInfo | undefined>
 }
 
 export function createGitlabBatchCache(gitlab: GitlabClient): GitlabBatchCache {
   return {
     branchExists: cacheByArgs((projectId: ProjectId, branch: BranchName) =>
       branchExistsOnGitlab(gitlab, projectId, branch),
+    ),
+    getLatestPipelineForRef: cacheByArgs((projectId: ProjectId, ref: TagName) =>
+      getLatestPipelineForRefOnGitlab(gitlab, projectId, ref),
     ),
   }
 }
