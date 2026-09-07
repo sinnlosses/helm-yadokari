@@ -134,6 +134,21 @@ async function buildPlan(
 }
 
 /**
+ * ブランチの実在確認をprojectId+ブランチ名単位でバッチ全体を通してキャッシュする。同じ
+ * chartディレクトリ配下の複数tenant/client（＝複数chartAndApps）が同じchart.projectIdを
+ * 共有するため、chartAndApps単位でなくバッチ単位（`buildPlans()`で1つ生成）にすることで
+ * 問い合わせを使い回せる。`mapWithConcurrency`によりchartAndAppsは並列実行されるため、
+ * 同時に来た同じキーの問い合わせも1回にまとめる`getOrFetchShared`を使う。
+ */
+function createCachedBranchExists(gitlab: GitlabClient): CachedBranchExists {
+  const cache = new Map<string, Promise<boolean>>()
+  return (projectId, branch) =>
+    getOrFetchShared(cache, `${projectId}:${branch}`, () =>
+      branchExistsOnGitlab(gitlab, projectId, branch),
+    )
+}
+
+/**
  * values.yamlの内容を読み込む関数を、chartリポジトリ1つ分に閉じ込めて組み立てる。読み込み
  * 結果は下書き（`ValuesYamlDraft`）を兼ねるため、そのchartAndApps内のアプリをまたいで
  * 引き継がれる（下書き自体は`buildPlan()`側でアプリごとに積み上げる）。
@@ -152,21 +167,6 @@ function createValuesYamlLoader(
     }
     return { content, draft: cacheValuesYamlDraft(draft, valuesPath, content) }
   }
-}
-
-/**
- * ブランチの実在確認をprojectId+ブランチ名単位でバッチ全体を通してキャッシュする。同じ
- * chartディレクトリ配下の複数tenant/client（＝複数chartAndApps）が同じchart.projectIdを
- * 共有するため、chartAndApps単位でなくバッチ単位（`buildPlans()`で1つ生成）にすることで
- * 問い合わせを使い回せる。`mapWithConcurrency`によりchartAndAppsは並列実行されるため、
- * 同時に来た同じキーの問い合わせも1回にまとめる`getOrFetchShared`を使う。
- */
-function createCachedBranchExists(gitlab: GitlabClient): CachedBranchExists {
-  const cache = new Map<string, Promise<boolean>>()
-  return (projectId, branch) =>
-    getOrFetchShared(cache, `${projectId}:${branch}`, () =>
-      branchExistsOnGitlab(gitlab, projectId, branch),
-    )
 }
 
 /**

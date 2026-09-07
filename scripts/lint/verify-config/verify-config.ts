@@ -30,46 +30,78 @@ type VerifyContext = {
 }
 
 /**
- * 書き込み先1件分（`valuesPath`+`anchor`）を検証する。ファイルが無ければファイルの問題を、
- * ファイルはあるがアンカーが無ければアンカーの問題を返す。同じ`valuesPath`について
- * ファイル不在を何度も報告しないよう、報告済みのパスは`reportedPaths`で覚えておく。
+ * `config/` に書かれた projectId・ブランチ・valuesPath・アンカーがGitLab上に実在するかを
+ * 検証し、見つかった問題を人が読める文字列の配列で返す（1件目で止めず全件集める）。
+ * 問題が無ければ空配列を返す。GitLabへの問い合わせは読み取りのみで、タグ・ブランチ・MRは
+ * 一切作らない。
+ *
+ * 同じプロジェクト・ブランチ・values.yamlへの問い合わせは全chartAndAppsで共有したキャッシュで
+ * 1回に抑える。chartAndApps単位は`concurrencyLimit`件ずつ並列に検証するが、結果は入力順を
+ * 保った配列で返るため、報告の順序は`config/`の並び順と一致する。
+ * アプリ単位はchartAndApps内で逐次のまま（キャッシュのヒット率を保つため）。
  */
-async function verifyTarget(
-  { cache, where, chart, reportedPaths }: VerifyContext,
-  target: AnchorTarget,
-  label: string,
+export async function verifyConfigExistence(
+  gitlab: GitlabClient,
+  chartAndAppsList: readonly ChartAndApps[],
+  concurrencyLimit: number,
 ): Promise<string[]> {
-  const { content } = await cache.loadValuesYaml(
-    chart.projectId,
-    chart.mrTargetBranch,
-    target.valuesPath,
+  const cache = newRemoteCache(gitlab)
+  const problemsPerChartAndApps = await mapWithConcurrency(
+    chartAndAppsList,
+    concurrencyLimit,
+    async (chartAndApps) => {
+      try {
+        return await verifyChartAndApps(cache, chartAndApps)
+      } catch (err) {
+        return [
+          `${chartAndApps.chartDirName}/${chartAndApps.tenantId}/${chartAndApps.clientId}: 検証中にエラーが発生しました（${toErrorMessage(err)}）`,
+        ]
+      }
+    },
   )
-  if (content === undefined) {
-    const key = `${chart.projectId}#${chart.mrTargetBranch}#${target.valuesPath}`
-    if (reportedPaths.has(key)) return []
-    reportedPaths.add(key)
-    return [
-      `${where}: ${label} の values.yaml が見つかりません（${target.valuesPath} @ ${chart.mrTargetBranch}）`,
-    ]
-  }
-  if (getValueAtAnchor(content, target.anchorName) === undefined) {
-    return [
-      `${where}: ${label} のアンカー "${target.anchorName}" が ${target.valuesPath} に見つかりません`,
-    ]
-  }
-  return []
+  return problemsPerChartAndApps.flat()
 }
 
-/** 複数の書き込み先を同じラベルで検証する */
-function verifyTargets(
-  context: VerifyContext,
-  targets: readonly AnchorTarget[],
-  label: string,
+/**
+ * 1つのchartAndApps（＝1つのtenantId/clientId）分を検証する。chartリポジトリ自体が
+ * 見つからない場合、そこに依存する検証（mrTargetBranch・values.yaml）は結果が自明なので
+ * 行わず、原因となる1件だけを報告する。
+ */
+async function verifyChartAndApps(
+  cache: RemoteCache,
+  chartAndApps: ChartAndApps,
 ): Promise<string[]> {
-  return reduceAsync(targets, [] as string[], async (acc, target) => [
+  const { chart, apps } = chartAndApps
+  const context: VerifyContext = {
+    cache,
+    where: `${chartAndApps.chartDirName}/${formatClientRef(chartAndApps.tenantId, chartAndApps.clientId)}`,
+    chart,
+    reportedPaths: new Set<string>(),
+  }
+  const { where } = context
+
+  const chartProjectFound = await cache.hasProject(chart.projectId)
+  const chartProblems = chartProjectFound
+    ? []
+    : [
+        `${where}: chart.yaml の projectId ${chart.projectId}（${chart.projectName}）が見つかりません`,
+      ]
+
+  const baseBranchFound =
+    chartProjectFound && (await cache.hasBranch(chart.projectId, chart.mrTargetBranch))
+  const baseBranchProblems =
+    !chartProjectFound || baseBranchFound
+      ? []
+      : [
+          `${where}: chart.yaml の mrTargetBranch "${chart.mrTargetBranch}" が ${chart.projectName} に見つかりません`,
+        ]
+
+  const appProblems = await reduceAsync(apps, [] as string[], async (acc, app) => [
     ...acc,
-    ...(await verifyTarget(context, target, label)),
+    ...(await verifyApp(context, app, baseBranchFound)),
   ])
+
+  return [...chartProblems, ...baseBranchProblems, ...appProblems]
 }
 
 /**
@@ -116,77 +148,45 @@ async function verifyApp(
   return [...branchProblems, ...imageTagProblems, ...helmBranchProblems, ...helmTargetProblems]
 }
 
-/**
- * 1つのchartAndApps（＝1つのtenantId/clientId）分を検証する。chartリポジトリ自体が
- * 見つからない場合、そこに依存する検証（mrTargetBranch・values.yaml）は結果が自明なので
- * 行わず、原因となる1件だけを報告する。
- */
-async function verifyChartAndApps(
-  cache: RemoteCache,
-  chartAndApps: ChartAndApps,
+/** 複数の書き込み先を同じラベルで検証する */
+function verifyTargets(
+  context: VerifyContext,
+  targets: readonly AnchorTarget[],
+  label: string,
 ): Promise<string[]> {
-  const { chart, apps } = chartAndApps
-  const context: VerifyContext = {
-    cache,
-    where: `${chartAndApps.chartDirName}/${formatClientRef(chartAndApps.tenantId, chartAndApps.clientId)}`,
-    chart,
-    reportedPaths: new Set<string>(),
-  }
-  const { where } = context
-
-  const chartProjectFound = await cache.hasProject(chart.projectId)
-  const chartProblems = chartProjectFound
-    ? []
-    : [
-        `${where}: chart.yaml の projectId ${chart.projectId}（${chart.projectName}）が見つかりません`,
-      ]
-
-  const baseBranchFound =
-    chartProjectFound && (await cache.hasBranch(chart.projectId, chart.mrTargetBranch))
-  const baseBranchProblems =
-    !chartProjectFound || baseBranchFound
-      ? []
-      : [
-          `${where}: chart.yaml の mrTargetBranch "${chart.mrTargetBranch}" が ${chart.projectName} に見つかりません`,
-        ]
-
-  const appProblems = await reduceAsync(apps, [] as string[], async (acc, app) => [
+  return reduceAsync(targets, [] as string[], async (acc, target) => [
     ...acc,
-    ...(await verifyApp(context, app, baseBranchFound)),
+    ...(await verifyTarget(context, target, label)),
   ])
-
-  return [...chartProblems, ...baseBranchProblems, ...appProblems]
 }
 
 /**
- * `config/` に書かれた projectId・ブランチ・valuesPath・アンカーがGitLab上に実在するかを
- * 検証し、見つかった問題を人が読める文字列の配列で返す（1件目で止めず全件集める）。
- * 問題が無ければ空配列を返す。GitLabへの問い合わせは読み取りのみで、タグ・ブランチ・MRは
- * 一切作らない。
- *
- * 同じプロジェクト・ブランチ・values.yamlへの問い合わせは全chartAndAppsで共有したキャッシュで
- * 1回に抑える。chartAndApps単位は`concurrencyLimit`件ずつ並列に検証するが、結果は入力順を
- * 保った配列で返るため、報告の順序は`config/`の並び順と一致する。
- * アプリ単位はchartAndApps内で逐次のまま（キャッシュのヒット率を保つため）。
+ * 書き込み先1件分（`valuesPath`+`anchor`）を検証する。ファイルが無ければファイルの問題を、
+ * ファイルはあるがアンカーが無ければアンカーの問題を返す。同じ`valuesPath`について
+ * ファイル不在を何度も報告しないよう、報告済みのパスは`reportedPaths`で覚えておく。
  */
-export async function verifyConfigExistence(
-  gitlab: GitlabClient,
-  chartAndAppsList: readonly ChartAndApps[],
-  concurrencyLimit: number,
+async function verifyTarget(
+  { cache, where, chart, reportedPaths }: VerifyContext,
+  target: AnchorTarget,
+  label: string,
 ): Promise<string[]> {
-  const cache = newRemoteCache(gitlab)
-  const problemsPerChartAndApps = await mapWithConcurrency(
-    chartAndAppsList,
-    concurrencyLimit,
-    async (chartAndApps) => {
-      try {
-        return await verifyChartAndApps(cache, chartAndApps)
-      } catch (err) {
-        return [
-          `${chartAndApps.chartDirName}/${chartAndApps.tenantId}/${chartAndApps.clientId}: 検証中にエラーが発生しました（${toErrorMessage(err)}）`,
-        ]
-      }
-    },
+  const { content } = await cache.loadValuesYaml(
+    chart.projectId,
+    chart.mrTargetBranch,
+    target.valuesPath,
   )
-  return problemsPerChartAndApps.flat()
+  if (content === undefined) {
+    const key = `${chart.projectId}#${chart.mrTargetBranch}#${target.valuesPath}`
+    if (reportedPaths.has(key)) return []
+    reportedPaths.add(key)
+    return [
+      `${where}: ${label} の values.yaml が見つかりません（${target.valuesPath} @ ${chart.mrTargetBranch}）`,
+    ]
+  }
+  if (getValueAtAnchor(content, target.anchorName) === undefined) {
+    return [
+      `${where}: ${label} のアンカー "${target.anchorName}" が ${target.valuesPath} に見つかりません`,
+    ]
+  }
+  return []
 }

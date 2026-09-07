@@ -7,23 +7,6 @@ import type { AnchorName } from "../types/types.js"
 // （Chart.yaml の読み込みなど）が今後必要になった場合もここに追加する。
 
 /**
- * 配列要素にYAMLアンカーで名前を付けた構成（例: `variables: [&anchorName value, ...]`）向け。
- * ネストの深さやキー名に関わらずドキュメント全体を探索し、指定したアンカー名を持つスカラーノードを返す。
- */
-function findAnchorNode(doc: Document, anchorName: AnchorName): Scalar | undefined {
-  let found: Scalar | undefined
-  visit(doc, {
-    Scalar(_key, node) {
-      if (node.anchor === anchorName) {
-        found = node
-        return visit.BREAK
-      }
-    },
-  })
-  return found
-}
-
-/**
  * YAML文字列から、指定したアンカー名を持つスカラー値を取得する。
  * 該当するアンカーが存在しない場合は undefined を返す。
  */
@@ -49,4 +32,21 @@ export function setValueAtAnchor(
   }
   node.value = newValue
   return doc.toString()
+}
+
+/**
+ * 配列要素にYAMLアンカーで名前を付けた構成（例: `variables: [&anchorName value, ...]`）向け。
+ * ネストの深さやキー名に関わらずドキュメント全体を探索し、指定したアンカー名を持つスカラーノードを返す。
+ */
+function findAnchorNode(doc: Document, anchorName: AnchorName): Scalar | undefined {
+  let found: Scalar | undefined
+  visit(doc, {
+    Scalar(_key, node) {
+      if (node.anchor === anchorName) {
+        found = node
+        return visit.BREAK
+      }
+    },
+  })
+  return found
 }

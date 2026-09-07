@@ -17,28 +17,6 @@ import { logger } from "../../../utils/logger.js"
 import type { LatestTagResolution } from "./shared/types.js"
 
 /**
- * 「現在の追跡ブランチ由来（＝`branch`と`tagFormat`でパースできる）で、かつ`headSha`と
- * 同じコミットを指すタグ名」の集合を組み立てる。
- * 追跡ブランチを切り替えた場合、切り替え前のタグ名は現在の`branch`ではパースできないため
- * この集合には含まれない。結果として、HEADと同じコミットを指していても更新をスキップしない。
- * `headSha`が`undefined`（＝ブランチ自体が存在しない）のときは常に空集合になる。
- */
-function resolveTrackedHeadTagNames(
-  tags: readonly TagInfo[],
-  headSha: CommitSha | undefined,
-  branch: BranchName,
-  tagFormat: TagFormat,
-): ReadonlySet<TagName> {
-  return new Set(
-    tags
-      .filter(
-        (tag) => tag.commitSha === headSha && parseTag(tag.name, branch, tagFormat) !== undefined,
-      )
-      .map((tag) => tag.name),
-  )
-}
-
-/**
  * 追跡ブランチ由来の最新タグを判定する。追跡ブランチの現在のHEADコミットを指すタグが
  * 1件も無い場合は、このツール自身がHEADコミットに新しいタグを作成し、それを最新タグとして
  * 扱う（dryRun のときは実際の作成はスキップし、作成予定のタグ名だけを使う）。タグの命名規則は
@@ -93,4 +71,26 @@ export async function resolveLatestTag(
     dryRun,
   })
   return { tag: newTag, trackedHeadTagNames }
+}
+
+/**
+ * 「現在の追跡ブランチ由来（＝`branch`と`tagFormat`でパースできる）で、かつ`headSha`と
+ * 同じコミットを指すタグ名」の集合を組み立てる。
+ * 追跡ブランチを切り替えた場合、切り替え前のタグ名は現在の`branch`ではパースできないため
+ * この集合には含まれない。結果として、HEADと同じコミットを指していても更新をスキップしない。
+ * `headSha`が`undefined`（＝ブランチ自体が存在しない）のときは常に空集合になる。
+ */
+function resolveTrackedHeadTagNames(
+  tags: readonly TagInfo[],
+  headSha: CommitSha | undefined,
+  branch: BranchName,
+  tagFormat: TagFormat,
+): ReadonlySet<TagName> {
+  return new Set(
+    tags
+      .filter(
+        (tag) => tag.commitSha === headSha && parseTag(tag.name, branch, tagFormat) !== undefined,
+      )
+      .map((tag) => tag.name),
+  )
 }

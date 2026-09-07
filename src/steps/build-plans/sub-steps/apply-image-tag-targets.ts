@@ -9,6 +9,23 @@ import { writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 export type ApplyImageTagTargetsAcc = ApplyTargetsAcc<ImageTagUpdate>
 
 /**
+ * 1アプリの`app.imageTagTargets`（1件以上）を先頭から順に`applyImageTagTarget()`へ渡す。
+ * 複数箇所を扱うのはこの関数の責務で、呼び出し元（`build-plans.ts`）は
+ * 「アプリの全書き込み先にイメージタグを適用する」という1つの操作として呼ぶだけでよい。
+ */
+export async function applyImageTagTargets(
+  loadValuesYamlContent: LoadValuesYamlContent,
+  latestTag: LatestTagResolution,
+  draft: ValuesYamlDraft,
+  targets: readonly AnchorTarget[],
+): Promise<ApplyImageTagTargetsAcc> {
+  const initialAcc: ApplyImageTagTargetsAcc = { draft, updates: [] }
+  return reduceAsync(targets, initialAcc, (current, target) =>
+    applyImageTagTarget(loadValuesYamlContent, latestTag, current, target),
+  )
+}
+
+/**
  * `app.imageTagTargets`のうち1箇所分について、下書き上の現在値（反映済みタグ）と最新タグを比較する。
  * 差分があれば書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ読み込んだ
  * values.yamlを下書きに残すだけで`updates`には含めない）。
@@ -43,21 +60,4 @@ async function applyImageTagTarget(
     ),
     updates: [...acc.updates, { target, previousTagName }],
   }
-}
-
-/**
- * 1アプリの`app.imageTagTargets`（1件以上）を先頭から順に`applyImageTagTarget()`へ渡す。
- * 複数箇所を扱うのはこの関数の責務で、呼び出し元（`build-plans.ts`）は
- * 「アプリの全書き込み先にイメージタグを適用する」という1つの操作として呼ぶだけでよい。
- */
-export async function applyImageTagTargets(
-  loadValuesYamlContent: LoadValuesYamlContent,
-  latestTag: LatestTagResolution,
-  draft: ValuesYamlDraft,
-  targets: readonly AnchorTarget[],
-): Promise<ApplyImageTagTargetsAcc> {
-  const initialAcc: ApplyImageTagTargetsAcc = { draft, updates: [] }
-  return reduceAsync(targets, initialAcc, (current, target) =>
-    applyImageTagTarget(loadValuesYamlContent, latestTag, current, target),
-  )
 }

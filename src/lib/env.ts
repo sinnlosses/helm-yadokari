@@ -42,14 +42,6 @@ export function parseTargetChart(raw: string | undefined): ChartDirName | undefi
   return raw === undefined ? undefined : toChartDirName(raw)
 }
 
-function parseTargetClientEntry(entry: string): TargetClient {
-  const client = parseClientRef(entry)
-  if (client === undefined) {
-    throw new Error(`TARGET_CLIENTS は "<tenantId>/<clientId>" 形式で指定してください: "${entry}"`)
-  }
-  return client
-}
-
 /**
  * TARGET_CLIENTS は `<tenantId>/<clientId>` 形式の組をカンマ区切りで複数指定できる
  * （例: "tenantId1/clientId1,tenantId2/clientId2"）。config/ のディレクトリ階層
@@ -91,4 +83,12 @@ export function loadEnvConfig(): EnvConfig {
     targetClients: parseTargetClients(loadOptionalEnv("TARGET_CLIENTS")),
     tagFormat: parseTagFormat(loadOptionalEnv("TAG_FORMAT")),
   }
+}
+
+function parseTargetClientEntry(entry: string): TargetClient {
+  const client = parseClientRef(entry)
+  if (client === undefined) {
+    throw new Error(`TARGET_CLIENTS は "<tenantId>/<clientId>" 形式で指定してください: "${entry}"`)
+  }
+  return client
 }

@@ -2,13 +2,12 @@ import { extractHttpStatus } from "./http.js"
 
 const RETRYABLE_STATUSES = new Set([429, 502, 503, 504])
 
-function isRetryable(error: unknown): boolean {
-  const status = extractHttpStatus(error)
-  return status !== undefined && RETRYABLE_STATUSES.has(status)
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: { maxAttempts?: number; baseDelayMs?: number } = {},
+): Promise<T> {
+  const { maxAttempts = 3, baseDelayMs = 1000 } = options
+  return runAttempt(fn, 1, maxAttempts, baseDelayMs)
 }
 
 /**
@@ -30,10 +29,11 @@ async function runAttempt<T>(
   }
 }
 
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  options: { maxAttempts?: number; baseDelayMs?: number } = {},
-): Promise<T> {
-  const { maxAttempts = 3, baseDelayMs = 1000 } = options
-  return runAttempt(fn, 1, maxAttempts, baseDelayMs)
+function isRetryable(error: unknown): boolean {
+  const status = extractHttpStatus(error)
+  return status !== undefined && RETRYABLE_STATUSES.has(status)
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }

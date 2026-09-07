@@ -7,10 +7,6 @@ const ANY_PLACEHOLDER_PATTERN = /\{([^}]*)\}/g
 
 export const DEFAULT_TAG_FORMAT: TagFormat = toTagFormat("{branch}-build-at-{date}-{time}")
 
-function escapeRegExp(literal: string): string {
-  return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-}
-
 /**
  * `TAG_FORMAT`（タグ命名規則のテンプレート）の妥当性を検証する。`{branch}`/`{date}`/`{time}`
  * をちょうど1回ずつ含む必要があり、それ以外のプレースホルダは許可しない。
@@ -34,51 +30,6 @@ export function validateTagFormat(raw: string): TagFormat {
   }
 
   return toTagFormat(raw)
-}
-
-/**
- * `format`のプレースホルダを埋めてタグ名を組み立てる。`{branch}`は呼び出し元が渡した
- * `branch`（"/"を"-"に置換済み）、`{date}`/`{time}`は呼び出し元が渡した値にそのまま置換する。
- */
-function fillTagFormat(
-  format: TagFormat,
-  branch: BranchName,
-  datePart: string,
-  timePart: string,
-): string {
-  const branchLiteral = branch.replaceAll("/", "-")
-  return format.replace(PLACEHOLDER_PATTERN, (_, placeholder: string) => {
-    if (placeholder === "branch") return branchLiteral
-    if (placeholder === "date") return datePart
-    return timePart
-  })
-}
-
-/**
- * `format`と`branch`から、タグ名をパースするための正規表現を組み立てる。`{branch}`は
- * `branch`の具体値（"/"を"-"に置換済み）へのリテラル一致、`{date}`/`{time}`は名前付き
- * キャプチャグループにする。プレースホルダ以外の部分はリテラルとしてエスケープする。
- */
-function compileTagPattern(format: TagFormat, branch: BranchName): RegExp {
-  const branchLiteral = branch.replaceAll("/", "-")
-  let source = "^"
-  let lastIndex = 0
-  for (const match of format.matchAll(PLACEHOLDER_PATTERN)) {
-    const index = match.index
-    source += escapeRegExp(format.slice(lastIndex, index))
-    const placeholder = match[1]
-    if (placeholder === "branch") {
-      source += escapeRegExp(branchLiteral)
-    } else if (placeholder === "date") {
-      source += "(?<date>\\d{8})"
-    } else {
-      source += "(?<time>\\d{6})"
-    }
-    lastIndex = index + match[0].length
-  }
-  source += escapeRegExp(format.slice(lastIndex))
-  source += "$"
-  return new RegExp(source)
 }
 
 export function parseTag(
@@ -137,4 +88,53 @@ export function findLatestParsedTag(
       if (!latest) return current
       return current.builtAt > latest.builtAt ? current : latest
     }, undefined)
+}
+
+/**
+ * `format`と`branch`から、タグ名をパースするための正規表現を組み立てる。`{branch}`は
+ * `branch`の具体値（"/"を"-"に置換済み）へのリテラル一致、`{date}`/`{time}`は名前付き
+ * キャプチャグループにする。プレースホルダ以外の部分はリテラルとしてエスケープする。
+ */
+function compileTagPattern(format: TagFormat, branch: BranchName): RegExp {
+  const branchLiteral = branch.replaceAll("/", "-")
+  let source = "^"
+  let lastIndex = 0
+  for (const match of format.matchAll(PLACEHOLDER_PATTERN)) {
+    const index = match.index
+    source += escapeRegExp(format.slice(lastIndex, index))
+    const placeholder = match[1]
+    if (placeholder === "branch") {
+      source += escapeRegExp(branchLiteral)
+    } else if (placeholder === "date") {
+      source += "(?<date>\\d{8})"
+    } else {
+      source += "(?<time>\\d{6})"
+    }
+    lastIndex = index + match[0].length
+  }
+  source += escapeRegExp(format.slice(lastIndex))
+  source += "$"
+  return new RegExp(source)
+}
+
+/**
+ * `format`のプレースホルダを埋めてタグ名を組み立てる。`{branch}`は呼び出し元が渡した
+ * `branch`（"/"を"-"に置換済み）、`{date}`/`{time}`は呼び出し元が渡した値にそのまま置換する。
+ */
+function fillTagFormat(
+  format: TagFormat,
+  branch: BranchName,
+  datePart: string,
+  timePart: string,
+): string {
+  const branchLiteral = branch.replaceAll("/", "-")
+  return format.replace(PLACEHOLDER_PATTERN, (_, placeholder: string) => {
+    if (placeholder === "branch") return branchLiteral
+    if (placeholder === "date") return datePart
+    return timePart
+  })
+}
+
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }

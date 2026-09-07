@@ -21,18 +21,6 @@ export function createClient(host: GitLabUrl, token: string): GitlabClient {
   return new Gitlab({ host, token })
 }
 
-/**
- * fn() を実行し、404エラーのときだけ fallback を返す。404以外のエラーは再スローする。
- */
-async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
-  try {
-    return await fn()
-  } catch (error) {
-    if (isNotFoundError(error)) return fallback
-    throw error
-  }
-}
-
 /** タグ名とそれが指すコミットSHAの一覧を返す */
 export async function listTags(gitlab: GitlabClient, projectId: ProjectId): Promise<TagInfo[]> {
   const tags = await withRetry(() => gitlab.Tags.all(projectId))
@@ -230,4 +218,16 @@ export async function getLatestPipelineForRef(
       throw error
     }
   })
+}
+
+/**
+ * fn() を実行し、404エラーのときだけ fallback を返す。404以外のエラーは再スローする。
+ */
+async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn()
+  } catch (error) {
+    if (isNotFoundError(error)) return fallback
+    throw error
+  }
 }
