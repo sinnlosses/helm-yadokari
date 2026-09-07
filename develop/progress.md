@@ -2,7 +2,7 @@
 
 最終更新: 2026-09-07（配置・命名の再検討タスク3件（T-092〜T-094）を**全件完了**。着手前に
 T-077〜T-091（前回のリポジトリ全体レビューのfollow-up、全件 `done`）を `docs/history/` へ
-アーカイブした。作業ブランチ `chore/reconsider-placement-naming` は未push・未マージ）
+アーカイブした。この3件は `main` にマージ済み）
 
 T-001〜T-091 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
@@ -58,13 +58,27 @@ T-001〜T-091 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
 
 ## 次にやること
 
-- `tasks.json` は **T-092〜T-094 が全件 `done`**。次のタスクは未登録。
-- **作業ブランチ `chore/reconsider-placement-naming` が未push・未マージ**。`main` からの
-  コミット: アーカイブ＋登録 / アーカイブ整形 / T-092（初版・rename）/ T-093（初版・据え置き）
-  / T-094 / T-092方針変更（config.tsに畳む）/ T-093方針変更（src/domain/へ移動）。
-  マージ・push は外部反映なのでユーザー承認が要る。
-- この3件はリファクタ（ファイル移動・rename・ドキュメント）で `pnpm check` 通過済み・挙動不変。
-  実機スモークテストは不要と判断（`git mv` と import 差し替えのみ、テストが緑）。
+- **`undefined` の棚卸しから5件を登録した（T-095〜T-099、全件 `todo`）**。`src/` 全体の
+  `undefined` を調査し、(A)外部の「無い」を写しているだけで消せないもの、(B)要件を変えれば
+  消せるもの、(C)表現が揃っていないもの、に分類した結果からの登録。
+  - T-095（sonnet）: アンカー不在を読み取り時に即エラーへ寄せ、`previousTagName` /
+    `previousBranch` の `| undefined` を消す。**この2つの `undefined` は実行時に到達不可能**
+    （直後の `setValueAtAnchor()` が必ず例外を投げる）なのに、型・MR本文の表示・テストの
+    3箇所であり得ない分岐を維持している、というのが調査で判明した一番の発見
+  - T-096（sonnet）: パイプライン取得を `build-plans` → `apply-updates` へ移し
+    `AppUpdatePlan.pipeline` を消す（dryRun由来の `undefined` が無くなる）
+  - T-097（haiku）: `EnvConfig.configPath` のデフォルトを `env.ts` に寄せる
+  - T-098（sonnet）: `?:` を `| undefined` に統一し、**`docs/coding-standards.md` に
+    `undefined` の基準**（外部の「無い」は許容／プログラムの都合で生まれたものは避ける／
+    消すことを目的にせず生まれる理由を先に問う）を節として追加する。規約を書く判断が
+    入るので haiku から上げた
+  - T-099（sonnet）: `branchToSync` 不在を分かりやすいエラーで落とす（今は存在しない
+    ブランチにタグを作ろうとして404で落ちる。Helm向き先ブランチ側は事前検証しているのに非対称）
+- **T-100（opus）**: Helmの向き先ブランチを `AppConfig`（app単位）から `ChartAndApps`
+  （client単位）へ移す。**主目的は `undefined` 削減ではなく**、共通の値をapp単位に振り分けてから
+  `uniqueHelmTargetBranchUpdates()` で重複排除して戻す往復を無くすこと。「向き先ブランチは
+  client内のapps全体で共通」という要件は今後も変わらないとユーザー確認済み（2026-09-07）。
+  T-095・T-096 と触るファイルが重なるため両者に依存させてある
 - 前回まで（T-064以降）の実機未検証分は据え置き（下の「注意」参照）。
 
 ## 未解決
