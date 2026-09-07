@@ -2,6 +2,7 @@ import { parseClientRef } from "../domain/client-ref.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../domain/tag-format.js"
 import type { ChartDirName, GitLabUrl, TagFormat, TargetClient } from "../types/types.js"
 import { toChartDirName, toGitLabUrl } from "../types/types.js"
+import { DEFAULT_CONFIG_PATH } from "./config/config.js"
 
 export function loadEnv(key: string): string {
   const value = process.env[key]
@@ -56,7 +57,7 @@ export function parseTargetClients(raw: string | undefined): readonly TargetClie
 export type EnvConfig = {
   readonly gitlabUrl: GitLabUrl
   readonly accessToken: string
-  readonly configPath: string | undefined
+  readonly configPath: string
   readonly concurrencyLimit: number
   readonly dryRun: boolean
   readonly targetChart: ChartDirName | undefined
@@ -76,7 +77,7 @@ export function loadEnvConfig(): EnvConfig {
   return {
     gitlabUrl: validateGitlabUrl(loadEnv("GITLAB_URL")),
     accessToken: loadEnv("ACCESS_TOKEN"),
-    configPath: loadOptionalEnv("CONFIG_PATH"),
+    configPath: loadOptionalEnv("CONFIG_PATH") ?? DEFAULT_CONFIG_PATH,
     concurrencyLimit: parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT")),
     dryRun: loadOptionalEnv("DRY_RUN") === "true",
     targetChart: parseTargetChart(loadOptionalEnv("TARGET_CHART")),

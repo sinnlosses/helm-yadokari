@@ -7,6 +7,7 @@ vi.mock("../src/utils/logger.js", () => ({
 }))
 
 import { loadConfig } from "../src/lib/config/config.js"
+import { DEFAULT_CONFIG_PATH } from "../src/lib/config/config.js"
 import type { EnvConfig } from "../src/lib/env.js"
 import {
   commitFileUpdates,
@@ -36,7 +37,7 @@ const mockGitlab = {} as unknown as GitlabClient
 const env: EnvConfig = {
   gitlabUrl: toGitLabUrl("https://gitlab.test"),
   accessToken: "test-token",
-  configPath: undefined,
+  configPath: DEFAULT_CONFIG_PATH,
   concurrencyLimit: 3,
   dryRun: false,
   targetChart: undefined,
@@ -110,7 +111,7 @@ describe("run", () => {
 
   it("loadConfig に CONFIG_PATH と TARGET_CHART/TARGET_CLIENTS由来のtargetを渡す", async () => {
     await run(env)
-    expect(loadConfig).toHaveBeenCalledWith(undefined, {
+    expect(loadConfig).toHaveBeenCalledWith(DEFAULT_CONFIG_PATH, {
       chartDirName: undefined,
       clients: undefined,
     })

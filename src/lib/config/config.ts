@@ -15,6 +15,9 @@ import { parseYamlFile } from "../../utils/yaml.js"
 import { loadChartAndApps } from "./chart-and-apps.js"
 import { ChartYamlSchema } from "./schema.js"
 
+/** `CONFIG_PATH`・コマンドライン引数のどちらも省略されたときに読む設定ディレクトリ */
+export const DEFAULT_CONFIG_PATH = "config"
+
 /**
  * 特定のchartディレクトリ・特定のtenantId/clientIdの組（複数可）に処理対象を絞り込む
  * ためのフィルタ。手動トリガー時に全chart/全clientではなく一部だけを実行したい場合に使う
@@ -37,8 +40,7 @@ export type ConfigTarget = {
  * （MRを作成する単位）を返すため、1つのchartディレクトリに複数の
  * tenantId/clientIdがあれば`chartAndAppsList`には複数件が並ぶ。
  */
-export function loadConfig(configPath?: string, target: ConfigTarget = {}): Config {
-  const path = configPath ?? "config"
+export function loadConfig(path: string, target: ConfigTarget = {}): Config {
   assertSafePath(path, "CONFIG_PATH")
 
   const chartDirs = listSubdirectories(path)

@@ -1,4 +1,4 @@
-import { loadConfig } from "../../src/lib/config/config.js"
+import { DEFAULT_CONFIG_PATH, loadConfig } from "../../src/lib/config/config.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
 import type { Config } from "../../src/types/types.js"
@@ -11,7 +11,7 @@ import { verifyConfigExistence } from "./verify-config/verify-config.js"
 
 const args = process.argv.slice(2)
 const remote = args.includes("--remote")
-const configPath = args.find((arg) => !arg.startsWith("--"))
+const configPath = args.find((arg) => !arg.startsWith("--")) ?? DEFAULT_CONFIG_PATH
 
 function fail(message: string): never {
   console.error(`config ERROR: ${message}`)
@@ -28,8 +28,7 @@ function loadLocally(): Config {
 
 const { chartAndAppsList } = loadLocally()
 const appCount = chartAndAppsList.reduce((sum, chartAndApps) => sum + chartAndApps.apps.length, 0)
-const where = configPath ?? "config"
-console.log(`config OK: ${chartAndAppsList.length} chart groups, ${appCount} apps (${where})`)
+console.log(`config OK: ${chartAndAppsList.length} chart groups, ${appCount} apps (${configPath})`)
 
 if (remote) {
   // 環境変数（GITLAB_URL/ACCESS_TOKEN）を要求するのは --remote のときだけなので、

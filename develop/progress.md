@@ -35,6 +35,11 @@ T-001〜T-094 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
   無い/403」の意味だけになった。受け入れ時に projectId+タグ名の重複排除を落とした
   （1 chartAndApps 内で projectId は一意なので、その重複は起こり得ない）。
   `pnpm check`（31ファイル334テスト、-1件）。
+- **T-097 完了**。`EnvConfig.configPath` を `string` にし、デフォルト `"config"` を
+  `DEFAULT_CONFIG_PATH` 定数1箇所に寄せた。`loadConfig()` は省略可能引数をやめて必須引数に
+  変え、CLIから呼ぶ `validate-config.ts` 側でデフォルトを当てる。`pnpm check`
+  （31ファイル334テスト、不変）。**haiku への委譲がセッションのレート制限（429）で落ちた**
+  ため、メインセッションが実行した。
 - **アーカイブ**: `develop/tasks.json` が44KBと基準（30KB）を超えたため、`done` の
   T-092〜T-094 を `docs/history/` へ移した。
 

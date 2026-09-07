@@ -20,10 +20,10 @@
   {
     "id": "T-097",
     "task": "`EnvConfig.configPath` のデフォルト適用を `src/lib/env.ts` に寄せ、`string | undefined` を `string` にする。\n\n## 背景（調査済みの事実）\n\n- `EnvConfig.configPath: string | undefined`（`src/lib/env.ts:59`）は `loadOptionalEnv(\"CONFIG_PATH\")` の結果をそのまま持っている。\n- 一方 `loadConfig()` は `const path = configPath ?? \"config\"`（`src/lib/config/config.ts:41`）でデフォルトを当てている。つまりデフォルト値は確定しているのに `undefined` が層をまたいで運ばれている。\n- 同じ `loadEnvConfig()` 内の `tagFormat`（`parseTagFormat()` が `?? DEFAULT_TAG_FORMAT`）や `concurrencyLimit`（`parseConcurrencyLimit()` が `?? \"3\"`）は **env.ts 側でデフォルトを当てている**。`configPath` だけ流儀が違う、揃え忘れ。\n\n## やること\n\n- `env.ts` 側でデフォルト `\"config\"` を当て、`EnvConfig.configPath: string` にする。`loadEnvConfig()` の他の項目と同じ書き方（専用の `parse*` 関数を置くか `?? \"config\"` で足りるか）は周囲に合わせて判断する。\n- `loadConfig(configPath?: string, ...)` 側の扱いを決める: `loadConfig()` は `scripts/lint/validate-config.ts` から**環境変数を経由せず**直接呼ばれており（引数省略あり・コマンドライン引数からのパス指定あり）、そちらでもデフォルトが必要。`loadConfig()` 側のデフォルトを残す／必須引数にして呼び出し側で当てる、のどちらでも良いが、**デフォルト値 `\"config\"` の定義が2箇所に散らないこと**（定数を1箇所に置いて共有するのが素直）。\n- `assertSafePath(path, \"CONFIG_PATH\")` の第2引数のメッセージが、デフォルト適用後も的確なままか確認する。\n\n## 完了条件\n\n- `EnvConfig.configPath` の型に `undefined` が無い。文字列 `\"config\"` がデフォルト値として2箇所以上にハードコードされていない。\n- `pnpm check` を通す（テスト件数は不変のはず。変わったら内訳を evidence に書く）。\n- `git add` / `git commit` はしない。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "haiku",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "lib/config/config.ts に DEFAULT_CONFIG_PATH を定義し、env.ts の configPath を string 化（?? DEFAULT_CONFIG_PATH）。loadConfig(path: string, ...) は省略可能引数をやめて必須にし、CLIから呼ぶ scripts/lint/validate-config.ts 側でデフォルトを当てる形にした（適用箇所＝入口2つ、定義は1箇所）。着手前は \"config\" が config.ts と validate-config.ts の2箇所にハードコードされており、grep '\"config\"' は定数定義の1件のみになった。pnpm check（31ファイル334テスト、不変）。haikuへの委譲がセッションのレート制限で落ちたためメインセッションが実行。",
     "dependencies": []
   },
   {
