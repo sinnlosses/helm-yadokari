@@ -38,10 +38,10 @@
   {
     "id": "T-114",
     "task": "プロジェクトのweb URL解決（`getProjectWebUrl()`）をバッチ全体でキャッシュする。\n\n## 背景\n\n`getProjectWebUrls()`（`src/lib/gitlab/gitlab.ts`）は `new Set` で `projectId` の重複を除いているが、その重複排除は**1回の呼び出しの中だけ**に閉じている。呼び出し元の `collectMrEntries()`（`src/steps/apply-updates/sub-steps/collect-mr-entries.ts`）は chartAndApps（＝client）単位で呼ばれるため、**同じappが複数のclientに登録されていると `Projects.show` がclientの数だけ実行される**。\n\nweb URL はバッチ実行中に変わらない値なので、`projectId` をキーにバッチ全体で持ち回れる。\n\n## やること\n\n1. T-111 で決めた機構に載せて、`projectId` をキーにバッチ全体でキャッシュする。\n2. 機構の置き場所によっては `getProjectWebUrls()` の `new Set` による重複排除が不要になる（キャッシュが同じ役割を担うため）。二重に持たないよう、どちらを残すか決める。\n3. `mapWithConcurrency` により chartAndApps は並列実行されるため、同時に来た同じキーの問い合わせも1回にまとめること。\n4. キャッシュが効いていることを検証するテストを追加する（同じappを複数clientに持つ入力で、呼び出し回数が1回になること）。\n\n## 完了条件\n\n- 同じ `projectId` の web URL 解決が1回に収束することをテストで示すこと。\n- `pnpm check` を通すこと。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "`GitlabBatchCache` に `getProjectWebUrl`（キーは projectId）を足し、`collectMrEntries()` は plan ごとにこれを呼ぶ形にした。二重の重複排除を避けるため `getProjectWebUrls()`（`new Set` による一意化は1回の呼び出しの中だけに閉じていた）は廃止し、単数の `getProjectWebUrl()` を公開してキャッシュ側に一本化。Mapを経由しなくなったので `resolveWebUrl()` と「依頼したprojectIdはすべて解決済み」の前提チェックも不要になり削除した（副産物として、web URL解決の失敗も `withAppContext()` の内側に入りアプリ名が付くようになった）。`mapWithConcurrency` で同時に来た同じキーは `getOrFetchShared()` により1回にまとまる。テストは既存の収束テストを拡張して 「同じappが複数clientに登録されていても、web URLとパイプラインの問い合わせは1回に収束する」で `getProjectWebUrl` が1回であることを検証（同じキャッシュで collectMrEntries を2回呼ぶ）。前提チェックのテスト1件は対象コードごと削除、gitlab.test.ts の重複排除テストは `getProjectWebUrl` の正常系テストに置き換え。`pnpm check` exit=0、33ファイル344テスト（345→344）。",
     "dependencies": ["T-111"]
   },
   {

@@ -2,18 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../../src/lib/gitlab/gitlab.js")
 
-import { getLatestPipelineForRef, getProjectWebUrls } from "../../../../src/lib/gitlab/gitlab.js"
+import { getLatestPipelineForRef, getProjectWebUrl } from "../../../../src/lib/gitlab/gitlab.js"
 import { collectMrEntries } from "../../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js"
-import type { GitLabUrl, ProjectId } from "../../../../src/types/types.js"
 import {
   toAnchorName,
   toBranchName,
   toGitLabUrl,
-  toProjectId,
   toTagName,
   toValuesPath,
 } from "../../../../src/types/types.js"
-import { makePlan, mockGitlab, newBatchCache } from "../../../helpers.js"
+import { makePlan, newBatchCache } from "../../../helpers.js"
 
 const webUrl = toGitLabUrl("https://gitlab.example.com/g/my-app")
 
@@ -23,10 +21,8 @@ const helmUpdate = {
   newBranch: toBranchName("release/2026-q1"),
 }
 
-function mockWebUrls(
-  webUrls: ReadonlyMap<ProjectId, GitLabUrl> = new Map([[toProjectId(1), webUrl]]),
-) {
-  vi.mocked(getProjectWebUrls).mockResolvedValue(webUrls)
+function mockWebUrl() {
+  vi.mocked(getProjectWebUrl).mockResolvedValue(webUrl)
 }
 
 afterEach(() => {
@@ -35,7 +31,7 @@ afterEach(() => {
 
 describe("collectMrEntries", () => {
   it("イメージタグの書き換え箇所ごとに1件、解決したweb URLを添えて返す", async () => {
-    mockWebUrls()
+    mockWebUrl()
     const plan = makePlan({
       updates: [
         {
@@ -49,7 +45,7 @@ describe("collectMrEntries", () => {
       ],
     })
 
-    const entries = await collectMrEntries(mockGitlab, newBatchCache(), [plan], [])
+    const entries = await collectMrEntries(newBatchCache(), [plan], [])
 
     expect(entries.imageTags).toHaveLength(2)
     expect(entries.imageTags.map((entry) => entry.update.target.anchorName)).toEqual(["x", "y"])
@@ -58,57 +54,49 @@ describe("collectMrEntries", () => {
   })
 
   it("イメージタグに差分が無いplanは含めず、そのweb URLも要求しない", async () => {
-    mockWebUrls(new Map())
+    mockWebUrl()
 
     const entries = await collectMrEntries(
-      mockGitlab,
       newBatchCache(),
       [makePlan({ updates: [] })],
       [helmUpdate],
     )
 
     expect(entries.imageTags).toEqual([])
-    expect(getProjectWebUrls).toHaveBeenCalledWith(mockGitlab, [])
+    expect(getProjectWebUrl).not.toHaveBeenCalled()
   })
 
   it("向き先ブランチの更新はclient単位で確定済みなので、そのまま並べる", async () => {
-    mockWebUrls(new Map())
+    mockWebUrl()
     const other = {
       ...helmUpdate,
       target: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("otherBranch") },
     }
 
-    const entries = await collectMrEntries(mockGitlab, newBatchCache(), [], [helmUpdate, other])
+    const entries = await collectMrEntries(newBatchCache(), [], [helmUpdate, other])
 
     expect(entries.helmBranches).toEqual([helmUpdate, other])
   })
 
-  it("web URLが解決されなかったprojectIdがあるとエラーにする", async () => {
-    mockWebUrls(new Map())
-
-    await expect(collectMrEntries(mockGitlab, newBatchCache(), [makePlan()], [])).rejects.toThrow(
-      "web URLが解決されていないprojectIdです: 1",
-    )
-  })
-
   it("plan単位の解決で失敗したとき、エラーにどのアプリかを付ける", async () => {
-    mockWebUrls()
+    mockWebUrl()
     vi.mocked(getLatestPipelineForRef).mockRejectedValue(new Error("パイプラインの取得に失敗"))
 
     await expect(
-      collectMrEntries(mockGitlab, newBatchCache(), [makePlan({ projectName: "my-app" })], []),
+      collectMrEntries(newBatchCache(), [makePlan({ projectName: "my-app" })], []),
     ).rejects.toThrow("[アプリ: my-app] パイプラインの取得に失敗")
   })
 
-  it("同じappが複数clientに登録されていても、パイプラインの問い合わせは1回に収束する", async () => {
-    mockWebUrls()
+  it("同じappが複数clientに登録されていても、web URLとパイプラインの問い合わせは1回に収束する", async () => {
+    mockWebUrl()
     vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
     // バッチ1回ぶんのキャッシュを共有したまま、clientの数だけ collectMrEntries が呼ばれる形
     const gitlabCache = newBatchCache()
 
-    await collectMrEntries(mockGitlab, gitlabCache, [makePlan()], [])
-    await collectMrEntries(mockGitlab, gitlabCache, [makePlan()], [])
+    await collectMrEntries(gitlabCache, [makePlan()], [])
+    await collectMrEntries(gitlabCache, [makePlan()], [])
 
+    expect(getProjectWebUrl).toHaveBeenCalledOnce()
     expect(getLatestPipelineForRef).toHaveBeenCalledOnce()
   })
 })

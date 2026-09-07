@@ -393,12 +393,18 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
 `GitlabBatchCache`は値を箱に入れてから載せる。これで`getFileContent`・`getLatestPipelineForRef`の
 ように`undefined`を返す読み取りも、メンバーごとに独自の箱を作らずそのまま載せられる。
 
+**重複排除をキャッシュの外にも置かない。** web URLの解決は以前`getProjectWebUrls()`が
+`new Set`で`projectId`を一意化していたが、その重複排除は1回の呼び出しの中だけに閉じていて、
+バッチ全体を見るキャッシュと役割が二重になる。`getProjectWebUrls()`は廃止して単数の
+`getProjectWebUrl()`だけを残し、一意化はキャッシュに一本化した。あわせて「依頼した
+`projectId`はすべて解決済み」という呼び出し元側の前提チェックも要らなくなっている。
+
 #### サブステップに関数型を注入するのは、親stepが持つキャッシュを隠すときだけ
 
 関数型で受け取るのはブランチ存在確認（`BranchExists`）だけで、**バッチ単位のキャッシュ**
 （`GitlabBatchCache`）とchartのprojectIdを親step側に閉じ込める。それ以外のサブステップは
-`GitlabClient`をそのまま受け取る。隠すべきキャッシュが無いなら、関数型にしても間接層が増える
-だけになる。
+`GitlabClient`や`GitlabBatchCache`をそのまま受け取る。隠すべきキャッシュが無いなら、関数型に
+しても間接層が増えるだけになる。
 
 - **サブステップ自身がバッチ単位のキャッシュを持つ場合は、工場関数を公開して親stepに寿命だけを
   持たせる**（`createResolveLatestTags()`）。親stepにキャッシュ付きの関数を組み立てさせると
@@ -612,8 +618,9 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
 - `values.yaml` の書き換えは `yaml` パッケージのDocument（AST）を直接操作する方式のため、
   書き換え対象以外のコメント・クォートスタイルは概ね保持される（完全な保持を保証するもの
   ではない）
-- タグに紐づくGitLabプロジェクトのURLは `Projects.show` で都度取得している（`config/`に
-  namespace slugを持たせていないため）
+- タグに紐づくGitLabプロジェクトのURLは `Projects.show` で取得している（`config/`に
+  namespace slugを持たせていないため）。バッチ1回につきprojectIdごとに1回で、それ以降は
+  `GitlabBatchCache` が返す
 - Helm CLI（`helm lint` / `helm template` 等）は呼び出さない。`values.yaml`のテキスト更新のみ行う
 
 ## ディレクトリ構成の勘所

@@ -43,7 +43,7 @@ async function applyUpdate(
   const { chart, tenantId, clientId } = chartAndApps
   const featureBranch = buildFeatureBranch(tenantId, clientId)
 
-  const entries = await collectMrEntries(gitlab, gitlabCache, plans, helmTargetBranchUpdates)
+  const entries = await collectMrEntries(gitlabCache, plans, helmTargetBranchUpdates)
   // MRタイトルをコミットメッセージにもそのまま使い回す
   const { title, description } = buildMrContent(tenantId, clientId, entries)
 

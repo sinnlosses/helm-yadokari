@@ -11,7 +11,7 @@ import {
   getBranchHeadSha,
   getFileContent,
   getLatestPipelineForRef,
-  getProjectWebUrls,
+  getProjectWebUrl,
   listTags,
   openMergeRequestExists,
   projectExists,
@@ -369,21 +369,23 @@ describe("createTag", () => {
   })
 })
 
-describe("getProjectWebUrls", () => {
-  it("重複するprojectIdを渡しても一意な数だけ問い合わせる", async () => {
-    const show = vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/group/app" })
-    const client = makeClient({ Projects: { show } })
+describe("getProjectWebUrl", () => {
+  it("Projects.show が返した web_url を返す", async () => {
+    const client = makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.example.com/group/app" }),
+      },
+    })
 
-    const webUrls = await getProjectWebUrls(client, [toProjectId(1), toProjectId(1)])
-
-    expect(show).toHaveBeenCalledOnce()
-    expect(webUrls.get(toProjectId(1))).toBe(toGitLabUrl("https://gitlab.example.com/group/app"))
+    expect(await getProjectWebUrl(client, toProjectId(1))).toBe(
+      toGitLabUrl("https://gitlab.example.com/group/app"),
+    )
   })
 
   it("web_url がURLとして不正なら、その値をMR本文に載せる前にエラーにする", async () => {
     const client = makeClient({
       Projects: { show: vi.fn().mockResolvedValue({ web_url: "not a url" }) },
     })
-    await expect(getProjectWebUrls(client, [toProjectId(1)])).rejects.toThrow("web_url")
+    await expect(getProjectWebUrl(client, toProjectId(1))).rejects.toThrow("web_url")
   })
 })

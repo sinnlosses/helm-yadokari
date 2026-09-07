@@ -157,23 +157,13 @@ export async function createTag(
   await withRetry(() => gitlab.Tags.create(projectId, tagName, ref))
 }
 
-/**
- * 複数プロジェクトのURLをまとめて解決する。重複する`projectId`は1回だけ解決する。
- */
-export async function getProjectWebUrls(
+/** プロジェクトのweb URL（MR本文のリンクの起点）を返す */
+export async function getProjectWebUrl(
   gitlab: GitlabClient,
-  projectIds: readonly ProjectId[],
-): Promise<ReadonlyMap<ProjectId, GitLabUrl>> {
-  const uniqueProjectIds = [...new Set(projectIds)]
-  const entries = await Promise.all(
-    uniqueProjectIds.map(
-      async (projectId): Promise<[ProjectId, GitLabUrl]> => [
-        projectId,
-        await getProjectWebUrl(gitlab, projectId),
-      ],
-    ),
-  )
-  return new Map(entries)
+  projectId: ProjectId,
+): Promise<GitLabUrl> {
+  const project = await withRetry(() => gitlab.Projects.show(projectId))
+  return toGitLabUrl(String(project.web_url), "GitLab APIが返したプロジェクトの web_url")
 }
 
 /**
@@ -219,9 +209,4 @@ async function deleteBranch(
   branch: BranchName,
 ): Promise<void> {
   await withRetry(() => gitlab.Branches.remove(projectId, branch))
-}
-
-async function getProjectWebUrl(gitlab: GitlabClient, projectId: ProjectId): Promise<GitLabUrl> {
-  const project = await withRetry(() => gitlab.Projects.show(projectId))
-  return toGitLabUrl(String(project.web_url), "GitLab APIが返したプロジェクトの web_url")
 }

@@ -1,9 +1,10 @@
-import type { BranchName, PipelineInfo, ProjectId, TagName } from "../../types/types.js"
+import type { BranchName, GitLabUrl, PipelineInfo, ProjectId, TagName } from "../../types/types.js"
 import { getOrFetchShared } from "../../utils/cache.js"
 import {
   type GitlabClient,
   branchExists as branchExistsOnGitlab,
   getLatestPipelineForRef as getLatestPipelineForRefOnGitlab,
+  getProjectWebUrl as getProjectWebUrlOnGitlab,
 } from "./gitlab.js"
 
 /**
@@ -34,6 +35,12 @@ export type GitlabBatchCache = {
     projectId: ProjectId,
     ref: TagName,
   ) => Promise<PipelineInfo | undefined>
+
+  /**
+   * プロジェクトのweb URL。プロジェクトの移動・改名でしか変わらない値なので載せている。
+   * 同じappが複数clientに登録されていても`Projects.show`はバッチ全体で1回に収束する。
+   */
+  readonly getProjectWebUrl: (projectId: ProjectId) => Promise<GitLabUrl>
 }
 
 export function createGitlabBatchCache(gitlab: GitlabClient): GitlabBatchCache {
@@ -43,6 +50,9 @@ export function createGitlabBatchCache(gitlab: GitlabClient): GitlabBatchCache {
     ),
     getLatestPipelineForRef: cacheByArgs((projectId: ProjectId, ref: TagName) =>
       getLatestPipelineForRefOnGitlab(gitlab, projectId, ref),
+    ),
+    getProjectWebUrl: cacheByArgs((projectId: ProjectId) =>
+      getProjectWebUrlOnGitlab(gitlab, projectId),
     ),
   }
 }

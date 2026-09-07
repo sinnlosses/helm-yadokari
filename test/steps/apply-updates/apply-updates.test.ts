@@ -84,7 +84,6 @@ describe("applyUpdates", () => {
     const target = makeTarget()
     await applyUpdates(mockGitlab, newBatchCache(), [target], 3)
     expect(collectMrEntries).toHaveBeenCalledWith(
-      mockGitlab,
       expect.anything(),
       target.plans,
       target.helmTargetBranchUpdates,
