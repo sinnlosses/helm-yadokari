@@ -240,6 +240,37 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 問題だった。引数の型を `number` に狭めることで分岐ごと削除済み。上の「避ける`undefined`」
 節の1つ目のパターン「実行時には到達しないのに型に残っている`undefined`」の実例）
 
+### 通し（e2e）で守るのは「実ファイル → MRの中身」の連結だけ
+
+`docs/requirements.md` 4.1〜4.5 の各項目は、いずれかの単体テストが既に通している（節ごとに
+突き合わせた結果は `docs/history/test-inventory.md`「要件シナリオとの突き合わせ」）。
+要件の節ごとにシナリオテストを並べても上の「足すかどうか」に照らせば二重化にしかならないので、
+**要件の節とテストの対応表は正典として持たない**（要件を変えるたびに表を直すコストだけが残る）。
+
+自動テストが一度も通していないのは、要件の項目そのものではなく**その間の連結**1箇所だけ:
+
+> `config/` のYAML3ファイル（実ファイル） → `loadConfig()` → 3ステップ →
+> コミットされる `values.yaml` の中身・MRのタイトル・MR本文
+
+`loadConfig()` が実ファイルを読むところまでは `test/lib/config/` が一時ディレクトリの実YAMLで
+確かめ、パイプラインは `ChartAndApps` を受け取った後を `test/main.test.ts` などが確かめているが、
+両者は `test/helpers.ts` の `makeChartAndApps()` で手組みした値でつながっている。
+**この連結を通すテストだけを足す**。ここが食い違っても落ちるテストが1つも無く、気づけるのは
+実機スモークテスト（`docs/smoke-test.md`、手動・要GitLab）だけだったため。
+
+- **境界は `test/main.dry-run.test.ts` と同じ gitbeaker（`@gitbeaker/rest`）**。`lib/gitlab/` を
+  モックする境界だと「ラッパ関数に何を渡したか」までしか固定できず、`lib/gitlab/` 自身が
+  組み立てるコミットのアクション・MRのパラメータが抜ける。dry-runのテストと同じ境界にすれば
+  fakeの準備も `test/helpers.ts` に寄せて共有できる
+- **入口は `config-test/` の実ファイル**（実機スモークテストが使っているのと同じフィクスチャ）。
+  テスト専用の `config/` を別に作らない。副次的に、gitで管理している唯一の実設定が
+  `pnpm check` で守られる（`pnpm lint:validate-config` は既定の `config/` を見るが、中身は
+  `README.md` だけなので0件のまま通ってしまい、`config-test/` のスキーマ違反は誰も検知しない）
+- **実GitLabへ書き込む自動テストは作らない**。projectId・ブランチ・アンカーの実在、MR本文の
+  リンク先が実際に開けること、GitLab側の応答（`/pipelines/latest` がパイプライン0件のとき
+  404でなく403を返す等）はモックでは守れない。自動e2eを足しても `docs/smoke-test.md` の
+  手動手順は減らさず、両方を維持する
+
 ## タスク番号を書かない
 
 コード・ドキュメントにタスク番号（`develop/tasks.json` の `id`。`T-` + 3桁の連番）を書かない。
