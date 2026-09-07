@@ -6,9 +6,9 @@ import type {
 } from "../../../types/types.js"
 import { toBranchName } from "../../../types/types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
-import type { StageUpdatesAcc, BranchExists, ReadDraftValuesYaml } from "./shared/types.js"
-import type { ValuesYamlDraft } from "./shared/values-yaml-draft.js"
-import { writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
+import type { StageUpdatesAcc, BranchExists } from "./shared/types.js"
+import type { ValuesYamlDraft, ValuesYamlSource } from "./shared/values-yaml-draft.js"
+import { readValuesYamlDraft, writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 
 export type StageHelmTargetBranchUpdatesAcc = StageUpdatesAcc<HelmTargetBranchUpdate>
 
@@ -18,20 +18,14 @@ export type StageHelmTargetBranchUpdatesAcc = StageUpdatesAcc<HelmTargetBranchUp
  * 「アプリのHelm向き先ブランチを適用する」という1つの操作として呼ぶだけでよい。
  */
 export async function stageHelmTargetBranchUpdates(
+  source: ValuesYamlSource,
   branchExists: BranchExists,
-  readDraftValuesYaml: ReadDraftValuesYaml,
   helmTargetBranch: HelmTargetBranchConfig,
   draft: ValuesYamlDraft,
 ): Promise<StageHelmTargetBranchUpdatesAcc> {
   const initialAcc: StageHelmTargetBranchUpdatesAcc = { draft, updates: [] }
   return reduceAsync(helmTargetBranch.targets, initialAcc, (current, target) =>
-    stageHelmTargetBranchUpdate(
-      branchExists,
-      readDraftValuesYaml,
-      helmTargetBranch,
-      current,
-      target,
-    ),
+    stageHelmTargetBranchUpdate(source, branchExists, helmTargetBranch, current, target),
   )
 }
 
@@ -42,14 +36,15 @@ export async function stageHelmTargetBranchUpdates(
  * （差分が無ければ`updates`に含めない）。
  */
 async function stageHelmTargetBranchUpdate(
+  source: ValuesYamlSource,
   branchExists: BranchExists,
-  readDraftValuesYaml: ReadDraftValuesYaml,
   helmTargetBranch: HelmTargetBranchConfig,
   acc: StageHelmTargetBranchUpdatesAcc,
   target: AnchorTarget,
 ): Promise<StageHelmTargetBranchUpdatesAcc> {
   const { branchName } = helmTargetBranch
-  const { content: valuesYamlContent, draft } = await readDraftValuesYaml(
+  const { content: valuesYamlContent, draft } = await readValuesYamlDraft(
+    source,
     acc.draft,
     target.valuesPath,
   )

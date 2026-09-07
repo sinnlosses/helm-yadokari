@@ -2,9 +2,9 @@ import { getValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
 import type { AnchorTarget, ImageTagUpdate } from "../../../types/types.js"
 import { toTagName } from "../../../types/types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
-import type { StageUpdatesAcc, LatestTagResolution, ReadDraftValuesYaml } from "./shared/types.js"
-import type { ValuesYamlDraft } from "./shared/values-yaml-draft.js"
-import { writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
+import type { StageUpdatesAcc, LatestTagResolution } from "./shared/types.js"
+import type { ValuesYamlDraft, ValuesYamlSource } from "./shared/values-yaml-draft.js"
+import { readValuesYamlDraft, writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 
 export type StageImageTagUpdatesAcc = StageUpdatesAcc<ImageTagUpdate>
 
@@ -14,14 +14,14 @@ export type StageImageTagUpdatesAcc = StageUpdatesAcc<ImageTagUpdate>
  * 「アプリの全書き込み先にイメージタグを適用する」という1つの操作として呼ぶだけでよい。
  */
 export async function stageImageTagUpdates(
-  readDraftValuesYaml: ReadDraftValuesYaml,
+  source: ValuesYamlSource,
   latestTag: LatestTagResolution,
   draft: ValuesYamlDraft,
   targets: readonly AnchorTarget[],
 ): Promise<StageImageTagUpdatesAcc> {
   const initialAcc: StageImageTagUpdatesAcc = { draft, updates: [] }
   return reduceAsync(targets, initialAcc, (current, target) =>
-    stageImageTagUpdate(readDraftValuesYaml, latestTag, current, target),
+    stageImageTagUpdate(source, latestTag, current, target),
   )
 }
 
@@ -34,13 +34,14 @@ export async function stageImageTagUpdates(
  * 違ってもデプロイされる中身は同じで、更新しても意味が無いMRになるため。
  */
 async function stageImageTagUpdate(
-  readDraftValuesYaml: ReadDraftValuesYaml,
+  source: ValuesYamlSource,
   latestTag: LatestTagResolution,
   acc: StageImageTagUpdatesAcc,
   target: AnchorTarget,
 ): Promise<StageImageTagUpdatesAcc> {
   const latestTagName = latestTag.tag.name
-  const { content: valuesYamlContent, draft } = await readDraftValuesYaml(
+  const { content: valuesYamlContent, draft } = await readValuesYamlDraft(
+    source,
     acc.draft,
     target.valuesPath,
   )

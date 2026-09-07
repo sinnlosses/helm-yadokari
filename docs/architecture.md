@@ -36,13 +36,13 @@
 親stepの階層は「全chartAndApps → 1つのchartAndApps → 1アプリ」の3段までに絞り、それより下の
 「1箇所（target）」の処理をここに置く。1アプリ分の処理はサブステップを順に呼ぶだけにする。
 
-| ファイル                              | 責務                                                                                                              |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `resolve-latest-tag.ts`               | 追跡ブランチ由来の最新タグの判定。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成      |
-| `stage-image-tag-updates.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagTargets`全箇所のループ                                  |
-| `stage-helm-target-branch-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                        |
-| `shared/values-yaml-draft.ts`         | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）と、その組み立て・`FileUpdate[]`化 |
-| `shared/types.ts`                     | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                          |
+| ファイル                              | 責務                                                                                                                                                |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolve-latest-tag.ts`               | 追跡ブランチ由来の最新タグの判定。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成                                        |
+| `stage-image-tag-updates.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagTargets`全箇所のループ                                                                    |
+| `stage-helm-target-branch-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                                                          |
+| `shared/values-yaml-draft.ts`         | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）の読み込み（下書き優先・無ければGitLab）・書き換え・`FileUpdate[]`化 |
+| `shared/types.ts`                     | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                                            |
 
 #### `apply-updates/sub-steps/`
 
@@ -169,7 +169,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 | ドメイン知識を持たない汎用処理の型                                         | その`utils/`ファイル                           | `Sorted`                                                       |
 | 複数のstepが共有する、ドメイン型にだけ依存する型                           | `steps/shared/`                                | `StepOutcome<T>`                                               |
 | ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値） | **その型を生み出す関数と同じファイル**         | `BuildPlanContext`・`FilterTargetsResult`・`ValuesYamlDraft`   |
-| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                  | `steps/<step名>/sub-steps/shared/types.ts`     | `ReadDraftValuesYaml`・`BranchExists`・`LatestTagResolution`   |
+| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                  | `steps/<step名>/sub-steps/shared/types.ts`     | `BranchExists`・`LatestTagResolution`・`StageUpdatesAcc<U>`    |
 
 - 「型は`types/`にまとめる」という運用にしないのは、`types/`が「ドメイン語彙の一覧」ではなく
   「型の物置」になると、どの型がこのツールの語彙でどの型が実装の都合かが読み分けられなくなるため。
@@ -243,10 +243,16 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 #### サブステップに関数型を注入するのは、親stepが持つキャッシュを隠すときだけ
 
-`values.yaml`の読み込みとブランチ存在確認は関数型で受け取り、GitLabクライアント・projectId・
-**chartAndApps単位のキャッシュ**を親step側に閉じ込める。それ以外のサブステップは
+関数型で受け取るのはブランチ存在確認（`BranchExists`）だけで、GitLabクライアント・chartの
+projectId・**バッチ単位のキャッシュ**を親step側に閉じ込める。それ以外のサブステップは
 `GitlabClient`をそのまま受け取る。隠すべきキャッシュが無いなら、関数型にしても間接層が増える
 だけになる。
+
+values.yamlの読み込みは以前この形（`ReadDraftValuesYaml`）だったが、注入をやめて
+`readValuesYamlDraft(source, draft, valuesPath)`の直接呼び出しにした。下書きの読み書きが
+「読みは親stepが組み立てたクロージャ、書きは`values-yaml-draft.ts`の関数」と別々の出所に
+分かれていて、一連の操作として追いにくかったため。読み込み先（`ValuesYamlSource`＝GitLab
+クライアント＋chartリポジトリ）はキャッシュではなくただのデータなので、隠す必要が無い。
 
 #### コミット処理だけは`lib/gitlab/`がドメイン型を知っている
 

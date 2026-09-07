@@ -1,36 +1,17 @@
-import type { BranchName, ParsedTag, TagName, ValuesPath } from "../../../../types/types.js"
+import type { BranchName, ParsedTag, TagName } from "../../../../types/types.js"
 import type { ValuesYamlDraft } from "./values-yaml-draft.js"
 
 /**
- * `readDraftValuesYaml()`の結果。読み込んだ内容と、その内容を載せた下書き。
- * 下書きを返すのは、GitLabから読んだ結果を次のtarget・次のアプリへ引き継ぐため。
- */
-export type DraftValuesYaml = {
-  readonly content: string
-  readonly draft: ValuesYamlDraft
-}
-
-/**
- * values.yamlの内容を下書き（chartAndApps単位で共有）経由で取得する関数。下書きに無ければ
- * GitLabから読む。渡した下書きは変更せず、読み込み結果を載せた新しい下書きを返す。
- */
-export type ReadDraftValuesYaml = (
-  draft: ValuesYamlDraft,
-  valuesPath: ValuesPath,
-) => Promise<DraftValuesYaml>
-
-/**
  * 指定ブランチがchartリポジトリに実在するかを返す関数。`build-plans.ts`側でGitLabクライアント・
- * chartのprojectId・chartAndApps単位のキャッシュを閉じ込めて組み立てるため、サブステップ側は
- * GitLabを知らずにブランチの実在確認だけを依頼できる（`ReadDraftValuesYaml`と同じ考え方）。
+ * chartのprojectId・バッチ単位のキャッシュを閉じ込めて組み立てるため、サブステップ側は
+ * キャッシュの存在を知らずにブランチの実在確認だけを依頼できる。
  */
 export type BranchExists = (branch: BranchName) => Promise<boolean>
 
 /**
  * 1アプリ分の書き換え箇所（target）を1つずつ処理する間のアキュムレータ。イメージタグ側と
  * Helm向き先ブランチ側で`updates`の要素型だけが違うため、型引数`U`で共有する。
- * `draft`はchartAndApps単位で引き継ぐ。以前は`valuesYamlCache`/`modifiedValuesPaths`の
- * 2フィールドだったが、`ValuesYamlDraft`1つにまとめた。
+ * `draft`はchartAndApps単位で引き継ぐ。
  */
 export type StageUpdatesAcc<U> = {
   readonly draft: ValuesYamlDraft
