@@ -1,8 +1,16 @@
-import type { BranchName, GitLabUrl, PipelineInfo, ProjectId, TagName } from "../../types/types.js"
+import type {
+  BranchName,
+  GitLabUrl,
+  PipelineInfo,
+  ProjectId,
+  TagName,
+  ValuesPath,
+} from "../../types/types.js"
 import { getOrFetchShared } from "../../utils/cache.js"
 import {
   type GitlabClient,
   branchExists as branchExistsOnGitlab,
+  getFileContent as getFileContentOnGitlab,
   getLatestPipelineForRef as getLatestPipelineForRefOnGitlab,
   getProjectWebUrl as getProjectWebUrlOnGitlab,
 } from "./gitlab.js"
@@ -41,6 +49,18 @@ export type GitlabBatchCache = {
    * 同じappが複数clientに登録されていても`Projects.show`はバッチ全体で1回に収束する。
    */
   readonly getProjectWebUrl: (projectId: ProjectId) => Promise<GitLabUrl>
+
+  /**
+   * 指定した ref 時点の values.yaml の内容（無ければ`undefined`）。このツールが書き込むのは
+   * 固定ブランチだけで、読み先の`mrTargetBranch`はバッチ中に変わらないため載せている。
+   * 返すのは**常にGitLab上の内容**で、書き換え中の内容はchartAndApps単位の下書き
+   * （`ValuesYamlDraft`）にしか載らない。
+   */
+  readonly getFileContent: (
+    projectId: ProjectId,
+    filePath: ValuesPath,
+    ref: BranchName,
+  ) => Promise<string | undefined>
 }
 
 export function createGitlabBatchCache(gitlab: GitlabClient): GitlabBatchCache {
@@ -53,6 +73,9 @@ export function createGitlabBatchCache(gitlab: GitlabClient): GitlabBatchCache {
     ),
     getProjectWebUrl: cacheByArgs((projectId: ProjectId) =>
       getProjectWebUrlOnGitlab(gitlab, projectId),
+    ),
+    getFileContent: cacheByArgs((projectId: ProjectId, filePath: ValuesPath, ref: BranchName) =>
+      getFileContentOnGitlab(gitlab, projectId, filePath, ref),
     ),
   }
 }

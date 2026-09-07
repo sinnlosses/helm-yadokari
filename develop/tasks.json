@@ -47,10 +47,10 @@
   {
     "id": "T-115",
     "task": "values.yaml の**GitLabからの読み込み**をバッチ全体でキャッシュする（書き換え中の下書きは今のとおり chartAndApps 単位に保つ）。\n\n## 背景\n\n`readValuesYamlDraft()`（`src/steps/build-plans/sub-steps/shared/values-yaml-draft.ts`）は下書き（`ValuesYamlDraft`）に無いときだけ `getFileContent()` を呼ぶが、**下書きの寿命は chartAndApps 1件ぶん**（`buildPlan()` が毎回新しく作る）。同じchartディレクトリ配下の複数の tenant/client は同じ `chart.projectId` を共有するので、それらが同じ `valuesPath` を指す設定になっていると、**同じファイルを client の数だけ読み直す**。\n\n## 設計上の注意（ここを取り違えると壊れる）\n\n下書きには「GitLabから読んだだけ（`modified: false`）」と「このchartAndAppsが書き換えた（`modified: true`）」の2種類が乗っている。**共有してよいのは前者だけ**で、書き換え後の内容を別のclientに見せてはいけない（clientごとに別のMR・別のブランチを作るため）。キャッシュのキーは `projectId` + `valuesPath` + `ref`（＝`chart.mrTargetBranch`）で、値は**GitLab上の元の内容**。`cacheValuesYamlDraft()` と `writeValuesYamlDraft()` で入口を分けてある既存の作りが、この区別をそのまま使える形になっているはず。\n\n## やること\n\n1. まず、**同じchart配下の複数clientが同じ `valuesPath` を指す構成が実際に起こり得るか**を `config-test/` と `docs/requirements.md`・`config/README.md` で確認する。起こり得ないなら、このタスクは実装せずその根拠を `evidence` に書いて閉じる（`passes` は true でよい）。\n2. 起こり得るなら、T-111 で決めた機構に載せて読み込みだけをバッチ全体で共有する。書き換え後の内容が別のchartAndAppsへ漏れないことを保証する。\n3. **漏れないことを検証するテストを追加する**（同じ `valuesPath` を指す2つのclientで、片方の書き換えがもう片方の読み取り結果に現れないこと）。これは性能ではなく正しさのテストなので必ず入れる。\n4. T-112 の対象（`commitFileUpdates()` 内の `getFileContent()`）とキーが一致するため、機構の置き場所によってはそちらもキャッシュに乗る。T-112 が先に済んでいれば呼び出し自体が消えているので、重複して考えないこと。\n\n## 完了条件\n\n- 実装したなら、書き換えの漏れが無いことをテストで示すこと。見送ったなら、その根拠を示すこと。\n- `pnpm check` を通すこと。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "起こり得ると確認したうえで実装した（`docs/requirements.md` 4.2節に「同じ values.yaml を異なるテナント/クライアントのアプリが共有している場合」が**既知の制限**として明記されており、`validateNoDuplicateTargets()` の重複検証も1つのclient内に閉じていてclient間は見ていない。`config-test/tenant1/client1` も `charts/anchor-app/values.yaml` という共有名のパスを指す）。`GitlabBatchCache` に `getFileContent`（キーは projectId + valuesPath + ref）を足し、`readValuesYamlDraft()` の「下書きに無いときだけGitLabから読む」経路をこれに差し替えた。下書き（`ValuesYamlDraft`）は今のとおり chartAndApps 単位のまま。**キャッシュが返すのは常にGitLab上の元の内容**で、書き換え後の内容は `writeValuesYamlDraft()` が下書きにしか積まないため漏れは構造的に起きない（キャッシュを lib/gitlab/ の読み取り単位に置いたT-111 の形のおかげ）。`ValuesYamlSource` は `gitlab` の代わりに `gitlabCache` を持つ。T-112 で `commitFileUpdates()` 内の `getFileContent()` は既に消えているので重複はない。テスト1件追加（build-plans.test.ts「同じvalues.yamlを指す複数clientでは読み込みを1回にまとめ、片方の書き換えを他方に見せない」= 同じchart.projectId・同じvaluesPathの別アンカーを2clientが書き換え、`getFileContent` は1回、各clientの files は自分の書き換えだけを含む）。`pnpm check` exit=0、33ファイル345テスト（344→345）。",
     "dependencies": ["T-111", "T-112"]
   }
 ]

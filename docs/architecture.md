@@ -111,7 +111,7 @@ importせず〜」の節を参照）。
 | `resolve-latest-tags.ts`              | 追跡ブランチ由来の最新タグの判定と、client配下の全アプリのループ。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成。同じappが複数clientに登録されうるため、解決結果をバッチ全体でキャッシュする |
 | `stage-image-tag-updates.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagTargets`全箇所＋client配下の全アプリのループ                                                                                                                    |
 | `stage-helm-target-branch-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）。client単位なので全アプリのイメージタグを積んだ後に1回だけ呼ぶ                                                                                 |
-| `shared/values-yaml-draft.ts`         | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）の読み込み（下書き優先・無ければGitLab）・書き換え・`FileUpdate[]`化                                                                       |
+| `shared/values-yaml-draft.ts`         | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）の読み込み（下書き優先・無ければバッチキャッシュ経由でGitLab）・書き換え・`FileUpdate[]`化                                                 |
 | `shared/types.ts`                     | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                                                                                                                  |
 
 #### `apply-updates/sub-steps/`
@@ -393,6 +393,13 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
 `GitlabBatchCache`は値を箱に入れてから載せる。これで`getFileContent`・`getLatestPipelineForRef`の
 ように`undefined`を返す読み取りも、メンバーごとに独自の箱を作らずそのまま載せられる。
 
+**キャッシュと下書きは別の層として重ねる。** values.yamlはchartAndApps単位の下書き
+（`ValuesYamlDraft`）で書き換えを持ち回るが、下書きに無いときの読み込みだけはこのキャッシュを
+通す。キャッシュが返すのは常にGitLab上の元の内容で、書き換え後の内容は`writeValuesYamlDraft()`が
+下書きにしか積まないため、同じ`valuesPath`を指す別clientへ書き換えが漏れることはない
+（`docs/requirements.md` 4.2節の既知の制限にあたる構成でも、読み込みは1回で済む）。
+キャッシュを`lib/gitlab/`の読み取り単位に置いたことで、この分離は作りから自動的に決まる。
+
 **重複排除をキャッシュの外にも置かない。** web URLの解決は以前`getProjectWebUrls()`が
 `new Set`で`projectId`を一意化していたが、その重複排除は1回の呼び出しの中だけに閉じていて、
 バッチ全体を見るキャッシュと役割が二重になる。`getProjectWebUrls()`は廃止して単数の
@@ -414,8 +421,8 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
 values.yamlの読み込みは以前この形（`ReadDraftValuesYaml`）だったが、注入をやめて
 `readValuesYamlDraft(source, draft, valuesPath)`の直接呼び出しにした。下書きの読み書きが
 「読みは親stepが組み立てたクロージャ、書きは`values-yaml-draft.ts`の関数」と別々の出所に
-分かれていて、一連の操作として追いにくかったため。読み込み先（`ValuesYamlSource`＝GitLab
-クライアント＋chartリポジトリ）はキャッシュではなくただのデータなので、隠す必要が無い。
+分かれていて、一連の操作として追いにくかったため。読み込み先（`ValuesYamlSource`＝バッチ
+キャッシュ＋chartリポジトリ）はそれ自体がただのデータなので、関数型で隠す必要が無い。
 
 #### コミット処理だけは`lib/gitlab/`がドメイン型を知っている
 

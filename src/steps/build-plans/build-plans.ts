@@ -69,7 +69,7 @@ async function buildPlan(
   resolveLatestTags: ResolveLatestTags,
   logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartUpdateTarget>> {
-  const valuesYamlSource: ValuesYamlSource = { gitlab, chart: chartAndApps.chart }
+  const valuesYamlSource: ValuesYamlSource = { gitlabCache, chart: chartAndApps.chart }
 
   const appsWithLatestTag = await resolveLatestTags(chartAndApps.apps)
   const { plans, draft: draftAfterApps } = await stageImageTagUpdates(

@@ -1,4 +1,4 @@
-import { type GitlabClient, getFileContent } from "../../../../lib/gitlab/gitlab.js"
+import type { GitlabBatchCache } from "../../../../lib/gitlab/batch-cache.js"
 import type { ChartRepoConfig, FileUpdate, ValuesPath } from "../../../../types/types.js"
 
 /**
@@ -18,7 +18,7 @@ export type ValuesYamlDraft = ReadonlyMap<ValuesPath, ValuesYamlEntry>
 
 /** 下書きに無いvalues.yamlの取得元。chartリポジトリ1つ分の読み込み先を束ねただけの値 */
 export type ValuesYamlSource = {
-  readonly gitlab: GitlabClient
+  readonly gitlabCache: GitlabBatchCache
   readonly chart: ChartRepoConfig
 }
 
@@ -32,6 +32,12 @@ export type DraftValuesYaml = {
  * values.yamlの現在値を下書き優先で取り出す。下書きに無いときだけGitLabから読むため、
  * 同じchartAndApps内の別アプリが既に書き換えた内容がそのまま次のアプリへ引き継がれる。
  * 渡した下書きは変更せず、読み込み結果を載せた新しい下書きを返す。
+ *
+ * GitLabからの読み込みはバッチ全体で共有するキャッシュ（`GitlabBatchCache`）を通す。同じchart
+ * ディレクトリ配下の複数clientが同じ`valuesPath`を指す構成（`docs/requirements.md` 4.2節の
+ * 既知の制限）でも、読み込みは1回で済む。**共有されるのはGitLab上の元の内容だけ**で、
+ * 書き換え後の内容は`writeValuesYamlDraft()`がchartAndApps単位の下書きにしか積まないため、
+ * 別のclientへ漏れることはない。
  */
 export async function readValuesYamlDraft(
   source: ValuesYamlSource,
@@ -41,8 +47,12 @@ export async function readValuesYamlDraft(
   const cached = draft.get(valuesPath)
   if (cached !== undefined) return { content: cached.content, draft }
 
-  const { gitlab, chart } = source
-  const content = await getFileContent(gitlab, chart.projectId, valuesPath, chart.mrTargetBranch)
+  const { gitlabCache, chart } = source
+  const content = await gitlabCache.getFileContent(
+    chart.projectId,
+    valuesPath,
+    chart.mrTargetBranch,
+  )
   if (content === undefined) {
     throw new Error(`values.yaml が見つかりません: ${valuesPath}`)
   }

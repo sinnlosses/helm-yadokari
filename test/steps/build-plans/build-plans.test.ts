@@ -11,6 +11,7 @@ import { buildPlans } from "../../../src/steps/build-plans/build-plans.js"
 import {
   toAnchorName,
   toChartDirName,
+  toClientId,
   toProjectId,
   toProjectName,
   toValuesPath,
@@ -218,5 +219,49 @@ describe("buildPlans", () => {
     expect(vi.mocked(logger.error)).toHaveBeenCalled()
     const errorCall = vi.mocked(logger.error).mock.calls[0]?.[0]
     expect(errorCall?.reason).toContain("test-app-name")
+  })
+
+  it("同じvalues.yamlを指す複数clientでは読み込みを1回にまとめ、片方の書き換えを他方に見せない", async () => {
+    const original = `variables:\n  - &appVersion ${OLD_TAG}\n  - &otherVersion ${OLD_TAG}\n`
+    vi.mocked(getFileContent).mockResolvedValue(original)
+    // 同じchartディレクトリ配下の別tenant/client（chart.projectIdは既定値で共通）が
+    // 同じvalues.yamlの別アンカーを書き換える構成（docs/requirements.md 4.2節の既知の制限）
+    const makeGroup = (clientId: string, anchorName: string) =>
+      makeChartAndApps(
+        [
+          makeApp({
+            imageTagTargets: [
+              {
+                valuesPath: toValuesPath("values.yaml"),
+                anchorName: toAnchorName(anchorName),
+              },
+            ],
+          }),
+        ],
+        { clientId: toClientId(clientId) },
+      )
+
+    const { toApply } = await buildPlans(
+      mockGitlab,
+      newBatchCache(),
+      [makeGroup("clientA", "appVersion"), makeGroup("clientB", "otherVersion")],
+      3,
+      false,
+      DEFAULT_TAG_FORMAT,
+    )
+
+    expect(getFileContent).toHaveBeenCalledOnce()
+    expect(toApply[0]?.files).toEqual([
+      {
+        valuesPath: "values.yaml",
+        content: `variables:\n  - &appVersion ${NEW_TAG}\n  - &otherVersion ${OLD_TAG}\n`,
+      },
+    ])
+    expect(toApply[1]?.files).toEqual([
+      {
+        valuesPath: "values.yaml",
+        content: `variables:\n  - &appVersion ${OLD_TAG}\n  - &otherVersion ${NEW_TAG}\n`,
+      },
+    ])
   })
 })
