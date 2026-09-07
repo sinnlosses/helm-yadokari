@@ -122,12 +122,20 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   移した。あわせて `develop/tasks.json` が44KBと基準（30KB）を超えたため、`done` の
   T-110〜T-115 の6件を `docs/history/tasks-archive.md` へアーカイブした（18KBに縮小）。
 
+- **T-116 完了（分離しない判断）**: dry-run の分岐は2箇所だけで、`resolve-latest-tags.ts` は
+  純粋な書き込み抑止、`buildPlan()` は dry-run の成果物そのもの（更新予定のログ＋SKIPPED計上）と
+  **関心事が違う**ため集約しない。no-op層の案は summary が「作っていないものを作った」と
+  報告してしまうことと、「書き込み関数に到達しない」現状より事故の余地が大きいことで不採用。
+  代わりに `test/main.dry-run.test.ts` を追加し、**gitbeakerの境界**でモックして
+  `DRY_RUN=true` のとき書き込みAPIが0回であることを固定した（新しい書き込みを足して
+  dry-run を考え忘れても落ちる）。`if (!dryRun)` を外す変異でテストが落ちることも実測済み。
+  正典は `docs/architecture.md`「dry-runは分岐を集約せず、書き込みに到達しないことをテストで守る」節。
+
 ## 次にやること
 
-- **T-116（dry-runの分岐の再考、`opus`）** と **T-117（`async`/`await` と `.then`/`.catch` の
-  方針確定、`opus`）** は方針決めを含むので、**`/loop` の自動進行に載せずユーザーがいる
-  セッションで扱う**。T-118（T-117の適用、`sonnet`）は T-117 待ち。T-119
-  （`develop/test-inventory.md` の要否判断、`sonnet`）は依存なしで着手できる。
+- **T-117（`async`/`await` と `.then`/`.catch` の方針確定、`opus`）** は方針決めを含むので、
+  **`/loop` の自動進行に載せずユーザーがいるセッションで扱う**。T-118（T-117の適用、`sonnet`）は
+  T-117 待ち。T-119（`develop/test-inventory.md` の要否判断、`sonnet`）は依存なしで着手できる。
 - 新しいGitLab読み取りをキャッシュ機構に載せる手順と「載せてよいかの判断」は
   `docs/architecture.md`「GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で
   1つ持ち回る」節にある。
