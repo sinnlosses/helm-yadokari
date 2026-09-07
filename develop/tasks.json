@@ -1,1 +1,29 @@
-[]
+[
+  {
+    "id": "T-102",
+    "task": "`src/steps/shared/step-outcome.ts` の `withAppContext()` が `build-plans` からしか使われていない。他の2ステップ（`filter-targets` / `apply-updates`）でアプリ単位のエラー文脈が本当に不要かを確認し、不要なら現状の置き場所・JSDocをその事実に合わせる。\n\n## 背景（調査済みの事実）\n\n- `withAppContext()` は `src/steps/shared/step-outcome.ts` に定義され、使用箇所は `src/steps/build-plans/build-plans.ts:114`（`buildAppUpdatePlan()` の呼び出しを包む）の**1箇所だけ**。\n- 内部実装の `rethrowWithAppContext()` は、fatal でない `Error` に `[アプリ: <projectName>] ` を前置して投げ直す。fatal（401/5xx/ネットワーク障害）は**包まずにそのまま投げる**（`settleAsError()` が `cause.response.status` や `code` の構造を見るため、1段深くすると `FatalError` に昇格できなくなる）。\n- 同ファイルの `withHandling()` は3ステップすべてが使う（chartAndApps単位）。`step-outcome.ts` 冒頭のコメントは置き場所の理由を「**複数のstepから呼ばれる**ため特定stepの `sub-steps/` にも置かない」と説明しているが、`withAppContext()` はこの説明に当てはまっていない。\n- 他2ステップのアプリ単位の扱い:\n  - `filter-targets/filter-targets.ts` はアプリ単位のループを持たない（`chartAndApps.apps.length === 0` を見るだけ）。\n  - `apply-updates` 本体もアプリ単位のループを持たないが、サブステップの `apply-updates/sub-steps/collect-mr-entries.ts:28` が `updatedPlans.map(async (plan) => ...)` で**プラン（＝アプリ）単位の非同期処理**を行い、`webUrl` とパイプラインを取得している。ここで失敗した場合、現状はアプリ名が付かない。\n\n## 詰める論点\n\n(a) `collect-mr-entries.ts` のアプリ単位の非同期処理で、エラーにアプリ名が付かないことが実際に困るか。オールオアナッシングでclient全体がERRORになる（＝原因アプリが特定できないと調査できない）という `rethrowWithAppContext()` の動機は、こちらにも同じく当てはまるのではないか。当てはまるなら `withAppContext()` を使う側を増やす、当てはまらないなら理由を言えるようにする。\n(b) (a) の結論が「他では不要」なら、`step-outcome.ts` に置き続ける理由が冒頭コメントの説明と食い違う。`build-plans/` 側へ移すか、置き場所は据え置きでコメントの説明を実態に合わせるかを決める（`CLAUDE.md` 原則2「複数箇所から呼ばれるは `lib/` に置く理由にならない」と、原則1「`sub-steps/` 直下のファイル同士は import しない」の両方に照らして判断する）。\n(c) 移す判断なら、`rethrowWithAppContext()` が持つ「fatalは包まない」という判断が `settleAsError()` と同じファイルに置かれている現在の利点（方針の変更漏れを防ぐ、と JSDoc に明記されている）を失わない形にできるか。失うなら移さない理由になる。\n\n## 完了条件\n\n- (a)(b) の結論と理由を `docs/architecture.md`「設計判断（なぜ今の形なのか）」に記録する。`step-outcome.ts` 冒頭の置き場所コメントが結論と食い違ったままにしない。\n- 使う側を増やす／移す判断なら実装する。着手時の `pnpm test` の件数から**減らさず** `pnpm check` を通すこと。ファイル移動は `git mv`。\n- `git add` / `git commit` はしない。",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": []
+  },
+  {
+    "id": "T-103",
+    "task": "コメントの書き方（粒度・書くこと・書かないこと）の基準を、判断に迷わない形まで明確にし、既存のコードをその基準に合わせ、規約として明文化する。\n\n## 背景（調査済みの事実）\n\n- 基準は**既に `docs/coding-standards.md`「コメント」節に存在する**: (1) コードから読み取れないことだけを書く、(2) 型名・フィールド名・関数名の言い換えは書かない、(3) 原則1〜2文に収める、(4) 背景・理由・経緯は正典（`docs/architecture.md` / `docs/glossary.md` / `docs/requirements.md`）に置いて二重管理しない、(5) 残す価値があるのは「外部との対応関係」と「非自明な前提・制約」の2つ。\n- **問題は基準の不在ではなく、既存コードが基準に追いついていないこと**。実測で本文3行以上のJSDocブロックが多いファイル: `src/steps/shared/step-outcome.ts`（5個・103行中48行がコメント行）、`scripts/lint/verify-config/verify-config.ts`（5個）、`src/steps/build-plans/build-plans.ts`（4個）、`src/steps/build-plans/sub-steps/shared/values-yaml-draft.ts`（4個）、`src/lib/config/validate.ts`（4個）。\n- 明確な違反例が実在する: `step-outcome.ts` の `StepOutcome` 型のJSDocに「3つのstepで別々に定義されていた `TargetOutcome`/`PlanResult` をこの型に統一する」とあるが、これは**経緯**であり (4) により `docs/architecture.md` が正典のはず。同様に `withHandling()` のJSDocも設計判断の説明で5行ある。\n\n## 詰める論点\n\n(a) 現行の基準のうち「原則1〜2文」が実態と大きく乖離している。乖離しているのは**コードが悪いのか基準が厳しすぎるのか**を先に決める。JSDocの一部（引数の意味や戻り値の分岐）は1〜2文に収まらなくても価値があるかもしれない。決めた結論に応じて、基準側を「JSDocと行内コメントで別の粒度を許す」等に精緻化するか、コード側を削るかが変わる。**ここがこのタスクの一番の判断どころ**。\n(b) (4) の「経緯は正典へ」を機械的に適用すると、コードのそばから理由が消えて `docs/architecture.md` を開かないと分からなくなる。`architecture.md` は41KB で通読しない運用（冒頭に節の索引がある）なので、**コード側に「どの節を読めばよいか」の1行参照を残す**などの受け渡し方を決める。\n(c) 基準を適用する範囲を決める: `src/` と `scripts/` に加えて `test/` を含めるか。テストのコメントは別の基準（何を保証しているかの説明）が要るかもしれない。\n(d) 判定を後から機械的に確認できるようにするか（例: コメント行数の上限を lint で見る）。できないなら「レビュー時にどう問うか」を1文で書けるようにする。\n\n## 完了条件\n\n- 決めた基準を `docs/coding-standards.md`「コメント」節に反映する。粒度の判断が (a) の結論を含めて**書いてあるとおりに適用できる**こと（「適切に」のような、読み手によって結論が変わる語を使わない）。\n- 基準に合わない既存コメントを修正する。少なくとも上記で名前を挙げた5ファイルは全て見直したうえで、直した／直さなかった理由を言えるようにする。\n- 経緯を正典へ移した場合、移した先（`docs/architecture.md` の該当節）を明示する。移した内容が失われていないこと。\n- `CLAUDE.md`「コーディング規約・レビュー方針」のコメントの行が、更新後の基準と食い違わないようにする（`CLAUDE.md` には基準を二重に書かず参照だけにする現在の方針を守る）。\n- 着手時の `pnpm test` の件数から**減らさず** `pnpm check` を通すこと。\n- `git add` / `git commit` はしない。",
+    "status": "todo",
+    "difficulty": "opus",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-102"]
+  },
+  {
+    "id": "T-104",
+    "task": "テスト全体を見直し、不要なもの・冗長なもの・不足しているものを精査して修正する。\n\n## 背景（調査済みの事実）\n\n- 現状は31ファイル・336テスト・テストコード計4516行。行数の多い順に `test/lib/config/config.test.ts`（615行）、`test/lib/gitlab/gitlab.test.ts`（430行）、`test/steps/build-plans/sub-steps/resolve-latest-tag.test.ts`（370行）、`test/lib/config/validate.test.ts`（288行）、`test/domain/tag-format.test.ts`（252行）。\n- テスト方針は `CLAUDE.md`「テスト方針」にある: (1) `test/` 以下にテスト対象と同じディレクトリ構成で配置、(2) GitLab APIクライアント（`@gitbeaker/rest`）は `vi.mock` でモックする、(3) 各ステップのテストも `lib/gitlab/gitlab.js` をモックし、**非公開関数（`buildPlan()` 等）はエクスポートされたステップの振る舞いを通して間接的に検証する**（テストのためだけの `export` はしない）。\n- `pnpm check` は `tsc --noEmit` + lint + format:check + test をまとめて実行する。テスト件数は evidence に書く運用のため、増減は追跡できる。\n\n## 詰める論点\n\n(a) **「不要」「冗長」の判定基準を先に決める**。テストを消すのは間違えても気づきにくい変更なので、感覚で消さない。候補となる観点: 実装の内部構造をなぞっているだけで振る舞いを保証していない、同じ分岐を別ファイルで重複して覆っている、`vi.mock` の設定が本体で確認したいことより長い、型システムが既に保証していることをテストしている。どれを採るかと、**採らない観点も明示する**。\n(b) **「不足」の見つけ方を決める**。カバレッジ計測を導入するのか（導入するなら `pnpm check` に組み込むかも決める）、それとも要件（`docs/requirements.md`）とエラー方針（401/5xx/ネットワーク障害は `FatalError` で即時終了、それ以外は該当chartリポジトリを `ERROR` として継続）から手で洗い出すのか。**方法を決めてから探す**。\n(c) 上の(3)「非公開関数は間接的に検証する」に反しているテストが無いか確認する。あれば方針に寄せるか、その箇所だけ例外にする理由を言えるようにする。\n(d) 変更の量が読めないため、**1回で全部やろうとせず、判定基準（a）と発見リスト（b）を先に確定させて、実際の修正はそこから分割してよい**。分割する場合は残りを `develop/tasks.json` に新しいタスクとして登録する。\n\n## 完了条件\n\n- (a)(b) で決めた基準・方法を `docs/coding-standards.md` か `CLAUDE.md`「テスト方針」のどちらか適切なほうに記録する（二重に書かない）。\n- 削除したテストは、**それが守っていた振る舞いが別のテストで守られていること**を1件ずつ言えるようにする。証拠なしに「冗長だった」で消さない。\n- 追加したテストは、それが無いと通ってしまう実装（＝何を防ぐテストなのか）を言えるようにする。\n- `pnpm check` を通すこと。**このタスクに限りテスト件数の減少を許すが、増減の内訳（削除n件・追加m件とその理由）を evidence に書く**。\n- `git add` / `git commit` はしない。",
+    "status": "todo",
+    "difficulty": "opus",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-102"]
+  }
+]
