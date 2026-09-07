@@ -56,6 +56,11 @@ T-001〜T-094 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
   （`resolveHelmTargetBranch()` の振り分けと `uniqueHelmTargetBranchUpdates()` の両方）。
   副次的に `verify-config.ts` が向き先ブランチの問題をアプリ数だけ重複報告していたのも解消。
   MR本文は不変（テストの期待値を書き換えずに通した）。`pnpm check`（31ファイル336テスト、不変）。
+- **T-101 完了**。型の置き場所の基準を実態に追いつかせた。**基準は既に存在していて**
+  （`docs/architecture.md`「型の置き場所」の6行の表）、問題は規約からたどり着けないことと
+  表の穴だった。`ParsedTag`・`LabeledTarget`・`AnchorsApp`・`EnvConfig` の4つで穴を埋め、
+  `CLAUDE.md` のコーディング規約一覧には**基準を書かず参照だけ**の1行を足した（原則5と
+  二重になるため）。`src/` の型45件を全件突き合わせて**違反0件**。`pnpm check`（336テスト）。
 - **アーカイブ**: `develop/tasks.json` が44KBと基準（30KB）を超えたため、`done` の
   T-092〜T-094 を `docs/history/` へ移した。
 

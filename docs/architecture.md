@@ -162,14 +162,14 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 **利用箇所の数では決めない。** 型の性質だけで決める。
 
-| 型の性質                                                                   | 置き場所                                       | 例                                                             |
-| -------------------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------- |
-| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                 | `src/types/types.ts`（ブランド型は`brand.ts`） | `ChartAndApps`・`AppUpdatePlan`・`ChartUpdateResult`・`Config` |
-| 特定の技術・外部システムのインターフェースの一部                           | その`lib/`ファイル                             | `GitlabClient`・`ConfigTarget`・`Anchors`                      |
-| ドメイン知識を持たない汎用処理の型                                         | その`utils/`ファイル                           | `Sorted`                                                       |
-| 複数のstepが共有する、ドメイン型にだけ依存する型                           | `steps/shared/`                                | `StepOutcome<T>`                                               |
-| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値） | **その型を生み出す関数と同じファイル**         | `BuildPlanContext`・`FilterTargetsResult`・`ValuesYamlDraft`   |
-| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                  | `steps/<step名>/sub-steps/shared/types.ts`     | `BranchExists`・`LatestTagResolution`・`StageUpdatesAcc<U>`    |
+| 型の性質                                                                             | 置き場所                                         | 例                                                                            |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                           | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ChartAndApps`・`AppUpdatePlan`・`ChartUpdateResult`・`Config`・`ParsedTag`   |
+| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                   | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`Anchors`・`AnchorsApp`・`EnvConfig`          |
+| ドメイン知識を持たない汎用処理の型                                                   | その`utils/`ファイル                             | `Sorted`                                                                      |
+| 複数のstepが共有する、ドメイン型にだけ依存する型                                     | `steps/shared/`                                  | `StepOutcome<T>`                                                              |
+| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlanContext`・`FilterTargetsResult`・`ValuesYamlDraft`・`LabeledTarget` |
+| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                            | `steps/<step名>/sub-steps/shared/types.ts`       | `BranchExists`・`LatestTagResolution`・`StageUpdatesAcc<U>`                   |
 
 - 「型は`types/`にまとめる」という運用にしないのは、`types/`が「ドメイン語彙の一覧」ではなく
   「型の物置」になると、どの型がこのツールの語彙でどの型が実装の都合かが読み分けられなくなるため。
@@ -181,6 +181,16 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - **上表の5行目と6行目は競合しうる**（`LatestTagResolution` は `resolveLatestTag()` が生み出す型
   だが `stage-image-tag-updates.ts` も使う）。そのときは **`shared/` 側を優先する** —
   サブステップ同士が互いをimportしないという原則の方が、型と生成関数の同居より優先度が高い
+- **1行目と5行目も競合しうる**。`ParsedTag` は `domain/tag-format.ts` の関数が生み出す型だが、
+  タグから読み取れる情報そのものというドメイン語彙なので `types/types.ts` に置く。
+  **語彙かどうかが先**で、どの関数が作るかは後。`src/domain/` に型定義が1つも無いのはこのため
+  （`domain/` が扱うのは語彙そのもので、作業用の型を必要とする処理がまだ無い）
+- **関数が引数として受け取る形も5行目**（`LabeledTarget` は `validateNoDuplicateTargets()` の
+  引数で、呼び出し側の `chart-and-apps.ts` が組み立てる）。「生み出す」だけでなく
+  「その関数のためだけに存在する」かで判断する
+- **Zodスキーマから `z.infer` で導出した型はスキーマと同じファイル**（`AnchorsApp` は
+  `lib/config/schema.ts`）。外部ファイル形式の写しなので2行目に当たる。内部表現への詰め替えは
+  スキーマの `.transform()` が担うため、詰め替え後の型はドメイン語彙として1行目へ移る
 
 ## 設計判断（なぜ今の形なのか）
 
@@ -272,6 +282,16 @@ values.yamlの読み込みは以前この形（`ReadDraftValuesYaml`）だった
 
 生成は必ずfactory関数（`toProjectId`等）を通す。形式の検証を付けるかは値ごとに決めてよい
 （外部から受け取った値をそのまま比較するだけなら不要）。
+
+#### 型の置き場所は`src/`全件と突き合わせて確かめてある
+
+「型の置き場所」の表は、`src/`の型定義45件（`types/types.ts` 17・`brand.ts` 12・残り16）を
+全件突き合わせたうえでの形（2026-09-07）。**表から外れているものは1件も無い**。
+表に足りなかったのは基準の側で、`ParsedTag`（1行目と5行目の競合）・`LabeledTarget`（引数の形）・
+`AnchorsApp`（`z.infer`由来）・`EnvConfig`（2行目の例）を補って埋めた。
+
+**型を動かすときは表を先に読む。** 表に当てはまらない型が出てきたら、その型を動かす前に
+表の側が足りていないことを疑う。
 
 #### 型定義のフィールド名は、ブランド型が表している語（`Name`など）を落とさない
 
