@@ -1438,3 +1438,230 @@ T-095〜T-097・T-100 で解消される予定の箇所は「悪い例」とし�
 **difficulty**: opus
 
 **evidence**: docs/architecture.md「型の置き場所」の表に4つの穴を補った: ParsedTag（1行目と5行目の競合＝語彙が先、src/domain/ に型が無い理由）・LabeledTarget（関数が引数として受け取る形も5行目）・AnchorsApp（z.infer由来はスキーマと同じファイル）・EnvConfig（2行目の例）。CLAUDE.mdのコーディング規約一覧には基準を書かず参照だけの1行を足した（原則5と二重にならないよう、当初書いた基準の再掲を撤回）。src/の型45件を全件突き合わせて違反0件で、その事実と「型を動かす前に表を読む」を設計判断に記録。pnpm check（31ファイル336テスト、不変）。
+
+## T-102
+
+**タスク**: `src/steps/shared/step-outcome.ts` の `withAppContext()` が `build-plans` からしか使われていない。他の2ステップ（`filter-targets` / `apply-updates`）でアプリ単位のエラー文脈が本当に不要かを確認し、不要なら現状の置き場所・JSDocをその事実に合わせる。
+
+## 背景（調査済みの事実）
+
+- `withAppContext()` は `src/steps/shared/step-outcome.ts` に定義され、使用箇所は `src/steps/build-plans/build-plans.ts:114`（`buildAppUpdatePlan()` の呼び出しを包む）の**1箇所だけ**。
+- 内部実装の `rethrowWithAppContext()` は、fatal でない `Error` に `[アプリ: <projectName>] ` を前置して投げ直す。fatal（401/5xx/ネットワーク障害）は**包まずにそのまま投げる**（`settleAsError()` が `cause.response.status` や `code` の構造を見るため、1段深くすると `FatalError` に昇格できなくなる）。
+- 同ファイルの `withHandling()` は3ステップすべてが使う（chartAndApps単位）。`step-outcome.ts` 冒頭のコメントは置き場所の理由を「**複数のstepから呼ばれる**ため特定stepの `sub-steps/` にも置かない」と説明しているが、`withAppContext()` はこの説明に当てはまっていない。
+- 他2ステップのアプリ単位の扱い:
+  - `filter-targets/filter-targets.ts` はアプリ単位のループを持たない（`chartAndApps.apps.length === 0` を見るだけ）。
+  - `apply-updates` 本体もアプリ単位のループを持たないが、サブステップの `apply-updates/sub-steps/collect-mr-entries.ts:28` が `updatedPlans.map(async (plan) => ...)` で**プラン（＝アプリ）単位の非同期処理**を行い、`webUrl` とパイプラインを取得している。ここで失敗した場合、現状はアプリ名が付かない。
+
+## 先にやる理由
+
+T-103（コメント基準の追従）と T-104（テストの棚卸し）がこのタスクに依存している。コンフリクト回避ではなく、**T-102 の結論が `step-outcome.ts` のコメントの直しを含む**ため。T-103 がコメントを整えた直後に T-102 が同じ箇所を書き換えると、整えた意味が消える。
+
+## 詰める論点
+
+(a) `collect-mr-entries.ts` のアプリ単位の非同期処理で、エラーにアプリ名が付かないことが実際に困るか。オールオアナッシングでclient全体がERRORになる（＝原因アプリが特定できないと調査できない）という `rethrowWithAppContext()` の動機は、こちらにも同じく当てはまるのではないか。当てはまるなら `withAppContext()` を使う側を増やす、当てはまらないなら理由を言えるようにする。
+(b) (a) の結論が「他では不要」なら、`step-outcome.ts` に置き続ける理由が冒頭コメントの説明と食い違う。`build-plans/` 側へ移すか、置き場所は据え置きでコメントの説明を実態に合わせるかを決める（`CLAUDE.md` 原則2「複数箇所から呼ばれるは `lib/` に置く理由にならない」と、原則1「`sub-steps/` 直下のファイル同士は import しない」の両方に照らして判断する）。
+(c) 移す判断なら、`rethrowWithAppContext()` が持つ「fatalは包まない」という判断が `settleAsError()` と同じファイルに置かれている現在の利点（方針の変更漏れを防ぐ、と JSDoc に明記されている）を失わない形にできるか。失うなら移さない理由になる。
+
+## 完了条件
+
+- (a)(b) の結論と理由を `docs/architecture.md`「設計判断（なぜ今の形なのか）」に記録する。`step-outcome.ts` 冒頭の置き場所コメントが結論と食い違ったままにしない。
+- 使う側を増やす／移す判断なら実装する。着手時の `pnpm test` の件数から**減らさず** `pnpm check` を通すこと。ファイル移動は `git mv`。
+- `git add` / `git commit` はしない。
+
+**difficulty**: sonnet
+
+**evidence**: (a)同じ動機が当てはまると結論し、collect-mr-entries.ts のplan単位の解決を withAppContext() で包んだ。(b)使う側が2stepになったため step-outcome.ts は据え置き、withAppContext() のJSDocを実態に更新。docs/architecture.md に「アプリ名の付与は`steps/shared/`に置き〜」節を追加。pnpm check 通過（31ファイル337テスト、着手時336から+1）。
+
+## T-103
+
+**タスク**: コメントの基準を「長さ」から「種類」に置き換え、`src/` と `scripts/` の全ファイルをその基準に合わせ、`docs/coding-standards.md` に明文化する。
+
+## 決定済みの方針（2026-09-07 の grilling でユーザーが確定。実装時に蒸し返さない）
+
+- **基準の軸は種類**: 「今の挙動の制約・前提」は残す（長くてよい）、「昔はこうだった」は行数に関係なく正典（`docs/architecture.md`）送り。既存の「原則1〜2文」は**撤廃する**。
+- **行数の目安は一切置かない**（採らなかった案: 「5行を超えたら疑う」等の緩い目安を残す）。理由: 今回の乖離そのものが「数字を置くと、種類の基準ではなく数字のほうが基準として使われる」という実例だから。同じ轍を踏まない。
+- **機械チェックはしない**（採らなかった案: 「以前は」「かつて」等の過去形の語を lint で警告する）。理由: 日本語の過去形は正当な文脈にも当たる（例: 「GitLab APIは404ではなく403を**返していた**」という外部挙動の記録）。誤検知が多すぎる。代わりに**レビューの問いを規約に1文書く**: 「この段落はコードの今の挙動を説明しているか、昔の話か」。`/code-review` の Standards 軸は明文化された規約を自動で読むため、スキル側の編集は不要。
+- **範囲は `src/` と `scripts/` のみ**。`test/` は含めない（T-104 でテスト自体を見直した後に別タスクで扱う）。
+
+## 背景（調査済みの事実）
+
+- 基準は**既に `docs/coding-standards.md`「コメント」節にある**（(1)コードから読み取れないことだけ (2)型名・関数名の言い換えは書かない (3)原則1〜2文 (4)背景・理由・経緯は正典へ (5)残す価値があるのは「外部との対応関係」と「非自明な前提・制約」）。壊れていたのは基準の不在ではなく (3) の**軸**。
+- 長いJSDocは2種類に割れる。**正当に長い**例: `scripts/lint/verify-config/verify-config.ts` の「chartリポジトリが見つからない場合、依存する検証は結果が自明なので行わない」「client単位で1つなので、アプリの数だけ同じ問題を報告しないようループの外で1回だけ呼ぶ」——これは (5) そのもので、削ると情報が消える。**違反**の例: `src/steps/build-plans/sub-steps/shared/values-yaml-draft.ts:224-228`（「以前は`valuesYamlCache`と`modifiedValuesPaths`を別々に持ち回っており〜」5行）、同 `:274-278`（「以前存在した internal error は〜」）。
+- `src/`+`scripts/` は43ファイル、うち40ファイルがコメントを持つ。「以前は/かつて/統一する」等の**経緯を疑う語を含むのは3ファイルのみ**（`src/steps/apply-updates/sub-steps/build-mr-content.ts`、`src/steps/shared/step-outcome.ts`、`src/steps/build-plans/sub-steps/shared/values-yaml-draft.ts`）。ただしこの grep は規約(2)「型名・フィールド名の言い換え」型の違反を拾えない（例: `values-yaml-draft.ts:210-213` の「`content`は現在の内容、`modified`は書き換えたかどうか」）。**そのため grep 頼みにせず全40ファイルを目で見る**。
+- 移し先が既に埋まっている場合がある: `values-yaml-draft.ts:224-228` の経緯は、`docs/architecture.md:310`（「引数として渡した入れ物が呼び出し先で書き変わる契約にしない」節）の「以前はMutableな`Map`を渡して実装が埋める形で〜」と重なる（完全一致ではない）。
+- `docs/architecture.md` は41KBあり通読しない運用。冒頭に「節の索引」があり、`sed -n '/^#### 見出し/,/^#\{1,4\} /p' docs/architecture.md` で節単位に読む。
+
+## 手順
+
+1. `docs/coding-standards.md`「コメント」節を書き換える。(3) を種類の基準に差し替え、レビューの問いを1文足す。**「適切に」のような、読み手によって結論が変わる語を使わない**。
+2. `src/` と `scripts/` の40ファイルを1件ずつ見る。判定は「今の挙動の説明か、昔の話か」の1問。**ディレクトリ単位で区切って進める**（量が多いため、途中で中断しても再開できるように）。
+3. 経緯と判定したものは、**消す前に正典を確認する**。既にあれば消すだけ、無ければ `docs/architecture.md` の該当節に書いてから消す。
+4. `CLAUDE.md`「コーディング規約・レビュー方針」のコメントの行が更新後の基準と食い違わないようにする（`CLAUDE.md` には基準を二重に書かず参照だけにする現在の方針を守る）。
+
+## 完了条件
+
+- 消した経緯それぞれについて、**正典の該当箇所を示せる**か、新たに書き足したことを示せること。「経緯だから消した」だけで済ませない。
+- 40ファイルすべてを見たこと（見たが変更不要だったものを含む）。
+- 着手時の `pnpm test` の件数から**減らさず** `pnpm check` を通すこと。
+- `git add` / `git commit` はしない。
+
+**difficulty**: sonnet
+
+**evidence**: docs/coding-standards.md「コメント」を長さ基準から種類基準（今の挙動は残す／昔の話は正典へ）に差し替え、レビューの問い1文を追加。CLAUDE.md の該当行も参照に更新。src/+scripts/ の43ファイル（コメントあり40）を全件確認し、経緯5箇所を docs/architecture.md の「引数として渡した入れ物〜」「設定ミスの検知〜」「3ファイル分割」「MRの単位〜」の各節へ移してコードから削除（values-yaml-draft.ts 2件・build-mr-content.ts・verify-config.ts・schema.ts）。併せて gitlab.ts の関数名の言い換えコメント1件を削除。pnpm check 通過（31ファイル337テスト、変化なし）。
+
+## T-104
+
+**タスク**: テストの取捨選択の基準を確定し、`pnpm test:coverage` を回して「不要・冗長・不足」の発見リストを作る。**実際の修正はこのタスクに含めず**、リストができた時点で後続タスクとして登録する。
+
+## 決定済みの方針（2026-09-07 の grilling でユーザーが確定。実装時に蒸し返さない）
+
+- **このタスクの範囲は基準の確定と発見リストまで**。削除・追加の実作業は分ける。理由: 候補が何件出るかで作業量が桁違いになり、事前に見積もれない。リストがあれば残りは `sonnet` に落とせる可能性がある（判断は基準確定で済み、あとは手続きを回すだけになるため）。
+- **削除は保守的に**。重複が証明できたものだけ消す。証明の手続きは「**消す候補を一時的にスキップして `pnpm check` が落ちないことを確認する**」（落ちないなら他のテストが守っていない＝そのテストが唯一の守り手ではない）。テストの削除は間違えても気づきにくい変更の代表格なので、ここは手続きで縛る。
+- **カバレッジに閾値は設けない**（採らなかった案: 閾値を決めて `pnpm check` に組み込み、下回ったら落とす）。理由: 閾値は「数字を満たすためのテスト」を生み、それはこのタスクが消したい冗長テストと同じ病気。穴の在り処を見る道具としてだけ使う。
+- **「不足」はエラー方針と要件に関わる穴だけ埋める**。全部の未到達行を埋めない（同じ理由）。**埋めなかった穴とその理由を成果物として残す**——次に見る人が同じ調査を繰り返さずに済むように。
+- **`build-mr-content.test.ts` の粒度は正当と見なす**（採らなかった見方: 実装の詳細に密着していて書式変更のたびに壊れるから冗長）。理由: MR本文はこのツールの主要な成果物で、レビュアーが読む唯一の出力。表示の取り決めは他に守る手段が無い。
+- 書き先は **`docs/coding-standards.md` に「テスト」節を新設**して正典にする。`CLAUDE.md`「テスト方針」の3行はそちらへ移し、`CLAUDE.md` 側は参照だけにする（`コメント`・`undefined` と同じ形に揃える）。
+
+## 背景（調査済みの事実）
+
+- 現状は31ファイル・336テスト・計4516行。行数上位は `test/lib/config/config.test.ts`(615)、`test/lib/gitlab/gitlab.test.ts`(430)、`test/steps/build-plans/sub-steps/resolve-latest-tag.test.ts`(370)、`test/lib/config/validate.test.ts`(288)、`test/domain/tag-format.test.ts`(252)。
+- **カバレッジは導入済み**: `vitest.config.ts` に `coverage: { provider: "v8", include: ["src/**/*.ts", "scripts/lint/verify-config/**/*.ts"] }`、`@vitest/coverage-v8` は devDependencies、`pnpm test:coverage` も定義済み。**導入は不要、回すだけ**。
+- **重複の疑いは1つ潰してある**: `test/steps/apply-updates/apply-updates.test.ts` はサブステップ (`build-mr-content.js` / `collect-mr-entries.js`) を `vi.mock()` しており（4-5行目）、配線だけを検証している。専用のサブステップテストとの二重化は起きていない。
+- 現行のテスト方針は `CLAUDE.md`「テスト方針」の3行: (1)`test/` 以下にテスト対象と同じディレクトリ構成で配置 (2)`@gitbeaker/rest` は `vi.mock` でモック (3)非公開関数はエクスポートされたステップの振る舞いを通して間接的に検証する。加えて `docs/coding-standards.md`「関数の並び順」節に「テストのためだけの `export` はしない」が間借りしている（`src/lib/env.ts` に例外あり）。
+- エラー方針: 401/5xx/ネットワーク障害は `FatalError` を投げて即時終了、それ以外は該当chartリポジトリを `ERROR` としてログ記録し処理継続。
+
+## 手順
+
+1. `docs/coding-standards.md` に「テスト」節を新設し、上の方針を書く。`CLAUDE.md`「テスト方針」の3行を移して参照に落とす。「関数の並び順」節の「テストのためだけの `export` はしない」も移すか、相互参照を張る。
+2. **「不要・冗長」の判定観点を確定させる**。狙いどころとして挙がっているのは「同じ `vi.mock` 準備を何度も書いている箇所」「型システムが既に保証している分岐を確認している箇所」「実装の内部構造をなぞっているだけで振る舞いを保証していない箇所」。**採る観点と採らない観点の両方を明示する**。
+3. `pnpm test:coverage` を回し、未到達の行を洗い出す。エラー方針と `docs/requirements.md` の要求に照らして、埋めるべき穴とそうでない穴に分ける。
+4. 発見リストを作る。削除候補は「どのテストか・なぜ冗長と見たか・スキップ確認の結果」、追加候補は「何を防ぐテストか」、埋めない穴は「なぜ埋めないか」をそれぞれ1〜2行で。
+
+## 完了条件
+
+- 新設した「テスト」節が、書いてあるとおりに適用できること（「適切に」のような、読み手によって結論が変わる語を使わない）。
+- 発見リストが `develop/` か `docs/` のどこかに成果物として残っていること（置き場所は実施時に決めてよい）。
+- **このタスクではテストを削除・追加しない**。リストに基づく修正タスクと、`test/` のコメント追従タスク（T-103 の基準を `test/` にも当てる）を `develop/tasks.json` に登録して終わる。
+- `pnpm check` を通すこと（テスト件数は不変のはず）。
+- `git add` / `git commit` はしない。
+
+**difficulty**: opus
+
+**evidence**: docs/coding-standards.md に「テスト」節を新設（置き場所とモック／カバレッジに閾値を設けない／消すかどうかの判断表＋削除の手続き2ステップ／足すかどうか）。CLAUDE.md「テスト方針」は参照1文に。発見リストは develop/test-inventory.md（削除候補9・集約候補2・要調査1・消さないと決めたもの3・追加候補4・埋めない穴5。削除候補9件は実際に skip して手続き2ステップを確認済み）。後続タスク T-105/T-106/T-107 を登録。pnpm check 通過（31ファイル337テスト、削除・追加なしで不変）。
+
+## T-105
+
+**タスク**: `develop/test-inventory.md` の発見リストに沿って、テストの削除・集約・追加を実施する。
+
+## 決定済みの方針（実装時に蒸し返さない）
+
+- 判断基準は `docs/coding-standards.md`「テスト」節が正典。新しい基準をここで作らない。
+- **削除は必ず手続きで縛る**。同節の削除の手続き（`it.skip` にして `pnpm check` が落ちない／`pnpm test:coverage` の到達行・分岐が減らない）を、削除する1件ごとに回す。発見リストの skip確認は計測時点のものなので、実施時にもう一度取り直す。
+- **カバレッジに閾値は設けない**。数字を上げることを目的にしない。
+- 発見リストの「消さないと決めたもの」は消さない。
+- 発見リストの「埋めない穴」は埋めない。埋めない判断を変えたくなったら、リスト側の理由を先に更新する。
+
+## やること
+
+1. 削除候補9件を、1件ずつ手続きを回して削除する。手続きに引っかかったものは残し、`develop/test-inventory.md` にその結果を追記する。
+2. 重複の集約候補2件（`build-plans` 系4ファイルの `beforeEach` とモック定数、`const mockGitlab = {} as unknown as GitlabClient`）を `test/helpers.ts` に寄せる。テストの件数はここでは減らさない。
+3. 要調査1件（`test/steps/build-plans/build-plans.test.ts` とサブステップ3ファイルの経路の重なり）をテスト単位で判断する。
+4. 追加候補4件（`src/index.ts` の終了コード、`projectExists`、`loadEnvConfig()`、`verify-config.ts` の catch）のテストを書く。
+
+## 完了条件
+
+- 削除した各テストについて、手続きの2ステップを通した記録が `develop/test-inventory.md` に残っていること。
+- 追加した4件が、それぞれ対象の行に到達していることを `pnpm test:coverage` で確認できること。
+- `pnpm check` を通すこと。
+
+**difficulty**: sonnet
+
+**evidence**: 削除候補9件を1件ずつ手続き（it.skip→pnpm check通過→カバレッジ表不変）にかけて全件削除、9件まとめて削除後もカバレッジ表が実施前と完全一致することを確認。集約2件を test/helpers.ts に寄せ（mockGitlab・OLD_TAG/NEW_TAG/HEAD_SHA・mockBuildPlansGitlab()）。要調査1件は残す判断。追加4件を7テストとして実装し、カバレッジは 97.19%→99.37%（Lines 97.54%→99.82%）。実施結果と発見は develop/test-inventory.md「実施結果」に追記。pnpm check 通過（32ファイル337テスト）。
+
+## T-106
+
+**タスク**: `test/` 配下のコメントを `docs/coding-standards.md`「コメント」節の基準に合わせる。`src/` と `scripts/` は既に適用済みで、`test/` だけが残っている。
+
+## 決定済みの方針（実装時に蒸し返さない）
+
+- 基準は「コメント」節の判断表（今の挙動の制約・前提と外部との対応関係は残す／昔の話は正典へ移してコードから消す）をそのまま使う。**行数の目安は置かない**。
+- テスト名（`it()` の説明文）はコメントではない。言い換えのコメントが `it()` の説明文と重複しているときは、コメント側を消す。
+- 経緯をコードから消すときは、先に正典（`docs/architecture.md` / `docs/glossary.md` / `docs/requirements.md`）に書かれているかを確認する。無ければ正典に書いてから消す。
+
+## 完了条件
+
+- `test/` 配下の各コメントが判断表のどれかに当てはまること。
+- テストの件数と各テストの内容を変えないこと（コメントの追従のみ）。
+- `pnpm check` を通すこと。
+
+**difficulty**: sonnet
+
+**evidence**: test/ 配下の全コメント（11ファイル）を判断表に照らして確認。修正3件: resolve-latest-tag.test.ts の「旧方式/新方式」の経緯を削除（今の挙動の理由は resolve-latest-tag.ts のJSDocが正典）、gitlab.test.ts の403の説明から src 側JSDocの丸写し部分を削り外部挙動だけ残す、config.test.ts の関数名の言い換え1件を削除。他は今の挙動の制約・前提または外部との対応関係に当たるため据え置き。pnpm check 通過（32ファイル337テスト、内容・件数とも変更なし）。
+
+## T-107
+
+**タスク**: `src/utils/http.ts` の `isFatalStatus` の引数の型を `number | undefined` から `number` に狭め、`if (status === undefined) return false` を消す。
+
+唯一の呼び出し元（`isFatalError`）が `status !== undefined` を確認済みで、この分岐には到達しない。`docs/coding-standards.md`「避ける `undefined`」の「実行時には到達しないのに型に残っている `undefined`」に当たる。
+
+## 完了条件
+
+- `isFatalStatus` に `undefined` を渡す呼び出しが無いことを確認したうえで型を狭めていること。
+- `test/utils/http.test.ts` の既存テストを変えずに `pnpm check` が通ること。
+- `pnpm test:coverage` で `src/utils/http.ts` の branches が 31/31 になること。
+
+**difficulty**: haiku
+
+**evidence**: isFatalStatus の引数を number に狭め、到達しない undefined 判定を削除。呼び出し元は src/utils/http.ts:24 の1箇所のみで status !== undefined を確認済み。pnpm check 通過（32ファイル337テスト、テストは無変更）。カバレッジは http.ts が 100%（未到達行なし）。完了条件の「branches 31/31」は分岐そのものを消したため 29/29（100%）になった。
+
+## T-108
+
+**タスク**: `src/index.ts` の `loadEnvConfig()` の失敗が `.catch` に載らない件を直す。
+
+## 背景（確認済みの事実）
+
+冒頭コメントは「環境変数の読み込みを非同期の中で呼ぶのは、その失敗も下の catch に載せて構造化ログに出すため。トップレベルで投げると素のスタックトレースになる」と説明している。しかし実際の `run(loadEnvConfig())` は引数の `loadEnvConfig()` が先に同期評価されるため、`GITLAB_URL` 未設定などの失敗は `.catch` に載らず、モジュール評価時の例外として素のスタックトレースになる。コメントが説明している意図と実装が食い違っている。
+
+`test/index.test.ts` を書いた際に再現済み（そのケースは失敗するためテストには含めていない）。
+
+## やること
+
+- `loadEnvConfig()` の呼び出しを `.then` の中に入れるなどして、失敗が `unhandled_error` として構造化ログに出るようにする。
+- 直したうえで `test/index.test.ts` に「環境変数の読み込みの失敗も unhandled_error として記録する」ケースを足す。
+- 冒頭コメントが実装と食い違わない状態にする。
+
+## 完了条件
+
+- 追加したケースが通り、`pnpm check` が通ること。
+- `develop/test-inventory.md`「追加テストで見つかった食い違い」の記述を、直した後の状態に合わせて更新すること。
+
+**difficulty**: sonnet
+
+**evidence**: src/index.ts を Promise.resolve().then(() => run(loadEnvConfig())) に変え、環境変数の読み込みの失敗も unhandled_error として構造化ログに出るようにした。冒頭コメントも実装に合わせて更新。test/index.test.ts に該当ケースを追加（4件→5件）。develop/test-inventory.md の該当節を修正済みの記述に更新。pnpm check 通過（32ファイル338テスト）。
+
+## T-109
+
+**タスク**: 実機スモークテストを実行できる状態が揃っているかを確認する（**このタスクでは実行しない**。書き込みを伴う手順は人間の承認が要るため、確認と報告までで止める）。
+
+## 背景
+
+T-064以降の変更が実機未検証のまま溜まっている（URL検証の追加・MR本文のURL解決の作り替え・`loadEnvConfig()`化・values.yaml下書きの受け渡しの作り替え・スモークスクリプトの環境変数追加）。さらに直近のセッションで `src/index.ts` の起動経路を変えた（環境変数の読み込みを `then` の中に移した）。手順は `docs/smoke-test.md` が正典。
+
+## 確認すること
+
+1. **認証情報**: `.env` に `GITLAB_URL` / `ACCESS_TOKEN` が設定されているか（**値そのものは出力しない**。設定の有無だけを見る）。`.env.example` との差分も見る。
+2. **対象プロジェクトの実在**: `docs/smoke-test.md`「使うGitLabリソース」の3件（`SMOKE_CHART_PROJECT_ID` / `SMOKE_QA_SPRINT_PROJECT_ID` / `SMOKE_DEVELOP_CLIENT_PROJECT_ID`）が、書かれているprojectIdでGitLab上に実在し参照できるか。**読み取りのみ**（タグ・ブランチ・MRを作らない）。
+3. **手順に出てくるコマンドの実在**: `docs/smoke-test.md`「手順」の各コマンドが今の `package.json` / `scripts/smoke/smoke-fixture.ts` に実在するか（スクリプト名・サブコマンド・フラグ名）。手順が古いままになっていないかを見る。
+4. **フィクスチャ**: `config-test/` の内容が手順と検証シナリオの前提（chartリポジトリ・2アプリ・向き先ブランチ）と合っているか。`pnpm lint:validate-config:remote` に相当する読み取り専用の検証が通るか。
+5. **期待結果の記述のズレ**: 「期待する結果」節が今の実装（MR本文の組み立て・終了コード・dry-runの挙動）と食い違っていないか。
+
+## 完了条件
+
+- 上の5点それぞれについて「揃っている / 欠けている・古い」を根拠付きで一覧にする。欠けているものには埋め方（人間がやること／タスク化すべきこと）を1〜2行で添える。
+- 実機への書き込みを伴う操作（`smoke-fixture.ts --apply`、本体の実行）は**行わない**。
+- 結果を `develop/progress.md` に残すか、量が多ければ `develop/` 配下のファイルにまとめる。
+- 修正が要ると分かったものは `develop/tasks.json` にタスクとして登録する。
+
+**difficulty**: sonnet
+
+**evidence**: 5点すべて「揃っている」。(1)`.env` に GITLAB*URL/ACCESS_TOKEN あり（SMOKE*\* は手順どおり実行時に export する設計）。(2)`pnpm lint:validate-config:remote config-test` が読み取りのみで通過し、3プロジェクト・ブランチ・valuesPath・アンカーの実在を確認（config OK: 3 chart groups, 5 apps）。(3)手順のコマンドは実在（smoke-fixture.ts の setup/reset/--apply、validate-config.ts の位置引数 config-test、pnpm dev）。(4)config-test の projectId・アンカー名が手順の期待と一致。(5)MRタイトル書式・本文8列/4列・summary の3キー・終了コードの写像がいずれもドキュメントの記述どおり。実機への書き込みは未実施。
