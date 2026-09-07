@@ -1161,3 +1161,50 @@ wire format（`anchors.yaml` のキー `chart`、`AnchorsAppSchema`、エラー�
   n が chartAndApps 数・アプリ数（数十）なので実害が無く、不変性を優先した現在の書き方が方針どおり
 - `image-tag-target.ts` と `helm-target-branch-target.ts` の構造的な相似 —— 共通化すると
   サブステップ同士が型を共有する形になり、`sub-steps/shared/` を太らせるだけで得が無い
+
+## 過去セッション: T-092〜T-094（配置・命名の再検討）
+
+**コードは変えていない。** 以下の2つだけ:
+
+- **アーカイブ**: `develop/tasks.json` の `done` が15件・48KB とアーカイブ基準
+  （`docs/workflow.md`「肥大化したときのアーカイブ」）に達していたため、T-077〜T-091 を
+  `docs/history/tasks-archive.md`（`## T-077`〜`## T-091` を追記）と
+  `docs/history/progress-archive.md`（`## 過去セッション: T-077〜T-091` を追記）へ全件移した。
+  `tasks.json` は新規3件だけの状態に戻した。
+- **タスク登録（T-092〜T-094）**: いずれもユーザー指摘による「置き場所・命名の再検討」。
+  3件とも `opus`（既存の設計判断の文書と噛み合わせつつ方針を決める必要があるため）。
+  - **T-092**: `src/lib/config/helm-target-branch.ts`（`resolveHelmTargetBranch()` 1関数だけ、
+    呼び出し元は `config.ts` のみ）を独立ファイルのまま置くのが妥当か。`config.ts` の
+    非公開関数に畳むか、残すなら `schema.ts`/`validate.ts` と粒度の揃った名前にするか。
+  - **T-093**: `src/lib/tag-format.ts` が `lib/` にあるべきか。`TAG_FORMAT` はこのツール自身の
+    取り決めで、`values.yaml`/`config/` のような外部ファイル形式とは種類が違う。ドメイン固有の
+    定数・関数を置く新区分（`src/domain/` 等）を新設するかまで含めて再検討する。一度
+    `lib/gitlab/tag.ts` から意図的にここへ動かした経緯あり（`tasks-archive.md`）。
+  - **T-094**: `helm-target-branch-target.ts` の公開関数 `applyHelmTargetBranchTargets()` と
+    ファイル名が揃っていない。`apply-updates.ts`↔`applyUpdates()` のようにファイル名＝公開
+    関数名に揃える。姉妹 `image-tag-target.ts`/`applyImageTagTargets()` が同じズレを持つため、
+    両方揃えるか helm のみかの判断が主な論点。
+
+- **T-092 完了**（ブランチ `chore/reconsider-placement-naming`）。**ユーザー指示で方針変更** ——
+  一時は `resolve-helm-target-branch.ts` に切り出したが撤回し、`resolveHelmTargetBranch()` を
+  `config.ts` の非公開関数に畳んだ（1関数・呼び出し元1つ）。テスト8件は `loadConfig` 経由なので
+  `test/lib/config/config.test.ts` に統合。`docs/architecture.md` の設計判断ノートは「役割で
+  括れて複数並べられる単位（`schema.ts`/`validate.ts`）が別ファイルの境目で、単発ヘルパーは
+  そこに達しない」に置き換え。`pnpm check`（30ファイル333テスト、統合でファイル数 31→30）。
+- **T-093 完了**。**ユーザー指示で方針変更**（当初は「`lib/` のまま据え置き」で終えていた）。
+  `src/domain/` を新設し、`tag-format.ts`（← `src/lib/`）と `feature-branch.ts`
+  （← `src/steps/shared/`）を移した。`domain/` の定義: 「tech非依存で、このツールの取り決め
+  （タグ命名規則・固定ブランチ名の付け方）を体現する純粋な関数・定数」。副次的に境界が明確化 ——
+  `lib/` は外部アダプタだけ、`steps/shared/` は `step-outcome.ts`（step処理の配線）だけになった。
+  import 15ファイル・テスト2件を追従、`docs/architecture.md`（新セクション＋判断基準リスト＋
+  `lib/gitlab/` 分割ノート）と `CLAUDE.md`（判断基準リスト＋テストコマンド例）も更新。
+  `types/` は据え置き（scope 判断: import が全域・CLAUDE.md ルールも書き直しで churn 大）。
+  `pnpm check`（30ファイル333テスト）。
+- **T-094 完了**。`build-plans/sub-steps/` の2ファイルをリネーム（`git mv`、テストも同名）:
+  `image-tag-target.ts` → `apply-image-tag-targets.ts`、`helm-target-branch-target.ts` →
+  `apply-helm-target-branch-targets.ts`。`steps/` ツリーは全ファイルがファイル名＝公開関数名の
+  ケバブケースで、この2つだけが概念名で崩れていた。姉妹の同型2ファイルなので両方揃えた。
+  公開関数名は不変、内部型エイリアスのみ関数名に合わせた（`ApplyImageTagTargetsAcc`・
+  `ApplyHelmTargetBranchTargetsAcc`）。`build-plans.ts` import・`docs/architecture.md`・
+  `docs/glossary.md` も追従。判断を `docs/architecture.md` に記録。
+  `pnpm check`（31ファイル333テスト、変化なし）。

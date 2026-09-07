@@ -1084,3 +1084,95 @@ const valuesYamlContent = await loadValuesYamlContent(draftCopy, target.valuesPa
 **difficulty**: sonnet
 
 **evidence**: package.json の lint/lint:fix を oxlint src scripts test に拡張。対象に入れた途端に指摘5件（すべて no-unused-vars の死んだimport: validateTagFormat×3・makeHttpError×2）が出たので削除した。.oxlintrc.json の overrides は不要だった（vi.mock のホイスティングやモック用キャストは現行ルールに引っかからない）。test/ が実際に対象になっていることは、未使用importをわざと入れて検出されるかで確認した。pnpm check（31ファイル332テスト、変化なし）通過
+
+## T-092
+
+**タスク**: `src/lib/config/helm-target-branch.ts`（`resolveHelmTargetBranch()` 1関数だけを持つファイル）の中身を、どこに定義するのが妥当かを再検討し、決めたところまで実装する（**「変えない」も選択肢**。その場合は理由の記録のみでコード変更なし）。
+
+## 現状の事実（調査済み）
+
+- ファイルは `src/lib/config/helm-target-branch.ts`。公開しているのは `resolveHelmTargetBranch()` ただ1つ（約50行）。`config.yaml` の `helm.branchToSync`（書き込む値）と `anchors.yaml` の `helm.chart[]`（書き込み先の `valuesPath`+`anchor` 一覧）を app 単位の `HelmTargetBranchConfig` に振り分ける純粋関数。外部I/Oは持たない。
+- 依存先: `config/` のYAML構造の意味論（`valuesPath` 一致で振り分ける／片方だけの指定は設定ミスで例外）と、ドメイン型 `AnchorTarget` / `HelmTargetBranchConfig` / `ProjectName` / `BranchName`。GitLab API には依存しない。
+- 呼び出し元は `src/lib/config/config.ts` **ただ1ファイル**（`loadClientChartAndApps()` 内で `helmTargetBranch: resolveHelmTargetBranch(...)` として呼ぶ）。
+- テストは `test/lib/config/helm-target-branch.test.ts`（この関数を直接呼ぶ）。
+- `docs/architecture.md` の `src/lib/` の表に「`config/helm-target-branch.ts` — `helm.branchToSync` と `helm.chart[]` をapp単位に振り分ける」と1行で載っている。
+- 同じ `config/` ディレクトリには `config.ts`（公開API `loadConfig()`・走査・組み立て）/ `schema.ts`（Zodスキーマ）/ `validate.ts`（2ファイル間の紐づけ・projectId重複・書き込み先重複の検証）が並ぶ。
+
+## 詰める論点
+
+(a) `docs/architecture.md`「新しいコードを置く場所の判断基準」は「呼び出し元が `steps/` の1ファイルだけ → そのファイル内の非公開関数」と定めている。`config.ts` は `lib/` だが同じ考え方を当てると `resolveHelmTargetBranch()` は `config.ts` の非公開関数でよいのではないか。`schema.ts`（複数箇所から使う）・`validate.ts`（`loadConfig()` の別フェーズ）を別ファイルにしている基準と、`helm-target-branch.ts` を別ファイルにしている基準は同じか。違うなら何が違うか。
+(b) 別ファイルのまま残す場合、`helm-target-branch.ts` という「機能名での分割」は他ファイル（`schema` / `validate` という関心事での分割）と粒度が揃っているか。揃えるなら中身を表す名前（生成する型に寄せる、`resolve-*` に寄せる等）へ変えるべきか。
+(c) `config.ts` に取り込む判断なら、テストを `test/lib/config/config.test.ts` から公開API経由で検証する形（`CLAUDE.md`「テスト方針」の非公開関数の扱い）に寄せるか、既存の直接テストを残すか。
+(d) 影響ファイルを確定させる: `src/lib/config/config.ts` / `src/lib/config/helm-target-branch.ts` / `test/lib/config/helm-target-branch.test.ts` / `docs/architecture.md`（`src/lib/` の表）/ `docs/glossary.md`（`helm.chart[]` 由来の振り分けの記述がパス名に触れていないか確認）。
+
+## 完了条件
+
+- 決めた内容（変える/変えない、変える場合の移動先・新しい名前・影響ファイル一覧）を `docs/architecture.md`「コードからは読み取れない設計判断」に記録する。
+- 変える判断なら実装し、着手時の `pnpm test` の件数から**減らさず** `pnpm check` を通すこと。ファイル移動は `git mv`。
+- `git add` / `git commit` はしない（呼び出し元が確認してからコミットする）。
+- T-094（`applyHelmTargetBranchTargets` の命名見直し）と "helm target branch" の名前空間が重なる。独立して着手してよいが、先に片方を終えたらもう片方の本文を読み直し、結論が矛盾しないようにすること。
+
+**difficulty**: opus
+
+**evidence**: ユーザー指示で方針変更: config.ts の非公開関数に畳んだ（一時は resolve-helm-target-branch.ts に切り出していたが撤回）。resolveHelmTargetBranch() を config.ts へ移動しファイルを削除、テスト8件は loadConfig 経由なので test/lib/config/config.test.ts の describe(loadConfig（helmTargetBranch）) に統合。docs/architecture.md の該当行・設計判断ノートを「単発ヘルパーは兄弟ファイル化の境目に達しない」に置き換え。pnpm check（30ファイル333テスト、ファイル数は統合で31→30・テスト数不変）通過。
+
+## T-093
+
+**タスク**: `src/lib/tag-format.ts` の配置場所を再検討し、決めたところまで実装する（**「`lib/` のまま」も選択肢**。その場合は理由の記録のみ）。ディレクトリ構造そのもの（このツールのドメイン固有の定数・関数を置く区分を新設するか）まで含めて検討する。
+
+## 現状の事実（調査済み）
+
+- `src/lib/tag-format.ts`（約140行）の公開シンボル: `DEFAULT_TAG_FORMAT` 定数、`validateTagFormat()` / `parseTag()` / `buildNewTag()` / `findLatestParsedTag()`。依存先はこのツール自身が定義する `TAG_FORMAT` テンプレート形式（`{branch}`/`{date}`/`{time}` プレースホルダ、`docs/requirements.md` 4.1節）とブランド型 `TagFormat` / `TagName` / `BranchName`、型 `ParsedTag` のみ。GitLab API にも外部ファイル形式にも依存しない。
+- 呼び出し元: `src/lib/env.ts`（`validateTagFormat` / `DEFAULT_TAG_FORMAT`）、`src/steps/build-plans/sub-steps/resolve-latest-tag.ts`（`buildNewTag` / `findLatestParsedTag` / `parseTag`）、`scripts/smoke/smoke-fixture.ts`（`parseTag` / `findLatestParsedTag`）。JSDoc からの言及が `src/types/brand.ts`。
+- テストは `test/lib/tag-format.test.ts`。
+- `docs/architecture.md` は既にこの配置の根拠を明記している（`lib/gitlab/` 分割を説明する項）: 元は `lib/gitlab/tag.ts` にあった → GitLab に依存しないので分離、`TAG_FORMAT` という「ファイル形式」に当たるものとして `lib/helm.ts`（`values.yaml` 形式）・`lib/config/schema.ts`（`config/` 形式）と同格に `lib/` 直下へ、`utils/` はドメイン知識を持たないものだけの場所なので入れられない、と。
+- `steps/shared/` は「`lib/` でも `utils/` でもない、複数の `steps/` が共有するドメイン型だけに依存するもの」のために新設された前例（`docs/architecture.md`）。
+
+## 詰める論点
+
+(a) 疑問の核心は「タグ命名テンプレートは `values.yaml` や `config/` のような外部で形が決まっているファイル形式と本当に同種か」。タグ命名規則はこのツール自身の取り決めであり、`lib/` の「特定の技術・外部システム・ファイル形式に依存する」という基準に厳密には当てはまらないのではないか。
+(b) 当てはまらないとすると「技術/外部システム/ファイル形式に依存しない・純粋な計算でもない（ドメイン知識を持つ）・複数 `steps/` 共有でもない（`env.ts` と1サブステップと1スクリプトが使う）」コードの置き場所が無い。この隙間を埋める新区分（例: `src/domain/`）に価値はあるか。作るなら他に何がそこへ動くのか（`steps/shared/feature-branch.ts`？ ブランド型？）を洗い出し、肥大化しないラインを引けるか。`src/` 直下のカテゴリを1つ増やすコストに見合うか。
+(c) `lib/` に残す判断なら、`docs/architecture.md` の現行の根拠（`lib/gitlab/` 分割の項）はこの再検討を踏まえてもなお最良の説明か。緩い部分は締め直す。
+(d) 一度 `lib/gitlab/tag.ts` から意図的にここへ動かした経緯があるため、再度動かすなら「別の意見」ではなく実利のある改善であることを示すこと（`docs/history/tasks-archive.md` に経緯がある）。
+(e) 影響ファイルを確定させる: 移す場合 `src/lib/tag-format.ts` の新パス、import 元3つ（`env.ts` / `resolve-latest-tag.ts` / `smoke-fixture.ts`）、`src/types/brand.ts` の JSDoc、`test/lib/tag-format.test.ts` の対応する新パス、`docs/architecture.md`（`src/lib/` の表・`lib/gitlab/` 分割の項・「ディレクトリ構成の勘所」）、`CLAUDE.md`（「よく使うコマンド」に `npx vitest run test/lib/tag-format.test.ts` の例）、`docs/glossary.md`「タグ命名規則」。
+
+## 完了条件
+
+- 決めた内容を `docs/architecture.md`「コードからは読み取れない設計判断」に記録する。新区分を作るなら「ディレクトリ構成の勘所」と `CLAUDE.md`「アーキテクチャ概要」の判断基準リストも更新する。
+- 変える判断なら実装し、着手時の `pnpm test` の件数から**減らさず** `pnpm check` を通すこと。ファイル移動は `git mv`。テストを移した場合は増減の内訳を evidence に書く。
+- `git add` / `git commit` はしない。
+
+**difficulty**: opus
+
+**evidence**: ユーザー指示で方針変更（当初は lib/ 据え置き）。src/domain/ を新設し tag-format.ts（← src/lib/）と feature-branch.ts（← src/steps/shared/）を移動。domain/ は「tech非依存で、このツールの取り決め（命名規則・固定ブランチ名）を体現する純粋な関数・定数」。結果 lib/ は外部アダプタだけ、steps/shared/ は step-outcome.ts（step配線）だけになった。import 15ファイル・テスト move 2件、docs/architecture.md（新セクション＋判断基準リスト＋lib/gitlab分割ノート）・CLAUDE.md（判断基準リスト＋テスト例パス）を追従。pnpm check（30ファイル333テスト）通過。
+
+## T-094
+
+**タスク**: `src/steps/build-plans/sub-steps/helm-target-branch-target.ts` の公開関数 `applyHelmTargetBranchTargets()` の名前と、ファイル名 `helm-target-branch-target.ts` が揃っていない件を直す。名前を決め、ファイル名もそれに合わせる（`apply-updates.ts` の中で `applyUpdates()` が公開されているように、ファイル名＝公開関数名にする）。
+
+## 現状の事実（調査済み）
+
+- `src/steps/build-plans/sub-steps/helm-target-branch-target.ts` の公開シンボルは関数 `applyHelmTargetBranchTargets()`（複数形。`helmTargetBranch.targets` の全箇所をループ）と型 `ApplyHelmTargetsAcc`。非公開関数 `applyHelmTargetBranchTarget()`（単数形。1箇所分）がある。
+- 姉妹ファイル `src/steps/build-plans/sub-steps/image-tag-target.ts` がまったく同じ形: 公開 `applyImageTagTargets()` + 型 `ApplyImageTagAcc`、非公開 `applyImageTagTarget()`。`docs/architecture.md` は両者を並列の構造として説明している。
+- 呼び出し元は `src/steps/build-plans/build-plans.ts` の `buildAppUpdatePlan()`（`app.helmTargetBranch` があれば呼ぶ）ただ1箇所。
+- ドメイン語彙は固定: 「Helmの向き先ブランチ」= `AppConfig.helmTargetBranch` / `HelmTargetBranchConfig` / `HelmTargetBranchUpdate` / `resolveHelmTargetBranch()`（`docs/glossary.md`「Helmの向き先ブランチ」）。"helm target branch" の語は落とせない。
+- テストは `test/steps/build-plans/sub-steps/helm-target-branch-target.test.ts`（`buildPlans()` 経由で間接検証）。
+
+## 詰める論点
+
+(a) 名前を決める。制約: 公開（複数形・ループ）と非公開（単数形・1箇所）が現状は末尾 `s` だけの差。`apply-updates.ts`↔`applyUpdates()` の前例に倣うなら「ファイル名＝公開関数のケバブケース」。素直に `apply-helm-target-branch-targets.ts` + `applyHelmTargetBranchTargets()` にすると一致はするが長い。短くする案（`apply` を落とす、語順を変える等）も含めて比較し、非公開関数・型名（`ApplyHelmTargetsAcc`）の追従まで決める。
+(b) 姉妹の `image-tag-target.ts` / `applyImageTagTargets()` はまったく同じズレを持つ。helm 側だけ直すと並列構造が崩れる。**両方を揃えて直すか、helm 側だけにする明確な理由があるか**を決める（このタスクの一番の判断どころ）。両方直す判断なら `image-tag-target.ts` とそのテスト・`build-plans.ts` の該当箇所・`docs/architecture.md` も対象に含める。
+(c) `sub-steps/shared/types.ts` に `ApplyTargetsAcc<T>` などの共有型があり名前の一部を共有している可能性。grep で確認して影響に含める。
+(d) 影響ファイルを確定させる: `helm-target-branch-target.ts`（`git mv` でリネーム＋シンボル改名）、`build-plans.ts`（import・呼び出し・手順3のJSDoc）、テスト、`docs/architecture.md`（`build-plans/sub-steps/` の表とサブステップ説明の該当行）、(b) の結論次第で image-tag 側一式。
+(e) T-092（`lib/config/helm-target-branch.ts` の置き場所）と "helm target branch" の名前空間が重なる。片方を先に終えたらもう片方の本文を読み直し、結論が矛盾しないようにする。
+
+## 完了条件
+
+- 決めた命名と (b) の結論（両方揃える/helmのみ、およびその理由）を `docs/architecture.md`「コードからは読み取れない設計判断」に記録する。
+- ファイルのリネームは `git mv` で行い、rename として認識されること。
+- 着手時の `pnpm test` の件数から**減らさず** `pnpm check` を通すこと。`grep -rn "applyHelmTargetBranchTargets" src/ test/` が新しい名前以外で0件（両方揃えた場合は image-tag 側も同様）。
+- `git add` / `git commit` はしない。
+
+**difficulty**: opus
+
+**evidence**: image-tag-target.ts→apply-image-tag-targets.ts、helm-target-branch-target.ts→apply-helm-target-branch-targets.ts に git mv（テストも同名rename）。steps/ツリーは全ファイルがファイル名＝公開関数名のケバブケースで、この2つだけが概念名で崩れていたため。姉妹の同型2ファイルは片方だけ直すと規則が中途半端なので両方揃えた。公開関数名は不変（apply=下書き反映・複数形=全targetループの意味が乗るため）、内部型エイリアスのみ関数名に合わせた（ApplyImageTagTargetsAcc・ApplyHelmTargetBranchTargetsAcc）。build-plans.ts のimport・docs/architecture.md・docs/glossary.md も追従。pnpm check（31ファイル333テスト、変化なし）通過。
