@@ -2,9 +2,10 @@
 
 最終更新: 2026-09-07（品質の棚卸し T-102〜T-108 とスモークテストの準備確認 T-109 を完了して
 `docs/history/` へアーカイブし、そのあと会話由来で `build-plans` のサブステップ粒度を揃え、
-キャッシュの取りこぼしを棚卸しして T-111〜T-115 を登録し、そのすべてを完了した）
+キャッシュの取りこぼしを棚卸しして T-111〜T-115 を登録・完了し、指示のタスク化を
+`/plan-tasks` スキルにして T-116〜T-119 を登録した）
 
-T-001〜T-109 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
+T-001〜T-115 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -116,18 +117,25 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   「`develop/direction.md` に中身があればタスク化が先」というガードを足した。正典は
   `docs/workflow.md`「指示メモ（`develop/direction.md`）」節。
 
+- **`/plan-tasks` の初回運用で T-116〜T-119 を登録**。`develop/direction.md` の3項目を現物の
+  コードで裏取りしたうえで4タスクに分解し、指示メモを `docs/history/direction.md`「2026-09-07」へ
+  移した。あわせて `develop/tasks.json` が44KBと基準（30KB）を超えたため、`done` の
+  T-110〜T-115 の6件を `docs/history/tasks-archive.md` へアーカイブした（18KBに縮小）。
+
 ## 次にやること
 
-- **キャッシュの取りこぼしの解消の続き（T-115 のみ）**。T-111（機構）・T-112（不要な問い合わせの
-  除去）・T-113（パイプライン）・T-114（web URL）は完了済み。残りは values.yaml の読み込み
-  （`sonnet`、依存は満たされている）。新しい読み取りを機構に載せる手順と「載せてよいかの判断」は
-  `docs/architecture.md` の上記の節にある。
-  T-113（`getLatestPipelineForRef`）と T-115（values.yamlの読み込み）が扱う `undefined` は、
-  機構側が箱に包むので載せられる（載せるかどうかの判断は各タスクで行う）。
+- **T-116（dry-runの分岐の再考、`opus`）** と **T-117（`async`/`await` と `.then`/`.catch` の
+  方針確定、`opus`）** は方針決めを含むので、**`/loop` の自動進行に載せずユーザーがいる
+  セッションで扱う**。T-118（T-117の適用、`sonnet`）は T-117 待ち。T-119
+  （`develop/test-inventory.md` の要否判断、`sonnet`）は依存なしで着手できる。
+- 新しいGitLab読み取りをキャッシュ機構に載せる手順と「載せてよいかの判断」は
+  `docs/architecture.md`「GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で
+  1つ持ち回る」節にある。
 - **実機スモークテストは実施済み**（上記）。残っているのは**テスト用アクセストークンの失効**
   （ユーザー対応。下の「注意」参照）。次に回すときは `docs/smoke-test.md` の手順1から。
 - `develop/test-inventory.md` の「要調査で残す判断にしたもの」「埋めない穴」5件は、
-  判断を変えたくなったらリスト側の理由を先に更新する取り決め。
+  判断を変えたくなったらリスト側の理由を先に更新する取り決め（**このファイル自体の要否は
+  T-119 で判断する**）。
 - 次のコミットからは件名の先頭にタスクIDを置く（`docs/workflow.md`「コミットメッセージ」）。
 
 ## 未解決
