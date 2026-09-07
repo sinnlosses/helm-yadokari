@@ -1,19 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../src/lib/gitlab/gitlab.js")
 vi.mock("../../../src/steps/apply-updates/sub-steps/build-mr-content.js")
 vi.mock("../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js")
+vi.mock("../../../src/steps/apply-updates/sub-steps/submit-merge-request.js")
 vi.mock("../../../src/domain/feature-branch.js")
 vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
 import { buildFeatureBranch } from "../../../src/domain/feature-branch.js"
-import { commitFileUpdates, createMergeRequest } from "../../../src/lib/gitlab/gitlab.js"
 import { applyUpdates } from "../../../src/steps/apply-updates/apply-updates.js"
 import { buildMrContent } from "../../../src/steps/apply-updates/sub-steps/build-mr-content.js"
 import { collectMrEntries } from "../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js"
 import type { MrEntries } from "../../../src/steps/apply-updates/sub-steps/shared/types.js"
+import { submitMergeRequest } from "../../../src/steps/apply-updates/sub-steps/submit-merge-request.js"
 import type { ChartUpdateTarget } from "../../../src/types/types.js"
 import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"
@@ -26,6 +26,11 @@ import {
 } from "../../helpers.js"
 
 const MR_ENTRIES: MrEntries = { imageTags: [], helmBranches: [] }
+
+const MR_CONTENT = {
+  title: "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
+  description: "### my-app\n...",
+}
 
 const NEW_TAG = {
   name: toTagName("main-build-at-20260101-000000"),
@@ -58,13 +63,9 @@ function makeTarget(): ChartUpdateTarget {
 
 describe("applyUpdates", () => {
   beforeEach(() => {
-    vi.mocked(commitFileUpdates).mockResolvedValue(undefined)
-    vi.mocked(createMergeRequest).mockResolvedValue(undefined)
+    vi.mocked(submitMergeRequest).mockResolvedValue(undefined)
     vi.mocked(collectMrEntries).mockResolvedValue(MR_ENTRIES)
-    vi.mocked(buildMrContent).mockReturnValue({
-      title: "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
-      description: "### my-app\n...",
-    })
+    vi.mocked(buildMrContent).mockReturnValue(MR_CONTENT)
     vi.mocked(buildFeatureBranch).mockReturnValue(
       toBranchName("feature/yadokari/tenantId1/clientId1"),
     )
@@ -76,11 +77,10 @@ describe("applyUpdates", () => {
 
   it("成功したとき 'CREATED' を返す", async () => {
     expect(await applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)).toEqual(["CREATED"])
-    expect(commitFileUpdates).toHaveBeenCalledOnce()
-    expect(createMergeRequest).toHaveBeenCalledOnce()
+    expect(submitMergeRequest).toHaveBeenCalledOnce()
   })
 
-  it("collectMrEntriesの結果からbuildMrContentを呼び、その結果をコミット・MR作成に渡す", async () => {
+  it("collectMrEntriesの結果からbuildMrContentを呼び、その結果をMR送信に渡す", async () => {
     const target = makeTarget()
     await applyUpdates(mockGitlab, newBatchCache(), [target], 3)
     expect(collectMrEntries).toHaveBeenCalledWith(
@@ -93,50 +93,37 @@ describe("applyUpdates", () => {
       target.chartAndApps.clientId,
       MR_ENTRIES,
     )
-    expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[4]).toBe(
-      "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
-    )
-    expect(vi.mocked(createMergeRequest).mock.calls[0]?.[4]).toBe(
-      "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
-    )
-    expect(vi.mocked(createMergeRequest).mock.calls[0]?.[5]).toBe("### my-app\n...")
+    expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[3]).toBe(MR_CONTENT)
   })
 
-  it("tenantId/clientIdを含む固定ブランチ名でコミット・MRを作成する", async () => {
+  it("tenantId/clientIdを含む固定ブランチ名でMRを送る", async () => {
     await applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)
-    expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[2]).toBe(
-      "feature/yadokari/tenantId1/clientId1",
-    )
-    expect(vi.mocked(createMergeRequest).mock.calls[0]?.[2]).toBe(
+    expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[2]).toBe(
       "feature/yadokari/tenantId1/clientId1",
     )
   })
 
-  it("mrTargetBranch をベースブランチ・MR作成先として使う", async () => {
+  it("chartAndAppsのchart設定と書き換え済みファイルをそのまま渡す", async () => {
     const target = makeTarget()
     await applyUpdates(mockGitlab, newBatchCache(), [target], 3)
-    expect(vi.mocked(commitFileUpdates).mock.calls[0]?.[3]).toBe(
-      target.chartAndApps.chart.mrTargetBranch,
-    )
-    expect(vi.mocked(createMergeRequest).mock.calls[0]?.[3]).toBe(
-      target.chartAndApps.chart.mrTargetBranch,
-    )
+    expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[1]).toBe(target.chartAndApps.chart)
+    expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[4]).toBe(target.files)
   })
 
   it("401エラーのとき FatalError をスローする", async () => {
-    vi.mocked(commitFileUpdates).mockRejectedValue(makeHttpError(401))
+    vi.mocked(submitMergeRequest).mockRejectedValue(makeHttpError(401))
     await expect(applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)).rejects.toThrow(
       FatalError,
     )
   })
 
   it("非fatalなエラーのとき 'ERROR' を返す", async () => {
-    vi.mocked(commitFileUpdates).mockRejectedValue(makeHttpError(403))
+    vi.mocked(submitMergeRequest).mockRejectedValue(makeHttpError(403))
     expect(await applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)).toEqual(["ERROR"])
   })
 
   it("複数targetの結果を入力順を保った配列で返す", async () => {
-    vi.mocked(commitFileUpdates)
+    vi.mocked(submitMergeRequest)
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(makeHttpError(403))
     expect(

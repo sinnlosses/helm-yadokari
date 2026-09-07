@@ -110,7 +110,7 @@ function makeFakeGitlab() {
     },
     Branches: {
       // 未登録の組み合わせ（固定ブランチ`feature/yadokari/...`など）は404を返す。
-      // `commitFileUpdates()`の「featureBranchが既に存在するか」判定はこの経路を通り、
+      // `submitMergeRequest()`の「featureBranchが既に存在するか」判定はこの経路を通り、
       // 常に「まだ存在しない」として扱われる。
       show: vi.fn((projectId: number, branch: string) => {
         const sha = branchHeadShaByKey.get(`${projectId}\0${branch}`)

@@ -22,7 +22,7 @@ import {
  * **ここに並べた読み取りだけがキャッシュされる。** 載せてよいのは「このツール自身の書き込み
  * （タグ作成・コミット・MR作成・ブランチ削除）ではバッチ中に値が変わらない読み取り」だけで、
  * `listTags`（`createTag`で変わる）・`openMergeRequestExists`（`createMergeRequest`で変わる）・
- * `commitFileUpdates()`内のブランチ存在確認（削除と再作成をまたぐ）は載せられない。それらは
+ * 固定ブランチを作り直すときの存在確認（`submitMergeRequest()`。削除と再作成をまたぐ）は載せられない。それらは
  * `gitlab.ts`の生の関数を直接呼ぶ。判断の経緯は`docs/architecture.md`
  * 「GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し〜」節。
  */

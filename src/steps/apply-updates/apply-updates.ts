@@ -1,10 +1,6 @@
 import { buildFeatureBranch } from "../../domain/feature-branch.js"
 import type { GitlabBatchCache } from "../../lib/gitlab/batch-cache.js"
-import {
-  type GitlabClient,
-  commitFileUpdates,
-  createMergeRequest,
-} from "../../lib/gitlab/gitlab.js"
+import type { GitlabClient } from "../../lib/gitlab/gitlab.js"
 import type { ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
@@ -12,6 +8,7 @@ import { describeHelmTargetBranchUpdates, describePlan } from "../shared/describ
 import { type StepOutcome, ok, withHandling } from "../shared/step-outcome.js"
 import { buildMrContent } from "./sub-steps/build-mr-content.js"
 import { collectMrEntries } from "./sub-steps/collect-mr-entries.js"
+import { submitMergeRequest } from "./sub-steps/submit-merge-request.js"
 
 /**
  * 更新計画があるchartAndAppsに対して、固定ブランチへのコミットとMR作成を並列実行する。
@@ -32,6 +29,8 @@ export async function applyUpdates(
 
 /**
  * 1つのchartAndAppsにコミットとMR作成を適用する（このstepの並列処理1件分）。
+ * ブランチの作り直しを含むGitLab APIの呼び出し順はサブステップの内側にあるため、
+ * ここはサブステップを順に呼んで結果を受け渡すだけになっている。
  */
 async function applyUpdate(
   gitlab: GitlabClient,
@@ -44,25 +43,9 @@ async function applyUpdate(
   const featureBranch = buildFeatureBranch(tenantId, clientId)
 
   const entries = await collectMrEntries(gitlabCache, plans, helmTargetBranchUpdates)
-  // MRタイトルをコミットメッセージにもそのまま使い回す
-  const { title, description } = buildMrContent(tenantId, clientId, entries)
+  const content = buildMrContent(tenantId, clientId, entries)
+  await submitMergeRequest(gitlab, chart, featureBranch, content, files)
 
-  await commitFileUpdates(
-    gitlab,
-    chart.projectId,
-    featureBranch,
-    chart.mrTargetBranch,
-    title,
-    files,
-  )
-  await createMergeRequest(
-    gitlab,
-    chart.projectId,
-    featureBranch,
-    chart.mrTargetBranch,
-    title,
-    description,
-  )
   logger.info({
     ...logContext,
     result: "CREATED",

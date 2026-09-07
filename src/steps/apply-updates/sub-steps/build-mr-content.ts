@@ -1,15 +1,7 @@
 import { formatClientRef } from "../../../domain/client-ref.js"
 import { buildCompareUrl, buildTagUrl } from "../../../lib/gitlab/web-url.js"
 import type { ClientId, HelmTargetBranchUpdate, TenantId } from "../../../types/types.js"
-import type { ImageTagEntry, MrEntries } from "./shared/types.js"
-
-/**
- * MRのタイトルと本文（Markdown）
- */
-export type MrContent = {
-  readonly title: string
-  readonly description: string
-}
+import type { ImageTagEntry, MrContent, MrEntries } from "./shared/types.js"
 
 /**
  * 1つの`(chartリポジトリ, tenantId, clientId)`分のMRのタイトルと本文を組み立てる

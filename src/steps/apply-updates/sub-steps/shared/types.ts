@@ -26,3 +26,12 @@ export type MrEntries = {
   readonly imageTags: readonly ImageTagEntry[]
   readonly helmBranches: readonly HelmTargetBranchUpdate[]
 }
+
+/**
+ * MRのタイトルと本文（Markdown）。`buildMrContent()`が組み立て、`submitMergeRequest()`が
+ * MRとコミットメッセージに使う。
+ */
+export type MrContent = {
+  readonly title: string
+  readonly description: string
+}

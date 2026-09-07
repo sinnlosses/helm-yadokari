@@ -54,6 +54,14 @@ export async function branchExists(
   )
 }
 
+export async function deleteBranch(
+  gitlab: GitlabClient,
+  projectId: ProjectId,
+  branch: BranchName,
+): Promise<void> {
+  await withRetry(() => gitlab.Branches.remove(projectId, branch))
+}
+
 /** 指定ブランチの現在のHEADコミットSHAを返す。ブランチが存在しない場合は undefined */
 export async function getBranchHeadSha(
   gitlab: GitlabClient,
@@ -103,8 +111,9 @@ export async function openMergeRequestExists(
 type CommitAction = { action: "update"; filePath: ValuesPath; content: string }
 
 /**
- * 指定したブランチへコミットを作成する。指定したブランチが既に存在する場合は一旦削除し、
- * `baseBranch` から常に新規作成し直す。これにより、過去の変更が新しいMRの差分に紛れ込むことを防ぐ。
+ * `baseBranch` を起点に `featureBranch` を作り、渡したファイルを1コミットで積む。
+ * `featureBranch` が既に存在する場合の扱い（削除して作り直すか）は呼び出し元の判断で、
+ * ここでは行わない。
  *
  * ファイルごとの action は常に `update`。呼び出し元がここへ渡すのは、`baseBranch` 時点の内容を
  * 読み込めたファイルだけを書き換えた結果で、読み込めなければその時点で例外になる
@@ -119,9 +128,6 @@ export async function commitFileUpdates(
   message: string,
   files: readonly FileUpdate[],
 ): Promise<void> {
-  if (await branchExists(gitlab, projectId, featureBranch)) {
-    await deleteBranch(gitlab, projectId, featureBranch)
-  }
   // gitbeaker が可変配列を要求するため、ここだけ readonly にしない
   const actions: CommitAction[] = files.map((file) => ({
     action: "update",
@@ -202,12 +208,4 @@ async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promi
     if (isNotFoundError(error)) return fallback
     throw error
   }
-}
-
-async function deleteBranch(
-  gitlab: GitlabClient,
-  projectId: ProjectId,
-  branch: BranchName,
-): Promise<void> {
-  await withRetry(() => gitlab.Branches.remove(projectId, branch))
 }

@@ -8,6 +8,7 @@ import {
   createClient,
   createMergeRequest,
   createTag,
+  deleteBranch,
   getBranchHeadSha,
   getFileContent,
   getLatestPipelineForRef,
@@ -108,6 +109,15 @@ describe("branchExists", () => {
   })
 })
 
+describe("deleteBranch", () => {
+  it("Branches.remove を呼び出す", async () => {
+    const removeFn = vi.fn().mockResolvedValue(undefined)
+    const client = makeClient({ Branches: { show: vi.fn(), remove: removeFn } })
+    await deleteBranch(client, toProjectId(1), toBranchName("yadokari/update"))
+    expect(removeFn).toHaveBeenCalledWith(1, "yadokari/update")
+  })
+})
+
 describe("getBranchHeadSha", () => {
   it("ブランチのHEADコミットSHAを返す", async () => {
     const client = makeClient({
@@ -189,13 +199,9 @@ describe("openMergeRequestExists", () => {
 })
 
 describe("commitFileUpdates", () => {
-  it("ブランチが存在しないとき、削除せずbaseBranchから新規作成する", async () => {
+  it("baseBranchを起点にコミットを作成する", async () => {
     const createFn = vi.fn().mockResolvedValue({})
-    const removeFn = vi.fn().mockResolvedValue(undefined)
-    const client = makeClient({
-      Branches: { show: vi.fn().mockRejectedValue(makeHttpError(404)), remove: removeFn },
-      Commits: { create: createFn },
-    })
+    const client = makeClient({ Commits: { create: createFn } })
     await commitFileUpdates(
       client,
       toProjectId(1),
@@ -204,7 +210,6 @@ describe("commitFileUpdates", () => {
       "chore: update",
       [{ valuesPath: toValuesPath("values.yaml"), content: "image:\n  tag: v2\n" }],
     )
-    expect(removeFn).not.toHaveBeenCalled()
     expect(createFn).toHaveBeenCalledWith(
       1,
       "yadokari/update",
@@ -214,12 +219,12 @@ describe("commitFileUpdates", () => {
     )
   })
 
-  it("ブランチが既に存在するとき、削除してからbaseBranchを起点に作り直す（オープン中MRが無いことは呼び出し元で確認済みの前提）", async () => {
-    const createFn = vi.fn().mockResolvedValue({})
+  it("ブランチの存在確認も削除もしない（作り直しは呼び出し元の責務）", async () => {
+    const showFn = vi.fn().mockResolvedValue({})
     const removeFn = vi.fn().mockResolvedValue(undefined)
     const client = makeClient({
-      Branches: { show: vi.fn().mockResolvedValue({}), remove: removeFn },
-      Commits: { create: createFn },
+      Branches: { show: showFn, remove: removeFn },
+      Commits: { create: vi.fn().mockResolvedValue({}) },
     })
     await commitFileUpdates(
       client,
@@ -229,25 +234,13 @@ describe("commitFileUpdates", () => {
       "chore: update",
       [{ valuesPath: toValuesPath("values.yaml"), content: "image:\n  tag: v2\n" }],
     )
-    expect(removeFn).toHaveBeenCalledWith(1, "yadokari/update")
-    expect(createFn).toHaveBeenCalledWith(
-      1,
-      "yadokari/update",
-      "chore: update",
-      [{ action: "update", filePath: "values.yaml", content: "image:\n  tag: v2\n" }],
-      { startBranch: "develop" },
-    )
+    expect(showFn).not.toHaveBeenCalled()
+    expect(removeFn).not.toHaveBeenCalled()
   })
 
   it("複数ファイルを1回のコミットにまとめ、いずれも update として送る", async () => {
     const createFn = vi.fn().mockResolvedValue({})
-    const client = makeClient({
-      Branches: {
-        show: vi.fn().mockResolvedValue({}),
-        remove: vi.fn().mockResolvedValue(undefined),
-      },
-      Commits: { create: createFn },
-    })
+    const client = makeClient({ Commits: { create: createFn } })
     await commitFileUpdates(
       client,
       toProjectId(1),
