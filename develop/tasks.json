@@ -65,10 +65,10 @@
   {
     "id": "T-109",
     "task": "実機スモークテストを実行できる状態が揃っているかを確認する（**このタスクでは実行しない**。書き込みを伴う手順は人間の承認が要るため、確認と報告までで止める）。\n\n## 背景\n\nT-064以降の変更が実機未検証のまま溜まっている（URL検証の追加・MR本文のURL解決の作り替え・`loadEnvConfig()`化・values.yaml下書きの受け渡しの作り替え・スモークスクリプトの環境変数追加）。さらに直近のセッションで `src/index.ts` の起動経路を変えた（環境変数の読み込みを `then` の中に移した）。手順は `docs/smoke-test.md` が正典。\n\n## 確認すること\n\n1. **認証情報**: `.env` に `GITLAB_URL` / `ACCESS_TOKEN` が設定されているか（**値そのものは出力しない**。設定の有無だけを見る）。`.env.example` との差分も見る。\n2. **対象プロジェクトの実在**: `docs/smoke-test.md`「使うGitLabリソース」の3件（`SMOKE_CHART_PROJECT_ID` / `SMOKE_QA_SPRINT_PROJECT_ID` / `SMOKE_DEVELOP_CLIENT_PROJECT_ID`）が、書かれているprojectIdでGitLab上に実在し参照できるか。**読み取りのみ**（タグ・ブランチ・MRを作らない）。\n3. **手順に出てくるコマンドの実在**: `docs/smoke-test.md`「手順」の各コマンドが今の `package.json` / `scripts/smoke/smoke-fixture.ts` に実在するか（スクリプト名・サブコマンド・フラグ名）。手順が古いままになっていないかを見る。\n4. **フィクスチャ**: `config-test/` の内容が手順と検証シナリオの前提（chartリポジトリ・2アプリ・向き先ブランチ）と合っているか。`pnpm lint:validate-config:remote` に相当する読み取り専用の検証が通るか。\n5. **期待結果の記述のズレ**: 「期待する結果」節が今の実装（MR本文の組み立て・終了コード・dry-runの挙動）と食い違っていないか。\n\n## 完了条件\n\n- 上の5点それぞれについて「揃っている / 欠けている・古い」を根拠付きで一覧にする。欠けているものには埋め方（人間がやること／タスク化すべきこと）を1〜2行で添える。\n- 実機への書き込みを伴う操作（`smoke-fixture.ts --apply`、本体の実行）は**行わない**。\n- 結果を `develop/progress.md` に残すか、量が多ければ `develop/` 配下のファイルにまとめる。\n- 修正が要ると分かったものは `develop/tasks.json` にタスクとして登録する。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "5点すべて「揃っている」。(1)`.env` に GITLAB_URL/ACCESS_TOKEN あり（SMOKE_* は手順どおり実行時に export する設計）。(2)`pnpm lint:validate-config:remote config-test` が読み取りのみで通過し、3プロジェクト・ブランチ・valuesPath・アンカーの実在を確認（config OK: 3 chart groups, 5 apps）。(3)手順のコマンドは実在（smoke-fixture.ts の setup/reset/--apply、validate-config.ts の位置引数 config-test、pnpm dev）。(4)config-test の projectId・アンカー名が手順の期待と一致。(5)MRタイトル書式・本文8列/4列・summary の3キー・終了コードの写像がいずれもドキュメントの記述どおり。実機への書き込みは未実施。",
     "dependencies": []
   },
   {
