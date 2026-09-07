@@ -26,10 +26,8 @@ export function buildMrContent(
 }
 
 /**
- * MRのタイトル。何が何件変わったかを種別ごとに示す（以前は「N app image tag(s)」と
- * 固定で、向き先ブランチだけが変わった場合もイメージタグが変わったように読めていた）。
- * 数える単位はアプリ数ではなく values.yaml の書き換え箇所数で、本文のテーブルの行と
- * 同じ配列を数える。
+ * MRのタイトル。何が何件変わったかを種別ごとに示す。数える単位はアプリ数ではなく
+ * values.yaml の書き換え箇所数で、本文のテーブルの行と同じ配列を数える。
  */
 function buildMrTitle(tenantId: TenantId, clientId: ClientId, entries: MrEntries): string {
   const parts = [

@@ -92,9 +92,9 @@ Protected: OFF で登録する）。`renovate` ジョブはこのCLI自体の
   `ERROR` としてログ記録し処理継続する。`src/steps/` 配下に `try`/`catch` を書かない
 - 環境変数はすべて `src/lib/env.ts` で管理し、読み取りは `loadEnvConfig()` を通す。モジュールの
   トップレベルでは `process.env` に触れない
-- コメントは**コードから読み取れないことだけ**を原則1〜2文で書く。型名・関数名の言い換えは
-  書かない。背景・理由・経緯は正典（`docs/architecture.md` / `docs/glossary.md` /
-  `docs/requirements.md`）に置いて二重管理しない
+- コメントは**コードから読み取れないことだけ**を書く。型名・関数名の言い換えは書かない。
+  残すかどうかは長さではなく種類で決める（今の挙動の制約・前提は残す、昔の経緯は正典へ）。
+  正典は `docs/architecture.md` / `docs/glossary.md` / `docs/requirements.md`
 - 型をどのファイルに置くかは**構成**の規約（上の「アーキテクチャ概要」原則5）。性質ごとの
   判断表は `docs/architecture.md`「型の置き場所」が正典
 - コード・ドキュメントにタスク番号（`T-` + 3桁）を書かない

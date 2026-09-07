@@ -9,6 +9,9 @@ T-001〜T-101 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
 
 ## 完了したこと（このセッション）
 
+- **T-103 完了**: コメントの基準を「長さ」から「種類」に置き換え（`docs/coding-standards.md`）、
+  `src/`+`scripts/` を全件見て経緯5箇所を `docs/architecture.md` の既存4節へ移した。
+
 - **T-102 完了**: `withAppContext()` の適用漏れを解消。`apply-updates/sub-steps/collect-mr-entries.ts`
   のplan単位の解決（web URL・最新パイプライン）も同じくアプリ名が要ると判断して包み、置き場所は
   `steps/shared/` に据え置いた（理由は `docs/architecture.md`「アプリ名の付与は〜」節）。

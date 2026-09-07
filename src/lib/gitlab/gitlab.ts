@@ -215,7 +215,6 @@ async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promi
   }
 }
 
-/** 指定ブランチを削除する */
 async function deleteBranch(
   gitlab: GitlabClient,
   projectId: ProjectId,

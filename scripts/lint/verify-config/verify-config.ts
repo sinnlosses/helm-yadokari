@@ -15,8 +15,7 @@ import { type RemoteCache, newRemoteCache } from "./remote-cache.js"
 
 // config/ に書かれた値がGitLab上に実在するかを検証する。ローカルのYAMLだけを見る
 // `config/validate.ts` のバリデーション（形が正しいか）に対して、こちらは「その先が本当に
-// あるか」を見る（存在しないアンカー・valuesPath・ブランチ・projectIdは、従来は本番実行時に
-// はじめて ERROR になっていた）。CIから `pnpm lint:validate-config:remote` 経由で呼ぶ。
+// あるか」を見る。CIから `pnpm lint:validate-config:remote` 経由で呼ぶ。
 
 /**
  * 1つのchartAndApps（＝1つのtenantId/clientId）を検証する間ずっと変わらない値をまとめたもの。

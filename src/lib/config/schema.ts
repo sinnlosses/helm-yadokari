@@ -56,8 +56,7 @@ export const ConfigYamlSchema = z.object({
 
 /**
  * anchors.yaml側。1app分のchart構造（`chart[]`）に加え、`config.yaml`側と紐付けて
- * 整合性検証するための`projectId`/`projectName`を重複して持つ（`projectId`だけをキーにすると
- * 何のappか読み解きにくいという指摘を踏まえ、あえて自己完結した配列要素にしている）
+ * 整合性検証するための`projectId`/`projectName`を重複して持つ
  */
 const AnchorsAppSchema = z.object({
   projectId: z.number().int().transform(toProjectId),

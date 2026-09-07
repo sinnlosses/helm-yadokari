@@ -2,9 +2,8 @@ import { type GitlabClient, getFileContent } from "../../../../lib/gitlab/gitlab
 import type { ChartRepoConfig, FileUpdate, ValuesPath } from "../../../../types/types.js"
 
 /**
- * 1つのvaluesPathについての下書き状態。`content`は現在の内容（fetch直後は書き換え前、
- * 書き換え後は書き換え後の内容）、`modified`はこのchartAndAppsの処理中に1箇所でも
- * 書き換えたかどうか。
+ * 1つのvaluesPathについての下書き状態。`modified`が指すのはこのchartAndAppsの処理中に
+ * 書き換えたかどうかで、GitLabから読んだだけのエントリは`false`のまま。
  */
 export type ValuesYamlEntry = {
   readonly content: string
@@ -12,14 +11,8 @@ export type ValuesYamlEntry = {
 }
 
 /**
- * 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」。valuesPathごとに現在の内容と
- * 書き換えたかどうかを1つのMapにまとめて持つ。
- *
- * 以前は`valuesYamlCache`（内容のキャッシュ）と`modifiedValuesPaths`（書き換えた印）を
- * 別々に持ち回っており、`build-plans.ts`の`buildAppUpdatePlan()`が段階ごとに2フィールドを
- * 手作業で詰め替えていた。また「書き換えた印は付いているのに内容が無い」組み合わせを型で
- * 防げず、`buildFileUpdates()`が実行時のinternal errorでチェックしていた。書き換え後の内容と
- * 「書き換えた」印を常に同じエントリに乗せることで、その組み合わせが型上あり得なくする。
+ * 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」。書き換え後の内容と「書き換えた」
+ * 印を常に同じエントリに乗せるため、「印は付いているのに内容が無い」組み合わせが型上あり得ない。
  */
 export type ValuesYamlDraft = ReadonlyMap<ValuesPath, ValuesYamlEntry>
 
@@ -67,8 +60,7 @@ export function writeValuesYamlDraft(
 
 /**
  * 書き換えのあったファイルだけを取り出す。`modified`なエントリは`writeValuesYamlDraft()`
- * を経由してしか作られず必ず`content`を伴うため、以前存在した「書き換えたのに内容が無い」
- * internal errorはこの型設計では起こり得ない。
+ * を経由してしか作られず、必ず`content`を伴う。
  */
 export function toFileUpdates(draft: ValuesYamlDraft): readonly FileUpdate[] {
   return [...draft.entries()]
