@@ -1,3 +1,5 @@
+import { existsSync, statSync } from "node:fs"
+
 import { parseClientRef } from "../domain/client-ref.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../domain/tag-format.js"
 import type {
@@ -8,7 +10,8 @@ import type {
   TargetClient,
 } from "../types/types.js"
 import { toAccessToken, toChartDirName, toGitLabUrl } from "../types/types.js"
-import { DEFAULT_CONFIG_PATH } from "./config/config.js"
+import { assertSafePath } from "../utils/fs.js"
+import { DEFAULT_CONFIG_DIR_PATH } from "./config/config.js"
 
 export function loadEnv(key: string): string {
   const value = process.env[key]
@@ -24,6 +27,30 @@ export function loadOptionalEnv(key: string): string | undefined {
 /** URLとしての検証は`toGitLabUrl()`が行う。ここは環境変数名をメッセージに載せるだけ */
 export function validateGitlabUrl(raw: string): GitLabUrl {
   return toGitLabUrl(raw, "GITLAB_URL")
+}
+
+/**
+ * CONFIG_PATH は `loadConfig()`（`lib/config/config.ts`）が読む設定ディレクトリの
+ * ルートパス（`<configDirPath>/<chartディレクトリ>/chart.yaml` という2階層固定の構成を
+ * 走査する起点）。単一ファイルではなくディレクトリを指すため、フィールド名・変数名は
+ * 常に「ディレクトリ」であることが分かる `configDirPath` を使う（`CONFIG_PATH`という
+ * 環境変数名自体は外部インターフェースのため変えない）。
+ *
+ * パストラバーサル検証（`assertSafePath`）は `loadConfig()` 内にもある。`loadConfig()` は
+ * `scripts/lint/validate-config.ts` からコマンドライン引数のパスで直接呼ばれる経路もあり、
+ * そちらの検証は消せないため、環境変数由来の値はここでも検証する（`loadConfig()`経由で
+ * 2重に検証が走るが、副作用のない同じ関数を2回呼ぶだけなので実害はない）。
+ *
+ * ディレクトリとして実在することもここで検証する。無いままだと後段の`listSubdirectories()`が
+ * 生の`ENOENT`を投げるだけで、どの環境変数が原因か分からないため。
+ */
+export function parseConfigDirPath(raw: string | undefined): string {
+  const configDirPath = raw ?? DEFAULT_CONFIG_DIR_PATH
+  assertSafePath(configDirPath, "CONFIG_PATH")
+  if (!existsSync(configDirPath) || !statSync(configDirPath).isDirectory()) {
+    throw new Error(`CONFIG_PATH で指定されたディレクトリが存在しません: "${configDirPath}"`)
+  }
+  return configDirPath
 }
 
 export function parseConcurrencyLimit(raw: string | undefined): number {
@@ -63,7 +90,7 @@ export function parseTargetClients(raw: string | undefined): readonly TargetClie
 export type EnvConfig = {
   readonly gitlabUrl: GitLabUrl
   readonly accessToken: AccessToken
-  readonly configPath: string
+  readonly configDirPath: string
   readonly concurrencyLimit: number
   readonly dryRun: boolean
   readonly targetChart: ChartDirName | undefined
@@ -77,13 +104,14 @@ export type EnvConfig = {
  * モジュールのトップレベルではなく関数にしてあるのは、`process.env`に触れるのを
  * 呼び出した瞬間だけに限定するため。トップレベルの定数にすると、このファイルを
  * import しただけで（＝環境変数を必要としない`pnpm lint:validate-config`や、
- * 各テストからも）検証が走ってしまう。
+ * 各テストからも）検証が走ってしまう。`parseConfigDirPath()`のディレクトリ存在チェック
+ * （ファイルシステムへのアクセス）も同じ理由でここでしか走らせない。
  */
 export function loadEnvConfig(): EnvConfig {
   return {
     gitlabUrl: validateGitlabUrl(loadEnv("GITLAB_URL")),
     accessToken: toAccessToken(loadEnv("ACCESS_TOKEN")),
-    configPath: loadOptionalEnv("CONFIG_PATH") ?? DEFAULT_CONFIG_PATH,
+    configDirPath: parseConfigDirPath(loadOptionalEnv("CONFIG_PATH")),
     concurrencyLimit: parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT")),
     dryRun: loadOptionalEnv("DRY_RUN") === "true",
     targetChart: parseTargetChart(loadOptionalEnv("TARGET_CHART")),

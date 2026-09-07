@@ -15,7 +15,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
     gitlabUrl: env.gitlabUrl,
     dryRun: env.dryRun,
     concurrencyLimit: env.concurrencyLimit,
-    configPath: env.configPath,
+    configDirPath: env.configDirPath,
     targetChart: env.targetChart,
     targetClients: env.targetClients,
     tagFormat: env.tagFormat,
@@ -43,7 +43,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
 async function runProcess(env: EnvConfig): Promise<Record<ChartUpdateResult, number>> {
   const gitlab = createClient(env.gitlabUrl, env.accessToken)
   const gitlabCache = createGitlabBatchCache(gitlab)
-  const { chartAndAppsList } = loadConfig(env.configPath, {
+  const { chartAndAppsList } = loadConfig(env.configDirPath, {
     chartDirName: env.targetChart,
     clients: env.targetClients,
   })

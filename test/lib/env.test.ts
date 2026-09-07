@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs"
+import { join } from "node:path"
+
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { DEFAULT_TAG_FORMAT } from "../../src/domain/tag-format.js"
@@ -6,6 +9,7 @@ import {
   loadEnvConfig,
   loadOptionalEnv,
   parseConcurrencyLimit,
+  parseConfigDirPath,
   parseTagFormat,
   parseTargetChart,
   parseTargetClients,
@@ -65,6 +69,37 @@ describe("validateGitlabUrl", () => {
 
   it("http/https以外のスキームのとき例外をスローする", () => {
     expect(() => validateGitlabUrl("ftp://gitlab.example.com")).toThrow("GITLAB_URL")
+  })
+})
+
+describe("parseConfigDirPath", () => {
+  let tmpDir = ""
+
+  afterEach(() => {
+    if (tmpDir) rmSync(tmpDir, { recursive: true })
+    tmpDir = ""
+  })
+
+  it("未指定のとき デフォルトの config ディレクトリを返す", () => {
+    expect(parseConfigDirPath(undefined)).toBe("config")
+  })
+
+  it("実在するディレクトリを指定したときそのまま返す", () => {
+    tmpDir = mkdtempSync(join(process.cwd(), "test-tmp-"))
+    const relativePath = tmpDir.slice(process.cwd().length + 1)
+    expect(parseConfigDirPath(relativePath)).toBe(relativePath)
+  })
+
+  it("パストラバーサルのとき例外をスローし、メッセージに CONFIG_PATH と指定値を含む", () => {
+    expect(() => parseConfigDirPath("../../etc/passwd")).toThrow("CONFIG_PATH")
+    expect(() => parseConfigDirPath("../../etc/passwd")).toThrow("../../etc/passwd")
+  })
+
+  it("存在しないディレクトリのとき例外をスローし、メッセージに CONFIG_PATH と指定値を含む", () => {
+    expect(() => parseConfigDirPath("config-does-not-exist-xyz")).toThrow("CONFIG_PATH")
+    expect(() => parseConfigDirPath("config-does-not-exist-xyz")).toThrow(
+      "config-does-not-exist-xyz",
+    )
   })
 })
 
@@ -172,7 +207,7 @@ describe("loadEnvConfig", () => {
     expect(loadEnvConfig()).toEqual({
       gitlabUrl: "https://gitlab.example.com",
       accessToken: "token",
-      configPath: "config",
+      configDirPath: "config",
       concurrencyLimit: 3,
       dryRun: false,
       targetChart: undefined,

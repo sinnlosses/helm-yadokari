@@ -16,7 +16,7 @@ import { loadChartAndApps } from "./chart-and-apps.js"
 import { ChartYamlSchema } from "./schema.js"
 
 /** `CONFIG_PATH`・コマンドライン引数のどちらも省略されたときに読む設定ディレクトリ */
-export const DEFAULT_CONFIG_PATH = "config"
+export const DEFAULT_CONFIG_DIR_PATH = "config"
 
 /**
  * 特定のchartディレクトリ・特定のtenantId/clientIdの組（複数可）に処理対象を絞り込む
@@ -43,10 +43,10 @@ const NO_TARGET: ConfigTarget = { chartDirName: undefined, clients: undefined }
  * （MRを作成する単位）を返すため、1つのchartディレクトリに複数の
  * tenantId/clientIdがあれば`chartAndAppsList`には複数件が並ぶ。
  */
-export function loadConfig(path: string, target: ConfigTarget = NO_TARGET): Config {
-  assertSafePath(path, "CONFIG_PATH")
+export function loadConfig(configDirPath: string, target: ConfigTarget = NO_TARGET): Config {
+  assertSafePath(configDirPath, "CONFIG_PATH")
 
-  const chartDirs = listSubdirectories(path)
+  const chartDirs = listSubdirectories(configDirPath)
   if (target.chartDirName && !chartDirs.includes(target.chartDirName)) {
     throw new Error(
       `TARGET_CHART で指定された "${target.chartDirName}" が config/ 配下に見つかりません。` +
@@ -56,7 +56,7 @@ export function loadConfig(path: string, target: ConfigTarget = NO_TARGET): Conf
   const targetChartDirs = target.chartDirName ? [target.chartDirName] : chartDirs
 
   const missingClients = (target.clients ?? []).filter(
-    (client) => !clientDirExists(path, targetChartDirs, client),
+    (client) => !clientDirExists(configDirPath, targetChartDirs, client),
   )
   if (missingClients.length > 0) {
     const missingList = missingClients
@@ -66,7 +66,7 @@ export function loadConfig(path: string, target: ConfigTarget = NO_TARGET): Conf
   }
 
   const chartAndAppsList = targetChartDirs.flatMap((chartDir): ChartAndApps[] => {
-    const chartDirPath = join(path, chartDir)
+    const chartDirPath = join(configDirPath, chartDir)
     const chartYamlPath = join(chartDirPath, "chart.yaml")
     if (!existsSync(chartYamlPath)) return []
     const { chart } = parseYamlFile(chartYamlPath, ChartYamlSchema)
@@ -91,12 +91,12 @@ function formatChartDirs(chartDirs: readonly string[]): string {
 
 /** 指定chart群のいずれかの配下に、指定tenantId/clientIdのディレクトリが存在するか */
 function clientDirExists(
-  path: string,
+  configDirPath: string,
   chartDirs: readonly string[],
   client: TargetClient,
 ): boolean {
   return chartDirs.some((chartDir) =>
-    existsSync(join(path, chartDir, client.tenantId, client.clientId)),
+    existsSync(join(configDirPath, chartDir, client.tenantId, client.clientId)),
   )
 }
 

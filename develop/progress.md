@@ -1,7 +1,7 @@
 # 現在の状態
 
 最終更新: 2026-09-08（`/plan-tasks` で `develop/direction.md` の4項目を T-123〜T-127 の
-5タスクとして登録し、続けて T-120・T-118・T-119・T-121 を完了した。前回までの流れは下の「完了したこと」を参照）
+5タスクとして登録し、続けて T-120・T-118・T-119・T-121・T-122 を完了した。前回までの流れは下の「完了したこと」を参照）
 
 T-001〜T-117 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
@@ -197,11 +197,18 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   **形式検証は入れない**判断（`glpat-` はPATの慣習で、Group Access Token / CI変数経由の値では
   前提にできない）。理由は factory のJSDocに残した。呼び出し3箇所はコード変更不要だった。
 
+- **T-122 完了**: `EnvConfig.configPath` を **`configDirPath`** にリネームし（`DEFAULT_CONFIG_DIR_PATH`・
+  `loadConfig()` の引数名も追随）、`env.ts` に `parseConfigDirPath()` を新設して
+  **パストラバーサル検証＋ディレクトリ実在チェック**を `loadEnvConfig()` の時点で行うようにした。
+  `CONFIG_PATH` 環境変数名は変えていない（外部インターフェース）。`loadConfig()` 側の
+  `assertSafePath()` はCLI直呼び出し経路のため残し、**二重に走るのを承知で** 「環境変数由来は
+  `env.ts`、それ以外の入口は `loadConfig()`」と役割を分けた。これで `env.ts` が初めて
+  ファイルシステムに触れるが、`loadEnvConfig()` を呼んだ瞬間だけという性質は変わらない。
+  テスト4件追加（348→352）。**`run_start` ログのキーが `configPath`→`configDirPath` に変わり、
+  ログの後方互換を壊す**（人が読むCIログのみなので影響は限定的）。
+
 ## 次にやること
 
-- **T-122（`configPath` のリネームと検証、`sonnet`）** は依存なしで着手できる。
-  `CONFIG_PATH` 環境変数名を変えるかの判断を含むが、**既定は「変えない」**
-  （CIの pipeline schedule に登録済みのため。変えたい場合はユーザー確認）。
 - 新しいGitLab読み取りをキャッシュ機構に載せる手順と「載せてよいかの判断」は
   `docs/architecture.md`「GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で
   1つ持ち回る」節にある。
