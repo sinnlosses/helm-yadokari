@@ -3,18 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 vi.mock("../../../src/lib/gitlab/gitlab.js")
 vi.mock("../../../src/steps/apply-updates/sub-steps/build-mr-content.js")
 vi.mock("../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js")
-vi.mock("../../../src/steps/shared/feature-branch.js")
+vi.mock("../../../src/domain/feature-branch.js")
 vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
+import { buildFeatureBranch } from "../../../src/domain/feature-branch.js"
 import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
 import { commitFileUpdates, createMergeRequest } from "../../../src/lib/gitlab/gitlab.js"
 import { applyUpdates } from "../../../src/steps/apply-updates/apply-updates.js"
 import { buildMrContent } from "../../../src/steps/apply-updates/sub-steps/build-mr-content.js"
 import { collectMrEntries } from "../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js"
 import type { MrEntries } from "../../../src/steps/apply-updates/sub-steps/shared/types.js"
-import { buildFeatureBranch } from "../../../src/steps/shared/feature-branch.js"
 import type { ChartUpdateTarget } from "../../../src/types/types.js"
 import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"

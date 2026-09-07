@@ -10,7 +10,7 @@ import type { ApplyTargetsAcc, BranchExists, LoadValuesYamlContent } from "./sha
 import type { ValuesYamlDraft } from "./shared/values-yaml-draft.js"
 import { writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 
-export type ApplyHelmTargetsAcc = ApplyTargetsAcc<HelmTargetBranchUpdate>
+export type ApplyHelmTargetBranchTargetsAcc = ApplyTargetsAcc<HelmTargetBranchUpdate>
 
 /**
  * 1アプリの`helmTargetBranch.targets`（1件以上）を先頭から順に`applyHelmTargetBranchTarget()`へ
@@ -22,8 +22,8 @@ export async function applyHelmTargetBranchTargets(
   loadValuesYamlContent: LoadValuesYamlContent,
   helmTargetBranch: HelmTargetBranchConfig,
   draft: ValuesYamlDraft,
-): Promise<ApplyHelmTargetsAcc> {
-  const initialAcc: ApplyHelmTargetsAcc = { draft, updates: [] }
+): Promise<ApplyHelmTargetBranchTargetsAcc> {
+  const initialAcc: ApplyHelmTargetBranchTargetsAcc = { draft, updates: [] }
   return reduceAsync(helmTargetBranch.targets, initialAcc, (current, target) =>
     applyHelmTargetBranchTarget(
       branchExists,
@@ -45,9 +45,9 @@ async function applyHelmTargetBranchTarget(
   branchExists: BranchExists,
   loadValuesYamlContent: LoadValuesYamlContent,
   helmTargetBranch: HelmTargetBranchConfig,
-  acc: ApplyHelmTargetsAcc,
+  acc: ApplyHelmTargetBranchTargetsAcc,
   target: AnchorTarget,
-): Promise<ApplyHelmTargetsAcc> {
+): Promise<ApplyHelmTargetBranchTargetsAcc> {
   const { branchName } = helmTargetBranch
   const { content: valuesYamlContent, draft } = await loadValuesYamlContent(
     acc.draft,

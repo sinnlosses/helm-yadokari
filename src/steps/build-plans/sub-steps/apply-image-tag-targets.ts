@@ -6,7 +6,7 @@ import type { ApplyTargetsAcc, LatestTagResolution, LoadValuesYamlContent } from
 import type { ValuesYamlDraft } from "./shared/values-yaml-draft.js"
 import { writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 
-export type ApplyImageTagAcc = ApplyTargetsAcc<ImageTagUpdate>
+export type ApplyImageTagTargetsAcc = ApplyTargetsAcc<ImageTagUpdate>
 
 /**
  * `app.imageTagTargets`のうち1箇所分について、下書き上の現在値（反映済みタグ）と最新タグを比較する。
@@ -19,9 +19,9 @@ export type ApplyImageTagAcc = ApplyTargetsAcc<ImageTagUpdate>
 async function applyImageTagTarget(
   loadValuesYamlContent: LoadValuesYamlContent,
   latestTag: LatestTagResolution,
-  acc: ApplyImageTagAcc,
+  acc: ApplyImageTagTargetsAcc,
   target: AnchorTarget,
-): Promise<ApplyImageTagAcc> {
+): Promise<ApplyImageTagTargetsAcc> {
   const latestTagName = latestTag.tag.name
   const { content: valuesYamlContent, draft } = await loadValuesYamlContent(
     acc.draft,
@@ -55,8 +55,8 @@ export async function applyImageTagTargets(
   latestTag: LatestTagResolution,
   draft: ValuesYamlDraft,
   targets: readonly AnchorTarget[],
-): Promise<ApplyImageTagAcc> {
-  const initialAcc: ApplyImageTagAcc = { draft, updates: [] }
+): Promise<ApplyImageTagTargetsAcc> {
+  const initialAcc: ApplyImageTagTargetsAcc = { draft, updates: [] }
   return reduceAsync(targets, initialAcc, (current, target) =>
     applyImageTagTarget(loadValuesYamlContent, latestTag, current, target),
   )

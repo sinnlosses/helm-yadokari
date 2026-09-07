@@ -1,6 +1,6 @@
+import { findLatestParsedTag, parseTag } from "../../src/domain/tag-format.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
-import { findLatestParsedTag, parseTag } from "../../src/lib/tag-format.js"
 import { toBranchName, toTagName } from "../../src/types/types.js"
 
 // 実機スモークテスト（docs/smoke-test.md）用のフィクスチャ操作スクリプト。

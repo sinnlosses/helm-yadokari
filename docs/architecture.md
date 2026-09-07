@@ -13,7 +13,7 @@
 
 ### `src/steps/` — `runPipeline()` が直接呼ぶフラットな3ステップ
 
-`lib/`・`utils/`・`steps/shared/` にのみ依存し、step同士は互いに呼ばない。
+`lib/`・`utils/`・`domain/`・`steps/shared/` にのみ依存し、step同士は互いに呼ばない。
 各stepは「並列処理1件分」を担う非公開関数を1つ持ち、`<動詞>+単数形の対象`で命名する
 （`evaluateTarget()` / `buildPlan()` / `applyUpdate()`）。`process` のような汎用名は
 `main.ts` のオーケストレータやグローバルの `process` と紛らわしいため使わない。
@@ -26,7 +26,6 @@
 | `shared/step-outcome.ts`           | 3つのstepが共有する結果ログの識別情報とエラー方針                       |
 | `build-plans/sub-steps/`           | `build-plans.ts` の内部実装専用（1アプリ・1箇所ごとの実処理）           |
 | `apply-updates/sub-steps/`         | `apply-updates.ts` の内部実装専用（MR項目の収集と本文の組み立て）       |
-| `shared/feature-branch.ts`         | 固定ブランチ名の組み立て（`filterTargets`と`applyUpdates`が使う）       |
 
 `build-plans.ts` の階層は「全chartAndApps → 1つのchartAndApps → 1アプリ」の3段までに絞り、
 それより下の「1箇所（target）」の処理は `build-plans/sub-steps/` 側の責務にしている。
@@ -37,13 +36,13 @@
 
 `build-plans/sub-steps/` の各ファイル:
 
-| ファイル                       | 責務                                                                                                              |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `resolve-latest-tag.ts`        | 追跡ブランチ由来の最新タグの判定。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成      |
-| `image-tag-target.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagTargets`全箇所のループ                                  |
-| `helm-target-branch-target.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                        |
-| `shared/values-yaml-draft.ts`  | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）と、その組み立て・`FileUpdate[]`化 |
-| `shared/types.ts`              | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                          |
+| ファイル                              | 責務                                                                                                              |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `resolve-latest-tag.ts`               | 追跡ブランチ由来の最新タグの判定。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成      |
+| `apply-image-tag-targets.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagTargets`全箇所のループ                                  |
+| `apply-helm-target-branch-targets.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）                                        |
+| `shared/values-yaml-draft.ts`         | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）と、その組み立て・`FileUpdate[]`化 |
+| `shared/types.ts`                     | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                          |
 
 `apply-updates/sub-steps/` の各ファイル:
 
@@ -60,20 +59,28 @@
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
-| ファイル                       | 責務                                                                                |
-| ------------------------------ | ----------------------------------------------------------------------------------- |
-| `gitlab/gitlab.ts`             | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ         |
-| `gitlab/web-url.ts`            | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                    |
-| `tag-format.ts`                | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証      |
-| `config/config.ts`             | 公開API `loadConfig()`。`config/` の2階層固定構成の走査と `ChartAndApps` の組み立て |
-| `config/schema.ts`             | 3つの設定ファイルのZodスキーマと `anchors.yaml` の読み込み                          |
-| `config/validate.ts`           | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                            |
-| `config/helm-target-branch.ts` | `helm.branchToSync` と `helm.chart[]` をapp単位に振り分ける                         |
-| `helm.ts`                      | `values.yaml` のYAMLアンカー位置の値の読み書き                                      |
-| `env.ts`                       | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                |
+| ファイル             | 責務                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `gitlab/gitlab.ts`   | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ         |
+| `gitlab/web-url.ts`  | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                    |
+| `config/config.ts`   | 公開API `loadConfig()`。`config/` の2階層固定構成の走査と `ChartAndApps` の組み立て |
+| `config/schema.ts`   | 3つの設定ファイルのZodスキーマと `anchors.yaml` の読み込み                          |
+| `config/validate.ts` | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                            |
+| `helm.ts`            | `values.yaml` のYAMLアンカー位置の値の読み書き                                      |
+| `env.ts`             | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                |
 
 `config/` のスキーマと検証ルールの仕様は `docs/requirements.md` 4.4節が正典（このファイルには
 書かない）。
+
+### `src/domain/` — このツールの取り決めを tech非依存で表す
+
+GitLab APIにも外部ファイル形式にも依存せず、ブランド型・ドメイン型にだけ依存する純粋な関数・
+定数を置く。helm-yadokari が「どう名付け・どう表現するか」を決めているルールそのもの。
+
+| ファイル            | 責務                                                                           |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `tag-format.ts`     | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証 |
+| `feature-branch.ts` | 固定ブランチ名 `feature/yadokari/<tenantId>/<clientId>` の組み立て             |
 
 ### `src/utils/` — ドメイン知識を一切持たない汎用ユーティリティ
 
@@ -107,11 +114,15 @@
 - 複数の場所から呼ばれる、かつ特定の技術・外部システム・ファイル形式に依存する
   （GitLab API、Helm chart形式、`config/`のYAML形式、環境変数など）→ 対応する `lib/`
   ファイル。新しい技術/形式を扱うなら新しい `lib/` ファイルを作ってよい
-- 複数の場所から呼ばれる、かつ技術に依存しない純粋な計算 → `utils/`
-- 複数の `steps/` から呼ばれる、かつ技術ではなくこのツールのドメイン型（`ChartAndApps`・
-  `AppUpdatePlan`など）にだけ依存する → `steps/shared/`。`utils/`は「ドメイン知識を
-  一切持たない」ものだけを置く場所なのでここには入れられず、技術依存が無い以上`lib/`にも
-  置けない。特定stepの内部実装ではないため各stepの`sub-steps/`とも別にする
+- 複数の場所から呼ばれる、かつ技術・ドメイン知識のどちらにも依存しない純粋な計算 → `utils/`
+- 複数の場所から呼ばれる、かつ技術には依存しないが**このツールの取り決め**（タグ命名規則、
+  固定ブランチ名の付け方など）を体現している純粋な関数・定数 → `domain/`。「技術/外部システム/
+  ファイル形式への依存」が無いので`lib/`ではなく、ドメイン知識を持つので`utils/`でもない。
+  呼び出し元は`steps/`に限らない（`lib/env.ts`・`scripts/`からも呼ばれてよい）
+- 複数の `steps/` から呼ばれる、かつ**step処理の配線**（結果ログ・エラー方針など）で、
+  このツールのドメイン型（`ChartAndApps`・`AppUpdatePlan`など）にだけ依存する → `steps/shared/`。
+  ここに入るのは「stepオーケストレーションの共通部品」であって、ドメインの取り決めそのもの
+  （それは`domain/`）ではない。特定stepの内部実装ではないため各stepの`sub-steps/`とも別にする
 - 「stepsから呼ばれているから」「複数箇所で使うから」という理由だけで `lib/` に
   置くのは誤り。lib行きの判断基準は常に「技術・外部システム・ファイル形式への依存」
 
@@ -132,7 +143,7 @@
 あるのは意図的で、上表の1行目に当たるため。逆に `sub-steps/shared/types.ts` は「複数のサブステップが
 共有する」という条件を満たす型だけに絞り、1ファイルからしか使われない型はそのファイルへ戻す。
 この2行は競合しうる（`LatestTagResolution` は `resolveLatestTag()` が生み出す型だが
-`image-tag-target.ts` も使う）。そのときは **`shared/` 側を優先する** — サブステップ同士が
+`apply-image-tag-targets.ts` も使う）。そのときは **`shared/` 側を優先する** — サブステップ同士が
 互いをimportしないという原則の方が、型と生成関数の同居より優先度が高い。
 
 ## コードからは読み取れない設計判断
@@ -223,14 +234,16 @@
   `tag.ts`（タグ命名規則）と`mr-content.ts`（固定ブランチ名・MRタイトル・MR本文）も
   同居していたが、これは「`gitlab.ts`が長くなったので切り出した」結果で、原則2の基準では
   説明できない配置だった。依存対象で見ると3種類の別物が混ざっていたため、次のように分けた:
-  - `tag.ts` → `lib/tag-format.ts`。GitLab APIにもGitLab固有の形式にも依存せず、依存先は
-    このツール自身が定義する`TAG_FORMAT`というテンプレート**形式**（`docs/requirements.md`
-    4.1節。タグを作るのも読むのもこのツール自身）。原則2の「ファイル形式」に当たるものとして
-    `lib/helm.ts`（`values.yaml`形式）・`lib/config/schema.ts`（`config/`形式）と同格に置く。
-    `utils/`はドメイン知識を持たないものだけを置く場所なので入れられない
-  - `buildFeatureBranch()` → `steps/shared/feature-branch.ts`。技術依存はゼロで、
-    `TenantId`+`ClientId`→`BranchName`というドメイン型だけの変換。`filterTargets`と
-    `applyUpdates`の2つのstepから呼ばれるため`steps/shared/`の条件をそのまま満たす
+  - `tag.ts` → `src/domain/tag-format.ts`（当初は`lib/tag-format.ts`に置いた）。GitLab APIにも
+    GitLab固有の形式にも依存せず、依存先はこのツール自身が定義する`TAG_FORMAT`というテンプレート。
+    一度は「`values.yaml`/`config/`と同じファイル形式扱い」として`lib/`に入れたが、`lib/`の
+    判断軸は**外部システム・外部で形が決まっている形式への依存**で、自前の命名規則はそこに
+    当てはまらない。ブランド型・ドメイン型にだけ依存する取り決めとして`src/domain/`へ移した
+  - `buildFeatureBranch()` → `src/domain/feature-branch.ts`（当初は`steps/shared/`に置いた）。
+    技術依存はゼロで、`TenantId`+`ClientId`→`BranchName`という固定ブランチ名の付け方そのもの。
+    `steps/shared/`に置いていたのは「2つのstepが使う」からだったが、それは置き場所の理由に
+    ならない（`domain/`の取り決めは呼び出し元を問わない）。`steps/shared/`は
+    `step-outcome.ts`（step処理の配線）だけに絞った
   - MRの組み立て → `steps/apply-updates/sub-steps/`。呼び出し元は`apply-updates.ts`の
     1ファイルだけなので、「呼び出し元がstepsの1ファイルだけ → そのstepの`sub-steps/`」という
     基準どおりの場所に移した。**サブステップは1ファイル＝親stepが呼ぶ1ステップ**なので、
@@ -258,7 +271,7 @@
   `sub-steps/`直下は親stepが呼ぶステップ本体だけに保ち、共有物は`shared/`に分けることで、
   直下のファイル同士がimportし合っていないことをディレクトリの形で確認できるようにしている
 - **サブステップに関数型を注入するのは、親stepが持つキャッシュを隠すときだけ**:
-  `values-yaml-draft.ts`・`helm-target-branch-target.ts`・`image-tag-target.ts`は
+  `values-yaml-draft.ts`・`apply-helm-target-branch-targets.ts`・`apply-image-tag-targets.ts`は
   `LoadValuesYamlContent`・`BranchExists`という関数型で受け取り、GitLabクライアント・
   chartのprojectId・**chartAndApps単位のキャッシュ**を`build-plans.ts`側に閉じ込める。
   一方`resolve-latest-tag.ts`・`build-mr-content.ts`は`GitlabClient`をそのまま受け取る。
@@ -286,6 +299,24 @@
     `lib/config/config.ts`が`anchorApp.chart`を`AppConfig.imageTagTargets`に写すところで行う
     （Zodの生の型`AnchorsApp.chart`も変えない）。設定ミスのエラーメッセージが出す
     `app "..." の chart[]` というラベルもYAMLキーを指すのでそのまま
+- **`resolveHelmTargetBranch()`は`config.ts`の非公開関数**: 一時は`config/`直下の独立
+  ファイルにしていたが、1関数だけで呼び出し元も`loadClientChartAndApps()`ただ1つなので、
+  「呼び出し元が1ファイルだけなら非公開関数」の原則どおり`config.ts`に畳んだ。`schema.ts`
+  （複数箇所から使うZodスキーマ）・`validate.ts`（3つのアサート関数）のような、役割で括れて
+  複数を並べられる単位が別ファイルに値する境目で、単発のヘルパーはそこに達しない
+- **`steps/`配下のファイル名は公開関数名のケバブケースに揃える**: `filter-targets.ts`↔
+  `filterTargets()`、`resolve-latest-tag.ts`↔`resolveLatestTag()`、`collect-mr-entries.ts`↔
+  `collectMrEntries()`のように、`steps/`ツリーは1ファイル＝1公開関数でファイル名がその関数名に
+  対応している。`build-plans/sub-steps/`の`image-tag-target.ts`（`applyImageTagTargets()`）と
+  `helm-target-branch-target.ts`（`applyHelmTargetBranchTargets()`）だけが「書き込み位置
+  （target）」という概念名で付いていて対応が崩れていたため、`apply-image-tag-targets.ts`・
+  `apply-helm-target-branch-targets.ts`にリネームした。
+  - 姉妹の2ファイルは「1箇所分の処理＋全箇所のループ」という同じ形（`docs`の表で並記）なので、
+    片方だけ直すと規則が中途半端に残る。両方まとめて揃える
+  - 公開関数名（`applyImageTagTargets`など）は変えない。`apply`＝下書きへの反映、複数形＝
+    全`targets`のループ、という意味が語ごとに乗っており、短くすると非公開の1箇所版
+    （`applyImageTagTarget()`）との差が`s`以上に曖昧になる。内部の型エイリアスも関数名に
+    合わせた（`ApplyImageTagTargetsAcc`・`ApplyHelmTargetBranchTargetsAcc`）
 - **環境変数はモジュールのトップレベルではなく`loadEnvConfig()`で読む**: 以前は`lib/env.ts`が
   `export const GITLAB_URL = validateGitlabUrl(loadEnv("GITLAB_URL"))`のようなトップレベルの
   定数で、**このファイルをimportした瞬間に検証が走って未設定なら投げる**形だった。その結果、

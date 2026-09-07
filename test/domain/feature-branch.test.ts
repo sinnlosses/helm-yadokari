@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import { buildFeatureBranch } from "../../../src/steps/shared/feature-branch.js"
-import { toClientId, toTenantId } from "../../../src/types/types.js"
+import { buildFeatureBranch } from "../../src/domain/feature-branch.js"
+import { toClientId, toTenantId } from "../../src/types/types.js"
 
 describe("buildFeatureBranch", () => {
   it("tenantId/clientIdを含むブランチ名を組み立てる", () => {

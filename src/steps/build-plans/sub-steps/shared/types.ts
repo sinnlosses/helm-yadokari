@@ -39,7 +39,7 @@ export type ApplyTargetsAcc<U> = {
 
 /**
  * 1アプリ分の「最新タグの判定結果」。`resolveLatestTag()`が組み立て、イメージタグの
- * 差分判定（`image-tag-target.ts`）が使う。
+ * 差分判定（`apply-image-tag-targets.ts`）が使う。
  *
  * `trackedHeadTagNames`は、「現在の追跡ブランチ由来（＝現在の`branchToSync`と`tagFormat`で
  * パースできる）で、かつ追跡ブランチの現在のHEADコミットを指すタグ名」の集合。values.yamlに

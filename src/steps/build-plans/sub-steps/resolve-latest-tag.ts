@@ -1,10 +1,10 @@
+import { buildNewTag, findLatestParsedTag, parseTag } from "../../../domain/tag-format.js"
 import {
   type GitlabClient,
   createTag,
   getBranchHeadSha,
   listTags,
 } from "../../../lib/gitlab/gitlab.js"
-import { buildNewTag, findLatestParsedTag, parseTag } from "../../../lib/tag-format.js"
 import type {
   AppConfig,
   BranchName,
@@ -57,7 +57,7 @@ function resolveTrackedHeadTagNames(
  * あわせて`trackedHeadTagNames`（values.yamlの現在値が追跡ブランチのHEADを指すタグかどうかの
  * 判定に使う集合）を返す。現在値がこの集合に含まれるなら、より新しい名前のタグがあっても
  * 更新しないため。切り替え前のタグ名は現在の`branch`ではパースできずこの集合に入らないので、
- * 切り替え時は同じコミットを指していても更新される（判定は`image-tag-target.ts`側）。
+ * 切り替え時は同じコミットを指していても更新される（判定は`apply-image-tag-targets.ts`側）。
  */
 export async function resolveLatestTag(
   gitlab: GitlabClient,

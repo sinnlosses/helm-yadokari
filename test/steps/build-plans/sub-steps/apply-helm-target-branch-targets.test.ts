@@ -5,6 +5,7 @@ vi.mock("../../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
+import { DEFAULT_TAG_FORMAT } from "../../../../src/domain/tag-format.js"
 import type { GitlabClient } from "../../../../src/lib/gitlab/gitlab.js"
 import {
   branchExists,
@@ -14,7 +15,6 @@ import {
   getLatestPipelineForRef,
   listTags,
 } from "../../../../src/lib/gitlab/gitlab.js"
-import { DEFAULT_TAG_FORMAT } from "../../../../src/lib/tag-format.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import {
   toAnchorName,

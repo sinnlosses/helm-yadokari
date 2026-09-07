@@ -1,9 +1,9 @@
+import { buildFeatureBranch } from "../../domain/feature-branch.js"
 import { type GitlabClient, openMergeRequestExists } from "../../lib/gitlab/gitlab.js"
 import type { ChartAndApps, ChartUpdateResult } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
-import { buildFeatureBranch } from "../shared/feature-branch.js"
 import { type StepOutcome, ok, withHandling, settle } from "../shared/step-outcome.js"
 
 export type FilterTargetsResult = {

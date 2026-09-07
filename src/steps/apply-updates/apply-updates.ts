@@ -1,3 +1,4 @@
+import { buildFeatureBranch } from "../../domain/feature-branch.js"
 import {
   type GitlabClient,
   commitFileUpdates,
@@ -6,7 +7,6 @@ import {
 import type { ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
-import { buildFeatureBranch } from "../shared/feature-branch.js"
 import { type StepOutcome, describePlan, ok, withHandling } from "../shared/step-outcome.js"
 import { buildMrContent } from "./sub-steps/build-mr-content.js"
 import { collectMrEntries } from "./sub-steps/collect-mr-entries.js"

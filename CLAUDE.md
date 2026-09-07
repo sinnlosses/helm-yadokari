@@ -25,7 +25,7 @@ chart リポジトリ単位で1つの Merge Request を作成する。クラス�
 ```bash
 pnpm check                            # tsc --noEmit + lint + format:check + test をまとめて実行（変更後は必ずこれを通す）
 pnpm test                             # テスト全体
-npx vitest run test/lib/tag-format.test.ts # 単体テストファイルのみ実行
+npx vitest run test/domain/tag-format.test.ts # 単体テストファイルのみ実行
 pnpm lint                             # oxlint + config/ のバリデーション（ローカルのみ）
 pnpm lint:validate-config:remote      # config/ の値がGitLab上に実在するか検証（要 .env、読み取りのみ）
 pnpm format                           # oxfmt で自動整形
@@ -56,10 +56,14 @@ pnpm build && pnpm start              # ビルドしてから実行
     `steps/<step名>/sub-steps/`、例: `steps/build-plans/sub-steps/`、に分割してもよい。
     原則2は変わらない）
   - 複数箇所から呼ばれ、技術/外部システム/ファイル形式に依存する → 対応する`lib/`ファイル
-  - 複数箇所から呼ばれ、技術に依存しない純粋な計算 → `utils/`
-  - 複数の`steps/`から呼ばれるが、技術ではなくこのツールのドメイン型（`ChartAndApps`・
-    `AppUpdatePlan`など）にだけ依存する → `steps/shared/`（結果ログの識別情報・エラー方針など。
-    `lib/`でも`utils/`でもないため新設した区分）
+  - 複数箇所から呼ばれ、技術にもドメイン知識にも依存しない純粋な計算 → `utils/`
+  - 複数箇所から呼ばれ、技術には依存しないが**このツールの取り決め**（タグ命名規則、固定
+    ブランチ名の付け方など）を体現する純粋な関数・定数 → `src/domain/`（`lib/`でも`utils/`でも
+    ないため新設した区分。呼び出し元は`steps/`に限らず`lib/env.ts`・`scripts/`からでもよい）
+  - 複数の`steps/`から呼ばれる**step処理の配線**（結果ログの識別情報・エラー方針など）で、
+    技術ではなくこのツールのドメイン型（`ChartAndApps`・`AppUpdatePlan`など）にだけ依存する
+    → `steps/shared/`（ドメインの取り決めそのものは`domain/`。ここはstepオーケストレーションの
+    共通部品だけ）
 - **型を置く場所も同じ判断基準で決める**（利用箇所の数では決めない）:
   - このツールのドメイン語彙（`config/`の構造・更新計画・実行結果。目安は
     `docs/glossary.md`に載る概念かどうか）→ `src/types/types.ts`。利用箇所が1ファイル

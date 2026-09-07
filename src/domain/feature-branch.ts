@@ -1,5 +1,5 @@
-import type { BranchName, ClientId, TenantId } from "../../types/types.js"
-import { toBranchName } from "../../types/types.js"
+import type { BranchName, ClientId, TenantId } from "../types/types.js"
+import { toBranchName } from "../types/types.js"
 
 /**
  * 1つの`(chartリポジトリ, tenantId, clientId)`分の更新に使う固定ブランチ名。

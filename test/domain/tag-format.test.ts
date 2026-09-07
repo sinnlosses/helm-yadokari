@@ -6,7 +6,7 @@ import {
   findLatestParsedTag,
   parseTag,
   validateTagFormat,
-} from "../../src/lib/tag-format.js"
+} from "../../src/domain/tag-format.js"
 import { toBranchName, toTagName } from "../../src/types/types.js"
 
 describe("validateTagFormat", () => {

@@ -158,7 +158,7 @@
 - **定義**: `values.yaml`に現在書かれているタグ。`AppConfig.imageTagTargets`の書き換え箇所（`AnchorTarget`）ごとに
   独立して読み取るため、1つのソースリポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を
   管理している場合、同一アプリ内でも箇所によって異なりうる（`AppUpdatePlan.updates[].previousTagName`）。
-- **表記ゆれ**: フィールド名は`previousTagName`だが、`image-tag-target.ts`内のローカル変数では
+- **表記ゆれ**: フィールド名は`previousTagName`だが、`apply-image-tag-targets.ts`内のローカル変数では
   values.yamlから読んだ直後の生の文字列（ブランド型に通す前）を`previousTagRaw`と呼んでいる。
 - **更新しない例外**: 反映済みタグが現在の追跡ブランチのHEADコミットを指している場合は、
   より新しい名前のタグが存在しても更新しない（デプロイされる中身が同じなのに差分だけが出る

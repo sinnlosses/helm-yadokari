@@ -772,3 +772,315 @@
 **difficulty**: sonnet
 
 **evidence**: buildMrDescription() を ReadonlyMap<ProjectId, GitLabUrl> を受け取る同期関数にし、ResolveWebUrl型・webUrlCache・getOrFetchのreduceを削除（mr-content.ts から async/Promise が消え、冒頭コメントの「外部I/Oを持たない純粋な文字列組み立て」と実装が一致した）。URLの解決とキャッシュは gitlab.ts の新関数 getProjectWebUrls()（重複projectIdは1回だけ解決）に移し、apply-updates.ts が事前に呼ぶ。テストは mr-content.test.ts をMap渡しに書き換え、重複排除のテストは gitlab.test.ts へ移設（28ファイル322テストで増減なし）。sonnetのサブエージェントがセッション上限で途中終了したため、メイン側で残りのテスト修正・重複排除テストの移設に加え、向き先ブランチだけのplanのURLまで取得してしまう無駄を webUrlProjectIds() の導入で解消して仕上げた
+
+## T-077
+
+**タスク**: ドキュメント・コメントに残っている「実装と食い違う記述」を4箇所直す。すべて現物を確認済みで、直す内容は確定している（判断は不要、記載どおりに置換すること）。
+
+(1) `README.md` の「実行ログの例」（現在120〜121行目）の `update_chart` 行が実際の出力と違う。実際に出るキーは `src/steps/shared/step-outcome.ts` の `buildLogContext()` と `describePlan()` が決めており、`chartDir` ではなく `chartDirName`、`apps[]` の要素は `{ projectName, latestTag, updates: [{ valuesPath, previousTagName }], helmTargetBranchUpdates: [...] }`（`previousTag` というキーは存在しない）。両関数の実装を読んで、例のJSONをそのとおりに書き直す。同じ例の `run_start` 行も `src/main.ts` の `run()` が実際に出している通り（`gitlabUrl` / `configPath` / `targetChart` / `targetClients` / `tagFormat` を含む）に揃える。
+
+(2) `CLAUDE.md`「テスト方針」の最後の行にある非公開関数の例 `buildChartUpdate()` は現存しない。現在の各ステップの非公開関数は `evaluateTarget()`（filter-targets）/ `buildPlan()`（build-plans）/ `applyUpdate()`（apply-updates）なので、そのいずれかに差し替える。
+
+(3) `src/utils/partition.ts` のJSDocに載っているコード例が実際の呼び出し側と違う（例は `outcome.status === "target"` と `outcome.chartAndApps` を使っているが、実際の `StepOutcome<T>` は `status === "ok"` と `outcome.value`）。`src/steps/filter-targets/filter-targets.ts` の実際の呼び出しに合わせて例を書き直す。
+
+(4) `.gitlab-ci.yml` の `spec.inputs.CONCURRENCY_LIMIT` の description が「1以上の整数」になっているが、実際の検証（`src/lib/env.ts` の `parseConcurrencyLimit()`）は1〜20。同ファイル `variables` 側の description と README の表はすでに「1〜20の整数」なので、inputs 側をそれに揃える。
+
+完了条件: 上記4箇所を直し、`pnpm check` を通すこと（コードの挙動は変わらないのでテスト件数は変わらないはず）。
+
+**difficulty**: haiku
+
+**evidence**: README実行ログ例（chartDirName・describePlan()の形へ、run_startにgitlabUrl/tagFormat追加）、CLAUDE.mdのbuildChartUpdate()→buildPlan()、partition.tsのJSDoc例（status==='ok'/outcome.value）、.gitlab-ci.ymlのCONCURRENCY_LIMIT説明（1〜20）を修正。pnpm check（31ファイル330テスト、変化なし）通過。haikuのサブエージェントに委譲し、メイン側で2点を修正: valuesPathの例が削除済みのdotパス形式だったのでファイルパスに、run_startの未設定env（configPath/targetChart/targetClients）はJSON.stringifyがキーごと落とすため空文字列ではなく非表示に。またタスク本文の記述誤りでvariables側の『1以上の整数』が残っていたため併せて修正した
+
+## T-078
+
+**タスク**: `docs/glossary.md` の記述を現在のコードに合わせて更新する。用語集は「日本語表記・対応するコード上の識別子・定義」の3点で書く方針なので、**識別子が実在しないと用語集としての価値が落ちる**。現状ずれているのは次の4点（いずれも確認済み）:
+
+(1) 「config.yaml / anchors.yaml」の項に出てくる `loadApps()` は存在しない。現在 `validateProjectLinkage()` を呼んでいるのは `src/lib/config/config.ts` の `loadClientChartAndApps()`。
+(2) 「chartDir」の項の見出しと英語識別子が `chartDir` だが、実際のフィールド名は `ChartAndApps.chartDirName`（型は `ChartDirName`）。
+(3) 「anchor（chart[].anchor）」と「helm.chart[].anchor」の項が、英語識別子を「`ImageTagTarget`＝`AnchorTarget` のフィールド」「`HelmTargetBranchTarget`＝`AnchorTarget` のフィールド」と書いている。`ImageTagTarget` / `HelmTargetBranchTarget` という型はすでに削除済みで（理由は `docs/architecture.md`「values.yamlの書き込み位置は `AnchorTarget` 1つに統一し、用途別の別名は置かない」）、現存するのは `AnchorTarget` だけ。
+(4) 同じ2項目の「英語識別子」が `anchor` になっているが、コード上のフィールド名は `AnchorTarget.anchorName`。`anchor` は `anchors.yaml` のYAMLキー名としてのみ残っており（`src/lib/config/schema.ts` の `AnchorTargetSchema` が `.transform()` でキー `anchor` → フィールド `anchorName` に詰め替えている）、この「wire formatのキー名と内部フィールド名が違う」ことこそ用語集に書く価値がある。
+
+この用語集の方針（冒頭の「方針」節）は「表記ゆれが見つかっても統一・修正はせず、現状こう呼ばれているという事実だけを注記する」なので、**過去の経緯の記述（「過去には〜という名前だった」等）は消さずに残し、現在の識別子を正とする形に直す**こと。判断が必要なのは (3)(4) をどう書き分けるか（YAMLキー名と内部フィールド名の対応をどう表現するか）だけで、他は置換で済む。
+
+完了条件: 更新後の `docs/glossary.md` に出てくる `` `xxx()` `` 形式の関数名・型名がすべて `src/` `scripts/` に実在することを grep で確認して示すこと。コード変更は無いので `pnpm check` は通るはず（念のため実行する）。
+
+**difficulty**: sonnet
+
+**evidence**: loadApps()→loadClientChartAndApps()、chartDir→chartDirName、削除済み型ImageTagTarget/HelmTargetBranchTargetへの言及3箇所をAnchorTargetへ、anchorのYAMLキー名(anchor)と内部フィールド名(anchorName)の対応をAnchorTargetSchemaの.transform()込みで明記。実在確認: 用語集の関数名・型名で実コードに無いのはChartGroup/UPDATE_BRANCHのみ（どちらも「旧〜」として意図的に残す歴史記述）。pnpm check（31ファイル330テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で「反映済みタグ」項のpreviousTag→previousTagName（T-073で改名済み）とローカル変数previousTagRawの所在（build-plans.ts→image-tag-target.ts）を追加修正した
+
+## T-079
+
+**タスク**: リポジトリ直下の `direction.md` を `docs/history/` へ移す。このファイルは2026-09-06にユーザーが書いた指示メモ（6項目）で、内容は「TARGET_CLIENT を複数形に」「filter-targets の fatal が settled になる」「try/catch を減らす」「型の置き場所を統一」「URLを型で縛る」「tasks.json/progress.md を develop/ へ」。**6項目すべてが完了済み**で、対応の記録は `docs/history/tasks-archive.md`（T-064〜T-071 あたり）と `docs/architecture.md`「コードからは読み取れない設計判断」にある。現状はリポジトリ直下に、いつのものとも完了済みとも分からない状態で残っており、新しく読む人には「未対応の宿題リスト」に見える。
+
+作業内容: `git mv direction.md docs/history/direction.md` し、ファイル冒頭に「2026-09-06にユーザーから受けた指示メモ。全項目対応済みで、対応内容は本ディレクトリの `tasks-archive.md` と `docs/architecture.md` にある。当時の記述をそのまま残している」という2〜3行の見出し＋注記を足す（本文の6項目は書き換えない）。`docs/architecture.md`「ディレクトリ構成の勘所」の `docs/history/` の説明にも、このファイルが増えたことを1行で追記する。
+
+完了条件: `git status` で rename として認識されていること、リポジトリ直下に `direction.md` が無いこと、`grep -rn "direction.md" --include='*.md' .` の結果が新しい場所と整合していることを示す。`pnpm check` を通すこと。
+
+**difficulty**: haiku
+
+**evidence**: git mv でリポジトリ直下の direction.md を docs/history/ へ移動（git status で R と認識）。冒頭に「2026-09-06のユーザー指示メモ・全項目対応済み・対応先はtasks-archive.mdとarchitecture.md」の注記を追加し、本文6項目は無変更。docs/architecture.md「ディレクトリ構成の勘所」にも1行追記した。pnpm check（31ファイル330テスト、変化なし）通過。haikuのサブエージェントに委譲し、メイン側で追記1行の表現と折り返しを整えた
+
+## T-080
+
+**タスク**: `AppConfig.chart` というフィールド名を変えるかどうかの方針を決める（適用は次のタスク）。
+
+現状の事実（調査済み）: `src/types/types.ts` に `chart` という名前のフィールドが2つあり、意味がまったく違う。
+
+- `ChartAndApps.chart: ChartRepoConfig` — chartリポジトリそのものの情報（projectId / projectName / mrTargetBranch）
+- `AppConfig.chart: readonly AnchorTarget[]` — そのアプリのイメージタグを書き込む values.yaml 上の位置の配列
+
+この2つは `src/steps/build-plans/build-plans.ts` の中で数十行の距離に同居している（`createChartAccess(gitlab, chartAndApps.chart)` と `applyImageTagTargets(..., app.chart)`）。さらに、同じ「書き込み位置の配列」を指す `HelmTargetBranchConfig.targets` は `targets` という別の名前になっており、同じ概念に2つの名前が付いている。
+
+詰める論点:
+(a) `AppConfig.chart` を `targets` あるいは `imageTagTargets` 等に改名するか。改名する場合、`HelmTargetBranchConfig.targets` と名前が衝突しないか（別の型のフィールドなので衝突はしないが、読み手が区別できるか）。
+(b) `anchors.yaml` のYAMLキーは `apps[].chart[]` のままにする（wire format は変えない）という前提でよいか。`docs/architecture.md`「型定義のフィールド名は、ブランド型が表している語を落とさない」の節にある「YAMLのキー名は wire format なので変えない。内部表現への詰め替えは `src/lib/config/schema.ts` の `.transform()` が担う」という既存方針をそのまま適用できるか。
+(c) 改名しないと決める場合、その理由（YAMLキーと内部フィールド名を一致させ続けることの価値）を明文化できるか。
+(d) 影響範囲: `AppConfig.chart` の参照は `src/lib/config/config.ts` / `src/lib/config/helm-target-branch.ts` / `src/steps/build-plans/build-plans.ts` / `scripts/lint/verify-config/verify-config.ts` / `test/helpers.ts` ほか。この一覧を確定させること。
+
+完了条件: コードは変更しない。決めた方針（改名する/しない、する場合の新しい名前と影響ファイルの一覧）を `docs/architecture.md`「コードからは読み取れない設計判断」の該当節（既存のフィールド名リネームの節）に追記し、次のタスクがそのリストどおり機械的に置換できる状態にすること。
+
+**difficulty**: opus
+
+**evidence**: コード変更なし（方針決定のみ）。AppConfig.chart → imageTagTargets に改名すると決め、docs/architecture.md「values.yamlの書き込み位置は AnchorTarget 1つに統一」の直後に判断を追記した。targets を選ばなかった決め手は、このコードベースの targets が既に「処理対象のchartAndApps」の意味で使われている（FilterTargetsResult.targets・buildPlans()/applyUpdates()の引数）こと。HelmTargetBranchConfig.targets と ChartAndApps.chart は据え置き、wire format（anchors.yamlのキー chart）も不変。影響ファイル一覧は T-081 の本文に確定させた
+
+## T-081
+
+**タスク**: `AppConfig.chart` を `imageTagTargets` に改名する。方針決めは完了しており（判断の記録は `docs/architecture.md`「`AppConfig`が持つ書き込み位置のフィールド名は`imageTagTargets`」）、**このリストどおりに機械的に置換すること。判断は不要**。
+
+## 改名するもの（内部フィールド名だけ）
+
+`src/types/types.ts` の `AppConfig.chart: readonly AnchorTarget[]` → `imageTagTargets`。JSDocの文言も新しい名前に合わせる。
+
+置き換えが必要な参照:
+
+1. `src/types/types.ts` — `AppConfig` の定義と、`ImageTagUpdate` のJSDoc（`AppConfig.chart`のうち1箇所分…）
+2. `src/lib/config/config.ts` — `const { chart: appChart } = anchorApp` の直後で `AppConfig` を組み立てている箇所。`chart: appChart` → `imageTagTargets: appChart`。**`anchorApp.chart` 側（Zodが返す生の型 `AnchorsApp` のフィールド）は変えない**
+3. `src/lib/config/helm-target-branch.ts` — `resolveHelmTargetBranch()` の第6引数 `chart: readonly AnchorTarget[]`（appの書き込み位置）を `imageTagTargets` に。関数内の `chart.map(...)` も追従。JSDocの「app自身の`chart[].valuesPath`」はYAMLキーの話なので**そのまま**
+4. `src/steps/build-plans/build-plans.ts` — `app.chart` の参照（`applyImageTagTargets()` への引数）とJSDocの手順2の説明
+5. `src/steps/build-plans/sub-steps/image-tag-target.ts` — JSDoc2箇所の `app.chart` 表記
+6. `scripts/lint/verify-config/verify-config.ts` — `app.chart` の参照。**ただしエラーメッセージ内のラベル `app "${app.projectName}" の chart[]` はYAMLキーを指すので変えない**
+7. テスト — `test/helpers.ts` の `makeApp()`、`test/steps/build-plans/build-plans.test.ts`、`test/steps/build-plans/sub-steps/image-tag-target.test.ts`、`test/scripts/lint/verify-config/verify-config.test.ts`、`test/lib/config/config.test.ts`（`apps[0]?.chart` のアサーション）
+8. `docs/glossary.md` の「反映済みタグ」項にある `AppConfig.chart` の表記
+
+## 変えないもの（重要）
+
+- `anchors.yaml` のYAMLキー `apps[].chart[]`（wire format）。`src/lib/config/schema.ts` の `AnchorsAppSchema` の `chart` フィールドも変えない
+- `ChartAndApps.chart`（`ChartRepoConfig`）
+- `HelmTargetBranchConfig.targets`
+- 設定ミスのエラーメッセージに出てくる `chart[]` / `helm.chart[]` というラベル（YAMLキーを指すため）
+- `docs/requirements.md` の 4.4節（YAMLスキーマの仕様。`chart` はキー名）
+- `docs/glossary.md` の「anchor（chart[].anchor）」項にある `chart`配列 の表記（YAMLキーを指すため）
+
+## 完了条件
+
+- `pnpm check` を通し、**テスト件数が31ファイル330テストのまま変わらない**こと
+- `grep -rn "app\.chart\b" src/ scripts/ test/` が0件になること
+- `git add` / `git commit` はしないこと（呼び出し元が確認してからコミットします）
+
+**difficulty**: sonnet
+
+**dependencies**: T-080
+
+**evidence**: AppConfig.chart → imageTagTargets に改名（12ファイル・30挿入26削除）。grep -rn 'app\.chart\b' src/ scripts/ test/ が0件。wire formatは不変（schema.ts の AnchorsAppSchema・config-test/・docs/requirements.md 4.4節・エラーメッセージのラベル chart[] はいずれも無変更を git diff --name-only で確認）。ChartAndApps.chart と HelmTargetBranchConfig.targets も据え置き。pnpm check（31ファイル330テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で image-tag-target.ts のJSDocに残っていた「アプリのchart全体」という旧名由来の言い回しを直した
+
+## T-082
+
+**タスク**: ブランド型を使うべき箇所で素の `string` になっている2件を直す。このリポジトリは「`as` を使わずブランド型の生成は factory 関数に封じ込める」（`CLAUDE.md`「コーディング規約」）方針で、ドメインの識別子はブランド型で扱う。以下は既存のブランド型があるのに素の `string` のままになっている取りこぼし:
+
+(1) `src/lib/config/config.ts` の `ConfigTarget.chartDirName?: string` を `ChartDirName` にする。同じ型の `clients?: readonly TargetClient[]` はすでにブランド型（`TenantId`/`ClientId`）になっており、片方だけ素の `string` で非対称。生成元は `src/main.ts` が渡す `TARGET_CHART`（`src/lib/env.ts` の `loadOptionalEnv("TARGET_CHART")`）なので、env.ts 側で `toChartDirName()` を通すか、`ConfigTarget` を組み立てる `main.ts` 側で通すかを、既存の `TARGET_CLIENTS`（env.ts の `parseTargetClients()` が `toTenantId`/`toClientId` を通している）に倣って揃えること。`loadConfig()` 内で `listSubdirectories()` 由来の素の `string` と比較・`join()` している箇所は、ブランド型が `string` のサブタイプなのでそのまま通るはず（無理な変換を挿入しないこと）。
+
+(2) `src/lib/config/helm-target-branch.ts` の `resolveHelmTargetBranch()` の引数 `projectName: string` を `ProjectName` にする。呼び出し元（`src/lib/config/config.ts`）が渡しているのはすでに `ProjectName` で、この関数のシグネチャだけが素の `string` に緩めている。用途はエラーメッセージへの埋め込みのみ。
+
+`as` は使わない（`src/types/brand.ts` の factory 関数のみ）。
+
+完了条件: `pnpm check` を通すこと。既存テスト（`test/lib/env.test.ts` / `test/lib/config/config.test.ts` / `test/lib/config/helm-target-branch.test.ts`）がそのまま、またはブランド型を使う最小修正で通ることで確認する。
+
+**difficulty**: sonnet
+
+**evidence**: ConfigTarget.chartDirName を ChartDirName に、resolveHelmTargetBranch() の projectName を ProjectName にした。ブランド型への変換は env.ts に parseTargetChart() を新設して行う（TARGET_CLIENTS の parseTargetClients() と同じ形）。loadConfig() 内の比較・join() は ChartDirName が string のサブタイプのため無変更で通った（無理な変換を挿入していない）。as キャストは増えていない。pnpm check（31ファイル332テスト、330→332）通過。sonnetのサブエージェントに委譲し、メイン側で parseTargetChart() のテスト2件を追加した（env.ts の他の公開parse関数にテストがある慣習に合わせた）
+
+## T-083
+
+**タスク**: コミットSHAにブランド型を導入するかどうかを決め、決めたところまで実装する。
+
+現状の事実（調査済み）: `src/types/types.ts` の `TagInfo.commitSha` が素の `string`、`src/lib/gitlab/gitlab.ts` の `getBranchHeadSha()` の戻り値も `Promise<string | undefined>`。この2つは `src/steps/build-plans/sub-steps/resolve-latest-tag.ts` の `resolveTrackedHeadTagNames()` で `tag.commitSha === headSha` と比較され、**この比較の正しさがツールの中核の判定（HEADを指すタグがあるか）そのもの**。一方で `ProjectId` / `BranchName` / `TagName` / `ValuesPath` などの識別子はすべてブランド型になっており、SHAだけが素の `string`。
+
+詰める論点:
+(a) `CommitSha` ブランド型を新設する価値があるか。この値は「GitLab APIから受け取って比較するだけ」で外部から組み立てない（`toCommitSha()` の呼び出し元は `gitlab.ts` の2箇所だけ）。取り違えのリスクは実際どれだけあるか（同じスコープに他の `string` 型の値 —— `tag.name` 等 —— が並ぶか）。
+(b) ブランド型を増やすコスト（`src/types/brand.ts` が既に10種類あり、増やすほど「全部ブランド型にすべき」という圧力が生まれる）と、既存のブランド型を導入した判断基準との一貫性。`docs/architecture.md` に「何をブランド型にするかの基準」が書かれていない場合、この機会に1〜3行で明文化できるか。
+(c) 導入しないと決める場合、`TagInfo.commitSha` のJSDocに「GitLab APIが返すコミットSHA。比較専用」と書くだけで十分か。
+
+完了条件: 決めた内容を `docs/architecture.md`「コードからは読み取れない設計判断」に短く記録する。導入する判断なら `src/types/brand.ts` に `CommitSha` と `toCommitSha()` を足し、`gitlab.ts` の生成2箇所を通して `pnpm check` を通すこと。導入しない判断なら記録のみでコード変更なし。
+
+**difficulty**: opus
+
+**evidence**: CommitSha ブランド型を導入すると決めて実装した。決め手は、TypeScriptが string とブランド型の比較は許すのにブランド型どうしの比較は TS2367 で弾くことを実地確認したこと（別ファイルで検証）。これにより中核判定 tag.commitSha === headSha の近くにある tag.name(TagName) との取り違えが型で防げる。生成経路は gitlab.ts の listTags()/getBranchHeadSha() の2箇所のみ、形式検証は付けない。「何をブランド型にするか」の基準（別の識別子と同じ型の式に並ぶか）も docs/architecture.md に明文化。pnpm check（31ファイル332テスト、変化なし）通過
+
+## T-084
+
+**タスク**: ステップ間で受け渡す配列を `readonly` に揃える。このリポジトリは「変数は基本 `const`」に加えてコレクションも不変に扱う方針（`src/types/types.ts` のドメイン型はほぼ全フィールドが `readonly`、`readonly T[]` を使っている）だが、ステップの境界を跨ぐ型だけが可変配列のまま残っている:
+
+- `src/types/types.ts` の `ChartUpdateTarget.plans: AppUpdatePlan[]` / `files: FileUpdate[]`（同じ型の `chartAndApps` は `readonly` なのに、この2つだけ可変）
+- `src/steps/filter-targets/filter-targets.ts` の `FilterTargetsResult.targets: ChartAndApps[]` / `settled: ChartUpdateResult[]`（`readonly` 修飾はフィールドに付いているが、配列自体は可変）
+- `src/steps/build-plans/build-plans.ts` の `BuildPlansResult.toApply: ChartUpdateTarget[]` / `settled: ChartUpdateResult[]`
+- `src/steps/apply-updates/apply-updates.ts` の `applyUpdates()` の戻り値 `Promise<ChartUpdateResult[]>`
+- `src/utils/partition.ts` の `partitionMap()` の戻り値 `{ readonly left: L[]; readonly right: R[] }`
+
+実害の具体例: `build-plans.ts` の `buildPlan()` が `ok({ chartAndApps, plans: [...plans], files: toFileUpdates(draft) })` と、`readonly AppUpdatePlan[]` を可変配列に**コピーし直すためだけの spread** を書いている。`ChartUpdateTarget.plans` を `readonly AppUpdatePlan[]` にすればこのコピーは消える。
+
+作業内容: 上記を `readonly T[]` に変更し、それに伴って不要になるコピー（`[...plans]` など）を削る。`partitionMap()` は内部の `reduce` が可変配列を積むので、戻り値の型だけ `readonly L[]` / `readonly R[]` にすればよい（内部実装は変えなくてよい）。`toFileUpdates()` の戻り値 `FileUpdate[]` も呼び出し側が `readonly` を受けられるなら合わせる。**`as` や型アサーションで押し通さないこと** —— 型エラーが出る箇所は、その配列を本当に変更しているということなので、変更している側を直すか、そこだけ可変のまま残す判断をして evidence に理由を書く。
+
+完了条件: `pnpm check` を通し、テスト件数が変わらないこと。削除できたコピー（spread）の箇所を evidence に列挙すること。
+
+**difficulty**: sonnet
+
+**evidence**: ChartUpdateTarget.plans/files、FilterTargetsResult・BuildPlansResult の2フィールドずつ、applyUpdates()の戻り値、partitionMap()の戻り値、toFileUpdates()の戻り値を readonly T[] にした（6ファイル・11行）。実害だった buildPlan() の `plans: [...plans]`（可変配列に合わせるためだけのコピー）が消えた。他の spread は全件確認して genuine な用途（配列連結・アキュムレータへのappend・Map/Setの配列化）のみ。as は1件も使っていない。pnpm check（31ファイル332テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で toFileUpdates() のJSDocが戻り値の型を言い換えるだけになっていたのを詰めた
+
+## T-085
+
+**タスク**: `src/lib/env.ts` がモジュール読み込み時に環境変数を読んで例外を投げる設計を、そのままにするか変えるかを決め、決めたところまで実装する。
+
+現状の事実（調査済み）: `src/lib/env.ts` の末尾は `export const GITLAB_URL = validateGitlabUrl(loadEnv("GITLAB_URL"))` のようなトップレベルの副作用で、**このモジュールを import した瞬間に環境変数を読んで、未設定なら throw する**。そのため周囲に3つの迂回が生まれている:
+
+1. `scripts/lint/validate-config.ts` が `--remote` のときだけ `await import("../../src/lib/env.js").catch(...)` と**動的importで囲む**必要がある（静的importにすると、認証情報が不要な既定モードでも環境変数を要求してしまうため）
+2. `vitest.config.ts` が全テストに対して `env: { GITLAB_URL: "https://gitlab.test", ACCESS_TOKEN: "test-token" }` を注入している（env.ts を間接的にでも import するテストが落ちないようにするため）
+3. `test/main.test.ts` が `vi.mock("../src/lib/env.js", () => ({...}))` で8つの定数をまるごとモックしている
+
+詰める論点:
+(a) 「環境変数を読む」を関数（例: `loadEnvConfig(): EnvConfig`）にして `src/index.ts` または `src/main.ts` の `run()` の入口で一度だけ呼び、`process()` に値として渡す形にするか。そうすると上記3つの迂回のうちどれが消えるか（`main.ts` が引数で受け取れるようになるので (3) は不要になるはず。(1) は静的importに戻せるか要確認）。
+(b) 変えることで `src/main.ts` の `process()` の引数が増える（現在は環境変数のモジュール定数を直接読んでいる）。引数を8個並べるのか、`EnvConfig` 1つにまとめるのか。すでに `filterTargets`/`buildPlans` は `concurrencyLimit`・`dryRun`・`tagFormat` を個別の引数で受け取っているので、その形と揃うか。
+(c) `CLAUDE.md`「コーディング規約」の「環境変数はすべて `src/lib/env.ts` で管理する」という規約は、関数化しても満たせるか（満たせる想定だが、規約の文言を更新する必要があるか確認する）。
+(d) 「起動時に落ちる（fail fast）」という現在の利点を失わないか。`index.ts` の入口で呼べば実質同じタイミングで落ちるはず。
+(e) 変えないと決める場合、上記3つの迂回を「意図的なコスト」として `docs/architecture.md` に記録できるか。
+
+完了条件: 決めた方針を `docs/architecture.md`「コードからは読み取れない設計判断」に記録する。変える判断なら実装し、`vitest.config.ts` の `env` 注入と `test/main.test.ts` の env モックのうち不要になったものを実際に削って `pnpm check` を通すこと（テスト件数が減らないこと）。
+
+**difficulty**: opus
+
+**evidence**: モジュールトップレベルの定数をやめ loadEnvConfig(): EnvConfig にした。run()/process() は EnvConfig を引数で受け取り、生成は src/index.ts のみ。狙いどおり3つの迂回が全部消えた（validate-config.ts の動的import、vitest.config.ts の全テストへのenv注入、main.test.ts の vi.mock(env)）——いずれもgrepで0件を確認。挙動不変を実測: 環境変数なしで既定モードは exit 0、--remote は理由付きメッセージで exit 1。副次的な改善として、環境変数エラーが index.ts の catch に載り構造化ログに出るようになった（以前は素のスタックトレース）。pnpm check（31ファイル332テスト、変化なし）通過。CLAUDE.mdの規約文言と docs/architecture.md に判断を記録
+
+## T-086
+
+**タスク**: `src/main.ts` の `export async function process()` を改名する。この名前は Node.js のグローバル `process` をモジュールスコープで覆っており、同じファイルに `process.exit()` や `process.env` を書いた瞬間に静かに壊れる（実際 `src/index.ts` はグローバルの `process.exit()` を使っている）。すでに影響も出ていて、`test/main.test.ts` は `import { process as processFn, run } from "../src/main.js"` と別名で輸入している。`docs/architecture.md` 自身が「`process` のような汎用名は `main.ts` のオーケストレータやグローバルの `process` と紛らわしいため使わない」と各ステップの命名規則として書いており、その `main.ts` 側だけが例外になっている状態。
+
+新しい名前は `runPipeline()` を第一候補とする（`run()` が計測・ログ・終了コード判定の外枠、`runPipeline()` がステップを順に呼ぶ本体、という関係が名前から読める）。他により良い名前があると判断した場合は evidence に理由を書いて差し替えてよい。
+
+張り替える参照: `src/main.ts` の定義とJSDoc、`test/main.test.ts`（別名輸入をやめて素直に import できるようになるはず）、`CLAUDE.md`「アーキテクチャ概要」冒頭の `process()` への言及、`docs/architecture.md` 内の `process()` への言及（複数箇所。「`process()` が直接呼ぶ」という表現が各所にある）、`develop/progress.md` の該当箇所は履歴なので触らない。
+
+完了条件: `grep -rn "process()" src/ test/ docs/ CLAUDE.md` の結果が、グローバルの `process` を指すもの以外0件になること。`pnpm check` を通し、テスト件数が変わらないこと。
+
+**difficulty**: sonnet
+
+**evidence**: main.ts の process() を runPipeline() に改名（グローバルの process をモジュールスコープで覆っていた）。参照を張り替えたのは src/main.ts・test/main.test.ts（別名輸入 process as processFn が不要になった）・CLAUDE.md 3箇所・docs/architecture.md 6箇所。grep 'process()' が develop//docs/history 以外で0件。pnpm check（31ファイル332テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で docs/architecture.md の表に残っていた app.chart（T-081の取りこぼし）も併せて直した
+
+## T-087
+
+**タスク**: 3つのステップの入口に同じ形のコードが重複していることを、共通化するか意図的な重複として残すかを決め、決めたところまで実装する。
+
+現状の事実（調査済み）: `src/steps/filter-targets/filter-targets.ts` と `src/steps/build-plans/build-plans.ts` の先頭部分が、名前以外まったく同じ2ステップになっている:
+
+```
+const outcomes = await mapWithConcurrency(items, concurrencyLimit, (x) =>
+  runSettled(x, (logContext) => <1件分の関数>(..., logContext)),
+)
+const { left, right } = partitionMap(outcomes, (outcome) =>
+  outcome.status === "ok" ? left(outcome.value) : right(outcome.result),
+)
+```
+
+`src/steps/apply-updates/apply-updates.ts` は3行目以降が違う（`partitionMap` ではなく `outcomes.map()` で `ChartUpdateResult[]` に潰す）。
+
+詰める論点:
+(a) この重複を `src/steps/shared/step-outcome.ts` に `runStepConcurrently()` のような高階関数として吸収すべきか。`runSettled()` を同ファイルに置いた時と同じ論法（「catch節をstepから消す」）が、この `partitionMap` にも当てはまるか。
+(b) 吸収した場合、各stepの入口が1〜2行になる代わりに「並列に実行する」「1件ずつ失敗を封じ込める」「成功と確定を振り分ける」が1つの名前の裏に隠れる。`docs/architecture.md` は現在「各stepでは `mapWithConcurrency()` の直下で `runSettled()` を呼び、並列に実行することと1件ずつ失敗を封じ込めることが**stepの入口に並んで見える**ようにしている」と、あえて見せる方を選んだと明記している。この判断と矛盾しないか。
+(c) `apply-updates` だけ形が違うので、共通化しても3つ全部は揃わない。2つだけのために抽象を1つ増やす価値があるか。
+(d) 残す判断をする場合、「なぜこの重複は許容するのか」を `docs/architecture.md` に1〜2行で書けるか（次に読む人が同じ疑問を持って再検討しないように）。
+
+完了条件: どちらに決めても `docs/architecture.md`「コードからは読み取れない設計判断」に理由を記録すること。共通化する判断なら実装して `pnpm check` を通し、テスト件数が変わらないこと。
+
+**difficulty**: opus
+
+**evidence**: コード変更なし（共通化しないと決定）。理由を docs/architecture.md「コードからは読み取れない設計判断」に記録した。決め手は3点: (1) applyUpdates() だけ partitionMap ではなく outcomes.map() で潰すため3つ揃わない、(2) 3つを1つの高階関数に寄せるには「要素からChartAndAppsを取り出す関数」という差を隠すためだけの引数が要る、(3) 重複しているのは配線であって方針ではない（危険なエラー方針は既に runSettled()/settleAsError() に集約済み）
+
+## T-088
+
+**タスク**: `LoadValuesYamlContent` の「呼び出し側が複製を作って渡し、実装がそれを破壊的に埋める」という契約を、不変な形にできないか検討し、決めたところまで実装する。
+
+現状の事実（調査済み）: `src/steps/build-plans/sub-steps/shared/types.ts` の
+
+```
+export type LoadValuesYamlContent = (
+  cache: Map<ValuesPath, ValuesYamlEntry>,
+  valuesPath: ValuesPath,
+) => Promise<string>
+```
+
+は第1引数に**Mutableな `Map`** を取る。実装（`src/steps/build-plans/build-plans.ts` の `createChartAccess()`）は `getOrFetch()` でその Map に fetch 結果を書き込む。呼び出し側（`image-tag-target.ts` / `helm-target-branch-target.ts`）は毎回
+
+```
+const draftCopy = new Map(acc.draft)
+const valuesYamlContent = await loadValuesYamlContent(draftCopy, target.valuesPath)
+```
+
+と手で複製を作ってから渡し、差分が無い場合も `return { ...acc, draft: draftCopy }` と「fetch結果だけ拾った下書き」を返している。他の値（`ValuesYamlDraft` は `ReadonlyMap`、アキュムレータは全フィールド `readonly`）が徹底して不変なのに、ここだけ「引数として渡した入れ物が書き変わる」規約になっており、読み手は `writeValuesYamlDraft()` のJSDoc（「呼び出し元は `new Map(acc.draft)` で複製したMutableなコピーに対して呼ぶことを想定」）を読まないと正しく使えない。
+
+詰める論点:
+(a) 戻り値を `Promise<{ content: string; draft: ValuesYamlDraft }>` にして、複製と書き込みを実装側に閉じ込められるか。そうすると呼び出し側から `new Map(...)` が消え、`ValuesYamlDraft` を `ReadonlyMap` のまま扱い続けられるか。
+(b) その形にした場合、`getOrFetch()`（`src/utils/cache.ts`、Mutableな Map を前提とする汎用キャッシュ）をそのまま使えるか。使えないなら、`createChartAccess()` の中だけで複製→書き込み→凍結という手順を踏めば済むか。
+(c) 1アプリ・1箇所ごとに Map を複製するコストは現状も同じ（今も毎回複製している）ので、性能上の悪化は無いはず。確認すること。
+(d) 変えない判断をする場合、この契約が必要な理由（`ValuesYamlDraft` を chartAndApps 単位で積み上げる設計との関係）を `docs/architecture.md` に書けるか。
+
+完了条件: 決めた内容を `docs/architecture.md`「コードからは読み取れない設計判断」に記録する。変える判断なら実装し、`grep -rn "new Map(acc.draft)" src/` が0件になることと `pnpm check`（テスト件数が変わらないこと）で確認する。
+
+**difficulty**: opus
+
+**evidence**: LoadValuesYamlContent を Promise<{content, draft}> を返す形に変え、複製を実装側（build-plans.ts の createChartAccess）へ寄せた。grep 'new Map(acc.draft)' が0件になり、サブステップ側は ValuesYamlDraft(ReadonlyMap) だけを扱う。コピー回数はむしろ減った（以前はtargetごとに無条件複製、今は下書きミス時と書き込み時のみ）。読み込み用 cacheValuesYamlDraft()(modified:false) と書き込み用 writeValuesYamlDraft()(modified:true) で入口を分け、toFileUpdates() が依存する不変条件を関数名で保つ形にした。pnpm check（31ファイル332テスト、変化なし）通過
+
+## T-089
+
+**タスク**: `scripts/smoke/smoke-fixture.ts` の2つの問題を直す。どちらも実機スモークテスト用スクリプト（`docs/smoke-test.md` の手順から呼ぶ）の話で、本体パイプラインには影響しない。
+
+(1) **ソースリポジトリのprojectIdがハードコードされている**。`SEED_TAGS` に `projectId: 82861978` / `82861977` が直書きされており、chartリポジトリ側だけが `SMOKE_CHART_PROJECT_ID` 環境変数で外出しされているのと非対称。別のGitLabインスタンス・別のフィクスチャで再現しようとすると、このスクリプトを書き換えるしかない。chart側と同じやり方（環境変数で明示、未設定なら理由を出して `process.exit(1)`）に揃えること。変数名は `SMOKE_APP_PROJECT_IDS` のようにカンマ区切りで2件受ける形か、`SMOKE_QA_SPRINT_PROJECT_ID` / `SMOKE_DEVELOP_CLIENT_PROJECT_ID` のように個別に受ける形か、`config-test/` 配下の実際の設定（`yadokari-smoke-test-chart/*/*/config.yaml`）との対応が読み取りやすい方を選ぶ。`docs/smoke-test.md` の手順（projectIdの表と実行コマンド例）も合わせて更新すること。
+
+(2) **タグの新旧をタグ名の辞書順で判定している**。`ensureSeedTags()` の `const hasNewerTag = names.some((name) => name > tag)` は文字列の大小比較で「シードタグより新しいタグがあるか」を判定しており、`TAG_FORMAT` を既定（`{branch}-build-at-{date}-{time}`）から変えると誤判定する（例: `{date}-{time}-{branch}` なら辞書順と時刻順は一致しない）。このリポジトリはタグ名のパース・比較を `src/lib/tag-format.ts` に集約しており（`parseTag()` / `findLatestParsedTag()`）、スクリプト側も同じ関数を使うべき。`src/lib/env.ts` の `TAG_FORMAT` と `parseTag()` を使って `builtAt` で比較する形に直すこと（`SEED_TAGS` の `branch` はすでに各エントリが持っている）。
+
+完了条件: `pnpm check` を通すこと。このスクリプトは実機がないと動かせないので、実行そのものは完了条件に含めない。代わりに (2) について「既定の `TAG_FORMAT` で従来と同じ判定になること」を、変更後のコードを読んで説明すること（`docs/smoke-test.md` の該当箇所を更新したことも示す）。
+
+**difficulty**: sonnet
+
+**evidence**: (1) ソースリポジトリのprojectIdを SMOKE_QA_SPRINT_PROJECT_ID / SMOKE_DEVELOP_CLIENT_PROJECT_ID に外出しし、chart側と同じ requireProjectId() で未設定なら理由付きで終了する形に統一。(2) タグの新旧判定を辞書順比較から lib/tag-format.ts の parseTag()/findLatestParsedTag() による builtAt 比較に変更（既定フォーマットは日時が末尾固定桁なので辞書順と一致し、従来と同じ判定になる）。docs/smoke-test.md も更新。pnpm check（31ファイル332テスト、変化なし）通過。sonnetのサブエージェントに委譲し、メイン側で回帰を1件修正: SEED_TAGSがモジュール直下でprojectIdを要求していたため、chartリポジトリしか触らない reset まで新環境変数を必須にしてしまっていた（環境変数名だけを持たせ、値の要求は ensureSeedTags() に移動。reset がSMOKE_CHART_PROJECT_ID だけで起動することを実行して確認）
+
+## T-090
+
+**タスク**: `CONCURRENCY_LIMIT` の外側で無制限に並列化している `Promise.all` を、そのままにするか制御下に置くかを決める（**低優先**。実害が出ているわけではなく、規模が増えたときの予防）。
+
+現状の事実（調査済み）: 同時実行数の制御は `src/utils/parallel.ts` の `mapWithConcurrency()` で chartAndApps 単位にだけ掛かっており、その内側に無制限の `Promise.all` が3箇所ある:
+
+- `src/lib/gitlab/gitlab.ts` の `getProjectWebUrls()` — 重複排除後の全projectIdに対して同時に `Projects.show` を投げる（1つのclientに登録されたアプリ数だけ並列）
+- `src/lib/gitlab/gitlab.ts` の `commitFileUpdates()` — 全ファイルに対して同時に `getFileContent` を投げる
+- `src/steps/build-plans/sub-steps/resolve-latest-tag.ts` — `listTags` と `getBranchHeadSha` の2本（これは固定2本なので問題ない）
+
+実効的な同時接続数は `CONCURRENCY_LIMIT`（最大20）× 1clientあたりのアプリ数になり、`CONCURRENCY_LIMIT` が「同時処理数の上限」として説明されている（README・`.gitlab-ci.yml` の description）のと食い違う。
+
+詰める論点:
+(a) 実害があるか。夜間の定期実行という前提で、GitLab側のレート制限（429）に当たる可能性はどれくらいか。当たっても `src/utils/retry.ts` の `withRetry()` が429を3回までリトライするので吸収されるのではないか。
+(b) 直すとしたら `mapWithConcurrency()` に寄せることになるが、`lib/gitlab/gitlab.ts` は `concurrencyLimit` を知らない層（引数で引き回すか、モジュール定数を読むか）。`lib/` が同時実行数の方針を持つのは責務として妥当か。それとも呼び出し側（`collect-mr-entries.ts` / `apply-updates.ts`）で制御すべきか。
+(c) 直さない判断をする場合、`CONCURRENCY_LIMIT` の説明（README の環境変数の表）に「chartAndApps単位の同時処理数であって、GitLab APIへの同時接続数の上限ではない」と1行足すだけで十分か。
+
+完了条件: 決めた内容を記録する（直さない判断ならドキュメントの1行追記、直す判断なら実装して `pnpm check` を通す）。**このタスクは他のタスクをすべて片付けた後で構わない**。
+
+**difficulty**: opus
+
+**evidence**: コード変更なし（現状は絞らないと決定）。docs/architecture.md「既知の制約・注意点」に記録した。理由: (1) 絞ると lib/gitlab/gitlab.ts に concurrencyLimit を引き回すことになり、並列度の方針を持たない層に責務がはみ出す、(2) 429 は utils/retry.ts が指数バックオフで3回再試行し、駄目でも該当chartAndAppsがERRORになるだけで実行全体は壊れない（fatal扱いではない）、(3) 既定は CONCURRENCY_LIMIT=3・1clientあたり数アプリで、最悪ケースは意図的に上限20まで上げないと起きない。README の説明は「(chartリポジトリ, テナント/クライアント)単位の同時処理数」と既に正確だったため変更不要だった。再検討トリガー（429が継続的に出る/1clientが数十アプリ）も明記
+
+## T-091
+
+**タスク**: `pnpm lint` の対象に `test/` を含める。現在 `package.json` の `lint` は `oxlint src scripts && pnpm lint:validate-config` で、**テストコードだけ lint されていない**。`tsconfig.json` の `include` は `test/**/*.ts` を含み、`oxfmt .` はリポジトリ全体を整形しているので、lint だけが対象から外れている状態。テストコードは31ファイル・330テストあり、本体と同じ規約（`typescript/consistent-type-imports` など）が効くべき。
+
+作業内容: `package.json` の `lint` / `lint:fix` の対象に `test` を追加し、検出された指摘を修正する。`.oxlintrc.json` の `categories`（correctness: error / suspicious: warn）はそのままにする。テスト特有の書き方（`vi.mock()` のホイスティングのために import より前に置く、`as unknown as GitlabClient` のようなモック用キャストなど）が correctness に引っかかる場合は、**ルールを緩めるのではなく `.oxlintrc.json` の `overrides` で `test/**` にだけ例外を設ける**か、コード側を直すかを判断して evidence に理由を書くこと。`as` キャストの規約（`CLAUDE.md`「コーディング規約」）は `src/` を対象にしたものなので、テストのモック用キャストを無理に消す必要はない。
+
+完了条件: `pnpm lint` が `test/` も対象にして通ること、`pnpm check` 全体が通ること、テスト件数が変わらないこと。指摘が0件だった場合もその旨（何件検出され何を直したか）を evidence に書くこと。
+
+**difficulty**: sonnet
+
+**evidence**: package.json の lint/lint:fix を oxlint src scripts test に拡張。対象に入れた途端に指摘5件（すべて no-unused-vars の死んだimport: validateTagFormat×3・makeHttpError×2）が出たので削除した。.oxlintrc.json の overrides は不要だった（vi.mock のホイスティングやモック用キャストは現行ルールに引っかからない）。test/ が実際に対象になっていることは、未使用importをわざと入れて検出されるかで確認した。pnpm check（31ファイル332テスト、変化なし）通過
