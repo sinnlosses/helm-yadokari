@@ -9,6 +9,10 @@ T-001〜T-101 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/
 
 ## 完了したこと（このセッション）
 
+- **T-102 完了**: `withAppContext()` の適用漏れを解消。`apply-updates/sub-steps/collect-mr-entries.ts`
+  のplan単位の解決（web URL・最新パイプライン）も同じくアプリ名が要ると判断して包み、置き場所は
+  `steps/shared/` に据え置いた（理由は `docs/architecture.md`「アプリ名の付与は〜」節）。
+
 - **アーカイブ**: `develop/tasks.json` が33KBと基準（30KB）を超え、かつ全7件が `done` に
   なっていたため、T-095〜T-101 を `docs/history/` へ移した（`tasks.json` は `[]`）。
 - **既定モデルを Sonnet に変更し、委譲の向きを反転**: `~/.claude/settings.json` の `model` を

@@ -28,7 +28,8 @@ export function settle<T>(result: ChartUpdateResult): StepOutcome<T> {
 
 /**
  * アプリ単位の処理を実行し、投げられた例外に「どのアプリで起きたか」を付けて投げ直す。
- * `build-plans.ts`の`buildAppUpdatePlan()`がアプリ1件を処理する間だけ使う。
+ * chartAndAppsの中でアプリ1件ぶんの処理を切り出している箇所（`build-plans`のアプリのループ、
+ * `apply-updates`のplanごとのURL・パイプライン解決）を包む。
  * fatalかどうかの判断は`rethrowWithAppContext()`（延いては`settleAsError()`）に委ねるため、
  * ここは失敗を拾って渡すだけでよい。
  */

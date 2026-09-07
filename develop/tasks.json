@@ -2,10 +2,10 @@
   {
     "id": "T-102",
     "task": "`src/steps/shared/step-outcome.ts` の `withAppContext()` が `build-plans` からしか使われていない。他の2ステップ（`filter-targets` / `apply-updates`）でアプリ単位のエラー文脈が本当に不要かを確認し、不要なら現状の置き場所・JSDocをその事実に合わせる。\n\n## 背景（調査済みの事実）\n\n- `withAppContext()` は `src/steps/shared/step-outcome.ts` に定義され、使用箇所は `src/steps/build-plans/build-plans.ts:114`（`buildAppUpdatePlan()` の呼び出しを包む）の**1箇所だけ**。\n- 内部実装の `rethrowWithAppContext()` は、fatal でない `Error` に `[アプリ: <projectName>] ` を前置して投げ直す。fatal（401/5xx/ネットワーク障害）は**包まずにそのまま投げる**（`settleAsError()` が `cause.response.status` や `code` の構造を見るため、1段深くすると `FatalError` に昇格できなくなる）。\n- 同ファイルの `withHandling()` は3ステップすべてが使う（chartAndApps単位）。`step-outcome.ts` 冒頭のコメントは置き場所の理由を「**複数のstepから呼ばれる**ため特定stepの `sub-steps/` にも置かない」と説明しているが、`withAppContext()` はこの説明に当てはまっていない。\n- 他2ステップのアプリ単位の扱い:\n  - `filter-targets/filter-targets.ts` はアプリ単位のループを持たない（`chartAndApps.apps.length === 0` を見るだけ）。\n  - `apply-updates` 本体もアプリ単位のループを持たないが、サブステップの `apply-updates/sub-steps/collect-mr-entries.ts:28` が `updatedPlans.map(async (plan) => ...)` で**プラン（＝アプリ）単位の非同期処理**を行い、`webUrl` とパイプラインを取得している。ここで失敗した場合、現状はアプリ名が付かない。\n\n## 先にやる理由\n\nT-103（コメント基準の追従）と T-104（テストの棚卸し）がこのタスクに依存している。コンフリクト回避ではなく、**T-102 の結論が `step-outcome.ts` のコメントの直しを含む**ため。T-103 がコメントを整えた直後に T-102 が同じ箇所を書き換えると、整えた意味が消える。\n\n## 詰める論点\n\n(a) `collect-mr-entries.ts` のアプリ単位の非同期処理で、エラーにアプリ名が付かないことが実際に困るか。オールオアナッシングでclient全体がERRORになる（＝原因アプリが特定できないと調査できない）という `rethrowWithAppContext()` の動機は、こちらにも同じく当てはまるのではないか。当てはまるなら `withAppContext()` を使う側を増やす、当てはまらないなら理由を言えるようにする。\n(b) (a) の結論が「他では不要」なら、`step-outcome.ts` に置き続ける理由が冒頭コメントの説明と食い違う。`build-plans/` 側へ移すか、置き場所は据え置きでコメントの説明を実態に合わせるかを決める（`CLAUDE.md` 原則2「複数箇所から呼ばれるは `lib/` に置く理由にならない」と、原則1「`sub-steps/` 直下のファイル同士は import しない」の両方に照らして判断する）。\n(c) 移す判断なら、`rethrowWithAppContext()` が持つ「fatalは包まない」という判断が `settleAsError()` と同じファイルに置かれている現在の利点（方針の変更漏れを防ぐ、と JSDoc に明記されている）を失わない形にできるか。失うなら移さない理由になる。\n\n## 完了条件\n\n- (a)(b) の結論と理由を `docs/architecture.md`「設計判断（なぜ今の形なのか）」に記録する。`step-outcome.ts` 冒頭の置き場所コメントが結論と食い違ったままにしない。\n- 使う側を増やす／移す判断なら実装する。着手時の `pnpm test` の件数から**減らさず** `pnpm check` を通すこと。ファイル移動は `git mv`。\n- `git add` / `git commit` はしない。",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "(a)同じ動機が当てはまると結論し、collect-mr-entries.ts のplan単位の解決を withAppContext() で包んだ。(b)使う側が2stepになったため step-outcome.ts は据え置き、withAppContext() のJSDocを実態に更新。docs/architecture.md に「アプリ名の付与は`steps/shared/`に置き〜」節を追加。pnpm check 通過（31ファイル337テスト、着手時336から+1）。",
     "dependencies": []
   },
   {

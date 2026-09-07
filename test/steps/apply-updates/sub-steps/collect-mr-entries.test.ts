@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 vi.mock("../../../../src/lib/gitlab/gitlab.js")
 
 import type { GitlabClient } from "../../../../src/lib/gitlab/gitlab.js"
-import { getProjectWebUrls } from "../../../../src/lib/gitlab/gitlab.js"
+import { getLatestPipelineForRef, getProjectWebUrls } from "../../../../src/lib/gitlab/gitlab.js"
 import { collectMrEntries } from "../../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js"
 import type { GitLabUrl, ProjectId } from "../../../../src/types/types.js"
 import {
@@ -86,5 +86,14 @@ describe("collectMrEntries", () => {
     await expect(collectMrEntries(mockGitlab, [makePlan()], [])).rejects.toThrow(
       "web URLが解決されていないprojectIdです: 1",
     )
+  })
+
+  it("plan単位の解決で失敗したとき、エラーにどのアプリかを付ける", async () => {
+    mockWebUrls()
+    vi.mocked(getLatestPipelineForRef).mockRejectedValue(new Error("パイプラインの取得に失敗"))
+
+    await expect(
+      collectMrEntries(mockGitlab, [makePlan({ projectName: "my-app" })], []),
+    ).rejects.toThrow("[アプリ: my-app] パイプラインの取得に失敗")
   })
 })

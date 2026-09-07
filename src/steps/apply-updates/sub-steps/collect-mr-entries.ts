@@ -9,6 +9,7 @@ import type {
   HelmTargetBranchUpdate,
   ProjectId,
 } from "../../../types/types.js"
+import { withAppContext } from "../../shared/step-outcome.js"
 import type { MrEntries } from "./shared/types.js"
 
 /**
@@ -25,15 +26,17 @@ export async function collectMrEntries(
   const webUrls = await getProjectWebUrls(gitlab, updatedProjectIds)
 
   const imageTagsPerPlan = await Promise.all(
-    updatedPlans.map(async (plan) => {
-      const webUrl = resolveWebUrl(webUrls, plan.app.projectId)
-      const pipeline = await getLatestPipelineForRef(
-        gitlab,
-        plan.app.projectId,
-        plan.latestTag.name,
-      )
-      return plan.updates.map((update) => ({ plan, update, webUrl, pipeline }))
-    }),
+    updatedPlans.map(async (plan) =>
+      withAppContext(plan.app.projectName, async () => {
+        const webUrl = resolveWebUrl(webUrls, plan.app.projectId)
+        const pipeline = await getLatestPipelineForRef(
+          gitlab,
+          plan.app.projectId,
+          plan.latestTag.name,
+        )
+        return plan.updates.map((update) => ({ plan, update, webUrl, pipeline }))
+      }),
+    ),
   )
   const imageTags = imageTagsPerPlan.flat()
 
