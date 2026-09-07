@@ -650,4 +650,4 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
 - `dist/`: `pnpm build` の生成物。gitignore対象、手で編集しない
 - `docs/requirements.md`: 確定した要件。`docs/requirements-grilling.md`: 要件定義時のQ&Aログ
   （検討経緯の参照用、変更不要）。`docs/history/`: 完了タスク・過去セッションのアーカイブと、
-  対応済みの指示メモ（`direction.md`）
+  タスク化済みの指示メモの追記ログ（`direction.md`）

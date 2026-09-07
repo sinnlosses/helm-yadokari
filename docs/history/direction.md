@@ -1,8 +1,17 @@
-# 2026-09-06 ユーザーからの指示メモ
+# 指示メモのアーカイブ
 
-本ファイルは2026-09-06にユーザーが書いた指示（6項目）で、**全項目が対応済み**です。対応内容の詳細は同じディレクトリの [`tasks-archive.md`](./tasks-archive.md) と [`docs/architecture.md`](../architecture.md)「コードからは読み取れない設計判断」を参照してください。以下は当時の記述をそのまま残しています。
+`develop/direction.md` に書かれたユーザーからの指示を、タスク化した時点でここへ日付見出し付きで
+移す（新しいものを上に足す）。運用の正典は
+[`docs/workflow.md`](../workflow.md)「指示メモ（`develop/direction.md`）」。
+**当時の記述はそのまま残し、後から書き換えない。**
 
----
+## 2026-09-06
+
+**全項目が対応済み**。対応内容の詳細は同じディレクトリの
+[`tasks-archive.md`](./tasks-archive.md) と
+[`docs/architecture.md`](../architecture.md)「設計判断（なぜ今の形なのか）」を参照。
+このメモはタスク化の運用（`/plan-tasks`）を決める前に書かれたものなので、
+「各項目 → 生成したタスクID」の対応表は残っていない。
 
 - 環境変数 TARGET_CLIENT は複数指定できる認識なので TARGET_CLIENTS に修正したほうが良さそう
 - filter-targets で fatal なエラーが settled になってしまいそう。fatalなものは処理全体を落としてしまいたい

@@ -110,8 +110,13 @@ Spec軸（`docs/requirements.md`）を参照。
 `.claude/skills/` に導入済み（一覧は毎セッションのスキル案内を参照）。`code-review` のみ、
 issueトラッカー連携を前提とする元の記述を未設定でも動くよう汎用化してある。
 
-このプロジェクト独自のスキルとして `next-task`（`develop/tasks.json` の未着手タスクを1件
-実行する）もある。`/loop /next-task` で全件`done`になるまでの自動進行に使う。
+このプロジェクト独自のスキルとして次の2つもある。
+
+- `next-task`: `develop/tasks.json` の未着手タスクを1件実行する。`/loop /next-task` で
+  全件`done`になるまでの自動進行に使う
+- `plan-tasks`: `develop/direction.md` の指示をタスクに分解して `develop/tasks.json` に登録し、
+  指示メモを `docs/history/direction.md` へ移す。**分解は方針決めを含むので委譲せず、
+  `/loop` にも載せない**
 
 ## Git運用
 
@@ -122,12 +127,13 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 ## 進捗管理とHandoff
 
 会話やセッションが切れても再開できるよう、状態はチャットではなく `develop/` 配下の
-`tasks.json` / `progress.md` に記録する。**各手順の詳細（フィールド定義・difficultyの基準と
+`tasks.json` / `progress.md` に記録する。ユーザーからの指示も同様に `direction.md` に書く。**各手順の詳細（フィールド定義・difficultyの基準と
 委譲の書き方・evidenceの粒度・アーカイブのトリガーと手順）は
 [`docs/workflow.md`](./docs/workflow.md) が正典。**
 
 1. セッション開始時に `develop/progress.md` と `develop/tasks.json` を読み、アーカイブすべき
-   タイミングなら作業前にアーカイブする
+   タイミングなら作業前にアーカイブする。`develop/direction.md` に見出し以外の中身があれば
+   未タスク化の指示が残っているので、他の作業より先に `/plan-tasks` でタスク化する
 2. `tasks.json` から依存が完了済みの `todo` タスクを1つ選ぶ
 3. 作業する。既定モデルが `sonnet` なので、`difficulty` が `haiku`/`opus` のタスクは
    **そのモデルを指定したサブエージェントに委譲**し、`sonnet` はメインセッションが自分で
@@ -143,7 +149,7 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 
 - アーキテクチャ詳細（各ファイルの責務、ディレクトリ構成の勘所、既知の制約）: `docs/architecture.md`
 - コーディング規約の詳細（各ルールの理由・例外）: `docs/coding-standards.md`
-- 進捗管理の詳細（`develop/` の tasks.json・progress.md のフィールド定義・evidenceの粒度・アーカイブ運用）: `docs/workflow.md`
+- 進捗管理の詳細（`develop/` の tasks.json・progress.md・direction.md のフィールド定義・evidenceの粒度・アーカイブ運用）: `docs/workflow.md`
 - 完了タスク・過去セッションの詳細な記録: `docs/history/tasks-archive.md` / `docs/history/progress-archive.md`
   （セッション開始時に読む必要はない。過去の判断の経緯をたどりたいときだけ、`grep`で
   該当する `## T-XXX` を見つけてその節だけ参照する。どちらも100KB超あるため通読しない）

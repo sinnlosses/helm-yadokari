@@ -109,6 +109,13 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   返すのは常にGitLab上の元の内容。書き換え後の内容は `writeValuesYamlDraft()` が下書きにしか
   積まないため漏れは構造的に起きない。**これでキャッシュの取りこぼし（T-111〜T-115）は完了。**
 
+- **指示のタスク化を `/plan-tasks` スキルにした**（タスクID無し・会話由来）。`develop/direction.md`
+  に指示を書く → タスク化して `develop/tasks.json` に登録 → 指示メモは `docs/history/direction.md`
+  へ日付見出し付きで移す、という流れ。**タスク化した時点で `develop/direction.md` を空にする**
+  （タスクが全部doneになるまで残すと正典が `tasks.json` と二重になるため）。`/next-task` には
+  「`develop/direction.md` に中身があればタスク化が先」というガードを足した。正典は
+  `docs/workflow.md`「指示メモ（`develop/direction.md`）」節。
+
 ## 次にやること
 
 - **キャッシュの取りこぼしの解消の続き（T-115 のみ）**。T-111（機構）・T-112（不要な問い合わせの
