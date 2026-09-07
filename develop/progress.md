@@ -1,104 +1,27 @@
 # 現在の状態
 
-最終更新: 2026-09-07（`src/` 全体の `undefined` を棚卸しし、T-095〜T-101 の**7件を登録**した。
-コード変更は無し。着手前に T-092〜T-094 を `docs/history/` へアーカイブ済み）
+最終更新: 2026-09-07（`undefined` の棚卸しから登録した T-095〜T-101 の7件をすべて完了し、
+`docs/history/` へアーカイブした。`develop/tasks.json` は空）
 
-T-001〜T-094 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
+T-001〜T-101 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
-**コードは変えていない。** `undefined` の棚卸しと、その結果のタスク登録:
-
-- **`src/` 全体の `undefined` を調査**し、(A)外部の「無い」を写しているだけで消せないもの、
-  (B)要件を変えれば消せるもの、(C)表現が揃っていないもの、に分類した。**一番の発見は
-  `previousTagName` / `previousBranch` の `undefined` が実行時に到達不可能**なこと
-  （`getValueAtAnchor()` が `undefined` を返すのはアンカー不在時だけで、その直後の
-  `setValueAtAnchor()` が必ず例外を投げる）。あり得ない分岐が型・MR本文の表示・テストの
-  3箇所で維持されていた。
-- **T-095〜T-100 を登録**（commit `5e2a6c3`）。B1〜B4・C・「穴」（`branchToSync` 不在の
-  落ち方）と、B3（向き先ブランチを `ChartAndApps` へ移す）。B3は「向き先ブランチはclient内の
-  apps全体で共通」という要件が今後も変わらないことをユーザーに確認したうえで案を確定した。
-- **T-101 を登録**（commit `18cfffd` → `a86f5ba`）。型の置き場所の基準。調査の結果
-  **基準は既に `docs/architecture.md` に6行の表として存在**し、`coding-standards.md` は
-  そこへ明示的に委譲していた（問題はたどり着けないこと）。正典は `architecture.md` のまま
-  拡充し、規約側からは導線を張るだけ、とユーザー合意のうえ本文を書き直した。
-- **T-095 完了**。values.yaml のアンカー不在を読み取り時の例外に寄せ、`previousTagName` /
-  `previousBranch` から `| undefined` を消した（実行時に到達不能な分岐だった）。MR本文の
-  「(未設定)」表示は到達不能なので削除。`lib/helm.ts` の `getValueAtAnchor()` は
-  `verify-config.ts` が全問題を集める用途で残置。`pnpm check`（31ファイル335テスト、
-  ベースラインと同数）。
-- **T-096 完了**。パイプライン取得を `build-plans` から `apply-updates`
-  （`collect-mr-entries.ts`）へ移し、`AppUpdatePlan.pipeline` を削除した。dryRun由来の
-  `undefined` が消え、`ImageTagEntry.pipeline` に残る `undefined` は「GitLab上に本当に
-  無い/403」の意味だけになった。受け入れ時に projectId+タグ名の重複排除を落とした
-  （1 chartAndApps 内で projectId は一意なので、その重複は起こり得ない）。
-  `pnpm check`（31ファイル334テスト、-1件）。
-- **T-097 完了**。`EnvConfig.configPath` を `string` にし、デフォルト `"config"` を
-  `DEFAULT_CONFIG_PATH` 定数1箇所に寄せた。`loadConfig()` は省略可能引数をやめて必須引数に
-  変え、CLIから呼ぶ `validate-config.ts` 側でデフォルトを当てる。`pnpm check`
-  （31ファイル334テスト、不変）。**haiku への委譲がセッションのレート制限（429）で落ちた**
-  ため、メインセッションが実行した。
-- **T-098 完了**。`ConfigTarget` の `?:` を `| undefined` に統一（`loadConfig` の既定値
-  `{}` は `NO_TARGET` 定数に置換）。あわせて **`docs/coding-standards.md` に「undefined」節**
-  を新設し、許容する `undefined`（外部の「無い」）／避ける `undefined`（到達しない・意味が
-  複数乗っている・デフォルトが確定しているのに運ばれる）／「消すことを目的にせず、なぜ
-  生まれるかを先に問う」を明文化した。`CLAUDE.md` のルール一覧にも1行。
-  `pnpm check`（31ファイル334テスト、不変）。
-- **T-099 完了**。追跡ブランチが実在しないとき、存在しないブランチへタグを作りにいって
-  GitLabの404で落ちる代わりに、`resolveLatestTag()` がその場で分かりやすい例外を投げる
-  ようにした（Helm向き先ブランチ側の事前検証と扱いが揃った）。`resolveTrackedHeadTagNames()`
-  の引数から `| undefined` も落ちた。`gitlab.ts` 側の `| undefined` は「GitLabに無い」を
-  表す層なので残置（規約の「許容する」に当たる）。`pnpm check`（31ファイル336テスト、+2）。
-- **T-100 完了**。Helmの向き先ブランチを `AppConfig`（app単位）から `ChartAndApps`
-  （client単位）へ移した。**共通の値をapp単位に振り分けてから重複排除で戻す往復が消えた**
-  （`resolveHelmTargetBranch()` の振り分けと `uniqueHelmTargetBranchUpdates()` の両方）。
-  副次的に `verify-config.ts` が向き先ブランチの問題をアプリ数だけ重複報告していたのも解消。
-  MR本文は不変（テストの期待値を書き換えずに通した）。`pnpm check`（31ファイル336テスト、不変）。
-- **T-101 完了**。型の置き場所の基準を実態に追いつかせた。**基準は既に存在していて**
-  （`docs/architecture.md`「型の置き場所」の6行の表）、問題は規約からたどり着けないことと
-  表の穴だった。`ParsedTag`・`LabeledTarget`・`AnchorsApp`・`EnvConfig` の4つで穴を埋め、
-  `CLAUDE.md` のコーディング規約一覧には**基準を書かず参照だけ**の1行を足した（原則5と
-  二重になるため）。`src/` の型45件を全件突き合わせて**違反0件**。`pnpm check`（336テスト）。
-- **アーカイブ**: `develop/tasks.json` が44KBと基準（30KB）を超えたため、`done` の
-  T-092〜T-094 を `docs/history/` へ移した。
+- **アーカイブ**: `develop/tasks.json` が33KBと基準（30KB）を超え、かつ全7件が `done` に
+  なっていたため、T-095〜T-101 を `docs/history/` へ移した（`tasks.json` は `[]`）。
+- **`docs/architecture.md` に導線を追加**: 41KBあり、開くだけでコンテキストを大きく使うため、
+  冒頭に節見出しの索引を置き、必要な節だけを読めるようにした。
 
 ## 次にやること
 
-- **`undefined` の棚卸しから5件を登録した（T-095〜T-099、全件 `todo`）**。`src/` 全体の
-  `undefined` を調査し、(A)外部の「無い」を写しているだけで消せないもの、(B)要件を変えれば
-  消せるもの、(C)表現が揃っていないもの、に分類した結果からの登録。
-  - T-095（sonnet）: アンカー不在を読み取り時に即エラーへ寄せ、`previousTagName` /
-    `previousBranch` の `| undefined` を消す。**この2つの `undefined` は実行時に到達不可能**
-    （直後の `setValueAtAnchor()` が必ず例外を投げる）なのに、型・MR本文の表示・テストの
-    3箇所であり得ない分岐を維持している、というのが調査で判明した一番の発見
-  - T-096（sonnet）: パイプライン取得を `build-plans` → `apply-updates` へ移し
-    `AppUpdatePlan.pipeline` を消す（dryRun由来の `undefined` が無くなる）
-  - T-097（haiku）: `EnvConfig.configPath` のデフォルトを `env.ts` に寄せる
-  - T-098（sonnet）: `?:` を `| undefined` に統一し、**`docs/coding-standards.md` に
-    `undefined` の基準**（外部の「無い」は許容／プログラムの都合で生まれたものは避ける／
-    消すことを目的にせず生まれる理由を先に問う）を節として追加する。規約を書く判断が
-    入るので haiku から上げた
-  - T-099（sonnet）: `branchToSync` 不在を分かりやすいエラーで落とす（今は存在しない
-    ブランチにタグを作ろうとして404で落ちる。Helm向き先ブランチ側は事前検証しているのに非対称）
-- **T-100（opus）**: Helmの向き先ブランチを `AppConfig`（app単位）から `ChartAndApps`
-  （client単位）へ移す。**主目的は `undefined` 削減ではなく**、共通の値をapp単位に振り分けてから
-  `uniqueHelmTargetBranchUpdates()` で重複排除して戻す往復を無くすこと。「向き先ブランチは
-  client内のapps全体で共通」という要件は今後も変わらないとユーザー確認済み（2026-09-07）。
-  T-095・T-096 と触るファイルが重なるため両者に依存させてある
-- **T-101（opus）**: 型の置き場所の基準を実態に追いつかせ、規約からたどり着ける形にする。
-  調査の結果 **基準は既に `docs/architecture.md`「型の置き場所」に6行の表として存在**し、
-  `coding-standards.md` は冒頭でそこへ明示的に委譲している（「ファイルの先頭に型がある」のは
-  表の5行目に従った結果で無秩序ではない）。問題は**たどり着けないこと**と、表が実態を
-  カバーしきれていないこと（`src/domain/` の行が無い／関数の引数として受け取る型／Zod
-  スキーマ由来の型／`EnvConfig` が例に無い）。**正典は `architecture.md` のままとし、
-  規約側からは導線を張るだけにする**ことでユーザー合意済み（2026-09-07、二重管理を避けるため）。
+- **未着手タスクは無い**（`develop/tasks.json` は空）。次のセッションでタスクを登録するところから始める。
 - 前回まで（T-064以降）の実機未検証分は据え置き（下の「注意」参照）。
 
 ## 未解決
 
-- なし（各タスクの論点は `tasks.json` の本文に記載）
+- なし
 
 ## 注意
 

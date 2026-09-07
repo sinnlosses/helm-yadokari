@@ -1176,3 +1176,265 @@ const valuesYamlContent = await loadValuesYamlContent(draftCopy, target.valuesPa
 **difficulty**: opus
 
 **evidence**: image-tag-target.ts→apply-image-tag-targets.ts、helm-target-branch-target.ts→apply-helm-target-branch-targets.ts に git mv（テストも同名rename）。steps/ツリーは全ファイルがファイル名＝公開関数名のケバブケースで、この2つだけが概念名で崩れていたため。姉妹の同型2ファイルは片方だけ直すと規則が中途半端なので両方揃えた。公開関数名は不変（apply=下書き反映・複数形=全targetループの意味が乗るため）、内部型エイリアスのみ関数名に合わせた（ApplyImageTagTargetsAcc・ApplyHelmTargetBranchTargetsAcc）。build-plans.ts のimport・docs/architecture.md・docs/glossary.md も追従。pnpm check（31ファイル333テスト、変化なし）通過。
+
+## T-095
+
+**タスク**: values.yaml のアンカーが存在しないケースを「読み取り時に即エラー」へ寄せ、`ImageTagUpdate.previousTagName` と `HelmTargetBranchUpdate.previousBranch` から `| undefined` を消す。
+
+## 背景（調査済みの事実）
+
+- `getValueAtAnchor()`（`src/lib/helm.ts:13`）が `undefined` を返すのは**アンカーが存在しないときだけ**。アンカーがあれば `String(node.value)` で必ず文字列になる。
+- ところが `stage-image-tag-updates.ts` の `stageImageTagUpdate()` は、`previousTagName` が `undefined` のときそのまま「差分あり」として同じアンカーへ `setValueAtAnchor()` を呼ぶ。`setValueAtAnchor()` はアンカーが無ければ例外を投げる（`src/lib/helm.ts:30`）。つまり **`previousTagName: undefined` を持つ `ImageTagUpdate` は生成される前に必ず例外になる**。`stage-helm-target-branch-updates.ts` の `previousBranch` もまったく同じ構造。
+- にもかかわらず、あり得ない分岐が3箇所で維持されている: 型（`src/types/types.ts:92`,`:98`）、MR本文の表示（`build-mr-content.ts:64`の`-`、`:97`の`(未設定)`）、テスト（`test/steps/apply-updates/*.test.ts` が `previousTagName: undefined` を手で組み立てている・`test/helpers.ts:60-68`）。
+- **CI側の検知は既にある**: `scripts/lint/verify-config/verify-config.ts:186` が `getValueAtAnchor(content, target.anchorName) === undefined` でアンカー不在を検出し、`pnpm lint:validate-config:remote`（`.gitlab-ci.yml` の `validate-config-remote` ジョブ、MR/push/手動で必ず実行）で報告する。よって「config/ 側のtypo」はマージ前に気付ける。実行時に残るのは「chartリポジトリ側の values.yaml からアンカーが消えた」ケースだけで、これは例外で落ちてよい（該当chartリポジトリが ERROR になり処理は継続する）。
+
+## やること
+
+- `src/lib/helm.ts` に「アンカーが見つからなければ例外を投げる」読み取り関数を足し、`stage-image-tag-updates.ts` / `stage-helm-target-branch-updates.ts` の読み取りをそちらに寄せる。**`getValueAtAnchor()`（undefinedを返す版）は残すこと**——`verify-config.ts` は1件目で止めず全問題を集める設計なので、例外ではなく `undefined` が必要。
+- `ImageTagUpdate.previousTagName: TagName` / `HelmTargetBranchUpdate.previousBranch: BranchName` に変える（`| undefined` を落とす）。
+- 連動して消える分岐を消す: `build-mr-content.ts` の `previousTagText` / `compareUrl` / `previousBranchText` の三項、`test/helpers.ts` の `previousTagName` 分岐、テストの `previousTagName: undefined` を使ったケース。
+- 新しい例外メッセージは `setValueAtAnchor()` の既存メッセージ（`values.yaml にアンカー "X" が見つかりません`）と揃え、どの valuesPath かが分かる情報を含めること。
+
+## 完了条件
+
+- `grep -rn "previousTagName\|previousBranch" src/ test/` に `undefined` を絡めた分岐が1件も残っていない。
+- `pnpm check` を通す。テスト件数は減ってよいが（あり得ないケースのテストが消えるため）、減った件数と理由を evidence に書く。
+- `git add` / `git commit` はしない。
+
+**difficulty**: sonnet
+
+**evidence**: lib/helm.ts に getRequiredValueAtAnchor()（アンカー不在で例外、メッセージに valuesPath を含む）を追加し、stage-image-tag-updates / stage-helm-target-branch-updates の読み取りを移した。getValueAtAnchor() は verify-config.ts が全問題を集める用途で残置。build-mr-content.ts の三項3つと test/helpers.ts の分岐が消えた。grep で previousTagName/previousBranch に undefined を絡めた分岐0件。pnpm check（31ファイル335テスト、ベースラインと同数）。到達不能だった「(未設定)」表示のテスト2件を削除し、getRequiredValueAtAnchor の正常系・例外系2件を追加して差し引きゼロ。
+
+## T-096
+
+**タスク**: パイプライン情報の取得を `build-plans` から `apply-updates` へ移し、`AppUpdatePlan.pipeline` を型から消す。
+
+## 背景（調査済みの事実）
+
+- `AppUpdatePlan.pipeline: PipelineInfo | undefined`（`src/types/types.ts:109`）が `undefined` になる理由が2つ混ざっている: (a) dryRun中はAPIコスト削減のため取得しない（`build-plans.ts:199-202` のコメントと三項）、(b) GitLab上に本当にパイプラインが無い／403（`gitlab.ts:191` の `getLatestPipelineForRef`）。読む側はどちらの `undefined` かを推測しなければならない。
+- **`pipeline` の唯一の利用箇所は `build-mr-content.ts:78`（MR本文の表の1列）**。そこへ至る経路は `applyUpdates()` → `applyUpdate()` → `collectMrEntries()` / `buildMrContent()` だけで、dryRun時は `buildPlan()`（`build-plans.ts:122`）でSKIPPEDになりこの経路に入らない。つまり (a) の分岐は「MR作成が確定した後に取れば不要になる」ものでしかない。
+- `collectMrEntries()`（`collect-mr-entries.ts`）は既に `gitlab` を受け取り `getProjectWebUrls()` でMR本文用の情報をまとめて解決している。`plan.app.projectId` と `plan.latestTag.name` も手元にあるので、パイプライン取得の置き場所としてここが素直。
+
+## やること
+
+- `getLatestPipelineForRef()` の呼び出しを `build-plans.ts` の `buildAppUpdatePlan()` から `apply-updates` 側（`collect-mr-entries.ts` が第一候補）へ移す。
+- `AppUpdatePlan` から `pipeline` フィールドを削除し、MR本文が必要とする形（`MrEntries`／`shared/types.ts`）に載せ替える。**(b) 由来の `| undefined` は残す**（GitLab上に本当に無いケースは実在し、`build-mr-content.ts:78` の `-` 表示はそのまま必要）。
+- 取得は `getProjectWebUrls()` と同様、MR本文に載るアプリの分だけまとめて行う。並列度は既存の書き方に合わせること（`utils/parallel.ts` の `mapWithConcurrency` など、周囲の流儀に従う）。
+- `build-plans.ts:199-200` の dryRun 用コメントは役目を終えるので削除する。`docs/architecture.md` の `build-plans` / `apply-updates` の責務の記述に `pipeline` の取得場所が書かれていれば追従する。
+
+## 完了条件
+
+- `grep -rn "getLatestPipelineForRef" src/` が `lib/gitlab/gitlab.ts` と `apply-updates/` 配下だけにヒットする。
+- `AppUpdatePlan` に `pipeline` が無い。
+- `pnpm check` を通す。テスト件数の増減があれば内訳を evidence に書く。
+- `git add` / `git commit` はしない。
+
+**difficulty**: sonnet
+
+**evidence**: getLatestPipelineForRef() の呼び出しを build-plans.ts の buildAppUpdatePlan() から collect-mr-entries.ts の collectMrEntries() へ移し、AppUpdatePlan.pipeline を削除して ImageTagEntry.pipeline に載せ替えた（GitLab上に無い/403 由来の | undefined は残置）。dryRun用コメントと三項も削除。grep で getLatestPipelineForRef は lib/gitlab/gitlab.ts と apply-updates/ 配下のみ。docs/architecture.md の collect-mr-entries.ts 責務行を追従。pnpm check（31ファイル334テスト、335から1件減）。減った1件は build-plans.test.ts の「dryRunのとき getLatestPipelineForRef を呼ばない」で、build-plans が呼ばなくなり検証対象が消滅したため削除（dryRunでSKIPPEDになる挙動は同ファイルの別テストで担保）。
+
+## T-097
+
+**タスク**: `EnvConfig.configPath` のデフォルト適用を `src/lib/env.ts` に寄せ、`string | undefined` を `string` にする。
+
+## 背景（調査済みの事実）
+
+- `EnvConfig.configPath: string | undefined`（`src/lib/env.ts:59`）は `loadOptionalEnv("CONFIG_PATH")` の結果をそのまま持っている。
+- 一方 `loadConfig()` は `const path = configPath ?? "config"`（`src/lib/config/config.ts:41`）でデフォルトを当てている。つまりデフォルト値は確定しているのに `undefined` が層をまたいで運ばれている。
+- 同じ `loadEnvConfig()` 内の `tagFormat`（`parseTagFormat()` が `?? DEFAULT_TAG_FORMAT`）や `concurrencyLimit`（`parseConcurrencyLimit()` が `?? "3"`）は **env.ts 側でデフォルトを当てている**。`configPath` だけ流儀が違う、揃え忘れ。
+
+## やること
+
+- `env.ts` 側でデフォルト `"config"` を当て、`EnvConfig.configPath: string` にする。`loadEnvConfig()` の他の項目と同じ書き方（専用の `parse*` 関数を置くか `?? "config"` で足りるか）は周囲に合わせて判断する。
+- `loadConfig(configPath?: string, ...)` 側の扱いを決める: `loadConfig()` は `scripts/lint/validate-config.ts` から**環境変数を経由せず**直接呼ばれており（引数省略あり・コマンドライン引数からのパス指定あり）、そちらでもデフォルトが必要。`loadConfig()` 側のデフォルトを残す／必須引数にして呼び出し側で当てる、のどちらでも良いが、**デフォルト値 `"config"` の定義が2箇所に散らないこと**（定数を1箇所に置いて共有するのが素直）。
+- `assertSafePath(path, "CONFIG_PATH")` の第2引数のメッセージが、デフォルト適用後も的確なままか確認する。
+
+## 完了条件
+
+- `EnvConfig.configPath` の型に `undefined` が無い。文字列 `"config"` がデフォルト値として2箇所以上にハードコードされていない。
+- `pnpm check` を通す（テスト件数は不変のはず。変わったら内訳を evidence に書く）。
+- `git add` / `git commit` はしない。
+
+**difficulty**: haiku
+
+**evidence**: lib/config/config.ts に DEFAULT_CONFIG_PATH を定義し、env.ts の configPath を string 化（?? DEFAULT_CONFIG_PATH）。loadConfig(path: string, ...) は省略可能引数をやめて必須にし、CLIから呼ぶ scripts/lint/validate-config.ts 側でデフォルトを当てる形にした（適用箇所＝入口2つ、定義は1箇所）。着手前は "config" が config.ts と validate-config.ts の2箇所にハードコードされており、grep '"config"' は定数定義の1件のみになった。pnpm check（31ファイル334テスト、不変）。haikuへの委譲がセッションのレート制限で落ちたためメインセッションが実行。
+
+## T-098
+
+**タスク**: 「値が無いかもしれない」の表現を `| undefined` に統一する（`?:` のオプショナルプロパティ記法をやめる）。
+
+## 背景（調査済みの事実）
+
+- `src/` 全体で「無いかもしれない」プロパティはほぼ `readonly x: T | undefined` で書かれている（`AppConfig.helmTargetBranch`、`EnvConfig.targetChart` / `targetClients`、`ImageTagUpdate.previousTagName`、`Anchors.helmChart` など）。
+- 例外が `ConfigTarget`（`src/lib/config/config.ts:24-25`）の `readonly chartDirName?: ChartDirName` / `readonly clients?: readonly TargetClient[]` だけ。**この1箇所だけ記法が違う**。
+- 2つの記法は「キー自体が無い」と「キーはあるが値が `undefined`」を区別するかどうかで意味が違い、混在していると読む側がその違いを毎回判断させられる。`?:` は書き手に明示を強制しない分、渡し忘れが型で見えない。
+
+## やること
+
+- `src/` 全体を `grep -n "readonly [a-zA-Z]*?:" src/**/*.ts` 相当で洗い、`?:` を使っているプロパティを `| undefined` に統一する（`ConfigTarget` 以外にもあれば同様に）。`loadConfig(configPath?: string, target: ConfigTarget = {})` のような**関数の省略可能な引数**は対象外（そちらは `?` が自然な用法）。ただし `target: ConfigTarget = {}` のデフォルト値は、プロパティを必須にすると `{}` が通らなくなるので、呼び出し側の書き方まで含めて成立させること。
+- 呼び出し元（`src/main.ts` が `targetChart` / `targetClients` を渡している箇所、`scripts/lint/validate-config.ts`）とテストを追従させる。
+- 統一した方針（`| undefined` に寄せる、関数引数の `?` は別扱い）を `docs/coding-standards.md` に1項目として追記する。
+
+## 完了条件
+
+- `src/` の型定義に `?:` のオプショナルプロパティが残っていない（関数引数の `?` は除く）。
+- `docs/coding-standards.md` に方針が1項目として書かれている。
+- `pnpm check` を通す。テスト件数は不変のはず（変わったら内訳を evidence に書く）。
+- `git add` / `git commit` はしない。
+
+## 追加: コーディング規約に `undefined` の基準を書く（ユーザー指示、2026-09-07）
+
+記法の統一だけでなく、**そもそも `undefined` をいつ許容していつ避けるか**の基準を
+`docs/coding-standards.md` に節として追加する。`CLAUDE.md`「コーディング規約・レビュー方針」の
+ルール一覧にも1行を足す（`docs/coding-standards.md` は理由と例外だけを書く場所で、ルール本体は
+CLAUDE.md側が正典、という既存の分担に従うこと）。
+
+書く内容は、`src/` 全体の `undefined` を棚卸しした結果（2026-09-07）に基づく次の基準:
+
+- **許容する**: 外部の世界の「無い」をそのまま写しているもの。GitLab APIの404（ブランチ・
+  ファイル・パイプラインが無い）、`Map.get()` の戻り値、環境変数の未設定、YAMLに該当アンカーが
+  無い、HTTPエラーからstatusが取れない、など。これらは要件を変えても消えないので、
+  `| undefined` で正直に表す。
+- **避ける**: プログラムの都合で生まれたもの。具体的には (a) 実行時には到達しないのに型に
+  残っている `undefined`（例: 直後の処理が必ず例外を投げるのに、その手前の値を
+  `| undefined` にしている）、(b) 1つの `undefined` に複数の意味が乗っているもの
+  （例: 「取得を省略した」と「本当に無い」の両方を表している）、(c) デフォルト値が
+  確定しているのに層をまたいで運ばれているもの。
+- **判断の順序**: `undefined` を型から消すことを目的にしない。**なぜ `undefined` が
+  生まれるのかを先に問い**、値の持ち主や取得のタイミングが正しくないなら**そちらを直す**。
+  構造が正しければ残る `undefined` は本物の情報なので消さない。
+- **記法**: 「無いかもしれない」プロパティは `readonly x: T | undefined` で書く
+  （このタスクの本体。関数の省略可能な引数の `?` は別扱い）。
+
+実例として参照してよい箇所: `src/utils/cache.ts` の `V extends {}`（「値としての `undefined`」を
+型で禁じている良い例）。実例を挙げる場合は**現在のコードに実在する箇所だけ**にし、
+T-095〜T-097・T-100 で解消される予定の箇所は「悪い例」として書かないこと（直った後に
+規約が古くなるため）。
+
+この節の追記により、完了条件に次を加える:
+
+- `docs/coding-standards.md` に `undefined` の節があり、上の「許容する/避ける/判断の順序/記法」
+  が読み取れること。`CLAUDE.md` のルール一覧にも1行あること。
+
+**difficulty**: sonnet
+
+**evidence**: src/ の ?: プロパティは ConfigTarget の2件だけで、readonly x: T | undefined に統一。loadConfig の既定値 {} は NO_TARGET 定数に置き換えた。docs/coding-standards.md に「undefined」節（記法＋許容する/避ける/判断の順序）を追加し、CLAUDE.md のルール一覧に1行。grep で src/ に残る ?: は utils/retry.ts のオプション引数の中身1箇所のみで、これは規約に例外として明記した（受け入れ時に、規約の引用が実コードと違っていた点も修正）。pnpm check（31ファイル334テスト、不変）。
+
+## T-099
+
+**タスク**: `branchToSync`（アプリの追跡ブランチ）がGitLab上に存在しない場合を、分かりやすいエラーで即座に落とす。
+
+## 背景（調査済みの事実）
+
+- `resolveLatestTag()`（`src/steps/build-plans/sub-steps/resolve-latest-tag.ts:47-48`）は `getBranchHeadSha(gitlab, app.projectId, app.branchToSync)` を呼ぶ。ブランチが無ければ `undefined` が返る（`gitlab.ts:57`、404フォールバック）。
+- `undefined` は `resolveTrackedHeadTagNames()`（`:85`）へ渡され、`tag.commitSha === headSha` が常に偽になるので**空集合**になる。その結果 `resolveLatestTag()` は「HEADにタグが無い」と解釈して `createTag(gitlab, app.projectId, newTag.name, app.branchToSync)`（`:70`）へ進み、**存在しないブランチにタグを作ろうとしてGitLab側の404で落ちる**。設定ミスが、原因の読み取りにくいエラーとして後段に出る。
+- **同じ「設定されたブランチが実在するか」を、Helmの向き先ブランチ側では事前検証している**（`stage-helm-target-branch-updates.ts:54` の `if (!(await branchExists(branchName)))` → 「向き先ブランチ "X" がchartリポジトリに見つかりません」という具体的なメッセージ）。扱いが非対称。
+- `pnpm lint:validate-config:remote`（`verify-config.ts`）は `config/` に書かれたブランチの実在をMR時点で検証しているので、typoはマージ前に気付ける。ここで直すのは**実行時に対象ブランチが消えていた場合**の落ち方。
+
+## やること
+
+- `resolveLatestTag()` で `headSha` が `undefined` のとき、その場で例外を投げる。メッセージは Helm 向き先ブランチ側の書き方に揃え、projectName・branchToSync が読み取れるものにする。
+- 例外の種類は `FatalError` **ではなく**通常の `Error`（設定ミスは該当chartリポジトリだけの問題なので、`steps/shared/step-outcome.ts` の方針どおり ERROR 記録のうえ他のchartリポジトリの処理は継続する）。`src/steps/` に `try`/`catch` を書かないルールは維持すること。
+- 例外にしたことで `resolveTrackedHeadTagNames()` の引数 `headSha: CommitSha | undefined` から `undefined` を落とせるか確認し、落とせるなら落とす（`:81` の「`headSha`が`undefined`のときは常に空集合になる」というJSDocも不要になる）。
+- テストを追加する: 追跡ブランチが存在しないとき、タグ作成APIが**呼ばれず**、そのchartリポジトリが ERROR になり他は処理継続すること（`test/steps/build-plans/` の既存テストの流儀に合わせ、`lib/gitlab/gitlab.js` をモックして `buildPlans()` 経由で検証する）。
+
+## 完了条件
+
+- 追跡ブランチ不在時に `createTag()` が呼ばれないことがテストで示されている。
+- `pnpm check` を通す。テスト件数の増分を evidence に書く。
+- `git add` / `git commit` はしない。
+
+**difficulty**: sonnet
+
+**evidence**: resolveLatestTag() で headSha が undefined のとき通常の Error を投げる（「追跡ブランチ "X" がプロジェクト "Y" に見つかりません」）。これで resolveTrackedHeadTagNames() の引数から | undefined を落とし、対応するJSDocの1文も削除。gitlab.ts の getBranchHeadSha() 戻り値の | undefined は「GitLabに無い」を表す層なので残置。テスト2件追加（ブランチ不在時に createTag が呼ばれずERROR／他のchartAndAppsは処理継続）。pnpm check（31ファイル336テスト、334から+2）。
+
+## T-100
+
+**タスク**: Helmの向き先ブランチを `AppConfig`（app単位）から `ChartAndApps`（client単位）へ移し、app単位への振り分けと、その後の重複排除の往復をまとめて無くす。
+
+## 背景（調査済みの事実）
+
+- `docs/glossary.md`「Helmの向き先ブランチ」および `chart-and-apps.ts` のJSDocのとおり、**向き先ブランチは「1client内のapps全体で共通」**。この前提は今後も変わらない（ユーザー確認済み、2026-09-07）。
+- ところが共通の値を app 単位の `AppConfig.helmTargetBranch: HelmTargetBranchConfig | undefined`（`src/types/types.ts`）に持たせているため、次の往復が生じている:
+  1. `resolveHelmTargetBranch()`（`src/lib/config/chart-and-apps.ts`）が `anchors.yaml` の `helm.chart[]` を、app 自身の `chart[].valuesPath` との一致で **app ごとに振り分ける**
+  2. その結果、同じ書き込み先（`valuesPath`+`anchorName`）が複数appの計画に現れる
+  3. `uniqueHelmTargetBranchUpdates()`（`src/steps/apply-updates/sub-steps/collect-mr-entries.ts`）が MR 本文のために **書き込み先単位で重複排除し直す**
+- `AppConfig.helmTargetBranch` の `| undefined` と、`build-plans.ts` の `buildAppUpdatePlan()` にある `app.helmTargetBranch ? ... : { draft, updates: [] }` の三項も、この配置から派生している。
+
+**このタスクの主目的は `undefined` を消すことではなく、1〜3 の往復を無くすこと。** 向き先ブランチが client 単位になれば「設定されていない」を表す `undefined` は `ChartAndApps` 側に1つだけ残るが、それは本物の情報なので残してよい（消そうとしないこと）。
+
+## やること
+
+- `HelmTargetBranchConfig` の持ち主を `AppConfig` から `ChartAndApps` へ移す。`chart-and-apps.ts` の `resolveHelmTargetBranch()` は app ごとの振り分け（`valuesPath` 一致でのフィルタ）をやめ、client 単位で1つの値を組み立てる形にする。
+- **検証は残す**: 「`branchToSync` と `helm.chart[]` は片方だけの指定を設定ミスとして例外にする」「`branchToSync` があるなら client 内の全app の全 `chart[].valuesPath` が `helm.chart[]` でカバーされている」の2つ（現行のエラーメッセージ2種＋カバレッジ検証）。後者は client 単位のほうが検証として自然になるので、メッセージも client 単位の言い回しに見直す。
+- `build-plans.ts`: 向き先ブランチの反映を `buildAppUpdatePlan()`（app ループの内側）から**ループの外**へ出し、chartAndApps あたり1回だけ実行する。`app.helmTargetBranch ? ... : ...` の三項は消える。`stage-helm-target-branch-updates.ts` は values.yaml の下書き（`ValuesYamlDraft`）を受け渡す形なので、**app ループとの順序関係を壊さないこと**（下書きは `readValuesYamlDraft` / `writeValuesYamlDraft` で引き継がれる。向き先ブランチの反映をイメージタグ反映の前後どちらに置くかを決め、理由を書く）。
+- `AppUpdatePlan.helmTargetBranchUpdates` の置き場所を決め直す。向き先ブランチの更新が app 単位でなくなるので、`ChartUpdateTarget` 側に持たせるのが素直。`collect-mr-entries.ts` の `uniqueHelmTargetBranchUpdates()` は**削除**し、`MrEntries.helmBranches`（`apply-updates/sub-steps/shared/types.ts`）へはそのまま渡す。`build-mr-content.ts` の向き先ブランチのセクションは表示内容を変えない。
+- `describe-plan.ts`（dryRun時とMR作成時のログ）が `plan.helmTargetBranchUpdates` を出しているので、移動先に合わせてログの出し方を決める（app単位のログに混ぜるのか、chartAndApps単位のログへ移すのか）。
+- ドキュメント追従: `docs/architecture.md`（`stage-helm-target-branch-updates.ts` と `collect-mr-entries.ts` の責務の行、重複排除の記述）、`docs/glossary.md`（「Helmの向き先ブランチ」「書き込み先」の項、カバレッジ検証の説明）。判断の記録を `docs/architecture.md`「コードからは読み取れない設計判断」に残す。
+
+## 完了条件
+
+- `uniqueHelmTargetBranchUpdates` が存在しない（`grep -rn "uniqueHelmTargetBranchUpdates" src/ test/` が0件）。
+- `AppConfig` に `helmTargetBranch` が無く、`build-plans.ts` から `app.helmTargetBranch` の三項が消えている。
+- 既存のMR本文が変わらないこと（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts` の期待値を、向き先ブランチのセクションについては**書き換えずに**通すこと。データの組み立て方だけを変える）。
+- `pnpm check` を通す。テスト件数の増減は内訳を evidence に書く。
+- `git add` / `git commit` はしない。
+
+**dependencies**: T-095, T-096
+
+**difficulty**: opus
+
+**evidence**: HelmTargetBranchConfig の持ち主を AppConfig から ChartAndApps へ移し、build-plans.ts の appループの外で1回だけ適用する形にした（適用順はイメージタグの後に固定、下書きに重ねる）。helmTargetBranchUpdates は AppUpdatePlan から ChartUpdateTarget へ移動。collect-mr-entries.ts の uniqueHelmTargetBranchUpdates() は削除（grep 0件）。verify-config.ts の向き先ブランチ検証も client 単位へ引き上げ、アプリ数だけ重複報告していた問題も解消（重複しないことのテストを追加）。docs/architecture.md に設計判断を記録、glossary.md も追従。pnpm check（31ファイル336テスト、不変）。
+
+## T-101
+
+**タスク**: 型の置き場所の基準を、実態に追いつかせたうえで**規約からたどり着ける形**にする。
+
+## 背景（調査済みの事実、2026-09-07）
+
+ユーザーの問題意識は「型がファイルの先頭にあったり `types/types.ts` にあったりで、明確で合理的な理由が無さそうに見える」。調査した結果、**基準は既に存在する**が、たどり着けず、かつ実態から少しずれている:
+
+- `docs/architecture.md`「### 型の置き場所」に**6行の表と3つの補足**が既にある。「利用箇所の数では決めない」「`types/` を型の物置にしない理由」「表の5行目と6行目が競合したら `shared/` を優先する」まで書かれている。
+- `CLAUDE.md`「アーキテクチャ概要」の**原則5**が「型の置き場所も同じ判断基準で決める（利用箇所の数では決めない）」と述べ、正典は `docs/architecture.md` としている。
+- `docs/coding-standards.md` は冒頭で「配置・分割・**型の置き場所**といった構成の規約は `docs/architecture.md` が正典」と**明示的に委譲している**。
+- つまり「ファイルの先頭に型がある」のは表の5行目（ステップ内部の作業用の型は、その型を生み出す関数と同じファイル）に従った結果で、無秩序ではない。**見つけられないことが問題**。
+
+## 決定事項（ユーザー合意済み、2026-09-07）
+
+**正典は `docs/architecture.md`「型の置き場所」のまま**。二重管理を避けるため、表と理由を `docs/coding-standards.md` へ書き写すことはしない。規約側からは**導線を張るだけ**にする。この点は決着済みなので蒸し返さないこと。
+
+## やること
+
+### 1. 表が実態をカバーしきれていない4点を埋める
+
+いずれも調査で実在を確認済み:
+
+- **`src/domain/` の行が無い**。T-093 で新設したディレクトリなのに、型の置き場所の表が更新されていない（現時点で `domain/` に型定義は無いが、置くとしたら何が該当するのかが書かれていない）。`domain/` の定義は同じ文書の「### `src/domain/`」節（「GitLab APIにも外部ファイル形式にも依存せず、ブランド型・ドメイン型にだけ依存する純粋な関数・定数」）に沿わせる。**ドメイン語彙の型は `types/types.ts`、`domain/` に置くのは何か**（あるいは「型は置かない」が答えなのか）を明確にすること。
+- **関数が引数として受け取る型がどの行にも当てはまらない**。`LabeledTarget`（`src/lib/config/validate.ts:74`、`validateNoDuplicateTargets()` の引数の形。呼び出し元は `chart-and-apps.ts`）は「その型を**生み出す**関数と同じファイル」（5行目）では説明できない。実際の配置は妥当なので、基準の側を言語化する。
+- **外部ファイル形式のスキーマから導出した型の扱いが無い**。`AnchorsApp`（`src/lib/config/schema.ts:77`、`z.infer<typeof AnchorsAppSchema>`）。2行目（技術・外部システムのインターフェース）で読めなくはないが、Zodスキーマからの導出という経路が表に出てこない。`docs/architecture.md`「型定義のフィールド名は…」節の「内部表現への詰め替えはZodスキーマの `.transform()` が担う」という既存の記述と噛み合わせること。
+- **2行目の例に `EnvConfig`（`src/lib/env.ts:56`）が挙がっていない**。`ConfigTarget`・`Anchors` と同じ扱いのはずで、例の列に揃っていない。
+
+### 2. 規約側から導線を張る
+
+`CLAUDE.md`「コーディング規約・レビュー方針」のルール一覧に、型の置き場所の項目を1行足す（現在この一覧に型の置き場所の項目は無く、原則5は「アーキテクチャ概要」節にしかない）。`docs/coding-standards.md` 冒頭の委譲の文はそのままでよいか、より見つけやすい書き方があるかを判断する。**同じ内容を2箇所に書かないこと。**
+
+### 3. 現状の型を基準と突き合わせる
+
+`src/` の型定義は17ファイル・約40件（`export type` / `type` / `export interface`）。埋めた基準に実際に従っているか全件突き合わせる。従っていないものが見つかったら、**このタスクでは動かさない**。別タスクとして登録できる形（どの型・現在の場所・あるべき場所・理由）で `develop/tasks.json` に起票するか、`docs/architecture.md` に「意図的な例外」として理由を書くかを選ぶ。**基準づくりと型の引っ越しを同じコミットに混ぜないこと**（混ぜると「規約に合わせて動かした」のか「動かしたいから規約をそう書いた」のか後から判別できなくなる）。
+
+## 完了条件
+
+- 型の置き場所の表が上記4点をカバーしており、`src/domain/` の行がある。
+- `CLAUDE.md` のコーディング規約のルール一覧から型の置き場所の基準へたどり着ける。**同じ内容が2箇所に書かれていない**（`docs/coding-standards.md` に表を書き写していない）。
+- 突き合わせ（3）の結果が、起票された別タスクか `docs/architecture.md` の例外記述のどちらかの形で残っている。
+- 表を拡張した理由が分かる形になっていること（`docs/architecture.md`「設計判断」への追記が必要かは判断に委ねる。表の行そのもので自明なら不要）。
+- ドキュメントのみの変更であっても `pnpm check` を通す（`format:check` があるため）。
+- `git add` / `git commit` はしない。
+
+## difficulty を opus にしている理由
+
+置き場所の判断（正典をどこにするか）は決着済みだが、**残る作業は既存の入念に議論された文書に新しい基準を接ぎ木すること**で、既存の3つの補足・「用途別の型エイリアスを作らない」「1つの語を2つの意味に使わない」等との整合を取る必要がある。加えて約40件の型の全件突き合わせと、違反を「例外として認める/別タスクにする」の仕分けが入る。
+
+**difficulty**: opus
+
+**evidence**: docs/architecture.md「型の置き場所」の表に4つの穴を補った: ParsedTag（1行目と5行目の競合＝語彙が先、src/domain/ に型が無い理由）・LabeledTarget（関数が引数として受け取る形も5行目）・AnchorsApp（z.infer由来はスキーマと同じファイル）・EnvConfig（2行目の例）。CLAUDE.mdのコーディング規約一覧には基準を書かず参照だけの1行を足した（原則5と二重にならないよう、当初書いた基準の再掲を撤回）。src/の型45件を全件突き合わせて違反0件で、その事実と「型を動かす前に表を読む」を設計判断に記録。pnpm check（31ファイル336テスト、不変）。
