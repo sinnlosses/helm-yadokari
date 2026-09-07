@@ -3,26 +3,17 @@ import { join } from "node:path"
 
 import { formatClientRef } from "../../domain/client-ref.js"
 import type {
-  AnchorTarget,
-  AppConfig,
-  BranchName,
   ChartAndApps,
   ChartDirName,
   ChartRepoConfig,
   Config,
-  HelmTargetBranchConfig,
-  ProjectName,
   TargetClient,
 } from "../../types/types.js"
 import { toChartDirName, toClientId, toTenantId } from "../../types/types.js"
 import { assertSafePath, listSubdirectories } from "../../utils/fs.js"
 import { parseYamlFile } from "../../utils/yaml.js"
-import { ChartYamlSchema, ConfigYamlSchema, loadAnchors } from "./schema.js"
-import {
-  validateNoDuplicateProjectIds,
-  validateNoDuplicateTargets,
-  validateProjectLinkage,
-} from "./validate.js"
+import { loadChartAndApps } from "./chart-and-apps.js"
+import { ChartYamlSchema } from "./schema.js"
 
 /**
  * 特定のchartディレクトリ・特定のtenantId/clientIdの組（複数可）に処理対象を絞り込む
@@ -74,7 +65,7 @@ export function loadConfig(configPath?: string, target: ConfigTarget = {}): Conf
     const chartYamlPath = join(chartDirPath, "chart.yaml")
     if (!existsSync(chartYamlPath)) return []
     const { chart } = parseYamlFile(chartYamlPath, ChartYamlSchema)
-    return loadClientChartAndApps(chartDirPath, toChartDirName(chartDir), chart, target)
+    return listClientChartAndApps(chartDirPath, toChartDirName(chartDir), chart, target)
   })
 
   if (isExplicitlyTargeted(target) && chartAndAppsList.length === 0) {
@@ -105,15 +96,13 @@ function clientDirExists(
 }
 
 /**
- * config.yaml は `<chartDir>/<tenantId>/<clientId>/config.yaml` の2階層固定で配置される。
- * 同じディレクトリの`anchors.yaml`とprojectId単位で結合し、両ファイル間の紐づけ矛盾
- * （`validateProjectLinkage()`）を検証する。tenantId/clientIdごとに独立した`ChartAndApps`を
- * 1件返す（MRを作成する単位に対応）。該当する`config.yaml`が存在しないtenant/client
- * ディレクトリからは`ChartAndApps`を作らない（空扱いのMR単位を作らないため）。
+ * 1つのchartディレクトリ配下の`<tenantId>/<clientId>/`を走査し、`target`で絞り込んだうえで
+ * 各ディレクトリを`loadChartAndApps()`に渡す。ここが持つのはディレクトリ構成の走査と
+ * 絞り込みだけで、設定ファイルの読み込み・結合は`chart-and-apps.ts`が持つ。
  */
-function loadClientChartAndApps(
+function listClientChartAndApps(
   chartDirPath: string,
-  chartDir: ChartDirName,
+  chartDirName: ChartDirName,
   chart: ChartRepoConfig,
   target: ConfigTarget,
 ): ChartAndApps[] {
@@ -127,63 +116,14 @@ function loadClientChartAndApps(
         !target.clients || target.clients.some((c) => c.tenantId === tenantId && c.clientId === id),
     )
     return clientIds.flatMap((clientId): ChartAndApps[] => {
-      const clientDirPath = join(tenantDirPath, clientId)
-      const configYamlPath = join(clientDirPath, "config.yaml")
-      const anchorsPath = join(clientDirPath, "anchors.yaml")
-      if (!existsSync(configYamlPath)) return []
-
-      const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
-      const anchors = loadAnchors(clientDirPath)
-      validateNoDuplicateProjectIds(configYamlPath, apps)
-      validateNoDuplicateProjectIds(anchorsPath, anchors.apps)
-      validateProjectLinkage(configYamlPath, anchorsPath, apps, anchors.apps)
-      validateNoDuplicateTargets(anchorsPath, [
-        ...anchors.apps.flatMap((anchorApp) =>
-          anchorApp.chart.map((anchorTarget) => ({
-            target: anchorTarget,
-            label: `app "${anchorApp.projectName}" の chart[]`,
-          })),
-        ),
-        ...(anchors.helmChart ?? []).map((anchorTarget) => ({
-          target: anchorTarget,
-          label: "helm.chart[]",
-        })),
-      ])
-
-      const anchorAppByProjectId = new Map(
-        anchors.apps.map((anchorApp) => [anchorApp.projectId, anchorApp]),
+      const chartAndApps = loadChartAndApps(
+        join(tenantDirPath, clientId),
+        chartDirName,
+        toTenantId(tenantId),
+        toClientId(clientId),
+        chart,
       )
-      const appConfigs: AppConfig[] = apps.map((app) => {
-        const anchorApp = anchorAppByProjectId.get(app.projectId)
-        if (anchorApp === undefined) {
-          throw new Error(
-            `internal error: validateProjectLinkage を通過したのに projectId ${app.projectId} が見つからない`,
-          )
-        }
-        const { chart: appChart } = anchorApp
-        return {
-          ...app,
-          imageTagTargets: appChart,
-          helmTargetBranch: resolveHelmTargetBranch(
-            configYamlPath,
-            anchorsPath,
-            helm?.branchToSync,
-            anchors.helmChart,
-            app.projectName,
-            appChart,
-          ),
-        }
-      })
-
-      return [
-        {
-          chartDirName: chartDir,
-          tenantId: toTenantId(tenantId),
-          clientId: toClientId(clientId),
-          chart,
-          apps: appConfigs,
-        },
-      ]
+      return chartAndApps ? [chartAndApps] : []
     })
   })
 }
@@ -191,49 +131,4 @@ function loadClientChartAndApps(
 /** `target` で明示的に絞り込みが指定されているか（`TARGET_CHART` / `TARGET_CLIENTS` のいずれか） */
 function isExplicitlyTargeted(target: ConfigTarget): boolean {
   return target.chartDirName !== undefined || target.clients !== undefined
-}
-
-/**
- * config.yamlの`helm.branchToSync`（書き込む値）とanchors.yamlの`helm.chart[]`
- * （書き込み先の`valuesPath`+`anchor`一覧）を、app単位の`HelmTargetBranchConfig`に振り分ける。
- * 振り分けは`helm.chart[].valuesPath`とapp自身の`chart[].valuesPath`の一致で行う（どのappの
- * values.yamlに書き込むかを、app側に専用フィールドを持たせず`valuesPath`だけで判定する）。
- * Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、
- * `branchToSync`が指定されている場合は、そのconfig.yaml配下の全アプリの全`chart[].valuesPath`が
- * `helm.chart[]`でカバーされている必要がある（1つでも漏れていれば、そのvaluesPathだけ
- * 更新対象から漏れてしまう設定ミスとして例外をスローする）。`branchToSync`と`helm.chart[]`は
- * 片方だけの指定も設定ミスとして例外をスローする
- */
-function resolveHelmTargetBranch(
-  configYamlPath: string,
-  anchorsPath: string,
-  branchToSync: BranchName | undefined,
-  helmChart: readonly AnchorTarget[] | undefined,
-  projectName: ProjectName,
-  imageTagTargets: readonly AnchorTarget[],
-): HelmTargetBranchConfig | undefined {
-  if (branchToSync === undefined && helmChart === undefined) return undefined
-  if (branchToSync === undefined) {
-    throw new Error(
-      `${anchorsPath}: helm.chart が指定されていますが、${configYamlPath} の helm.branchToSync がありません`,
-    )
-  }
-  if (helmChart === undefined) {
-    throw new Error(
-      `${configYamlPath}: helm.branchToSync が指定されていますが、${anchorsPath} の helm.chart がありません`,
-    )
-  }
-
-  const appValuesPaths = [...new Set(imageTagTargets.map((target) => target.valuesPath))]
-  const uncoveredValuesPaths = appValuesPaths.filter(
-    (valuesPath) => !helmChart.some((target) => target.valuesPath === valuesPath),
-  )
-  if (uncoveredValuesPaths.length > 0) {
-    throw new Error(
-      `${anchorsPath}: helm.branchToSync が指定されていますが、app "${projectName}" の valuesPath（${uncoveredValuesPaths.join(", ")}）が helm.chart[] に見つかりません（Helmの向き先ブランチはclient内の全appで共通のため、全appのvaluesPathを helm.chart[] に含めてください）`,
-    )
-  }
-
-  const targets = helmChart.filter((target) => appValuesPaths.includes(target.valuesPath))
-  return { branchName: branchToSync, targets }
 }

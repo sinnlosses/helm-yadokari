@@ -60,15 +60,16 @@
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
-| ファイル             | 責務                                                                                |
-| -------------------- | ----------------------------------------------------------------------------------- |
-| `gitlab/gitlab.ts`   | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ         |
-| `gitlab/web-url.ts`  | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                    |
-| `config/config.ts`   | 公開API `loadConfig()`。`config/` の2階層固定構成の走査と `ChartAndApps` の組み立て |
-| `config/schema.ts`   | 3つの設定ファイルのZodスキーマと `anchors.yaml` の読み込み                          |
-| `config/validate.ts` | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                            |
-| `helm.ts`            | `values.yaml` のYAMLアンカー位置の値の読み書き                                      |
-| `env.ts`             | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                |
+| ファイル                   | 責務                                                                                    |
+| -------------------------- | --------------------------------------------------------------------------------------- |
+| `gitlab/gitlab.ts`         | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ             |
+| `gitlab/web-url.ts`        | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                        |
+| `config/config.ts`         | 公開API `loadConfig()`。`config/` の2階層固定構成の走査と `target` による絞り込み       |
+| `config/chart-and-apps.ts` | 1つのclientディレクトリの `config.yaml` × `anchors.yaml` を結合し `ChartAndApps` にする |
+| `config/schema.ts`         | 3つの設定ファイルのZodスキーマと `anchors.yaml` の読み込み                              |
+| `config/validate.ts`       | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                                |
+| `helm.ts`                  | `values.yaml` のYAMLアンカー位置の値の読み書き                                          |
+| `env.ts`                   | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                    |
 
 `config/` のスキーマと検証ルールの仕様は `docs/requirements.md` 4.4節が正典（このファイルには
 書かない）。
@@ -147,6 +148,29 @@ GitLab APIにも外部ファイル形式にも依存せず、ブランド型・�
 この2行は競合しうる（`LatestTagResolution` は `resolveLatestTag()` が生み出す型だが
 `apply-image-tag-targets.ts` も使う）。そのときは **`shared/` 側を優先する** — サブステップ同士が
 互いをimportしないという原則の方が、型と生成関数の同居より優先度が高い。
+
+### 同じディレクトリの中で、1ファイルにまとめるか分けるか
+
+置き場所（どのディレクトリか）が決まったあと、そこで1ファイルにまとめるか分けるかは
+**行数でも関数の数でもなく「ファイル名が概念になっているか」で決める**（基準の一覧は
+CLAUDE.md「コーディング規約」を参照。ここには判断の実例だけを置く）。
+
+- **1公開関数だけのファイルは問題ない**: `timer.ts`・`describe-plan.ts`・`sequential.ts` は
+  いずれも公開関数1つだが、名前が関数名の言い換えではなく概念なので「次に何が入ってよいか」を
+  名前が決めてくれる。拡張しづらくなるのは関数が1つだからではなく、`helpers.ts` のように
+  置き場所を名前にしたときで、その場合は何が入ってよいか決められない
+- **`tag-format.ts`（140行）は分けない**: `TAG_FORMAT`のテンプレート表現という1つの理由で
+  全関数が一緒に書き換わり、`escapeRegExp()`/`compileTagPattern()` を複数の公開関数が
+  共有している。分けると非公開だったものを`export`に昇格させることになる
+- **`gitlab.ts`（230行）も分けない**: 公開関数は12個あるが「GitLab APIの薄いラッパー」という
+  1語彙で、`withRetry()`/`withNotFoundFallback()` を全員が共有している。行数だけを理由に
+  割ると、この共有が壊れる
+- **`config/config.ts`（239行）は分けた**: `loadConfig()`側の「ディレクトリ走査と`target`に
+  よる絞り込み」と、`chart-and-apps.ts`側の「`config.yaml`×`anchors.yaml`をprojectIdで結合して
+  `AppConfig`を組む」は変更理由が別（`TARGET_CHART`の仕様変更では後者を触らない）で、
+  非公開ヘルパーも2グループに割れていた
+- **`step-outcome.ts`から`describePlan()`を出した**: 責務が「処理結果の型**と**エラー方針**と**
+  ログ整形」になっており、「〜と〜」でしか説明できないファイルは分割のサイン
 
 ## コードからは読み取れない設計判断
 
@@ -298,7 +322,7 @@ GitLab APIにも外部ファイル形式にも依存せず、ブランド型・�
   - `ChartAndApps.chart`も**変えない**。型名`ChartAndApps`が示すとおり`.chart`と`.apps`の
     2つで対になっている
   - **wire formatは不変**: `anchors.yaml`のキーは`apps[].chart[]`のまま。詰め替えは
-    `lib/config/config.ts`が`anchorApp.chart`を`AppConfig.imageTagTargets`に写すところで行う
+    `lib/config/chart-and-apps.ts`が`anchorApp.chart`を`AppConfig.imageTagTargets`に写すところで行う
     （Zodの生の型`AnchorsApp.chart`も変えない）。設定ミスのエラーメッセージが出す
     `app "..." の chart[]` というラベルもYAMLキーを指すのでそのまま
 - **`resolveHelmTargetBranch()`は`config.ts`の非公開関数**: 一時は`config/`直下の独立
