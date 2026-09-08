@@ -111,13 +111,15 @@ Spec軸（`docs/requirements.md`）を参照。
 `.claude/skills/` に導入済み（一覧は毎セッションのスキル案内を参照）。`code-review` のみ、
 issueトラッカー連携を前提とする元の記述を未設定でも動くよう汎用化してある。
 
-このプロジェクト独自のスキルとして次の2つもある。
+このプロジェクト独自のスキルとして次の3つもある。
 
 - `next-task`: `develop/tasks.json` の未着手タスクを1件実行する。`/loop /next-task` で
   全件`done`になるまでの自動進行に使う
 - `plan-tasks`: `develop/direction.md` の指示をタスクに分解して `develop/tasks.json` に登録し、
   指示メモを `docs/history/direction.md` へ移す。**分解は方針決めを含むので委譲せず、
   `/loop` にも載せない**
+- `maintain-docs`: `docs/`（`history/` 以外）・`README.md`・`CLAUDE.md` を7つの検査にかけ、
+  実物とのズレ・重複・読みにくい構造を直す。正典を書き換えたあとの追随漏れを洗うのにも使う
 
 ## Git運用
 
