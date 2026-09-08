@@ -389,7 +389,19 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 
 ## 次にやること
 
-- **T-144・T-145 は完了**。残る `todo` は **T-146・T-147・T-148**。
+- **T-144・T-145 は完了**。残る `todo` は **T-146〜T-150**。
+- **T-149（TARGET_UNITS の説明文から実在しない具体名を外す、`opus`、依存なし）**。
+  `central` と `tenant1/client1` はどちらも**実在しない**（実物は `anchor-app`・
+  `tenant2/client1`・`tenant2/client2`）。`src/lib/env.ts`・`src/domain/config-unit.ts`・
+  `src/types/brand.ts`・`README.md`・`docs/requirements.md`・`docs/glossary.md`・
+  `.gitlab-ci.yml` に散在し、同じファイル内で `t1/c1` 系の抽象形と混在している。
+  **表記の決定にユーザー承認が要るので `/loop` には載せない。**
+  `config/` の実ディレクトリと `test/` のフィクスチャは対象外。
+- **T-150（ドキュメント整備の定型作業をスキル化、`opus`、依存なし）**。対象は `docs/` の
+  `history/` 以外・`README.md`・`CLAUDE.md`。145タスク中10件（T-028・T-029・T-031・T-039・
+  T-057・T-077・T-078・T-128・T-141・T-142）が同じ形だったことが根拠。
+  **最大の論点は「冗長・重複・読みにくい」を検査可能な形に落とすこと。**
+  `/loop` には載せない。
 - **T-147（progress.md のアーカイブ基準とトリガーを定義、`opus`、依存なし）**。この
   `progress.md` が455行・42.7KB まで肥大化し、うち376行が「完了したこと」になっている。
   規約（`docs/workflow.md`「progress.md の構成」の「このセッション分のみ」）はあるのに、
