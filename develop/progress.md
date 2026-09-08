@@ -2,8 +2,8 @@
 
 最終更新: 2026-09-08（**タグ形式の仕様を `/grilling` で再検討**し、semver廃止・`{time}` 必須化・
 `tagNaming`→`tagFormat`・用語統一を **T-144** として登録した。実装は未着手。
-その前に実施した定期メンテの棚卸し（T-136〜T-143）は全件完了済み。あわせて **T-126 を完了**し、
-`config/` の運用方針を決めて T-145・T-146 に分割した。
+その前に実施した定期メンテの棚卸し（T-136〜T-143）は全件完了済み。あわせて **T-126・T-145 も完了**し、
+`config/` の運用方針を決めて `config-test/` を `config/` に統合した（残るは T-146 のみ）。
 前回までの流れは下の「完了したこと」を参照）
 
 T-001〜T-125・T-127〜T-143 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
@@ -73,6 +73,13 @@ app単位スキップも無くなった。用語も「タグ命名規則」→�
 `git revert`は使わず手で削り、T-138/T-140/T-143の成果は温存した。
 **受け入れ時にメインが1点修正**: `architecture.md`の「型定義56件」が削除した型3件ぶん古いままだったので
 53件（`types.ts` 16・`brand.ts` 12・残り25）に更新した。
+
+**T-145 完了**（`sonnet`、委譲）。`config-test/` を `config/` へ `git mv` で統合し、設定ディレクトリを
+既定パス1つに一本化した。**`pnpm lint:validate-config` が位置引数なしで `3 設定ユニット, 5 apps` を
+検証するようになり**、CIの `validate-config-remote` が空ディレクトリを検証して通っていた状態も解消。
+`docs/smoke-test.md` から `CONFIG_PATH` が消え、`test/main.e2e.test.ts` は実ディレクトリとして
+`config` を読む。委譲先が tasks.json に無かった `docs/coding-standards.md`・`docs/architecture.md` の
+追随まで拾っていた（どちらも `config-test/` が別物である前提の記述だった）。テストは393件のまま。
 
 ユーザーの指示は3軸: (1) コードの冗長・誤り・規約違反・分かりにくさ、(2) 不要な／もっと
 シンプルにできるテスト、(3) `architecture.md`・`CLAUDE.md`・`README` 等のメンテ漏れ・冗長。
@@ -382,11 +389,7 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 
 ## 次にやること
 
-- **T-144 は完了**。残りは **T-145 → T-146** の順（`dependencies` で繋いである）。
-- **T-145（`config-test/` を `config/` に一本化、`sonnet`、T-144依存）**。ファイル移動と、
-  `docs/smoke-test.md` / `README.md` / `scripts/smoke/smoke-fixture.ts` / `test/main.e2e.test.ts:71` の
-  `config-test` 参照の追随。**T-144 が `config-test/` の5appに `tagFormat` を書き足しているので、
-  必ず T-144 の後に行う**。`/loop /next-task` に載せてよい。
+- **T-144・T-145 は完了**。残るは **T-146 のみ**。
 - **T-146（既定パスで定期実行を開始、`sonnet`、T-145依存）**。`DRY_RUN=true` の手動実行 →
   ログ確認 → pipeline schedule 作成（**平日 JST 9:00・`DRY_RUN` は載せない**）。
   **GitLab UI操作はユーザーが行う**ので `/loop` には載せない。CI/CD Variables は登録済みだが
@@ -407,12 +410,13 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   - ~~**T-143（`sonnet`）**~~ **完了**。棚卸し由来のタスクはこれで全件done。
 - **T-126（`config/` の運用方針、`opus`）は `/loop /next-task` に載せない**
   （`config/` への登録が本番の pipeline schedule の対象を変えるため、ユーザー承認が要る）。
-- **`config-test/` の構成が変わったので、次回の実機スモークは `docs/smoke-test.md` の手順1から
+- **設定の構成が変わったので、次回の実機スモークは `docs/smoke-test.md` の手順1から
   やり直す。** 旧ブランチ `feature/yadokari/tenant1/client1` がGitLab上に残っていれば
   `smoke-fixture.ts reset --apply` が拾って片付ける（`isFeatureBranch()` は接頭辞判定のみ）。
-  残っているのは**テスト用アクセストークンの失効**（ユーザー対応。下の「注意」参照）。
-- `scripts/lint/validate-config.ts` はディレクトリを**位置引数**で受け取る
-  （`pnpm lint:validate-config config-test`。`CONFIG_PATH` 環境変数では効かない）。
+  **統合後はスモークも定期実行も同じ `config/` を見るため、`CONFIG_PATH` の指定は不要**。
+  同じ固定ブランチを使うので、スモークと定期実行を同時に走らせないこと。
+- `scripts/lint/validate-config.ts` はディレクトリを**位置引数**で受け取る（`CONFIG_PATH`
+  環境変数では効かない）。統合後は既定の `config/` を見るので `pnpm lint:validate-config` だけでよい。
 - 新しいGitLab読み取りをキャッシュ機構に載せる手順と「載せてよいかの判断」は
   `docs/architecture.md`「GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で
   1つ持ち回る」節にある。
@@ -434,8 +438,10 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 
 ## 注意
 
-- `config/` には実運用の登録だけを置く（架空の設定例を置くとCIの `validate-config-remote` が
-  必ず失敗する）。記述例は `docs/requirements.md` 4.4節、実物に近いサンプルは `config-test/`
+- `config/` には実在の登録だけを置く（架空の設定例を置くとCIの `validate-config-remote` が
+  必ず失敗する）。定期実行の登録とスモーク用フィクスチャは**同居させる**（理由は
+  `config/README.md`）。記述例は `docs/requirements.md` 4.4節、実物は
+  `config/yadokari-smoke-test-chart/`
 - `<名前>/<名前>.ts` の形（`src/lib/` の gitlab / config、`scripts/lint/verify-config/`）で
   統一している。同名のファイルとディレクトリを並べない（T-092/T-094 の命名判断に効く）
 - `.claude/` と `config/` は `.prettierignore` で `oxfmt` の対象外にしている

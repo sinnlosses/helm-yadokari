@@ -1,7 +1,7 @@
 # 実機スモークテスト手順
 
 実際の GitLab に対して、CLIが期待どおり MR を作るかを確認するための手順。
-`config-test/` のフィクスチャと `scripts/smoke/smoke-fixture.ts` を使って**何度でも同じ検証を
+`config/` のフィクスチャと `scripts/smoke/smoke-fixture.ts` を使って**何度でも同じ検証を
 繰り返せる**ようにしてある。
 
 > **書き込みが発生する**（タグ・ブランチ・コミット・MRの作成）。必ず検証用の
@@ -35,7 +35,7 @@ chartリポジトリ側に必要なもの（`smoke-fixture.ts setup` が用意�
 - `charts/anchor-app/values.yaml` … アンカー1つ（`tenantId1client1AppsVersion`）。深さ1の
   設定ユニット `anchor-app` 用で、`smoke-fixture.ts setup` の対象外（初期値は手動で管理する）
 
-対応する設定は `config-test/yadokari-smoke-test-chart/` に置いてある（gitで管理）。
+対応する設定は `config/yadokari-smoke-test-chart/` に置いてある（gitで管理）。
 `tenant2/` 配下が深さ2の設定ユニット、`anchor-app/` が深さ1の設定ユニットで、
 同じchartリポジトリ配下に両方の深さが混在した状態になっている。`anchor-app`という
 ディレクトリ名はchartリポジトリ側の`charts/anchor-app/`に合わせたもので、アンカー名
@@ -58,7 +58,7 @@ MRに載る」ことの確認も兼ねている。
 
 それぞれ独立した固定ブランチ `feature/yadokari/tenant2/<unitPathの第2セグメント>` とMRになる。
 
-この2ユニットに加えて、`config-test/`には深さ1の設定ユニット`anchor-app`もある
+この2ユニットに加えて、`config/`には深さ1の設定ユニット`anchor-app`もある
 （`TARGET_UNITS`の絞り込みで対象外になる。深さ1・深さ2の混在自体は`pnpm lint:validate-config`
 と`test/main.e2e.test.ts`で確認済みなので、このシナリオでは既存のtenant2の2ユニットに
 焦点を絞っている）。
@@ -78,16 +78,16 @@ npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply
 npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
 
 # 3. 設定が壊れていないか確認（CIの validate-config-remote と同じチェック）
-pnpm lint:validate-config:remote config-test
+pnpm lint:validate-config:remote
 
 # 4. 何が起きるかだけ見る（書き込みなし）
-CONFIG_PATH=config-test TARGET_UNITS=tenant2/client1,tenant2/client2 DRY_RUN=true pnpm dev
+TARGET_UNITS=tenant2/client1,tenant2/client2 DRY_RUN=true pnpm dev
 
 # 5. 実際にMRを作る
-CONFIG_PATH=config-test TARGET_UNITS=tenant2/client1,tenant2/client2 pnpm dev
+TARGET_UNITS=tenant2/client1,tenant2/client2 pnpm dev
 ```
 
-`TARGET_UNITS` を外すと `config-test/` 配下の全設定ユニット（深さ1の`anchor-app`を含む）が
+`TARGET_UNITS` を外すと `config/` 配下の全設定ユニット（深さ1の`anchor-app`を含む）が
 対象になる。
 
 ## 期待する結果

@@ -90,7 +90,7 @@ pnpm install
 # 2. 設定ファイルを作成（config/ 配下の構成は下記「設定」を参照）
 mkdir -p config/my-team-chart/central   # 深さ2も可（例: config/my-team-chart/tenant1/client1）
 # → chart.yaml / config.yaml / anchors.yaml を作成する
-#   （記述例は docs/requirements.md 4.4節。config-test/ の実物も参考になる）
+#   （記述例は docs/requirements.md 4.4節。config/yadokari-smoke-test-chart/ の実物も参考になる）
 
 # 3. 動作確認（ブランチ作成・MR作成なし・安全）
 GITLAB_URL=https://gitlab.example.com \
@@ -192,7 +192,7 @@ chart構造のみを持ち、両者は `projectId` で対応付けます。Helm�
 
 各ファイルの記述例・フィールドの完全な仕様・制約（`config.yaml`/`anchors.yaml` 間の対応チェック、
 重複禁止など、設定ミスは実行前に例外で停止します）は [`docs/requirements.md`](./docs/requirements.md)
-の「4.4 アプリの登録・設定」が正典です（`config-test/` にも実物の記述例があります）。
+の「4.4 アプリの登録・設定」が正典です（`config/yadokari-smoke-test-chart/` にも実物の記述例があります）。
 
 ### 設定ファイルの検証
 
@@ -284,13 +284,12 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 ├── src/                    # steps/ → lib/ → utils/ の3層構成
 ├── test/                   # テスト（src/ と同じディレクトリ構成）
 ├── scripts/                # config/ の検証・スモークテスト用スクリプト
-├── config/                 # 対象アプリ設定（実運用の登録のみ。記述例は docs/requirements.md 4.4節）
-├── config-test/            # 実GitLabに対する手動スモークテスト用の設定（CONFIG_PATH=config-test。CIからは参照されない）
+├── config/                 # 対象アプリ設定（定期実行の登録 ＋ 手動スモークテスト用の設定を同居）
 ├── docs/                   # 要件定義・アーキテクチャ・用語集など
 ├── develop/                # 進捗管理（tasks.json・progress.md・direction.md）。機能には関係しない作業用
 ├── .gitlab-ci.yml          # CI ジョブ定義
 └── package.json
 ```
 
-`src/` 配下の各ファイルの責務・ディレクトリ構成の勘所（`config-test/`・`scripts/` の使い方を
+`src/` 配下の各ファイルの責務・ディレクトリ構成の勘所（`config/`・`scripts/` の使い方を
 含む）・既知の制約は [`docs/architecture.md`](./docs/architecture.md) を参照してください。

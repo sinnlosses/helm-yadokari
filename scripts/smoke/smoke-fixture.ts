@@ -17,7 +17,7 @@ import { toBranchName, toTagName } from "../../src/types/types.js"
 
 const HELM_TARGET_BRANCH = "release/2026-q1"
 
-// config-test/yadokari-smoke-test-chart/ の sample-qa-sprint / sample-develop-client に
+// config/yadokari-smoke-test-chart/ の sample-qa-sprint / sample-develop-client に
 // 書いてある tagFormat と同じ値。ここが食い違うとシードタグを最新判定できなくなる
 const SEED_TAG_FORMAT = validateTagFormat("{branch}-build-at-{date}-{time}")
 
@@ -54,7 +54,7 @@ const projectId = requireProjectId("SMOKE_CHART_PROJECT_ID", "スモークテス
  * values.yaml のシード値には「実在する、かつ最新より古いタグ」を使う。
  * `placeholder` のような架空の値だと、MR本文の旧タグリンク（`/-/tags/...`）と比較リンクが
  * 存在しないタグを指してしまい、初回のMRだけ壊れた見た目になるため。
- * projectIdは環境変数名が `config-test/yadokari-smoke-test-chart/` 側の projectName
+ * projectIdは環境変数名が `config/yadokari-smoke-test-chart/` 側の projectName
  * （`sample-qa-sprint` / `sample-develop-client`）と対応するように名付けている。
  * 実際に読むのは`setup`のときだけ（`reset`はchartリポジトリしか触らない）なので、
  * ここには環境変数名だけを持たせ、値の要求は`ensureSeedTags()`で行う。

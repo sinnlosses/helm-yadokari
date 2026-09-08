@@ -742,10 +742,10 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
 ## ディレクトリ構成の勘所
 
 - `config/`: 手書きの設定（対象アプリ登録）。`docs/requirements.md` 4.4節のスキーマに従う。
-  CIの`validate-config-remote`が実在チェックの対象にするため、**架空の設定例は置かない**
-- `config-test/`: 実GitLabインスタンスへの手動スモークテスト用フィクスチャ
-  （`CONFIG_PATH=config-test DRY_RUN=true` で使う）。`config/`と同じスキーマだが本番の登録対象
-  ではなく、CIからも参照されない
+  CIの`validate-config-remote`が実在チェックの対象にするため、**架空の設定例は置かない**。
+  定期実行の登録と、実GitLabインスタンスへの手動スモークテスト用フィクスチャ
+  （`docs/smoke-test.md`、`DRY_RUN=true`で使う）を同じディレクトリに同居させている
+  （分けない理由は`config/README.md`参照）
 - `scripts/lint/validate-config.ts`: `config/` の検証スクリプト。既定はローカルのYAMLのみ
   （`pnpm lint:validate-config`、認証不要なので`pnpm lint`に含まれる）、`--remote` を付けると
   GitLabへ問い合わせて projectId・ブランチ・valuesPath・アンカーの実在も検証する
@@ -753,7 +753,7 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
 - `scripts/lint/verify-config/`: 上記`--remote`の実装本体。`verify-config.ts`が実在チェック、
   `remote-cache.ts`がその問い合わせ（project/branch/values.yaml）のキャッシュ層。
   ここだけは`scripts/`配下でテストを持つため、`vitest.config.ts`のcoverage対象に含めている
-- `scripts/smoke/smoke-fixture.ts`: `config-test/` を使った実機スモークテストの前準備・後片付け
+- `scripts/smoke/smoke-fixture.ts`: `config/` を使った実機スモークテストの前準備・後片付け
   （`setup`/`reset`。既定はdry-runで、`--apply`を付けたときだけGitLabに書き込む）。
   手順とシナリオは `docs/smoke-test.md`
 - `dist/`: `pnpm build` の生成物。gitignore対象、手で編集しない

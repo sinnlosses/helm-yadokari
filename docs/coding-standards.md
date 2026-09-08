@@ -267,10 +267,10 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
   モックする境界だと「ラッパ関数に何を渡したか」までしか固定できず、`lib/gitlab/` 自身が
   組み立てるコミットのアクション・MRのパラメータが抜ける。dry-runのテストと同じ境界にすれば
   fakeの準備も `test/helpers.ts` に寄せて共有できる
-- **入口は `config-test/` の実ファイル**（実機スモークテストが使っているのと同じフィクスチャ）。
-  テスト専用の `config/` を別に作らない。副次的に、gitで管理している唯一の実設定が
-  `pnpm check` で守られる（`pnpm lint:validate-config` は既定の `config/` を見るが、中身は
-  `README.md` だけなので0件のまま通ってしまい、`config-test/` のスキーマ違反は誰も検知しない）
+- **入口は `config/` の実ファイル**（定期実行の登録・実機スモークテストが使っているのと同じ
+  フィクスチャ。テスト専用の設定ディレクトリを別に作らない）。副次的に、gitで管理している
+  実設定が `pnpm check` で守られる（`pnpm lint:validate-config` は既定の `config/` を見るため、
+  スキーマ違反はここでも検知できる）
 - **実GitLabへ書き込む自動テストは作らない**。projectId・ブランチ・アンカーの実在、MR本文の
   リンク先が実際に開けること、GitLab側の応答（`/pipelines/latest` がパイプライン0件のとき
   404でなく403を返す等）はモックでは守れない。自動e2eを足しても `docs/smoke-test.md` の

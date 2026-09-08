@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 //
 // fakeのGitLab準備は `test/main.dry-run.test.ts` の `makeFakeGitlab()` と
 // 共有できるか検討した。dry-runのfakeは単一appの状態（HEADにタグ無し・値が古い）を
-// 固定で返すだけで足りるのに対し、このテストは `config-test/` の実ファイル（複数
+// 固定で返すだけで足りるのに対し、このテストは `config/` の実ファイル（複数
 // projectId・複数valuesPath）ごとに応答を変える必要があり、形が違う。無理に寄せると
 // 両方が読みにくくなるため、`test/helpers.ts` には寄せずこのファイルに閉じ込める。
 vi.mock("@gitbeaker/rest")
@@ -28,7 +28,7 @@ import { run } from "../src/main.js"
 import { toAccessToken, toConfigUnitPath, toGitLabUrl } from "../src/types/types.js"
 import { makeHttpError } from "./helpers.js"
 
-/** `config-test/yadokari-smoke-test-chart/chart.yaml` の projectId */
+/** `config/yadokari-smoke-test-chart/chart.yaml` の projectId */
 const CHART_PROJECT_ID = 86061211
 /** `sample-qa-sprint`。3つの設定ユニット（`anchor-app`＋`tenant2/client1`＋`tenant2/client2`）
  * 共通で登録されているapp。追跡ブランチ`main`のHEADに現在値と異なる名前のタグが
@@ -68,7 +68,7 @@ const VALUES_YAML_TENANT2_CLIENT2 =
 const env: EnvConfig = {
   gitlabUrl: toGitLabUrl("https://gitlab.test"),
   accessToken: toAccessToken("test-token"),
-  configDirPath: "config-test",
+  configDirPath: "config",
   concurrencyLimit: 3,
   dryRun: false,
   targetChart: undefined,
@@ -76,7 +76,7 @@ const env: EnvConfig = {
 }
 
 /**
- * `config-test/` の実ファイルに合わせて応答するfake GitLab。projectId・パスで分岐させる
+ * `config/` の実ファイルに合わせて応答するfake GitLab。projectId・パスで分岐させる
  * 必要があるため `test/main.dry-run.test.ts` の単一app向けfakeとは形が異なる（寄せない
  * 理由はファイル冒頭のコメント参照）。
  */
@@ -148,7 +148,7 @@ function findMrCreateCall(
   return call
 }
 
-describe("run（config-test/ の実ファイルを読むe2e）", () => {
+describe("run（config/ の実ファイルを読むe2e）", () => {
   let gitlab: ReturnType<typeof makeFakeGitlab>
 
   beforeEach(() => {
@@ -159,7 +159,7 @@ describe("run（config-test/ の実ファイルを読むe2e）", () => {
     } as never)
   })
 
-  it("config-test/ 全件で、設定ユニット単位に1つずつMRが作られる（深さ1・深さ2が混在）", async () => {
+  it("config/ 全件で、設定ユニット単位に1つずつMRが作られる（深さ1・深さ2が混在）", async () => {
     await expect(run(env)).resolves.toBe("SUCCESS")
 
     expect(gitlab.MergeRequests.create).toHaveBeenCalledTimes(3)
