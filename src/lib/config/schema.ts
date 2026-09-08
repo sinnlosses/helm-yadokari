@@ -3,8 +3,8 @@ import { join } from "node:path"
 
 import { z } from "zod"
 
-import { DEFAULT_TAG_TEMPLATE, validateTagFormat } from "../../domain/tag-format.js"
-import type { AnchorTarget, TagNaming } from "../../types/types.js"
+import { validateTagFormat } from "../../domain/tag-format.js"
+import type { AnchorTarget } from "../../types/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -40,44 +40,34 @@ const AnchorTargetSchema = z
   .transform((v): AnchorTarget => ({ valuesPath: v.valuesPath, anchorName: v.anchor }))
 
 /**
- * `apps[].tagNaming`のZodスキーマ。`mode`を判別子にする判別共用体。テンプレート文字列
- * そのものの妥当性検証（プレースホルダの過不足）は`validateTagFormat()`に委ねる。
+ * `apps[].tagFormat`のZodスキーマ。既定値は持たせず必須にしているのは、ソースリポジトリごとに
+ * 実際のタグ形式が違い、既定に当てはまらないappを黙って取りこぼすより明示させるほうが安全なため。
+ * テンプレート文字列そのものの妥当性検証（プレースホルダの過不足）は`validateTagFormat()`に委ねる。
  */
-const TagNamingTemplateSchema = z.object({
-  mode: z.literal("template"),
-  template: z
-    .string()
-    .min(1, "template は空にできません")
-    .transform((raw, ctx) => {
-      try {
-        return validateTagFormat(raw)
-      } catch (error) {
-        ctx.addIssue({
-          code: "custom",
-          message: error instanceof Error ? error.message : String(error),
-        })
-        return z.NEVER
-      }
-    }),
-})
-
-/** `semver`モードは追加のフィールドを持たない（プレリリース除外などのオプションは設けない） */
-const TagNamingSemverSchema = z.object({ mode: z.literal("semver") })
-
-const TagNamingSchema = z.discriminatedUnion("mode", [
-  TagNamingTemplateSchema,
-  TagNamingSemverSchema,
-])
-
-/** `apps[].tagNaming`省略時の既定値。`docs/requirements.md` 4.1節・4.4節が正典 */
-const DEFAULT_TAG_NAMING: TagNaming = { mode: "template", template: DEFAULT_TAG_TEMPLATE }
+const TagFormatSchema = z
+  .string({
+    error:
+      "tagFormat は必須です。config.yaml の apps[] に、ソースリポジトリのタグ形式を " +
+      "{branch}/{date}/{time} で書いてください（例: '{branch}-build-at-{date}-{time}'）",
+  })
+  .transform((raw, ctx) => {
+    try {
+      return validateTagFormat(raw)
+    } catch (error) {
+      ctx.addIssue({
+        code: "custom",
+        message: error instanceof Error ? error.message : String(error),
+      })
+      return z.NEVER
+    }
+  })
 
 /** config.yaml側。運用値のみ（chart構造はanchors.yaml側が持つ） */
 const AppOperationalSchema = z.object({
   projectId: z.number().int().transform(toProjectId),
   projectName: z.string().min(1).transform(toProjectName),
   branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
-  tagNaming: TagNamingSchema.optional().transform((v) => v ?? DEFAULT_TAG_NAMING),
+  tagFormat: TagFormatSchema,
 })
 
 const HelmOperationalSchema = z.object({

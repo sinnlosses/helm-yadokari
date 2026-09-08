@@ -35,7 +35,7 @@ export function toCommitSha(s: string): CommitSha {
 }
 
 declare const tagFormatBrand: unique symbol
-/** タグ命名規則のテンプレート文字列（検証は `domain/tag-format.ts` の `validateTagFormat()`） */
+/** タグ形式のテンプレート文字列（検証は `domain/tag-format.ts` の `validateTagFormat()`） */
 export type TagFormat = string & { readonly [tagFormatBrand]: never }
 export function toTagFormat(s: string): TagFormat {
   return s as TagFormat

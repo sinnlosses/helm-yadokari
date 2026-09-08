@@ -1,4 +1,4 @@
-import type { AnchorTarget, ChartAndApps, ProjectId, ProjectName, TagNaming } from "../../types/types.js"
+import type { AnchorTarget, ChartAndApps, ProjectId, ProjectName, TagFormat } from "../../types/types.js"
 
 /**
  * `config.yaml` / `anchors.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス
@@ -50,30 +50,30 @@ export function validateProjectLinkage(
 }
 
 /**
- * 同じ`projectId`のappが複数の設定ユニットに登録されているとき、`tagNaming`が食い違って
- * いないか検証する。タグ命名規則はソースリポジトリ側の性質であって設定ユニットごとに
+ * 同じ`projectId`のappが複数の設定ユニットに登録されているとき、`tagFormat`が食い違って
+ * いないか検証する。タグ形式はソースリポジトリ側の性質であって設定ユニットごとに
  * 変わる値ではなく、食い違ったまま実行すると`createResolveLatestTags()`のキャッシュ
  * （キーは`projectId:branchToSync`）を通じて、同じアプリの最新タグが実行順序次第で
- * 違う規則で決まってしまう（詳細は`docs/architecture.md`のタグ命名規則の置き場所を扱う節）。
+ * 違う形式で決まってしまう（詳細は`docs/architecture.md`のタグ形式の置き場所を扱う節）。
  * `branchToSync`の食い違いは設定ユニット側の判断として正当なので検証しない。
  */
-export function validateTagNamingConsistency(chartAndAppsList: readonly ChartAndApps[]): void {
+export function validateTagFormatConsistency(chartAndAppsList: readonly ChartAndApps[]): void {
   const seen = new Map<
     ProjectId,
-    { readonly projectName: ProjectName; readonly tagNaming: TagNaming; readonly location: string }
+    { readonly projectName: ProjectName; readonly tagFormat: TagFormat; readonly location: string }
   >()
   for (const chartAndApps of chartAndAppsList) {
     const location = `${chartAndApps.chartDirName}/${chartAndApps.unitPath}`
     for (const app of chartAndApps.apps) {
       const prior = seen.get(app.projectId)
       if (prior === undefined) {
-        seen.set(app.projectId, { projectName: app.projectName, tagNaming: app.tagNaming, location })
+        seen.set(app.projectId, { projectName: app.projectName, tagFormat: app.tagFormat, location })
         continue
       }
-      if (JSON.stringify(prior.tagNaming) !== JSON.stringify(app.tagNaming)) {
+      if (prior.tagFormat !== app.tagFormat) {
         throw new Error(
-          `app "${app.projectName}"（projectId: ${app.projectId}）の tagNaming が設定ユニット間で` +
-            `食い違っています（${prior.location} と ${location}）。タグ命名規則はソースリポジトリ` +
+          `app "${app.projectName}"（projectId: ${app.projectId}）の tagFormat が設定ユニット間で` +
+            `食い違っています（${prior.location} と ${location}）。タグ形式はソースリポジトリ` +
             `側の性質のため、どの設定ユニットに登録する場合も同じ値にしてください`,
         )
       }

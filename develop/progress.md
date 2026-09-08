@@ -64,6 +64,16 @@ named import 2箇所を昇順に。**作業中に既存テストの穴が見つ�
 （登録前からCIが赤になるほうが害が大きい）。理由は `config/README.md` に記録し、
 実作業は T-145（一本化）・T-146（実機投入）に分割した。
 
+**T-144 完了**（`opus`、委譲）。タグ形式からsemverと`{time}`任意化を撤回し、`apps[].tagNaming`
+（`mode`判別共用体）を`apps[].tagFormat`（文字列・**必須**）にした。`ParsedTag.orderKey`は
+`builtAt: Date`に戻り、`TagNaming`/`TagOrderKey`/`CreatableTagNaming`/`canCreateTag()`/
+`compareTags()`(export)/`DEFAULT_TAG_TEMPLATE`が消滅。「最新タグが決まらない」undefined経路と
+app単位スキップも無くなった。用語も「タグ命名規則」→「**タグ形式**」に統一。
+**26ファイル +408/-1124行、テストは424→393件（-31）**。削る方向の変更なのでテストが減るのが正しい。
+`git revert`は使わず手で削り、T-138/T-140/T-143の成果は温存した。
+**受け入れ時にメインが1点修正**: `architecture.md`の「型定義56件」が削除した型3件ぶん古いままだったので
+53件（`types.ts` 16・`brand.ts` 12・残り25）に更新した。
+
 ユーザーの指示は3軸: (1) コードの冗長・誤り・規約違反・分かりにくさ、(2) 不要な／もっと
 シンプルにできるテスト、(3) `architecture.md`・`CLAUDE.md`・`README` 等のメンテ漏れ・冗長。
 `src/`（35ファイル）・`scripts/`・`test/`（36ファイル418テスト）・`docs/`・`README.md`・
@@ -372,7 +382,7 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 
 ## 次にやること
 
-- **順序は T-144 → T-145 → T-146**（この順に `dependencies` で繋いである）。
+- **T-144 は完了**。残りは **T-145 → T-146** の順（`dependencies` で繋いである）。
 - **T-145（`config-test/` を `config/` に一本化、`sonnet`、T-144依存）**。ファイル移動と、
   `docs/smoke-test.md` / `README.md` / `scripts/smoke/smoke-fixture.ts` / `test/main.e2e.test.ts:71` の
   `config-test` 参照の追随。**T-144 が `config-test/` の5appに `tagFormat` を書き足しているので、
@@ -383,14 +393,6 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   **schedule は未作成**（2026-09-08時点）。
   - テスト用アクセストークンは**失効させず本番用として継続利用する**方針に決まった。
     下の「注意」の記述を更新して宿題を閉じるのは T-146 の完了条件に含めてある。
-- **T-144（タグ形式の仕様の単純化、`opus`）が最優先**。2026-09-08 の `/grilling` で合意した設計を
-  1タスクにまとめたもの。semverモードを廃止し、`{time}` を必須に戻し、`config.yaml` の
-  `apps[].tagNaming`（`mode` 判別共用体）を `apps[].tagFormat`（文字列・必須）にし、あわせて
-  用語を「タグ命名規則」→「タグ形式」に統一する。**きっかけは「実物のタグは
-  `{branch}-build-at-{date}-{time}` と `{date}-{time}-{branch}` の2パターンだけで、どちらも
-  3プレースホルダ全部入り」だと確定したこと**（semverも `{time}` なしも予定にすら無い）。
-  `git revert` は使わない（T-134 の後に T-138・T-140・T-143 が同じファイルを触っているため）。
-  `/loop /next-task` に載せてよい。
 - **定期メンテで登録した T-136〜T-143 は全件完了**（洗い出しの中身は上の「完了したこと」）。
   残る `todo` は **T-126 と T-144** で、T-126 はユーザー承認が要るのでループには載せない。
   - ~~**T-136（`sonnet`）**~~ **完了**。残った `client` はパス例と実フィクスチャ名のみ。

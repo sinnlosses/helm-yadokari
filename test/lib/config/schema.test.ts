@@ -25,7 +25,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      'apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: ""\n',
+      'apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: ""\n    tagFormat: "{branch}-build-at-{date}-{time}"\n',
     )
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
@@ -36,7 +36,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart: []\n",
@@ -51,7 +51,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - anchor: appVersion\n",
@@ -66,7 +66,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n",
@@ -76,120 +76,46 @@ describe("loadConfig（スキーマ検証エラー）", () => {
   })
 })
 
-describe("loadConfig（apps[].tagNaming）", () => {
+describe("loadConfig（apps[].tagFormat）", () => {
   const CHART_YAML =
     "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n"
   const ANCHORS_YAML =
     "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n"
+  const APP_YAML = "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n"
 
-  it("省略時は mode: template の既定テンプレートになる", () => {
+  it("指定したタグ形式がそのままAppConfigまで届く", () => {
     dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+    dir.writeConfigYaml(
+      "teamA-chart",
+      "tenant1/client1",
+      `${APP_YAML}    tagFormat: '{date}-{time}-{branch}'\n`,
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
 
     const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.apps[0]?.tagNaming).toEqual({
-      mode: "template",
-      template: "{branch}-build-at-{date}-{time}",
-    })
+    expect(chartAndAppsList[0]?.apps[0]?.tagFormat).toBe("{date}-{time}-{branch}")
   })
 
-  it("指定したテンプレートがそのままAppConfigまで届く", () => {
+  it("省略したとき例外をスローする", () => {
     dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
-        "    tagNaming:\n      mode: template\n      template: '{date}-{time}-{branch}'\n",
-    )
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", APP_YAML)
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.apps[0]?.tagNaming).toEqual({
-      mode: "template",
-      template: "{date}-{time}-{branch}",
-    })
+    expect(() => loadConfig(dir.path)).toThrow("tagFormat は必須です")
   })
 
-  it("templateに{branch}を含まないとき例外をスローする", () => {
-    dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
-        "    tagNaming:\n      mode: template\n      template: '{date}-{time}'\n",
-    )
-    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
+  it.each(["{date}-{time}", "{branch}-{date}", "{branch}", "{time}", "{date}"])(
+    "プレースホルダが足りないフォーマット %s は例外をスローする",
+    (tagFormat) => {
+      dir.writeChartYaml("teamA-chart", CHART_YAML)
+      dir.writeConfigYaml(
+        "teamA-chart",
+        "tenant1/client1",
+        `${APP_YAML}    tagFormat: '${tagFormat}'\n`,
+      )
+      dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
 
-    expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
-  })
-
-  it("mode: semver は追加フィールド無しでAppConfigまで届く", () => {
-    dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
-        "    tagNaming:\n      mode: semver\n",
-    )
-    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
-
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.apps[0]?.tagNaming).toEqual({ mode: "semver" })
-  })
-
-  it("{time} を含まないテンプレートを受け入れる", () => {
-    dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
-        "    tagNaming:\n      mode: template\n      template: '{branch}-{date}'\n",
-    )
-    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
-
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.apps[0]?.tagNaming).toEqual({
-      mode: "template",
-      template: "{branch}-{date}",
-    })
-  })
-
-  it("templateが{branch}だけのとき例外をスローする", () => {
-    dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
-        "    tagNaming:\n      mode: template\n      template: '{branch}'\n",
-    )
-    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
-
-    expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
-  })
-
-  it("templateが{time}だけのとき例外をスローする", () => {
-    dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
-        "    tagNaming:\n      mode: template\n      template: '{time}'\n",
-    )
-    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
-
-    expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
-  })
-
-  it("templateが{date}だけのとき例外をスローする", () => {
-    dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
-        "    tagNaming:\n      mode: template\n      template: '{date}'\n",
-    )
-    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
-
-    expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
-  })
-
-  it("未知のmodeを指定すると例外をスローする", () => {
-    dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
-        "    tagNaming:\n      mode: yolo\n",
-    )
-    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
-
-    expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
-  })
+      expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
+    },
+  )
 })

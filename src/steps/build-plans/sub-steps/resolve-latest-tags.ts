@@ -1,9 +1,4 @@
-import {
-  buildNewTag,
-  canCreateTag,
-  findLatestParsedTag,
-  parseTag,
-} from "../../../domain/tag-format.js"
+import { buildNewTag, findLatestParsedTag, parseTag } from "../../../domain/tag-format.js"
 import {
   type GitlabClient,
   createTag,
@@ -14,9 +9,9 @@ import type {
   AppConfig,
   BranchName,
   CommitSha,
+  TagFormat,
   TagInfo,
   TagName,
-  TagNaming,
 } from "../../../types/types.js"
 import { getOrFetchShared } from "../../../utils/cache.js"
 import { logger } from "../../../utils/logger.js"
@@ -64,14 +59,8 @@ export function createResolveLatestTags(gitlab: GitlabClient, dryRun: boolean): 
 /**
  * 1アプリ分の、追跡ブランチ由来の最新タグを判定する。追跡ブランチの現在のHEADコミットを指すタグが
  * 1件も無い場合は、このツール自身がHEADコミットに新しいタグを作成し、それを最新タグとして
- * 扱う（dryRun のときは実際の作成はスキップし、作成予定のタグ名だけを使う）。タグの命名規則は
- * `app.tagNaming`（`config.yaml`の`apps[].tagNaming`由来）に従う。
- *
- * タグを自動作成できない命名規則（`semver`モード、`{time}`を含まないテンプレート）では、
- * HEADにタグが無くても作成せず、最新タグが「決まらない」（`tag`が`undefined`）まま返して
- * 警告を出す。生成できる名前が秒単位で一意にならないうえ、リリース時にだけタグを打つ運用では
- * 「HEADにまだタグが無い」は正常な状態で、定期実行のたびに同じ設定ユニットの他のappまで
- * 巻き添えにする理由がないため（`stage-image-tag-updates.ts`がそのappだけ飛ばす）。
+ * 扱う（dryRun のときは実際の作成はスキップし、作成予定のタグ名だけを使う）。タグ形式は
+ * `app.tagFormat`（`config.yaml`の`apps[].tagFormat`由来）に従う。
  *
  * このツールの目的は「追跡ブランチの最新コミットの中身をデプロイさせること」なので、
  * 「タグ名が最も新しいものを選んでからHEADと比較する」のではなく、**HEADを指すタグを
@@ -79,9 +68,9 @@ export function createResolveLatestTags(gitlab: GitlabClient, dryRun: boolean): 
  * 指すより新しい名前のタグがあるせいで無駄な新規タグを作ってしまう問題を避けられる。
  *
  * 追跡ブランチを切り替えた場合も特別扱いはしない。切り替え先のHEADにタグがあればそれを
- * 再利用する。`template`モードではタグ名に`{branch}`が必ず含まれるため、そのタグを
- * `values.yaml`に書けば追跡先が変わったことは名前から読み取れる。「切り替えを明示するため」
- * だけに新しいタグを作る必要はない。
+ * 再利用する。タグ名には`{branch}`が必ず含まれるため、そのタグを`values.yaml`に書けば
+ * 追跡先が変わったことは名前から読み取れる。「切り替えを明示するため」だけに新しいタグを
+ * 作る必要はない。
  *
  * あわせて`trackedHeadTagNames`（values.yamlの現在値が追跡ブランチのHEADを指すタグかどうかの
  * 判定に使う集合）を返す。現在値がこの集合に含まれるなら、より新しい名前のタグがあっても
@@ -106,34 +95,21 @@ async function resolveLatestTag(
     tags,
     headSha,
     app.branchToSync,
-    app.tagNaming,
+    app.tagFormat,
   )
 
   // HEADを指すタグはどれも同じコミットを指すため中身は同じだが、返す値を一意に決める
-  // ためだけに、順序キーが最大のものを選ぶ（決定性のための規則）。
+  // ためだけに、打刻日時が最も新しいものを選ぶ（決定性のための規則）。
   const latestAtHead = findLatestParsedTag(
     [...trackedHeadTagNames],
     app.branchToSync,
-    app.tagNaming,
+    app.tagFormat,
   )
   if (latestAtHead) {
     return { tag: latestAtHead, trackedHeadTagNames }
   }
 
-  if (!canCreateTag(app.tagNaming)) {
-    logger.warn({
-      event: "skip_app",
-      projectName: app.projectName,
-      branch: app.branchToSync,
-      result: "SKIPPED",
-      reason: "no_tag_at_branch_head",
-      tagNamingMode: app.tagNaming.mode,
-      detail: "タグを自動作成しない命名規則のため、HEADにタグが打たれるまで更新しません",
-    })
-    return { tag: undefined, trackedHeadTagNames }
-  }
-
-  const newTag = buildNewTag(app.branchToSync, new Date(), app.tagNaming)
+  const newTag = buildNewTag(app.branchToSync, new Date(), app.tagFormat)
   if (!dryRun) {
     await createTag(gitlab, app.projectId, newTag.name, app.branchToSync)
   }
@@ -149,25 +125,21 @@ async function resolveLatestTag(
 }
 
 /**
- * 「現在の追跡ブランチ由来で、かつ`headSha`と同じコミットを指すタグ名」の集合を組み立てる。
- * 「追跡ブランチ由来」の判定はモードによって違い、その差は`parseTag()`が吸収する。
- * `template`モードは`branch`とテンプレートでパースできること、`semver`モードはタグ名に
- * ブランチ名が現れないためsemverとして読めることだけを見る（HEADを指していること自体が
- * 由来の判定になる）。
- * `template`モードで追跡ブランチを切り替えた場合、切り替え前のタグ名は現在の`branch`では
- * パースできないためこの集合には含まれない。結果として、HEADと同じコミットを指していても
- * 更新をスキップしない。
+ * 「現在の追跡ブランチ由来（＝`branch`と`format`でパースできる）で、かつ`headSha`と同じ
+ * コミットを指すタグ名」の集合を組み立てる。追跡ブランチを切り替えた場合、切り替え前の
+ * タグ名は現在の`branch`ではパースできないためこの集合には含まれない。結果として、HEADと
+ * 同じコミットを指していても更新をスキップしない。
  */
 function resolveTrackedHeadTagNames(
   tags: readonly TagInfo[],
   headSha: CommitSha,
   branch: BranchName,
-  tagNaming: TagNaming,
+  format: TagFormat,
 ): ReadonlySet<TagName> {
   return new Set(
     tags
       .filter(
-        (tag) => tag.commitSha === headSha && parseTag(tag.name, branch, tagNaming) !== undefined,
+        (tag) => tag.commitSha === headSha && parseTag(tag.name, branch, format) !== undefined,
       )
       .map((tag) => tag.name),
   )

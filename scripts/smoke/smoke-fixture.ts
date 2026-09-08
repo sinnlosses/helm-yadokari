@@ -1,13 +1,7 @@
 import { isFeatureBranch } from "../../src/domain/feature-branch.js"
-import {
-  DEFAULT_TAG_TEMPLATE,
-  compareTags,
-  findLatestParsedTag,
-  parseTag,
-} from "../../src/domain/tag-format.js"
+import { findLatestParsedTag, parseTag, validateTagFormat } from "../../src/domain/tag-format.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
-import type { TagNaming } from "../../src/types/types.js"
 import { toBranchName, toTagName } from "../../src/types/types.js"
 
 // 実機スモークテスト（docs/smoke-test.md）用のフィクスチャ操作スクリプト。
@@ -22,6 +16,10 @@ import { toBranchName, toTagName } from "../../src/types/types.js"
 // SMOKE_QA_SPRINT_PROJECT_ID / SMOKE_DEVELOP_CLIENT_PROJECT_ID）で明示する。
 
 const HELM_TARGET_BRANCH = "release/2026-q1"
+
+// config-test/yadokari-smoke-test-chart/ の sample-qa-sprint / sample-develop-client に
+// 書いてある tagFormat と同じ値。ここが食い違うとシードタグを最新判定できなくなる
+const SEED_TAG_FORMAT = validateTagFormat("{branch}-build-at-{date}-{time}")
 
 /**
  * 環境変数からprojectIdを読み取る。未設定・非整数の場合は理由を出して即終了する。
@@ -105,13 +103,10 @@ async function ensureSeedTags(): Promise<void> {
       if (apply) await gitlab.Tags.create(sourceProjectId, tag, branch)
     }
     const branchName = toBranchName(branch)
-    // config-test/ 側の sample-qa-sprint / sample-develop-client は tagNaming を省略しており
-    // 既定（DEFAULT_TAG_TEMPLATE の template モード）に従うため、ここでも同じ既定値を直接使う
-    const naming: TagNaming = { mode: "template", template: DEFAULT_TAG_TEMPLATE }
-    const seedTag = parseTag(toTagName(tag), branchName, naming)
-    const latestTag = findLatestParsedTag(names.map(toTagName), branchName, naming)
+    const seedTag = parseTag(toTagName(tag), branchName, SEED_TAG_FORMAT)
+    const latestTag = findLatestParsedTag(names.map(toTagName), branchName, SEED_TAG_FORMAT)
     const hasNewerTag =
-      seedTag !== undefined && latestTag !== undefined && compareTags(latestTag, seedTag) > 0
+      seedTag !== undefined && latestTag !== undefined && latestTag.builtAt > seedTag.builtAt
     if (!hasNewerTag) {
       console.log(
         `  ⚠ project ${sourceProjectId} に ${tag} より新しいタグがありません。` +

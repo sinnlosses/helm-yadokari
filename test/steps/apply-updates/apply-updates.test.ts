@@ -35,7 +35,7 @@ const MR_CONTENT = {
 const NEW_TAG = {
   name: toTagName("main-build-at-20260101-000000"),
   branchName: toBranchName("main"),
-  orderKey: [Date.UTC(2026, 0, 1)],
+  builtAt: new Date(Date.UTC(2026, 0, 1)),
 }
 
 function makeTarget(): ChartUpdateTarget {

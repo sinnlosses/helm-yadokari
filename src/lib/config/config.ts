@@ -8,7 +8,7 @@ import { assertSafePath, listSubdirectories } from "../../utils/fs.js"
 import { parseYamlFile } from "../../utils/yaml.js"
 import { loadChartAndApps } from "./chart-and-apps.js"
 import { ChartYamlSchema } from "./schema.js"
-import { validateTagNamingConsistency } from "./validate.js"
+import { validateTagFormatConsistency } from "./validate.js"
 
 /** `CONFIG_PATH`・コマンドライン引数のどちらも省略されたときに読む設定ディレクトリ */
 export const DEFAULT_CONFIG_DIR_PATH = "config"
@@ -48,8 +48,8 @@ type UnitSegments = readonly string[]
  * エラーにしない）。設定ユニットごとに独立した`ChartAndApps`（MRを作成する単位）を返すため、
  * 1つのchartディレクトリに複数の設定ユニットがあれば`chartAndAppsList`には複数件が並ぶ。
  * 組み立てた`chartAndAppsList`全体に対しては、同じ`projectId`のappが複数の設定ユニットに
- * またがって登録されているとき`tagNaming`が食い違っていないかも検証する
- * （`validateTagNamingConsistency()`。設定ユニット単位の検証では検出できないため）。
+ * またがって登録されているとき`tagFormat`が食い違っていないかも検証する
+ * （`validateTagFormatConsistency()`。設定ユニット単位の検証では検出できないため）。
  */
 export function loadConfig(configDirPath: string, target: ConfigTarget = NO_TARGET): Config {
   assertSafePath(configDirPath, "CONFIG_PATH")
@@ -89,7 +89,7 @@ export function loadConfig(configDirPath: string, target: ConfigTarget = NO_TARG
   const chartAndAppsList = chartUnitsList.flatMap((chartUnits) =>
     listUnitChartAndApps(chartUnits, target.units),
   )
-  validateTagNamingConsistency(chartAndAppsList)
+  validateTagFormatConsistency(chartAndAppsList)
 
   if (isExplicitlyTargeted(target) && chartAndAppsList.length === 0) {
     throw new Error(

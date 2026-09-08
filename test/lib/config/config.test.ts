@@ -45,6 +45,7 @@ apps:
   - projectId: 1
     projectName: my-app
     branchToSync: main
+    tagFormat: '{branch}-build-at-{date}-{time}'
 `,
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
@@ -73,7 +74,7 @@ apps:
           projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
-          tagNaming: { mode: "template", template: "{branch}-build-at-{date}-{time}" },
+          tagFormat: "{branch}-build-at-{date}-{time}",
           imageTagTargets: [
             {
               valuesPath: "charts/my-app/values.yaml",
@@ -107,19 +108,19 @@ apps:
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client2",
-      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n",
+      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client2",
       "apps:\n  - projectId: 2\n    projectName: app-2\n    chart:\n      - valuesPath: b.yaml\n        anchor: appVersion\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant2/client1",
-      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n",
+      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant2/client1",
       "apps:\n  - projectId: 3\n    projectName: app-3\n    chart:\n      - valuesPath: c.yaml\n        anchor: appVersion\n",
@@ -242,7 +243,7 @@ describe("loadConfig（chartの複数指定）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: my-service\n    branchToSync: main\n",
+      "apps:\n  - projectId: 1\n    projectName: my-service\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: my-service\n    chart:\n      - valuesPath: charts/webapi/values.yaml\n        anchor: appVersion\n      - valuesPath: charts/batch/values.yaml\n        anchor: batchAppsVersion\n",
@@ -269,13 +270,13 @@ describe("loadConfig（target絞り込み）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant2/client2",
-      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n",
+      "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant2/client2",
       "apps:\n  - projectId: 2\n    projectName: app-2\n    chart:\n      - valuesPath: b.yaml\n        anchor: appVersion\n",
@@ -285,7 +286,7 @@ describe("loadConfig（target絞り込み）", () => {
       "chart:\n  projectId: 2\n  projectName: teamB-chart\n  mrTargetBranch: main\n",
     )
     dir.writeConfigYaml("teamB-chart", "tenant1/client1",
-      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n",
+      "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamB-chart", "tenant1/client1",
       "apps:\n  - projectId: 3\n    projectName: app-3\n    chart:\n      - valuesPath: c.yaml\n        anchor: appVersion\n",
@@ -467,7 +468,7 @@ describe("loadConfig（helmTargetBranch）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\nhelm:\n  chart:\n    - valuesPath: a.yaml\n      anchor: targetBranch\n",
@@ -486,7 +487,7 @@ describe("loadConfig（helmTargetBranch）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
@@ -502,7 +503,7 @@ describe("loadConfig（helmTargetBranch）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
@@ -517,7 +518,7 @@ describe("loadConfig（helmTargetBranch）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\nhelm:\n  chart:\n    - valuesPath: a.yaml\n      anchor: targetBranch\n",
@@ -532,7 +533,7 @@ describe("loadConfig（helmTargetBranch）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\nhelm:\n  chart: []\n",
@@ -547,7 +548,7 @@ describe("loadConfig（helmTargetBranch）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n",
+      "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n  - projectId: 2\n    projectName: app-2\n    chart:\n      - valuesPath: b.yaml\n        anchor: appVersion\nhelm:\n  chart:\n    - valuesPath: a.yaml\n      anchor: targetBranch\n",
@@ -562,7 +563,7 @@ describe("loadConfig（helmTargetBranch）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n",
+      "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n  - projectId: 2\n    projectName: app-2\n    chart:\n      - valuesPath: b.yaml\n        anchor: appVersion\nhelm:\n  chart:\n    - valuesPath: a.yaml\n      anchor: targetBranchA\n    - valuesPath: b.yaml\n      anchor: targetBranchB\n",
@@ -581,7 +582,7 @@ describe("loadConfig（helmTargetBranch）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: webapi.yaml\n        anchor: webapiVersion\n      - valuesPath: batch.yaml\n        anchor: batchVersion\nhelm:\n  chart:\n    - valuesPath: webapi.yaml\n      anchor: webapiTargetBranch\n    - valuesPath: batch.yaml\n      anchor: batchTargetBranch\n",

@@ -23,7 +23,6 @@ import {
   toProjectName,
   toTagName,
 } from "../../../../src/types/types.js"
-import { logger } from "../../../../src/utils/logger.js"
 import {
   HEAD_SHA,
   NEW_TAG,
@@ -45,9 +44,8 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.clearAllMocks()
   })
 
-  it("appのtagNamingにカスタムテンプレートを渡すと、その形式で新しいタグを作成する", async () => {
-    const customFormat = validateTagFormat("{date}-{time}-{branch}")
-    const app = makeApp({ tagNaming: { mode: "template", template: customFormat } })
+  it("appのtagFormatに別の形式を渡すと、その形式で新しいタグを作成する", async () => {
+    const app = makeApp({ tagFormat: validateTagFormat("{date}-{time}-{branch}") })
     vi.mocked(listTags).mockResolvedValue([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
@@ -338,7 +336,7 @@ describe("createResolveLatestTags（trackedHeadTagNamesの中身）", () => {
 
   it("追跡ブランチを切り替えた直後は、切り替え前のタグ名がHEADと同じコミットを指していても含まない", async () => {
     // release/2026-q2 に切り替えた直後、切り替え前(main)のタグがrelease/2026-q2のHEADと
-    // たまたま同じコミットを指しているケース。tagNamingのtemplateではrelease/2026-q2由来として
+    // たまたま同じコミットを指しているケース。tagFormatではrelease/2026-q2由来として
     // パースできないため、trackedHeadTagNamesは空になる
     vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
@@ -360,7 +358,7 @@ describe("createResolveLatestTags（trackedHeadTagNamesの中身）", () => {
 
     const [result] = await createResolveLatestTags(mockGitlab, false)([makeApp()])
 
-    expect(result?.latestTag.tag?.name).toBe(NEW_TAG)
+    expect(result?.latestTag.tag.name).toBe(NEW_TAG)
     expect(createTag).not.toHaveBeenCalled()
   })
 })
@@ -407,100 +405,5 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
 
     expect(listTags).toHaveBeenCalledTimes(2)
     expect(createTag).toHaveBeenCalledTimes(2)
-  })
-})
-
-describe("createResolveLatestTags（タグを自動作成しない命名規則）", () => {
-  beforeEach(() => {
-    mockBuildPlansGitlab()
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
-  })
-
-  const semverApp = () => makeApp({ tagNaming: { mode: "semver" } })
-  const dateOnlyApp = () =>
-    makeApp({ tagNaming: { mode: "template", template: validateTagFormat("{branch}-{date}") } })
-
-  it("semverモードでは、HEADを指すsemverタグから最新の版を選ぶ（v接頭辞・プレリリース・ビルドメタデータ混在）", async () => {
-    vi.mocked(listTags).mockResolvedValue([
-      { name: toTagName("v1.2.3"), commitSha: HEAD_SHA },
-      { name: toTagName("1.2.4-rc.1"), commitSha: HEAD_SHA },
-      { name: toTagName("v1.3.0+build.7"), commitSha: HEAD_SHA },
-      { name: toTagName("v2.0.0"), commitSha: toCommitSha("other-commit-sha") },
-    ])
-
-    const [result] = await createResolveLatestTags(mockGitlab, false)([semverApp()])
-
-    expect(result?.latestTag.tag?.name).toBe("v1.3.0+build.7")
-    expect(createTag).not.toHaveBeenCalled()
-  })
-
-  it("semverモードでは、追跡ブランチ名を含まないタグでもHEADを指していれば候補になる", async () => {
-    vi.mocked(listTags).mockResolvedValue([{ name: toTagName("v1.0.0"), commitSha: HEAD_SHA }])
-
-    const [result] = await createResolveLatestTags(
-      mockGitlab,
-      false,
-    )([makeApp({ branchToSync: toBranchName("release/2026-q2"), tagNaming: { mode: "semver" } })])
-
-    expect([...(result?.latestTag.trackedHeadTagNames ?? [])]).toEqual(["v1.0.0"])
-  })
-
-  it("semverモードでHEADにタグが無いとき、タグを作らず最新タグを決めずに警告を出す", async () => {
-    vi.mocked(listTags).mockResolvedValue([
-      { name: toTagName("v1.0.0"), commitSha: toCommitSha("older-sha") },
-    ])
-
-    const [result] = await createResolveLatestTags(mockGitlab, false)([semverApp()])
-
-    expect(createTag).not.toHaveBeenCalled()
-    expect(result?.latestTag.tag).toBeUndefined()
-    expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
-      expect.objectContaining({ event: "skip_app", reason: "no_tag_at_branch_head" }),
-    )
-  })
-
-  it("{time}を含まないテンプレートでHEADにタグが無いとき、タグを作らず最新タグを決めない", async () => {
-    vi.mocked(listTags).mockResolvedValue([
-      { name: toTagName("main-20251231"), commitSha: toCommitSha("older-sha") },
-    ])
-
-    const [result] = await createResolveLatestTags(mockGitlab, false)([dateOnlyApp()])
-
-    expect(createTag).not.toHaveBeenCalled()
-    expect(result?.latestTag.tag).toBeUndefined()
-    expect(vi.mocked(logger.warn)).toHaveBeenCalledOnce()
-  })
-
-  it("{time}を含まないテンプレートでも、HEADを指すタグがあればそれを最新タグにする", async () => {
-    vi.mocked(listTags).mockResolvedValue([
-      { name: toTagName("main-20251231"), commitSha: toCommitSha("older-sha") },
-      { name: toTagName("main-20260101"), commitSha: HEAD_SHA },
-    ])
-
-    const [result] = await createResolveLatestTags(mockGitlab, false)([dateOnlyApp()])
-
-    expect(result?.latestTag.tag?.name).toBe("main-20260101")
-    expect(createTag).not.toHaveBeenCalled()
-    expect(vi.mocked(logger.warn)).not.toHaveBeenCalled()
-  })
-
-  it("最新タグが決まらなくてもchartAndApps全体はERRORにならない", async () => {
-    vi.mocked(listTags).mockResolvedValue([
-      { name: toTagName("v1.0.0"), commitSha: toCommitSha("older-sha") },
-    ])
-
-    const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
-      [makeChartAndApps([semverApp()])],
-      3,
-      false,
-    )
-
-    expect(toApply).toEqual([])
-    expect(settled).toEqual(["SKIPPED"])
   })
 })

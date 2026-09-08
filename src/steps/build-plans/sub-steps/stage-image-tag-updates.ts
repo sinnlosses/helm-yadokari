@@ -47,10 +47,6 @@ export async function stageImageTagUpdates(
  * 1アプリの`app.imageTagTargets`（1件以上）を先頭から順に`stageImageTagUpdate()`へ渡し、
  * 差分が1件でもあれば`AppUpdatePlan`を1件積む。差分が無ければ理由をログに出し、下書きだけを
  * 引き継ぐ（読み込んだvalues.yamlは次のアプリで使い回せる）。
- *
- * 最新タグが決まらなかったアプリ（タグを自動作成しない命名規則で、追跡ブランチのHEADに
- * タグが1件も無い場合）は書き換えを積まずに次へ進む。見送りの理由は
- * `resolve-latest-tags.ts`が警告として出しているため、ここは他のスキップと同じ形で記録する。
  */
 async function stageAppImageTagUpdates(
   source: ValuesYamlSource,
@@ -58,16 +54,6 @@ async function stageAppImageTagUpdates(
   { app, latestTag }: AppWithLatestTag,
 ): Promise<StageImageTagUpdatesResult> {
   const tag = latestTag.tag
-  if (tag === undefined) {
-    logger.info({
-      event: "check_app",
-      projectName: app.projectName,
-      result: "SKIPPED",
-      reason: "no_latest_tag",
-    })
-    return result
-  }
-
   const initialAcc: StageAppImageTagUpdatesAcc = { draft: result.draft, updates: [] }
   const { draft, updates } = await reduceAsync(app.imageTagTargets, initialAcc, (acc, target) =>
     stageImageTagUpdate(source, tag, latestTag.trackedHeadTagNames, acc, target),

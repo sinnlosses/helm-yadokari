@@ -1,6 +1,6 @@
 import { vi } from "vitest"
 
-import { DEFAULT_TAG_TEMPLATE } from "../src/domain/tag-format.js"
+import { validateTagFormat } from "../src/domain/tag-format.js"
 import type { GitlabBatchCache } from "../src/lib/gitlab/batch-cache.js"
 import { createGitlabBatchCache } from "../src/lib/gitlab/batch-cache.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
@@ -40,6 +40,9 @@ export const mockGitlab = {} as unknown as GitlabClient
  */
 export const newBatchCache = (): GitlabBatchCache => createGitlabBatchCache(mockGitlab)
 
+/** テストのapp（`makeApp()`）のタグ形式。実際に使われている2形式のうちの1つ */
+const BUILD_AT_FORMAT = validateTagFormat("{branch}-build-at-{date}-{time}")
+
 export const OLD_TAG = "main-build-at-20251231-000000"
 export const NEW_TAG = toTagName("main-build-at-20260101-000000")
 export const HEAD_SHA = toCommitSha("head-sha")
@@ -62,7 +65,7 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
     projectId: toProjectId(1),
     projectName: toProjectName("my-app"),
     branchToSync: toBranchName("main"),
-    tagNaming: { mode: "template", template: DEFAULT_TAG_TEMPLATE },
+    tagFormat: BUILD_AT_FORMAT,
     imageTagTargets: [
       {
         valuesPath: toValuesPath("values.yaml"),
@@ -107,7 +110,7 @@ export function makePlan(
     latestTag: {
       name: toTagName("main-build-at-20260101-000000"),
       branchName: toBranchName("main"),
-      orderKey: [Date.UTC(2026, 0, 1)],
+      builtAt: new Date(Date.UTC(2026, 0, 1)),
     },
     updates: overrides.updates ?? [
       {

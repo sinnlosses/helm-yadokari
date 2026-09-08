@@ -12,7 +12,7 @@ describe("loadConfig（config.yaml と anchors.yaml の紐づけ）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
 
     expect(() => loadConfig(dir.path)).toThrow("app-1")
@@ -24,7 +24,7 @@ describe("loadConfig（config.yaml と anchors.yaml の紐づけ）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n  - projectId: 999\n    projectName: removed-app\n    chart:\n      - valuesPath: old.yaml\n        anchor: oldVersion\n",
@@ -39,7 +39,7 @@ describe("loadConfig（config.yaml と anchors.yaml の紐づけ）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    tagFormat: '{branch}-build-at-{date}-{time}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1-typo\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
@@ -65,9 +65,11 @@ apps:
   - projectId: 1
     projectName: my-app
     branchToSync: main
+    tagFormat: '{branch}-build-at-{date}-{time}'
   - projectId: 1
     projectName: my-app
     branchToSync: develop
+    tagFormat: '{branch}-build-at-{date}-{time}'
 `,
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
@@ -92,6 +94,7 @@ apps:
   - projectId: 1
     projectName: my-app
     branchToSync: main
+    tagFormat: '{branch}-build-at-{date}-{time}'
 `,
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
@@ -121,9 +124,11 @@ apps:
   - projectId: 1
     projectName: app-one
     branchToSync: main
+    tagFormat: '{branch}-build-at-{date}-{time}'
   - projectId: 2
     projectName: app-two
     branchToSync: main
+    tagFormat: '{branch}-build-at-{date}-{time}'
 `,
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
@@ -153,6 +158,7 @@ apps:
   - projectId: 1
     projectName: my-app
     branchToSync: main
+    tagFormat: '{branch}-build-at-{date}-{time}'
 `,
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
@@ -181,6 +187,7 @@ apps:
   - projectId: 1
     projectName: my-app
     branchToSync: main
+    tagFormat: '{branch}-build-at-{date}-{time}'
 `,
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
@@ -209,9 +216,11 @@ apps:
   - projectId: 1
     projectName: app-one
     branchToSync: main
+    tagFormat: '{branch}-build-at-{date}-{time}'
   - projectId: 2
     projectName: app-two
     branchToSync: main
+    tagFormat: '{branch}-build-at-{date}-{time}'
 `,
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
@@ -236,50 +245,44 @@ apps:
   })
 })
 
-describe("loadConfig（複数の設定ユニットにまたがるtagNamingの食い違い）", () => {
+describe("loadConfig（複数の設定ユニットにまたがるtagFormatの食い違い）", () => {
   const CHART_YAML =
     "chart:\n  projectId: 888\n  projectName: teamA-chart\n  mrTargetBranch: develop\n"
   const anchorsYamlFor = (projectName: string) =>
     `apps:\n  - projectId: 1\n    projectName: ${projectName}\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n`
+  const configYamlFor = (branchToSync: string, tagFormat: string) =>
+    `apps:\n  - projectId: 1\n    projectName: my-app\n    branchToSync: ${branchToSync}\n    tagFormat: '${tagFormat}'\n`
 
-  it("同じprojectIdのappが別々の設定ユニットで違うtagNamingを指定しているとき例外をスローする", () => {
+  it("同じprojectIdのappが別々の設定ユニットで違うtagFormatを指定しているとき例外をスローする", () => {
     dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: my-app\n    branchToSync: main\n",
+    dir.writeConfigYaml(
+      "teamA-chart",
+      "tenant1/client1",
+      configYamlFor("main", "{branch}-build-at-{date}-{time}"),
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", anchorsYamlFor("my-app"))
-    dir.writeConfigYaml("teamA-chart", "tenant1/client2",
-      "apps:\n  - projectId: 1\n    projectName: my-app\n    branchToSync: develop\n" +
-        "    tagNaming:\n      mode: template\n      template: '{date}-{time}-{branch}'\n",
+    dir.writeConfigYaml(
+      "teamA-chart",
+      "tenant1/client2",
+      configYamlFor("develop", "{date}-{time}-{branch}"),
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client2", anchorsYamlFor("my-app"))
 
-    expect(() => loadConfig(dir.path)).toThrow("tagNaming")
+    expect(() => loadConfig(dir.path)).toThrow("tagFormat")
   })
 
-  it("同じprojectIdのappが別々の設定ユニットで同じtagNamingを指定していれば読み込める", () => {
+  it("同じprojectIdのappが別々の設定ユニットで違うbranchToSyncを指定していても、tagFormatが同じなら読み込める", () => {
     dir.writeChartYaml("teamA-chart", CHART_YAML)
-    const configYaml =
-      "apps:\n  - projectId: 1\n    projectName: my-app\n    branchToSync: main\n" +
-      "    tagNaming:\n      mode: template\n      template: '{date}-{time}-{branch}'\n"
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYaml)
-    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", anchorsYamlFor("my-app"))
-    dir.writeConfigYaml("teamA-chart", "tenant1/client2", configYaml)
-    dir.writeAnchorsYaml("teamA-chart", "tenant1/client2", anchorsYamlFor("my-app"))
-
-    const { chartAndAppsList } = loadConfig(dir.path)
-
-    expect(chartAndAppsList).toHaveLength(2)
-  })
-
-  it("同じprojectIdのappが別々の設定ユニットで違うbranchToSyncを指定していても、tagNamingが同じなら読み込める", () => {
-    dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: my-app\n    branchToSync: main\n",
+    dir.writeConfigYaml(
+      "teamA-chart",
+      "tenant1/client1",
+      configYamlFor("main", "{date}-{time}-{branch}"),
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", anchorsYamlFor("my-app"))
-    dir.writeConfigYaml("teamA-chart", "tenant1/client2",
-      "apps:\n  - projectId: 1\n    projectName: my-app\n    branchToSync: develop\n",
+    dir.writeConfigYaml(
+      "teamA-chart",
+      "tenant1/client2",
+      configYamlFor("develop", "{date}-{time}-{branch}"),
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client2", anchorsYamlFor("my-app"))
 
