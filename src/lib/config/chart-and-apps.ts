@@ -11,7 +11,8 @@ import type {
   HelmTargetBranchConfig,
 } from "../../types/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
-import { ConfigYamlSchema, loadAnchors } from "./schema.js"
+import type { ChartApp } from "./schema.js"
+import { ConfigYamlSchema } from "./schema.js"
 import {
   validateNoDuplicateProjectIds,
   validateNoDuplicateTargets,
@@ -19,50 +20,53 @@ import {
 } from "./validate.js"
 
 /**
- * 1つの設定ユニットのディレクトリ（`<chartDir>/<unitPath>/`）の`config.yaml`（運用値）と
- * `anchors.yaml`（chart構造）を`projectId`で結合し、`ChartAndApps`（MRを作成する単位）
- * 1件にする。両ファイル間の紐づけ矛盾は`validateProjectLinkage()`で検証する。
- * `config.yaml`が実在するディレクトリだけが渡ってくる前提（どのディレクトリが設定ユニットかは
- * `config.ts`の走査が決める）。
+ * 1つの設定ユニットのディレクトリ（`<chartDir>/<unitPath>/`）の`config.yaml`（運用値＋chart構造）を
+ * 読み込み、`chartApps`（`chart.yaml`の`apps[]`、`projectId`をキーにしたタグ形式の台帳）と
+ * `projectId`で結合して`ChartAndApps`（MRを作成する単位）1件にする。両者間の紐づけ矛盾は
+ * `validateProjectLinkage()`で検証する。`config.yaml`が実在するディレクトリだけが渡ってくる
+ * 前提（どのディレクトリが設定ユニットかは`config.ts`の走査が決める）。
  */
 export function loadChartAndApps(
   unitDirPath: string,
   chartDirName: ChartDirName,
   unitPath: ConfigUnitPath,
   chart: ChartRepoConfig,
+  chartApps: readonly ChartApp[],
+  chartYamlPath: string,
 ): ChartAndApps {
   const configYamlPath = join(unitDirPath, "config.yaml")
-  const anchorsPath = join(unitDirPath, "anchors.yaml")
 
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
-  const anchors = loadAnchors(unitDirPath)
   validateNoDuplicateProjectIds(configYamlPath, apps)
-  validateNoDuplicateProjectIds(anchorsPath, anchors.apps)
-  validateProjectLinkage(configYamlPath, anchorsPath, apps, anchors.apps)
-  validateNoDuplicateTargets(anchorsPath, [
-    ...anchors.apps.flatMap((anchorApp) =>
-      anchorApp.chart.map((anchorTarget) => ({
-        target: anchorTarget,
-        label: `app "${anchorApp.projectName}" の chart[]`,
+  validateProjectLinkage(configYamlPath, chartYamlPath, apps, chartApps)
+  validateNoDuplicateTargets(configYamlPath, [
+    ...apps.flatMap((app) =>
+      app.chart.map((target) => ({
+        target,
+        label: `app "${app.projectName}" の chart[]`,
       })),
     ),
-    ...(anchors.helmChart ?? []).map((anchorTarget) => ({
-      target: anchorTarget,
+    ...(helm?.chart ?? []).map((target) => ({
+      target,
       label: "helm.chart[]",
     })),
   ])
 
-  const anchorAppByProjectId = new Map(
-    anchors.apps.map((anchorApp) => [anchorApp.projectId, anchorApp]),
-  )
+  const chartAppByProjectId = new Map(chartApps.map((chartApp) => [chartApp.projectId, chartApp]))
   const appConfigs: AppConfig[] = apps.map((app) => {
-    const anchorApp = anchorAppByProjectId.get(app.projectId)
-    if (anchorApp === undefined) {
+    const chartApp = chartAppByProjectId.get(app.projectId)
+    if (chartApp === undefined) {
       throw new Error(
         `internal error: validateProjectLinkage を通過したのに projectId ${app.projectId} が見つからない`,
       )
     }
-    return { ...app, imageTagTargets: anchorApp.chart }
+    return {
+      projectId: app.projectId,
+      projectName: app.projectName,
+      branchToSync: app.branchToSync,
+      tagFormat: chartApp.tagFormat,
+      imageTagTargets: app.chart,
+    }
   })
 
   return {
@@ -72,28 +76,25 @@ export function loadChartAndApps(
     apps: appConfigs,
     helmTargetBranch: resolveHelmTargetBranch(
       configYamlPath,
-      anchorsPath,
       helm?.branchToSync,
-      anchors.helmChart,
+      helm?.chart,
       appConfigs,
     ),
   }
 }
 
 /**
- * config.yamlの`helm.branchToSync`（書き込む値）とanchors.yamlの`helm.chart[]`
- * （書き込み先の`valuesPath`+`anchor`一覧）から、設定ユニット単位の`HelmTargetBranchConfig`を作る。
- * Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提なので、appごとに振り分けず
- * 設定ユニット単位で1つだけ持つ。
- * `branchToSync`が指定されている場合は、そのconfig.yaml配下の全アプリの全`chart[].valuesPath`が
- * `helm.chart[]`でカバーされている必要がある（1つでも漏れていれば、そのvaluesPathだけ
- * 更新対象から漏れてしまう設定ミスとして例外をスローする）。`branchToSync`と`helm.chart[]`は
- * 片方だけの指定も設定ミスとして例外をスローする。
+ * config.yamlの`helm.branchToSync`（書き込む値）と`helm.chart[]`（書き込み先の`valuesPath`+
+ * `anchor`一覧）から、設定ユニット単位の`HelmTargetBranchConfig`を作る。Helmの向き先ブランチは
+ * 「1設定ユニット内のapps全体で共通」という前提なので、appごとに振り分けず設定ユニット単位で
+ * 1つだけ持つ。`branchToSync`が指定されている場合は、そのconfig.yaml配下の全アプリの全
+ * `chart[].valuesPath`が`helm.chart[]`でカバーされている必要がある（1つでも漏れていれば、
+ * そのvaluesPathだけ更新対象から漏れてしまう設定ミスとして例外をスローする）。`branchToSync`と
+ * `helm.chart[]`は片方だけの指定も設定ミスとして例外をスローする。
  * 逆にどのappも書き込まないvaluesPathを指す`helm.chart[]`の要素は`targets`に含めない。
  */
 function resolveHelmTargetBranch(
   configYamlPath: string,
-  anchorsPath: string,
   branchToSync: BranchName | undefined,
   helmChart: readonly AnchorTarget[] | undefined,
   apps: readonly AppConfig[],
@@ -101,12 +102,12 @@ function resolveHelmTargetBranch(
   if (branchToSync === undefined && helmChart === undefined) return undefined
   if (branchToSync === undefined) {
     throw new Error(
-      `${anchorsPath}: helm.chart が指定されていますが、${configYamlPath} の helm.branchToSync がありません`,
+      `${configYamlPath}: helm.chart が指定されていますが、helm.branchToSync がありません`,
     )
   }
   if (helmChart === undefined) {
     throw new Error(
-      `${configYamlPath}: helm.branchToSync が指定されていますが、${anchorsPath} の helm.chart がありません`,
+      `${configYamlPath}: helm.branchToSync が指定されていますが、helm.chart がありません`,
     )
   }
 
@@ -117,7 +118,7 @@ function resolveHelmTargetBranch(
     )
     if (uncoveredValuesPaths.length > 0) {
       throw new Error(
-        `${anchorsPath}: helm.branchToSync が指定されていますが、app "${app.projectName}" の valuesPath（${uncoveredValuesPaths.join(", ")}）が helm.chart[] に見つかりません（Helmの向き先ブランチは設定ユニット内の全appで共通のため、全appのvaluesPathを helm.chart[] に含めてください）`,
+        `${configYamlPath}: helm.branchToSync が指定されていますが、app "${app.projectName}" の valuesPath（${uncoveredValuesPaths.join(", ")}）が helm.chart[] に見つかりません（Helmの向き先ブランチは設定ユニット内の全appで共通のため、全appのvaluesPathを helm.chart[] に含めてください）`,
       )
     }
   }

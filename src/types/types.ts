@@ -21,7 +21,7 @@ export type AnchorTarget = {
 
 /**
  * Helmの向き先ブランチを扱うための設定。`branchName`はconfig.yamlの`helm.branchToSync`由来、
- * `targets`はanchors.yamlの`helm.chart[]`のうち、設定ユニット内のいずれかのappが書き込む
+ * `targets`は同じconfig.yamlの`helm.chart[]`のうち、設定ユニット内のいずれかのappが書き込む
  * valuesPathを指すもの。向き先ブランチは設定ユニット内のapps全体で共通なので設定ユニット単位で持つ
  */
 export type HelmTargetBranchConfig = {
@@ -30,15 +30,15 @@ export type HelmTargetBranchConfig = {
 }
 
 /**
- * `projectId`/`projectName`/`branchToSync`/`tagFormat`はconfig.yamlの運用値、
- * `imageTagTargets`は同じディレクトリの`anchors.yaml`から`projectId`で引いた書き込み先
+ * `projectId`/`projectName`/`branchToSync`/`imageTagTargets`はconfig.yamlの運用値、
+ * `tagFormat`は同じchartリポジトリの`chart.yaml`の`apps[]`から`projectId`で引いた値
  */
 export type AppConfig = {
   readonly projectId: ProjectId
   readonly projectName: ProjectName
   readonly branchToSync: BranchName
   readonly tagFormat: TagFormat
-  /** 同じ最新タグを複数箇所へ反映するため配列。anchors.yamlの`apps[].chart[]`由来 */
+  /** 同じ最新タグを複数箇所へ反映するため配列。config.yamlの`apps[].chart[]`由来 */
   readonly imageTagTargets: readonly AnchorTarget[]
 }
 
@@ -55,7 +55,7 @@ export type ChartAndApps = {
   readonly unitPath: ConfigUnitPath
   readonly chart: ChartRepoConfig
   readonly apps: readonly AppConfig[]
-  /** config.yamlとanchors.yamlの両方でHelmの向き先ブランチが指定されている場合のみ値を持つ */
+  /** config.yamlの`helm.branchToSync`と`helm.chart[]`の両方でHelmの向き先ブランチが指定されている場合のみ値を持つ */
   readonly helmTargetBranch: HelmTargetBranchConfig | undefined
 }
 

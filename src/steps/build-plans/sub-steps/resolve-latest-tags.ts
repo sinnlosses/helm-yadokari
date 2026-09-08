@@ -60,7 +60,7 @@ export function createResolveLatestTags(gitlab: GitlabClient, dryRun: boolean): 
  * 1アプリ分の、追跡ブランチ由来の最新タグを判定する。追跡ブランチの現在のHEADコミットを指すタグが
  * 1件も無い場合は、このツール自身がHEADコミットに新しいタグを作成し、それを最新タグとして
  * 扱う（dryRun のときは実際の作成はスキップし、作成予定のタグ名だけを使う）。タグ形式は
- * `app.tagFormat`（`config.yaml`の`apps[].tagFormat`由来）に従う。
+ * `app.tagFormat`（`chart.yaml`の`apps[].tagFormat`由来）に従う。
  *
  * このツールの目的は「追跡ブランチの最新コミットの中身をデプロイさせること」なので、
  * 「タグ名が最も新しいものを選んでからHEADと比較する」のではなく、**HEADを指すタグを

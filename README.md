@@ -43,7 +43,7 @@ chart リポジトリ単位に更新をまとめた MR 作成を自動化しま�
 ## タグ形式
 
 GitLab のタグのうち、追跡ブランチの現在のHEADコミットを指しているものから最新タグを決めます。
-タグ形式はアプリ（ソースリポジトリ）単位に `config.yaml` の `apps[].tagFormat` で指定します
+タグ形式はアプリ（ソースリポジトリ）単位に `chart.yaml` の `apps[].tagFormat` で指定します
 （**必須**。既定値はありません）。
 
 `{branch}`（追跡ブランチ名の "/" を "-" に置換した値）・`{date}`（`yyyymmdd`）・
@@ -57,11 +57,10 @@ GitLab のタグのうち、追跡ブランチの現在のHEADコミットを指
 → `release-foo-build-at-20260902-123456`
 
 ```yaml
-# config.yaml
+# chart.yaml
 apps:
   - projectId: 2
     projectName: my-app
-    branchToSync: main
     tagFormat: "{branch}-build-at-{date}-{time}"
 ```
 
@@ -89,7 +88,7 @@ pnpm install
 
 # 2. 設定ファイルを作成（config/ 配下の構成は下記「設定」を参照）
 mkdir -p config/my-team-chart/my-unit   # 深さ2も可（例: config/my-team-chart/my-group/my-unit）
-# → chart.yaml / config.yaml / anchors.yaml を作成する
+# → chart.yaml / config.yaml を作成する
 #   （記述例は docs/requirements.md 4.4節。config/yadokari-smoke-test-chart/ の実物も参考になる）
 
 # 3. 動作確認（ブランチ作成・MR作成なし・安全）
@@ -164,23 +163,22 @@ flowchart TD
 ```
 config/
   <chartリポジトリ名>/            # 例: teamA-chart（ディレクトリ名は人間向けのラベル）
-    chart.yaml                     # そのchartリポジトリ共通の情報
+    chart.yaml                     # chartリポジトリの情報＋ソースリポジトリのタグ形式の台帳
     <ユニット名>/                  # 設定ユニット（深さ1）
-      config.yaml                  # 運用値（どのプロジェクトのどのブランチを追跡するか等）
-      anchors.yaml                 # chart構造（values.yaml内のどこに書き込むか）
+      config.yaml                  # 運用値（どのプロジェクトのどのブランチを追跡するか）＋
+                                    # chart構造（values.yaml内のどこに書き込むか）
     <第1セグメント>/               # 設定ユニット（深さ2）
       <第2セグメント>/
         config.yaml
-        anchors.yaml
 ```
 
-`config.yaml`（よく変更する）と `anchors.yaml`（滅多に変更しない）でファイルを分けています。
-`config.yaml` は「どのプロジェクトのどのブランチを追跡するか」「タグ形式
-（`tagFormat`。詳細は「[タグ形式](#タグ形式)」参照）」といった運用値のみを、
-`anchors.yaml` は「`values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に書き込むか」という
-chart構造のみを持ち、両者は `projectId` で対応付けます。Helmの向き先ブランチ（values.yamlの
+ファイルを分ける軸は「スコープ」です。`chart.yaml` はchartリポジトリ単位で、MRの作成先
+（`chart`）と、ソースリポジトリのタグ形式（`apps[].tagFormat`。詳細は
+「[タグ形式](#タグ形式)」参照）の台帳を持ちます。`config.yaml` は設定ユニット単位で、
+どのプロジェクトのどのブランチを追跡し `values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
+書き込むかを持ちます。両者は `projectId` で対応付けます。Helmの向き先ブランチ（values.yamlの
 パラメータを受け取ってk8sリソースを実際に構築するブランチ。`mrTargetBranch` ＝ 値定義ブランチ
-とは別物）の追従・更新も、この設定でMRの対象に含められます。
+とは別物）の追従・更新も、`config.yaml` の設定でMRの対象に含められます。
 
 `config.yaml` を1つ持つディレクトリが1つの設定ユニット（MRを作る単位）です。chartリポジトリの
 ディレクトリからそこまでの相対パスが `unitPath` になり、固定ブランチ名
@@ -190,7 +188,7 @@ chart構造のみを持ち、両者は `projectId` で対応付けます。Helm�
 `config.yaml` があること）と、深さ0（`chart.yaml` と同じ階層）・深さ3以上はいずれも
 設定エラーになります。
 
-各ファイルの記述例・フィールドの完全な仕様・制約（`config.yaml`/`anchors.yaml` 間の対応チェック、
+各ファイルの記述例・フィールドの完全な仕様・制約（`config.yaml`/`chart.yaml` 間の対応チェック、
 重複禁止など、設定ミスは実行前に例外で停止します）は [`docs/requirements.md`](./docs/requirements.md)
 の「4.4 アプリの登録・設定」が正典です（`config/yadokari-smoke-test-chart/` にも実物の記述例があります）。
 

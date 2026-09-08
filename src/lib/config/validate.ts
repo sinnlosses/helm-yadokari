@@ -1,51 +1,40 @@
 import type { AnchorTarget, ChartAndApps, ProjectId, ProjectName, TagFormat } from "../../types/types.js"
 
 /**
- * `config.yaml` / `anchors.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス
+ * `chart.yaml` / `config.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス
  * （紐づけの矛盾・重複）を検証する。実体の有無（projectIdやブランチの実在）は
  * `scripts/lint/verify-config/` の担当。
  */
 
 /**
- * `config.yaml`（運用値）と`anchors.yaml`（chart構造）の間で、appの紐づけに矛盾が
- * ないか検証する。どちらのファイルも`projectId`を持つため、単純な存在チェックに加えて
- * `projectName`の食い違い（コピペミス等）も検知できる
- * - config.yamlの各appに対応するprojectIdがanchors.yamlに無ければ、書き込み先が
- *   定義されていない設定ミスとして例外をスローする
- * - anchors.yamlの各appに対応するprojectIdがconfig.yamlに無ければ、使われない
- *   孤児設定として例外をスローする（appを削除した際の消し忘れに気づけるようにするため）
+ * `config.yaml`（運用値＋chart構造）の各appが、同じchartリポジトリの`chart.yaml`の`apps[]`
+ * （タグ形式の台帳）に紐づいているか検証する。どちらのファイルも`projectId`を持つため、
+ * 単純な存在チェックに加えて`projectName`の食い違い（コピペミス等）も検知できる
+ * - config.yamlの各appに対応するprojectIdがchart.yamlの`apps[]`に無ければ、`tagFormat`が
+ *   引けず最新タグを判定できない設定ミスとして例外をスローする
  * - 両方に存在するprojectIdについて、projectNameが一致しなければ例外をスローする
+ * - `chart.yaml`の`apps[]`にだけあってどの設定ユニットからも参照されないappは
+ *   エラーにしない（そのchartリポジトリで一時的に更新対象から外している状態を許すため）
  */
 export function validateProjectLinkage(
   configYamlPath: string,
-  anchorsPath: string,
+  chartYamlPath: string,
   configApps: readonly { readonly projectId: ProjectId; readonly projectName: ProjectName }[],
-  anchorApps: readonly { readonly projectId: ProjectId; readonly projectName: ProjectName }[],
+  chartApps: readonly { readonly projectId: ProjectId; readonly projectName: ProjectName }[],
 ): void {
-  const anchorByProjectId = new Map(anchorApps.map((app) => [app.projectId, app]))
+  const chartAppByProjectId = new Map(chartApps.map((app) => [app.projectId, app]))
   for (const app of configApps) {
-    const anchorApp = anchorByProjectId.get(app.projectId)
-    if (anchorApp === undefined) {
+    const chartApp = chartAppByProjectId.get(app.projectId)
+    if (chartApp === undefined) {
       throw new Error(
-        `${configYamlPath}: app "${app.projectName}"（projectId: ${app.projectId}）に対応する設定が ${anchorsPath} に見つかりません`,
+        `${configYamlPath}: app "${app.projectName}"（projectId: ${app.projectId}）に対応する設定が ${chartYamlPath} に見つかりません`,
       )
     }
-    if (anchorApp.projectName !== app.projectName) {
+    if (chartApp.projectName !== app.projectName) {
       throw new Error(
-        `${configYamlPath} と ${anchorsPath} で projectId ${app.projectId} の projectName が一致しません（"${app.projectName}" / "${anchorApp.projectName}"）`,
+        `${configYamlPath} と ${chartYamlPath} で projectId ${app.projectId} の projectName が一致しません（"${app.projectName}" / "${chartApp.projectName}"）`,
       )
     }
-  }
-
-  const configProjectIds = new Set(configApps.map((app) => app.projectId))
-  const orphanApps = anchorApps.filter((app) => !configProjectIds.has(app.projectId))
-  if (orphanApps.length > 0) {
-    const orphanList = orphanApps
-      .map((app) => `${app.projectName}（projectId: ${app.projectId}）`)
-      .join(", ")
-    throw new Error(
-      `${anchorsPath}: ${configYamlPath} に存在しないapp（${orphanList}）が定義されています`,
-    )
   }
 }
 
@@ -112,7 +101,7 @@ export type LabeledTarget = { readonly target: AnchorTarget; readonly label: str
  * イメージタグ用（`apps[].chart[]`）と向き先ブランチ用（`helm.chart[]`）の衝突も対象にする。
  */
 export function validateNoDuplicateTargets(
-  anchorsPath: string,
+  filePath: string,
   targets: readonly LabeledTarget[],
 ): void {
   const seen = new Map<string, string>()
@@ -121,7 +110,7 @@ export function validateNoDuplicateTargets(
     const previousLabel = seen.get(key)
     if (previousLabel !== undefined) {
       throw new Error(
-        `${anchorsPath}: 同じ書き込み先（${target.valuesPath} のアンカー "${target.anchorName}"）が複数指定されています（${previousLabel} / ${label}）`,
+        `${filePath}: 同じ書き込み先（${target.valuesPath} のアンカー "${target.anchorName}"）が複数指定されています（${previousLabel} / ${label}）`,
       )
     }
     seen.set(key, label)

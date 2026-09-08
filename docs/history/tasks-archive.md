@@ -3503,3 +3503,92 @@ T-138（`compileTagPattern()` の再代入の排除）を実行した際、委�
 **difficulty**: opus
 
 **evidence**: 承認: メタ変数のみ（例を消す）＋深さの詳細は docs/requirements.md 4.4節に集約。8ファイル21箇所を置換（src/lib/env.ts・src/domain/config-unit.ts・src/types/brand.ts・README.md・docs/requirements.md・docs/glossary.md・.gitlab-ci.yml）。grep 'central|tenant1|client1' が src/・README.md・.gitlab-ci.yml・docs/\*.md で0件（docs/smoke-test.md は実在フィクスチャの手順書なので対象外のまま残した）。TARGET_UNITS の説明6箇所が同一表記「config/<chart...>/ からの深さ1〜2の相対パス」に統一。README.md:91 のmkdirとログ例2件はリテラルが要るためメタ変数化せず my-unit / my-group/my-unit に変更。pnpm check 通過（32ファイル357テスト）、pnpm lint:validate-config 通過（3設定ユニット5apps）。
+
+## T-153
+
+**タスク**: `tagFormat` の置き場所と `anchors.yaml` の新しいファイル名を決め、`docs/requirements.md` 4.4節を先に更新する。
+
+## 背景
+
+`config/<chartディレクトリ>/<unitPath>/` には2ファイルある:
+
+- `config.yaml`（運用値・よく変更する）… `apps[].projectId` / `projectName` / `branchToSync` / **`tagFormat`**、`helm.branchToSync`
+- `anchors.yaml`（chart構造・滅多に変更しない）… `apps[].projectId` / `projectName` / `chart[].valuesPath` / `chart[].anchor`、`helm.chart[]`
+
+ユーザーからの指示は「`config.yaml` の `tagFormat` は `anchors.yaml` に移したい（あまり変更されないから）。あと、`tagFormat` が加わることで `anchors.yaml` の名前が実態に合わなくなるから変えてほしい」。
+
+**この指示は既存の設計判断を覆す。** `docs/architecture.md:621` に `#### タグ形式はapp単位に \`config.yaml\` へ置く` という節があり、現在の形の理由が書かれている。まずこの節を読むこと。
+
+**裏取りで分かった重要な事実**:
+
+1. **移しても構造上の問題は解決しない。** `src/lib/config/validate.ts` の `validateTagFormatConsistency()` は「同じ `projectId` のappが複数の設定ユニットに登録されているとき `tagFormat` が食い違っていないか」を検証している。JSDocに「タグ形式はソースリポジトリ側の性質であって設定ユニットごとに変わる値ではない」と書かれているとおり、`tagFormat` のスコープは**ソースリポジトリ単位**。ところが `anchors.yaml` も `config.yaml` と同じく**設定ユニット単位**のファイルなので、移してもスコープ不一致は残り、このクロス検証も残る
+2. **移す先としての形は整っている。** `AnchorsAppSchema`（`src/lib/config/schema.ts`）は既に `projectId` / `projectName` を `config.yaml` と重複して持ち、`validateAppLinkage()` で突き合わせている。フィールドを1つ足す形は素直に収まる
+3. **改名の影響範囲は広い。** `anchors.yaml` という文字列は `docs/history/` ・`dist/` ・`coverage/` を除いて **16ファイル・106箇所**にある（`src/lib/config/` 4ファイル、`src/types/types.ts`、`test/lib/config/` 4ファイル、`README.md`、`docs/requirements.md`、`docs/glossary.md`、`docs/architecture.md`、ほか）。加えて**実ファイルが3つ**（`config/yadokari-smoke-test-chart/{anchor-app,tenant2/client1,tenant2/client2}/anchors.yaml`）
+4. **`docs/requirements.md` 4.4節が「先に更新する」と自ら定めている。** 節の冒頭に「この節が `config/` のスキーマ・制約の**正典**。`README.md` の「設定 > config/」章はセットアップに必要な範囲の要約で、**フィールドを追加・変更したときはこの節を先に更新する**」とある。このタスクはその手順に従い、正典の更新までで止める
+
+## 解くべき論点
+
+1. **`tagFormat` の移し先は `anchors.yaml` でよいか。** 「変更頻度で分ける」という現在のファイル分割の軸には合う。一方でスコープはソースリポジトリ単位で、どちらのファイルも設定ユニット単位なので不一致は残る。**別案**: ソースリポジトリ単位の登録を別ファイル・別階層に切り出す（`validateTagFormatConsistency()` が不要になる代わりに、ファイルが1つ増え `config/` の構成が変わる）。指示は `anchors.yaml` を名指ししているので、別案を採る場合は必ずユーザーに確認する
+2. **新しいファイル名を何にするか。** 現在の中身は「chart構造（valuesPath + anchor）」で、そこに「タグ形式」が加わる。共通するのは「滅多に変更しない」ことと「app単位の静的な定義」であること。`anchor` というフィールド名自体は変えない前提で、ファイル名だけを決める
+3. **`config.yaml` 側の説明をどう変えるか。** 「運用値のみ（chart構造は〜側が持つ）」という現在の対比（`src/lib/config/schema.ts:65` のコメント、`docs/requirements.md` 4.4節）が、`tagFormat` の移動後は成り立たなくなる。2ファイルの分割軸をどう言い換えるか
+4. **`validateTagFormatConsistency()` を残すか。** 論点1で `anchors.yaml` を選ぶなら残す（スコープ不一致が続くため）。別案を採るなら不要になる
+
+## やること
+
+1. `docs/architecture.md` の `#### タグ形式はapp単位に\`config.yaml\`へ置く` 節を読み、現在の形にした理由を確認する（`sed -n '/^#### タグ形式はapp単位に/,/^#\{2,4\} /p' docs/architecture.md`）
+2. 論点1〜4を検討し、**結論をユーザーに提案して承認を得る**。ファイル名は複数案を出して選んでもらう
+3. 承認された内容で `docs/requirements.md` 4.4節（`config/` スキーマの正典）を更新する。YAMLの記述例も4.4節にあるので合わせて直す
+4. `docs/architecture.md` の該当節を、新しい判断を説明する内容に更新する。**旧判断を消すのではなく、なぜ変えたのかが分かる形にする**（このリポジトリは「なぜ今の形なのか」を正典に残す方針）
+5. **コード・実 `config/`・テスト・その他のドキュメントは変更しない**（後続タスクで行う）。このタスクは正典2ファイルの更新までで閉じる
+6. 検討の結果「移さないほうがよい」と結論した場合は、**変更せずに理由を `evidence` に書いて閉じる**。その場合は後続タスクも不要になるので、その旨も書く
+
+## 完了条件
+
+- `docs/requirements.md` 4.4節に、`tagFormat` を含む新しいファイル分割と**新しいファイル名**が書かれている（YAMLの記述例を含む）
+- `docs/architecture.md` の `#### タグ形式はapp単位に\`config.yaml\`へ置く` 節が、新しい判断と**変更した理由**を説明する内容になっている
+- `validateTagFormatConsistency()` を残すか無くすかの結論が、上のいずれかの正典に書かれている
+- **コードと実 `config/` が1バイトも変わっていない**（`git diff --stat` に `src/` `config/` `test/` が現れないことを `evidence` に書く）
+- `pnpm check` が通る
+
+## 注意
+
+- **移し先とファイル名の決定にユーザー承認が要るため `/loop /next-task` には載せない**
+- `docs/history/` 配下は変更しない
+- コード・ドキュメントにタスク番号を書かない（`docs/coding-standards.md`）
+- `anchor` というフィールド名・`docs/glossary.md` の `anchor` 系の用語エントリは、このタスクの対象外（ファイル名だけを決める）
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: 承認された方針: 分割軸は「変更頻度」（ユーザー確認済み。運用値 vs chart構造は副次的な軸で、architecture.md の旧判断はこの軸の取り違えだった）。tagFormat は chartリポジトリ単位の config/<chart>/sources.yaml へ。projectName は sources.yaml を正典としつつ config.yaml/anchors.yaml にも残す。**anchors.yaml の改名は不要**（tagFormat が入らないため理由が消えた。106箇所の変更が不要になった）。validateTagFormatConsistency() は残す（chartリポジトリまたぎの検出に役割が変わる）。実データの裏取り: ソースリポジトリ2件が3設定ユニットに5エントリ、tagFormat は5箇所すべて同値。更新したのは正典2ファイルのみ（requirements.md 4.4節 8箇所・architecture.md 節見出しごと書き換え+1箇所）。後続 T-154 の本文も新しい形に差し替えた。コード・実config・テストは未変更。pnpm check 通過（32ファイル357テスト）。
+
+## T-155
+
+**タスク**: `config/` を2ファイル構成に改める判断を正典へ反映する（`anchors.yaml` の廃止と `sources.yaml` 案の撤回）。
+
+## 背景
+
+前段タスクで「`tagFormat` を chartリポジトリ単位の `sources.yaml` へ移す」と決めたが、その結果ファイルが `chart.yaml` / `sources.yaml` / `config.yaml` / `anchors.yaml` の4種類になり、管理が重いという指摘を受けた。実測すると、その案は `tagFormat` の重複（5→2）を直す代わりに他の指標を悪化させていた。
+
+## 解くべき論点
+
+（このタスクは実施済み。判断の記録として残す）
+
+## やること
+
+（実施済み）
+
+## 完了条件
+
+（実施済み）
+
+## 注意
+
+（実施済み）
+
+**dependencies**: T-153
+
+**difficulty**: opus
+
+**evidence**: 前段の sources.yaml 案を撤回し、config/ を chart.yaml と config.yaml の2ファイル構成に改めた（ユーザー承認済み）。実測比較（実config・app1件追加時・projectId/Name重複・tagFormat重複）: 移行前 7ファイル/2/10/5、sources.yaml案 8/3/12/2、採用案 4/2/7/2。**採用案だけが全指標で移行前より良い**。分割の軸を「変更頻度」から「スコープ」（chartリポジトリ単位 / 設定ユニット単位）に改めた。変更頻度で分けない理由3点を正典に記載: (1) 最多の編集であるappの追加・削除では結局どちらも触る、(2) セルフサービス方式なので編集者が分かれていない、(3) 実際によく変わるのは branchToSync だけで1ユニット十数行に収まる。更新: docs/requirements.md 4.4節（走査対象・構成図・分割の軸の表と理由・YAML例2つ・制約4箇所・helm節2箇所）、docs/architecture.md（節見出しごと書き換え+食い違い検証1箇所）。sources.yaml の言及は両ファイルで0件。コード・実config・テストは未変更（git diff --stat に src/ config/ test/ が現れない）。後続 T-154 の本文も2ファイル構成へ差し替えた。pnpm check 通過（32ファイル357テスト）。

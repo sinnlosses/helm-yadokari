@@ -407,10 +407,13 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   **全指標が移行前より良い唯一の案**）。`anchors.yaml` は `config.yaml` に統合して廃止、
   `sources.yaml` は作らない。分割の軸は「変更頻度」→**「スコープ」**（chartリポジトリ単位 /
   設定ユニット単位）に変更。変更頻度で分けない理由3点は `docs/architecture.md` が正典。
-- **T-154（決まった形へ移行、`sonnet`、T-153依存）**。**本文を2ファイル構成へ差し替え済み**
-  （`anchors.yaml` を `config.yaml` へ統合して廃止＋`tagFormat` を `chart.yaml` へ）。
-  `projectId`・`projectName`・`branchToSync`・`valuesPath`・`anchor` の値は変更しない
-  （GitLab上の実物に合わせてあるため）。`/loop` 可。
+- ~~**T-154（2ファイル構成へ移行、`sonnet`）**~~ **完了**。`anchors.yaml` を廃止して
+  `config.yaml` へ統合、`tagFormat` を `chart.yaml` の `apps[]` へ。実 `config/` は
+  **7→4ファイル**、テストは357→**359件**。
+  - **受け入れ時に `docs/architecture.md` の更新漏れを修正した**（T-153・T-155 で正典を
+    書き換えたとき、旧「3ファイル分割」節・節の索引・各ファイルの責務表・型の置き場所の
+    `Anchors`/`AnchorsApp` を直し忘れていた。委譲先が指摘してくれた）。
+    **正典を書き換えるときは、同じドキュメント内の索引・表・型名まで grep で洗うこと。**
 - **T-151（`StepOutcome` の settled が SKIPPED と ERROR を混ぜている点を解く、`opus`、依存なし）**。
   指摘は事実。`settle("SKIPPED")` が4箇所、`settleAsError()` の `"ERROR"` が同じ枝に入る。
   加えて `settle()` の引数が `ChartUpdateResult` で **`"CREATED"` も型上は渡せる**（実際は

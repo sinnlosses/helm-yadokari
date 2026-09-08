@@ -3,8 +3,12 @@ apps:
   - projectId: 82861978
     projectName: sample-qa-sprint
     branchToSync: main
-    tagFormat: "{branch}-build-at-{date}-{time}"
+    chart:
+      - valuesPath: charts/smoke-tenant2/client2/values.yaml
+        anchor: t2c2QaSprintVersion
   - projectId: 82861977
     projectName: sample-develop-client
     branchToSync: main
-    tagFormat: "{branch}-build-at-{date}-{time}"
+    chart:
+      - valuesPath: charts/smoke-tenant2/client2/values.yaml
+        anchor: t2c2DevelopClientVersion

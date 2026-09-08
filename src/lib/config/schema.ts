@@ -1,6 +1,3 @@
-import { existsSync } from "node:fs"
-import { join } from "node:path"
-
 import { z } from "zod"
 
 import { validateTagFormat } from "../../domain/tag-format.js"
@@ -12,20 +9,11 @@ import {
   toProjectName,
   toValuesPath,
 } from "../../types/types.js"
-import { parseYamlFile } from "../../utils/yaml.js"
 
 /**
- * `config/` の3ファイル（`chart.yaml` / `config.yaml` / `anchors.yaml`）のZodスキーマ。
+ * `config/` の2ファイル（`chart.yaml` / `config.yaml`）のZodスキーマ。
  * スキーマの仕様（何をどう書くか）は `docs/requirements.md` 4.4節が正典。
  */
-
-export const ChartYamlSchema = z.object({
-  chart: z.object({
-    projectId: z.number().int().transform(toProjectId),
-    projectName: z.string().min(1).transform(toProjectName),
-    mrTargetBranch: z.string().min(1, "mrTargetBranch は空にできません").transform(toBranchName),
-  }),
-})
 
 /**
  * `apps[].chart[]`（イメージタグの書き込み先）と`helm.chart[]`（Helm向き先ブランチの
@@ -40,14 +28,15 @@ const AnchorTargetSchema = z
   .transform((v): AnchorTarget => ({ valuesPath: v.valuesPath, anchorName: v.anchor }))
 
 /**
- * `apps[].tagFormat`のZodスキーマ。既定値は持たせず必須にしているのは、ソースリポジトリごとに
- * 実際のタグ形式が違い、既定に当てはまらないappを黙って取りこぼすより明示させるほうが安全なため。
- * テンプレート文字列そのものの妥当性検証（プレースホルダの過不足）は`validateTagFormat()`に委ねる。
+ * `chart.yaml`の`apps[].tagFormat`のZodスキーマ。既定値は持たせず必須にしているのは、
+ * ソースリポジトリごとに実際のタグ形式が違い、既定に当てはまらないappを黙って取りこぼすより
+ * 明示させるほうが安全なため。テンプレート文字列そのものの妥当性検証（プレースホルダの
+ * 過不足）は`validateTagFormat()`に委ねる。
  */
 const TagFormatSchema = z
   .string({
     error:
-      "tagFormat は必須です。config.yaml の apps[] に、ソースリポジトリのタグ形式を " +
+      "tagFormat は必須です。chart.yaml の apps[] に、ソースリポジトリのタグ形式を " +
       "{branch}/{date}/{time} で書いてください（例: '{branch}-build-at-{date}-{time}'）",
   })
   .transform((raw, ctx) => {
@@ -62,56 +51,50 @@ const TagFormatSchema = z
     }
   })
 
-/** config.yaml側。運用値のみ（chart構造はanchors.yaml側が持つ） */
-const AppOperationalSchema = z.object({
+/**
+ * chart.yaml側の1app分。ソースリポジトリのタグ形式（`tagFormat`）の台帳で、
+ * `projectId`をキーに`config.yaml`側の`apps[]`と結合する。`projectName`は
+ * `config.yaml`側と食い違っていないかの検証用に重複して持つ
+ */
+const ChartAppSchema = z.object({
   projectId: z.number().int().transform(toProjectId),
   projectName: z.string().min(1).transform(toProjectName),
-  branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
   tagFormat: TagFormatSchema,
 })
 
-const HelmOperationalSchema = z.object({
+export type ChartApp = z.infer<typeof ChartAppSchema>
+
+export const ChartYamlSchema = z.object({
+  chart: z.object({
+    projectId: z.number().int().transform(toProjectId),
+    projectName: z.string().min(1).transform(toProjectName),
+    mrTargetBranch: z.string().min(1, "mrTargetBranch は空にできません").transform(toBranchName),
+  }),
+  apps: z.array(ChartAppSchema),
+})
+
+/**
+ * config.yaml側の1app分。運用値（`branchToSync`）とchart構造（`chart[]`）の両方を持つ。
+ * `tagFormat`は持たず、`chart.yaml`の`apps[]`から`projectId`で引く
+ */
+const AppSchema = z.object({
+  projectId: z.number().int().transform(toProjectId),
+  projectName: z.string().min(1).transform(toProjectName),
   branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
+  chart: z.array(AnchorTargetSchema).min(1, "chart は1件以上指定してください"),
+})
+
+/**
+ * `branchToSync`・`chart`のどちらも省略可能にしているのは、`helm`オブジェクト自体が
+ * 丸ごと省略可能な設定だから。片方だけの指定を設定エラーにする判定（両方揃って初めて
+ * 意味を持つ）はスキーマではなく`chart-and-apps.ts`の`resolveHelmTargetBranch()`が担う
+ */
+const HelmSchema = z.object({
+  branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName).optional(),
+  chart: z.array(AnchorTargetSchema).min(1, "chart は1件以上指定してください").optional(),
 })
 
 export const ConfigYamlSchema = z.object({
-  helm: HelmOperationalSchema.optional(),
-  apps: z.array(AppOperationalSchema),
+  helm: HelmSchema.optional(),
+  apps: z.array(AppSchema),
 })
-
-/**
- * anchors.yaml側。1app分のchart構造（`chart[]`）に加え、`config.yaml`側と紐付けて
- * 整合性検証するための`projectId`/`projectName`を重複して持つ
- */
-const AnchorsAppSchema = z.object({
-  projectId: z.number().int().transform(toProjectId),
-  projectName: z.string().min(1).transform(toProjectName),
-  chart: z.array(AnchorTargetSchema).min(1, "chart は1件以上指定してください"),
-})
-
-const AnchorsHelmSchema = z.object({
-  chart: z.array(AnchorTargetSchema).min(1, "chart は1件以上指定してください"),
-})
-
-const AnchorsYamlSchema = z.object({
-  helm: AnchorsHelmSchema.optional(),
-  apps: z.array(AnchorsAppSchema),
-})
-
-export type AnchorsApp = z.infer<typeof AnchorsAppSchema>
-
-export type Anchors = {
-  readonly apps: readonly AnchorsApp[]
-  readonly helmChart: readonly AnchorTarget[] | undefined
-}
-
-/**
- * config.yamlと同じ設定ユニットのディレクトリにある`anchors.yaml`を読み込む。
- * 存在しない場合は空扱い（その設定ユニットに1件もappが無いケースを許容するため）。
- */
-export function loadAnchors(unitDirPath: string): Anchors {
-  const path = join(unitDirPath, "anchors.yaml")
-  if (!existsSync(path)) return { apps: [], helmChart: undefined }
-  const parsed = parseYamlFile(path, AnchorsYamlSchema)
-  return { apps: parsed.apps, helmChart: parsed.helm?.chart }
-}

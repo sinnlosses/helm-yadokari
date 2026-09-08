@@ -8,7 +8,7 @@ import { assertSafePath, listSubdirectories } from "../../utils/fs.js"
 import { parseYamlFile } from "../../utils/yaml.js"
 import { loadChartAndApps } from "./chart-and-apps.js"
 import { ChartYamlSchema } from "./schema.js"
-import { validateTagFormatConsistency } from "./validate.js"
+import { validateNoDuplicateProjectIds, validateTagFormatConsistency } from "./validate.js"
 
 /** `CONFIG_PATH`・コマンドライン引数のどちらも省略されたときに読む設定ディレクトリ */
 export const DEFAULT_CONFIG_DIR_PATH = "config"
@@ -38,18 +38,19 @@ type UnitSegments = readonly string[]
 
 /**
  * `config/<chartディレクトリ>/chart.yaml` + `config/<chartディレクトリ>/<unitPath>/config.yaml`
- * （+ 同じディレクトリの`anchors.yaml`）というディレクトリ構成を読み込む。`config.yaml`を持つ
- * ディレクトリが1つの設定ユニットで、その深さは1〜2に限る（深さ0・深さ3以上・入れ子は
- * `findUnitPaths()`が設定エラーとして例外をスローする）。chart.yaml のないディレクトリは
- * 配下ごと無視する。`target` を指定すると該当chart・設定ユニットのみに絞り込む。
+ * というディレクトリ構成を読み込む。`config.yaml`を持つディレクトリが1つの設定ユニットで、
+ * その深さは1〜2に限る（深さ0・深さ3以上・入れ子は`findUnitPaths()`が設定エラーとして
+ * 例外をスローする）。chart.yaml のないディレクトリは配下ごと無視する。`target` を指定すると
+ * 該当chart・設定ユニットのみに絞り込む。
  * `target`（`TARGET_CHART` / `TARGET_UNITS`）を明示的に指定したときに限り、指定した
  * ディレクトリ名・unitPathがtypo等でconfig/配下に見つからない場合、および絞り込み結果として
  * `chartAndAppsList`が1件も無い場合に例外をスローする（`target`未指定時は素通しで、0件でも
  * エラーにしない）。設定ユニットごとに独立した`ChartAndApps`（MRを作成する単位）を返すため、
  * 1つのchartディレクトリに複数の設定ユニットがあれば`chartAndAppsList`には複数件が並ぶ。
- * 組み立てた`chartAndAppsList`全体に対しては、同じ`projectId`のappが複数の設定ユニットに
- * またがって登録されているとき`tagFormat`が食い違っていないかも検証する
- * （`validateTagFormatConsistency()`。設定ユニット単位の検証では検出できないため）。
+ * 組み立てた`chartAndAppsList`全体に対しては、同じ`projectId`のappが複数のchartリポジトリの
+ * `chart.yaml`にまたがって登録されているとき`tagFormat`が食い違っていないかも検証する
+ * （`validateTagFormatConsistency()`。同じchartリポジトリ配下ではtagFormatの台帳が
+ * `chart.yaml`1つに集約されるため、この検証が働くのはchartリポジトリをまたぐ場合だけ）。
  */
 export function loadConfig(configDirPath: string, target: ConfigTarget = NO_TARGET): Config {
   assertSafePath(configDirPath, "CONFIG_PATH")
@@ -176,13 +177,16 @@ function isPrefixOf(a: UnitSegments, b: UnitSegments): boolean {
 /**
  * 1つのchartディレクトリの`chart.yaml`を読み、`target.units`で絞り込んだ設定ユニットを
  * `loadChartAndApps()`に渡す。ここが持つのは走査結果の絞り込みだけで、設定ファイルの
- * 読み込み・結合は`chart-and-apps.ts`が持つ。
+ * 読み込み・結合は`chart-and-apps.ts`が持つ。`chart.yaml`の`apps[]`（タグ形式の台帳）は
+ * 1つのchartディレクトリで共有されるため、重複チェックもここで1回だけ行う。
  */
 function listUnitChartAndApps(
   chartUnits: ChartUnits,
   units: readonly ConfigUnitPath[] | undefined,
 ): ChartAndApps[] {
-  const { chart } = parseYamlFile(join(chartUnits.chartDirPath, "chart.yaml"), ChartYamlSchema)
+  const chartYamlPath = join(chartUnits.chartDirPath, "chart.yaml")
+  const { chart, apps: chartApps } = parseYamlFile(chartYamlPath, ChartYamlSchema)
+  validateNoDuplicateProjectIds(chartYamlPath, chartApps)
   return chartUnits.unitPaths
     .filter((unitPath) => !units || units.includes(unitPath))
     .map((unitPath) =>
@@ -191,6 +195,8 @@ function listUnitChartAndApps(
         chartUnits.chartDirName,
         unitPath,
         chart,
+        chartApps,
+        chartYamlPath,
       ),
     )
 }

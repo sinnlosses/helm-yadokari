@@ -24,21 +24,21 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### 用語の索引
 
-| 節                          | 収録している用語                                                                                                                                                                                                                            |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ## 設定・登録関連           | アプリ / ソースリポジトリ / chartリポジトリ・chartAndApps / 設定ユニット / config.yaml・anchors.yaml / valuesPath / anchor（chart[].anchor） / Helmの向き先ブランチ / helm.chart[].anchor / chartDirName / セルフサービス方式・自己申告方式 |
-| ## タグ・バージョン管理関連 | 追跡ブランチ / タグ形式 / 打刻日時・ビルド日時 / 最新タグ / 反映済みタグ / タグ自動作成                                                                                                                                                     |
-| ## MR・GitLab操作関連       | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング / Group Access Token                                                                                                                                             |
-| ## 実行結果・処理単位関連   | 更新計画 / chartAndApps更新対象 / chartAndApps処理結果 / 実行結果                                                                                                                                                                           |
-| ## 実行環境・運用関連       | Dry-runモード / GitLab CI pipeline schedules・スケジュールパイプライン / renovateジョブ                                                                                                                                                     |
-| ## その他の注記             | 「反映」「適用」「更新」の使い分け / gitlab-watari-dori                                                                                                                                                                                     |
+| 節                          | 収録している用語                                                                                                                                                                                                                          |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ## 設定・登録関連           | アプリ / ソースリポジトリ / chartリポジトリ・chartAndApps / 設定ユニット / chart.yaml・config.yaml / valuesPath / anchor（chart[].anchor） / Helmの向き先ブランチ / helm.chart[].anchor / chartDirName / セルフサービス方式・自己申告方式 |
+| ## タグ・バージョン管理関連 | 追跡ブランチ / タグ形式 / 打刻日時・ビルド日時 / 最新タグ / 反映済みタグ / タグ自動作成                                                                                                                                                   |
+| ## MR・GitLab操作関連       | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング / Group Access Token                                                                                                                                           |
+| ## 実行結果・処理単位関連   | 更新計画 / chartAndApps更新対象 / chartAndApps処理結果 / 実行結果                                                                                                                                                                         |
+| ## 実行環境・運用関連       | Dry-runモード / GitLab CI pipeline schedules・スケジュールパイプライン / renovateジョブ                                                                                                                                                   |
+| ## その他の注記             | 「反映」「適用」「更新」の使い分け / gitlab-watari-dori                                                                                                                                                                                   |
 
 ## 設定・登録関連
 
 ### アプリ
 
 - **英語識別子**: `AppConfig` / `app`
-- **定義**: Helm chartでデプロイされる1つのアプリケーション単位。`config/<chart>/<unitPath>/config.yaml`の1エントリ（運用値）と、同じディレクトリの`anchors.yaml`の対応するエントリ（chart構造）を`projectId`で結合したもの。
+- **定義**: Helm chartでデプロイされる1つのアプリケーション単位。`config/<chart>/<unitPath>/config.yaml`の1エントリ（運用値＋chart構造）と、同じchartリポジトリの`chart.yaml`の対応するエントリ（タグ形式の台帳）を`projectId`で結合したもの。
 
 ### ソースリポジトリ
 
@@ -59,18 +59,22 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 - **入れ子の禁止**: `config.yaml`を持つディレクトリの配下にさらに`config.yaml`があると設定エラーになる。Gitのrefは directory/file conflict を起こすため、`feature/yadokari/a`と`feature/yadokari/a/b`は同一リポジトリに共存できない。逆にプレフィックス関係でなければ衝突しないので、深さ1と深さ2の設定ユニットは同じchartリポジトリ配下に混在できる。
 - **表記ゆれ（解消済み）**: 当初はこの単位を「テナント / クライアント」と呼び、ディレクトリ階層も`<chart>/<tenantId>/<clientId>/`の2階層固定だった（`ChartAndApps`は`TenantId`/`ClientId`ブランド型のフィールドを2つ持ち、環境変数は`TARGET_CLIENTS`だった）。「テナント分けが不要なchartでもダミーのtenantId/clientIdを作らされる」というユーザー指摘を受けて深さ1〜2を許す仕様に変え、語彙も階層数を含意しない「設定ユニット」/`unitPath`へ一本化した。旧称は後方互換のために残さず廃止しており、`docs/requirements-grilling.md`と`tasks.json`/`progress.md`の過去のエントリにのみ当時の記録として残っている。
 
-### config.yaml / anchors.yaml
+### chart.yaml / config.yaml
 
 - **英語識別子**: なし（ファイル名そのもの）
-- **定義**: 1つの設定ユニットのディレクトリに置く2つの設定ファイル。`config.yaml`は
-  「どのプロジェクトのどのブランチを追跡するか」という運用値（`projectId`/`projectName`/
-  `branchToSync`、Helmの向き先ブランチの値`helm.branchToSync`。頻繁に変更される）のみを持ち、
-  `anchors.yaml`は「`values.yaml`のどこに書き込むか」というchart構造（`apps[].chart[]`、
-  `helm.chart[]`。滅多に変更されない）のみを持つ。両者は`projectId`で対応付ける。
-  `anchors.yaml`側の各appは`projectId`に加えて`projectName`も重複して持ち、
-  `ChartAndApps`（1設定ユニット分の集約）の読み込み時に`validateProjectLinkage()`が両ファイル間の紐づけ（`config.yaml`の各appに
-  対応するエントリが`anchors.yaml`にあるか、逆に`anchors.yaml`に孤児エントリが
-  無いか、`projectName`が食い違っていないか）を検証する。
+- **定義**: `config/<chart>/`配下に置く2つの設定ファイル。ファイルを分ける軸は
+  「スコープ」（値が何の単位で決まるか）。`chart.yaml`はchartリポジトリ単位で、
+  MRの作成先（`chart`）と、ソースリポジトリのタグ形式の台帳（`apps[].tagFormat`）を持つ。
+  `config.yaml`は設定ユニット単位で、「どのプロジェクトのどのブランチを追跡するか」という
+  運用値（`projectId`/`projectName`/`branchToSync`、Helmの向き先ブランチの値
+  `helm.branchToSync`）と、「`values.yaml`のどこに書き込むか」というchart構造
+  （`apps[].chart[]`、`helm.chart[]`）の両方を持つ。両者は`projectId`で対応付ける。
+  `chart.yaml`側の各appは`projectId`に加えて`projectName`も重複して持ち、
+  `ChartAndApps`（1設定ユニット分の集約）の読み込み時に`validateProjectLinkage()`が
+  両ファイル間の紐づけ（`config.yaml`の各appに対応するエントリが`chart.yaml`の`apps[]`に
+  あるか、`projectName`が食い違っていないか）を検証する。`chart.yaml`の`apps[]`にだけ
+  あってどの設定ユニットからも参照されないappはエラーにしない（そのchartリポジトリで
+  一時的に更新対象から外している状態を許すため）。
 - **経緯**: 元々は`config.yaml`（当時は`apps.yaml`）自身が`apps[].chart[]`・`helm.chart[]`と
   してchart構造も持っていたが、「chart設定は一度設定すればあまり触らず、apps.yamlはよく触る」
   というユーザー指摘により分離した。最初は`chart-targets.yaml`という名前で`projectId`を
@@ -78,19 +82,26 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   評価を受けて撤回。改めて`anchors.yaml`という名前で、`projectId`をマップのキーにする
   代わりに`projectId`/`projectName`を持つ自己完結した配列要素にする形に作り直した。
   `helm`もユーザーが手動で`[{chart: [...]}]`という配列表記から`{chart: [...]}`という単純な
-  オブジェクトに直接修正し、それに実装を追従させた。
+  オブジェクトに直接修正し、それに実装を追従させた。その後`tagFormat`の置き場所を
+  chartリポジトリ単位に見直した際、`config.yaml`/`anchors.yaml`という「変更頻度」の分割軸が
+  「appの追加・削除ではどちらのファイルも触る」「編集者が分かれていない」という実際の
+  編集の形と合っていなかったことが分かり、分割の軸を「スコープ」（chartリポジトリ単位 /
+  設定ユニット単位）に改めた。`anchors.yaml`は`config.yaml`へ統合して廃止し、
+  `tagFormat`はチームごとに独立した台帳になるよう`chart.yaml`へ移した
+  （詳細は`docs/architecture.md`「`config/`は「スコープ」で2ファイルに分け、
+  変更頻度では分けない」節）。
 
 ### valuesPath
 
 - **英語識別子**: `valuesPath`
-- **定義**: `anchors.yaml`内で、対象アプリが参照する`values.yaml`ファイルのパスを指すフィールド。
+- **定義**: `config.yaml`内で、対象アプリが参照する`values.yaml`ファイルのパスを指すフィールド。
 
 ### anchor（chart[].anchor）
 
 - **英語識別子**: `anchorName`（型は`AnchorName`ブランド型、`AnchorTarget`のフィールド）。ただし
-  `anchors.yaml`上のYAMLキー名は`anchor`のままで、`AnchorTargetSchema`（`src/lib/config/schema.ts`）
+  `config.yaml`上のYAMLキー名は`anchor`のままで、`AnchorTargetSchema`（`src/lib/config/schema.ts`）
   の`.transform()`がキー`anchor`をフィールド`anchorName`に詰め替える
-- **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`anchors.yaml`の
+- **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`config.yaml`の
   `apps[].chart`配列の1要素が持つフィールド名。`variables: [&myAppVersion main, ...]`
   のように、配列要素にアンカーで名前を付けた構成のvalues.yamlを前提とする。1つのソース
   リポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を管理している場合は、`chart`配列に
@@ -100,7 +111,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   dotパスで辿る`imageTagKey`方式も過去に存在したが、実運用ではYAMLアンカー方式のみで
   十分なため削除された。過去には`imageTagAnchor`という名前だったが、ユーザー指示により
   `helm.chart[].anchor`と対になる形で`anchor`にリネームされ、さらに`apps.yaml`から
-  `anchors.yaml`へ移設された。
+  `anchors.yaml`（現在は`config.yaml`に統合）へ移設された。
 
 ### Helmの向き先ブランチ
 
@@ -110,8 +121,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   (2)そのパラメータを受け取ってk8sリソースを実際に構築するブランチの2種類で構成される、という前提のもと、
   後者を指すブランチ名。タグではなくブランチ名そのもので指定する。1つの設定ユニット内のapps全体で
   共通の1つの値であり、`config.yaml`のトップレベルフィールド`helm`（`apps:`配列と同階層、
-  `branchToSync`を持つ1件のオブジェクト。運用値のためconfig.yaml側に置く。`anchors.yaml`
-  側の`helm`も同じくオブジェクト形式で、両者とも配列表記は使わない）として人間が直接
+  `branchToSync`と`chart`を持つ1件のオブジェクト。配列表記は使わない）として人間が直接
   書き換える。タグ形式のような自動生成・自動判定の仕組みは持たない。
 - **表記ゆれ**: config.yaml上のフィールド名は`helm.branchToSync`だが、これは`AppConfig.branchToSync`
   （追跡ブランチ、ソースリポジトリ側の別概念）とは無関係。同じフィールド名が異なる2つの意味で
@@ -123,20 +133,20 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   `anchor`のままで、`apps[].chart[].anchor`と同じ`AnchorTargetSchema`がキー`anchor`から
   フィールド`anchorName`への詰め替えを担う
 - **定義**: 「Helmの向き先ブランチ」の値を`valuesPath`のどこに書き込むかを指す、
-  `anchors.yaml`トップレベル`helm.chart`配列の各要素が持つフィールド（chart構造の
-  ためconfig.yamlではなくanchors.yaml側に置く）。`apps[].chart[].anchor`と
+  `config.yaml`トップレベル`helm.chart`配列の各要素が持つフィールド。`apps[].chart[].anchor`と
   同様にYAMLアンカー名で位置を指定するが、書き込む値がタグではなくブランチ名である点が
   異なる。`apps[].chart[]`とは独立したリストで、app側に専用フィールドは持たせない。
   向き先ブランチは設定ユニット内のapps全体で共通なので、コード上もapp単位に振り分けず
   設定ユニット単位（`ChartAndApps`）で1つ持ち、書き込みもappのループの外で1回だけ行う。
 - **制約**: config.yamlに`helm.branchToSync`が指定されている場合、そのconfig.yaml配下の全アプリの全
-  `chart[].valuesPath`が`anchors.yaml`の`helm.chart[]`でカバーされている必要がある
+  `chart[].valuesPath`が同じ`config.yaml`の`helm.chart[]`でカバーされている必要がある
   （Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提のため、1つでもvaluesPathが
   漏れていると設定エラーになる）。`helm.branchToSync`と`helm.chart[]`は片方だけの指定も
   設定エラー。過去には`apps[].chart[].helmBranchAnchor`というapp単位の任意フィールドだったが、
-  ユーザー指示によりトップレベルの独立リストへ再設計され、さらに`apps.yaml`から
-  `anchors.yaml`へ移設された。当初`helm`は`[{chart: [...]}]`という配列表記
-  だったが、ユーザーが`{chart: [...]}`という単純なオブジェクトに直接修正した。
+  ユーザー指示によりトップレベルの独立リストへ再設計された。当初`helm`は`[{chart: [...]}]`という
+  配列表記だったが、ユーザーが`{chart: [...]}`という単純なオブジェクトに直接修正した。
+  さらにその後、`config.yaml`と別ファイル（`apps.yaml`→`anchors.yaml`）だった`helm.chart[]`は
+  `config.yaml`の`helm`オブジェクトへ統合された（`chart.yaml`/`config.yaml`の項参照）。
 
 ### chartDirName
 
@@ -161,7 +171,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### タグ形式
 
 - **英語識別子**: `tagFormat` / `TagFormat`（`AppConfig`のフィールド。ブランド型は`TagFormat`）
-- **定義**: アプリ（ソースリポジトリ）ごとに`config.yaml`の`apps[]`で指定する、タグ名の読み方と
+- **定義**: アプリ（ソースリポジトリ）ごとに`chart.yaml`の`apps[]`で指定する、タグ名の読み方と
   作り方を表すテンプレート文字列。`{branch}`/`{date}`/`{time}`をそれぞれちょうど1回含み、
   並び順と区切り文字は自由。既定値は持たず必須。`validateTagFormat()`/`parseTag()`/
   `buildNewTag()`が扱う。仕様は`docs/requirements.md` 4.1節が正典。
