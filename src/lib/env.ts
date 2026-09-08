@@ -60,8 +60,8 @@ export function parseTargetChart(raw: string | undefined): ChartDirName | undefi
 }
 
 /**
- * TARGET_UNITS は `unitPath`（深さ1なら "central"、深さ2なら "tenant1/client1"）を
- * カンマ区切りで複数指定できる（例: "central,tenant2/client1"）。config/ のディレクトリ階層に
+ * TARGET_UNITS は `unitPath`（`config/<chartディレクトリ>/` からの深さ1〜2の相対パス）を
+ * カンマ区切りで複数指定できる。config/ のディレクトリ階層に
  * 対応する設定ユニットを、1変数でまとめて渡すため。
  */
 export function parseTargetUnits(raw: string | undefined): readonly ConfigUnitPath[] | undefined {
@@ -105,8 +105,8 @@ function parseTargetUnitEntry(entry: string): ConfigUnitPath {
   const unit = parseConfigUnitPath(entry)
   if (unit === undefined) {
     throw new Error(
-      `TARGET_UNITS は設定ユニットのディレクトリのパス（"central" や "tenant1/client1" のような` +
-        `深さ1〜2の相対パス）で指定してください: "${entry}"`,
+      `TARGET_UNITS は設定ユニットのディレクトリのパス（"<ユニット名>" や ` +
+        `"<第1セグメント>/<第2セグメント>" のような深さ1〜2の相対パス）で指定してください: "${entry}"`,
     )
   }
   return unit

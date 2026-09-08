@@ -54,7 +54,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### 設定ユニット
 
 - **英語識別子**: `unitPath`（`ConfigUnitPath`ブランド型、`ChartAndApps`のフィールド）
-- **定義**: 同一chartリポジトリ配下でアプリ設定を分割管理する単位。`config.yaml`を1つ持つディレクトリがそのまま1つの設定ユニットで、`unitPath`は`config/<chart>/`からそのディレクトリまでの相対パス（`central`のような深さ1、`tenant1/client1`のような深さ2のいずれか。深さ0と深さ3以上は設定エラー）。MRを作成する単位でもあり、固定ブランチ名`feature/yadokari/<unitPath>`の可変部にもなる。
+- **定義**: 同一chartリポジトリ配下でアプリ設定を分割管理する単位。`config.yaml`を1つ持つディレクトリがそのまま1つの設定ユニットで、`unitPath`は`config/<chart>/`からそのディレクトリまでの相対パス（深さ1〜2のいずれか。深さ0と深さ3以上は設定エラー。詳細は`docs/requirements.md` 4.4節）。MRを作成する単位でもあり、固定ブランチ名`feature/yadokari/<unitPath>`の可変部にもなる。
 - **`chartAndApps`との範囲の違い**: `ChartAndApps`は「1つの設定ユニット」の集約そのもの（`chart.yaml`の情報＋その設定ユニット配下の全アプリ設定）を指す型で、`unitPath`はその集約が`config/`のどこに置かれているかを表す1フィールド。「chartリポジトリ」は1つ上の粒度で、1つのchartリポジトリに複数の`ChartAndApps`（＝複数の設定ユニット）がぶら下がりうる。
 - **入れ子の禁止**: `config.yaml`を持つディレクトリの配下にさらに`config.yaml`があると設定エラーになる。Gitのrefは directory/file conflict を起こすため、`feature/yadokari/a`と`feature/yadokari/a/b`は同一リポジトリに共存できない。逆にプレフィックス関係でなければ衝突しないので、深さ1と深さ2の設定ユニットは同じchartリポジトリ配下に混在できる。
 - **表記ゆれ（解消済み）**: 当初はこの単位を「テナント / クライアント」と呼び、ディレクトリ階層も`<chart>/<tenantId>/<clientId>/`の2階層固定だった（`ChartAndApps`は`TenantId`/`ClientId`ブランド型のフィールドを2つ持ち、環境変数は`TARGET_CLIENTS`だった）。「テナント分けが不要なchartでもダミーのtenantId/clientIdを作らされる」というユーザー指摘を受けて深さ1〜2を許す仕様に変え、語彙も階層数を含意しない「設定ユニット」/`unitPath`へ一本化した。旧称は後方互換のために残さず廃止しており、`docs/requirements-grilling.md`と`tasks.json`/`progress.md`の過去のエントリにのみ当時の記録として残っている。
@@ -91,7 +91,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   `anchors.yaml`上のYAMLキー名は`anchor`のままで、`AnchorTargetSchema`（`src/lib/config/schema.ts`）
   の`.transform()`がキー`anchor`をフィールド`anchorName`に詰め替える
 - **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`anchors.yaml`の
-  `apps[].chart`配列の1要素が持つフィールド名。`variables: [&tenant1client1AppsVersion main, ...]`
+  `apps[].chart`配列の1要素が持つフィールド名。`variables: [&myAppVersion main, ...]`
   のように、配列要素にアンカーで名前を付けた構成のvalues.yamlを前提とする。1つのソース
   リポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を管理している場合は、`chart`配列に
   要素を複数指定し、それぞれ異なる`anchor`を持たせる。
@@ -222,7 +222,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### 固定ブランチ
 
 - **英語識別子**: `buildFeatureBranch(unitPath)`（値は`feature/yadokari/<unitPath>`）
-- **定義**: 1つのchartAndApps（`(chartリポジトリ, 設定ユニット)`単位）でMRを送るために使い回す固定ブランチ名。設定ユニットごとに異なる値になる。`unitPath`の`/`はそのままブランチ名の階層になるため、深さ2の設定ユニットでは`feature/yadokari/tenant1/client1`のように3階層のブランチ名になる。
+- **定義**: 1つのchartAndApps（`(chartリポジトリ, 設定ユニット)`単位）でMRを送るために使い回す固定ブランチ名。設定ユニットごとに異なる値になる。`unitPath`の`/`はそのままブランチ名の階層になるため、深さ2の設定ユニットでは`feature/yadokari/<第1セグメント>/<第2セグメント>`のように3階層のブランチ名になる。
 - **補足**: 要件定義の検討初期段階では`yadokari/<アプリ名>`というアプリ単位のブランチ名案だったが、議論の末に「chartリポジトリ単位で固定（`yadokari/update`）」に変更され、さらに「`(chartリポジトリ, 設定ユニット)`単位」に変更された（同じchartリポジトリに複数の設定ユニットが乗る場合、設定ユニットごとに独立したブランチ・MRになる）。以前は`UPDATE_BRANCH`という固定値のエクスポートだったが、設定ユニットごとに値が変わるようになったため関数に変わった。設定ユニットの入れ子を禁止しているのは、この命名だとブランチ名がプレフィックス関係になりGitのrefが共存できなくなるため。
 - **バグ修正**: 要件定義には元々「マージまたはクローズされた後の実行で、改めて固定ブランチを作り直しMRを作成する」と明記されていたが、実装（`commitFileUpdates()`）はブランチが存在する場合は削除せず追加コミットを積むだけだった。`filterTargets`が「このブランチにオープン中のMRが無い」ことを確認済みという前提を活かし、ブランチが存在すれば`deleteBranch()`で無条件に削除してから作り直すよう修正した。
 

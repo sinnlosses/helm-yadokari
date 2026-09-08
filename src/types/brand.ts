@@ -75,7 +75,7 @@ export function toChartDirName(s: string): ChartDirName {
 
 declare const configUnitPathBrand: unique symbol
 /**
- * `config/<chartDir>/`から設定ユニットのディレクトリまでの相対パス（例: `"tenant1/client1"`）。
+ * `config/<chartDir>/`から設定ユニットのディレクトリまでの相対パス（深さ1〜2）。
  * `ChartDirName`・`BranchName`・`ValuesPath`と同じ`string`表現を持つ別概念であり、取り違えを
  * 防ぐためブランド型にしている。MRを作成する単位・固定ブランチ名の可変部になる。
  */

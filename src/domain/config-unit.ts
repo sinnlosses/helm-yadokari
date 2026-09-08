@@ -12,9 +12,9 @@ export const MAX_UNIT_DEPTH = 2
 
 /**
  * `TARGET_UNITS`環境変数の1エントリを`ConfigUnitPath`として受け入れられる形かどうかの検証。
- * 受理するのは深さ1（`"central"`）と深さ2（`"tenant1/client1"`）で、それ以外の深さと
- * 空のセグメントを含むものには undefined を返す。
- * セグメントがGitLabブランチ名として妥当かは検証しない（`docs/requirements.md` 4.2節）。
+ * 受理するのは深さ1〜2で、それ以外の深さと空のセグメントを含むものには undefined を返す
+ * （深さの制約は `docs/requirements.md` 4.4節）。
+ * セグメントがGitLabブランチ名として妥当かは検証しない（同 4.2節）。
  */
 export function parseConfigUnitPath(raw: string): ConfigUnitPath | undefined {
   const segments = raw.split(UNIT_PATH_SEPARATOR)

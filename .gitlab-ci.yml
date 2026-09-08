@@ -17,7 +17,7 @@ spec:
       default: ""
       type: string
     TARGET_UNITS:
-      description: '特定の設定ユニットのみ対象にする（省略時は全設定ユニット）。unitPath（深さ1なら "central"、深さ2なら "tenant1/client1"）で、カンマ区切りで複数指定可（例: "t1/c1,t2/c2"）'
+      description: "特定の設定ユニットのみ対象にする（省略時は全設定ユニット）。unitPath（config/<chartディレクトリ>/ からの深さ1〜2の相対パス）で、カンマ区切りで複数指定可"
       default: ""
       type: string
 ---
@@ -65,7 +65,7 @@ variables:
     description: "特定のchartディレクトリのみ対象にする場合に指定（省略時は全chart）"
   TARGET_UNITS:
     value: "$[[ inputs.TARGET_UNITS ]]"
-    description: '特定の設定ユニットのみ対象にする場合に unitPath（深さ1なら "central"、深さ2なら "tenant1/client1"）で、カンマ区切りで複数指定（省略時は全設定ユニット）'
+    description: "特定の設定ユニットのみ対象にする場合に unitPath（config/<chartディレクトリ>/ からの深さ1〜2の相対パス）で、カンマ区切りで複数指定（省略時は全設定ユニット）"
   PNPM_STORE_DIR:
     value: .pnpm-store
     description: "pnpm キャッシュの保存先（変更不要）"

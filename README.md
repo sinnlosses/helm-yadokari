@@ -88,7 +88,7 @@ cd helm-yadokari
 pnpm install
 
 # 2. 設定ファイルを作成（config/ 配下の構成は下記「設定」を参照）
-mkdir -p config/my-team-chart/central   # 深さ2も可（例: config/my-team-chart/tenant1/client1）
+mkdir -p config/my-team-chart/my-unit   # 深さ2も可（例: config/my-team-chart/my-group/my-unit）
 # → chart.yaml / config.yaml / anchors.yaml を作成する
 #   （記述例は docs/requirements.md 4.4節。config/yadokari-smoke-test-chart/ の実物も参考になる）
 
@@ -134,8 +134,8 @@ flowchart TD
 
 ```json
 {"level":"info","timestamp":"2026-09-02T00:00:00.000Z","event":"run_start","gitlabUrl":"https://gitlab.example.com","dryRun":false,"concurrencyLimit":3,"configDirPath":"config"}
-{"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_chart","chartDirName":"teamA-chart","unitPath":"tenant1/client1","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","latestTag":"main-build-at-20260902-090000","updates":[{"valuesPath":"charts/my-app/values.yaml","previousTagName":"main-build-at-20260901-090000"}]}],"helmTargetBranchUpdates":[]}
-{"level":"info","timestamp":"2026-09-02T00:00:00.456Z","event":"update_chart","chartDirName":"teamB-chart","unitPath":"tenant1/client1","chartProjectId":999,"chartProjectName":"teamB-chart","result":"SKIPPED","reason":"no_diff"}
+{"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_chart","chartDirName":"teamA-chart","unitPath":"my-group/my-unit","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","latestTag":"main-build-at-20260902-090000","updates":[{"valuesPath":"charts/my-app/values.yaml","previousTagName":"main-build-at-20260901-090000"}]}],"helmTargetBranchUpdates":[]}
+{"level":"info","timestamp":"2026-09-02T00:00:00.456Z","event":"update_chart","chartDirName":"teamB-chart","unitPath":"my-unit","chartProjectId":999,"chartProjectName":"teamB-chart","result":"SKIPPED","reason":"no_diff"}
 {"level":"info","timestamp":"2026-09-02T00:00:00.500Z","event":"summary","CREATED":1,"SKIPPED":1,"ERROR":0}
 {"level":"info","timestamp":"2026-09-02T00:00:00.520Z","event":"run_end","duration_ms":520}
 ```
@@ -147,15 +147,15 @@ flowchart TD
 
 ### 環境変数
 
-| 変数名              | 必須 | デフォルト | 説明                                                                                                                                                                                                                                              |
-| ------------------- | :--: | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GITLAB_URL`        |  ✓   | —          | GitLab インスタンスの URL（`http://` または `https://` で始まる形式）                                                                                                                                                                             |
-| `ACCESS_TOKEN`      |  ✓   | —          | `read_api` + `write_repository` + MR作成権限を持つ Group/Project Access Token（最小権限で発行してください）                                                                                                                                       |
-| `CONFIG_PATH`       |      | `config/`  | 設定ディレクトリのパス（作業ディレクトリ外を指すパスは拒否され、実在しないディレクトリを指定した場合もエラー終了します）                                                                                                                          |
-| `CONCURRENCY_LIMIT` |      | `3`        | `(chartリポジトリ, 設定ユニット)`単位の同時処理数（1〜20の整数）                                                                                                                                                                                  |
-| `DRY_RUN`           |      | `false`    | `"true"` のときタグ作成・ブランチ作成・MR作成をスキップし、更新予定の内容のみログ出力します                                                                                                                                                       |
-| `TARGET_CHART`      |      | —          | 指定すると `config/` 配下の特定のchartディレクトリのみ処理対象にします（省略時は全chart）。存在しないディレクトリ名を指定した場合、または絞り込み結果が0件の場合はエラー終了します                                                                |
-| `TARGET_UNITS`      |      | —          | 指定すると特定の設定ユニットのみ処理対象にします。`unitPath`（深さ1なら `"central"`、深さ2なら `"t1/c1"`）を、カンマ区切りで複数指定可（例: `"central,t2/c2"`。省略時は全設定ユニット）。該当する設定ユニットが見つからない場合はエラー終了します |
+| 変数名              | 必須 | デフォルト | 説明                                                                                                                                                                                                                                   |
+| ------------------- | :--: | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GITLAB_URL`        |  ✓   | —          | GitLab インスタンスの URL（`http://` または `https://` で始まる形式）                                                                                                                                                                  |
+| `ACCESS_TOKEN`      |  ✓   | —          | `read_api` + `write_repository` + MR作成権限を持つ Group/Project Access Token（最小権限で発行してください）                                                                                                                            |
+| `CONFIG_PATH`       |      | `config/`  | 設定ディレクトリのパス（作業ディレクトリ外を指すパスは拒否され、実在しないディレクトリを指定した場合もエラー終了します）                                                                                                               |
+| `CONCURRENCY_LIMIT` |      | `3`        | `(chartリポジトリ, 設定ユニット)`単位の同時処理数（1〜20の整数）                                                                                                                                                                       |
+| `DRY_RUN`           |      | `false`    | `"true"` のときタグ作成・ブランチ作成・MR作成をスキップし、更新予定の内容のみログ出力します                                                                                                                                            |
+| `TARGET_CHART`      |      | —          | 指定すると `config/` 配下の特定のchartディレクトリのみ処理対象にします（省略時は全chart）。存在しないディレクトリ名を指定した場合、または絞り込み結果が0件の場合はエラー終了します                                                     |
+| `TARGET_UNITS`      |      | —          | 指定すると特定の設定ユニットのみ処理対象にします。`unitPath`（`config/<chartディレクトリ>/` からの深さ1〜2の相対パス）を、カンマ区切りで複数指定可（省略時は全設定ユニット）。該当する設定ユニットが見つからない場合はエラー終了します |
 
 ### config/
 
@@ -165,11 +165,11 @@ flowchart TD
 config/
   <chartリポジトリ名>/            # 例: teamA-chart（ディレクトリ名は人間向けのラベル）
     chart.yaml                     # そのchartリポジトリ共通の情報
-    central/                       # 設定ユニット（深さ1）。unitPath は "central"
+    <ユニット名>/                  # 設定ユニット（深さ1）
       config.yaml                  # 運用値（どのプロジェクトのどのブランチを追跡するか等）
       anchors.yaml                 # chart構造（values.yaml内のどこに書き込むか）
-    tenant1/                       # 設定ユニット（深さ2）。unitPath は "tenant1/client1"
-      client1/
+    <第1セグメント>/               # 設定ユニット（深さ2）
+      <第2セグメント>/
         config.yaml
         anchors.yaml
 ```
@@ -246,13 +246,13 @@ OFF にしてください（詳細は下記「CI/CD」章と `.gitlab-ci.yml` �
 
 ### 手動実行時のオプション（Pipeline inputs）
 
-| input               | 型      | デフォルト | 説明                                                                                                                                                            |
-| ------------------- | ------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DRY_RUN`           | boolean | `false`    | `true` のとき更新をスキップしログのみ出力                                                                                                                       |
-| `CONCURRENCY_LIMIT` | string  | `3`        | `(chartリポジトリ, 設定ユニット)`単位の同時処理数（1〜20の整数）                                                                                                |
-| `CONFIG_PATH`       | string  | `""`       | 設定ディレクトリのパス（省略時は `config/`）                                                                                                                    |
-| `TARGET_CHART`      | string  | `""`       | 特定のchartディレクトリのみ対象にする場合に指定（省略時は全chart）                                                                                              |
-| `TARGET_UNITS`      | string  | `""`       | 特定の設定ユニットのみ対象にする場合に `unitPath`（深さ1なら `"central"`、深さ2なら `"tenant1/client1"`）で指定、カンマ区切りで複数可（省略時は全設定ユニット） |
+| input               | 型      | デフォルト | 説明                                                                                                                                                              |
+| ------------------- | ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DRY_RUN`           | boolean | `false`    | `true` のとき更新をスキップしログのみ出力                                                                                                                         |
+| `CONCURRENCY_LIMIT` | string  | `3`        | `(chartリポジトリ, 設定ユニット)`単位の同時処理数（1〜20の整数）                                                                                                  |
+| `CONFIG_PATH`       | string  | `""`       | 設定ディレクトリのパス（省略時は `config/`）                                                                                                                      |
+| `TARGET_CHART`      | string  | `""`       | 特定のchartディレクトリのみ対象にする場合に指定（省略時は全chart）                                                                                                |
+| `TARGET_UNITS`      | string  | `""`       | 特定の設定ユニットのみ対象にする場合に `unitPath`（`config/<chartディレクトリ>/` からの深さ1〜2の相対パス）で指定、カンマ区切りで複数可（省略時は全設定ユニット） |
 
 ## 開発
 

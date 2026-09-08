@@ -390,13 +390,16 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 ## 次にやること
 
 - **T-144・T-145 は完了**。残る `todo` は **T-146〜T-150**。
-- **T-149（TARGET_UNITS の説明文から実在しない具体名を外す、`opus`、依存なし）**。
-  `central` と `tenant1/client1` はどちらも**実在しない**（実物は `anchor-app`・
-  `tenant2/client1`・`tenant2/client2`）。`src/lib/env.ts`・`src/domain/config-unit.ts`・
-  `src/types/brand.ts`・`README.md`・`docs/requirements.md`・`docs/glossary.md`・
-  `.gitlab-ci.yml` に散在し、同じファイル内で `t1/c1` 系の抽象形と混在している。
-  **表記の決定にユーザー承認が要るので `/loop` には載せない。**
-  `config/` の実ディレクトリと `test/` のフィクスチャは対象外。
+- ~~**T-149（TARGET_UNITS の説明文から実在しない具体名を外す、`opus`）**~~ **完了**。
+  承認された方針は「メタ変数のみ（`<ユニット名>` / `<第1セグメント>/<第2セグメント>`）＋
+  深さの詳細は `docs/requirements.md` 4.4節に集約」。8ファイル21箇所を置換した。
+  **判断の根拠**: `README.md` の構成図と `docs/requirements.md` 216行目が既に
+  「メタ変数が本体、具体名は『例:』の括弧内」という書き方をしており、設定ユニットの階層だけが
+  そこから漏れていた（新しい規約ではなく既存規約の適用漏れ）。
+  - `docs/smoke-test.md` は**対象外のまま残した**。`TARGET_UNITS=tenant2/client1,...` は
+    実際に走らせるコマンドで、`config/` の実フィクスチャを指しているため。
+  - `README.md:91` の `mkdir` とログ出力例2件はリテラルが要るのでメタ変数化せず、
+    `my-unit` / `my-group/my-unit` に置き換えた。
 - **T-150（ドキュメント整備の定型作業をスキル化、`opus`、依存なし）**。対象は `docs/` の
   `history/` 以外・`README.md`・`CLAUDE.md`。145タスク中10件（T-028・T-029・T-031・T-039・
   T-057・T-077・T-078・T-128・T-141・T-142）が同じ形だったことが根拠。
