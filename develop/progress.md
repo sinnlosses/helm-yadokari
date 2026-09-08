@@ -264,7 +264,12 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 - 新しいGitLab読み取りをキャッシュ機構に載せる手順と「載せてよいかの判断」は
   `docs/architecture.md`「GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で
   1つ持ち回る」節にある。
-- **実機スモークテストは実施済み**（上記）。残っているのは**テスト用アクセストークンの失効**
+- **`config-test/` の構成が変わったので、次回の実機スモークは `docs/smoke-test.md` の手順1から
+  やり直す。** 旧ブランチ `feature/yadokari/tenant1/client1` がGitLab上に残っていれば
+  `smoke-fixture.ts reset --apply` が拾って片付ける（`isFeatureBranch()` は接頭辞判定のみ）。
+  `scripts/lint/validate-config.ts` はディレクトリを**位置引数**で受け取る
+  （`pnpm lint:validate-config config-test`。`CONFIG_PATH` 環境変数では効かない）。
+- **実機スモークテストは実施済み**（上記。ただし上記の構成変更より前）。残っているのは**テスト用アクセストークンの失効**
   （ユーザー対応。下の「注意」参照）。次に回すときは `docs/smoke-test.md` の手順1から。
 - 「埋めない穴」「消さないと決めたもの」の正典は `docs/coding-standards.md`「テスト」節に
   移した（T-119）。判断を変えたくなったら、まずそちらの理由を更新する。
@@ -277,7 +282,8 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
      `buildFeatureBranch(unitPath)` が現行。走査はまだ2階層固定
   3. ~~**T-130（`opus`、T-129依存）**~~ **完了**。深さ1〜2の混在が動く。走査は深さで
      打ち切らず全件集めてから判定する方式（深さ3以上を黙って無視しないため）
-  4. **T-131（`sonnet`、T-130依存）** `config-test/` に深さ1のユニットを作り e2e で混在を守る
+  4. ~~**T-131（`sonnet`、T-130依存）**~~ **完了**。要件変更は4タスクとも完了。
+     `config-test/` は `anchor-app/`（深さ1）＋ `tenant2/*`（深さ2）の混在構成になった
      設計判断（深さ1〜2に限定・入れ子は設定エラー・後方互換なし・語彙は「設定ユニット」）は
      ユーザーとの対話で確定済みで、原文と選択の経緯は `docs/history/direction.md` の2026-09-08（2回目）にある。
 - **ブランチ名は文字列として変わらない**のが今回の設計の要。`feature/yadokari/<unitPath>` に

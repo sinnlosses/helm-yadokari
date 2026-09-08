@@ -32,23 +32,36 @@ chartリポジトリ側に必要なもの（`smoke-fixture.ts setup` が用意�
   （`t2c1QaSprintVersion` / `t2c1DevelopClientVersion` / `t2c1HelmTargetBranch`）
 - `charts/smoke-tenant2/client2/values.yaml` … アンカー2つ
   （`t2c2QaSprintVersion` / `t2c2DevelopClientVersion`）
+- `charts/anchor-app/values.yaml` … アンカー1つ（`tenantId1client1AppsVersion`）。深さ1の
+  設定ユニット `anchor-app` 用で、`smoke-fixture.ts setup` の対象外（初期値は手動で管理する）
 
-対応する設定は `config-test/yadokari-smoke-test-chart/tenant2/` に置いてある（gitで管理）。
+対応する設定は `config-test/yadokari-smoke-test-chart/` に置いてある（gitで管理）。
+`tenant2/` 配下が深さ2の設定ユニット、`anchor-app/` が深さ1の設定ユニットで、
+同じchartリポジトリ配下に両方の深さが混在した状態になっている。`anchor-app`という
+ディレクトリ名はchartリポジトリ側の`charts/anchor-app/`に合わせたもので、アンカー名
+`tenantId1client1AppsVersion`は実リポジトリ側の値をそのまま使っているため
+ディレクトリ名とは対応していない（このアンカー名自体は本来「テナント/クライアント」
+時代の名残りだが、実chartリポジトリの値なのでここでは変更しない）。
 
 ## 検証シナリオ
 
-1つのchartリポジトリ配下に2つのclientがあり、それぞれ2つのappを持つ状態で:
+1つのchartリポジトリ配下に深さ2の設定ユニットが2つあり、それぞれ2つのappを持つ状態で:
 
-| client            | 期待する結果                                                                |
+| 設定ユニット      | 期待する結果                                                                |
 | ----------------- | --------------------------------------------------------------------------- |
 | `tenant2/client1` | image tag更新 **＋ Helmの向き先ブランチ更新**（`main` → `release/2026-q1`） |
 | `tenant2/client2` | image tag更新のみ                                                           |
 
-各clientには2つのappを登録してあるが、`sample-develop-client` は反映済みタグが追跡ブランチの
+各ユニットには2つのappを登録してあるが、`sample-develop-client` は反映済みタグが追跡ブランチの
 HEADを指すため更新対象から外れる。「複数app登録の状態で、更新が必要なappだけが
 MRに載る」ことの確認も兼ねている。
 
-それぞれ独立した固定ブランチ `feature/yadokari/tenant2/<clientId>` とMRになる。
+それぞれ独立した固定ブランチ `feature/yadokari/tenant2/<unitPathの第2セグメント>` とMRになる。
+
+この2ユニットに加えて、`config-test/`には深さ1の設定ユニット`anchor-app`もある
+（`TARGET_UNITS`の絞り込みで対象外になる。深さ1・深さ2の混在自体は`pnpm lint:validate-config`
+と`test/main.e2e.test.ts`で確認済みなので、このシナリオでは既存のtenant2の2ユニットに
+焦点を絞っている）。
 
 ## 手順
 
@@ -68,13 +81,14 @@ npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
 pnpm lint:validate-config:remote config-test
 
 # 4. 何が起きるかだけ見る（書き込みなし）
-CONFIG_PATH=config-test TARGET_CLIENTS=tenant2/client1,tenant2/client2 DRY_RUN=true pnpm dev
+CONFIG_PATH=config-test TARGET_UNITS=tenant2/client1,tenant2/client2 DRY_RUN=true pnpm dev
 
 # 5. 実際にMRを作る
-CONFIG_PATH=config-test TARGET_CLIENTS=tenant2/client1,tenant2/client2 pnpm dev
+CONFIG_PATH=config-test TARGET_UNITS=tenant2/client1,tenant2/client2 pnpm dev
 ```
 
-`TARGET_CLIENTS` を外すと `config-test/` 配下の全client（`tenant1/*` を含む）が対象になる。
+`TARGET_UNITS` を外すと `config-test/` 配下の全設定ユニット（深さ1の`anchor-app`を含む）が
+対象になる。
 
 ## 期待する結果
 

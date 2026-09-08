@@ -30,11 +30,13 @@ import { makeHttpError } from "./helpers.js"
 
 /** `config-test/yadokari-smoke-test-chart/chart.yaml` の projectId */
 const CHART_PROJECT_ID = 86061211
-/** `sample-qa-sprint`。3client共通で登録されているapp。追跡ブランチ`main`のHEADに
- * 現在値と異なる名前のタグが既にある状態にする（更新対象、タグ自動作成の経路には入らない）*/
+/** `sample-qa-sprint`。3つの設定ユニット（`anchor-app`＋`tenant2/client1`＋`tenant2/client2`）
+ * 共通で登録されているapp。追跡ブランチ`main`のHEADに現在値と異なる名前のタグが
+ * 既にある状態にする（更新対象、タグ自動作成の経路には入らない）*/
 const QA_PROJECT_ID = 82861978
-/** `sample-develop-client`。tenant2の2client共通で登録されているapp。追跡ブランチ`main`の
- * HEADのタグ名がvalues.yamlの現在値と同じ状態にする（already_up_to_dateで据え置き）*/
+/** `sample-develop-client`。tenant2の2ユニット共通で登録されているapp（`anchor-app`は
+ * 登録していない）。追跡ブランチ`main`のHEADのタグ名がvalues.yamlの現在値と同じ状態にする
+ * （already_up_to_dateで据え置き）*/
 const DEV_PROJECT_ID = 82861977
 
 const HEAD_SHA_QA = "head-sha-qa"
@@ -158,26 +160,28 @@ describe("run（config-test/ の実ファイルを読むe2e）", () => {
     } as never)
   })
 
-  it("config-test/ 全件で、client単位に1つずつMRが作られる", async () => {
+  it("config-test/ 全件で、設定ユニット単位に1つずつMRが作られる（深さ1・深さ2が混在）", async () => {
     await expect(run(env)).resolves.toBe("SUCCESS")
 
     expect(gitlab.MergeRequests.create).toHaveBeenCalledTimes(3)
 
-    const tenant1Client1 = findMrCreateCall(gitlab, "feature/yadokari/tenant1/client1")
+    // `anchor-app` は深さ1、`tenant2/client1` `tenant2/client2` は深さ2の設定ユニット。
+    // 3件とも呼ばれていることが、深さ1・深さ2の混在が実ファイルから最後まで動くことの確認になる
+    const anchorApp = findMrCreateCall(gitlab, "feature/yadokari/anchor-app")
     const tenant2Client1 = findMrCreateCall(gitlab, "feature/yadokari/tenant2/client1")
     const tenant2Client2 = findMrCreateCall(gitlab, "feature/yadokari/tenant2/client2")
 
-    for (const call of [tenant1Client1, tenant2Client1, tenant2Client2]) {
+    for (const call of [anchorApp, tenant2Client1, tenant2Client2]) {
       // (projectId, sourceBranch, targetBranch, title, { description })
       expect(call[0]).toBe(CHART_PROJECT_ID)
       expect(call[2]).toBe("main") // chart.yaml の mrTargetBranch
     }
 
-    expect(tenant1Client1[3]).toContain("tenant1/client1")
+    expect(anchorApp[3]).toContain("anchor-app")
     expect(tenant2Client1[3]).toContain("tenant2/client1")
     expect(tenant2Client2[3]).toContain("tenant2/client2")
     // MRタイトルには書き換え箇所数（image tag件数）も入る
-    expect(tenant1Client1[3]).toContain("image tag 1")
+    expect(anchorApp[3]).toContain("image tag 1")
     expect(tenant2Client1[3]).toContain("image tag 1")
 
     const tenant2Client1Description = (tenant2Client1[4] as { readonly description: string })
