@@ -133,7 +133,7 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 [`docs/workflow.md`](./docs/workflow.md) が正典。**
 
 1. セッション開始時に `develop/progress.md` と `develop/tasks.json` を読み、アーカイブすべき
-   タイミングなら作業前にアーカイブする。`develop/direction.md` に見出し以外の中身があれば
+   タイミングなら作業前にアーカイブする（**両方が判定の対象**。基準は `docs/workflow.md`）。`develop/direction.md` に見出し以外の中身があれば
    未タスク化の指示が残っているので、他の作業より先に `/plan-tasks` でタスク化する
 2. `tasks.json` から依存が完了済みの `todo` タスクを1つ選ぶ
 3. 作業する。タスクは **`difficulty` と同じモデルを指定したサブエージェントに委譲**する

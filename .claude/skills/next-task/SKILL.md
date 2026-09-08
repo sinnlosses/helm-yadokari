@@ -11,8 +11,10 @@ description: "develop/tasks.jsonから未着手タスクを1件選んで実行�
 ## 手順
 
 1. **読む**: `develop/progress.md` と `develop/tasks.json` を読む。`docs/workflow.md`
-   「肥大化したときのアーカイブ」のトリガー（`done`が10件以上、または`tasks.json`が30KB超）に
-   該当していたら、着手前にアーカイブする。
+   「肥大化したときのアーカイブ」のトリガーに該当していたら、着手前にアーカイブする。
+   **2ファイルをここでまとめて判定する**（`tasks.json`は`done`が10件以上または`done`のサイズが
+   30KB超。`todo`は数えない。`progress.md`は「完了したこと」配下に最新の日付以外の小節がある）。
+   基準と判定コマンドは `docs/workflow.md`「いつ移すか（トリガー）」が正典。
 
    あわせて `develop/direction.md` を見る。見出し行以外に中身があれば
    （`grep -v '^#' develop/direction.md | grep -v '^\s*$'` が空でなければ）、**未タスク化の
@@ -46,7 +48,9 @@ description: "develop/tasks.jsonから未着手タスクを1件選んで実行�
 
 6. **記録してコミット**: `develop/tasks.json` の対象タスクの `status`/`passes`/`evidence` を
    更新する（evidenceは3行以内、後から検証できる形で）。`develop/progress.md` の
-   「完了したこと」にも1〜2文で追記する。1タスク＝1コミットとし、件名の先頭にタスクIDを置く
+   「完了したこと」にも1〜2文で追記する。**追記先の小節が無ければ `### YYYY-MM-DD 〜` の
+   形で今日の日付の小節を作る**（日付が無いとアーカイブの境界を決められない。
+   `docs/workflow.md`「progress.md の構成」）。1タスク＝1コミットとし、件名の先頭にタスクIDを置く
    （書式は `docs/workflow.md`「コミットメッセージ」が正典）。コミットメッセージの
    末尾には現在のセッションの attribution 指示（Co-Authored-By 等）に従う。
 
