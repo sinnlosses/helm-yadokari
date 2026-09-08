@@ -56,10 +56,10 @@
   {
     "id": "T-141",
     "task": "`README.md` の、実物とズレている記述を直す。\n\n## 背景\n\n洗い出しで見つかった食い違いは3つ。\n\n### 1. 実行ログの例の構造が実装と違う（誤り）\n\n`README.md`「実行ログの例」の `update_chart` の行が\n\n```json\n\"apps\":[{\"projectName\":\"my-app\",\"latestTag\":\"...\",\"updates\":[...],\"helmTargetBranchUpdates\":[]}]\n```\n\nとなっていて、**`helmTargetBranchUpdates` が app のオブジェクトの中に入っている**。実装（`src/steps/apply-updates/apply-updates.ts` の `logger.info`）では `apps` と `helmTargetBranchUpdates` は**兄弟のフィールド**で、app 1件分を作る `describePlan()`（`src/steps/shared/describe-plan.ts`）が返すのは `projectName` / `latestTag` / `updates` の3つだけ。ログを grep する運用のドキュメントとして、この構造の誤りは実害がある。\n\n### 2. `run_start` の例のフィールドが足りない\n\n同じ節の `run_start` の行は `gitlabUrl` / `dryRun` / `concurrencyLimit` の3つしか載せていないが、実装（`src/main.ts`）は `configDirPath` / `targetChart` / `targetUnits` も出す。\n\n### 3. Quick Start のディレクトリ例が深さ2固定を前提にしている\n\n`mkdir -p config/my-team-chart/my-tenant/my-client` という例だが、**設定ユニットは深さ1でよい**（「テナント分けが不要ならダミーの階層を作らず深さ1で構いません」と同じREADMEの「config/」節に書いてある）。最初に読む Quick Start が深さ2を既定であるかのように見せているのは、ダミー階層を作らせないという要件変更の意図と逆行する。\n\n## やること\n\n1. `src/main.ts` と `src/steps/apply-updates/apply-updates.ts` と `src/steps/shared/describe-plan.ts` を実際に読み、**ログ例3行を実装が出力する形に直す**。フィールドの順序も実装の順序に合わせる\n2. Quick Start の `mkdir` の例を深さ1（例: `config/my-team-chart/central`）にし、深さ2も使えることが分かる1行を添える\n3. 例のタグ名・日時の書式が現在の既定テンプレート（`{branch}-build-at-{date}-{time}`、JST）と整合しているかも確認する\n\n## 完了条件\n\n- 直したログ例のフィールド構成が、`src/main.ts` / `apply-updates.ts` / `describe-plan.ts` の実装と1対1で対応している（対応を `evidence` に1行で書く）\n- `pnpm check` が通る（README のみの変更なら当然通るが、確認はする）\n\n## 注意\n\n- **ログの例を「実際に動かして得た出力」に差し替える必要はない**。実装を読んで組み立てた正しい形でよい。実GitLabへは接続しない\n- `TARGET_UNITS` の説明文の語彙は別タスク（`T-136`）の担当。ここでは触らない\n- `/loop /next-task` に載せてよい",
-    "status": "todo",
+    "status": "done",
     "difficulty": "haiku",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "ログ例3点を実装と1対1に対応させた: `update_chart` は `helmTargetBranchUpdates` を `apps[]` の外（兄弟フィールド）へ戻し、app 1件分は `describePlan()` が返す `projectName`/`latestTag`/`updates`の3つだけに。`run_start` に `configDirPath` を追加。Quick Start の `mkdir` を深さ1（`config/my-team-chart/central`）にして深さ2も可と併記。タグ名の例は既定テンプレートと整合済みで変更不要。受け入れ時にメインで1点補正: 委譲先が `run_start` に `targetChart`/`targetUnits` の値を載せたが、**続く行で teamA-chart と teamB-chart の両方が処理されており絞り込み実行と矛盾**していたため、絞り込み無しの例に戻し（未指定時は `undefined` で JSON から落ちる）、その旨の注記1文を添えた。メイン側で `pnpm check` exit=0（36ファイル418テスト）。",
     "dependencies": []
   },
   {

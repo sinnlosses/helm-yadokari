@@ -116,7 +116,7 @@ cd helm-yadokari
 pnpm install
 
 # 2. 設定ファイルを作成（config/ 配下の構成は下記「設定」を参照）
-mkdir -p config/my-team-chart/my-tenant/my-client
+mkdir -p config/my-team-chart/central   # 深さ2も可（例: config/my-team-chart/tenant1/client1）
 # → chart.yaml / config.yaml / anchors.yaml を作成する
 #   （記述例は docs/requirements.md 4.4節。config-test/ の実物も参考になる）
 
@@ -163,12 +163,15 @@ flowchart TD
 ### 実行ログの例
 
 ```json
-{"level":"info","timestamp":"2026-09-02T00:00:00.000Z","event":"run_start","gitlabUrl":"https://gitlab.example.com","dryRun":false,"concurrencyLimit":3}
-{"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_chart","chartDirName":"teamA-chart","unitPath":"tenant1/client1","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","latestTag":"main-build-at-20260902-090000","updates":[{"valuesPath":"charts/my-app/values.yaml","previousTagName":"main-build-at-20260901-090000"}],"helmTargetBranchUpdates":[]}]}
+{"level":"info","timestamp":"2026-09-02T00:00:00.000Z","event":"run_start","gitlabUrl":"https://gitlab.example.com","dryRun":false,"concurrencyLimit":3,"configDirPath":"config"}
+{"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_chart","chartDirName":"teamA-chart","unitPath":"tenant1/client1","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","latestTag":"main-build-at-20260902-090000","updates":[{"valuesPath":"charts/my-app/values.yaml","previousTagName":"main-build-at-20260901-090000"}]}],"helmTargetBranchUpdates":[]}
 {"level":"info","timestamp":"2026-09-02T00:00:00.456Z","event":"update_chart","chartDirName":"teamB-chart","unitPath":"tenant1/client1","chartProjectId":999,"chartProjectName":"teamB-chart","result":"SKIPPED","reason":"no_diff"}
 {"level":"info","timestamp":"2026-09-02T00:00:00.500Z","event":"summary","CREATED":1,"SKIPPED":1,"ERROR":0}
 {"level":"info","timestamp":"2026-09-02T00:00:00.520Z","event":"run_end","duration_ms":520}
 ```
+
+`run_start` の `targetChart` / `targetUnits` は `TARGET_CHART` / `TARGET_UNITS` を指定したときだけ
+載ります（未指定なら値が `undefined` になり、JSONから落ちます）。上は絞り込み無しの実行例です。
 
 ## 設定
 

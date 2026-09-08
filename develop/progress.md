@@ -38,6 +38,11 @@ named import 2箇所を昇順に。**作業中に既存テストの穴が見つ�
 `it.each` はこのリポジトリ初導入で、`it.each([...])("%s ...", (x) => {...})` の形に3箇所とも統一した。
 受け入れ時に、追記コメントの `T-134` 参照が「タスク番号を書かない」規約違反だったので仕様参照に直した。
 
+**T-141 完了**。`README.md` のログ例で `helmTargetBranchUpdates` が `apps[]` の中に入っていた誤りを直し、
+`run_start` に `configDirPath` を足し、Quick Start の `mkdir` を深さ1の例にした。受け入れ時に、
+委譲先が `run_start` に載せた `targetChart`/`targetUnits` が**続く行の2chart処理と矛盾**していたので
+絞り込み無しの例に戻し、「指定したときだけ載る」注記を添えた。
+
 ユーザーの指示は3軸: (1) コードの冗長・誤り・規約違反・分かりにくさ、(2) 不要な／もっと
 シンプルにできるテスト、(3) `architecture.md`・`CLAUDE.md`・`README` 等のメンテ漏れ・冗長。
 `src/`（35ファイル）・`scripts/`・`test/`（36ファイル418テスト）・`docs/`・`README.md`・
@@ -355,7 +360,7 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
     区切り文字に `.` 等を使うと静かに誤マッチする
   - ~~**T-139（`sonnet`）**~~ **完了**。(a) 消す を採用。理由は architecture.md の新節。
   - ~~**T-140（`sonnet`）**~~ **完了**。3候補とも畳むだけで削除なし。`it.each` を初導入した。
-  - **T-141（`haiku`）** `README.md` のログ例の構造の誤りと Quick Start の深さ2前提
+  - ~~**T-141（`haiku`）**~~ **完了**。ログ例が実装と1対1で対応するようになった。
   - **T-142（`sonnet`）** `CLAUDE.md` / `docs/architecture.md` の実在しない識別子
 - **T-126（`config/` の運用方針、`opus`）は `/loop /next-task` に載せない**
   （`config/` への登録が本番の pipeline schedule の対象を変えるため、ユーザー承認が要る）。
