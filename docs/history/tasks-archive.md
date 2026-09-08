@@ -2677,3 +2677,112 @@ T-130 で深さ1が読めるようになるので、**深さ1と深さ2が同じ
 **difficulty**: sonnet
 
 **evidence**: 案(a)を採用: `config-test/yadokari-smoke-test-chart/tenant1/client1/` を `anchor-app/`（深さ1）へ `git mv` し、`tenant2/client1`・`tenant2/client2`（深さ2）と混在させた。`valuesPath`（`charts/anchor-app/values.yaml`）とアンカー名（`tenantId1client1AppsVersion`）は変えていないので**GitLab側の実リポジトリは変更不要**（書き込みは一切していない）。ディレクトリ名 `anchor-app` は実chartリポジトリの `charts/anchor-app/` に対応させた。アンカー名だけはディレクトリ名と対応しなくなる（実リポジトリ側の値で変更不可）ため `docs/smoke-test.md` に注記。`test/main.e2e.test.ts` の1本目を、`feature/yadokari/anchor-app`（深さ1）と `feature/yadokari/tenant2/client1`・`/client2`（深さ2）の3件のMR作成を明示検証する形に更新。`docs/smoke-test.md` は表・values.yaml一覧・シナリオ・コマンド例（`TARGET_CLIENTS`→`TARGET_UNITS`）を追随（手順数は0〜5の6ステップのまま減らしていない）。`isFeatureBranch()` はブランチ名の接頭辞のみで判定するため、旧ブランチ `feature/yadokari/tenant1/client1` は次回の `smoke-fixture.ts reset --apply` で拾われる（コード確認済み・変更不要）。**メイン側で実測**: `pnpm check` exit=0（36ファイル373テスト、着手前と同数）、`pnpm lint:validate-config config-test` が `config OK: 3 chart groups, 5 apps`、`grep TARGET_CLIENTS docs/smoke-test.md` は0件、`docs/requirements.md`・`glossary.md`・`architecture.md`・`README.md`・`src/` は無傷。**e2eが空振りでないことを変異で実測**: `collectUnitSegments()` が深さ1のユニットを無視するよう壊すと1本目だけが落ちることを確認し復元（`git diff --quiet` でHEAD一致を確認）。**指示の誤りの訂正**: `scripts/lint/validate-config.ts` は `CONFIG_PATH` 環境変数ではなく位置引数でディレクトリを受け取る（環境変数指定では `0 chart groups` になることを実測）。（コミット `6345e59`）
+
+## T-132
+
+**タスク**: タグ命名規則を「`{branch}`だけでも成立させる」「semverに対応する」ためにどう設計するかを決める。**実装はしない。**
+
+## 背景
+
+ユーザーからの指示（原文は `docs/history/direction.md` の該当節）:
+
+- タグのフォーマットをユーザーが設定できるようにしたい。リポジトリごとにフォーマットが異なりそうなので
+- 必要なのは一旦追跡ブランチを特定するために必要な情報（`{branch}`）だけにして、`{date}`・`{time}` は不要にしよう
+- タグは今の仕様に加えて semver に対応できるといいね
+- フォーマットはリポジトリのconfigに設定できるといいかな
+- サポートされていない設定パターンだったらCIで落とすようにしたいな
+
+**この指示は既存機能と正面から衝突する。** 現状 `{date}`/`{time}` は3つの役目を持っている（`src/domain/tag-format.ts`）:
+
+| 役目                                           | 実装箇所                                                                                                                    |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| (A) HEADを指すタグが複数あるときのタイブレーク | `findLatestParsedTag()` が `builtAt` の降順で1つ選ぶ。`resolve-latest-tags.ts:104` が「返す値を一意に決めるためだけ」に呼ぶ |
+| (B) **新しいタグ名の一意性**                   | `buildNewTag()`。`{branch}` だけだと生成名が常に `main` になり、既存タグと衝突して `createTag()` が失敗する                 |
+| (C) スモークのシード判定                       | `scripts/smoke/smoke-fixture.ts:105` が `latestTag.builtAt > seedTag.builtAt` を見る                                        |
+
+semver も同じ問題を持つ。`v1.2.3` にはブランチ名が入らないので、`resolveTrackedHeadTagNames()`（`resolve-latest-tags.ts:132-145`）の「`branch` と `tagFormat` でパースできるか」という**追跡ブランチ由来の判定方法そのものが成立しない**。
+
+現状の設定経路は環境変数 `TAG_FORMAT` 1本（`src/lib/env.ts:70`、既定は `{branch}-build-at-{date}-{time}`）で、実行全体で1つの値。`config/` には無い。
+
+## 解くべき論点
+
+1. **`{date}`/`{time}` を必須から外したとき、タグ自動作成（役目B）をどうするか。** 候補: (a) 一意性を持てないフォーマットのアプリでは自動作成をしない（HEADにタグが無ければ `ERROR` か `SKIPPED`）/ (b) フォーマットに一意性が無ければ設定エラーとして起動時に落とす（＝`{branch}`だけは許さない）/ (c) 自動作成専用の別フォーマットを持たせる。**「タグ自動作成」は `docs/requirements.md` に明記された機能なので、削るなら要件側も直す**
+2. **役目A（タイブレーク）の代わりをどうするか。** `builtAt` が無いとき、HEADを指すタグが複数あったら何で1つに決めるか（タグ名の辞書順・GitLabが返す順・semverの版順など）。決定性が壊れると「実行のたびにMRの中身が変わる」ので落とせない
+3. **semver対応の設計。** 「追跡ブランチ由来」の判定を名前から切り離し、「`branchToSync` のHEADコミットを指すタグのうち semver として読めるもの」にするのが素直か。その場合の順序づけ（プレリリース・ビルドメタデータ・`v` 接頭辞の扱い）と、semverモードでの自動作成の可否（次の版番号は導出できない）
+4. **設定の置き場所と優先順位。** 「リポジトリごとに異なる」＝ソースリポジトリ単位なので `config.yaml` の `apps[]` の各エントリが素直だが、`chart.yaml`（chartリポジトリ共通）や設定ユニット単位も選べる。環境変数 `TAG_FORMAT` は残して既定値にするのか、廃止するのか。**運用値なので `anchors.yaml` ではなく `config.yaml` 側**（`docs/architecture.md`「`chart.yaml`/`config.yaml`/`anchors.yaml` の3ファイル分割」）
+5. **タイムゾーンを設定可能にするか。** JST化は別タスクで扱うが、フォーマットがリポジトリごとに異なるならタイムゾーンもそうなりうる。ここで「固定でよい」と決めるなら、その理由を残す
+
+## やること
+
+1. 論点1〜5を判断する。**判断できない論点があれば、押し切らずユーザーに問いを提示して止める**
+2. 結論と理由を `docs/requirements.md`（仕様）と `docs/architecture.md`（実装上の判断）に書き分ける。二重に書かない
+3. 後続タスクの本文を、決めた内容に沿って更新する（設定の置き場所・スキーマの形・semverの扱い）
+4. 調べた結果「`{date}`/`{time}` を外すと成立しない」と分かった場合は、**外さない結論も正当**。その場合は理由を `evidence` に書き、後続タスクの範囲を狭めてよい
+
+## 完了条件
+
+- 論点1〜5すべてに結論と理由が付いている
+- 結論が `docs/requirements.md` と `docs/architecture.md` に書き分けられている（同じことを両方に書いていない）
+- **コードの変更が1行も無い**（`git diff --stat` の対象がドキュメントと `develop/` のみ）
+- 後続タスクの `task` 本文が、決めた内容を反映した具体的な実装指示になっている
+- `pnpm check` が通る
+
+## 注意
+
+- **実装はしない。** 足すかどうか・どう足すかを決めるところまで
+- 「タグ自動作成」の仕様を変える結論になった場合、`docs/requirements.md` の該当節と `docs/glossary.md`「タグ自動作成」エントリの**両方**を直す
+- `docs/requirements-grilling.md` はアーカイブ扱いで書き換えない
+- `/loop /next-task` に載せてよい
+
+**difficulty**: opus
+
+**evidence**: タグ命名規則の設計を決め、`docs/requirements.md`（4.1節を全面改稿・4.4節に `apps[].tagNaming` を追加）と `docs/architecture.md`（設計判断の節と索引行を追加）に書き分け、`docs/glossary.md` の「タグ命名規則」「順序キー（新設）」「打刻日時」「最新タグ」「タグ自動作成」を追随させた。**結論**: (1) `template` モードの必須は `{branch}` と `{date}` の各1回、任意は `{time}` だけ（`{branch}` 単独・`{time}` 単独は設定エラー。後者は順序キーが毎日一周し `builtAt` を組み立てられないため）。**タグ自動作成の仕様を変更**し、`{time}` を含む `template` モードでのみ行う。それ以外はHEADにタグが無ければ**当該appのみ**警告して見送り、chartAndApps は `ERROR` にしない（`ERROR` は設定ユニット単位のオールオアナッシングで他appを巻き添えにするため）、(2) タイブレークは順序キーの降順、同値ならタグ名の降順、(3) semver は追跡ブランチ由来の判定をHEADコミットで行い（到達可能性判定は不採用＝API負荷と中心的な取り決めの一貫性を優先）、比較は依存を足さず自前実装、(4) 置き場所は `config.yaml` の `apps[].tagNaming`（`mode` 判別共用体）、`TAG_FORMAT` は廃止（環境変数だとCIの `check` で検証できず「サポート外の設定をMRで落とす」が成立しないため）。**同一 `projectId` で `tagNaming` が食い違う場合は設定エラー**（`createResolveLatestTags()` のキャッシュキー `projectId:branchToSync` を変えずに誤共有を防ぐため。`branchToSync` の食い違いは正当なので検証しない）、(5) タイムゾーンは固定で設定項目にしない。**ユーザー確認を2点実施**し、semverは「HEADを指すタグのみ」を追認、「`{branch}` 単独を許す」案は撤回して設定エラーに変更（あわせてメイン側の判断で `{time}` 単独も設定エラーにした）。後続3タスクの `task` 本文をこの結論に沿って書き換えた（`status`/`passes`/`evidence`/`difficulty`/`dependencies` は未変更であることをメイン側で差分検証）。**コード変更0行**（`git diff --stat` は `docs/` 3件と `develop/tasks.json` のみ、170挿入/30削除）、`pnpm check` exit=0（36ファイル373テスト）。**注意**: `docs/` はこれから実装する仕様を記述した状態で、現在のコードおよび `README.md` とは一時的に食い違う（READMEの追随は後続タスクの作業項目）。`develop/parameterization-candidates.md` の項目6が今回の結論と逆向きのまま残っており、JST化のタスクで併せて直す。（コミット `74a22d4`）
+
+## T-135
+
+**タスク**: タグ名の日時を UTC から JST にする。
+
+## 背景
+
+ユーザーの指示「tag の日時はJSTがいいな。今はUTCだと思うけど」。実際にUTC固定になっている（`src/domain/tag-format.ts`）:
+
+- `buildNewTag()` … `now.getUTCFullYear()` / `getUTCMonth()` / `getUTCDate()` / `getUTCHours()` / `getUTCMinutes()` / `getUTCSeconds()` でタグ名の `{date}`/`{time}` を組み立てる
+- `parseTag()` … 読み取った数字を `new Date(Date.UTC(...))` として `builtAt` にする
+
+この2つは**必ず同時に変える**（片方だけだと生成と解釈がズレる）。
+
+`docs/glossary.md`「タグ命名規則」に「日時のUTC固定」がパラメータ化候補として挙がっており、`develop/parameterization-candidates.md` にも項目がある（前回の洗い出しの結論は「積極的に勧める材料は薄い」だったが、今回はユーザーの明示的な指示なので実施する）。
+
+**既存タグとの互換について**（調査済み。実装時に確認すること）: 移行後、GitLab上にあるUTC命名の既存タグは JST として再解釈されるため `builtAt` が一律9時間ぶん前にずれる。ただし**全タグが同じ向きに同じ量だけずれるので相対順序は保たれ**、かつ JST は UTC より進んでいるので切り替え時点でタグ名は前方へジャンプする（後戻りしない）。したがって `findLatestParsedTag()` のタイブレークは壊れない。**この前提が本当に成り立つかを実装時に自分で確かめること**（成り立たなければ移行手順が必要になる）。
+
+## 解くべき論点
+
+- タイムゾーンを固定にするか設定可能にするかは、**前段のタスクで「タイムゾーンは全アプリ共通で固定とし、設定項目にはしない」と決着済み**（`docs/requirements.md` 4.1節）。このタスクは固定値をUTCからJSTに変えるだけでよく、`config/` にも環境変数にも項目を足さない
+- JSTをどう表現するか。`Intl.DateTimeFormat` の `timeZone: "Asia/Tokyo"` を使うか、UTC+9のオフセット計算で済ませるか。**日本にサマータイムは無いのでオフセット計算でも正しいが、意図が読めるのはどちらか**で決める
+- `scripts/smoke/smoke-fixture.ts` が `builtAt` の比較（102-105行）でシードタグかどうかを判定している。ここに影響が出ないか
+
+## やること
+
+1. 上の論点を判断する
+2. `buildNewTag()` と `parseTag()` を JST に揃える
+3. テストを足す/直す（`test/domain/tag-format.test.ts`）。**UTCとJSTで結果が変わる時刻（例: UTC 2026-09-08T16:00 → JST では翌日）を必ず1件入れる**。日付が繰り上がるケースを入れないと、9時間ズレを検知できない
+4. `docs/requirements.md` 4.1節・`docs/glossary.md`「タグ命名規則」「打刻日時 / ビルド日時」・`README.md`「タグ命名規則」章を追随させる
+5. `develop/parameterization-candidates.md` の該当項目に、実施済みである旨を1行足す
+
+## 完了条件
+
+- `buildNewTag()` が JST でタグ名を組み立て、`parseTag()` がその名前を JST として解釈して `builtAt` に戻すことが、**日付が繰り上がる時刻を含むテスト**で確認できている
+- 上の「既存タグとの互換」の前提（相対順序が保たれること）を自分で確かめ、結論を `evidence` に書いている
+- `pnpm check` が通り、テスト件数が減っていない（実際の数を `evidence` に書く）
+- `docs/` と `README.md` に「UTC」の記述が残っていない（残す場合は経緯としての記述であることを `evidence` に書く）
+
+## 注意
+
+- **タグ名が変わるので、次回の実機スモークテストで生成されるタグ名も変わる。** `docs/smoke-test.md` の期待結果にタグ名の例が書かれていれば追随させる
+- 実GitLabへの書き込みはしない
+- このタスクは他のタグ関連タスクと独立して着手できる（`dependencies` が空なのはそのため）。ただし他のタグ関連タスクも `src/domain/tag-format.ts` を書き換えるため、**このタスクを先に片付けるほうが手戻りが少ない**。先に他方が入っている場合は、`template` モードの `{date}`/`{time}` を組み立て・解釈する箇所にJST化を入れる
+- `/loop /next-task` に載せてよい
+
+**difficulty**: sonnet
+
+**evidence**: `buildNewTag()` / `parseTag()` を JST（UTC+9固定）に同時変更。`JST_OFFSET_MS` 1定数を対称に足し引きするだけの実装（`buildNewTag` は `now.getTime() + offset` してUTC getterでJSTの壁時計値を取り、`parseTag` は `Date.UTC(...) - offset` で真の時刻に戻す）。`Intl.DateTimeFormat` ではなくオフセット計算を選んだのは、日本にサマータイムが無く、足す／引くの対称性がコード上そのまま読めるため。テスト+2件（UTC 16:00以降で日付が翌日に繰り上がるケースを `buildNewTag` 単体と往復の2通り）。**メイン側で独立に実測**: 往復が `2026-09-08T16:00Z`→`20260909-010000`、`2026-09-08T14:59:59Z`→`20260908-235959`、**年跨ぎ** `2026-12-31T15:00Z`→`20270101-000000` の3件とも完全一致。既存タグとの互換は「旧タグの再解釈後 builtAt は一律 −9h シフトなので相対順序は保存、移行後の新タグは真の作成時刻に一致し、JSTはUTCより進んでいるので境界でも後戻りしない」を実測で確認（旧 `20260901-230000` の再解釈 `2026-09-01T14:00Z` < 新（真のUTC `09-02T00:00`）`2026-09-02T00:00Z`）。**移行手順は不要**。`scripts/smoke/smoke-fixture.ts` のシードタグは `buildNewTag()` 由来ではない固定プレースホルダで十分古いため `hasNewerTag` 判定に影響なし（`docs/smoke-test.md` の該当箇所もタグ名の例ではないため追随不要と判断）。`pnpm check` exit=0（36ファイル375テスト、着手前373）。`docs/requirements.md` 4.1節・`docs/glossary.md`「打刻日時 / ビルド日時」・`README.md`「タグ命名規則」章をJST明記に更新し、`develop/parameterization-candidates.md` 項目6に実施済みの旨を追記。`docs/`・`README.md` に残る「UTC」は「JST（UTC+9固定）」という説明の一部のみ。**JST化以外の未実装の食い違い（`TAG_FORMAT` 廃止・`apps[].tagNaming`・semver・プレースホルダ緩和）はこのタスクの範囲外として触っていない。**（コミット `29774b2`）
