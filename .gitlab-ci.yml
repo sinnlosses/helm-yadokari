@@ -17,7 +17,7 @@ spec:
       default: ""
       type: string
     TARGET_UNITS:
-      description: '特定の設定ユニットのみ対象にする（省略時は全設定ユニット）。"<tenant>/<client>" 形式で、カンマ区切りで複数指定可（例: "t1/c1,t2/c2"）'
+      description: '特定の設定ユニットのみ対象にする（省略時は全設定ユニット）。unitPath（深さ1なら "central"、深さ2なら "tenant1/client1"）で、カンマ区切りで複数指定可（例: "t1/c1,t2/c2"）'
       default: ""
       type: string
 ---
@@ -65,7 +65,7 @@ variables:
     description: "特定のchartディレクトリのみ対象にする場合に指定（省略時は全chart）"
   TARGET_UNITS:
     value: "$[[ inputs.TARGET_UNITS ]]"
-    description: '特定の設定ユニットのみ対象にする場合に "<tenant>/<client>" 形式で、カンマ区切りで複数指定（省略時は全設定ユニット）'
+    description: '特定の設定ユニットのみ対象にする場合に unitPath（深さ1なら "central"、深さ2なら "tenant1/client1"）で、カンマ区切りで複数指定（省略時は全設定ユニット）'
   PNPM_STORE_DIR:
     value: .pnpm-store
     description: "pnpm キャッシュの保存先（変更不要）"
@@ -127,8 +127,8 @@ check:
 #   （Protected: OFF。このジョブは読み取りしか行わないため read_api のみのトークンでよい）。
 #   参照できない場合このジョブは「実在チェックを実行できません」で失敗する。設定ミスを
 #   確実に止めるため、条件付きスキップにはしていない。
-# 定期実行（schedule）では実行しない: 1つのclientの設定ミスで全clientの更新が止まるのを避け、
-#   本体の実行時に該当clientだけを ERROR にする従来どおりの挙動に任せる。
+# 定期実行（schedule）では実行しない: 1つの設定ユニットの設定ミスで全設定ユニットの更新が
+#   止まるのを避け、本体の実行時に該当する設定ユニットだけを ERROR にする従来どおりの挙動に任せる。
 validate-config-remote:
   extends: .node-setup
   stage: validate

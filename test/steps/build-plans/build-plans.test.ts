@@ -192,7 +192,7 @@ describe("buildPlans", () => {
     expect(errorCall?.reason).toContain("test-app-name")
   })
 
-  it("同じvalues.yamlを指す複数clientでは読み込みを1回にまとめ、片方の書き換えを他方に見せない", async () => {
+  it("同じvalues.yamlを指す複数の設定ユニットでは読み込みを1回にまとめ、片方の書き換えを他方に見せない", async () => {
     const original = `variables:\n  - &appVersion ${OLD_TAG}\n  - &otherVersion ${OLD_TAG}\n`
     vi.mocked(getFileContent).mockResolvedValue(original)
     // 同じchartディレクトリ配下の別tenant/client（chart.projectIdは既定値で共通）が

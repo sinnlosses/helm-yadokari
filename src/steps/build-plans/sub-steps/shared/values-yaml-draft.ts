@@ -34,10 +34,10 @@ export type DraftValuesYaml = {
  * 渡した下書きは変更せず、読み込み結果を載せた新しい下書きを返す。
  *
  * GitLabからの読み込みはバッチ全体で共有するキャッシュ（`GitlabBatchCache`）を通す。同じchart
- * ディレクトリ配下の複数clientが同じ`valuesPath`を指す構成（`docs/requirements.md` 4.2節の
+ * ディレクトリ配下の複数の設定ユニットが同じ`valuesPath`を指す構成（`docs/requirements.md` 4.2節の
  * 既知の制限）でも、読み込みは1回で済む。**共有されるのはGitLab上の元の内容だけ**で、
  * 書き換え後の内容は`writeValuesYamlDraft()`がchartAndApps単位の下書きにしか積まないため、
- * 別のclientへ漏れることはない。
+ * 別の設定ユニットへ漏れることはない。
  */
 export async function readValuesYamlDraft(
   source: ValuesYamlSource,

@@ -106,7 +106,7 @@ export function validateNoDuplicateProjectIds(
 export type LabeledTarget = { readonly target: AnchorTarget; readonly label: string }
 
 /**
- * 1つのclient内で、同じ`valuesPath`+`anchorName`（＝values.yamlの同じ1箇所）を複数の設定が
+ * 1つの設定ユニット内で、同じ`valuesPath`+`anchorName`（＝values.yamlの同じ1箇所）を複数の設定が
  * 書き込み先にしていないか検証する。重複していると後から処理した側の値だけが残り、
  * MRには両方を更新したように表示されるため、静かに誤った結果になる。
  * イメージタグ用（`apps[].chart[]`）と向き先ブランチ用（`helm.chart[]`）の衝突も対象にする。

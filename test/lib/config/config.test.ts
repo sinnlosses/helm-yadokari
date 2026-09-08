@@ -10,8 +10,8 @@ import { useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
 
-function unit(tenant: string, client: string): ConfigUnitPath {
-  return toConfigUnitPath(`${tenant}/${client}`)
+function unit(parentDir: string, childDir: string): ConfigUnitPath {
+  return toConfigUnitPath(`${parentDir}/${childDir}`)
 }
 
 describe("loadConfig（パストラバーサル）", () => {
@@ -101,7 +101,7 @@ apps:
     expect(chartAndAppsList.map((g) => g.chartDirName)).toEqual(["teamA-chart", "teamB-chart"])
   })
 
-  it("同じchartディレクトリ配下の複数tenant/clientはそれぞれ別のChartAndAppsになる", () => {
+  it("同じchartディレクトリ配下の複数の設定ユニットはそれぞれ別のChartAndAppsになる", () => {
     dir.writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",

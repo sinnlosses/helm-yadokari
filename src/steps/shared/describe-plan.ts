@@ -12,7 +12,7 @@ export function describePlan(plan: AppUpdatePlan): Record<string, unknown> {
   }
 }
 
-/** Helmの向き先ブランチの更新をログ用のサマリに変換する。client単位なのでアプリ名は持たない */
+/** Helmの向き先ブランチの更新をログ用のサマリに変換する。設定ユニット単位なのでアプリ名は持たない */
 export function describeHelmTargetBranchUpdates(
   updates: readonly HelmTargetBranchUpdate[],
 ): readonly Record<string, unknown>[] {

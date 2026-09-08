@@ -12,7 +12,7 @@ import { toBranchName, toTagName } from "../../src/types/types.js"
 
 // 実機スモークテスト（docs/smoke-test.md）用のフィクスチャ操作スクリプト。
 //
-//   setup  … シードタグ・Helmの向き先ブランチ（release/2026-q1）・tenant2の各clientの
+//   setup  … シードタグ・Helmの向き先ブランチ（release/2026-q1）・tenant2の各設定ユニットの
 //            values.yaml を初期状態でmainに用意する。何度実行してもよい
 //   reset  … このツールが作った固定ブランチ（feature/yadokari/*）のオープン中MRをクローズし、
 //            ブランチを削除する。次の検証をやり直せる状態に戻す
@@ -143,7 +143,7 @@ async function setup(): Promise<void> {
     await gitlab.Commits.create(
       projectId,
       "main",
-      "smoke test: reset tenant2 client values.yaml",
+      "smoke test: reset tenant2 unit values.yaml",
       actions,
     )
   }

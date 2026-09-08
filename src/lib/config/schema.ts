@@ -119,8 +119,8 @@ export type Anchors = {
  * config.yamlと同じ設定ユニットのディレクトリにある`anchors.yaml`を読み込む。
  * 存在しない場合は空扱い（その設定ユニットに1件もappが無いケースを許容するため）。
  */
-export function loadAnchors(clientDirPath: string): Anchors {
-  const path = join(clientDirPath, "anchors.yaml")
+export function loadAnchors(unitDirPath: string): Anchors {
+  const path = join(unitDirPath, "anchors.yaml")
   if (!existsSync(path)) return { apps: [], helmChart: undefined }
   const parsed = parseYamlFile(path, AnchorsYamlSchema)
   return { apps: parsed.apps, helmChart: parsed.helm?.chart }

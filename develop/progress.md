@@ -12,6 +12,12 @@ T-001〜T-125・T-127〜T-135 はすべて完了し、[`docs/history/tasks-archi
 
 ### 定期メンテの棚卸し（2026-09-08）
 
+**T-136 完了**（`4907dd8` の次のコミット）。廃止語彙 `client` / `chart groups` を
+`src/`・`scripts/`・`docs/`・`README.md`・`.env.example`・`.gitlab-ci.yml`・テストから一掃し、
+`validate-config.ts` の出力を数えている実体（設定ユニット数）と一致する表記に直した。
+残った `client` は `"tenant1/client1"` 等のパス例と `config-test/` の実フィクスチャ名だけ。
+振る舞いは不変で、テストは418件のまま。
+
 ユーザーの指示は3軸: (1) コードの冗長・誤り・規約違反・分かりにくさ、(2) 不要な／もっと
 シンプルにできるテスト、(3) `architecture.md`・`CLAUDE.md`・`README` 等のメンテ漏れ・冗長。
 `src/`（35ファイル）・`scripts/`・`test/`（36ファイル418テスト）・`docs/`・`README.md`・
@@ -322,9 +328,7 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 
 - **定期メンテで登録した T-136〜T-142 が次の主題**（洗い出しの中身は上の「完了したこと」）。
   依存関係は無く、どれからでも着手できる。`/loop /next-task` に全件載せてよい。
-  - **T-136（`sonnet`）** 廃止語彙 `client` / `chart groups` の一掃。振る舞いは変えない。
-    **ディレクトリ名の例としての `tenant1/client1` と、`config-test/` の実在するフィクスチャ名は
-    残す**のが分岐点
+  - ~~**T-136（`sonnet`）**~~ **完了**。残った `client` はパス例と実フィクスチャ名のみ。
   - **T-137（`sonnet`）** `resolve-latest-tags.ts` の到達不能分岐を畳み、
     `docs/coding-standards.md` の「埋めない穴」の表から1行減らす
   - **T-138（`sonnet`）** 連続する同一 return の統合と `compileTagPattern()` の再代入の排除。

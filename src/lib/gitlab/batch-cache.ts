@@ -37,7 +37,7 @@ export type GitlabBatchCache = {
   /**
    * 指定したタグに紐づく最新のパイプライン（無ければ`undefined`）。このツールが作ったタグには
    * 後からパイプラインが現れうるが、これはMR本文への参考情報でしかなく、同じタグについて
-   * clientごとに違う答えを載せるほうが困る。1回に収束させる側を選んで載せている。
+   * 設定ユニットごとに違う答えを載せるほうが困る。1回に収束させる側を選んで載せている。
    */
   readonly getLatestPipelineForRef: (
     projectId: ProjectId,
@@ -46,7 +46,7 @@ export type GitlabBatchCache = {
 
   /**
    * プロジェクトのweb URL。プロジェクトの移動・改名でしか変わらない値なので載せている。
-   * 同じappが複数clientに登録されていても`Projects.show`はバッチ全体で1回に収束する。
+   * 同じappが複数の設定ユニットに登録されていても`Projects.show`はバッチ全体で1回に収束する。
    */
   readonly getProjectWebUrl: (projectId: ProjectId) => Promise<GitLabUrl>
 

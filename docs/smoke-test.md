@@ -95,7 +95,7 @@ CONFIG_PATH=config-test TARGET_UNITS=tenant2/client1,tenant2/client2 pnpm dev
 - 終了コード 0、ログの `summary` が `{"CREATED":2,"SKIPPED":0,"ERROR":0}`
 - `sample-develop-client` はシードタグと最新タグが同じコミットを指すため、
   「反映済みタグが追跡ブランチのHEADを指すなら更新しない」というルールで更新対象から外れる。
-  そのため各clientのMRに載るイメージタグは `sample-qa-sprint` の1件になる
+  そのため各設定ユニットのMRに載るイメージタグは `sample-qa-sprint` の1件になる
 - chartリポジトリに `feature/yadokari/tenant2/client1` と `.../client2` の2ブランチ、
   それぞれに対応するMRが2件
 - `client1` の `values.yaml` は2アンカーが書き換わる（`t2c1QaSprintVersion` ＋ 向き先ブランチ。
@@ -112,7 +112,7 @@ CONFIG_PATH=config-test TARGET_UNITS=tenant2/client1,tenant2/client2 pnpm dev
 
 ## 繰り返し実行するときの注意
 
-- 固定ブランチにオープン中のMRが残っていると、そのclientは `SKIPPED (mr_exists)` になる。
+- 固定ブランチにオープン中のMRが残っていると、その設定ユニットは `SKIPPED (mr_exists)` になる。
   必ず手順1でリセットする
 - 手順2を省くと `values.yaml` が前回の実行結果のままなので「差分なし」で
   `SKIPPED (no_diff)` になる

@@ -29,7 +29,7 @@ function loadLocally(): Config {
 const { chartAndAppsList } = loadLocally()
 const appCount = chartAndAppsList.reduce((sum, chartAndApps) => sum + chartAndApps.apps.length, 0)
 console.log(
-  `config OK: ${chartAndAppsList.length} chart groups, ${appCount} apps (${configDirPath})`,
+  `config OK: ${chartAndAppsList.length} 設定ユニット, ${appCount} apps (${configDirPath})`,
 )
 
 if (remote) {
