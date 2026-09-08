@@ -17,7 +17,7 @@
 
 ### このファイルは通読しない
 
-40KB超あるため、頭から全部読むとそれだけでコンテキストを大きく消費する。下の索引で節を1つ
+75KB超あるため、頭から全部読むとそれだけでコンテキストを大きく消費する。下の索引で節を1つ
 特定し、**その節だけ**を次の形で読む（見出し名で切り出すので、行番号と違って編集で腐らない）:
 
 ```bash
@@ -91,7 +91,7 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{1,4\} /p' doc
 
 ## 各ファイルの責務
 
-### `src/steps/` — `runPipeline()` が直接呼ぶフラットな3ステップ
+### `src/steps/` — `runProcess()` が直接呼ぶフラットな3ステップ
 
 `lib/`・`utils/`・`domain/`・`steps/shared/` にのみ依存し、step同士は互いに呼ばない。
 各stepは「並列処理1件分」を担う非公開関数を1つ持ち、`<動詞>+単数形の対象`で命名する
@@ -180,7 +180,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 | 呼び出し元 / 性質                                                                | 置き場所                                  |
 | -------------------------------------------------------------------------------- | ----------------------------------------- |
 | CI・開発用スクリプトだけ（本体パイプラインから参照されない）                     | `scripts/<用途>/`                         |
-| `runPipeline()` が直接呼ぶパイプラインの1段                                      | `steps/`                                  |
+| `runProcess()` が直接呼ぶパイプラインの1段                                       | `steps/`                                  |
 | `steps/` の1ファイルだけ                                                         | そのファイル内の非公開関数                |
 | 同上で、そのファイルが大きくなりすぎた                                           | `steps/<step名>/sub-steps/`               |
 | 複数のサブステップが共有する                                                     | `steps/<step名>/sub-steps/shared/`        |
@@ -217,7 +217,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 1. 同じ理由で一緒に書き換わる
 2. 非公開ヘルパーを共有している（分けると非公開だったものを`export`に昇格させることになる。
    分割の最も見えにくいコスト）
-3. 対になっていて片方だけでは意味が分からない（`formatClientRef`/`parseClientRef`）
+3. 対になっていて片方だけでは意味が分からない（`getValueAtAnchor`/`setValueAtAnchor`）
 4. 呼び出し側がほぼ必ずセットでimportする
 
 **分ける合図**（1つでも当てはまれば分割する。①〜④が優先で、行数だけを理由には割らない）:
@@ -250,7 +250,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 | 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                   | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`Anchors`・`AnchorsApp`・`EnvConfig`            |
 | ドメイン知識を持たない汎用処理の型                                                   | その`utils/`ファイル                             | `Sorted`                                                                        |
 | 複数のstepが共有する、ドメイン型にだけ依存する型                                     | `steps/shared/`                                  | `StepOutcome<T>`                                                                |
-| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlanContext`・`FilterTargetsResult`・`ValuesYamlDraft`・`LabeledTarget`   |
+| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlansResult`・`FilterTargetsResult`・`ValuesYamlDraft`・`LabeledTarget`   |
 | 特定の1ファイルに帰属せず、複数のサブステップが共有する型                            | `steps/<step名>/sub-steps/shared/types.ts`       | `BranchExists`・`LatestTagResolution`・`AppWithLatestTag`・`StageUpdatesAcc<U>` |
 
 - 「型は`types/`にまとめる」という運用にしないのは、`types/`が「ドメイン語彙の一覧」ではなく
@@ -307,7 +307,7 @@ web URL・パイプライン解決。
 
 - **`collect-mr-entries.ts`を対象外にしない**。chartAndAppsはオールオアナッシングでERRORになるため、
   「どのアプリで落ちたか」が要るのはアプリ単位の処理を持つ箇所すべてで同じ。ここは
-  `getLatestPipelineForRef()`のリトライ後の失敗と`resolveWebUrl()`の前提崩れが該当する
+  `getLatestPipelineForRef()`のリトライ後の失敗と`getProjectWebUrl()`の前提崩れが該当する
 - **`build-plans/`へ移さない**。移すと、`rethrowWithAppContext()`が持つ「fatalは包まない」判断が
   `settleAsError()`と別ファイルに離れ、エラー方針の変更漏れを招く。「複数stepから呼ばれる」ことは
   `steps/shared/`に置く理由ではないが、**エラー方針の一体性**がここに置く理由になる
@@ -509,8 +509,8 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 
 #### 型の置き場所は`src/`全件と突き合わせて確かめてある
 
-「型の置き場所」の表は、`src/`の型定義45件（`types/types.ts` 17・`brand.ts` 12・残り16）を
-全件突き合わせたうえでの形（2026-09-07）。**表から外れているものは1件も無い**。
+「型の置き場所」の表は、`src/`の型定義56件（`types/types.ts` 18・`brand.ts` 12・残り26）を
+全件突き合わせたうえでの形（2026-09-08）。**表から外れているものは1件も無い**。
 表に足りなかったのは基準の側で、`ParsedTag`（1行目と5行目の競合）・`LabeledTarget`（引数の形）・
 `AnchorsApp`（`z.infer`由来）・`EnvConfig`（2行目の例）を補って埋めた。
 
@@ -775,7 +775,7 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
 
 `FatalError`（401/5xx等）を検知すると、`utils/parallel.ts`がその時点で並列実行のキューを
 クリアし、同じステップ内の他chartAndAppsの未着手タスクを実行させずに reject する。
-`runPipeline()` はステップを順番に await しているため、あるステップでFatalErrorが起きると
+`runProcess()` はステップを順番に await しているため、あるステップでFatalErrorが起きると
 **後続のステップは一切開始されない**。`docs/requirements.md` 4.3節の
 「chartリポジトリ間は失敗しても他は継続する」という記述は一般的なエラーを指しており、GitLab側の
 認証切れ・障害のような全chart共通の致命的エラーに対しては、無駄なAPI呼び出しを避けるため
