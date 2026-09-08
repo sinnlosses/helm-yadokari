@@ -22,7 +22,7 @@ export type StageUpdatesAcc<U> = {
  * 1アプリ分の「最新タグの判定結果」。`resolve-latest-tags.ts`が組み立て、イメージタグの
  * 差分判定（`stage-image-tag-updates.ts`）が使う。
  *
- * `trackedHeadTagNames`は、「現在の追跡ブランチ由来（＝現在の`branchToSync`と`tagFormat`で
+ * `trackedHeadTagNames`は、「現在の追跡ブランチ由来（＝現在の`branchToSync`と`tagNaming`で
  * パースできる）で、かつ追跡ブランチの現在のHEADコミットを指すタグ名」の集合。values.yamlに
  * 書かれている現在値がこの集合に含まれるなら、たとえより新しい名前のタグが存在しても
  * デプロイされる中身は変わらないため更新しない。追跡ブランチを切り替えた直後は、

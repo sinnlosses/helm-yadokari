@@ -8,6 +8,7 @@ import type {
   GitLabUrl,
   ProjectId,
   ProjectName,
+  TagFormat,
   TagName,
   ValuesPath,
 } from "./brand.js"
@@ -16,6 +17,16 @@ import type {
 export type AnchorTarget = {
   readonly valuesPath: ValuesPath
   readonly anchorName: AnchorName
+}
+
+/**
+ * タグ命名規則。`mode`を判別子にする判別共用体（現時点では`template`のみ実装。`semver`は後続タスク）。
+ * ソースリポジトリ単位（`AppConfig`）の性質であり、設定ユニット単位・chartリポジトリ単位ではない
+ * （仕様は`docs/requirements.md` 4.1節・4.4節が正典）。
+ */
+export type TagNaming = {
+  readonly mode: "template"
+  readonly template: TagFormat
 }
 
 /**
@@ -29,13 +40,14 @@ export type HelmTargetBranchConfig = {
 }
 
 /**
- * `projectId`/`projectName`/`branchToSync`はconfig.yamlの運用値、`imageTagTargets`は同じ
- * ディレクトリの`anchors.yaml`から`projectId`で引いた書き込み先
+ * `projectId`/`projectName`/`branchToSync`/`tagNaming`はconfig.yamlの運用値、
+ * `imageTagTargets`は同じディレクトリの`anchors.yaml`から`projectId`で引いた書き込み先
  */
 export type AppConfig = {
   readonly projectId: ProjectId
   readonly projectName: ProjectName
   readonly branchToSync: BranchName
+  readonly tagNaming: TagNaming
   /** 同じ最新タグを複数箇所へ反映するため配列。anchors.yamlの`apps[].chart[]`由来 */
   readonly imageTagTargets: readonly AnchorTarget[]
 }

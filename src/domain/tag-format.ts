@@ -9,11 +9,13 @@ const ANY_PLACEHOLDER_PATTERN = /\{([^}]*)\}/g
 // オフセット計算で足りる（buildNewTagで足してparseTagで引く、単純に対称）。
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000
 
-export const DEFAULT_TAG_FORMAT: TagFormat = toTagFormat("{branch}-build-at-{date}-{time}")
+/** `tagNaming.template`（`config.yaml`の`apps[].tagNaming`）を省略したときの既定値 */
+export const DEFAULT_TAG_TEMPLATE: TagFormat = toTagFormat("{branch}-build-at-{date}-{time}")
 
 /**
- * `TAG_FORMAT`（タグ命名規則のテンプレート）の妥当性を検証する。`{branch}`/`{date}`/`{time}`
- * をちょうど1回ずつ含む必要があり、それ以外のプレースホルダは許可しない。
+ * タグ命名規則のテンプレート文字列（`config.yaml`の`apps[].tagNaming.template`）の妥当性を
+ * 検証する。`{branch}`/`{date}`/`{time}` をちょうど1回ずつ含む必要があり、それ以外の
+ * プレースホルダは許可しない。
  */
 export function validateTagFormat(raw: string): TagFormat {
   const unknownPlaceholders = [...raw.matchAll(ANY_PLACEHOLDER_PATTERN)]
@@ -21,7 +23,7 @@ export function validateTagFormat(raw: string): TagFormat {
     .filter((name): name is string => name !== undefined && !REQUIRED_PLACEHOLDERS.includes(name))
   if (unknownPlaceholders.length > 0) {
     throw new Error(
-      `TAG_FORMAT に未知のプレースホルダがあります: ${unknownPlaceholders.join(", ")}` +
+      `tagNaming.template に未知のプレースホルダがあります: ${unknownPlaceholders.join(", ")}` +
         `（使えるのは {branch}/{date}/{time} のみです）: "${raw}"`,
     )
   }
@@ -29,7 +31,9 @@ export function validateTagFormat(raw: string): TagFormat {
   for (const placeholder of REQUIRED_PLACEHOLDERS) {
     const count = [...raw.matchAll(new RegExp(`\\{${placeholder}\\}`, "g"))].length
     if (count !== 1) {
-      throw new Error(`TAG_FORMAT には {${placeholder}} をちょうど1回含めてください: "${raw}"`)
+      throw new Error(
+        `tagNaming.template には {${placeholder}} をちょうど1回含めてください: "${raw}"`,
+      )
     }
   }
 

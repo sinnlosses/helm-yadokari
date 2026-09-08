@@ -18,7 +18,6 @@ export async function run(env: EnvConfig): Promise<RunResult> {
     configDirPath: env.configDirPath,
     targetChart: env.targetChart,
     targetUnits: env.targetUnits,
-    tagFormat: env.tagFormat,
   })
   const { value: resultCounts, duration_ms } = await timed(() => runProcess(env))
   logger.info({ event: "summary", ...resultCounts })
@@ -59,7 +58,6 @@ async function runProcess(env: EnvConfig): Promise<Record<ChartUpdateResult, num
     targets,
     env.concurrencyLimit,
     env.dryRun,
-    env.tagFormat,
   )
   const applied = await applyUpdates(gitlab, gitlabCache, toApply, env.concurrencyLimit)
 

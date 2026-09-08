@@ -1,11 +1,6 @@
 import type { GitlabBatchCache } from "../../lib/gitlab/batch-cache.js"
 import type { GitlabClient } from "../../lib/gitlab/gitlab.js"
-import type {
-  ChartAndApps,
-  ChartUpdateResult,
-  ChartUpdateTarget,
-  TagFormat,
-} from "../../types/types.js"
+import type { ChartAndApps, ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
@@ -34,9 +29,8 @@ export async function buildPlans(
   targets: readonly ChartAndApps[],
   concurrencyLimit: number,
   dryRun: boolean,
-  tagFormat: TagFormat,
 ): Promise<BuildPlansResult> {
-  const resolveLatestTags = createResolveLatestTags(gitlab, dryRun, tagFormat)
+  const resolveLatestTags = createResolveLatestTags(gitlab, dryRun)
 
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
     withHandling(chartAndApps, (logContext) =>

@@ -73,6 +73,7 @@ apps:
           projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
+          tagNaming: { mode: "template", template: "{branch}-build-at-{date}-{time}" },
           imageTagTargets: [
             {
               valuesPath: "charts/my-app/values.yaml",

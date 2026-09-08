@@ -12,6 +12,7 @@ import type {
   TagFormat,
   TagInfo,
   TagName,
+  TagNaming,
 } from "../../../types/types.js"
 import { getOrFetchShared } from "../../../utils/cache.js"
 import { logger } from "../../../utils/logger.js"
@@ -38,11 +39,7 @@ export type ResolveLatestTags = (apps: readonly AppConfig[]) => Promise<readonly
  *
  * キャッシュの寿命はこの関数が返すクロージャと同じで、バッチごとに`buildPlans()`が1つ作る。
  */
-export function createResolveLatestTags(
-  gitlab: GitlabClient,
-  dryRun: boolean,
-  tagFormat: TagFormat,
-): ResolveLatestTags {
+export function createResolveLatestTags(gitlab: GitlabClient, dryRun: boolean): ResolveLatestTags {
   const cache = new Map<string, Promise<LatestTagResolution>>()
   return (apps) => {
     const initial: readonly AppWithLatestTag[] = []
@@ -52,7 +49,7 @@ export function createResolveLatestTags(
         app,
         latestTag: await withAppContext(app.projectName, () =>
           getOrFetchShared(cache, `${app.projectId}:${app.branchToSync}`, () =>
-            resolveLatestTag(gitlab, app, dryRun, tagFormat),
+            resolveLatestTag(gitlab, app, dryRun),
           ),
         ),
       },
@@ -64,7 +61,7 @@ export function createResolveLatestTags(
  * 1アプリ分の、追跡ブランチ由来の最新タグを判定する。追跡ブランチの現在のHEADコミットを指すタグが
  * 1件も無い場合は、このツール自身がHEADコミットに新しいタグを作成し、それを最新タグとして
  * 扱う（dryRun のときは実際の作成はスキップし、作成予定のタグ名だけを使う）。タグの命名規則は
- * `tagFormat`（`TAG_FORMAT`環境変数由来）に従う。
+ * `app.tagNaming`（`config.yaml`の`apps[].tagNaming`由来）に従う。
  *
  * このツールの目的は「追跡ブランチの最新コミットの中身をデプロイさせること」なので、
  * 「タグ名が最も新しいものを選んでからHEADと比較する」のではなく、**HEADを指すタグを
@@ -85,8 +82,8 @@ async function resolveLatestTag(
   gitlab: GitlabClient,
   app: AppConfig,
   dryRun: boolean,
-  tagFormat: TagFormat,
 ): Promise<LatestTagResolution> {
+  const tagFormat = templateOf(app.tagNaming)
   const [tags, headSha] = await Promise.all([
     listTags(gitlab, app.projectId),
     getBranchHeadSha(gitlab, app.projectId, app.branchToSync),
@@ -141,4 +138,12 @@ function resolveTrackedHeadTagNames(
       )
       .map((tag) => tag.name),
   )
+}
+
+/**
+ * `TagNaming`からテンプレート文字列を取り出す。現時点で実装済みのモードは`template`のみ
+ * （`semver`は後続タスク）。
+ */
+function templateOf(tagNaming: TagNaming): TagFormat {
+  return tagNaming.template
 }

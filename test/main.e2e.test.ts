@@ -25,7 +25,7 @@ import { Gitlab } from "@gitbeaker/rest"
 
 import type { EnvConfig } from "../src/lib/env.js"
 import { run } from "../src/main.js"
-import { toAccessToken, toConfigUnitPath, toGitLabUrl, toTagFormat } from "../src/types/types.js"
+import { toAccessToken, toConfigUnitPath, toGitLabUrl } from "../src/types/types.js"
 import { makeHttpError } from "./helpers.js"
 
 /** `config-test/yadokari-smoke-test-chart/chart.yaml` の projectId */
@@ -73,7 +73,6 @@ const env: EnvConfig = {
   dryRun: false,
   targetChart: undefined,
   targetUnits: undefined,
-  tagFormat: toTagFormat("{branch}-build-at-{date}-{time}"),
 }
 
 /**

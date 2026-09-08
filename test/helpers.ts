@@ -1,5 +1,6 @@
 import { vi } from "vitest"
 
+import { DEFAULT_TAG_TEMPLATE } from "../src/domain/tag-format.js"
 import type { GitlabBatchCache } from "../src/lib/gitlab/batch-cache.js"
 import { createGitlabBatchCache } from "../src/lib/gitlab/batch-cache.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
@@ -61,6 +62,7 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
     projectId: toProjectId(1),
     projectName: toProjectName("my-app"),
     branchToSync: toBranchName("main"),
+    tagNaming: { mode: "template", template: DEFAULT_TAG_TEMPLATE },
     imageTagTargets: [
       {
         valuesPath: toValuesPath("values.yaml"),

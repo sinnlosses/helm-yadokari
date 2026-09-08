@@ -5,7 +5,7 @@ vi.mock("../../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
-import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../../../../src/domain/tag-format.js"
+import { validateTagFormat } from "../../../../src/domain/tag-format.js"
 import {
   createTag,
   getBranchHeadSha,
@@ -44,18 +44,18 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.clearAllMocks()
   })
 
-  it("tagFormatにカスタムフォーマットを渡すと、その形式で新しいタグを作成する", async () => {
+  it("appのtagNamingにカスタムテンプレートを渡すと、その形式で新しいタグを作成する", async () => {
     const customFormat = validateTagFormat("{date}-{time}-{branch}")
+    const app = makeApp({ tagNaming: { mode: "template", template: customFormat } })
     vi.mocked(listTags).mockResolvedValue([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
     const { toApply } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeChartAndApps([app])],
       3,
       false,
-      customFormat,
     )
     expect(vi.mocked(createTag).mock.calls[0]?.[2]).toMatch(/^\d{8}-\d{6}-main$/)
     expect(toApply[0]?.plans[0]?.latestTag.name).toMatch(/^\d{8}-\d{6}-main$/)
@@ -71,7 +71,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(createTag).toHaveBeenCalledOnce()
     expect(vi.mocked(createTag).mock.calls[0]?.[3]).toBe("main")
@@ -90,7 +89,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(createTag).toHaveBeenCalledOnce()
     expect(toApply).toHaveLength(1)
@@ -104,7 +102,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(createTag).not.toHaveBeenCalled()
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(NEW_TAG)
@@ -124,7 +121,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [makeChartAndApps([app])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(createTag).not.toHaveBeenCalled()
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(existingTag)
@@ -147,7 +143,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [makeChartAndApps([app])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(createTag).toHaveBeenCalledOnce()
     expect(toApply).toHaveLength(1)
@@ -161,14 +156,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     // 実際には作らず、作成予定の名前だけを使って以降の判定を続ける
     vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
-    await buildPlans(
-      mockGitlab,
-      newBatchCache(),
-      [makeChartAndApps([app])],
-      3,
-      true,
-      DEFAULT_TAG_FORMAT,
-    )
+    await buildPlans(mockGitlab, newBatchCache(), [makeChartAndApps([app])], 3, true)
     expect(createTag).not.toHaveBeenCalled()
   })
 
@@ -180,7 +168,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(createTag).not.toHaveBeenCalled()
     expect(toApply).toEqual([])
@@ -191,14 +178,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.mocked(listTags).mockResolvedValue([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
-    await buildPlans(
-      mockGitlab,
-      newBatchCache(),
-      [makeChartAndApps([makeApp()])],
-      3,
-      true,
-      DEFAULT_TAG_FORMAT,
-    )
+    await buildPlans(mockGitlab, newBatchCache(), [makeChartAndApps([makeApp()])], 3, true)
     expect(createTag).not.toHaveBeenCalled()
   })
 
@@ -213,7 +193,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
@@ -232,7 +211,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
 
     expect(toApply).toEqual([])
@@ -255,7 +233,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
 
     expect(createTag).not.toHaveBeenCalled()
@@ -275,7 +252,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
 
     expect(toApply).toHaveLength(1)
@@ -292,7 +268,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
 
     expect(toApply).toHaveLength(1)
@@ -306,7 +281,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(createTag).not.toHaveBeenCalled()
     expect(toApply).toEqual([])
@@ -333,7 +307,6 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       [missing, ok],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(createTag).not.toHaveBeenCalled()
     expect(toApply).toHaveLength(1)
@@ -357,24 +330,20 @@ describe("createResolveLatestTags（trackedHeadTagNamesの中身）", () => {
     ])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
 
-    const [result] = await createResolveLatestTags(
-      mockGitlab,
-      false,
-      DEFAULT_TAG_FORMAT,
-    )([makeApp()])
+    const [result] = await createResolveLatestTags(mockGitlab, false)([makeApp()])
 
     expect([...(result?.latestTag.trackedHeadTagNames ?? [])]).toEqual([NEW_TAG])
   })
 
   it("追跡ブランチを切り替えた直後は、切り替え前のタグ名がHEADと同じコミットを指していても含まない", async () => {
     // release/2026-q2 に切り替えた直後、切り替え前(main)のタグがrelease/2026-q2のHEADと
-    // たまたま同じコミットを指しているケース。tagFormatではrelease/2026-q2由来として
+    // たまたま同じコミットを指しているケース。tagNamingのtemplateではrelease/2026-q2由来として
     // パースできないため、trackedHeadTagNamesは空になる
     vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
 
-    const [result] = await createResolveLatestTags(mockGitlab, false, DEFAULT_TAG_FORMAT)([app])
+    const [result] = await createResolveLatestTags(mockGitlab, false)([app])
 
     expect(result?.latestTag.trackedHeadTagNames.size).toBe(0)
   })
@@ -388,11 +357,7 @@ describe("createResolveLatestTags（trackedHeadTagNamesの中身）", () => {
     ])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
 
-    const [result] = await createResolveLatestTags(
-      mockGitlab,
-      false,
-      DEFAULT_TAG_FORMAT,
-    )([makeApp()])
+    const [result] = await createResolveLatestTags(mockGitlab, false)([makeApp()])
 
     expect(result?.latestTag.tag.name).toBe(NEW_TAG)
     expect(createTag).not.toHaveBeenCalled()
@@ -422,7 +387,7 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
       makeChartAndApps([app], { unitPath: toConfigUnitPath("tenant1/clientC") }),
     ]
 
-    await buildPlans(mockGitlab, newBatchCache(), targets, 3, false, DEFAULT_TAG_FORMAT)
+    await buildPlans(mockGitlab, newBatchCache(), targets, 3, false)
 
     expect(listTags).toHaveBeenCalledTimes(1)
     expect(getBranchHeadSha).toHaveBeenCalledTimes(1)
@@ -437,7 +402,7 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
       }),
     ]
 
-    await buildPlans(mockGitlab, newBatchCache(), targets, 3, false, DEFAULT_TAG_FORMAT)
+    await buildPlans(mockGitlab, newBatchCache(), targets, 3, false)
 
     expect(listTags).toHaveBeenCalledTimes(2)
     expect(createTag).toHaveBeenCalledTimes(2)

@@ -1,14 +1,7 @@
 import { existsSync, statSync } from "node:fs"
 
 import { parseConfigUnitPath } from "../domain/config-unit.js"
-import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../domain/tag-format.js"
-import type {
-  AccessToken,
-  ChartDirName,
-  ConfigUnitPath,
-  GitLabUrl,
-  TagFormat,
-} from "../types/types.js"
+import type { AccessToken, ChartDirName, ConfigUnitPath, GitLabUrl } from "../types/types.js"
 import { toAccessToken, toChartDirName, toGitLabUrl } from "../types/types.js"
 import { assertSafePath } from "../utils/fs.js"
 import { DEFAULT_CONFIG_DIR_PATH } from "./config/config.js"
@@ -61,16 +54,6 @@ export function parseConcurrencyLimit(raw: string | undefined): number {
   return value
 }
 
-/**
- * TAG_FORMAT は `{branch}`/`{date}`/`{time}` プレースホルダをちょうど1回ずつ含む
- * テンプレート文字列（未指定時は `DEFAULT_TAG_FORMAT`）。プレースホルダの検証・置換の
- * ロジックはタグ命名規則の本体である `domain/tag-format.ts` 側に持たせ、ここでは
- * 未指定時のデフォルト適用のみ行う。
- */
-export function parseTagFormat(raw: string | undefined): TagFormat {
-  return validateTagFormat(raw ?? DEFAULT_TAG_FORMAT)
-}
-
 /** TARGET_CHART は config/ 直下のディレクトリ名をそのまま`ChartDirName`に変換する（形式検証はなし） */
 export function parseTargetChart(raw: string | undefined): ChartDirName | undefined {
   return raw === undefined ? undefined : toChartDirName(raw)
@@ -95,7 +78,6 @@ export type EnvConfig = {
   readonly dryRun: boolean
   readonly targetChart: ChartDirName | undefined
   readonly targetUnits: readonly ConfigUnitPath[] | undefined
-  readonly tagFormat: TagFormat
 }
 
 /**
@@ -116,7 +98,6 @@ export function loadEnvConfig(): EnvConfig {
     dryRun: loadOptionalEnv("DRY_RUN") === "true",
     targetChart: parseTargetChart(loadOptionalEnv("TARGET_CHART")),
     targetUnits: parseTargetUnits(loadOptionalEnv("TARGET_UNITS")),
-    tagFormat: parseTagFormat(loadOptionalEnv("TAG_FORMAT")),
   }
 }
 

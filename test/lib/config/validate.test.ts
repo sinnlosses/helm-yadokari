@@ -235,3 +235,56 @@ apps:
     expect(chartAndAppsList[0]?.apps).toHaveLength(2)
   })
 })
+
+describe("loadConfig（複数の設定ユニットにまたがるtagNamingの食い違い）", () => {
+  const CHART_YAML =
+    "chart:\n  projectId: 888\n  projectName: teamA-chart\n  mrTargetBranch: develop\n"
+  const anchorsYamlFor = (projectName: string) =>
+    `apps:\n  - projectId: 1\n    projectName: ${projectName}\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n`
+
+  it("同じprojectIdのappが別々の設定ユニットで違うtagNamingを指定しているとき例外をスローする", () => {
+    dir.writeChartYaml("teamA-chart", CHART_YAML)
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
+      "apps:\n  - projectId: 1\n    projectName: my-app\n    branchToSync: main\n",
+    )
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", anchorsYamlFor("my-app"))
+    dir.writeConfigYaml("teamA-chart", "tenant1/client2",
+      "apps:\n  - projectId: 1\n    projectName: my-app\n    branchToSync: develop\n" +
+        "    tagNaming:\n      mode: template\n      template: '{date}-{time}-{branch}'\n",
+    )
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client2", anchorsYamlFor("my-app"))
+
+    expect(() => loadConfig(dir.path)).toThrow("tagNaming")
+  })
+
+  it("同じprojectIdのappが別々の設定ユニットで同じtagNamingを指定していれば読み込める", () => {
+    dir.writeChartYaml("teamA-chart", CHART_YAML)
+    const configYaml =
+      "apps:\n  - projectId: 1\n    projectName: my-app\n    branchToSync: main\n" +
+      "    tagNaming:\n      mode: template\n      template: '{date}-{time}-{branch}'\n"
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYaml)
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", anchorsYamlFor("my-app"))
+    dir.writeConfigYaml("teamA-chart", "tenant1/client2", configYaml)
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client2", anchorsYamlFor("my-app"))
+
+    const { chartAndAppsList } = loadConfig(dir.path)
+
+    expect(chartAndAppsList).toHaveLength(2)
+  })
+
+  it("同じprojectIdのappが別々の設定ユニットで違うbranchToSyncを指定していても、tagNamingが同じなら読み込める", () => {
+    dir.writeChartYaml("teamA-chart", CHART_YAML)
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
+      "apps:\n  - projectId: 1\n    projectName: my-app\n    branchToSync: main\n",
+    )
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", anchorsYamlFor("my-app"))
+    dir.writeConfigYaml("teamA-chart", "tenant1/client2",
+      "apps:\n  - projectId: 1\n    projectName: my-app\n    branchToSync: develop\n",
+    )
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client2", anchorsYamlFor("my-app"))
+
+    const { chartAndAppsList } = loadConfig(dir.path)
+
+    expect(chartAndAppsList).toHaveLength(2)
+  })
+})

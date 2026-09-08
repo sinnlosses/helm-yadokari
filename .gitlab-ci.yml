@@ -20,10 +20,6 @@ spec:
       description: '特定の設定ユニットのみ対象にする（省略時は全設定ユニット）。"<tenant>/<client>" 形式で、カンマ区切りで複数指定可（例: "t1/c1,t2/c2"）'
       default: ""
       type: string
-    TAG_FORMAT:
-      description: 'タグ命名規則のテンプレート（省略時は "{branch}-build-at-{date}-{time}"）。{branch}/{date}/{time} プレースホルダをちょうど1回ずつ含めること'
-      default: ""
-      type: string
 ---
 # ──────────────────────────────────────────────────────────────────
 # 【必須】Settings > CI/CD > Variables に以下を登録してください:
@@ -70,9 +66,6 @@ variables:
   TARGET_UNITS:
     value: "$[[ inputs.TARGET_UNITS ]]"
     description: '特定の設定ユニットのみ対象にする場合に "<tenant>/<client>" 形式で、カンマ区切りで複数指定（省略時は全設定ユニット）'
-  TAG_FORMAT:
-    value: "$[[ inputs.TAG_FORMAT ]]"
-    description: 'タグ命名規則のテンプレート（省略時はデフォルト: "{branch}-build-at-{date}-{time}"）'
   PNPM_STORE_DIR:
     value: .pnpm-store
     description: "pnpm キャッシュの保存先（変更不要）"

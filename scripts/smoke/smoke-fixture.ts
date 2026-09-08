@@ -1,5 +1,5 @@
 import { isFeatureBranch } from "../../src/domain/feature-branch.js"
-import { findLatestParsedTag, parseTag } from "../../src/domain/tag-format.js"
+import { DEFAULT_TAG_TEMPLATE, findLatestParsedTag, parseTag } from "../../src/domain/tag-format.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
 import { toBranchName, toTagName } from "../../src/types/types.js"
@@ -99,8 +99,10 @@ async function ensureSeedTags(): Promise<void> {
       if (apply) await gitlab.Tags.create(sourceProjectId, tag, branch)
     }
     const branchName = toBranchName(branch)
-    const seedTag = parseTag(toTagName(tag), branchName, env.tagFormat)
-    const latestTag = findLatestParsedTag(names.map(toTagName), branchName, env.tagFormat)
+    // config-test/ 側の sample-qa-sprint / sample-develop-client は tagNaming を省略しており
+    // 既定（DEFAULT_TAG_TEMPLATE）に従うため、ここでも同じ既定値を直接使う
+    const seedTag = parseTag(toTagName(tag), branchName, DEFAULT_TAG_TEMPLATE)
+    const latestTag = findLatestParsedTag(names.map(toTagName), branchName, DEFAULT_TAG_TEMPLATE)
     const hasNewerTag =
       seedTag !== undefined && latestTag !== undefined && latestTag.builtAt > seedTag.builtAt
     if (!hasNewerTag) {

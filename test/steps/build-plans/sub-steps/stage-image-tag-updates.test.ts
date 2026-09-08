@@ -5,7 +5,6 @@ vi.mock("../../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
-import { DEFAULT_TAG_FORMAT } from "../../../../src/domain/tag-format.js"
 import { getFileContent } from "../../../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import { toAnchorName, toValuesPath } from "../../../../src/types/types.js"
@@ -46,7 +45,6 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       [makeChartAndApps([app])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply[0]?.files[0]?.content).toContain(`&tenant1client1AppsVersion ${NEW_TAG}`)
     expect(toApply[0]?.files[0]?.content).toContain("&helmVersion develop")
@@ -76,7 +74,6 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       [makeChartAndApps([app])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply[0]?.plans[0]?.updates).toHaveLength(2)
     expect(toApply[0]?.files).toHaveLength(2)
@@ -110,7 +107,6 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       [makeChartAndApps([app])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply[0]?.plans[0]?.updates).toHaveLength(1)
     expect(toApply[0]?.plans[0]?.updates[0]?.target.valuesPath).toBe("webapi.yaml")
@@ -137,7 +133,6 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
         [makeChartAndApps([app])],
         3,
         false,
-        DEFAULT_TAG_FORMAT,
       )
       expect(toApply[0]?.plans[0]?.updates).toHaveLength(1)
       expect(toApply[0]?.plans[0]?.updates[0]?.previousTagName).toBe(OLD_TAG)

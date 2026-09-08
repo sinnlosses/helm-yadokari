@@ -5,7 +5,6 @@ vi.mock("../../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
-import { DEFAULT_TAG_FORMAT } from "../../../../src/domain/tag-format.js"
 import { branchExists, getFileContent } from "../../../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import {
@@ -53,7 +52,6 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       [makeChartAndApps([app], { helmTargetBranch })],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply[0]?.helmTargetBranchUpdates).toEqual([
       {
@@ -85,7 +83,6 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       [makeChartAndApps([app], { helmTargetBranch })],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["SKIPPED"])
@@ -111,7 +108,6 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       [makeChartAndApps([app], { helmTargetBranch })],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.plans).toEqual([])
@@ -139,7 +135,6 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       [makeChartAndApps([app], { helmTargetBranch })],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
@@ -160,7 +155,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const group = makeChartAndApps([app], { helmTargetBranch })
-    await buildPlans(mockGitlab, newBatchCache(), [group], 3, false, DEFAULT_TAG_FORMAT)
+    await buildPlans(mockGitlab, newBatchCache(), [group], 3, false)
     expect(branchExists).toHaveBeenCalledWith(mockGitlab, group.chart.projectId, "release/2026-q1")
   })
 
@@ -184,7 +179,6 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       [makeChartAndApps([makeApp()], { helmTargetBranch })],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(vi.mocked(logger.error)).toHaveBeenCalled()
     const errorCall = vi.mocked(logger.error).mock.calls[0]?.[0]
@@ -215,7 +209,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       unitPath: toConfigUnitPath("tenant1/clientB"),
       helmTargetBranch,
     })
-    await buildPlans(mockGitlab, newBatchCache(), [groupA, groupB], 3, false, DEFAULT_TAG_FORMAT)
+    await buildPlans(mockGitlab, newBatchCache(), [groupA, groupB], 3, false)
     expect(branchExists).toHaveBeenCalledTimes(1)
   })
 })

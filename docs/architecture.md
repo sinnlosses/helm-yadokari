@@ -154,11 +154,11 @@ importせず〜」の節を参照）。
 GitLab APIにも外部ファイル形式にも依存せず、ブランド型・ドメイン型にだけ依存する純粋な関数・
 定数を置く。helm-yadokari が「どう名付け・どう表現するか」を決めているルールそのもの。
 
-| ファイル            | 責務                                                                            |
-| ------------------- | ------------------------------------------------------------------------------- |
-| `tag-format.ts`     | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証  |
-| `feature-branch.ts` | 固定ブランチ名 `feature/yadokari/<unitPath>` の組み立てと判定                   |
-| `config-unit.ts`    | `TARGET_UNITS`の1エントリを`ConfigUnitPath`として受け入れられる形かどうかの検証 |
+| ファイル            | 責務                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| `tag-format.ts`     | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・テンプレート文字列の検証 |
+| `feature-branch.ts` | 固定ブランチ名 `feature/yadokari/<unitPath>` の組み立てと判定                        |
+| `config-unit.ts`    | `TARGET_UNITS`の1エントリを`ConfigUnitPath`として受け入れられる形かどうかの検証      |
 
 ### `src/utils/` — ドメイン知識を一切持たない汎用ユーティリティ
 

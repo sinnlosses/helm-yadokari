@@ -42,7 +42,8 @@ chart リポジトリ単位に更新をまとめた MR 作成を自動化しま�
 
 ## タグ命名規則
 
-GitLab のタグ名から追跡ブランチとビルド日時を判定します。デフォルトのフォーマットは:
+GitLab のタグ名から追跡ブランチとビルド日時を判定します。命名規則はアプリ（ソースリポジトリ）
+単位に `config.yaml` の `apps[].tagNaming` で指定します。省略時の既定は:
 
 ```
 ${追跡ブランチ名の "/" を "-" に置換した値}-build-at-${yyyymmdd}-${hhmmss}
@@ -52,11 +53,23 @@ ${追跡ブランチ名の "/" を "-" に置換した値}-build-at-${yyyymmdd}-
 
 例: 追跡ブランチが `release/foo` の場合 → `release-foo-build-at-20260902-123456`
 
-`TAG_FORMAT` 環境変数でテンプレートをカスタマイズできます。`{branch}`/`{date}`/`{time}` を
+`tagNaming.template` でテンプレートをカスタマイズできます。`{branch}`/`{date}`/`{time}` を
 ちょうど1回ずつ含む必要がありますが、**並び順と区切り文字は自由**です
 （例: `{date}-{time}-{branch}`、`v{time}_{branch}__{date}`）。
+
+```yaml
+# config.yaml
+apps:
+  - projectId: 2
+    projectName: my-app
+    branchToSync: main
+    tagNaming:
+      mode: template
+      template: "{branch}-{date}-{time}"
+```
+
 命名規則の詳細・運用途中で変更した場合の挙動は
-[`docs/requirements.md`](./docs/requirements.md) の「4.1 バージョン判定」を参照してください。
+[`docs/requirements.md`](./docs/requirements.md) の「4.1 バージョン判定」・「4.4 アプリの登録・設定」を参照してください。
 
 ## Quick Start
 
@@ -118,7 +131,7 @@ flowchart TD
 ### 実行ログの例
 
 ```json
-{"level":"info","timestamp":"2026-09-02T00:00:00.000Z","event":"run_start","gitlabUrl":"https://gitlab.example.com","dryRun":false,"concurrencyLimit":3,"tagFormat":"{branch}-build-at-{date}-{time}"}
+{"level":"info","timestamp":"2026-09-02T00:00:00.000Z","event":"run_start","gitlabUrl":"https://gitlab.example.com","dryRun":false,"concurrencyLimit":3}
 {"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_chart","chartDirName":"teamA-chart","unitPath":"tenant1/client1","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","latestTag":"main-build-at-20260902-090000","updates":[{"valuesPath":"charts/my-app/values.yaml","previousTagName":"main-build-at-20260901-090000"}],"helmTargetBranchUpdates":[]}]}
 {"level":"info","timestamp":"2026-09-02T00:00:00.456Z","event":"update_chart","chartDirName":"teamB-chart","unitPath":"tenant1/client1","chartProjectId":999,"chartProjectName":"teamB-chart","result":"SKIPPED","reason":"no_diff"}
 {"level":"info","timestamp":"2026-09-02T00:00:00.500Z","event":"summary","CREATED":1,"SKIPPED":1,"ERROR":0}
@@ -129,16 +142,15 @@ flowchart TD
 
 ### 環境変数
 
-| 変数名              | 必須 | デフォルト                        | 説明                                                                                                                                                                                                                                              |
-| ------------------- | :--: | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GITLAB_URL`        |  ✓   | —                                 | GitLab インスタンスの URL（`http://` または `https://` で始まる形式）                                                                                                                                                                             |
-| `ACCESS_TOKEN`      |  ✓   | —                                 | `read_api` + `write_repository` + MR作成権限を持つ Group/Project Access Token（最小権限で発行してください）                                                                                                                                       |
-| `CONFIG_PATH`       |      | `config/`                         | 設定ディレクトリのパス（作業ディレクトリ外を指すパスは拒否され、実在しないディレクトリを指定した場合もエラー終了します）                                                                                                                          |
-| `CONCURRENCY_LIMIT` |      | `3`                               | `(chartリポジトリ, 設定ユニット)`単位の同時処理数（1〜20の整数）                                                                                                                                                                                  |
-| `DRY_RUN`           |      | `false`                           | `"true"` のときタグ作成・ブランチ作成・MR作成をスキップし、更新予定の内容のみログ出力します                                                                                                                                                       |
-| `TARGET_CHART`      |      | —                                 | 指定すると `config/` 配下の特定のchartディレクトリのみ処理対象にします（省略時は全chart）。存在しないディレクトリ名を指定した場合、または絞り込み結果が0件の場合はエラー終了します                                                                |
-| `TARGET_UNITS`      |      | —                                 | 指定すると特定の設定ユニットのみ処理対象にします。`unitPath`（深さ1なら `"central"`、深さ2なら `"t1/c1"`）を、カンマ区切りで複数指定可（例: `"central,t2/c2"`。省略時は全設定ユニット）。該当する設定ユニットが見つからない場合はエラー終了します |
-| `TAG_FORMAT`        |      | `{branch}-build-at-{date}-{time}` | タグ命名規則のテンプレート（詳細は「[タグ命名規則](#タグ命名規則)」参照）。`{branch}`/`{date}`/`{time}` をちょうど1回ずつ含まない場合はエラー終了します                                                                                           |
+| 変数名              | 必須 | デフォルト | 説明                                                                                                                                                                                                                                              |
+| ------------------- | :--: | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GITLAB_URL`        |  ✓   | —          | GitLab インスタンスの URL（`http://` または `https://` で始まる形式）                                                                                                                                                                             |
+| `ACCESS_TOKEN`      |  ✓   | —          | `read_api` + `write_repository` + MR作成権限を持つ Group/Project Access Token（最小権限で発行してください）                                                                                                                                       |
+| `CONFIG_PATH`       |      | `config/`  | 設定ディレクトリのパス（作業ディレクトリ外を指すパスは拒否され、実在しないディレクトリを指定した場合もエラー終了します）                                                                                                                          |
+| `CONCURRENCY_LIMIT` |      | `3`        | `(chartリポジトリ, 設定ユニット)`単位の同時処理数（1〜20の整数）                                                                                                                                                                                  |
+| `DRY_RUN`           |      | `false`    | `"true"` のときタグ作成・ブランチ作成・MR作成をスキップし、更新予定の内容のみログ出力します                                                                                                                                                       |
+| `TARGET_CHART`      |      | —          | 指定すると `config/` 配下の特定のchartディレクトリのみ処理対象にします（省略時は全chart）。存在しないディレクトリ名を指定した場合、または絞り込み結果が0件の場合はエラー終了します                                                                |
+| `TARGET_UNITS`      |      | —          | 指定すると特定の設定ユニットのみ処理対象にします。`unitPath`（深さ1なら `"central"`、深さ2なら `"t1/c1"`）を、カンマ区切りで複数指定可（例: `"central,t2/c2"`。省略時は全設定ユニット）。該当する設定ユニットが見つからない場合はエラー終了します |
 
 ### config/
 
@@ -158,7 +170,8 @@ config/
 ```
 
 `config.yaml`（よく変更する）と `anchors.yaml`（滅多に変更しない）でファイルを分けています。
-`config.yaml` は「どのプロジェクトのどのブランチを追跡するか」といった運用値のみを、
+`config.yaml` は「どのプロジェクトのどのブランチを追跡するか」「タグの命名規則
+（`tagNaming`。詳細は「[タグ命名規則](#タグ命名規則)」参照）」といった運用値のみを、
 `anchors.yaml` は「`values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に書き込むか」という
 chart構造のみを持ち、両者は `projectId` で対応付けます。Helmの向き先ブランチ（values.yamlの
 パラメータを受け取ってk8sリソースを実際に構築するブランチ。`mrTargetBranch` ＝ 値定義ブランチ
@@ -235,7 +248,6 @@ OFF にしてください（詳細は下記「CI/CD」章と `.gitlab-ci.yml` �
 | `CONFIG_PATH`       | string  | `""`       | 設定ディレクトリのパス（省略時は `config/`）                                                                            |
 | `TARGET_CHART`      | string  | `""`       | 特定のchartディレクトリのみ対象にする場合に指定（省略時は全chart）                                                      |
 | `TARGET_UNITS`      | string  | `""`       | 特定の設定ユニットのみ対象にする場合に `"<tenant>/<client>"` 形式で指定、カンマ区切りで複数可（省略時は全設定ユニット） |
-| `TAG_FORMAT`        | string  | `""`       | タグ命名規則のテンプレート（省略時は `{branch}-build-at-{date}-{time}`）                                                |
 
 ## 開発
 

@@ -21,13 +21,7 @@ import {
   openMergeRequestExists,
 } from "../src/lib/gitlab/gitlab.js"
 import { run } from "../src/main.js"
-import {
-  toAccessToken,
-  toCommitSha,
-  toGitLabUrl,
-  toTagFormat,
-  toTagName,
-} from "../src/types/types.js"
+import { toAccessToken, toCommitSha, toGitLabUrl, toTagName } from "../src/types/types.js"
 import { FatalError } from "../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError, mockGitlab } from "./helpers.js"
 
@@ -39,7 +33,6 @@ const env: EnvConfig = {
   dryRun: false,
   targetChart: undefined,
   targetUnits: undefined,
-  tagFormat: toTagFormat("{branch}-build-at-{date}-{time}"),
 }
 
 const OLD_TAG = "main-build-at-20251231-000000"

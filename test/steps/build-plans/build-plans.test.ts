@@ -5,7 +5,6 @@ vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), error: vi.fn() },
 }))
 
-import { DEFAULT_TAG_FORMAT } from "../../../src/domain/tag-format.js"
 import { getFileContent, listTags } from "../../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../../src/steps/build-plans/build-plans.js"
 import {
@@ -41,14 +40,7 @@ describe("buildPlans", () => {
 
   it("差分があるchartAndAppsはtoApplyに含まれる", async () => {
     const group = makeChartAndApps([makeApp()])
-    const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
-      [group],
-      3,
-      false,
-      DEFAULT_TAG_FORMAT,
-    )
+    const { toApply, settled } = await buildPlans(mockGitlab, newBatchCache(), [group], 3, false)
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.chartAndApps).toBe(group)
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(NEW_TAG)
@@ -66,7 +58,6 @@ describe("buildPlans", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["SKIPPED"])
@@ -79,7 +70,6 @@ describe("buildPlans", () => {
       [makeChartAndApps([makeApp()])],
       3,
       true,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["SKIPPED"])
@@ -93,7 +83,6 @@ describe("buildPlans", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
@@ -112,7 +101,6 @@ describe("buildPlans", () => {
       [makeChartAndApps([appOk, appFail])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
@@ -148,7 +136,6 @@ describe("buildPlans", () => {
       [makeChartAndApps([appA, appB])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply[0]?.files).toHaveLength(1)
     expect(toApply[0]?.files[0]?.content).toContain(`&appAVersion ${NEW_TAG}`)
@@ -158,14 +145,7 @@ describe("buildPlans", () => {
   it("401エラーのとき FatalError をスローする", async () => {
     vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
     await expect(
-      buildPlans(
-        mockGitlab,
-        newBatchCache(),
-        [makeChartAndApps([makeApp()])],
-        3,
-        false,
-        DEFAULT_TAG_FORMAT,
-      ),
+      buildPlans(mockGitlab, newBatchCache(), [makeChartAndApps([makeApp()])], 3, false),
     ).rejects.toThrow(FatalError)
   })
 
@@ -177,7 +157,6 @@ describe("buildPlans", () => {
       [makeChartAndApps([makeApp()])],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
@@ -198,7 +177,6 @@ describe("buildPlans", () => {
       [failing, ok],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.chartAndApps).toBe(ok)
@@ -208,14 +186,7 @@ describe("buildPlans", () => {
   it("values.yaml が見つからないときのエラーメッセージにアプリ名が含まれる", async () => {
     vi.mocked(getFileContent).mockResolvedValue(undefined)
     const app = makeApp({ projectName: toProjectName("test-app-name") })
-    await buildPlans(
-      mockGitlab,
-      newBatchCache(),
-      [makeChartAndApps([app])],
-      3,
-      false,
-      DEFAULT_TAG_FORMAT,
-    )
+    await buildPlans(mockGitlab, newBatchCache(), [makeChartAndApps([app])], 3, false)
     expect(vi.mocked(logger.error)).toHaveBeenCalled()
     const errorCall = vi.mocked(logger.error).mock.calls[0]?.[0]
     expect(errorCall?.reason).toContain("test-app-name")
@@ -247,7 +218,6 @@ describe("buildPlans", () => {
       [makeGroup("clientA", "appVersion"), makeGroup("clientB", "otherVersion")],
       3,
       false,
-      DEFAULT_TAG_FORMAT,
     )
 
     expect(getFileContent).toHaveBeenCalledOnce()

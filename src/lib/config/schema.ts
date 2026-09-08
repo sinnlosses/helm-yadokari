@@ -3,7 +3,8 @@ import { join } from "node:path"
 
 import { z } from "zod"
 
-import type { AnchorTarget } from "../../types/types.js"
+import { DEFAULT_TAG_TEMPLATE, validateTagFormat } from "../../domain/tag-format.js"
+import type { AnchorTarget, TagNaming } from "../../types/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -38,11 +39,40 @@ const AnchorTargetSchema = z
   })
   .transform((v): AnchorTarget => ({ valuesPath: v.valuesPath, anchorName: v.anchor }))
 
+/**
+ * `apps[].tagNaming`のZodスキーマ。`mode`を判別子にする判別共用体で、現時点では`template`
+ * モードのみ実装している（`semver`は後続タスク）。テンプレート文字列そのものの妥当性検証
+ * （プレースホルダの過不足）は`validateTagFormat()`に委ねる。
+ */
+const TagNamingTemplateSchema = z.object({
+  mode: z.literal("template"),
+  template: z
+    .string()
+    .min(1, "template は空にできません")
+    .transform((raw, ctx) => {
+      try {
+        return validateTagFormat(raw)
+      } catch (error) {
+        ctx.addIssue({
+          code: "custom",
+          message: error instanceof Error ? error.message : String(error),
+        })
+        return z.NEVER
+      }
+    }),
+})
+
+const TagNamingSchema = z.discriminatedUnion("mode", [TagNamingTemplateSchema])
+
+/** `apps[].tagNaming`省略時の既定値。`docs/requirements.md` 4.1節・4.4節が正典 */
+const DEFAULT_TAG_NAMING: TagNaming = { mode: "template", template: DEFAULT_TAG_TEMPLATE }
+
 /** config.yaml側。運用値のみ（chart構造はanchors.yaml側が持つ） */
 const AppOperationalSchema = z.object({
   projectId: z.number().int().transform(toProjectId),
   projectName: z.string().min(1).transform(toProjectName),
   branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
+  tagNaming: TagNamingSchema.optional().transform((v) => v ?? DEFAULT_TAG_NAMING),
 })
 
 const HelmOperationalSchema = z.object({

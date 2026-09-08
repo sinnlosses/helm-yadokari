@@ -3,14 +3,12 @@ import { join } from "node:path"
 
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { DEFAULT_TAG_FORMAT } from "../../src/domain/tag-format.js"
 import {
   loadEnv,
   loadEnvConfig,
   loadOptionalEnv,
   parseConcurrencyLimit,
   parseConfigDirPath,
-  parseTagFormat,
   parseTargetChart,
   parseTargetUnits,
   validateGitlabUrl,
@@ -131,20 +129,6 @@ describe("parseConcurrencyLimit", () => {
   })
 })
 
-describe("parseTagFormat", () => {
-  it("未指定のときデフォルトのフォーマットを返す", () => {
-    expect(parseTagFormat(undefined)).toBe("{branch}-build-at-{date}-{time}")
-  })
-
-  it("指定されたフォーマットを検証して返す", () => {
-    expect(parseTagFormat("{date}-{time}-{branch}")).toBe("{date}-{time}-{branch}")
-  })
-
-  it("不正なフォーマットのとき例外をスローする", () => {
-    expect(() => parseTagFormat("{branch}-{date}")).toThrow("TAG_FORMAT")
-  })
-})
-
 describe("parseTargetChart", () => {
   it("未指定のとき undefined を返す（空文字のディレクトリ名にはしない）", () => {
     expect(parseTargetChart(undefined)).toBeUndefined()
@@ -206,7 +190,6 @@ describe("loadEnvConfig", () => {
     vi.stubEnv("CONFIG_PATH", undefined)
     vi.stubEnv("CONCURRENCY_LIMIT", undefined)
     vi.stubEnv("DRY_RUN", undefined)
-    vi.stubEnv("TAG_FORMAT", undefined)
     vi.stubEnv("TARGET_CHART", undefined)
     vi.stubEnv("TARGET_UNITS", undefined)
 
@@ -218,7 +201,6 @@ describe("loadEnvConfig", () => {
       dryRun: false,
       targetChart: undefined,
       targetUnits: undefined,
-      tagFormat: DEFAULT_TAG_FORMAT,
     })
   })
 

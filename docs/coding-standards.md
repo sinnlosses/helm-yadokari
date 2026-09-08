@@ -191,7 +191,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 
 **個別の判断（実施済み）**:
 
-- `test/domain/tag-format.test.ts` の「TAG_FORMATのプレースホルダの並び順・区切り文字は
+- `test/domain/tag-format.test.ts` の「テンプレートのプレースホルダの並び順・区切り文字は
   任意（回帰テスト）」2件: skip してもカバレッジは変わらないが、過去の不具合の再発防止として
   書かれた回帰テストなので残す（表の「回帰テスト」行）
 - `test/lib/gitlab/gitlab.test.ts`「createClient > Gitlab インスタンスを返す」: 薄いラッパの

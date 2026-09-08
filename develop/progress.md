@@ -306,8 +306,9 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
      一時的に食い違う。** READMEの追随は下の実装タスクの作業項目に入っている。
      `develop/parameterization-candidates.md` の項目6が今回の結論と逆向きのまま残っており、
      JST化のタスクで併せて直す。
-  2. **T-133（`sonnet`、T-132依存）** タグ命名規則を `config/` から設定できるようにする。
-     `config/` に移すとCIでの検証（`pnpm lint:validate-config`）が自動で付いてくる
+  2. ~~**T-133（`sonnet`、T-132依存）**~~ **完了**。`config.yaml` の `apps[].tagNaming` が現行で
+     `TAG_FORMAT` は廃止済み。サポート外の設定が `pnpm lint:validate-config` で exit 1 になり
+     CIの `check` ジョブで止まることを実測済み。**残るは T-134（semver）のみ。**
   3. **T-134（`opus`、T-132・T-133依存）** semver対応
   4. ~~**T-135（`sonnet`、依存なし）**~~ **完了**（`src/domain/tag-format.ts` が
      T-134の書き換え対象と丸かぶりなので先に通した）。`JST_OFFSET_MS` を対称に足し引きする方式。
