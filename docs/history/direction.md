@@ -9,6 +9,48 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-09
+
+生成したタスク: **T-156**（正典の先行更新＋コード側識別子の追随範囲の決定、`opus`）、
+**T-157**（実装・テスト・実`config/`・残りドキュメントの移行、`sonnet`、T-156依存）。
+タスクにしなかった項目は無い。
+
+## config/ のファイル名とキー名を実態に合わせる
+
+`chart.yaml` は「chartだけの設定」ではなくなっており、更新対象のchartの設定と各appの設定の
+両方を持っている。加えて `chart.yaml` が `chart:` + `apps:`、`config.yaml` が
+`apps[].chart[]` という形で、**同じ2語が入れ子違いで両方のファイルに現れる**ため、
+別々のことを定義しているのに鏡写しに見える。ここを解消する。
+
+ユーザーと合意した変更（この3点はもう決まっているので、タスク側で論点にしない）:
+
+- ファイル名 `chart.yaml` → `registry.yaml`
+- キー `chart:` → `chartToUpdate:`（更新対象のchartであることを明示。`branchToSync` と同じ
+  `XToY` の語形に揃える）
+- キー `apps:` → `appSpecs:`（appの変わりにくい設定であることを明示。中身は
+  `projectId` / `projectName` / `tagFormat`）
+
+**`config.yaml` は変更しない**（ファイル名・キー名とも据え置き）。`apps[].chart[]` と
+`helm.chart[]` も今回は触らない。
+
+選定の過程で落とした案と理由（同じ案を再検討しないため）:
+
+- `targetChart:` は使えない。`envConfig.targetChart`（環境変数 `TARGET_CHART`）が
+  「chartディレクトリ名での絞り込み」という別の意味で既に存在する
+- `updateTargetChart:` は型 `ChartUpdateTarget`（差分確定後の更新内容）と紛らわしい
+- `chart-repo.yaml` / `chart-settings.yaml` は「chartだけの設定」と読めてしまい、
+  元の不満がそのまま残る
+- `chart-and-apps.yaml` は型 `ChartAndApps` と同名で範囲が違うため、別の混乱を生む
+- `appDefaults:` / `appPresets:` は「上書き可能な既定値」と誤読される（実際は必須・上書き不可）
+
+タスク化で決めること:
+
+- コード側の識別子（`ChartYamlSchema`・`ChartApp`・`ChartRepoConfig` など）を
+  YAMLキーに追随させるかどうか、させるならどこまで
+- 正典（`docs/requirements.md` 4.4節・`docs/architecture.md`・`docs/glossary.md`）を
+  先に更新してから移行するか（`tagFormat` の置き場所を変えたときの前例に倣うか）
+- 実 `config/` の `chart.yaml` 1ファイルと、`docs/smoke-test.md` の手順の追随
+
 ## 2026-09-08（8回目）
 
 生成したタスク: T-153（tagFormat の置き場所と anchors.yaml の新しいファイル名を決め、docs/requirements.md 4.4節を先に更新する）、T-154（決まった形へコード・実config・テスト・ドキュメントを移行する。T-153 に依存）。

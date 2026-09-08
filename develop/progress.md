@@ -33,100 +33,20 @@ T-001〜T-146 のうち T-146 を除く全タスクが完了し、[`docs/history
   実行する、**BSD sed は `\|` の交替を解釈しない**ので `sed -n -E` を使う。
   どちらも最初のプロトタイプが全件NGや無検出になって気づいたもの
 
-### 2026-09-08 定期メンテの棚卸し
-
-**T-136 完了**（`4907dd8` の次のコミット）。廃止語彙 `client` / `chart groups` を
-`src/`・`scripts/`・`docs/`・`README.md`・`.env.example`・`.gitlab-ci.yml`・テストから一掃し、
-`validate-config.ts` の出力を数えている実体（設定ユニット数）と一致する表記に直した。
-残った `client` は `"tenant1/client1"` 等のパス例と `config-test/` の実フィクスチャ名だけ。
-振る舞いは不変で、テストは418件のまま。
-
-**T-137 完了**。`resolveLatestTag()` の到達不能な二重ガードを undefined 判定1つに畳み、
-`docs/coding-standards.md`「埋めないと決めた穴」の表を4件→3件に減らした。
-`isFatalStatus` のときと同じく**テストではなくコード側を直す**という前例に沿った処理。
-全体の branch カバレッジは 97.62% → 97.91%。
-
-**T-138 完了**。同値を返す2連続 return を1条件に統合し、`compileTagPattern()` から `let` を全廃、
-named import 2箇所を昇順に。**作業中に既存テストの穴が見つかった**: `escapeRegExp()` の呼び出しを
-外しても既存テストが1件も落ちない（テンプレート・ブランチ名のフィクスチャに正規表現特殊文字が無い）。
-`README`/`requirements.md` は区切り文字の自由を明記しているので実害のある穴として **T-143** に登録した。
-
-**T-139 完了**。`collect-mr-entries.ts` の防御フィルタは**消す**判断（3案のうち(a)）。
-非空タプル型で表す案(b)は実際に書いて検証し、TypeScript が `.length` チェックを
-タプル型へ narrowing しないため `as` が要ると分かったので落とした。この検証結果は
-`docs/architecture.md`「配列の非空を型で保証するより、生成経路を1つに保つ」に残した
-（次に同じことを思いついた人が再検証しなくて済むように）。
-
-**T-140 完了**。3候補とも「消す」ではなく `it.each` に畳む判断で、テスト件数は418件のまま。
-`it.each` はこのリポジトリ初導入で、`it.each([...])("%s ...", (x) => {...})` の形に3箇所とも統一した。
-受け入れ時に、追記コメントの `T-134` 参照が「タスク番号を書かない」規約違反だったので仕様参照に直した。
-
-**T-141 完了**。`README.md` のログ例で `helmTargetBranchUpdates` が `apps[]` の中に入っていた誤りを直し、
-`run_start` に `configDirPath` を足し、Quick Start の `mkdir` を深さ1の例にした。受け入れ時に、
-委譲先が `run_start` に載せた `targetChart`/`targetUnits` が**続く行の2chart処理と矛盾**していたので
-絞り込み無しの例に戻し、「指定したときだけ載る」注記を添えた。
-
-**T-142 完了**。存在しない `runPipeline()`（5箇所）を `runProcess()` に、`BuildPlanContext` を
-`BuildPlansResult` に、`formatClientRef`/`parseClientRef` を `getValueAtAnchor`/`setValueAtAnchor` に直した。
-機械的な突き合わせで**追加の食い違い `resolveWebUrl()` を1件発見**（実体は `getProjectWebUrl()`）。
-「型の置き場所は`src/`全件と突き合わせて確かめてある」節の件数も45→56件に更新し、メインで検算一致を確認。
-
-**T-143 完了**。`escapeRegExp()` を守るテストを6件足した（3つの呼び出し箇所×「壊れる例」「回帰」）。
-3箇所を個別に外すと狙った1件ずつが落ちることを確認済みで、**テストが本当に守り手になっている**。
-テストは418→424件。これで棚卸しで洗い出した7件＋派生1件がすべて完了した。
-
-**T-126 完了**（`opus`、判断タスク）。`config/` を空のまま運用する是非と既定パスを通す手段を決めた。
-**調査で判明したのは「実機未検証なのはディレクトリ名が `config` かの1点だけ」**で、既定値の解決
-（`test/lib/env.test.ts:199`）と `loadConfig()` への受け渡し（`test/main.test.ts:102`）は既にテスト済みだった。
-一方で **CIの `validate-config-remote` は空の `config/` を検証して必ず通っていた**（位置引数なしのため）。
-結論は「スモーク用の `yadokari-smoke-test-chart` を定期実行の対象にもする」＋
-**「`config-test/` を `config/` に一本化する」**。二重登録は固定ブランチ名
-`feature/yadokari/<unitPath>` を奪い合い、互いのMRを壊すため。0件を設定エラーにはしない
-（登録前からCIが赤になるほうが害が大きい）。理由は `config/README.md` に記録し、
-実作業は T-145（一本化）・T-146（実機投入）に分割した。
-
-**T-144 完了**（`opus`、委譲）。タグ形式からsemverと`{time}`任意化を撤回し、`apps[].tagNaming`
-（`mode`判別共用体）を`apps[].tagFormat`（文字列・**必須**）にした。`ParsedTag.orderKey`は
-`builtAt: Date`に戻り、`TagNaming`/`TagOrderKey`/`CreatableTagNaming`/`canCreateTag()`/
-`compareTags()`(export)/`DEFAULT_TAG_TEMPLATE`が消滅。「最新タグが決まらない」undefined経路と
-app単位スキップも無くなった。用語も「タグ命名規則」→「**タグ形式**」に統一。
-**26ファイル +408/-1124行、テストは424→393件（-31）**。削る方向の変更なのでテストが減るのが正しい。
-`git revert`は使わず手で削り、T-138/T-140/T-143の成果は温存した。
-**受け入れ時にメインが1点修正**: `architecture.md`の「型定義56件」が削除した型3件ぶん古いままだったので
-53件（`types.ts` 16・`brand.ts` 12・残り25）に更新した。
-
-**T-145 完了**（`sonnet`、委譲）。`config-test/` を `config/` へ `git mv` で統合し、設定ディレクトリを
-既定パス1つに一本化した。**`pnpm lint:validate-config` が位置引数なしで `3 設定ユニット, 5 apps` を
-検証するようになり**、CIの `validate-config-remote` が空ディレクトリを検証して通っていた状態も解消。
-`docs/smoke-test.md` から `CONFIG_PATH` が消え、`test/main.e2e.test.ts` は実ディレクトリとして
-`config` を読む。委譲先が tasks.json に無かった `docs/coding-standards.md`・`docs/architecture.md` の
-追随まで拾っていた（どちらも `config-test/` が別物である前提の記述だった）。テストは393件のまま。
-
-ユーザーの指示は3軸: (1) コードの冗長・誤り・規約違反・分かりにくさ、(2) 不要な／もっと
-シンプルにできるテスト、(3) `architecture.md`・`CLAUDE.md`・`README` 等のメンテ漏れ・冗長。
-`src/`（35ファイル）・`scripts/`・`test/`（36ファイル418テスト）・`docs/`・`README.md`・
-`.gitlab-ci.yml`・`.env.example` を読んで洗い出し、**修正はせずタスク化だけ**を行った
-（T-136〜T-142）。着手前の基準値は `pnpm check` 通過・36ファイル418テスト・oxlint 無警告。
-
-見つかった食い違いの性質は3つに分かれた:
-
-- **廃止済みの語彙の取り残し**（T-136）。「設定ユニット」へ一本化したはずの `client` が
-  `src/` のコメント12箇所・`loadAnchors()` の引数名・`docs/`・`README.md`・`.env.example`・
-  `.gitlab-ci.yml` に残る。`scripts/lint/validate-config.ts` の出力 `N chart groups` は
-  **廃止語彙であるうえに数えているのは設定ユニット数**で、表示として二重に誤っている
-- **正典が指す識別子がコードに無い**（T-141・T-142）。`runPipeline()` は5箇所で使われて
-  いるが実在しない（実体は `run()` / `runProcess()`）。`BuildPlanContext` 型も
-  `formatClientRef`/`parseClientRef` も無い。`README.md` のログ例は
-  `helmTargetBranchUpdates` を app の中に入れているが実装では兄弟フィールド
-- **到達しない分岐・重ねて通しているテスト**（T-137〜T-140）。`resolve-latest-tags.ts` の
-  未到達分岐は `docs/coding-standards.md` の「埋めない穴」に載っているが、
-  `isFatalStatus` の前例に倣えば**テストではなくコード側を畳むべきもの**
-
-`develop/progress.md` の「注意」にあった oxlint の no-shadow 警告2件は、
-`oxlint src scripts test` が exit=0・無警告になっており、関数名 `loadClientChartAndApps` も
-現存しない（`listUnitChartAndApps`）ため、この更新で削除した。
-
 ## 次にやること
+
+- **T-156（`config/` の改名を正典に先行反映し、コード識別子の追随範囲を決める、`opus`、依存なし）**。
+  ユーザーと合意済みの決定は3点: **`chart.yaml` → `registry.yaml`**、**`chart:` → `chartToUpdate:`**、
+  **`apps:` → `appSpecs:`**。**`config.yaml` は据え置き**（`apps[].chart[]`・`helm.chart[]` も触らない）。
+  動機は「`chart` と `apps` が入れ子違いで両ファイルに現れ、別々のことを定義しているのに
+  鏡写しに見える」こと。落とした案と理由は `docs/history/direction.md` の 2026-09-09 にある
+  （`targetChart:` は `envConfig.targetChart` と衝突、`chart-and-apps.yaml` は型 `ChartAndApps` と
+  範囲が違う、など）。残る判断はコード側の識別子をどこまで追随させるかで、
+  **`ChartAndApps.chart` は `docs/architecture.md` が「短い名前のままでよい」例として
+  名指ししている**ので残す方向。`/loop` 可。
+- **T-157（改名を実装・テスト・実`config/`・残ドキュメントへ反映、`sonnet`、T-156依存）**。
+  現状の `chart.yaml` 出現数は `src/` 25・`test/` 23・`scripts/` 2・`README.md` 7。
+  実 `config/yadokari-smoke-test-chart/chart.yaml` は `git mv` で改名する。`/loop` 可。
 
 - ~~**T-148（定めた基準で progress.md をアーカイブ、`sonnet`）**~~ **完了**。
   **534行/50.9KB → 252行/23.5KB**（-53%）。新基準の最初の適用で、残したのは最新日付の
