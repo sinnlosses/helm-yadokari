@@ -38,8 +38,8 @@ export async function buildPlans(
     ),
   )
 
-  const { left: toApply, right: settled } = partitionMap(outcomes, (outcome) =>
-    outcome.status === "ok" ? left(outcome.value) : right(outcome.result),
+  const { left: settled, right: toApply } = partitionMap(outcomes, (outcome) =>
+    outcome.status === "ok" ? right(outcome.value) : left(outcome.result),
   )
   return { toApply, settled }
 }

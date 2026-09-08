@@ -1,6 +1,9 @@
 /**
  * `partitionMap()` の振り分け結果。`left()`/`right()` で組み立てる。
  * どちらの側かをプロパティ名（`left`/`right`）自体で表すため、値の型が混ざらない。
+ *
+ * 向きは `Either` の慣習に合わせ、**`right` を正常系・`left` をそれ以外**に使う
+ * （`right is right`）。ここで強制はできないので、呼び出し側でこの向きを守る。
  */
 export type Sorted<L, R> = { readonly left: L } | { readonly right: R }
 
@@ -19,8 +22,8 @@ export function right<R>(value: R): { readonly right: R } {
  * どちらの配列も入力の順序を保つ。
  *
  * ```ts
- * const { left: targets, right: settled } = partitionMap(outcomes, (outcome) =>
- *   outcome.status === "ok" ? left(outcome.value) : right(outcome.result),
+ * const { left: settled, right: targets } = partitionMap(outcomes, (outcome) =>
+ *   outcome.status === "ok" ? right(outcome.value) : left(outcome.result),
  * )
  * ```
  */
