@@ -5,6 +5,10 @@ const REQUIRED_PLACEHOLDERS: readonly string[] = ["branch", "date", "time"]
 const PLACEHOLDER_PATTERN = /\{(branch|date|time)\}/g
 const ANY_PLACEHOLDER_PATTERN = /\{([^}]*)\}/g
 
+// タグ名の{date}/{time}はJST（UTC+9固定）で組み立て・解釈する。日本にサマータイムは無いため
+// オフセット計算で足りる（buildNewTagで足してparseTagで引く、単純に対称）。
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000
+
 export const DEFAULT_TAG_FORMAT: TagFormat = toTagFormat("{branch}-build-at-{date}-{time}")
 
 /**
@@ -52,7 +56,7 @@ export function parseTag(
   return {
     name: tagName,
     branchName: branch,
-    builtAt: new Date(Date.UTC(year, month - 1, day, hour, minute, second)),
+    builtAt: new Date(Date.UTC(year, month - 1, day, hour, minute, second) - JST_OFFSET_MS),
   }
 }
 
@@ -61,8 +65,9 @@ export function parseTag(
  */
 export function buildNewTag(branch: BranchName, now: Date, format: TagFormat): ParsedTag {
   const pad = (n: number) => String(n).padStart(2, "0")
-  const datePart = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}`
-  const timePart = `${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}`
+  const jst = new Date(now.getTime() + JST_OFFSET_MS)
+  const datePart = `${jst.getUTCFullYear()}${pad(jst.getUTCMonth() + 1)}${pad(jst.getUTCDate())}`
+  const timePart = `${pad(jst.getUTCHours())}${pad(jst.getUTCMinutes())}${pad(jst.getUTCSeconds())}`
   return {
     name: toTagName(fillTagFormat(format, branch, datePart, timePart)),
     branchName: branch,

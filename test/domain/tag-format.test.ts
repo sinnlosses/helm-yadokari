@@ -51,12 +51,8 @@ describe("parseTag", () => {
     expect(parsed).toBeDefined()
     expect(parsed?.name).toBe("main-build-at-20260902-123456")
     expect(parsed?.branchName).toBe("main")
-    expect(parsed?.builtAt.getUTCFullYear()).toBe(2026)
-    expect(parsed?.builtAt.getUTCMonth()).toBe(8) // 0-indexed = 9月
-    expect(parsed?.builtAt.getUTCDate()).toBe(2)
-    expect(parsed?.builtAt.getUTCHours()).toBe(12)
-    expect(parsed?.builtAt.getUTCMinutes()).toBe(34)
-    expect(parsed?.builtAt.getUTCSeconds()).toBe(56)
+    // タグ名の 12:34:56 はJST。UTCでは9時間引いた 03:34:56 になる
+    expect(parsed?.builtAt).toEqual(new Date(Date.UTC(2026, 8, 2, 3, 34, 56)))
   })
 
   it("スラッシュを含むブランチ由来のタグをパースする", () => {
@@ -66,7 +62,8 @@ describe("parseTag", () => {
       DEFAULT_TAG_FORMAT,
     )
     expect(parsed).toBeDefined()
-    expect(parsed?.builtAt.getUTCFullYear()).toBe(2026)
+    // タグ名の 2026-01-01 00:00:00 はJST。UTCでは9時間引いて前日（2025-12-31 15:00:00）になる
+    expect(parsed?.builtAt).toEqual(new Date(Date.UTC(2025, 11, 31, 15, 0, 0)))
   })
 
   it("別ブランチのタグは undefined を返す", () => {
@@ -176,16 +173,30 @@ describe("findLatestParsedTag", () => {
 })
 
 describe("buildNewTag", () => {
-  it("命名規則に従ったタグ名を組み立てる", () => {
+  it("命名規則に従ったタグ名を組み立てる（UTC 12:34:56 → JST 21:34:56）", () => {
     const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
     const tag = buildNewTag(toBranchName("main"), now, DEFAULT_TAG_FORMAT)
-    expect(tag.name).toBe("main-build-at-20260902-123456")
+    expect(tag.name).toBe("main-build-at-20260902-213456")
   })
 
-  it("スラッシュを含むブランチ名は - に置換する", () => {
+  it("スラッシュを含むブランチ名は - に置換する（UTC 0:00 → JST 9:00）", () => {
     const now = new Date(Date.UTC(2026, 0, 1, 0, 0, 0))
     const tag = buildNewTag(toBranchName("release/foo"), now, DEFAULT_TAG_FORMAT)
-    expect(tag.name).toBe("release-foo-build-at-20260101-000000")
+    expect(tag.name).toBe("release-foo-build-at-20260101-090000")
+  })
+
+  it("UTC 16:00 以降はJSTで日付が翌日に繰り上がる", () => {
+    const now = new Date(Date.UTC(2026, 8, 8, 16, 0, 0)) // UTC 9/8 16:00 → JST 9/9 01:00
+    const tag = buildNewTag(toBranchName("main"), now, DEFAULT_TAG_FORMAT)
+    expect(tag.name).toBe("main-build-at-20260909-010000")
+  })
+
+  it("日付が繰り上がるタグ名も parseTag で元の now に正しく戻る（回帰）", () => {
+    const now = new Date(Date.UTC(2026, 8, 8, 16, 0, 0))
+    const branch = toBranchName("main")
+    const tag = buildNewTag(branch, now, DEFAULT_TAG_FORMAT)
+    const reparsed = parseTag(tag.name, branch, DEFAULT_TAG_FORMAT)
+    expect(reparsed?.builtAt).toEqual(now)
   })
 
   it("branch と builtAt をそのまま保持する", () => {
@@ -203,17 +214,17 @@ describe("buildNewTag", () => {
     expect(reparsed?.builtAt).toEqual(now)
   })
 
-  it("月・日・時・分・秒を2桁ゼロパディングする", () => {
+  it("月・日・時・分・秒を2桁ゼロパディングする（UTC 3:07:09 → JST 12:07:09）", () => {
     const now = new Date(Date.UTC(2026, 0, 5, 3, 7, 9))
     const tag = buildNewTag(toBranchName("main"), now, DEFAULT_TAG_FORMAT)
-    expect(tag.name).toBe("main-build-at-20260105-030709")
+    expect(tag.name).toBe("main-build-at-20260105-120709")
   })
 
   it("TAG_FORMATをカスタマイズすると、その形式でタグ名を組み立てる", () => {
     const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
     const format = validateTagFormat("{date}-{time}-{branch}")
     const tag = buildNewTag(toBranchName("main"), now, format)
-    expect(tag.name).toBe("20260902-123456-main")
+    expect(tag.name).toBe("20260902-213456-main")
   })
 })
 
@@ -224,7 +235,7 @@ describe("TAG_FORMATのプレースホルダの並び順・区切り文字は任
     const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
 
     const tag = buildNewTag(branch, now, format)
-    expect(tag.name).toBe("20260902-123456-main")
+    expect(tag.name).toBe("20260902-213456-main")
 
     const reparsed = parseTag(tag.name, branch, format)
     expect(reparsed?.builtAt).toEqual(now)
@@ -240,7 +251,7 @@ describe("TAG_FORMATのプレースホルダの並び順・区切り文字は任
     const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
 
     const tag = buildNewTag(branch, now, format)
-    expect(tag.name).toBe("v123456_release-2026-q2__20260902")
+    expect(tag.name).toBe("v213456_release-2026-q2__20260902")
 
     const reparsed = parseTag(tag.name, branch, format)
     expect(reparsed?.builtAt).toEqual(now)

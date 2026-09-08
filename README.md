@@ -48,6 +48,8 @@ GitLab のタグ名から追跡ブランチとビルド日時を判定します�
 ${追跡ブランチ名の "/" を "-" に置換した値}-build-at-${yyyymmdd}-${hhmmss}
 ```
 
+`{date}`/`{time}` はJST（UTC+9固定、設定不可）で組み立て・解釈します。
+
 例: 追跡ブランチが `release/foo` の場合 → `release-foo-build-at-20260902-123456`
 
 `TAG_FORMAT` 環境変数でテンプレートをカスタマイズできます。`{branch}`/`{date}`/`{time}` を

@@ -309,8 +309,10 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   2. **T-133（`sonnet`、T-132依存）** タグ命名規則を `config/` から設定できるようにする。
      `config/` に移すとCIでの検証（`pnpm lint:validate-config`）が自動で付いてくる
   3. **T-134（`opus`、T-132・T-133依存）** semver対応
-  4. **T-135（`sonnet`、依存なし）** タグ名の日時をJSTに。**他と独立して着手できる**ので、
-     先に片付けてもよい
+  4. ~~**T-135（`sonnet`、依存なし）**~~ **完了**（`src/domain/tag-format.ts` が
+     T-134の書き換え対象と丸かぶりなので先に通した）。`JST_OFFSET_MS` を対称に足し引きする方式。
+     既存タグは一律 −9h シフトで相対順序が保たれるため**移行手順は不要**（実測で確認済み）。
+     残りは **T-133（`sonnet`）→ T-134（`opus`）** の2つ。
 - **T-126（`config/` の運用方針、`opus`）は `/loop /next-task` に載せない**
   （`config/` への登録が本番の pipeline schedule の対象を変えるため、ユーザー承認が要る）。
 - **`config-test/` の構成が変わったので、次回の実機スモークは `docs/smoke-test.md` の手順1から
