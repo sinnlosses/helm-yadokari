@@ -74,10 +74,10 @@
   {
     "id": "T-143",
     "task": "`escapeRegExp()` が実際に効いていることを守るテストを足す。\n\n## 背景\n\nT-138（`compileTagPattern()` の再代入の排除）を実行した際、委譲先が**既存テストの穴**を見つけた:\n\n> `escapeRegExp` の呼び出しを1つ外す（正規表現特殊文字のエスケープを飛ばす）だけでは既存テストは1件も落ちなかった。テストのテンプレート・ブランチ名フィクスチャに正規表現特殊文字（`.` `+` など）を含むケースが無いため。\n\nつまり `src/domain/tag-format.ts` の `escapeRegExp()` は**誰にも守られていない**。これは T-138 が生んだ穴ではなく元からある被覆漏れだが、`compileTagPattern()` を書き換えた直後なので放置しない。\n\n**実害のある壊れ方をする**: `README.md`「タグ命名規則」は `template` の**並び順と区切り文字は自由**と明記しており、`{branch}.{date}` や `{branch}+{date}-{time}` のようなテンプレートは正当な設定である。エスケープが壊れると `.` が「任意の1文字」として解釈され、**本来マッチすべきでないタグ名がマッチする**（＝別のタグを最新と誤認して values.yaml に書く）。しかも例外は出ず、静かに誤る。\n\n`docs/coding-standards.md`「足すかどうか」は「埋めるのは `docs/requirements.md` が明示している振る舞いだけ」としているが、区切り文字の自由度は要件として明示されている（`docs/requirements.md` 4.1節）ので、この穴は埋める側に当たる。\n\n## やること\n\n1. `test/domain/tag-format.test.ts` に、**正規表現の特殊文字を区切り文字に含むテンプレート**のテストを足す。最低限、次の2つが落ちることを確認できる形にする:\n   - エスケープが無いと**マッチしてはいけないタグ名がマッチしてしまう**ケース（`.` が任意の1文字として働くことを突く。例: テンプレート `{branch}.{date}` に対してタグ名 `main-20260101` を渡すと、エスケープがあれば `undefined`、無ければマッチしてしまう）\n   - 特殊文字入りのテンプレートで**正しいタグ名は従来どおりパースできる**こと（回帰）\n2. ブランチ名側にも特殊文字が入りうる（`compileTagPattern()` は `branchLiteral` も `escapeRegExp()` に通している）。`branchToSync` に `.` を含むブランチ名（例: `release/1.0`）のケースも1件足す\n3. 足したテストが**本当に守り手になっている**ことを確認する: `escapeRegExp()` の呼び出しを一時的に外して**落ちること**を実際に確かめ、件数を `evidence` に書く。確認後は必ず元に戻す\n\n## 完了条件\n\n- `escapeRegExp()` の呼び出しを外すと足したテストが落ちる（件数を `evidence` に書く）。**この確認をしていないテストは守り手になっていないので不可**\n- `pnpm check` が通り、テスト件数が **418件から増えている**（実際の数を `evidence` に書く）\n- 既存の57件（`tag-format.test.ts`）が1件も落ちていない\n\n## 注意\n\n- **コードは変えない。** `escapeRegExp()` の実装は正しいので、足すのはテストだけ\n- テストの追加は最小限にする。`docs/coding-standards.md`「足すかどうか」の「未到達の行を全部は埋めない」に従い、**エスケープが効いていることを示す最小の組**にとどめる\n- `/loop /next-task` に載せてよい",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "`compileTagPattern()` が `escapeRegExp()` を呼ぶ**3箇所（プレースホルダ直前のリテラル／`{branch}` に埋める `branchLiteral`／末尾の残りリテラル）それぞれに、「壊れる例」と「回帰」の2件ずつ**を追加（テンプレート `{branch}.{date}`・`{branch}-{date}.`、ブランチ名 `release/1.0`）。**3箇所を個別に外すと、狙った1件だけがそれぞれ落ちる**ことを委譲先が確認し、メイン側でも `branchLiteral` の箇所で独立に再現（1 failed / 62 passed）してソースを復元。`pnpm check` exit=0、テストは 418 → **424件**（+6）。変更は `test/domain/tag-format.test.ts` のみで`src/` は無変更（`git status --short` が1行）。",
     "dependencies": ["T-138"]
   }
 ]

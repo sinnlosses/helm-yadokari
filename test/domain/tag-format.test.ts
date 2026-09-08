@@ -445,3 +445,43 @@ describe("テンプレートのプレースホルダの並び順・区切り文�
     expect(latest?.name).toBe(tag.name)
   })
 })
+
+describe("compileTagPattern（正規表現特殊文字のエスケープ）", () => {
+  it("区切り文字に . を使うテンプレートでは、別の区切り文字のタグ名を誤ってマッチさせない", () => {
+    const naming = templateNaming("{branch}.{date}")
+    // "." がエスケープされていれば任意の1文字にはマッチしない。区切り文字が "-" の
+    // タグ名（本来別形式のタグ）が誤って読めてしまわないことを確認する
+    expect(parseTag(toTagName("main-20260101"), toBranchName("main"), naming)).toBeUndefined()
+  })
+
+  it("区切り文字に . を使うテンプレートでも、正しい区切り文字のタグ名は従来どおりパースできる", () => {
+    const naming = templateNaming("{branch}.{date}")
+    const parsed = parseTag(toTagName("main.20260101"), toBranchName("main"), naming)
+    // 2026-01-01 00:00:00（JST、{time}なしのため0時0分0秒扱い）はUTCで前日15:00:00
+    expect(parsed?.orderKey).toEqual([Date.UTC(2025, 11, 31, 15, 0, 0)])
+  })
+
+  it("テンプレート末尾のリテラルに . があるとき、末尾の文字が異なるタグ名を誤ってマッチさせない", () => {
+    const naming = templateNaming("{branch}-{date}.")
+    expect(parseTag(toTagName("main-20260101x"), toBranchName("main"), naming)).toBeUndefined()
+  })
+
+  it("テンプレート末尾のリテラルに . があるテンプレートでも、正しいタグ名は従来どおりパースできる", () => {
+    const naming = templateNaming("{branch}-{date}.")
+    const parsed = parseTag(toTagName("main-20260101."), toBranchName("main"), naming)
+    expect(parsed?.orderKey).toEqual([Date.UTC(2025, 11, 31, 15, 0, 0)])
+  })
+
+  it("ブランチ名に . を含むとき、別の文字に置き換わったタグ名を誤ってマッチさせない", () => {
+    const naming = templateNaming("{branch}-{date}")
+    expect(
+      parseTag(toTagName("release-1x0-20260101"), toBranchName("release/1.0"), naming),
+    ).toBeUndefined()
+  })
+
+  it("ブランチ名に . を含むテンプレートでも、正しいタグ名は従来どおりパースできる", () => {
+    const naming = templateNaming("{branch}-{date}")
+    const parsed = parseTag(toTagName("release-1.0-20260101"), toBranchName("release/1.0"), naming)
+    expect(parsed?.orderKey).toEqual([Date.UTC(2025, 11, 31, 15, 0, 0)])
+  })
+})
