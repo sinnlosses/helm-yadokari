@@ -1,13 +1,13 @@
 import { existsSync, statSync } from "node:fs"
 
-import { parseClientRef } from "../domain/client-ref.js"
+import { parseConfigUnitPath } from "../domain/config-unit.js"
 import { DEFAULT_TAG_FORMAT, validateTagFormat } from "../domain/tag-format.js"
 import type {
   AccessToken,
   ChartDirName,
+  ConfigUnitPath,
   GitLabUrl,
   TagFormat,
-  TargetClient,
 } from "../types/types.js"
 import { toAccessToken, toChartDirName, toGitLabUrl } from "../types/types.js"
 import { assertSafePath } from "../utils/fs.js"
@@ -77,13 +77,13 @@ export function parseTargetChart(raw: string | undefined): ChartDirName | undefi
 }
 
 /**
- * TARGET_CLIENTS は `<tenantId>/<clientId>` 形式の組をカンマ区切りで複数指定できる
- * （例: "tenantId1/clientId1,tenantId2/clientId2"）。config/ のディレクトリ階層
- * `<chartDir>/<tenantId>/<clientId>/` に対応する2値の組を、1変数でまとめて渡すため。
+ * TARGET_UNITS は `unitPath`（`<tenant>/<client>`形式）をカンマ区切りで複数指定できる
+ * （例: "tenant1/client1,tenant2/client1"）。config/ のディレクトリ階層に対応する
+ * 設定ユニットを、1変数でまとめて渡すため。
  */
-export function parseTargetClients(raw: string | undefined): readonly TargetClient[] | undefined {
+export function parseTargetUnits(raw: string | undefined): readonly ConfigUnitPath[] | undefined {
   if (raw === undefined) return undefined
-  return raw.split(",").map((entry) => parseTargetClientEntry(entry.trim()))
+  return raw.split(",").map((entry) => parseTargetUnitEntry(entry.trim()))
 }
 
 /** 環境変数から読み取った実行時設定。`loadEnvConfig()`だけが生成する */
@@ -94,7 +94,7 @@ export type EnvConfig = {
   readonly concurrencyLimit: number
   readonly dryRun: boolean
   readonly targetChart: ChartDirName | undefined
-  readonly targetClients: readonly TargetClient[] | undefined
+  readonly targetUnits: readonly ConfigUnitPath[] | undefined
   readonly tagFormat: TagFormat
 }
 
@@ -115,15 +115,15 @@ export function loadEnvConfig(): EnvConfig {
     concurrencyLimit: parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT")),
     dryRun: loadOptionalEnv("DRY_RUN") === "true",
     targetChart: parseTargetChart(loadOptionalEnv("TARGET_CHART")),
-    targetClients: parseTargetClients(loadOptionalEnv("TARGET_CLIENTS")),
+    targetUnits: parseTargetUnits(loadOptionalEnv("TARGET_UNITS")),
     tagFormat: parseTagFormat(loadOptionalEnv("TAG_FORMAT")),
   }
 }
 
-function parseTargetClientEntry(entry: string): TargetClient {
-  const client = parseClientRef(entry)
-  if (client === undefined) {
-    throw new Error(`TARGET_CLIENTS は "<tenantId>/<clientId>" 形式で指定してください: "${entry}"`)
+function parseTargetUnitEntry(entry: string): ConfigUnitPath {
+  const unit = parseConfigUnitPath(entry)
+  if (unit === undefined) {
+    throw new Error(`TARGET_UNITS は "<tenant>/<client>" 形式で指定してください: "${entry}"`)
   }
-  return client
+  return unit
 }

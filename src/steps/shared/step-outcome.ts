@@ -96,8 +96,7 @@ function buildLogContext(chartAndApps: ChartAndApps): Record<string, unknown> {
   return {
     event: "update_chart",
     chartDirName: chartAndApps.chartDirName,
-    tenantId: chartAndApps.tenantId,
-    clientId: chartAndApps.clientId,
+    unitPath: chartAndApps.unitPath,
     chartProjectId: chartAndApps.chart.projectId,
     chartProjectName: chartAndApps.chart.projectName,
   }

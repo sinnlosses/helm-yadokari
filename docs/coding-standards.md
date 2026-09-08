@@ -220,7 +220,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 - エラー方針の分岐（401 / 5xx / ネットワーク障害は `FatalError` で即時終了、それ以外は
   該当chartリポジトリを `ERROR` として記録し処理継続）
 - `docs/requirements.md` が明示している振る舞い（終了コード、dry-run、
-  `(chartリポジトリ, テナント/クライアント)`単位のオールオアナッシングなど）
+  `(chartリポジトリ, 設定ユニット)`単位のオールオアナッシングなど）
 
 到達不能な防御的コード（`internal error:` を投げる分岐など）と、エラーメッセージの文面だけが
 変わる分岐は埋めない。

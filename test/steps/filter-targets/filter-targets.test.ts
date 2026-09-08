@@ -7,7 +7,7 @@ vi.mock("../../../src/utils/logger.js", () => ({
 
 import { openMergeRequestExists } from "../../../src/lib/gitlab/gitlab.js"
 import { filterTargets } from "../../../src/steps/filter-targets/filter-targets.js"
-import { toChartDirName, toClientId, toTenantId } from "../../../src/types/types.js"
+import { toChartDirName, toConfigUnitPath } from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"
 import { makeApp, makeChartAndApps, makeHttpError, mockGitlab } from "../../helpers.js"
 
@@ -50,10 +50,9 @@ describe("filterTargets", () => {
     expect(settled).toEqual(["SKIPPED"])
   })
 
-  it("tenantId/clientIdを含むブランチでオープン中MRの有無を判定する", async () => {
+  it("unitPathを含むブランチでオープン中MRの有無を判定する", async () => {
     const group = makeChartAndApps([makeApp()], {
-      tenantId: toTenantId("tenant1"),
-      clientId: toClientId("client1"),
+      unitPath: toConfigUnitPath("tenant1/client1"),
     })
     await filterTargets(mockGitlab, [group], 3)
     expect(openMergeRequestExists).toHaveBeenCalledWith(
@@ -63,14 +62,12 @@ describe("filterTargets", () => {
     )
   })
 
-  it("同じchartリポジトリでも異なるclientは独立して判定される（片方にオープン中MRがあっても他方はブロックしない）", async () => {
+  it("同じchartリポジトリでも異なる設定ユニットは独立して判定される（片方にオープン中MRがあっても他方はブロックしない）", async () => {
     const clientA = makeChartAndApps([makeApp()], {
-      tenantId: toTenantId("tenantA"),
-      clientId: toClientId("clientA"),
+      unitPath: toConfigUnitPath("tenantA/clientA"),
     })
     const clientB = makeChartAndApps([makeApp()], {
-      tenantId: toTenantId("tenantB"),
-      clientId: toClientId("clientB"),
+      unitPath: toConfigUnitPath("tenantB/clientB"),
     })
     vi.mocked(openMergeRequestExists).mockImplementation(
       async (_gitlab, _projectId, branch) => branch === "feature/yadokari/tenantA/clientA",
@@ -96,12 +93,10 @@ describe("filterTargets", () => {
 
   it("非fatalなAPIエラーは該当chartAndAppsだけをERRORにし、他のchartAndAppsの処理は続行する", async () => {
     const failing = makeChartAndApps([makeApp()], {
-      tenantId: toTenantId("tenantFail"),
-      clientId: toClientId("clientFail"),
+      unitPath: toConfigUnitPath("tenantFail/clientFail"),
     })
     const ok = makeChartAndApps([makeApp()], {
-      tenantId: toTenantId("tenantOk"),
-      clientId: toClientId("clientOk"),
+      unitPath: toConfigUnitPath("tenantOk/clientOk"),
     })
     vi.mocked(openMergeRequestExists).mockImplementation(async (_gitlab, _projectId, branch) => {
       if (branch === "feature/yadokari/tenantFail/clientFail") throw makeHttpError(403)

@@ -81,8 +81,8 @@ export type Anchors = {
 }
 
 /**
- * config.yamlと同じtenantId/clientIdディレクトリにある`anchors.yaml`を読み込む。
- * 存在しない場合は空扱い（そのclientに1件もappが無いケースを許容するため）。
+ * config.yamlと同じ設定ユニットのディレクトリにある`anchors.yaml`を読み込む。
+ * 存在しない場合は空扱い（その設定ユニットに1件もappが無いケースを許容するため）。
  */
 export function loadAnchors(clientDirPath: string): Anchors {
   const path = join(clientDirPath, "anchors.yaml")

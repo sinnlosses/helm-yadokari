@@ -44,7 +44,7 @@ async function evaluateTarget(
     return settle("SKIPPED")
   }
 
-  const branch = buildFeatureBranch(chartAndApps.tenantId, chartAndApps.clientId)
+  const branch = buildFeatureBranch(chartAndApps.unitPath)
   if (await openMergeRequestExists(gitlab, chartAndApps.chart.projectId, branch)) {
     logger.info({ ...logContext, result: "SKIPPED", reason: "mr_exists" })
     return settle("SKIPPED")

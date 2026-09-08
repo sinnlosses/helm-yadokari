@@ -27,7 +27,7 @@ const env: EnvConfig = {
   concurrencyLimit: 3,
   dryRun: true,
   targetChart: undefined,
-  targetClients: undefined,
+  targetUnits: undefined,
   tagFormat: toTagFormat("{branch}-build-at-{date}-{time}"),
 }
 

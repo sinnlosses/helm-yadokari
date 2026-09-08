@@ -1,4 +1,3 @@
-import { formatClientRef } from "../../../src/domain/client-ref.js"
 import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
 import { getValueAtAnchor } from "../../../src/lib/helm.js"
 import type {
@@ -18,8 +17,8 @@ import { type RemoteCache, newRemoteCache } from "./remote-cache.js"
 // あるか」を見る。CIから `pnpm lint:validate-config:remote` 経由で呼ぶ。
 
 /**
- * 1つのchartAndApps（＝1つのtenantId/clientId）を検証する間ずっと変わらない値をまとめたもの。
- * `where` は問題を報告するときの位置表示（`<chartDir>/<tenantId>/<clientId>`）、
+ * 1つのchartAndApps（＝1つの設定ユニット）を検証する間ずっと変わらない値をまとめたもの。
+ * `where` は問題を報告するときの位置表示（`<chartDir>/<unitPath>`）、
  * `reportedPaths` は同じvalues.yamlの不在を何度も報告しないための記録。
  */
 type VerifyContext = {
@@ -54,7 +53,7 @@ export async function verifyConfigExistence(
         return await verifyChartAndApps(cache, chartAndApps)
       } catch (err) {
         return [
-          `${chartAndApps.chartDirName}/${chartAndApps.tenantId}/${chartAndApps.clientId}: 検証中にエラーが発生しました（${toErrorMessage(err)}）`,
+          `${chartAndApps.chartDirName}/${chartAndApps.unitPath}: 検証中にエラーが発生しました（${toErrorMessage(err)}）`,
         ]
       }
     },
@@ -63,7 +62,7 @@ export async function verifyConfigExistence(
 }
 
 /**
- * 1つのchartAndApps（＝1つのtenantId/clientId）分を検証する。chartリポジトリ自体が
+ * 1つのchartAndApps（＝1つの設定ユニット）分を検証する。chartリポジトリ自体が
  * 見つからない場合、そこに依存する検証（mrTargetBranch・values.yaml）は結果が自明なので
  * 行わず、原因となる1件だけを報告する。
  */
@@ -74,7 +73,7 @@ async function verifyChartAndApps(
   const { chart, apps, helmTargetBranch } = chartAndApps
   const context: VerifyContext = {
     cache,
-    where: `${chartAndApps.chartDirName}/${formatClientRef(chartAndApps.tenantId, chartAndApps.clientId)}`,
+    where: `${chartAndApps.chartDirName}/${chartAndApps.unitPath}`,
     chart,
     reportedPaths: new Set<string>(),
   }
@@ -142,7 +141,7 @@ async function verifyApp(
 }
 
 /**
- * Helmの向き先ブランチ（`helm.branchToSync` と `helm.chart[]`）を検証する。client単位で
+ * Helmの向き先ブランチ（`helm.branchToSync` と `helm.chart[]`）を検証する。設定ユニット単位で
  * 1つなので、アプリの数だけ同じ問題を報告しないようアプリのループの外で1回だけ呼ぶ。
  */
 async function verifyHelmTargetBranch(

@@ -28,7 +28,7 @@ import {
 const MR_ENTRIES: MrEntries = { imageTags: [], helmBranches: [] }
 
 const MR_CONTENT = {
-  title: "Auto MR by yadokari: update tenantId1/clientId1 1 app image tag(s)",
+  title: "Auto MR by yadokari: update tenant1/client1 1 app image tag(s)",
   description: "### my-app\n...",
 }
 
@@ -66,9 +66,7 @@ describe("applyUpdates", () => {
     vi.mocked(submitMergeRequest).mockResolvedValue(undefined)
     vi.mocked(collectMrEntries).mockResolvedValue(MR_ENTRIES)
     vi.mocked(buildMrContent).mockReturnValue(MR_CONTENT)
-    vi.mocked(buildFeatureBranch).mockReturnValue(
-      toBranchName("feature/yadokari/tenantId1/clientId1"),
-    )
+    vi.mocked(buildFeatureBranch).mockReturnValue(toBranchName("feature/yadokari/tenant1/client1"))
   })
 
   afterEach(() => {
@@ -88,18 +86,14 @@ describe("applyUpdates", () => {
       target.plans,
       target.helmTargetBranchUpdates,
     )
-    expect(buildMrContent).toHaveBeenCalledWith(
-      target.chartAndApps.tenantId,
-      target.chartAndApps.clientId,
-      MR_ENTRIES,
-    )
+    expect(buildMrContent).toHaveBeenCalledWith(target.chartAndApps.unitPath, MR_ENTRIES)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[3]).toBe(MR_CONTENT)
   })
 
-  it("tenantId/clientIdを含む固定ブランチ名でMRを送る", async () => {
+  it("unitPathを含む固定ブランチ名でMRを送る", async () => {
     await applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[2]).toBe(
-      "feature/yadokari/tenantId1/clientId1",
+      "feature/yadokari/tenant1/client1",
     )
   })
 

@@ -12,7 +12,7 @@ import {
   parseConfigDirPath,
   parseTagFormat,
   parseTargetChart,
-  parseTargetClients,
+  parseTargetUnits,
   validateGitlabUrl,
 } from "../../src/lib/env.js"
 
@@ -155,37 +155,35 @@ describe("parseTargetChart", () => {
   })
 })
 
-describe("parseTargetClients", () => {
+describe("parseTargetUnits", () => {
   it("未指定のとき undefined を返す", () => {
-    expect(parseTargetClients(undefined)).toBeUndefined()
+    expect(parseTargetUnits(undefined)).toBeUndefined()
   })
 
-  it('"<tenantId>/<clientId>" 形式の文字列を1件の配列に分解する', () => {
-    expect(parseTargetClients("tenantId1/clientId1")).toEqual([
-      { tenantId: "tenantId1", clientId: "clientId1" },
-    ])
+  it('"<tenant>/<client>" 形式の文字列を1件の配列に分解する', () => {
+    expect(parseTargetUnits("tenant1/client1")).toEqual(["tenant1/client1"])
   })
 
   it("カンマ区切りで複数件を配列に分解する", () => {
-    expect(parseTargetClients("tenantId1/clientId1,tenantId2/clientId2")).toEqual([
-      { tenantId: "tenantId1", clientId: "clientId1" },
-      { tenantId: "tenantId2", clientId: "clientId2" },
+    expect(parseTargetUnits("tenant1/client1,tenant2/client2")).toEqual([
+      "tenant1/client1",
+      "tenant2/client2",
     ])
   })
 
   it("各エントリ前後の空白を無視する", () => {
-    expect(parseTargetClients(" tenantId1/clientId1 , tenantId2/clientId2 ")).toEqual([
-      { tenantId: "tenantId1", clientId: "clientId1" },
-      { tenantId: "tenantId2", clientId: "clientId2" },
+    expect(parseTargetUnits(" tenant1/client1 , tenant2/client2 ")).toEqual([
+      "tenant1/client1",
+      "tenant2/client2",
     ])
   })
 
   it("区切り文字がないエントリがあるとき例外をスローする", () => {
-    expect(() => parseTargetClients("tenantId1")).toThrow("TARGET_CLIENTS")
+    expect(() => parseTargetUnits("tenant1")).toThrow("TARGET_UNITS")
   })
 
   it("複数件のうち1件でも不正な形式のとき例外をスローする", () => {
-    expect(() => parseTargetClients("tenantId1/clientId1,tenantId2")).toThrow("TARGET_CLIENTS")
+    expect(() => parseTargetUnits("tenant1/client1,tenant2")).toThrow("TARGET_UNITS")
   })
 })
 
@@ -202,7 +200,7 @@ describe("loadEnvConfig", () => {
     vi.stubEnv("DRY_RUN", undefined)
     vi.stubEnv("TAG_FORMAT", undefined)
     vi.stubEnv("TARGET_CHART", undefined)
-    vi.stubEnv("TARGET_CLIENTS", undefined)
+    vi.stubEnv("TARGET_UNITS", undefined)
 
     expect(loadEnvConfig()).toEqual({
       gitlabUrl: "https://gitlab.example.com",
@@ -211,7 +209,7 @@ describe("loadEnvConfig", () => {
       concurrencyLimit: 3,
       dryRun: false,
       targetChart: undefined,
-      targetClients: undefined,
+      targetUnits: undefined,
       tagFormat: DEFAULT_TAG_FORMAT,
     })
   })

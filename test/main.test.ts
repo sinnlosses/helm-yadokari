@@ -38,7 +38,7 @@ const env: EnvConfig = {
   concurrencyLimit: 3,
   dryRun: false,
   targetChart: undefined,
-  targetClients: undefined,
+  targetUnits: undefined,
   tagFormat: toTagFormat("{branch}-build-at-{date}-{time}"),
 }
 
@@ -104,11 +104,11 @@ describe("run", () => {
     expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
   })
 
-  it("loadConfig に CONFIG_PATH と TARGET_CHART/TARGET_CLIENTS由来のtargetを渡す", async () => {
+  it("loadConfig に CONFIG_PATH と TARGET_CHART/TARGET_UNITS由来のtargetを渡す", async () => {
     await run(env)
     expect(loadConfig).toHaveBeenCalledWith(DEFAULT_CONFIG_DIR_PATH, {
       chartDirName: undefined,
-      clients: undefined,
+      units: undefined,
     })
   })
 

@@ -24,9 +24,9 @@ const CHART: ChartRepoConfig = {
   projectName: toProjectName("teamA-chart"),
   mrTargetBranch: toBranchName("develop"),
 }
-const FEATURE_BRANCH = toBranchName("feature/yadokari/tenantId1/clientId1")
+const FEATURE_BRANCH = toBranchName("feature/yadokari/tenant1/client1")
 const CONTENT: MrContent = {
-  title: "Auto MR by yadokari: update tenantId1/clientId1 (image tag 1)",
+  title: "Auto MR by yadokari: update tenant1/client1 (image tag 1)",
   description: "### my-app\n...",
 }
 const FILES: readonly FileUpdate[] = [

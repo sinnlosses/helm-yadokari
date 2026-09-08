@@ -11,7 +11,7 @@ import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import {
   toAnchorName,
   toBranchName,
-  toClientId,
+  toConfigUnitPath,
   toValuesPath,
 } from "../../../../src/types/types.js"
 import { logger } from "../../../../src/utils/logger.js"
@@ -208,11 +208,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     )
     // 同じchartディレクトリ配下の別tenant/client（chart.projectIdは既定値で共通）
     const groupA = makeChartAndApps([makeApp()], {
-      clientId: toClientId("clientA"),
+      unitPath: toConfigUnitPath("tenant1/clientA"),
       helmTargetBranch,
     })
     const groupB = makeChartAndApps([makeApp()], {
-      clientId: toClientId("clientB"),
+      unitPath: toConfigUnitPath("tenant1/clientB"),
       helmTargetBranch,
     })
     await buildPlans(mockGitlab, newBatchCache(), [groupA, groupB], 3, false, DEFAULT_TAG_FORMAT)

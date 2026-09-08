@@ -273,7 +273,8 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   T-128〜T-131 を**この順に直列で**進める（各タスクが前のタスクの結論に依存する）:
   1. ~~**T-128（`opus`）**~~ **完了**。正典は新仕様に切り替わった。以降のタスクは
      `docs/requirements.md` 4.2・4.4・4.5節と `docs/glossary.md`「設定ユニット」を正典として読む
-  2. **T-129（`sonnet`、T-128依存）** コードの語彙を `unitPath` 1本に。**階層は2階層固定のまま・振る舞い不変**
+  2. ~~**T-129（`sonnet`、T-128依存）**~~ **完了**。`ChartAndApps.unitPath` / `TARGET_UNITS` /
+     `buildFeatureBranch(unitPath)` が現行。走査はまだ2階層固定
   3. **T-130（`opus`、T-129依存）** 走査を深さ1〜2に拡張し、入れ子を設定エラーに
   4. **T-131（`sonnet`、T-130依存）** `config-test/` に深さ1のユニットを作り e2e で混在を守る
      設計判断（深さ1〜2に限定・入れ子は設定エラー・後方互換なし・語彙は「設定ユニット」）は
@@ -281,7 +282,7 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 - **ブランチ名は文字列として変わらない**のが今回の設計の要。`feature/yadokari/<unitPath>` に
   `"tenant1/client1"` を入れると従来と同一になるので、GitLab上の既存のオープンMR・固定ブランチは
   迷子にならない。T-129 の完了条件でここをテストに固定する。
-- **`docs/requirements.md` 111行のMRタイトル書式が実装と食い違っている**（`${N} app image tag(s)` の
+- ~~`docs/requirements.md` のMRタイトル書式が実装と食い違い~~ **T-129で修正済み**。（旧記述）（`${N} app image tag(s)` の
   ままだが、実装は `(image tag N, helm branch N)`。`docs/architecture.md`「MRの単位は…」節に経緯あり）。
   T-128以前からある不一致で、T-128の範囲外だったため未修正。T-129で4.2節に触れる際に直すとよい。
 - **T-126（`config/` の運用方針、`opus`）と T-131 は `/loop /next-task` に載せない**

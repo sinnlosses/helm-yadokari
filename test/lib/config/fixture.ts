@@ -13,18 +13,8 @@ export type ConfigDir = {
   readonly path: string
   readonly writeFile: (relativePath: string, content: string) => void
   readonly writeChartYaml: (chartDir: string, chart: string) => void
-  readonly writeConfigYaml: (
-    chartDir: string,
-    tenantId: string,
-    clientId: string,
-    config: string,
-  ) => void
-  readonly writeAnchorsYaml: (
-    chartDir: string,
-    tenantId: string,
-    clientId: string,
-    content: string,
-  ) => void
+  readonly writeConfigYaml: (chartDir: string, unitPath: string, config: string) => void
+  readonly writeAnchorsYaml: (chartDir: string, unitPath: string, content: string) => void
 }
 
 export function useConfigDir(): ConfigDir {
@@ -51,9 +41,9 @@ export function useConfigDir(): ConfigDir {
     },
     writeFile,
     writeChartYaml: (chartDir, chart) => writeFile(`${chartDir}/chart.yaml`, chart),
-    writeConfigYaml: (chartDir, tenantId, clientId, config) =>
-      writeFile(`${chartDir}/${tenantId}/${clientId}/config.yaml`, config),
-    writeAnchorsYaml: (chartDir, tenantId, clientId, content) =>
-      writeFile(`${chartDir}/${tenantId}/${clientId}/anchors.yaml`, content),
+    writeConfigYaml: (chartDir, unitPath, config) =>
+      writeFile(`${chartDir}/${unitPath}/config.yaml`, config),
+    writeAnchorsYaml: (chartDir, unitPath, content) =>
+      writeFile(`${chartDir}/${unitPath}/anchors.yaml`, content),
   }
 }

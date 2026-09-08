@@ -39,11 +39,11 @@ async function applyUpdate(
   logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartUpdateResult>> {
   const { chartAndApps, plans, helmTargetBranchUpdates, files } = target
-  const { chart, tenantId, clientId } = chartAndApps
-  const featureBranch = buildFeatureBranch(tenantId, clientId)
+  const { chart, unitPath } = chartAndApps
+  const featureBranch = buildFeatureBranch(unitPath)
 
   const entries = await collectMrEntries(gitlabCache, plans, helmTargetBranchUpdates)
-  const content = buildMrContent(tenantId, clientId, entries)
+  const content = buildMrContent(unitPath, entries)
   await submitMergeRequest(gitlab, chart, featureBranch, content, files)
 
   logger.info({

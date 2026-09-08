@@ -4,14 +4,14 @@ import { join } from "node:path"
 import { beforeEach, describe, expect, it } from "vitest"
 
 import { loadConfig } from "../../../src/lib/config/config.js"
-import type { TargetClient } from "../../../src/types/types.js"
-import { toChartDirName, toClientId, toTenantId } from "../../../src/types/types.js"
+import type { ConfigUnitPath } from "../../../src/types/types.js"
+import { toChartDirName, toConfigUnitPath } from "../../../src/types/types.js"
 import { useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
 
-function targetClient(tenantId: string, clientId: string): TargetClient {
-  return { tenantId: toTenantId(tenantId), clientId: toClientId(clientId) }
+function unit(tenant: string, client: string): ConfigUnitPath {
+  return toConfigUnitPath(`${tenant}/${client}`)
 }
 
 describe("loadConfig（パストラバーサル）", () => {
@@ -39,10 +39,7 @@ chart:
   mrTargetBranch: develop
 `,
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1
@@ -50,10 +47,7 @@ apps:
     branchToSync: main
 `,
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1
@@ -68,8 +62,7 @@ apps:
     expect(chartAndAppsList).toHaveLength(1)
     expect(chartAndAppsList[0]).toEqual({
       chartDirName: "teamA-chart",
-      tenantId: "tenantId1",
-      clientId: "clientId1",
+      unitPath: "tenant1/client1",
       chart: {
         projectId: 888,
         projectName: "teamA-chart",
@@ -96,12 +89,12 @@ apps:
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml("teamA-chart", "tenantId1", "clientId1", "apps: []\n")
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", "apps: []\n")
     dir.writeChartYaml(
       "teamB-chart",
       "chart:\n  projectId: 2\n  projectName: teamB-chart\n  mrTargetBranch: main\n",
     )
-    dir.writeConfigYaml("teamB-chart", "tenantId1", "clientId1", "apps: []\n")
+    dir.writeConfigYaml("teamB-chart", "tenant1/client1", "apps: []\n")
 
     const { chartAndAppsList } = loadConfig(dir.path)
     expect(chartAndAppsList.map((g) => g.chartDirName)).toEqual(["teamA-chart", "teamB-chart"])
@@ -112,51 +105,31 @@ apps:
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId2",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client2",
       "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId2",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client2",
       "apps:\n  - projectId: 2\n    projectName: app-2\n    chart:\n      - valuesPath: b.yaml\n        anchor: appVersion\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId2",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant2/client1",
       "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId2",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant2/client1",
       "apps:\n  - projectId: 3\n    projectName: app-3\n    chart:\n      - valuesPath: c.yaml\n        anchor: appVersion\n",
     )
 
     const { chartAndAppsList } = loadConfig(dir.path)
     expect(chartAndAppsList).toHaveLength(3)
-    expect(
-      chartAndAppsList.map((g) => [g.tenantId, g.clientId, g.apps.map((a) => a.projectName)]),
-    ).toEqual([
-      ["tenantId1", "clientId1", ["app-1"]],
-      ["tenantId1", "clientId2", ["app-2"]],
-      ["tenantId2", "clientId1", ["app-3"]],
+    expect(chartAndAppsList.map((g) => [g.unitPath, g.apps.map((a) => a.projectName)])).toEqual([
+      ["tenant1/client1", ["app-1"]],
+      ["tenant1/client2", ["app-2"]],
+      ["tenant2/client1", ["app-3"]],
     ])
   })
 
@@ -166,7 +139,7 @@ apps:
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml("teamA-chart", "tenantId1", "clientId1", "apps: []\n")
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", "apps: []\n")
 
     const { chartAndAppsList } = loadConfig(dir.path)
     expect(chartAndAppsList.map((g) => g.chartDirName)).toEqual(["teamA-chart"])
@@ -177,7 +150,7 @@ apps:
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    mkdirSync(join(dir.path, "teamA-chart", "tenantId1", "clientId1"), { recursive: true })
+    mkdirSync(join(dir.path, "teamA-chart", "tenant1", "client1"), { recursive: true })
 
     const { chartAndAppsList } = loadConfig(dir.path)
     expect(chartAndAppsList).toEqual([])
@@ -194,16 +167,10 @@ describe("loadConfig（chartの複数指定）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: my-service\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: my-service\n    chart:\n      - valuesPath: charts/webapi/values.yaml\n        anchor: appVersion\n      - valuesPath: charts/batch/values.yaml\n        anchor: batchAppsVersion\n",
     )
 
@@ -227,135 +194,111 @@ describe("loadConfig（target絞り込み）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId2",
-      "clientId2",
+    dir.writeConfigYaml("teamA-chart", "tenant2/client2",
       "apps:\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId2",
-      "clientId2",
+    dir.writeAnchorsYaml("teamA-chart", "tenant2/client2",
       "apps:\n  - projectId: 2\n    projectName: app-2\n    chart:\n      - valuesPath: b.yaml\n        anchor: appVersion\n",
     )
     dir.writeChartYaml(
       "teamB-chart",
       "chart:\n  projectId: 2\n  projectName: teamB-chart\n  mrTargetBranch: main\n",
     )
-    dir.writeConfigYaml(
-      "teamB-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamB-chart", "tenant1/client1",
       "apps:\n  - projectId: 3\n    projectName: app-3\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamB-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamB-chart", "tenant1/client1",
       "apps:\n  - projectId: 3\n    projectName: app-3\n    chart:\n      - valuesPath: c.yaml\n        anchor: appVersion\n",
     )
   })
 
   it("chartDirNameを指定すると該当chartのみ返す", () => {
-    const { chartAndAppsList } = loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), clients: undefined })
+    const { chartAndAppsList } = loadConfig(dir.path, {
+      chartDirName: toChartDirName("teamA-chart"),
+      units: undefined,
+    })
     expect(chartAndAppsList).toHaveLength(2)
     expect(chartAndAppsList.every((g) => g.chartDirName === "teamA-chart")).toBe(true)
-    expect(
-      chartAndAppsList.map((g) => [g.tenantId, g.clientId, g.apps.map((a) => a.projectName)]),
-    ).toEqual([
-      ["tenantId1", "clientId1", ["app-1"]],
-      ["tenantId2", "clientId2", ["app-2"]],
+    expect(chartAndAppsList.map((g) => [g.unitPath, g.apps.map((a) => a.projectName)])).toEqual([
+      ["tenant1/client1", ["app-1"]],
+      ["tenant2/client2", ["app-2"]],
     ])
   })
 
   it("存在しないchartDirNameを指定すると例外をスローする", () => {
-    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("no-such-chart"), clients: undefined })).toThrow("TARGET_CHART")
+    expect(() =>
+      loadConfig(dir.path, { chartDirName: toChartDirName("no-such-chart"), units: undefined }),
+    ).toThrow("TARGET_CHART")
   })
 
   it("存在しないchartDirNameを指定した例外メッセージに実在するディレクトリ名の一覧を含める", () => {
-    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("no-such-chart"), clients: undefined })).toThrow(
-      /config\/ 直下のディレクトリ名を指定してください.*teamA-chart.*teamB-chart/,
-    )
+    expect(() =>
+      loadConfig(dir.path, { chartDirName: toChartDirName("no-such-chart"), units: undefined }),
+    ).toThrow(/config\/ 直下のディレクトリ名を指定してください.*teamA-chart.*teamB-chart/)
   })
 
-  it("clientsを1件指定すると該当アプリのみ返す（chart横断）", () => {
+  it("unitsを1件指定すると該当アプリのみ返す（chart横断）", () => {
     const { chartAndAppsList } = loadConfig(dir.path, {
       chartDirName: undefined,
-      clients: [targetClient("tenantId1", "clientId1")],
+      units: [unit("tenant1", "client1")],
     })
-    expect(chartAndAppsList.map((g) => [g.chartDirName, g.apps.map((a) => a.projectName)])).toEqual([
+    expect(
+      chartAndAppsList.map((g) => [g.chartDirName, g.apps.map((a) => a.projectName)]),
+    ).toEqual([
       ["teamA-chart", ["app-1"]],
       ["teamB-chart", ["app-3"]],
     ])
   })
 
-  it("clientsを複数指定すると該当する全アプリを返す", () => {
+  it("unitsを複数指定すると該当する全アプリを返す", () => {
     const { chartAndAppsList } = loadConfig(dir.path, {
       chartDirName: undefined,
-      clients: [
-        targetClient("tenantId1", "clientId1"),
-        targetClient("tenantId2", "clientId2"),
-      ],
+      units: [unit("tenant1", "client1"), unit("tenant2", "client2")],
     })
     expect(
-      chartAndAppsList.map((g) => [
-        g.chartDirName,
-        g.tenantId,
-        g.clientId,
-        g.apps.map((a) => a.projectName),
-      ]),
+      chartAndAppsList.map((g) => [g.chartDirName, g.unitPath, g.apps.map((a) => a.projectName)]),
     ).toEqual([
-      ["teamA-chart", "tenantId1", "clientId1", ["app-1"]],
-      ["teamA-chart", "tenantId2", "clientId2", ["app-2"]],
-      ["teamB-chart", "tenantId1", "clientId1", ["app-3"]],
+      ["teamA-chart", "tenant1/client1", ["app-1"]],
+      ["teamA-chart", "tenant2/client2", ["app-2"]],
+      ["teamB-chart", "tenant1/client1", ["app-3"]],
     ])
   })
 
-  it("chartDirName + clients を組み合わせて絞り込める", () => {
+  it("chartDirName + units を組み合わせて絞り込める", () => {
     const { chartAndAppsList } = loadConfig(dir.path, {
       chartDirName: toChartDirName("teamA-chart"),
-      clients: [targetClient("tenantId2", "clientId2")],
+      units: [unit("tenant2", "client2")],
     })
     expect(chartAndAppsList).toHaveLength(1)
     expect(chartAndAppsList[0]?.apps.map((a) => a.projectName)).toEqual(["app-2"])
   })
 
-  it("存在しないtenantId/clientIdの組み合わせのとき例外をスローする", () => {
+  it("存在しないunitPathを指定したとき例外をスローする", () => {
     expect(() =>
-      loadConfig(dir.path, { chartDirName: undefined, clients: [targetClient("tenantId1", "no-such-client")] }),
-    ).toThrow("TARGET_CLIENTS")
+      loadConfig(dir.path, { chartDirName: undefined, units: [unit("tenant1", "no-such-client")] }),
+    ).toThrow("TARGET_UNITS")
   })
 
-  it("chartDirNameは存在するがclientsが一致しないとき例外をスローする", () => {
+  it("chartDirNameは存在するがunitsが一致しないとき例外をスローする", () => {
     expect(() =>
       loadConfig(dir.path, {
         chartDirName: toChartDirName("teamA-chart"),
-        clients: [targetClient("tenantId1", "clientId2")],
+        units: [unit("tenant1", "client2")],
       }),
-    ).toThrow("TARGET_CLIENTS")
+    ).toThrow("TARGET_UNITS")
   })
 
-  it("複数指定したclientsのうち1件でも見つからないとき例外をスローし、見つからなかったものを明示する", () => {
+  it("複数指定したunitsのうち1件でも見つからないとき例外をスローし、見つからなかったものを明示する", () => {
     expect(() =>
       loadConfig(dir.path, {
         chartDirName: undefined,
-        clients: [
-          targetClient("tenantId1", "clientId1"),
-          targetClient("no-such-tenant", "no-such-client"),
-        ],
+        units: [unit("tenant1", "client1"), unit("no-such-tenant", "no-such-client")],
       }),
     ).toThrow("no-such-tenant/no-such-client")
   })
@@ -373,9 +316,9 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
     // chart.yaml が無いため絞り込み結果が0件になる
     dir.writeFile("teamA-chart/readme.txt", "hello")
 
-    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), clients: undefined })).toThrow(
-      "TARGET_CHART / TARGET_CLIENTS で絞り込んだ結果",
-    )
+    expect(() =>
+      loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), units: undefined }),
+    ).toThrow("TARGET_CHART / TARGET_UNITS で絞り込んだ結果")
   })
 
   it("chartDirNameを指定した先にchart.yamlはあるがtenant/clientが1つも無いとき例外をスローする", () => {
@@ -384,22 +327,22 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
 
-    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), clients: undefined })).toThrow(
-      "TARGET_CHART / TARGET_CLIENTS で絞り込んだ結果",
-    )
+    expect(() =>
+      loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), units: undefined }),
+    ).toThrow("TARGET_CHART / TARGET_UNITS で絞り込んだ結果")
   })
 
-  it("clientsを指定した先にconfig.yamlが無いディレクトリしか無いとき例外をスローする", () => {
+  it("unitsを指定した先にconfig.yamlが無いディレクトリしか無いとき例外をスローする", () => {
     dir.writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     // config.yaml を置かず、tenant/clientディレクトリだけ実在させる
-    mkdirSync(join(dir.path, "teamA-chart", "tenantId1", "clientId1"), { recursive: true })
+    mkdirSync(join(dir.path, "teamA-chart", "tenant1", "client1"), { recursive: true })
 
     expect(() =>
-      loadConfig(dir.path, { chartDirName: undefined, clients: [targetClient("tenantId1", "clientId1")] }),
-    ).toThrow("TARGET_CHART / TARGET_CLIENTS で絞り込んだ結果")
+      loadConfig(dir.path, { chartDirName: undefined, units: [unit("tenant1", "client1")] }),
+    ).toThrow("TARGET_CHART / TARGET_UNITS で絞り込んだ結果")
   })
 
   it("0件エラーのメッセージに実在するディレクトリ名の一覧を含める", () => {
@@ -408,11 +351,11 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
       "teamB-chart",
       "chart:\n  projectId: 2\n  projectName: teamB-chart\n  mrTargetBranch: main\n",
     )
-    dir.writeConfigYaml("teamB-chart", "tenantId1", "clientId1", "apps: []\n")
+    dir.writeConfigYaml("teamB-chart", "tenant1/client1", "apps: []\n")
 
-    expect(() => loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), clients: undefined })).toThrow(
-      /実在するディレクトリ.*teamA-chart.*teamB-chart/,
-    )
+    expect(() =>
+      loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), units: undefined }),
+    ).toThrow(/実在するディレクトリ.*teamA-chart.*teamB-chart/)
   })
 
   it("絞り込みで実際に1件以上ヒットしていれば例外をスローしない", () => {
@@ -420,9 +363,12 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml("teamA-chart", "tenantId1", "clientId1", "apps: []\n")
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", "apps: []\n")
 
-    const { chartAndAppsList } = loadConfig(dir.path, { chartDirName: toChartDirName("teamA-chart"), clients: undefined })
+    const { chartAndAppsList } = loadConfig(dir.path, {
+      chartDirName: toChartDirName("teamA-chart"),
+      units: undefined,
+    })
     expect(chartAndAppsList).toHaveLength(1)
   })
 })
@@ -433,16 +379,10 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\nhelm:\n  chart:\n    - valuesPath: a.yaml\n      anchor: targetBranch\n",
     )
 
@@ -458,16 +398,10 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
 
@@ -480,16 +414,10 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
 
@@ -501,16 +429,10 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\nhelm:\n  chart:\n    - valuesPath: a.yaml\n      anchor: targetBranch\n",
     )
 
@@ -522,16 +444,10 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\nhelm:\n  chart: []\n",
     )
 
@@ -543,16 +459,10 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n  - projectId: 2\n    projectName: app-2\n    chart:\n      - valuesPath: b.yaml\n        anchor: appVersion\nhelm:\n  chart:\n    - valuesPath: a.yaml\n      anchor: targetBranch\n",
     )
 
@@ -564,16 +474,10 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n  - projectId: 2\n    projectName: app-2\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n  - projectId: 2\n    projectName: app-2\n    chart:\n      - valuesPath: b.yaml\n        anchor: appVersion\nhelm:\n  chart:\n    - valuesPath: a.yaml\n      anchor: targetBranchA\n    - valuesPath: b.yaml\n      anchor: targetBranchB\n",
     )
 
@@ -589,16 +493,10 @@ describe("loadConfig（helmTargetBranch）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "helm:\n  branchToSync: release/2026-q1\napps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: webapi.yaml\n        anchor: webapiVersion\n      - valuesPath: batch.yaml\n        anchor: batchVersion\nhelm:\n  chart:\n    - valuesPath: webapi.yaml\n      anchor: webapiTargetBranch\n    - valuesPath: batch.yaml\n      anchor: batchTargetBranch\n",
     )
 

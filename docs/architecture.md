@@ -70,8 +70,8 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{1,4\} /p' doc
 | #### 設定ミスの検知は「形」と「実在」で2段に分ける                                         | `loadConfig()`とCIジョブの分担               |
 | #### `chart.yaml`/`config.yaml`/`anchors.yaml` の3ファイル分割                             | 3分割の理由                                  |
 | #### `values.yaml` の位置指定はYAMLアンカーのみ、YAML処理は `yaml` パッケージ              | `js-yaml`を使わない理由                      |
-| #### Helmの向き先ブランチはapp単位に振り分けずclient単位で持つ                             | client単位で持つ理由                         |
-| #### MRの単位は `(chartリポジトリ, tenantId, clientId)`                                    | MRの粒度の理由                               |
+| #### Helmの向き先ブランチはapp単位に振り分けず設定ユニット単位で持つ                       | 設定ユニット単位で持つ理由                   |
+| #### MRの単位は `(chartリポジトリ, 設定ユニット)`                                          | MRの粒度の理由                               |
 
 **既知の制約・注意点** — 踏みやすい落とし穴
 
@@ -152,8 +152,8 @@ GitLab APIにも外部ファイル形式にも依存せず、ブランド型・�
 | ファイル            | 責務                                                                            |
 | ------------------- | ------------------------------------------------------------------------------- |
 | `tag-format.ts`     | タグ命名規則（`docs/requirements.md` 4.1節）のパース・生成・`TAG_FORMAT`の検証  |
-| `feature-branch.ts` | 固定ブランチ名 `feature/yadokari/<tenantId>/<clientId>` の組み立てと判定        |
-| `client-ref.ts`     | `(tenantId, clientId)`の組の文字列表記 `<tenantId>/<clientId>` の組み立てと分解 |
+| `feature-branch.ts` | 固定ブランチ名 `feature/yadokari/<unitPath>` の組み立てと判定                   |
+| `config-unit.ts`    | `TARGET_UNITS`の1エントリを`ConfigUnitPath`として受け入れられる形かどうかの検証 |
 
 ### `src/utils/` — ドメイン知識を一切持たない汎用ユーティリティ
 
@@ -618,29 +618,30 @@ projectIdが本番実行時にはじめて`ERROR`になっていた。
 指定にアンカーを使う以上、Document（AST）を直接操作できる必要がある。オブジェクトのネストを
 dotパスで辿る方式も実装していたが、実運用ではアンカー方式で十分なため削除した。
 
-#### Helmの向き先ブランチはapp単位に振り分けずclient単位で持つ
+#### Helmの向き先ブランチはapp単位に振り分けず設定ユニット単位で持つ
 
-向き先ブランチは「1client内のapps全体で共通」という要件（`docs/glossary.md`）なので、
+向き先ブランチは「1設定ユニット内のapps全体で共通」という要件（`docs/glossary.md`）なので、
 `ChartAndApps`が1つだけ持ち、`build-plans.ts`はappのループの**外**で1回だけ適用する。
 
 以前は`AppConfig`がapp単位で持ち、`anchors.yaml`の`helm.chart[]`を`valuesPath`の一致で
 appへ振り分けていた。共通の値を複製することになるため、同じ書き込み先が複数appの計画に現れ、
 MR本文を組み立てる`collect-mr-entries.ts`が書き込み先単位で重複排除し直していた。
-`scripts/lint/verify-config/`も同じ問題をappの数だけ報告していた。client単位にすると
+`scripts/lint/verify-config/`も同じ問題をappの数だけ報告していた。設定ユニット単位にすると
 振り分けと重複排除の両方が不要になる。
 
 - **`plans`が空でも向き先ブランチに差分があればMRを作る**。app単位だった頃はイメージタグに
   差分が無いappでも「向き先ブランチだけ差分あり」の`AppUpdatePlan`が作られていたが、
-  client単位になったので`ChartUpdateTarget`側が持つ
+  設定ユニット単位になったので`ChartUpdateTarget`側が持つ
 - **向き先ブランチのエラーにアプリ名は付かない**。`withAppContext()`はappのループの中だけに
   掛かる。どのappの問題でもないので、`valuesPath`とアンカー名で位置を示す
 - **書き込みはイメージタグを全app分積んだ後の下書きに重ねる**。同じ`values.yaml`への
   書き換えが失われないよう、適用の順序はappのループの後に固定する
 
-#### MRの単位は `(chartリポジトリ, tenantId, clientId)`
+#### MRの単位は `(chartリポジトリ, 設定ユニット)`
 
-クライアントごとに独立してマージ判断・保留できるようにするため。オールオアナッシングの範囲も
-この単位。
+設定ユニットごとに独立してマージ判断・保留できるようにするため。オールオアナッシングの範囲も
+この単位。以前は`(chartリポジトリ, tenantId, clientId)`という2値の組で表していたが、
+`ConfigUnitPath`（`unitPath`）1本に一本化した（`docs/glossary.md`「設定ユニット」参照）。
 
 MRタイトルの件数は「何が何件変わったか」を種別ごとに示す。以前は「N app image tag(s)」固定で、
 向き先ブランチだけが変わった場合もイメージタグが変わったように読めていた。

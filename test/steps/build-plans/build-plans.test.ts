@@ -11,7 +11,7 @@ import { buildPlans } from "../../../src/steps/build-plans/build-plans.js"
 import {
   toAnchorName,
   toChartDirName,
-  toClientId,
+  toConfigUnitPath,
   toProjectId,
   toProjectName,
   toValuesPath,
@@ -226,7 +226,7 @@ describe("buildPlans", () => {
     vi.mocked(getFileContent).mockResolvedValue(original)
     // 同じchartディレクトリ配下の別tenant/client（chart.projectIdは既定値で共通）が
     // 同じvalues.yamlの別アンカーを書き換える構成（docs/requirements.md 4.2節の既知の制限）
-    const makeGroup = (clientId: string, anchorName: string) =>
+    const makeGroup = (unit: string, anchorName: string) =>
       makeChartAndApps(
         [
           makeApp({
@@ -238,7 +238,7 @@ describe("buildPlans", () => {
             ],
           }),
         ],
-        { clientId: toClientId(clientId) },
+        { unitPath: toConfigUnitPath(unit) },
       )
 
     const { toApply } = await buildPlans(

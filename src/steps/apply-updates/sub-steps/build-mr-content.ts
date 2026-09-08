@@ -1,18 +1,13 @@
-import { formatClientRef } from "../../../domain/client-ref.js"
 import { buildCompareUrl, buildTagUrl } from "../../../lib/gitlab/web-url.js"
-import type { ClientId, HelmTargetBranchUpdate, TenantId } from "../../../types/types.js"
+import type { ConfigUnitPath, HelmTargetBranchUpdate } from "../../../types/types.js"
 import type { ImageTagEntry, MrContent, MrEntries } from "./shared/types.js"
 
 /**
- * 1つの`(chartリポジトリ, tenantId, clientId)`分のMRのタイトルと本文を組み立てる
+ * 1つの`(chartリポジトリ, 設定ユニット)`分のMRのタイトルと本文を組み立てる
  */
-export function buildMrContent(
-  tenantId: TenantId,
-  clientId: ClientId,
-  entries: MrEntries,
-): MrContent {
+export function buildMrContent(unitPath: ConfigUnitPath, entries: MrEntries): MrContent {
   return {
-    title: buildMrTitle(tenantId, clientId, entries),
+    title: buildMrTitle(unitPath, entries),
     description: buildMrDescription(entries),
   }
 }
@@ -21,13 +16,13 @@ export function buildMrContent(
  * MRのタイトル。何が何件変わったかを種別ごとに示す。数える単位はアプリ数ではなく
  * values.yaml の書き換え箇所数で、本文のテーブルの行と同じ配列を数える。
  */
-function buildMrTitle(tenantId: TenantId, clientId: ClientId, entries: MrEntries): string {
+function buildMrTitle(unitPath: ConfigUnitPath, entries: MrEntries): string {
   const parts = [
     ...(entries.imageTags.length > 0 ? [`image tag ${entries.imageTags.length}`] : []),
     ...(entries.helmBranches.length > 0 ? [`helm branch ${entries.helmBranches.length}`] : []),
   ]
   const summary = parts.length > 0 ? ` (${parts.join(", ")})` : ""
-  return `Auto MR by yadokari: update ${formatClientRef(tenantId, clientId)}${summary}`
+  return `Auto MR by yadokari: update ${unitPath}${summary}`
 }
 
 function buildMrDescription(entries: MrEntries): string {
@@ -68,7 +63,7 @@ function buildImageTagSection(entries: readonly ImageTagEntry[]): string {
 
 /**
  * Helmの向き先ブランチの更新をテーブルにする。
- * 向き先ブランチはclient単位で共通の値なので、イメージタグとは別のセクションに置く。
+ * 向き先ブランチは設定ユニット単位で共通の値なので、イメージタグとは別のセクションに置く。
  * 書き込み先はイメージタグの表と同じくファイル・アンカーの2列に分ける。
  */
 function buildHelmTargetBranchSection(updates: readonly HelmTargetBranchUpdate[]): string {

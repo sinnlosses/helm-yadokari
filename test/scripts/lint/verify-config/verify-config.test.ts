@@ -7,7 +7,7 @@ import { branchExists, getFileContent, projectExists } from "../../../../src/lib
 import {
   toAnchorName,
   toBranchName,
-  toClientId,
+  toConfigUnitPath,
   toProjectId,
   toProjectName,
   toValuesPath,
@@ -35,7 +35,7 @@ describe("verifyConfigExistence", () => {
 
   it("1件の検証が例外で落ちても他のchartAndAppsの検証を続け、問題として返す", async () => {
     const failing = makeChartAndApps([makeApp({ projectId: toProjectId(2) })], {
-      clientId: toClientId("clientId2"),
+      unitPath: toConfigUnitPath("tenant1/client2"),
     })
     vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => {
       if (projectId === 2) throw new Error("想定外のエラー")
@@ -49,7 +49,7 @@ describe("verifyConfigExistence", () => {
     )
 
     expect(problems).toHaveLength(1)
-    expect(problems[0]).toContain("clientId2")
+    expect(problems[0]).toContain("client2")
     expect(problems[0]).toContain("想定外のエラー")
   })
 

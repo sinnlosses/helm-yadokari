@@ -4,20 +4,13 @@ import type {
   BranchName,
   CommitSha,
   ChartDirName,
-  ClientId,
+  ConfigUnitPath,
   GitLabUrl,
   ProjectId,
   ProjectName,
   TagName,
-  TenantId,
   ValuesPath,
 } from "./brand.js"
-
-/** TARGET_CLIENTS環境変数由来の絞り込み条件1件分 */
-export type TargetClient = {
-  readonly tenantId: TenantId
-  readonly clientId: ClientId
-}
 
 /** values.yaml内の書き込み位置1箇所分 */
 export type AnchorTarget = {
@@ -27,8 +20,8 @@ export type AnchorTarget = {
 
 /**
  * Helmの向き先ブランチを扱うための設定。`branchName`はconfig.yamlの`helm.branchToSync`由来、
- * `targets`はanchors.yamlの`helm.chart[]`のうち、client内のいずれかのappが書き込む
- * valuesPathを指すもの。向き先ブランチはclient内のapps全体で共通なのでclient単位で持つ
+ * `targets`はanchors.yamlの`helm.chart[]`のうち、設定ユニット内のいずれかのappが書き込む
+ * valuesPathを指すもの。向き先ブランチは設定ユニット内のapps全体で共通なので設定ユニット単位で持つ
  */
 export type HelmTargetBranchConfig = {
   readonly branchName: BranchName
@@ -54,11 +47,10 @@ export type ChartRepoConfig = {
   readonly mrTargetBranch: BranchName
 }
 
-/** `config/<chartリポジトリ>/<tenantId>/<clientId>/`1つ分。MRを作成する単位でもある */
+/** `config/<chartリポジトリ>/<unitPath>/`1つ分。MRを作成する単位でもある */
 export type ChartAndApps = {
   readonly chartDirName: ChartDirName
-  readonly tenantId: TenantId
-  readonly clientId: ClientId
+  readonly unitPath: ConfigUnitPath
   readonly chart: ChartRepoConfig
   readonly apps: readonly AppConfig[]
   /** config.yamlとanchors.yamlの両方でHelmの向き先ブランチが指定されている場合のみ値を持つ */
@@ -122,7 +114,7 @@ export type FileUpdate = {
 
 /**
  * 差分が確定し、コミット・MR作成の対象になった1chartAndApps分の更新内容。
- * `helmTargetBranchUpdates`がapp単位でなくここにあるのは、向き先ブランチがclient内の
+ * `helmTargetBranchUpdates`がapp単位でなくここにあるのは、向き先ブランチが設定ユニット内の
  * apps全体で共通だから（`plans`が空でもこちらに差分があればMRを作る）
  */
 export type ChartUpdateTarget = {

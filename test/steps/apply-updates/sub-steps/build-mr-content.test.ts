@@ -11,10 +11,9 @@ import type {
 import {
   toAnchorName,
   toBranchName,
-  toClientId,
+  toConfigUnitPath,
   toGitLabUrl,
   toTagName,
-  toTenantId,
   toValuesPath,
 } from "../../../../src/types/types.js"
 import { makePlan } from "../../../helpers.js"
@@ -42,16 +41,17 @@ function entriesOf(
   }
 }
 
-const buildTitle = (entries: MrEntries): string =>
-  buildMrContent(toTenantId("tenantId1"), toClientId("clientId1"), entries).title
+const UNIT_PATH = toConfigUnitPath("tenant1/client1")
+
+const buildTitle = (entries: MrEntries): string => buildMrContent(UNIT_PATH, entries).title
 
 const buildDescription = (entries: MrEntries): string =>
-  buildMrContent(toTenantId("tenantId1"), toClientId("clientId1"), entries).description
+  buildMrContent(UNIT_PATH, entries).description
 
 describe("buildMrContent（タイトル）", () => {
   it("イメージタグの書き換え箇所数を種別つきで含む", () => {
     expect(buildTitle(entriesOf([makePlan(), makePlan()]))).toBe(
-      "Auto MR by yadokari: update tenantId1/clientId1 (image tag 2)",
+      "Auto MR by yadokari: update tenant1/client1 (image tag 2)",
     )
   })
 
@@ -74,7 +74,7 @@ describe("buildMrContent（タイトル）", () => {
     })
 
     expect(buildTitle(entriesOf([plan]))).toBe(
-      "Auto MR by yadokari: update tenantId1/clientId1 (image tag 3)",
+      "Auto MR by yadokari: update tenant1/client1 (image tag 3)",
     )
   })
 
@@ -82,7 +82,7 @@ describe("buildMrContent（タイトル）", () => {
     const plan = makePlan()
 
     expect(buildTitle(entriesOf([plan], [helmUpdate]))).toBe(
-      "Auto MR by yadokari: update tenantId1/clientId1 (image tag 1, helm branch 1)",
+      "Auto MR by yadokari: update tenant1/client1 (image tag 1, helm branch 1)",
     )
   })
 
@@ -90,24 +90,20 @@ describe("buildMrContent（タイトル）", () => {
     const plan = makePlan({ updates: [] })
 
     expect(buildTitle(entriesOf([plan], [helmUpdate]))).toBe(
-      "Auto MR by yadokari: update tenantId1/clientId1 (helm branch 1)",
+      "Auto MR by yadokari: update tenant1/client1 (helm branch 1)",
     )
   })
 
   it("件数は本文のテーブルの行数と同じ配列から数える", () => {
     const entries = entriesOf([makePlan()], [helmUpdate])
-    const { title, description } = buildMrContent(
-      toTenantId("tenantId1"),
-      toClientId("clientId1"),
-      entries,
-    )
+    const { title, description } = buildMrContent(UNIT_PATH, entries)
 
     expect(title).toContain("image tag 1")
     expect(description.split("\n").filter((line) => line.includes("my-app"))).toHaveLength(1)
   })
 
   it("0件のときは件数の括弧を付けない", () => {
-    expect(buildTitle(entriesOf([]))).toBe("Auto MR by yadokari: update tenantId1/clientId1")
+    expect(buildTitle(entriesOf([]))).toBe("Auto MR by yadokari: update tenant1/client1")
   })
 })
 

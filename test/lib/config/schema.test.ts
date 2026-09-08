@@ -24,10 +24,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       'apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: ""\n',
     )
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
@@ -38,16 +35,10 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart: []\n",
     )
 
@@ -59,16 +50,10 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - anchor: appVersion\n",
     )
 
@@ -80,16 +65,10 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n",
     )
 

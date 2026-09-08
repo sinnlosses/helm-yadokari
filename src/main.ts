@@ -17,7 +17,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
     concurrencyLimit: env.concurrencyLimit,
     configDirPath: env.configDirPath,
     targetChart: env.targetChart,
-    targetClients: env.targetClients,
+    targetUnits: env.targetUnits,
     tagFormat: env.tagFormat,
   })
   const { value: resultCounts, duration_ms } = await timed(() => runProcess(env))
@@ -29,8 +29,8 @@ export async function run(env: EnvConfig): Promise<RunResult> {
 /**
  * config/ を読み込み、以下のステップを順に呼び出して全chartリポジトリを更新する。
  * dryRun のときはブランチ作成・MR作成をせず、更新予定の内容のみログ出力する。
- * targetChart / targetClients が設定されている場合は、該当するchart/tenant/client
- * のみに絞り込んで実行する（`loadConfig`側の`target`絞り込み。指定した対象がconfig/配下に
+ * targetChart / targetUnits が設定されている場合は、該当するchart・設定ユニットのみに
+ * 絞り込んで実行する（`loadConfig`側の`target`絞り込み。指定した対象がconfig/配下に
  * 見つからない場合は`loadConfig`が例外をスローする）。
  *
  * GitLabへの読み取りのキャッシュ（`GitlabBatchCache`）はここで1つ作り、必要なstepへ渡す。
@@ -45,7 +45,7 @@ async function runProcess(env: EnvConfig): Promise<Record<ChartUpdateResult, num
   const gitlabCache = createGitlabBatchCache(gitlab)
   const { chartAndAppsList } = loadConfig(env.configDirPath, {
     chartDirName: env.targetChart,
-    clients: env.targetClients,
+    units: env.targetUnits,
   })
 
   const { targets, settled: filtered } = await filterTargets(

@@ -73,18 +73,15 @@ export function toChartDirName(s: string): ChartDirName {
   return s as ChartDirName
 }
 
-declare const tenantIdBrand: unique symbol
-/** `config/<chartDir>/<tenantId>/`ディレクトリ名。MRを作成する単位の一部 */
-export type TenantId = string & { readonly [tenantIdBrand]: never }
-export function toTenantId(s: string): TenantId {
-  return s as TenantId
-}
-
-declare const clientIdBrand: unique symbol
-/** `config/<chartDir>/<tenantId>/<clientId>/`ディレクトリ名。MRを作成する単位の一部 */
-export type ClientId = string & { readonly [clientIdBrand]: never }
-export function toClientId(s: string): ClientId {
-  return s as ClientId
+declare const configUnitPathBrand: unique symbol
+/**
+ * `config/<chartDir>/`から設定ユニットのディレクトリまでの相対パス（例: `"tenant1/client1"`）。
+ * `ChartDirName`・`BranchName`・`ValuesPath`と同じ`string`表現を持つ別概念であり、取り違えを
+ * 防ぐためブランド型にしている。MRを作成する単位・固定ブランチ名の可変部になる。
+ */
+export type ConfigUnitPath = string & { readonly [configUnitPathBrand]: never }
+export function toConfigUnitPath(s: string): ConfigUnitPath {
+  return s as ConfigUnitPath
 }
 
 declare const anchorNameBrand: unique symbol

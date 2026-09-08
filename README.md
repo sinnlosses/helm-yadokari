@@ -29,11 +29,11 @@ chart リポジトリ単位に更新をまとめた MR 作成を自動化しま�
 ## Features
 
 - **複数チーム・複数chart・複数GitLabプロジェクトに対応** — `config/` 配下にディレクトリで登録
-- **テナント/クライアント単位でMRを1つに集約** — 同じテナント/クライアント内の複数アプリの更新をまとめて1MR（1つのchartリポジトリに複数テナント/クライアントがあれば、それぞれ独立したMRになる）
-- **オールオアナッシングな更新** — テナント/クライアント内の1アプリでも処理に失敗したら、その更新を見送り次回に再試行（他のテナント/クライアントには影響しない）
+- **設定ユニット単位でMRを1つに集約** — 同じ設定ユニット内の複数アプリの更新をまとめて1MR（1つのchartリポジトリに複数の設定ユニットがあれば、それぞれ独立したMRになる）
+- **オールオアナッシングな更新** — 設定ユニット内の1アプリでも処理に失敗したら、その更新を見送り次回に再試行（他の設定ユニットには影響しない）
 - **タグ自動作成** — 追跡ブランチのHEADコミットを指すタグが1件も無い場合は、最新コミットに命名規則通りの新しいタグを作成してから更新する
 - **追跡ブランチの切り替えを検知** — `branchToSync` を変更したら、変更後のブランチのHEADを指すタグを反映する（変更前後のブランチが同じコミットを指していても更新する）
-- **重複作成を防ぐチェック** — 未マージMRがある間は、そのテナント/クライアントの更新をスキップ
+- **重複作成を防ぐチェック** — 未マージMRがある間は、その設定ユニットの更新をスキップ
 - **並列実行による高速処理** — `CONCURRENCY_LIMIT`（`p-limit`）で同時処理数を制御
 - **パイプラインへの導線** — MR本文にタグへのリンクと、そのタグに紐づく最新パイプラインのURLを記載（状態は表示せずリンクのみ。マージ判断はレビュアーに委ねる）
 - **差分をワンクリックで確認** — MR本文に旧タグ→新タグ間のGitLab比較URLを記載
@@ -89,15 +89,15 @@ pnpm dev
 
 ## 仕組み
 
-`config/` に定義された `(chartリポジトリ, テナント/クライアント)` の組ごとに、配下の
+`config/` に定義された `(chartリポジトリ, 設定ユニット)` の組ごとに、配下の
 全アプリを処理し、以下の条件をすべて満たす場合のみその単位で1つの MR を作成します。
-1つの chart リポジトリに複数のテナント/クライアントがあれば、同じプロジェクトに対して
+1つの chart リポジトリに複数の設定ユニットがあれば、同じプロジェクトに対して
 それぞれ独立したブランチ・MR が作られます。
 
 ```mermaid
 flowchart TD
     A[⏰ スケジュールパイプライン起動] --> B[config/ を再帰的に読み込む]
-    B --> C[["(chart, テナント&クライアント)単位で並列処理"]]
+    B --> C[["(chart, 設定ユニット)単位で並列処理"]]
     C --> D{オープン中のMRあり?}
     D -->|あり| E1["⏭ SKIPPED（mr_exists）"]
     D -->|なし| F[[配下の全アプリを処理]]
@@ -109,16 +109,16 @@ flowchart TD
     H --> J
 ```
 
-同じテナント/クライアント内で一部アプリの処理が失敗した場合、成功した分だけを反映することは
-せず、そのテナント/クライアントの更新全体を `ERROR` として次回実行に持ち越します
-（オールオアナッシング）。同じ chart リポジトリ内の他のテナント/クライアントには影響しません。
+同じ設定ユニット内で一部アプリの処理が失敗した場合、成功した分だけを反映することは
+せず、その設定ユニットの更新全体を `ERROR` として次回実行に持ち越します
+（オールオアナッシング）。同じ chart リポジトリ内の他の設定ユニットには影響しません。
 
 ### 実行ログの例
 
 ```json
 {"level":"info","timestamp":"2026-09-02T00:00:00.000Z","event":"run_start","gitlabUrl":"https://gitlab.example.com","dryRun":false,"concurrencyLimit":3,"tagFormat":"{branch}-build-at-{date}-{time}"}
-{"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_chart","chartDirName":"teamA-chart","tenantId":"tenantId1","clientId":"clientId1","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","latestTag":"main-build-at-20260902-090000","updates":[{"valuesPath":"charts/my-app/values.yaml","previousTagName":"main-build-at-20260901-090000"}],"helmTargetBranchUpdates":[]}]}
-{"level":"info","timestamp":"2026-09-02T00:00:00.456Z","event":"update_chart","chartDirName":"teamB-chart","tenantId":"tenantId1","clientId":"clientId1","chartProjectId":999,"chartProjectName":"teamB-chart","result":"SKIPPED","reason":"no_diff"}
+{"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_chart","chartDirName":"teamA-chart","unitPath":"tenant1/client1","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","latestTag":"main-build-at-20260902-090000","updates":[{"valuesPath":"charts/my-app/values.yaml","previousTagName":"main-build-at-20260901-090000"}],"helmTargetBranchUpdates":[]}]}
+{"level":"info","timestamp":"2026-09-02T00:00:00.456Z","event":"update_chart","chartDirName":"teamB-chart","unitPath":"tenant1/client1","chartProjectId":999,"chartProjectName":"teamB-chart","result":"SKIPPED","reason":"no_diff"}
 {"level":"info","timestamp":"2026-09-02T00:00:00.500Z","event":"summary","CREATED":1,"SKIPPED":1,"ERROR":0}
 {"level":"info","timestamp":"2026-09-02T00:00:00.520Z","event":"run_end","duration_ms":520}
 ```
@@ -132,10 +132,10 @@ flowchart TD
 | `GITLAB_URL`        |  ✓   | —                                 | GitLab インスタンスの URL（`http://` または `https://` で始まる形式）                                                                                                                                             |
 | `ACCESS_TOKEN`      |  ✓   | —                                 | `read_api` + `write_repository` + MR作成権限を持つ Group/Project Access Token（最小権限で発行してください）                                                                                                       |
 | `CONFIG_PATH`       |      | `config/`                         | 設定ディレクトリのパス（作業ディレクトリ外を指すパスは拒否され、実在しないディレクトリを指定した場合もエラー終了します）                                                                                          |
-| `CONCURRENCY_LIMIT` |      | `3`                               | `(chartリポジトリ, テナント/クライアント)`単位の同時処理数（1〜20の整数）                                                                                                                                         |
+| `CONCURRENCY_LIMIT` |      | `3`                               | `(chartリポジトリ, 設定ユニット)`単位の同時処理数（1〜20の整数）                                                                                                                                                  |
 | `DRY_RUN`           |      | `false`                           | `"true"` のときタグ作成・ブランチ作成・MR作成をスキップし、更新予定の内容のみログ出力します                                                                                                                       |
 | `TARGET_CHART`      |      | —                                 | 指定すると `config/` 配下の特定のchartディレクトリのみ処理対象にします（省略時は全chart）。存在しないディレクトリ名を指定した場合、または絞り込み結果が0件の場合はエラー終了します                                |
-| `TARGET_CLIENTS`    |      | —                                 | 指定すると特定のtenant/clientのみ処理対象にします。`"<tenantId>/<clientId>"` 形式で、カンマ区切りで複数指定可（例: `"t1/c1,t2/c2"`。省略時は全client）。該当するtenant/clientが見つからない場合はエラー終了します |
+| `TARGET_UNITS`      |      | —                                 | 指定すると特定の設定ユニットのみ処理対象にします。`"<tenant>/<client>"` 形式で、カンマ区切りで複数指定可（例: `"t1/c1,t2/c2"`。省略時は全設定ユニット）。該当する設定ユニットが見つからない場合はエラー終了します |
 | `TAG_FORMAT`        |      | `{branch}-build-at-{date}-{time}` | タグ命名規則のテンプレート（詳細は「[タグ命名規則](#タグ命名規則)」参照）。`{branch}`/`{date}`/`{time}` をちょうど1回ずつ含まない場合はエラー終了します                                                           |
 
 ### config/
@@ -185,14 +185,14 @@ OFF にしてください（詳細は下記「CI/CD」章と `.gitlab-ci.yml` �
 
 ## エラーハンドリング
 
-| ケース                                                                     | 挙動                                                                       |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| 401 認証エラー / 5xx サーバーエラー / ネットワーク障害                     | 即時 `exit(1)` でパイプライン失敗                                          |
-| 429 / 502 / 503 / 504                                                      | 指数バックオフで最大3回リトライ後にエラー                                  |
-| 追跡ブランチのHEADコミットを指すタグが無い、または追跡ブランチを切り替えた | エラーにせず、そのブランチの最新コミットに新しいタグを作成して続行         |
-| values.yaml不在                                                            | そのテナント/クライアントの更新全体を `ERROR` としてログ記録し次に持ち越す |
-| 差分なし / 未マージMR既存                                                  | `SKIPPED` としてログ記録                                                   |
-| その他のAPIエラー（タグ作成失敗を含む）                                    | 該当テナント/クライアントを `ERROR` としてログ記録し処理継続               |
+| ケース                                                                     | 挙動                                                               |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 401 認証エラー / 5xx サーバーエラー / ネットワーク障害                     | 即時 `exit(1)` でパイプライン失敗                                  |
+| 429 / 502 / 503 / 504                                                      | 指数バックオフで最大3回リトライ後にエラー                          |
+| 追跡ブランチのHEADコミットを指すタグが無い、または追跡ブランチを切り替えた | エラーにせず、そのブランチの最新コミットに新しいタグを作成して続行 |
+| values.yaml不在                                                            | その設定ユニットの更新全体を `ERROR` としてログ記録し次に持ち越す  |
+| 差分なし / 未マージMR既存                                                  | `SKIPPED` としてログ記録                                           |
+| その他のAPIエラー（タグ作成失敗を含む）                                    | 該当設定ユニットを `ERROR` としてログ記録し処理継続                |
 
 1件以上の `ERROR` があった場合は `exit(1)` でパイプライン失敗として終了します（致命的エラーを除く）。
 
@@ -218,14 +218,14 @@ OFF にしてください（詳細は下記「CI/CD」章と `.gitlab-ci.yml` �
 
 ### 手動実行時のオプション（Pipeline inputs）
 
-| input               | 型      | デフォルト | 説明                                                                                                                   |
-| ------------------- | ------- | ---------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `DRY_RUN`           | boolean | `false`    | `true` のとき更新をスキップしログのみ出力                                                                              |
-| `CONCURRENCY_LIMIT` | string  | `3`        | `(chartリポジトリ, テナント/クライアント)`単位の同時処理数（1〜20の整数）                                              |
-| `CONFIG_PATH`       | string  | `""`       | 設定ディレクトリのパス（省略時は `config/`）                                                                           |
-| `TARGET_CHART`      | string  | `""`       | 特定のchartディレクトリのみ対象にする場合に指定（省略時は全chart）                                                     |
-| `TARGET_CLIENTS`    | string  | `""`       | 特定のtenant/clientのみ対象にする場合に `"<tenantId>/<clientId>"` 形式で指定、カンマ区切りで複数可（省略時は全client） |
-| `TAG_FORMAT`        | string  | `""`       | タグ命名規則のテンプレート（省略時は `{branch}-build-at-{date}-{time}`）                                               |
+| input               | 型      | デフォルト | 説明                                                                                                                    |
+| ------------------- | ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `DRY_RUN`           | boolean | `false`    | `true` のとき更新をスキップしログのみ出力                                                                               |
+| `CONCURRENCY_LIMIT` | string  | `3`        | `(chartリポジトリ, 設定ユニット)`単位の同時処理数（1〜20の整数）                                                        |
+| `CONFIG_PATH`       | string  | `""`       | 設定ディレクトリのパス（省略時は `config/`）                                                                            |
+| `TARGET_CHART`      | string  | `""`       | 特定のchartディレクトリのみ対象にする場合に指定（省略時は全chart）                                                      |
+| `TARGET_UNITS`      | string  | `""`       | 特定の設定ユニットのみ対象にする場合に `"<tenant>/<client>"` 形式で指定、カンマ区切りで複数可（省略時は全設定ユニット） |
+| `TAG_FORMAT`        | string  | `""`       | タグ命名規則のテンプレート（省略時は `{branch}-build-at-{date}-{time}`）                                                |
 
 ## 開発
 

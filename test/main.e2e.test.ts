@@ -25,13 +25,7 @@ import { Gitlab } from "@gitbeaker/rest"
 
 import type { EnvConfig } from "../src/lib/env.js"
 import { run } from "../src/main.js"
-import {
-  toAccessToken,
-  toClientId,
-  toGitLabUrl,
-  toTagFormat,
-  toTenantId,
-} from "../src/types/types.js"
+import { toAccessToken, toConfigUnitPath, toGitLabUrl, toTagFormat } from "../src/types/types.js"
 import { makeHttpError } from "./helpers.js"
 
 /** `config-test/yadokari-smoke-test-chart/chart.yaml` の projectId */
@@ -76,7 +70,7 @@ const env: EnvConfig = {
   concurrencyLimit: 3,
   dryRun: false,
   targetChart: undefined,
-  targetClients: undefined,
+  targetUnits: undefined,
   tagFormat: toTagFormat("{branch}-build-at-{date}-{time}"),
 }
 
@@ -214,11 +208,11 @@ describe("run（config-test/ の実ファイルを読むe2e）", () => {
     expect(values.content).toContain(`&t2c1DevelopClientVersion ${DEV_TAG}`)
   })
 
-  it("TARGET_CLIENTS 相当の絞り込みで、作られるMRが実際に減る", async () => {
+  it("TARGET_UNITS 相当の絞り込みで、作られるMRが実際に減る", async () => {
     await expect(
       run({
         ...env,
-        targetClients: [{ tenantId: toTenantId("tenant2"), clientId: toClientId("client2") }],
+        targetUnits: [toConfigUnitPath("tenant2/client2")],
       }),
     ).resolves.toBe("SUCCESS")
 

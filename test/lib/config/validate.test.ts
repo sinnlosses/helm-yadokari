@@ -11,10 +11,7 @@ describe("loadConfig（config.yaml と anchors.yaml の紐づけ）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
 
@@ -26,16 +23,10 @@ describe("loadConfig（config.yaml と anchors.yaml の紐づけ）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n  - projectId: 999\n    projectName: removed-app\n    chart:\n      - valuesPath: old.yaml\n        anchor: oldVersion\n",
     )
 
@@ -47,16 +38,10 @@ describe("loadConfig（config.yaml と anchors.yaml の紐づけ）", () => {
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n",
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1-typo\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
 
@@ -74,10 +59,7 @@ chart:
 
   it("config.yamlに同じprojectIdのappが2件あるとき例外をスローする", () => {
     dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1
@@ -88,10 +70,7 @@ apps:
     branchToSync: develop
 `,
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1
@@ -107,10 +86,7 @@ apps:
 
   it("anchors.yamlに同じprojectIdのappが2件あるとき例外をスローする", () => {
     dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1
@@ -118,10 +94,7 @@ apps:
     branchToSync: main
 `,
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1
@@ -142,10 +115,7 @@ apps:
 
   it("別々のappが同じ valuesPath + anchor を指しているとき例外をスローする", () => {
     dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1
@@ -156,10 +126,7 @@ apps:
     branchToSync: main
 `,
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1
@@ -180,10 +147,7 @@ apps:
 
   it("1つのappが同じ valuesPath + anchor を2回指定しているとき例外をスローする", () => {
     dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1
@@ -191,10 +155,7 @@ apps:
     branchToSync: main
 `,
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1
@@ -212,10 +173,7 @@ apps:
 
   it("イメージタグとHelm向き先ブランチが同じ valuesPath + anchor を奪い合うとき例外をスローする", () => {
     dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       `
 helm:
   branchToSync: release/2026-q1
@@ -225,10 +183,7 @@ apps:
     branchToSync: main
 `,
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1
@@ -248,10 +203,7 @@ helm:
 
   it("valuesPathが同じでもanchorが違えば読み込める", () => {
     dir.writeChartYaml("teamA-chart", CHART_YAML)
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1
@@ -262,10 +214,7 @@ apps:
     branchToSync: main
 `,
     )
-    dir.writeAnchorsYaml(
-      "teamA-chart",
-      "tenantId1",
-      "clientId1",
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1",
       `
 apps:
   - projectId: 1

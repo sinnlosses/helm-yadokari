@@ -16,12 +16,11 @@ import {
   toAnchorName,
   toBranchName,
   toChartDirName,
-  toClientId,
   toCommitSha,
+  toConfigUnitPath,
   toProjectId,
   toProjectName,
   toTagName,
-  toTenantId,
   toValuesPath,
 } from "../src/types/types.js"
 
@@ -74,14 +73,11 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
 
 export function makeChartAndApps(
   apps: AppConfig[],
-  overrides: Partial<
-    Pick<ChartAndApps, "chartDirName" | "tenantId" | "clientId" | "helmTargetBranch">
-  > = {},
+  overrides: Partial<Pick<ChartAndApps, "chartDirName" | "unitPath" | "helmTargetBranch">> = {},
 ): ChartAndApps {
   return {
     chartDirName: toChartDirName("teamA-chart"),
-    tenantId: toTenantId("tenantId1"),
-    clientId: toClientId("clientId1"),
+    unitPath: toConfigUnitPath("tenant1/client1"),
     chart: {
       projectId: toProjectId(100),
       projectName: toProjectName("teamA-chart"),

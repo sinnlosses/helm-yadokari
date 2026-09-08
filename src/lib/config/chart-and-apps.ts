@@ -8,9 +8,8 @@ import type {
   ChartAndApps,
   ChartDirName,
   ChartRepoConfig,
-  ClientId,
+  ConfigUnitPath,
   HelmTargetBranchConfig,
-  TenantId,
 } from "../../types/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
 import { ConfigYamlSchema, loadAnchors } from "./schema.js"
@@ -21,25 +20,24 @@ import {
 } from "./validate.js"
 
 /**
- * 1つのclientディレクトリ（`<chartDir>/<tenantId>/<clientId>/`）の`config.yaml`（運用値）と
+ * 1つの設定ユニットのディレクトリ（`<chartDir>/<unitPath>/`）の`config.yaml`（運用値）と
  * `anchors.yaml`（chart構造）を`projectId`で結合し、`ChartAndApps`（MRを作成する単位）
  * 1件にする。両ファイル間の紐づけ矛盾は`validateProjectLinkage()`で検証する。
  * `config.yaml`が無いディレクトリからは`ChartAndApps`を作らない（空扱いのMR単位を作らない
  * ため）ので、その場合は undefined を返す。
  */
 export function loadChartAndApps(
-  clientDirPath: string,
+  unitDirPath: string,
   chartDirName: ChartDirName,
-  tenantId: TenantId,
-  clientId: ClientId,
+  unitPath: ConfigUnitPath,
   chart: ChartRepoConfig,
 ): ChartAndApps | undefined {
-  const configYamlPath = join(clientDirPath, "config.yaml")
-  const anchorsPath = join(clientDirPath, "anchors.yaml")
+  const configYamlPath = join(unitDirPath, "config.yaml")
+  const anchorsPath = join(unitDirPath, "anchors.yaml")
   if (!existsSync(configYamlPath)) return undefined
 
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
-  const anchors = loadAnchors(clientDirPath)
+  const anchors = loadAnchors(unitDirPath)
   validateNoDuplicateProjectIds(configYamlPath, apps)
   validateNoDuplicateProjectIds(anchorsPath, anchors.apps)
   validateProjectLinkage(configYamlPath, anchorsPath, apps, anchors.apps)
@@ -71,8 +69,7 @@ export function loadChartAndApps(
 
   return {
     chartDirName,
-    tenantId,
-    clientId,
+    unitPath,
     chart,
     apps: appConfigs,
     helmTargetBranch: resolveHelmTargetBranch(
@@ -87,9 +84,9 @@ export function loadChartAndApps(
 
 /**
  * config.yamlの`helm.branchToSync`（書き込む値）とanchors.yamlの`helm.chart[]`
- * （書き込み先の`valuesPath`+`anchor`一覧）から、client単位の`HelmTargetBranchConfig`を作る。
- * Helmの向き先ブランチは「1client内のapps全体で共通」という前提なので、appごとに振り分けず
- * client単位で1つだけ持つ。
+ * （書き込み先の`valuesPath`+`anchor`一覧）から、設定ユニット単位の`HelmTargetBranchConfig`を作る。
+ * Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提なので、appごとに振り分けず
+ * 設定ユニット単位で1つだけ持つ。
  * `branchToSync`が指定されている場合は、そのconfig.yaml配下の全アプリの全`chart[].valuesPath`が
  * `helm.chart[]`でカバーされている必要がある（1つでも漏れていれば、そのvaluesPathだけ
  * 更新対象から漏れてしまう設定ミスとして例外をスローする）。`branchToSync`と`helm.chart[]`は
@@ -122,7 +119,7 @@ function resolveHelmTargetBranch(
     )
     if (uncoveredValuesPaths.length > 0) {
       throw new Error(
-        `${anchorsPath}: helm.branchToSync が指定されていますが、app "${app.projectName}" の valuesPath（${uncoveredValuesPaths.join(", ")}）が helm.chart[] に見つかりません（Helmの向き先ブランチはclient内の全appで共通のため、全appのvaluesPathを helm.chart[] に含めてください）`,
+        `${anchorsPath}: helm.branchToSync が指定されていますが、app "${app.projectName}" の valuesPath（${uncoveredValuesPaths.join(", ")}）が helm.chart[] に見つかりません（Helmの向き先ブランチは設定ユニット内の全appで共通のため、全appのvaluesPathを helm.chart[] に含めてください）`,
       )
     }
   }

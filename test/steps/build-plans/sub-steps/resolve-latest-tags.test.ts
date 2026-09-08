@@ -17,7 +17,7 @@ import { createResolveLatestTags } from "../../../../src/steps/build-plans/sub-s
 import {
   toBranchName,
   toChartDirName,
-  toClientId,
+  toConfigUnitPath,
   toCommitSha,
   toProjectId,
   toProjectName,
@@ -417,9 +417,9 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
     // 秒をまたいで同じコミットに冗長なタグが並ぶ
     const app = makeApp()
     const targets = [
-      makeChartAndApps([app], { clientId: toClientId("clientA") }),
-      makeChartAndApps([app], { clientId: toClientId("clientB") }),
-      makeChartAndApps([app], { clientId: toClientId("clientC") }),
+      makeChartAndApps([app], { unitPath: toConfigUnitPath("tenant1/clientA") }),
+      makeChartAndApps([app], { unitPath: toConfigUnitPath("tenant1/clientB") }),
+      makeChartAndApps([app], { unitPath: toConfigUnitPath("tenant1/clientC") }),
     ]
 
     await buildPlans(mockGitlab, newBatchCache(), targets, 3, false, DEFAULT_TAG_FORMAT)
@@ -431,9 +431,9 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
 
   it("追跡ブランチが違えば別々に解決する", async () => {
     const targets = [
-      makeChartAndApps([makeApp()], { clientId: toClientId("clientA") }),
+      makeChartAndApps([makeApp()], { unitPath: toConfigUnitPath("tenant1/clientA") }),
       makeChartAndApps([makeApp({ branchToSync: toBranchName("release/2026-q2") })], {
-        clientId: toClientId("clientB"),
+        unitPath: toConfigUnitPath("tenant1/clientB"),
       }),
     ]
 
