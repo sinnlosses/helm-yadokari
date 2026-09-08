@@ -20,10 +20,10 @@
   {
     "id": "T-137",
     "task": "`resolve-latest-tags.ts` の到達不能な分岐を畳み、`docs/coding-standards.md` の未到達リストから該当行を消す。\n\n## 背景\n\n`src/steps/build-plans/sub-steps/resolve-latest-tags.ts` の `resolveLatestTag()` に次の形がある:\n\n```ts\nif (trackedHeadTagNames.size > 0) {\n  const latestAtHead = findLatestParsedTag([...trackedHeadTagNames], app.branchToSync, app.tagNaming)\n  if (latestAtHead) {\n    return { tag: latestAtHead, trackedHeadTagNames }\n  }\n}\n```\n\n`trackedHeadTagNames` は `resolveTrackedHeadTagNames()` が「`parseTag()` が undefined を返さなかったタグ名」だけを詰めた集合なので、**空でなければ `findLatestParsedTag()` は必ず値を返す**。つまり `if (latestAtHead)` の偽側には到達しない。`docs/coding-standards.md`「足すかどうか」の未到達リストにも「`if (latestAtHead)` の偽側 … `trackedHeadTagNames.size > 0` の時点でパース可能なタグが1件以上あるため到達しない」として載っている。\n\n外側の `size > 0` ガードも冗長で、`findLatestParsedTag()` は空配列に対して undefined を返す。\n\n同じドキュメントには前例がある: `src/utils/http.ts` の `isFatalStatus` にあった同種の未到達分岐は「テストではなくコード側の問題だった」として、型を狭めて分岐ごと削除済み。**今回もそれに倣ってコード側を直す**。\n\n## やること\n\n1. 上の二重の分岐を、`findLatestParsedTag()` の結果の undefined 判定1つに畳む（`trackedHeadTagNames.size > 0` のガードを外す）。`trackedHeadTagNames` は戻り値にそのまま載るので、集合の組み立て自体は消さない\n2. 「HEADを指すタグはどれも同じコミットを指すため中身は同じだが、返す値を一意に決めるためだけに順序キーが最大のものを選ぶ」というコメントは**残す**（コードから読み取れない決定性の理由なので、`docs/coding-standards.md` のコメント規約に照らして残すべき種類）\n3. `docs/coding-standards.md`「埋めないと決めた穴」の表から `if (latestAtHead)` の行を削除する。**表の前文にある「現時点で埋めないと決めているのは次の4件」という件数も直す**\n\n## 完了条件\n\n- `pnpm check` が通り、テスト件数が **418件から減っていない**（実際の数を `evidence` に書く）\n- `pnpm test:coverage` を取り、`resolve-latest-tags.ts` の未カバー分岐が変更前より減っている（または0になっている）ことを確認して `evidence` に書く\n- `test/steps/build-plans/sub-steps/resolve-latest-tags.test.ts` の27件が**1件も落ちず、1件も消えていない**\n\n## 注意\n\n- **振る舞いを変えない**。HEADを指すタグが1件以上あるとき最新を返す、無いときはタグ自動作成の可否判定へ進む、という流れは同じ\n- `docs/coding-standards.md` は正典なので、コードを直したことと表の行を消したことが対応していること\n- `/loop /next-task` に載せてよい",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "`resolveLatestTag()` の二重ガード（`trackedHeadTagNames.size > 0` + `if (latestAtHead)`）を、`findLatestParsedTag()` の結果の undefined 判定1つに畳んだ。決定性の理由コメントは残置。メイン側で実測: `pnpm check` exit=0（36ファイル418テスト、着手前と同数）、`pnpm test:coverage` の全体 branch が 97.62% → **97.91%** に上がり、`resolve-latest-tags.ts` は未カバー一覧から消えた（変更前は Uncovered Line 120）。`docs/coding-standards.md`「埋めないと決めた穴」の表から該当行を削除し、前文を「4件」→「3件」に修正。",
     "dependencies": []
   },
   {

@@ -109,17 +109,15 @@ async function resolveLatestTag(
     app.tagNaming,
   )
 
-  if (trackedHeadTagNames.size > 0) {
-    // HEADを指すタグはどれも同じコミットを指すため中身は同じだが、返す値を一意に決める
-    // ためだけに、順序キーが最大のものを選ぶ（決定性のための規則）。
-    const latestAtHead = findLatestParsedTag(
-      [...trackedHeadTagNames],
-      app.branchToSync,
-      app.tagNaming,
-    )
-    if (latestAtHead) {
-      return { tag: latestAtHead, trackedHeadTagNames }
-    }
+  // HEADを指すタグはどれも同じコミットを指すため中身は同じだが、返す値を一意に決める
+  // ためだけに、順序キーが最大のものを選ぶ（決定性のための規則）。
+  const latestAtHead = findLatestParsedTag(
+    [...trackedHeadTagNames],
+    app.branchToSync,
+    app.tagNaming,
+  )
+  if (latestAtHead) {
+    return { tag: latestAtHead, trackedHeadTagNames }
   }
 
   if (!canCreateTag(app.tagNaming)) {

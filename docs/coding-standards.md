@@ -226,14 +226,13 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 変わる分岐は埋めない。
 
 **埋めないと決めた穴は、理由を添えて書き残す**。次にカバレッジを見た人が同じ調査を
-繰り返さずに済むようにするため。現時点で埋めないと決めているのは次の4件（元になった調査は
+繰り返さずに済むようにするため。現時点で埋めないと決めているのは次の3件（元になった調査は
 `docs/history/test-inventory.md`）:
 
 | 未到達                                                                                           | 埋めない理由                                                                                                                                                                           |
 | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/lib/config/chart-and-apps.ts` の `internal error:` を投げる分岐                             | `validateProjectLinkage` を通過した後は到達しない防御的分岐                                                                                                                            |
 | `src/lib/config/config.ts` の `formatChartDirs` の `"(なし)"`                                    | エラーメッセージの文面だけが変わる分岐で、判断は変わらない                                                                                                                             |
-| `src/steps/build-plans/sub-steps/resolve-latest-tags.ts` の `if (latestAtHead)` の偽側           | `trackedHeadTagNames.size > 0` の時点でパース可能なタグが1件以上あるため到達しない                                                                                                     |
 | `src/steps/shared/describe-plan.ts` の `describeHelmTargetBranchUpdates` 内の `map` コールバック | Helmの向き先ブランチ更新のログサマリが空配列でしか組み立てられていない。更新そのものの振る舞いは `stage-helm-target-branch-updates.test.ts` が確かめており、未到達なのはログの文面だけ |
 
 （`src/utils/http.ts` の `isFatalStatus` にあった同種の分岐は、テストではなくコード側の

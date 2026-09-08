@@ -18,6 +18,11 @@ T-001〜T-125・T-127〜T-135 はすべて完了し、[`docs/history/tasks-archi
 残った `client` は `"tenant1/client1"` 等のパス例と `config-test/` の実フィクスチャ名だけ。
 振る舞いは不変で、テストは418件のまま。
 
+**T-137 完了**。`resolveLatestTag()` の到達不能な二重ガードを undefined 判定1つに畳み、
+`docs/coding-standards.md`「埋めないと決めた穴」の表を4件→3件に減らした。
+`isFatalStatus` のときと同じく**テストではなくコード側を直す**という前例に沿った処理。
+全体の branch カバレッジは 97.62% → 97.91%。
+
 ユーザーの指示は3軸: (1) コードの冗長・誤り・規約違反・分かりにくさ、(2) 不要な／もっと
 シンプルにできるテスト、(3) `architecture.md`・`CLAUDE.md`・`README` 等のメンテ漏れ・冗長。
 `src/`（35ファイル）・`scripts/`・`test/`（36ファイル418テスト）・`docs/`・`README.md`・
@@ -329,8 +334,7 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 - **定期メンテで登録した T-136〜T-142 が次の主題**（洗い出しの中身は上の「完了したこと」）。
   依存関係は無く、どれからでも着手できる。`/loop /next-task` に全件載せてよい。
   - ~~**T-136（`sonnet`）**~~ **完了**。残った `client` はパス例と実フィクスチャ名のみ。
-  - **T-137（`sonnet`）** `resolve-latest-tags.ts` の到達不能分岐を畳み、
-    `docs/coding-standards.md` の「埋めない穴」の表から1行減らす
+  - ~~**T-137（`sonnet`）**~~ **完了**。「埋めない穴」は3件に減った。
   - **T-138（`sonnet`）** 連続する同一 return の統合と `compileTagPattern()` の再代入の排除。
     純粋なリファクタでテストは足さない
   - **T-139（`sonnet`）** `collect-mr-entries.ts` の防御フィルタを、消す／型で表す／残すの
