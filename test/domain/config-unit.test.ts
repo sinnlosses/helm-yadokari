@@ -3,12 +3,16 @@ import { describe, expect, it } from "vitest"
 import { parseConfigUnitPath } from "../../src/domain/config-unit.js"
 
 describe("parseConfigUnitPath", () => {
+  it("深さ1の文字列をConfigUnitPathとして受け入れる", () => {
+    expect(parseConfigUnitPath("central")).toBe("central")
+  })
+
   it("深さ2の文字列をConfigUnitPathとして受け入れる", () => {
     expect(parseConfigUnitPath("tenant1/client1")).toBe("tenant1/client1")
   })
 
-  it("区切り文字がないとき undefined を返す", () => {
-    expect(parseConfigUnitPath("tenant1")).toBeUndefined()
+  it("空文字のとき undefined を返す", () => {
+    expect(parseConfigUnitPath("")).toBeUndefined()
   })
 
   it("区切り文字が2つ以上あるとき undefined を返す", () => {

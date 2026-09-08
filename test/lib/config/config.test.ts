@@ -161,6 +161,79 @@ apps:
   })
 })
 
+describe("loadConfig（設定ユニットの階層）", () => {
+  beforeEach(() => {
+    dir.writeChartYaml(
+      "teamA-chart",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+    )
+  })
+
+  it("深さ1のディレクトリに置かれたconfig.yamlを読み込む", () => {
+    dir.writeConfigYaml("teamA-chart", "central", "apps: []\n")
+
+    const { chartAndAppsList } = loadConfig(dir.path)
+    expect(chartAndAppsList.map((g) => g.unitPath)).toEqual(["central"])
+  })
+
+  it("深さ1と深さ2の設定ユニットを同じchartディレクトリ配下に混在させられる", () => {
+    dir.writeConfigYaml("teamA-chart", "central", "apps: []\n")
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", "apps: []\n")
+
+    const { chartAndAppsList } = loadConfig(dir.path)
+    expect(chartAndAppsList.map((g) => g.unitPath)).toEqual(["central", "tenant1/client1"])
+  })
+
+  it("設定ユニットが入れ子になっているとき例外をスローする", () => {
+    dir.writeConfigYaml("teamA-chart", "central", "apps: []\n")
+    dir.writeConfigYaml("teamA-chart", "central/sub", "apps: []\n")
+
+    expect(() => loadConfig(dir.path)).toThrow("入れ子")
+  })
+
+  it("入れ子の例外メッセージに親子両方のunitPathを含める", () => {
+    dir.writeConfigYaml("teamA-chart", "central", "apps: []\n")
+    dir.writeConfigYaml("teamA-chart", "central/sub", "apps: []\n")
+
+    expect(() => loadConfig(dir.path)).toThrow(/"central".*"central\/sub"/)
+  })
+
+  it("兄弟同士で名前が前方一致していても入れ子とはみなさない", () => {
+    dir.writeConfigYaml("teamA-chart", "central", "apps: []\n")
+    dir.writeConfigYaml("teamA-chart", "central2", "apps: []\n")
+
+    const { chartAndAppsList } = loadConfig(dir.path)
+    expect(chartAndAppsList.map((g) => g.unitPath)).toEqual(["central", "central2"])
+  })
+
+  it("深さ3のディレクトリにconfig.yamlがあるとき例外をスローする", () => {
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1/extra", "apps: []\n")
+
+    expect(() => loadConfig(dir.path)).toThrow("深さ")
+  })
+
+  it("深さ0（chart.yamlと同じ階層）にconfig.yamlがあるとき例外をスローする", () => {
+    dir.writeFile("teamA-chart/config.yaml", "apps: []\n")
+
+    expect(() => loadConfig(dir.path)).toThrow("chart.yaml と同じ階層")
+  })
+
+  it("unitsで絞り込んでいても、対象外の設定ユニットの階層の誤りを検出する", () => {
+    dir.writeConfigYaml("teamA-chart", "central", "apps: []\n")
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1/extra", "apps: []\n")
+
+    expect(() =>
+      loadConfig(dir.path, { chartDirName: undefined, units: [toConfigUnitPath("central")] }),
+    ).toThrow("深さ")
+  })
+
+  it("chart.yamlが無いディレクトリの配下は走査しない（深さの検証もしない）", () => {
+    dir.writeConfigYaml("not-a-chart", "tenant1/client1/extra", "apps: []\n")
+
+    expect(loadConfig(dir.path)).toEqual({ chartAndAppsList: [] })
+  })
+})
+
 describe("loadConfig（chartの複数指定）", () => {
   it("1アプリにつきchartを複数指定できる（同一タグを複数箇所へ反映する用途）", () => {
     dir.writeChartYaml(
@@ -270,6 +343,18 @@ describe("loadConfig（target絞り込み）", () => {
     ])
   })
 
+  it("深さ1のunitPathで絞り込める", () => {
+    dir.writeConfigYaml("teamA-chart", "central", "apps: []\n")
+
+    const { chartAndAppsList } = loadConfig(dir.path, {
+      chartDirName: undefined,
+      units: [toConfigUnitPath("central")],
+    })
+    expect(chartAndAppsList.map((g) => [g.chartDirName, g.unitPath])).toEqual([
+      ["teamA-chart", "central"],
+    ])
+  })
+
   it("chartDirName + units を組み合わせて絞り込める", () => {
     const { chartAndAppsList } = loadConfig(dir.path, {
       chartDirName: toChartDirName("teamA-chart"),
@@ -332,17 +417,18 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
     ).toThrow("TARGET_CHART / TARGET_UNITS で絞り込んだ結果")
   })
 
-  it("unitsを指定した先にconfig.yamlが無いディレクトリしか無いとき例外をスローする", () => {
+  it("unitsに指定した先にconfig.yamlが無いとき、設定ユニットが見つからない旨の例外をスローする", () => {
     dir.writeChartYaml(
       "teamA-chart",
       "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
-    // config.yaml を置かず、tenant/clientディレクトリだけ実在させる
+    // config.yaml を置かず、ディレクトリだけ実在させる。ディレクトリの有無ではなく
+    // 「config.yaml を持つディレクトリか」で判定するため TARGET_UNITS のエラーになる
     mkdirSync(join(dir.path, "teamA-chart", "tenant1", "client1"), { recursive: true })
 
     expect(() =>
       loadConfig(dir.path, { chartDirName: undefined, units: [unit("tenant1", "client1")] }),
-    ).toThrow("TARGET_CHART / TARGET_UNITS で絞り込んだ結果")
+    ).toThrow("TARGET_UNITS")
   })
 
   it("0件エラーのメッセージに実在するディレクトリ名の一覧を含める", () => {

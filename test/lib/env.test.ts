@@ -160,8 +160,16 @@ describe("parseTargetUnits", () => {
     expect(parseTargetUnits(undefined)).toBeUndefined()
   })
 
-  it('"<tenant>/<client>" 形式の文字列を1件の配列に分解する', () => {
+  it("深さ2のunitPathを1件の配列に分解する", () => {
     expect(parseTargetUnits("tenant1/client1")).toEqual(["tenant1/client1"])
+  })
+
+  it("深さ1のunitPathを受け入れる", () => {
+    expect(parseTargetUnits("central")).toEqual(["central"])
+  })
+
+  it("深さ1と深さ2を混ぜて指定できる", () => {
+    expect(parseTargetUnits("central,tenant1/client1")).toEqual(["central", "tenant1/client1"])
   })
 
   it("カンマ区切りで複数件を配列に分解する", () => {
@@ -178,12 +186,12 @@ describe("parseTargetUnits", () => {
     ])
   })
 
-  it("区切り文字がないエントリがあるとき例外をスローする", () => {
-    expect(() => parseTargetUnits("tenant1")).toThrow("TARGET_UNITS")
+  it("深さ3以上のエントリがあるとき例外をスローする", () => {
+    expect(() => parseTargetUnits("tenant1/client1/extra")).toThrow("TARGET_UNITS")
   })
 
   it("複数件のうち1件でも不正な形式のとき例外をスローする", () => {
-    expect(() => parseTargetUnits("tenant1/client1,tenant2")).toThrow("TARGET_UNITS")
+    expect(() => parseTargetUnits("tenant1/client1,tenant2/")).toThrow("TARGET_UNITS")
   })
 })
 

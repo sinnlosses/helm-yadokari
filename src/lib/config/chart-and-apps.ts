@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs"
 import { join } from "node:path"
 
 import type {
@@ -23,18 +22,17 @@ import {
  * 1つの設定ユニットのディレクトリ（`<chartDir>/<unitPath>/`）の`config.yaml`（運用値）と
  * `anchors.yaml`（chart構造）を`projectId`で結合し、`ChartAndApps`（MRを作成する単位）
  * 1件にする。両ファイル間の紐づけ矛盾は`validateProjectLinkage()`で検証する。
- * `config.yaml`が無いディレクトリからは`ChartAndApps`を作らない（空扱いのMR単位を作らない
- * ため）ので、その場合は undefined を返す。
+ * `config.yaml`が実在するディレクトリだけが渡ってくる前提（どのディレクトリが設定ユニットかは
+ * `config.ts`の走査が決める）。
  */
 export function loadChartAndApps(
   unitDirPath: string,
   chartDirName: ChartDirName,
   unitPath: ConfigUnitPath,
   chart: ChartRepoConfig,
-): ChartAndApps | undefined {
+): ChartAndApps {
   const configYamlPath = join(unitDirPath, "config.yaml")
   const anchorsPath = join(unitDirPath, "anchors.yaml")
-  if (!existsSync(configYamlPath)) return undefined
 
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
   const anchors = loadAnchors(unitDirPath)

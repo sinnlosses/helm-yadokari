@@ -1,13 +1,8 @@
 import { existsSync } from "node:fs"
 import { join } from "node:path"
 
-import type {
-  ChartAndApps,
-  ChartDirName,
-  ChartRepoConfig,
-  Config,
-  ConfigUnitPath,
-} from "../../types/types.js"
+import { MAX_UNIT_DEPTH, UNIT_PATH_SEPARATOR } from "../../domain/config-unit.js"
+import type { ChartAndApps, ChartDirName, Config, ConfigUnitPath } from "../../types/types.js"
 import { toChartDirName, toConfigUnitPath } from "../../types/types.js"
 import { assertSafePath, listSubdirectories } from "../../utils/fs.js"
 import { parseYamlFile } from "../../utils/yaml.js"
@@ -30,17 +25,27 @@ export type ConfigTarget = {
 /** `target` を省略したとき（全chart・全設定ユニットを対象にする）の既定値 */
 const NO_TARGET: ConfigTarget = { chartDirName: undefined, units: undefined }
 
+/** 1つのchartディレクトリと、その配下の走査で見つかった設定ユニットの`unitPath`一覧 */
+type ChartUnits = {
+  readonly chartDirName: ChartDirName
+  readonly chartDirPath: string
+  readonly unitPaths: readonly ConfigUnitPath[]
+}
+
+/** 設定ユニットのディレクトリを、chartディレクトリからの相対パスのセグメント列で表したもの */
+type UnitSegments = readonly string[]
+
 /**
  * `config/<chartディレクトリ>/chart.yaml` + `config/<chartディレクトリ>/<unitPath>/config.yaml`
- * （+ 同じディレクトリの`anchors.yaml`）という2階層固定のディレクトリ構成を再帰的に
- * 読み込む。chart.yaml のないディレクトリは無視する。`target` を指定すると該当chart・
- * 設定ユニットのみに絞り込む。`target`（`TARGET_CHART` / `TARGET_UNITS`）を明示的に指定した
- * ときに限り、指定したディレクトリ名・unitPathがtypo等でconfig/配下に見つからない場合、
- * および絞り込み結果として`chartAndAppsList`が1件も無い場合（該当ディレクトリに
- * `chart.yaml`や`config.yaml`が無い場合を含む）に例外をスローする（`target`未指定時は
- * 素通しで、0件でもエラーにしない）。設定ユニットごとに独立した`ChartAndApps`
- * （MRを作成する単位）を返すため、1つのchartディレクトリに複数の設定ユニットがあれば
- * `chartAndAppsList`には複数件が並ぶ。
+ * （+ 同じディレクトリの`anchors.yaml`）というディレクトリ構成を読み込む。`config.yaml`を持つ
+ * ディレクトリが1つの設定ユニットで、その深さは1〜2に限る（深さ0・深さ3以上・入れ子は
+ * `findUnitPaths()`が設定エラーとして例外をスローする）。chart.yaml のないディレクトリは
+ * 配下ごと無視する。`target` を指定すると該当chart・設定ユニットのみに絞り込む。
+ * `target`（`TARGET_CHART` / `TARGET_UNITS`）を明示的に指定したときに限り、指定した
+ * ディレクトリ名・unitPathがtypo等でconfig/配下に見つからない場合、および絞り込み結果として
+ * `chartAndAppsList`が1件も無い場合に例外をスローする（`target`未指定時は素通しで、0件でも
+ * エラーにしない）。設定ユニットごとに独立した`ChartAndApps`（MRを作成する単位）を返すため、
+ * 1つのchartディレクトリに複数の設定ユニットがあれば`chartAndAppsList`には複数件が並ぶ。
  */
 export function loadConfig(configDirPath: string, target: ConfigTarget = NO_TARGET): Config {
   assertSafePath(configDirPath, "CONFIG_PATH")
@@ -54,20 +59,32 @@ export function loadConfig(configDirPath: string, target: ConfigTarget = NO_TARG
   }
   const targetChartDirs = target.chartDirName ? [target.chartDirName] : chartDirs
 
-  const missingUnits = (target.units ?? []).filter(
-    (unit) => !unitDirExists(configDirPath, targetChartDirs, unit),
-  )
+  // 走査と階層の検証は`target.units`で絞り込む前に、対象外の設定ユニットも含めて行う
+  // （絞り込み実行でしか通らない検証を作らないため）。YAMLの読み込みは絞り込んだ後だけ
+  const chartUnitsList = targetChartDirs.flatMap((chartDir): ChartUnits[] => {
+    const chartDirPath = join(configDirPath, chartDir)
+    if (!existsSync(join(chartDirPath, "chart.yaml"))) return []
+    return [
+      {
+        chartDirName: toChartDirName(chartDir),
+        chartDirPath,
+        unitPaths: findUnitPaths(chartDirPath),
+      },
+    ]
+  })
+
+  const foundUnitPaths = chartUnitsList.flatMap((chartUnits) => chartUnits.unitPaths)
+  const missingUnits = (target.units ?? []).filter((unit) => !foundUnitPaths.includes(unit))
   if (missingUnits.length > 0) {
-    throw new Error(`TARGET_UNITS で指定された "${missingUnits.join(", ")}" が見つかりません`)
+    throw new Error(
+      `TARGET_UNITS で指定された "${missingUnits.join(", ")}" が見つかりません` +
+        `（config.yaml を持つディレクトリの、chartディレクトリからの相対パスを指定してください）`,
+    )
   }
 
-  const chartAndAppsList = targetChartDirs.flatMap((chartDir): ChartAndApps[] => {
-    const chartDirPath = join(configDirPath, chartDir)
-    const chartYamlPath = join(chartDirPath, "chart.yaml")
-    if (!existsSync(chartYamlPath)) return []
-    const { chart } = parseYamlFile(chartYamlPath, ChartYamlSchema)
-    return listUnitChartAndApps(chartDirPath, toChartDirName(chartDir), chart, target)
-  })
+  const chartAndAppsList = chartUnitsList.flatMap((chartUnits) =>
+    listUnitChartAndApps(chartUnits, target.units),
+  )
 
   if (isExplicitlyTargeted(target) && chartAndAppsList.length === 0) {
     throw new Error(
@@ -85,45 +102,92 @@ function formatChartDirs(chartDirs: readonly string[]): string {
   return chartDirs.length > 0 ? chartDirs.join(", ") : "(なし)"
 }
 
-/** 指定chart群のいずれかの配下に、指定unitPathのディレクトリが存在するか */
-function unitDirExists(
-  configDirPath: string,
-  chartDirs: readonly string[],
-  unit: ConfigUnitPath,
-): boolean {
-  return chartDirs.some((chartDir) => existsSync(join(configDirPath, chartDir, unit)))
+/**
+ * 1つのchartディレクトリ配下から、`config.yaml`を持つディレクトリ（＝設定ユニット）の
+ * `unitPath`を集める。深さ0・深さ3以上・入れ子はいずれも設定エラーとして例外をスローする
+ * （`docs/requirements.md` 4.4節。なぜ走査を深さで打ち切らないかは`docs/architecture.md`）。
+ */
+function findUnitPaths(chartDirPath: string): readonly ConfigUnitPath[] {
+  const unitSegmentsList = collectUnitSegments(chartDirPath, [])
+
+  if (unitSegmentsList.some((segments) => segments.length === 0)) {
+    throw new Error(
+      `${join(chartDirPath, "config.yaml")}: config.yaml が chart.yaml と同じ階層にあります` +
+        `（設定ユニットは chartディレクトリから数えて深さ1〜${MAX_UNIT_DEPTH} のディレクトリに置いてください）`,
+    )
+  }
+
+  const tooDeep = unitSegmentsList.find((segments) => segments.length > MAX_UNIT_DEPTH)
+  if (tooDeep !== undefined) {
+    throw new Error(
+      `${join(chartDirPath, ...tooDeep, "config.yaml")}: 設定ユニットのディレクトリが深すぎます` +
+        `（深さ${tooDeep.length}）。config.yaml は chartディレクトリから数えて` +
+        `深さ1〜${MAX_UNIT_DEPTH} のディレクトリに置いてください`,
+    )
+  }
+
+  const nested = findNestedPair(unitSegmentsList)
+  if (nested !== undefined) {
+    throw new Error(
+      `${chartDirPath}: 設定ユニット "${nested.parent.join(UNIT_PATH_SEPARATOR)}" の配下に設定ユニット ` +
+        `"${nested.child.join(UNIT_PATH_SEPARATOR)}" があり、入れ子になっています。入れ子だと固定ブランチ名 ` +
+        `feature/yadokari/<unitPath> 同士がプレフィックス関係になり、Gitのrefが同一リポジトリに` +
+        `共存できません`,
+    )
+  }
+
+  return unitSegmentsList.map((segments) => toConfigUnitPath(segments.join(UNIT_PATH_SEPARATOR)))
 }
 
 /**
- * 1つのchartディレクトリ配下の`<tenant>/<client>/`を走査し、`target`で絞り込んだうえで
- * 各ディレクトリを`loadChartAndApps()`に渡す。ここが持つのはディレクトリ構成の走査と
- * 絞り込みだけで、設定ファイルの読み込み・結合は`chart-and-apps.ts`が持つ。
+ * `config.yaml`を持つディレクトリを、深さの上限を設けず再帰的に集める。上限で打ち切らないのは、
+ * 深すぎる位置に置かれた`config.yaml`を「見つからなかった」ではなく設定エラーとして
+ * 報告するため。YAMLは読まず`config.yaml`の有無だけを見る。
+ */
+function collectUnitSegments(dirPath: string, segments: UnitSegments): readonly UnitSegments[] {
+  const here = existsSync(join(dirPath, "config.yaml")) ? [segments] : []
+  const deeper = listSubdirectories(dirPath).flatMap((childDir) =>
+    collectUnitSegments(join(dirPath, childDir), [...segments, childDir]),
+  )
+  return [...here, ...deeper]
+}
+
+/** 入れ子になっている設定ユニットの組（親が子の`unitPath`の先頭部分）を1件だけ返す */
+function findNestedPair(
+  unitSegmentsList: readonly UnitSegments[],
+): { readonly parent: UnitSegments; readonly child: UnitSegments } | undefined {
+  for (const child of unitSegmentsList) {
+    const parent = unitSegmentsList.find((candidate) => isPrefixOf(candidate, child))
+    if (parent !== undefined) return { parent, child }
+  }
+  return undefined
+}
+
+/** `a` が `b` より浅く、かつ `b` の先頭のセグメントが全て `a` と一致するか */
+function isPrefixOf(a: UnitSegments, b: UnitSegments): boolean {
+  return a.length < b.length && a.every((segment, index) => segment === b[index])
+}
+
+/**
+ * 1つのchartディレクトリの`chart.yaml`を読み、`target.units`で絞り込んだ設定ユニットを
+ * `loadChartAndApps()`に渡す。ここが持つのは走査結果の絞り込みだけで、設定ファイルの
+ * 読み込み・結合は`chart-and-apps.ts`が持つ。
  */
 function listUnitChartAndApps(
-  chartDirPath: string,
-  chartDirName: ChartDirName,
-  chart: ChartRepoConfig,
-  target: ConfigTarget,
+  chartUnits: ChartUnits,
+  units: readonly ConfigUnitPath[] | undefined,
 ): ChartAndApps[] {
-  const tenantDirs = listSubdirectories(chartDirPath).filter(
-    (tenantDir) => !target.units || target.units.some((unit) => unit.startsWith(`${tenantDir}/`)),
-  )
-  return tenantDirs.flatMap((tenantDir) => {
-    const tenantDirPath = join(chartDirPath, tenantDir)
-    const clientDirs = listSubdirectories(tenantDirPath).filter(
-      (clientDir) =>
-        !target.units || target.units.includes(toConfigUnitPath(`${tenantDir}/${clientDir}`)),
-    )
-    return clientDirs.flatMap((clientDir): ChartAndApps[] => {
-      const chartAndApps = loadChartAndApps(
-        join(tenantDirPath, clientDir),
-        chartDirName,
-        toConfigUnitPath(`${tenantDir}/${clientDir}`),
+  const { chart } = parseYamlFile(join(chartUnits.chartDirPath, "chart.yaml"), ChartYamlSchema)
+  return chartUnits.unitPaths
+    .filter((unitPath) => !units || units.includes(unitPath))
+    .map((unitPath) =>
+      loadChartAndApps(
+        join(chartUnits.chartDirPath, unitPath),
+        chartUnits.chartDirName,
+        unitPath,
         chart,
-      )
-      return chartAndApps ? [chartAndApps] : []
-    })
-  })
+      ),
+    )
 }
 
 /** `target` で明示的に絞り込みが指定されているか（`TARGET_CHART` / `TARGET_UNITS` のいずれか） */
