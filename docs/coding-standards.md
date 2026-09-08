@@ -212,6 +212,40 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
   オールオアナッシング・`FatalError`の伝播・アプリ名付きのエラーメッセージという
   ステップ自身の契約を固定しているため残す
 
+**`src/utils/` の単体テストの整理（実施済み）**。全36テストファイルを1つずつ除外して
+カバレッジの差分を測り、丸ごと外しても1行も減らないファイルを洗い出したうえで、上の表の
+1〜3行目に当たる**積極的な理由があるものだけ**を消した（28件）。汎用ユーティリティは
+呼び出し元のテストが同じ性質を上位で固定していることが多く、ここが冗長の主な在り処だった。
+
+| 消したもの                                              | 上位の守り手                                                                                                 |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `test/utils/cache.test.ts` 全2件                        | `batch-cache.test.ts`（同時呼び出しで1回・失敗はキャッシュに残さない）と `resolve-latest-tags.test.ts`       |
+| `test/utils/partition.test.ts` 全4件                    | `filter-targets`・`apply-updates` の振り分けと入力順のテスト。「入力配列を変更しない」は `readonly` 型が保証 |
+| `test/utils/fs.test.ts` 全10件                          | `config.test.ts` のパストラバーサル3件・実ディレクトリ走査、`env.test.ts` の `CONFIG_PATH` 検証              |
+| `test/utils/timer.test.ts` 全1件                        | `main.test.ts`（`run_end` の `duration_ms` ログ）                                                            |
+| `test/utils/sequential.test.ts` 2件（引き継ぎ・空配列） | 引き継ぎは `build-plans.test.ts`。空配列は `imageTagTargets` が1件以上とスキーマで保証され実行時に来ない     |
+| `test/utils/yaml.test.ts` 3件                           | `schema.test.ts` 全6件が「形式が不正です」を固定                                                             |
+| `test/domain/config-unit.test.ts` 6件                   | `env.test.ts` の `parseTargetUnits` 8件（唯一の呼び出し元が `parseTargetUnitEntry`）                         |
+
+**敵対的に検討したうえで残したもの**:
+
+- `test/utils/sequential.test.ts`「順番に処理する（並列化しない）」「例外時に以降の要素を
+  処理しない」: `docs/architecture.md`「アプリ単位は逐次のまま」の決定と、失敗時にタグ作成の
+  副作用が止まることの唯一の守り手
+- `test/utils/yaml.test.ts`「ファイルパスを含む例外」: 設定ユニットが多いとき、どのファイルが
+  壊れているかを示すのはこれだけ（`schema.test.ts` はパスまでは固定していない）
+- `test/domain/config-unit.test.ts`「空白を含んでも受け入れる」: 文字種を検証しないという
+  `docs/requirements.md` 4.2節の決定を固定する唯一のテスト
+- `test/lib/gitlab/batch-cache.test.ts` 全5件・`test/lib/gitlab/web-url.test.ts` 全4件・
+  `test/steps/apply-updates/sub-steps/collect-mr-entries.test.ts` 全5件・
+  `submit-merge-request.test.ts` 全4件: いずれも丸ごと外してもカバレッジは減らないが、
+  falsy値のキャッシュ・サブパス設置のURL組み立て・問い合わせの1回収束・固定ブランチの
+  作り直し順という、上位に守り手がいない振る舞いを固定している
+
+**この整理で見つかったコード側の問題**: `assertSafePath` の `label = "パス"` は、呼び出し元
+2箇所がどちらも `"CONFIG_PATH"` を渡すため実行時に使われないデフォルトだった（`isFatalStatus`
+と同じパターン）。テストを消すのではなく、デフォルトを外して `label` を必須にした。
+
 **削除の手続き**。次の2つを両方満たしたものだけ消す。片方でも満たさなければ残す。
 
 1. 候補を `it.skip` にして `pnpm check` が落ちないことを確認する（落ちるなら、他のテストが

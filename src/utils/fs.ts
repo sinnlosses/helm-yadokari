@@ -6,7 +6,7 @@ import { resolve, sep } from "node:path"
  * cwd() 外を指す絶対パスなど、パストラバーサルを試みるパスは例外をスローする。
  * label はエラーメッセージ内でそのパスを何と呼ぶか（例: "CONFIG_PATH"）を指定する。
  */
-export function assertSafePath(inputPath: string, label = "パス"): void {
+export function assertSafePath(inputPath: string, label: string): void {
   const cwd = process.cwd()
   const resolved = resolve(cwd, inputPath)
   if (resolved !== cwd && !resolved.startsWith(cwd + sep)) {
