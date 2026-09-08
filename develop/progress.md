@@ -6,7 +6,7 @@
 `config/` の運用方針を決めて `config-test/` を `config/` に統合した（残るは T-146 のみ）。
 前回までの流れは下の「完了したこと」を参照）
 
-T-001〜T-125・T-127〜T-143 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
+T-001〜T-146 のうち T-146 を除く全タスクが完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 

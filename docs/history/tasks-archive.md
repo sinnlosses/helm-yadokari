@@ -2405,6 +2405,50 @@ T-117 で `docs/coding-standards.md` に「`async`/`await` と `.then()`/`.catch
 
 **evidence**: `develop/parameterization-candidates.md`（238行）を作成。9項目を「現在値／位置(file:line)／変えたくなる場面／env・configどちらが妥当か／副作用／推奨」で列挙し、探し方（grepパターン4種＋35ファイル目視）も同ファイルに記載。**結論は「積極的に勧める材料は薄い」**（明確に推すのは0件、中立寄りが#1の固定ブランチ接頭辞のみ。#2・#4は `docs/architecture.md` に検討済み・再検討トリガーが既にある）。コード変更0行。メイン側で file:line 4箇所を抜き取り照合し、見出しのタスク番号（規約違反）を除去した。`pnpm check` exit=0（35ファイル355テスト）。（コミット `2c3227c`）
 
+## T-126
+
+**タスク**: `config/` が登録0件のまま運用されている状態の是非を判断し、既定パス `config/` を実際に通す手段を決める。
+
+## 背景
+
+`config/` には `README.md` しか無く、登録は0件。実機検証はすべて `CONFIG_PATH=config-test` で行っており（`docs/smoke-test.md`）、**`CONFIG_PATH` 未指定の既定値 `config/`（`DEFAULT_CONFIG_PATH`、`src/lib/config/config.ts`）を通す経路は実機で一度も通っていない**。
+
+`config/README.md` は「実運用の登録だけを置く。架空の設定例を置くとCIの `validate-config-remote` が必ず失敗する」と定めている。ただし `config-test/` が指す `sinnlosses-group/yadokari-smoke-test-chart` は**実在する**ので、同じ登録を `config/` に置いても `validate-config-remote` は通る。通る代わりに、pipeline schedule の本番実行（`.gitlab-ci.yml` の `update-app-versions`）が毎回スモークテスト用プロジェクトにMRを作ることになる。
+
+指示の後半「必要ならGitLab上で実機テストするための環境を構築してほしい」は**すでに満たされている**（chartリポジトリ + ソースリポジトリ2つ + `scripts/smoke/smoke-fixture.ts` の setup/reset + `docs/smoke-test.md`。2026-09-07に実施して `{"CREATED":2,"SKIPPED":0,"ERROR":0}`）。残っているのは `config/` 側だけ。
+
+## 解くべき論点
+
+- `config/` を空のまま運用してよいか。空だと `validate-config-remote` は検証対象なしでパスし、schedule実行も0件で終わる（＝CIが「通っている」ことを何も保証しない）
+- 既定パス `config/` を通す手段。候補: (a) スモークテスト用の登録を `config/` に置く（schedule実行が毎回MRを作る副作用の扱いを決める）/ (b) `config-test/` のままにして、`CONFIG_PATH` 未指定でも同じ結果になることを別の方法（テスト or 一度きりの手動確認）で担保する / (c) ユーザーの実運用chartリポジトリを登録する
+- (c) を採るなら、登録に必要な情報の一覧（projectId・追跡ブランチ・`mrTargetBranch`・`valuesPath`・アンカー名）と、いきなり本番にMRを出さないための順序（`DRY_RUN=true` → `TARGET_CLIENTS` で1件だけ → 全件）
+
+## やること
+
+1. 上の論点を判断する。判断材料は `config/README.md`・`.gitlab-ci.yml` の `validate-config-remote` と `update-app-versions`・`docs/requirements.md` 4.4節
+2. 結論と理由を `config/README.md`（`config/` の運用の正典）に反映する
+3. (c) を採る場合は**ユーザーしか持っていない情報が要るのでそこで止め**、必要な情報の一覧を `evidence` に書いて閉じる。**架空の値で登録しない**
+4. 実機での実行が必要になったら、書き込みを伴う手順は実行せず、**コマンドを提示してユーザーに委ねる**
+
+## 完了条件
+
+- 論点3つに対する結論と理由が `config/README.md` に書かれている
+- `config/` にファイルを追加した場合、`pnpm lint:validate-config` が通る（`--remote` 版は `.env` が要るので、実行できなければその旨を `evidence` に書く）
+- 実行していない手順があれば、何が未実施でなぜかが `evidence` に書かれている
+- `pnpm check` が通る
+
+## 注意
+
+- **`config/` への登録は本番の pipeline schedule の対象を変える。実際に登録する前にユーザーの承認を得る**
+- 実GitLabへの書き込み（MR作成・タグ作成・ブランチ作成）はユーザー承認が必要。セッションから勝手に実行しない
+- **`/loop /next-task` には載せない**（ユーザー確認を伴うため）
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: 論点3つをユーザーとの対話で判断: (1) `config/` は0件のまま運用しない。(2) 既定パスを通す手段は選択肢(a)＝スモークテスト用プロジェクト `yadokari-smoke-test-chart` をそのまま定期実行の対象にする。ただし `config/` と `config-test/` の二重登録は固定ブランチ名 `feature/yadokari/<unitPath>` を奪い合うため（`submitMergeRequest` の削除→再作成とスモークの接頭辞一致削除が互いのMRを壊す）、**ディレクトリを `config/` に一本化**する。(3) 0件を設定エラーにはしない（登録前からCIが赤になり赤に慣れるほうが害が大きい）。**調査で判明**: 既定値 `CONFIG_PATH` 未指定→`"config"` は `test/lib/env.test.ts:199`、`loadConfig()` への受け渡しは `test/main.test.ts:102` で既にテスト済みで、実機未検証なのは「ディレクトリ名が `config` か」の1点のみだった。CIの `validate-config-remote` は位置引数なしのため検証先が空の `config/` で、**検証対象0件で必ず通っていた**。結論と理由は `config/README.md` に反映（3節構成に改稿）。実作業は後続タスクへ分割（一本化＝T-145、実機投入＝T-146）。コード変更0行。
+
 ## T-127
 
 **タスク**: `apply-updates` のサブステップ呼び出しの粒度を揃え、`gitlab.ts` を薄いラッパーの役割に戻す。
@@ -3265,3 +3309,134 @@ T-138（`compileTagPattern()` の再代入の排除）を実行した際、委�
 **difficulty**: sonnet
 
 **evidence**: `compileTagPattern()` が `escapeRegExp()` を呼ぶ**3箇所（プレースホルダ直前のリテラル／`{branch}` に埋める `branchLiteral`／末尾の残りリテラル）それぞれに、「壊れる例」と「回帰」の2件ずつ**を追加（テンプレート `{branch}.{date}`・`{branch}-{date}.`、ブランチ名 `release/1.0`）。**3箇所を個別に外すと、狙った1件だけがそれぞれ落ちる**ことを委譲先が確認し、メイン側でも `branchLiteral` の箇所で独立に再現（1 failed / 62 passed）してソースを復元。`pnpm check` exit=0、テストは 418 → **424件**（+6）。変更は `test/domain/tag-format.test.ts` のみで`src/` は無変更（`git status --short` が1行）。
+
+## T-144
+
+**タスク**: タグ形式の仕様を単純化する。semverモードを廃止し、`{time}`を必須に戻し、`apps[].tagNaming`（`mode`判別共用体）を`apps[].tagFormat`（文字列・必須）にする。あわせて用語を「タグ命名規則」→「タグ形式」に統一する。
+
+## 背景
+
+タグ命名規則をapp単位の設定にしたあと（`config.yaml`の`apps[].tagNaming`）、semverモードと`{time}`任意化を実装した結果、コードが実需要に対して過剰に複雑になった。ユーザーとのgrillingで**実物のタグは2パターンだけ**だと確定した:
+
+- `{branch}-build-at-{date}-{time}`
+- `{date}-{time}-{branch}`
+
+**どちらも3プレースホルダ全部入り**で、違いは並び順と区切り文字だけ。semverでタグを打つソースリポジトリも、`{time}`を含まない形式のリポジトリも**予定にすら無い**。`config/`の登録は0件なので、削除しても既存利用者への影響は無い。
+
+一方で「形式が2種類ある」以上、**app単位で設定可能にすること自体は正しい**（そこは削らない）。**自由記述テンプレートも維持する**（並び順が自由でないと2形式を表せないため）。
+
+現状の実装（削る対象）:
+
+- `src/domain/tag-format.ts`（284行）: `SEMVER_PATTERN` / `NUMERIC_IDENTIFIER_PATTERN` / `parseSemverTag()` / `toPrereleaseSegments()` / `compareOrderKeys()` / `compareSegments()` / `compareTags()`(export) / `canCreateTag()` / ブランド型 `CreatableTagNaming` / `OPTIONAL_PLACEHOLDERS` / `DEFAULT_TAG_TEMPLATE`
+- `src/types/types.ts`: `TagNaming`（`mode`判別共用体）・`TagOrderKey`、`ParsedTag.orderKey`
+- `src/lib/config/schema.ts`: `TagNamingTemplateSchema` / `TagNamingSemverSchema` / `TagNamingSchema`(discriminatedUnion) / `DEFAULT_TAG_NAMING` / `AppOperationalSchema.tagNaming`
+- `src/steps/build-plans/sub-steps/resolve-latest-tags.ts`: `canCreateTag()`分岐と`skip_app`警告ログ
+- `src/steps/build-plans/sub-steps/stage-image-tag-updates.ts`: `latestTag.tag === undefined`の分岐（58-61行付近）
+- `src/steps/build-plans/sub-steps/shared/types.ts`: `LatestTagResolution.tag: ParsedTag | undefined`
+
+用語の状況: コード側の識別子は既に`tag-format.ts` / `TagFormat` / `validateTagFormat()`と"format"系で揃っているのに、日本語だけが「命名規則」で浮いている。アーカイブを除いて**13ファイル43箇所**に「命名規則」がある（`docs/architecture.md` 10・`docs/requirements.md` 9・`README.md` 8・`docs/glossary.md` 6・`src/` 13・`test/` 3）。うち何割かはsemver削除で行ごと消える。
+
+## 解くべき論点
+
+1. **`compareTags()`のexportを消したあと、`findLatestParsedTag()`内で何をどう比べるか。** `ParsedTag.orderKey`を`builtAt: Date`に戻すので日時比較1本になるが、`scripts/smoke/smoke-fixture.ts`（現在114行付近で`compareTags(latestTag, seedTag) > 0`）は`builtAt`の直接比較に戻る。**`builtAt`自体は必ず残すこと**（並び順が自由なので`v{time}_{branch}__{date}`のような形が書け、タグ名の辞書順と日時順は一致しない。「名前の大小で比べればいい」は成立しない）
+2. **`{time}`必須化に伴い`compileTagPattern()`・`fillTagFormat()`・`parseTemplateTag()`をどこまで戻すか。** `{time}`任意対応で入った分岐（`match?.groups?.["time"] ?? "000000"`など）は不要になる。`escapeRegExp()`とプレースホルダ位置の畳み込みロジックは**維持する**（自由記述を残すため）
+3. **`DEFAULT_TAG_TEMPLATE`を`src/`から消したあと、テンプレート文字列`{branch}-build-at-{date}-{time}`が`test/helpers.ts`・`scripts/smoke/smoke-fixture.ts`・`config-test/`の3箇所に重複する。** これを許容するか、どこかに寄せるか。「テストのためだけの`export`はしない」規約（`CLAUDE.md`）と、`src/`に既定値の概念が無くなることの両方を満たす形を選ぶ
+4. **`tagFormat`必須化のZodエラーメッセージ。** 未指定のとき、何をどこに書けばよいか分かる文言にする（`config/`は登録0件なので移行対応は不要）
+5. **用語置換で、`docs/glossary.md`の見出し`### タグ命名規則`を参照しているアンカーリンク（`#タグ命名規則`）が他ファイルに無いか。** `README.md:208-209`に`[タグ命名規則](#タグ命名規則)`があるので、少なくともここは追随が要る。他にも無いかgrepで確認する
+6. **`validateTagNamingConsistency()`（`src/lib/config/validate.ts`）の新しい名前。** 検証自体は**残す**（`createResolveLatestTags()`のキャッシュキー`projectId:branchToSync`は変えないため、同一projectIdで形式が食い違うと誤共有が起きる）。比較は`JSON.stringify`から単純な文字列比較になる
+
+## やること
+
+1. `src/types/types.ts`: `TagNaming`・`TagOrderKey`を削除。`ParsedTag.orderKey` → `builtAt: Date`。`AppConfig.tagNaming: TagNaming` → `tagFormat: TagFormat`
+2. `src/domain/tag-format.ts`: 上記「背景」に挙げたsemver関連・`canCreateTag`関連・`DEFAULT_TAG_TEMPLATE`を削除。`validateTagFormat()`の検証を「`{branch}`/`{date}`/`{time}`の3つとも各1回必須、それ以外のプレースホルダは不可」に戻す。`parseTag()`・`buildNewTag()`の引数を`TagNaming`から`TagFormat`に変える
+3. `src/lib/config/schema.ts`: `tagNaming`の判別共用体を`tagFormat: z.string().transform(validateTagFormat)`の**必須**フィールドに置き換える。既定値は持たせない
+4. `src/lib/config/validate.ts`: `validateTagNamingConsistency()`を改名し、比較を文字列比較にする。呼び出し元（`src/lib/config/config.ts`）も追随
+5. `resolve-latest-tags.ts`: `canCreateTag()`分岐と`skip_app`ログを削除し、HEADにタグが無ければ必ず作成する形に戻す。`shared/types.ts`の`LatestTagResolution.tag`を`ParsedTag`（非undefined）に戻し、`stage-image-tag-updates.ts`のundefined分岐も削除する
+6. タイブレーク（順序キー同値ならタグ名の降順）を削除する。テンプレートがapp単位で固定なら「同じ日時＝同じタグ名」で同値は原理的に起きない
+7. テストを直す: `test/domain/tag-format.test.ts`（semverの3describe・`canCreateTag`のdescribeを削除、`{time}`なしテンプレートのケースを削除、`DEFAULT_NAMING`/`creatableNaming()`ヘルパを整理）、`test/steps/build-plans/sub-steps/resolve-latest-tags.test.ts`、`test/steps/build-plans/sub-steps/stage-image-tag-updates.test.ts`、`test/lib/config/schema.test.ts`、`test/lib/config/config.test.ts`、`test/helpers.ts`、`test/steps/apply-updates/apply-updates.test.ts`（`orderKey`フィクスチャ）。**T-143で足した`escapeRegExp()`の守りテスト6件と、並び順を入れ替えたテンプレートのテストは消さない**
+8. `config-test/`の**5appすべて**に`tagFormat`を明示する。値は全て`{branch}-build-at-{date}-{time}`とし、**2形式目は入れない**
+9. `scripts/smoke/smoke-fixture.ts`を追随させる（`compareTags`→`builtAt`比較、`DEFAULT_TAG_TEMPLATE`参照の解消）
+10. 正典を追随させる。**semverの記述は完全に消す**（「検討して撤回した」という判断記録も残さない。経緯は`docs/history/tasks-archive.md`のT-132・T-134のevidenceに残っているのでそれで足りる）
+    - `docs/requirements.md`: 4.1節（semver・`{time}`任意・タイブレークの記述を削除）、4.4節（`tagNaming`のスキーマ記述を`tagFormat`の必須文字列に）
+    - `docs/architecture.md`: タグ関連4節のうち「タグの順序づけは順序キーに閉じ込め…」「最新タグが決まらないappはERRORにせず…」「semverモードは「HEADを指すタグ」に限り…」の**3節と索引行を削除**。残る1節はタイトルから`TAG_FORMAT`を落とす。633行付近の「環境変数を既定値として残さなかった理由（CIの`check`で検証できない）」は**識別子名を使わずに残す**（今も`config/`に置く根拠であるため）
+    - `docs/glossary.md`: 「順序キー」エントリを削除、「打刻日時」の識別子欄を`builtAt`（`ParsedTag`のフィールド）に戻す、「最新タグ」「タグ自動作成」からsemverと「自動作成しない場合」の記述を削除、`TAG_FORMAT`の表記ゆれ2行（143-144行付近）を削除
+    - `README.md`: 「タグ命名規則」章（43行付近）から`mode: semver`節を削除し`tagFormat`必須の記述に、mermaidフロー（150行付近）の「タグを自動作成できる命名規則?」判定ノードを削除、エラー扱いの表（250行付近）から「タグを自動作成しない命名規則ではそのアプリだけ見送り」を削除、`config.yaml`の説明（208-209行付近）を追随
+11. 用語を「タグ命名規則」→「タグ形式」に統一する（`src/`・`test/`・`docs/architecture.md`・`docs/requirements.md`・`docs/glossary.md`・`README.md`）。`docs/glossary.md`の見出しも`### タグ形式`にし、参照しているアンカーリンクを追随させる。**`docs/history/`と`docs/requirements-grilling.md`は触らない**（アーカイブ）
+
+## 完了条件
+
+- `pnpm check` が通る（型チェック・lint・format・test）
+- **テスト件数が減っている**こと。着手前は36ファイル424テスト。semverと`{time}`任意化の削除分だけ減るのが正しく、**増えていたら削り漏れ**。実際の件数を`evidence`に書く
+- `grep -rn "semver\|tagNaming\|TAG_FORMAT\|命名規則" src test docs README.md config-test .gitlab-ci.yml` の結果が、`docs/history/`と`docs/requirements-grilling.md`を除いて**0件**であることを確認し、出力を`evidence`に書く
+- `pnpm lint:validate-config config-test` が通る（**ディレクトリは位置引数で渡す。`CONFIG_PATH`環境変数では効かない**）
+- **`tagFormat`を省略した`config.yaml`が設定エラーになる**ことがテストで確認できている
+- **`{time}`を含まないテンプレート（`{branch}-{date}`）が設定エラーになる**ことがテストで確認できている
+- **並び順を入れ替えたテンプレート（`{date}-{time}-{branch}`）が正しくパース・生成できる**ことがテストで確認できている（実物の2形式目にあたるため必須）
+- `docs/architecture.md`の節の索引と実際の節見出しが一致している（削除した3節が索引に残っていない）
+
+## 注意
+
+- **`git revert` は使わない。** `882ebec`(T-134)の後にT-138（`compileTagPattern()`の`let`全廃）・T-140（`it.each`化）・T-143（`escapeRegExp()`の守りテスト6件）が同じファイルを触っており、revertすると残すべきそれらまで巻き戻る。手で削ること
+- **1コミットにまとめる。** コード・テスト・正典・READMEを分けてコミットすると、正典とコードが食い違う中間状態が残る
+- `compileTagPattern()`・`escapeRegExp()`・`fillTagFormat()`のプレースホルダ位置の畳み込みは**維持する**（自由記述テンプレートを残す判断のため）
+- `validateTagNamingConsistency()`の検証**そのもの**は残す（消すのは名前と`JSON.stringify`比較だけ）
+- `createResolveLatestTags()`のキャッシュキー`projectId:branchToSync`は**変えない**
+- JST固定（`JST_OFFSET_MS`）の扱いは**変えない**
+- 実GitLabへの書き込みはしない。`config-test/`はファイル上の`tagFormat`追記のみで、GitLab上のプロジェクトには触らない
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: semverモードと`{time}`任意化を撤回し、`apps[].tagNaming`（`mode`判別共用体）を`apps[].tagFormat`（文字列・必須、既定値なし）へ。`ParsedTag.orderKey`→`builtAt: Date`に戻し、`TagNaming`/`TagOrderKey`/`CreatableTagNaming`/`canCreateTag()`/`compareTags()`(export)/`DEFAULT_TAG_TEMPLATE`を削除。`LatestTagResolution.tag`は非undefinedに戻り、app単位スキップ経路も消滅。用語は「タグ命名規則」→「タグ形式」に統一（glossary見出しとREADMEのアンカーリンク`#タグ形式`まで追随）。`validateTagNamingConsistency()`→`validateTagFormatConsistency()`（文字列比較化、検証とキャッシュキーは不変）。26ファイル +408/-1124行。**メイン側で実測**: `pnpm check` exit=0（36ファイル**393テスト**、着手前424＝-31）。`grep -rn "semver|tagNaming|TAG_FORMAT|命名規則"` は`docs/history/`と`requirements-grilling.md`を除いて**0件**。`pnpm lint:validate-config config-test`＝`3 設定ユニット, 5 apps`。`tagFormat`未指定・`{branch}-{date}`・並び順違い`{date}-{time}-{branch}`のテストをそれぞれ確認。`architecture.md`の索引/見出しの不一致はT-144前後で同一（既存分）で、索引は31→28件と削除3節ぶん一致。**受け入れ時にメインが1点修正**: `architecture.md`「型の置き場所は`src/`全件と突き合わせて確かめてある」の件数が古いままだった（削除した型ちょうど3件ぶん）ので56件→53件（`types.ts` 18→16・残り26→25）に更新。`git revert`は使わず手で削り、T-138/T-140/T-143の成果は温存。
+
+## T-145
+
+**タスク**: `config-test/` を `config/` に統合し、既定の設定ディレクトリ1つに一本化する。
+
+## 背景
+
+`config/` には `README.md` しか無く登録0件で、実機検証はすべて `CONFIG_PATH=config-test` で行ってきた。その結果、**`CONFIG_PATH` 未指定の既定値 `config/`（`DEFAULT_CONFIG_DIR_PATH`、`src/lib/config/config.ts`）を実際の設定ファイル入りで通す経路が一度も動いていない**。CIの `validate-config-remote` は位置引数なしで `pnpm lint:validate-config:remote` を呼ぶため検証先は `config/` で、空なので**検証対象0件で必ず通っている**。
+
+ユーザー判断で、**定期実行の対象chartリポジトリにもスモークテスト用の `sinnlosses-group/yadokari-smoke-test-chart`（projectId 86061211）を使う**ことが決まった。同じプロジェクト・同じ `values.yaml` のアンカーを `config/` と `config-test/` の両方から登録すると完全な二重管理になり、固定ブランチ名が設定ユニット単位（`feature/yadokari/<unitPath>`、`src/domain/feature-branch.ts`）なので**定期実行とスモーク実行が同じブランチを奪い合う**（`submitMergeRequest` は固定ブランチが残っていたら削除して作り直し、`scripts/smoke/smoke-fixture.ts` の `reset` は接頭辞一致でブランチを削除するため、互いのMRを壊す）。したがって**ディレクトリを1つに統合する**。
+
+判断の理由は `config/README.md` に記録済み（このタスクではその「移行中」注記を消す）。
+
+## 解くべき論点
+
+1. **`config-test/` を `git mv` でそのまま移すか、内容を見直して移すか。** 現在は3設定ユニット（`anchor-app`（深さ1）・`tenant2/client1`・`tenant2/client2`）。深さ1と深さ2の両方を残すことは、設定ユニットの深さ1〜2をどちらも実機で通すという意味があるので**減らさない**のが既定。減らす判断をするなら理由を `evidence` に書く
+2. **`scripts/smoke/smoke-fixture.ts` は `config-test/` を前提にしているか。** 20行目・57行目付近のコメントが `config-test/yadokari-smoke-test-chart/` を指している。projectIdは環境変数から読む設計なのでコード上の依存は無いはずだが、実際に確かめる
+3. **`test/main.e2e.test.ts:71` の `configDirPath: "config-test"`** をどう扱うか。実ディレクトリを読むテストなら `config` に変える必要があり、モックなら文字列を変えるだけでよい。どちらかを確かめてから直す
+4. **`.gitlab-ci.yml` の `CONFIG_PATH` 入力（11行目・60行目付近）を残すか。** 統合後は既定値で足りるが、一時的に別ディレクトリを指したい場合の逃げ道でもある。残す/消すを判断して理由を書く
+
+## やること
+
+1. `config-test/yadokari-smoke-test-chart/` を `config/yadokari-smoke-test-chart/` へ `git mv` で移動し、`config-test/` を削除する
+2. `config/README.md` の「**移行中**」の引用ブロック（`> **移行中**: …`）を削除する。他の記述は統合後の状態を前提に書いてあるので触らない
+3. `docs/smoke-test.md` から `CONFIG_PATH=config-test` を外す（81・84・87行目付近のコマンド例、4・38・61・90行目付近の本文）。統合後は `CONFIG_PATH` 指定なしで同じ検証ができる
+4. `README.md` の `config-test/` への言及（121・225・318行目付近）を統合後の記述に直す。ディレクトリ構成図（318行目付近）から `config-test/` の行を削る
+5. `scripts/smoke/smoke-fixture.ts` のコメント（20・57行目付近）を追随させる
+6. `test/main.e2e.test.ts:71` を追随させる
+7. `grep -rn "config-test" .` の結果が、`docs/history/` と `develop/` を除いて0件になるまで追随させる
+
+## 完了条件
+
+- `pnpm check` が通る（型チェック・lint・format・test）。テスト件数が減っていないこと（実際の数を `evidence` に書く）
+- **`pnpm lint:validate-config` が位置引数なしで通る**（＝既定の `config/` を検証して `3 設定ユニット, 5 apps` 相当が出る）。出力を `evidence` に書く
+- `grep -rn "config-test" .` が `docs/history/` と `develop/` を除いて**0件**。出力を `evidence` に書く
+- `config-test/` ディレクトリが存在しない
+- `docs/smoke-test.md` のコマンド例に `CONFIG_PATH` が現れない
+
+## 注意
+
+- **実GitLabへの書き込みはしない。** ファイルの移動と記述の追随のみ。projectId・アンカー名・valuesPathは**移動前の値をそのまま使う**（実物に合わせてある値なので変更しない）
+- `pnpm lint:validate-config:remote` は `.env` が必要なので、実行できなければその旨を `evidence` に書く（`--remote` なしの検証は必須）
+- **コード・ドキュメントにタスク番号を書かない**（`docs/coding-standards.md`）
+- `/loop /next-task` に載せてよい
+
+**dependencies**: T-144
+
+**difficulty**: sonnet
+
+**evidence**: `config-test/yadokari-smoke-test-chart/`（7ファイル）を `git mv` で `config/` へ移動し、設定ディレクトリを既定パス1つに一本化。`config/README.md` の「移行中」注記を削除、`docs/smoke-test.md` から `CONFIG_PATH` を全廃、`README.md`（Quick Start・設定章・構成図）・`scripts/smoke/smoke-fixture.ts` のコメント・`test/main.e2e.test.ts`（`configDirPath` は**実ディレクトリを読むe2e**なので文字列変更ではなく実パスとして `config` へ）を追随。委譲先が tasks.json に無かった `docs/coding-standards.md`（「入口は config-test/ の実ファイル」）と `docs/architecture.md`（ディレクトリ構成の勘所2箇所）も grep 0件条件から拾って修正。**メイン側で実測**: `pnpm check` exit=0（36ファイル**393テスト**、着手前と同数で減っていない）。**`pnpm lint:validate-config` が位置引数なしで `config OK: 3 設定ユニット, 5 apps (config)`**（＝空ディレクトリを検証して通っていた状態が解消）。`grep -rn config-test` は `docs/history/` と `develop/` を除いて**0件**、`docs/smoke-test.md` の `CONFIG_PATH` も0件、`config-test/` ディレクトリは不在。移動はすべて `R`（内容差分0）で projectId・アンカー名・valuesPath は不変。**論点4件の判断**: (1) `git mv` でそのまま移動し3設定ユニット（深さ1・2混在）を維持、(2) `smoke-fixture.ts` の `config-test` 依存はコメントのみでコード上は環境変数経由、(3) e2eは実ファイルを読むため実パス変更が必要、(4) `.gitlab-ci.yml` の `CONFIG_PATH` 入力は逃げ道として温存。**受け入れ時にメインが `develop/progress.md` の古くなった `config-test` 記述3箇所を更新**。
