@@ -80,7 +80,8 @@ Protected: OFF で登録する）。`renovate` ジョブはこのCLI自体の
 
 ## コーディング規約・レビュー方針
 
-**ルールの一覧**（理由・例外は [`docs/coding-standards.md`](./docs/coding-standards.md) が正典）:
+**ルールの一覧**（理由・例外は [`docs/coding-standards.md`](./docs/coding-standards.md) が正典。
+ただし**通読しない**。冒頭の「節の索引」で節を1つ特定して、その節だけを読む）:
 
 - 関数はファイル内で「外から使うもの → その内部で使うもの」の順に並べる。テストのためだけの
   `export` はしない
@@ -152,8 +153,10 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 - 完了タスク・過去セッションの詳細な記録: `docs/history/tasks-archive.md` / `docs/history/progress-archive.md`
   （セッション開始時に読む必要はない。過去の判断の経緯をたどりたいときだけ、`grep`で
   該当する `## T-XXX` を見つけてその節だけ参照する。どちらも100KB超あるため通読しない）
-- 要件定義: `docs/requirements.md`
+- 要件定義: `docs/requirements.md`（30KB超。**通読しない**。冒頭の「節の索引」で節を1つ特定して読む。
+  4.4節はYAMLの実例を含むため、sedの終端は `^#\{2,4\}` にする）
 - 要件定義の検討経緯（Q&Aログ）: `docs/requirements-grilling.md`
 - 用語集（ドメイン用語とコード上の識別子の対応、表記ゆれの注記）: `docs/glossary.md`
+  （25KB超。**通読しない**。冒頭の「用語の索引」で用語を1つ特定し、その見出しだけを読む）
 - 実機スモークテストの手順（フィクスチャ・シナリオ・繰り返し方）: `docs/smoke-test.md`
 - Issueトラッカー・外部の設計ドキュメントは未設定（今後追加され次第ここに記載する）
