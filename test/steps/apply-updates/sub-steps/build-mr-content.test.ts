@@ -87,9 +87,7 @@ describe("buildMrContent（タイトル）", () => {
   })
 
   it("Helm向き先ブランチだけが変わるとき、image tag と表示しない", () => {
-    const plan = makePlan({ updates: [] })
-
-    expect(buildTitle(entriesOf([plan], [helmUpdate]))).toBe(
+    expect(buildTitle(entriesOf([], [helmUpdate]))).toBe(
       "Auto MR by yadokari: update tenant1/client1 (helm branch 1)",
     )
   })
@@ -210,11 +208,8 @@ describe("buildMrContent（本文）", () => {
   })
 
   it("イメージタグの行が1件も無いとき、そのセクションごと出さない", () => {
-    const description = buildDescription(
-      entriesOf([makePlan({ projectName: "helm-only-app", updates: [] })], [helmUpdate]),
-    )
+    const description = buildDescription(entriesOf([], [helmUpdate]))
 
-    expect(description).not.toContain("helm-only-app")
     expect(description).not.toContain("## イメージタグ")
     expect(description).toContain("## Helmの向き先ブランチ")
   })

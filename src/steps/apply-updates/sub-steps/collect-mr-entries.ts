@@ -12,10 +12,8 @@ export async function collectMrEntries(
   plans: readonly AppUpdatePlan[],
   helmBranches: readonly HelmTargetBranchUpdate[],
 ): Promise<MrEntries> {
-  const updatedPlans = plans.filter((plan) => plan.updates.length > 0)
-
   const imageTagsPerPlan = await Promise.all(
-    updatedPlans.map(async (plan) =>
+    plans.map(async (plan) =>
       withAppContext(plan.app.projectName, async () => {
         const [webUrl, pipeline] = await Promise.all([
           gitlabCache.getProjectWebUrl(plan.app.projectId),

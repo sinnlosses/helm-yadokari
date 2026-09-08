@@ -53,14 +53,10 @@ describe("collectMrEntries", () => {
     expect(entries.imageTags[0]?.plan).toBe(plan)
   })
 
-  it("イメージタグに差分が無いplanは含めず、そのweb URLも要求しない", async () => {
+  it("plansが空のとき、imageTagsは空でweb URLも要求しない（helm向き先ブランチだけのMR）", async () => {
     mockWebUrl()
 
-    const entries = await collectMrEntries(
-      newBatchCache(),
-      [makePlan({ updates: [] })],
-      [helmUpdate],
-    )
+    const entries = await collectMrEntries(newBatchCache(), [], [helmUpdate])
 
     expect(entries.imageTags).toEqual([])
     expect(getProjectWebUrl).not.toHaveBeenCalled()
