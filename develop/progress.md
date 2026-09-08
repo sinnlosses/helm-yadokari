@@ -390,14 +390,19 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 ## 次にやること
 
 - **T-144・T-145 は完了**。残る `todo` は **T-146〜T-150**。
-- **T-153（`tagFormat` の置き場所と `anchors.yaml` の改名を決め、正典を先に更新、`opus`、依存なし）**。
-  **既存の設計判断を覆す指示**（`docs/architecture.md:621`「タグ形式はapp単位に`config.yaml`へ置く」）。
-  裏取りで分かった注意点: `anchors.yaml` も `config.yaml` と同じ**設定ユニット単位**のファイルなので、
-  移しても `validateTagFormatConsistency()` が扱うスコープ不一致（tagFormat はソースリポジトリ単位の
-  性質）は残る。`docs/requirements.md` 4.4節が「フィールド変更時はこの節を先に更新する」と
-  定めているため、**正典2ファイルの更新までで閉じる**。**承認が要る＝`/loop` に載せない。**
-- **T-154（決まった形へ移行、`sonnet`、T-153依存）**。文字列 `anchors.yaml` は
-  16ファイル106箇所＋実ファイル3つ。`projectId`・`valuesPath`・`anchor` の値は変更しない
+- ~~**T-153（`tagFormat` の置き場所を決め、正典を先に更新、`opus`）**~~ **完了**。
+  ユーザーと詰めた結果、**ファイル分割の軸は「変更頻度」**で確定（`docs/requirements.md` 4.4節が
+  「よく変更する/滅多に変更しない」と「運用値/chart構造」の**2つの軸を並べて書いており**、
+  `tagFormat` について反対の答えを出していた。`docs/architecture.md` の旧判断は後者で
+  判断していた誤り）。**`tagFormat` は chartリポジトリ単位の `config/<chart>/sources.yaml` へ。**
+  - **`anchors.yaml` の改名は不要になった**（`tagFormat` が入らないため理由が消えた。
+    当初見積もっていた106箇所の変更がまるごと不要）
+  - `projectName` は `sources.yaml` を正典としつつ各ファイルにも残す（単体で読めることを優先）
+  - `validateTagFormatConsistency()` は残す（chartリポジトリをまたぐ食い違いの検出に役割が変わる）
+  - 実データの裏取り: ソースリポジトリ2件が3設定ユニットに5エントリ、`tagFormat` は5箇所とも同値
+- **T-154（決まった形へ移行、`sonnet`、T-153依存）**。**本文を新しい形に差し替え済み**
+  （改名ではなく `sources.yaml` の新設＋`config.yaml` から `tagFormat` を削る内容）。
+  `projectId`・`projectName`・`branchToSync`・`valuesPath`・`anchor` の値は変更しない
   （GitLab上の実物に合わせてあるため）。`/loop` 可。
 - **T-151（`StepOutcome` の settled が SKIPPED と ERROR を混ぜている点を解く、`opus`、依存なし）**。
   指摘は事実。`settle("SKIPPED")` が4箇所、`settleAsError()` の `"ERROR"` が同じ枝に入る。
