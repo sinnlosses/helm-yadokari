@@ -9,6 +9,17 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-08（8回目）
+
+生成したタスク: T-153（tagFormat の置き場所と anchors.yaml の新しいファイル名を決め、docs/requirements.md 4.4節を先に更新する）、T-154（決まった形へコード・実config・テスト・ドキュメントを移行する。T-153 に依存）。
+**タスクにしなかった項目は無い。** 1指示を「正典の更新」と「実装への反映」の2つに割ったのは、
+`docs/requirements.md` 4.4節が自ら「フィールドを追加・変更したときはこの節を先に更新する」と定めているため（既存の手順に沿った分割）。
+裏取りで分かったこと3点: (1) この指示は `docs/architecture.md:621`「タグ形式はapp単位に config.yaml へ置く」という既存の設計判断を覆す、
+(2) `anchors.yaml` も `config.yaml` と同じ設定ユニット単位のファイルなので、移しても `validateTagFormatConsistency()` が扱うスコープ不一致
+（tagFormat はソースリポジトリ単位の性質）は解決しない、(3) 文字列 `anchors.yaml` は history/・dist/・coverage/ を除いて16ファイル106箇所、実ファイルは3つ。
+
+- config.yaml の tagFormat は anchors.yaml に移したい(あまり変更されないから)。あと、tagFormatが加わることで anchors.yaml の名前が実態に合わなくなるから変えてほしいな
+
 ## 2026-09-08（7回目）
 
 生成したタスク: T-151（StepOutcome の settled が SKIPPED と ERROR を混ぜている点を解く）、T-152（values-yaml-draft.ts の型と命名の見直し）。

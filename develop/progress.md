@@ -390,6 +390,15 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 ## 次にやること
 
 - **T-144・T-145 は完了**。残る `todo` は **T-146〜T-150**。
+- **T-153（`tagFormat` の置き場所と `anchors.yaml` の改名を決め、正典を先に更新、`opus`、依存なし）**。
+  **既存の設計判断を覆す指示**（`docs/architecture.md:621`「タグ形式はapp単位に`config.yaml`へ置く」）。
+  裏取りで分かった注意点: `anchors.yaml` も `config.yaml` と同じ**設定ユニット単位**のファイルなので、
+  移しても `validateTagFormatConsistency()` が扱うスコープ不一致（tagFormat はソースリポジトリ単位の
+  性質）は残る。`docs/requirements.md` 4.4節が「フィールド変更時はこの節を先に更新する」と
+  定めているため、**正典2ファイルの更新までで閉じる**。**承認が要る＝`/loop` に載せない。**
+- **T-154（決まった形へ移行、`sonnet`、T-153依存）**。文字列 `anchors.yaml` は
+  16ファイル106箇所＋実ファイル3つ。`projectId`・`valuesPath`・`anchor` の値は変更しない
+  （GitLab上の実物に合わせてあるため）。`/loop` 可。
 - **T-151（`StepOutcome` の settled が SKIPPED と ERROR を混ぜている点を解く、`opus`、依存なし）**。
   指摘は事実。`settle("SKIPPED")` が4箇所、`settleAsError()` の `"ERROR"` が同じ枝に入る。
   加えて `settle()` の引数が `ChartUpdateResult` で **`"CREATED"` も型上は渡せる**（実際は
