@@ -2,13 +2,47 @@
 
 最終更新: 2026-09-08（`/plan-tasks` で `develop/direction.md` の4項目を T-123〜T-127 の
 5タスクとして登録し、続けて T-120・T-118・T-119・T-121・T-122・T-123・T-124・T-125・T-127 を完了した。
-そのあと**要件変更の指示**を受けて `/plan-tasks` を再実行し、T-128〜T-131 を登録した。前回までの流れは下の「完了したこと」を参照）
+そのあと**要件変更の指示**を受けて `/plan-tasks` を再実行し、T-128〜T-131 を登録して**4件とも完了した**。
+前回までの流れは下の「完了したこと」を参照）
 
-T-001〜T-125・T-127 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
+T-001〜T-125・T-127〜T-131 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 要件変更: テナント/クライアント2階層固定 → 設定ユニット（深さ1〜2）
+
+`config/` のディレクトリ階層が `<chartリポジトリ>/<tenantId>/<clientId>/` の2階層固定で、
+テナント分けが不要なchartでもダミーのtenantId/clientIdを作らされていた。これを
+`<chartリポジトリ>/<unitPath>/`（深さ1〜2）へ広げた。**T-128〜T-131 の4コミットで完了**
+（`4ab3398` → `686df5e` → `04cabe0` → `6345e59`）。
+
+設計判断はユーザーとの対話で確定させた（原文と選択の経緯は
+[`docs/history/direction.md`](../docs/history/direction.md) の2026-09-08（2回目））:
+
+- **深さ1〜2に限定**。深さ0と深さ3以上は設定エラー
+- **入れ子は設定エラーで即時終了**。固定ブランチ名がプレフィックス関係になるとGitのrefが
+  directory/file conflict を起こして共存できないため。D/F conflict はプレフィックス関係の
+  ときだけ起きるので、入れ子禁止でこの制約は完全にカバーされる
+- **後方互換は取らない**（ログのキーと環境変数名を変えた）
+- **語彙は「設定ユニット」**（`ConfigUnitPath` / `unitPath` / `TARGET_UNITS`）
+
+分割の方針は「正典を先に確定（T-128）→ 振る舞い不変の語彙置換（T-129）→ 振る舞いを変える
+階層拡張（T-130）→ 実ファイルのフィクスチャ（T-131）」。**振る舞い不変のリファクタと
+振る舞いの変更を別コミットに分けた**ので、T-129 は既存360テストが全部通ることだけで守られた。
+
+要点として残しておくこと:
+
+- **ブランチ名は文字列として変わっていない**。`feature/yadokari/<unitPath>` に
+  `"tenant1/client1"` を入れると従来と同一なので、GitLab上の既存のオープンMR・固定ブランチは
+  迷子にならない（`test/domain/feature-branch.test.ts` で固定）
+- **走査は深さで打ち切らない**。打ち切ると深さ3以上に置かれた `config.yaml` が設定エラーでなく
+  「対象0件」として黙って無視される。理由は `docs/architecture.md`「設定ユニットの走査は
+  深さで打ち切らず、絞り込みより先に階層を検証する」節
+- **階層の検証は `TARGET_UNITS` の絞り込みより前**に対象外ユニットも含めて行うが、YAMLの
+  読み込みは絞り込み後のみ（無関係なチームの設定ミスで緊急の限定実行を止めないため）
+- テストは360 → 373件。e2eが空振りでないことは変異（深さ1を無視するよう壊すと1本目が落ちる）で実測済み
 
 ### 実機スモークテスト（2026-09-07、`docs/smoke-test.md` の手順どおり）
 
@@ -261,40 +295,21 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 
 ## 次にやること
 
-- 新しいGitLab読み取りをキャッシュ機構に載せる手順と「載せてよいかの判断」は
-  `docs/architecture.md`「GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で
-  1つ持ち回る」節にある。
+- **`develop/direction.md` に未タスク化の指示が残っている**（タグフォーマットの設定化・semver対応・
+  JST化）。他の作業より先に `/plan-tasks` でタスク化する。
+- **T-126（`config/` の運用方針、`opus`）は `/loop /next-task` に載せない**
+  （`config/` への登録が本番の pipeline schedule の対象を変えるため、ユーザー承認が要る）。
 - **`config-test/` の構成が変わったので、次回の実機スモークは `docs/smoke-test.md` の手順1から
   やり直す。** 旧ブランチ `feature/yadokari/tenant1/client1` がGitLab上に残っていれば
   `smoke-fixture.ts reset --apply` が拾って片付ける（`isFeatureBranch()` は接頭辞判定のみ）。
-  `scripts/lint/validate-config.ts` はディレクトリを**位置引数**で受け取る
+  残っているのは**テスト用アクセストークンの失効**（ユーザー対応。下の「注意」参照）。
+- `scripts/lint/validate-config.ts` はディレクトリを**位置引数**で受け取る
   （`pnpm lint:validate-config config-test`。`CONFIG_PATH` 環境変数では効かない）。
-- **実機スモークテストは実施済み**（上記。ただし上記の構成変更より前）。残っているのは**テスト用アクセストークンの失効**
-  （ユーザー対応。下の「注意」参照）。次に回すときは `docs/smoke-test.md` の手順1から。
+- 新しいGitLab読み取りをキャッシュ機構に載せる手順と「載せてよいかの判断」は
+  `docs/architecture.md`「GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で
+  1つ持ち回る」節にある。
 - 「埋めない穴」「消さないと決めたもの」の正典は `docs/coding-standards.md`「テスト」節に
   移した（T-119）。判断を変えたくなったら、まずそちらの理由を更新する。
-- 次のコミットからは件名の先頭にタスクIDを置く（`docs/workflow.md`「コミットメッセージ」）。
-- **要件変更「テナント/クライアント2階層固定 → 設定ユニット（深さ1〜2）」が最優先。**
-  T-128〜T-131 を**この順に直列で**進める（各タスクが前のタスクの結論に依存する）:
-  1. ~~**T-128（`opus`）**~~ **完了**。正典は新仕様に切り替わった。以降のタスクは
-     `docs/requirements.md` 4.2・4.4・4.5節と `docs/glossary.md`「設定ユニット」を正典として読む
-  2. ~~**T-129（`sonnet`、T-128依存）**~~ **完了**。`ChartAndApps.unitPath` / `TARGET_UNITS` /
-     `buildFeatureBranch(unitPath)` が現行。走査はまだ2階層固定
-  3. ~~**T-130（`opus`、T-129依存）**~~ **完了**。深さ1〜2の混在が動く。走査は深さで
-     打ち切らず全件集めてから判定する方式（深さ3以上を黙って無視しないため）
-  4. ~~**T-131（`sonnet`、T-130依存）**~~ **完了**。要件変更は4タスクとも完了。
-     `config-test/` は `anchor-app/`（深さ1）＋ `tenant2/*`（深さ2）の混在構成になった
-     設計判断（深さ1〜2に限定・入れ子は設定エラー・後方互換なし・語彙は「設定ユニット」）は
-     ユーザーとの対話で確定済みで、原文と選択の経緯は `docs/history/direction.md` の2026-09-08（2回目）にある。
-- **ブランチ名は文字列として変わらない**のが今回の設計の要。`feature/yadokari/<unitPath>` に
-  `"tenant1/client1"` を入れると従来と同一になるので、GitLab上の既存のオープンMR・固定ブランチは
-  迷子にならない。T-129 の完了条件でここをテストに固定する。
-- ~~`docs/requirements.md` のMRタイトル書式が実装と食い違い~~ **T-129で修正済み**。（旧記述）（`${N} app image tag(s)` の
-  ままだが、実装は `(image tag N, helm branch N)`。`docs/architecture.md`「MRの単位は…」節に経緯あり）。
-  T-128以前からある不一致で、T-128の範囲外だったため未修正。T-129で4.2節に触れる際に直すとよい。
-- **T-126（`config/` の運用方針、`opus`）と T-131 は `/loop /next-task` に載せない**
-  （前者は `config/` への登録が本番の pipeline schedule の対象を変えるため、後者は
-  `config-test/` の作り方によって実GitLabへの書き込みが要る場合があるため。どちらもユーザー承認）。
 
 ## 未解決
 
