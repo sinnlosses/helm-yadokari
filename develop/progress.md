@@ -297,9 +297,15 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 
 - **タグ命名規則の一連（T-132〜T-135）が次の主題。** 原文と分解の理由は
   `docs/history/direction.md` の2026-09-08（3回目）。
-  1. **T-132（`opus`）** 方針決め。**実装しない**。`{date}`/`{time}` を外すとタグ自動作成が
-     成立しない（生成名の一意性が消える）ことと、semverだとタグ名からブランチを判定できない
-     ことの2つが主な論点
+  1. ~~**T-132（`opus`）**~~ **完了**。設計は `docs/requirements.md` 4.1節・4.4節と
+     `docs/architecture.md` が正典。要点: `template` は `{branch}`+`{date}` 必須・`{time}` 任意
+     （`{branch}` 単独と `{time}` 単独は設定エラー）、**タグ自動作成は `{time}` を含むときだけ**、
+     設定は `config.yaml` の `apps[].tagNaming`（`TAG_FORMAT` は廃止）、semverはHEADを指す
+     タグのみ・比較は自前実装、タイムゾーンは固定。
+     **`docs/` は「これから実装する仕様」の状態で、現在のコードと `README.md` とは
+     一時的に食い違う。** READMEの追随は下の実装タスクの作業項目に入っている。
+     `develop/parameterization-candidates.md` の項目6が今回の結論と逆向きのまま残っており、
+     JST化のタスクで併せて直す。
   2. **T-133（`sonnet`、T-132依存）** タグ命名規則を `config/` から設定できるようにする。
      `config/` に移すとCIでの検証（`pnpm lint:validate-config`）が自動で付いてくる
   3. **T-134（`opus`、T-132・T-133依存）** semver対応
