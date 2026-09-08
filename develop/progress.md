@@ -4,7 +4,7 @@
 食い違いと冗長を洗い出し、T-136〜T-142 の7タスクとして登録した。実装はまだ1件も行っていない。
 前回までの流れは下の「完了したこと」を参照）
 
-T-001〜T-125・T-127〜T-135 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
+T-001〜T-125・T-127〜T-143 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
