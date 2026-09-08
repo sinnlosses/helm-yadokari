@@ -4,7 +4,7 @@ import type { ChartAndApps, ChartUpdateResult } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
-import { type StepOutcome, ok, withHandling, settle } from "../shared/step-outcome.js"
+import { type StepOutcome, ok, settle, withHandling } from "../shared/step-outcome.js"
 
 export type FilterTargetsResult = {
   readonly targets: readonly ChartAndApps[]

@@ -29,10 +29,10 @@
   {
     "id": "T-138",
     "task": "冗長な条件分岐と、`const` 原則に反する再代入を畳む。\n\n## 背景\n\nコーディング規約は「変数は基本 `const`。コレクションも不変に保つ」（`CLAUDE.md` / `docs/coding-standards.md`）。次の2箇所が規約または簡潔さの点で引っかかる。\n\n### 1. `src/steps/build-plans/sub-steps/stage-image-tag-updates.ts` の `stageImageTagUpdate()`\n\n```ts\nif (previousTagName === latestTagName) return { ...acc, draft }\nif (trackedHeadTagNames.has(previousTagName)) {\n  return { ...acc, draft }\n}\n```\n\n**同じ値を返す2つの分岐が連続していて、しかも片方だけブレースが付いている**。1つの条件式にまとめる。まとめたうえで「なぜ2つの理由でスキップするのか」（タグ名が同じ／タグ名は違うがHEADを指すので中身が同じ）が読み取れるようコメントを1行に集約する。\n\n### 2. `src/domain/tag-format.ts` の `compileTagPattern()`\n\n`let source = \"^\"` と `let lastIndex = 0` を `for` の中で再代入しながら正規表現の文字列を組み立てている。`format.matchAll(PLACEHOLDER_PATTERN)` の結果は配列にできるので、**再代入なしで組み立てられる**（`reduce` で `{ source, lastIndex }` を畳むか、`[...matchAll]` から「直前のリテラル + プレースホルダの変換結果」の配列を作って `join(\"\")` する）。読みやすさを損なわない形を選ぶこと。**畳んだ結果がかえって読みにくくなるなら、無理に変えず「なぜ再代入なのか」の理由をコメントに書いて残す判断でもよい**（その場合は理由を `evidence` に書く）。\n\n同じファイルの `compareOrderKeys()` が `Array.from({ length }, ...)` で全要素の比較を先に計算してから `.find()` している点も目に留まるが、**順序キーは高々数要素なので実害はなく、今の形のほうが宣言的に読める。触らない。**\n\n## やること\n\n1. 上の1を1つの条件に畳む\n2. 上の2を再代入なしで組み立てる（または理由を残す判断をする）\n3. あわせて、named import の並び順が揃っていない2箇所を昇順に直す（`src/steps/filter-targets/filter-targets.ts` の `{ type StepOutcome, ok, withHandling, settle }`、`src/steps/build-plans/sub-steps/stage-helm-target-branch-updates.ts` の `{ StageUpdatesAcc, BranchExists }`）。**oxfmt の `sortImports` はモジュール間の並びだけを見て波括弧の中までは揃えないため、これは手で揃えるしかない**\n\n## 完了条件\n\n- `pnpm check` が通り、テスト件数が **418件から減っていない**（実際の数を `evidence` に書く）\n- `test/domain/tag-format.test.ts`（57件）と `test/steps/build-plans/sub-steps/stage-image-tag-updates.test.ts` が1件も落ちない\n\n## 注意\n\n- **振る舞いを1つも変えない純粋なリファクタ**。テストは足さない（既存テストが守り手）\n- `/loop /next-task` に載せてよい",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "3項目とも実施。(1) `stageImageTagUpdate()` の同値を返す2連続 return を `||` 1つに統合、(2) `compileTagPattern()` の `let source`/`let lastIndex` を `reduce` で畳んで**`let` を全廃**（プレースホルダ→パターン片の変換は `toPatternPart()` に切り出し）、(3) named import 2箇所を昇順に。委譲先が正規表現の連結順序をわざと逆転させると `tag-format.test.ts` が57件中13件落ちることを確認済み（書き換えが既存テストで守られていることの裏付け）。メイン側で `pnpm check` exit=0（36ファイル418テスト、着手前と同数）。受け入れ時にメインで1点補正: 新設コメントの「再代入をやめた形」という**昔の経緯**の記述を、`lastIndex` が何を指すかの説明に置換（`docs/coding-standards.md` のコメント規約違反のため）。",
     "dependencies": []
   },
   {
@@ -70,5 +70,14 @@
     "passes": false,
     "evidence": "",
     "dependencies": []
+  },
+  {
+    "id": "T-143",
+    "task": "`escapeRegExp()` が実際に効いていることを守るテストを足す。\n\n## 背景\n\nT-138（`compileTagPattern()` の再代入の排除）を実行した際、委譲先が**既存テストの穴**を見つけた:\n\n> `escapeRegExp` の呼び出しを1つ外す（正規表現特殊文字のエスケープを飛ばす）だけでは既存テストは1件も落ちなかった。テストのテンプレート・ブランチ名フィクスチャに正規表現特殊文字（`.` `+` など）を含むケースが無いため。\n\nつまり `src/domain/tag-format.ts` の `escapeRegExp()` は**誰にも守られていない**。これは T-138 が生んだ穴ではなく元からある被覆漏れだが、`compileTagPattern()` を書き換えた直後なので放置しない。\n\n**実害のある壊れ方をする**: `README.md`「タグ命名規則」は `template` の**並び順と区切り文字は自由**と明記しており、`{branch}.{date}` や `{branch}+{date}-{time}` のようなテンプレートは正当な設定である。エスケープが壊れると `.` が「任意の1文字」として解釈され、**本来マッチすべきでないタグ名がマッチする**（＝別のタグを最新と誤認して values.yaml に書く）。しかも例外は出ず、静かに誤る。\n\n`docs/coding-standards.md`「足すかどうか」は「埋めるのは `docs/requirements.md` が明示している振る舞いだけ」としているが、区切り文字の自由度は要件として明示されている（`docs/requirements.md` 4.1節）ので、この穴は埋める側に当たる。\n\n## やること\n\n1. `test/domain/tag-format.test.ts` に、**正規表現の特殊文字を区切り文字に含むテンプレート**のテストを足す。最低限、次の2つが落ちることを確認できる形にする:\n   - エスケープが無いと**マッチしてはいけないタグ名がマッチしてしまう**ケース（`.` が任意の1文字として働くことを突く。例: テンプレート `{branch}.{date}` に対してタグ名 `main-20260101` を渡すと、エスケープがあれば `undefined`、無ければマッチしてしまう）\n   - 特殊文字入りのテンプレートで**正しいタグ名は従来どおりパースできる**こと（回帰）\n2. ブランチ名側にも特殊文字が入りうる（`compileTagPattern()` は `branchLiteral` も `escapeRegExp()` に通している）。`branchToSync` に `.` を含むブランチ名（例: `release/1.0`）のケースも1件足す\n3. 足したテストが**本当に守り手になっている**ことを確認する: `escapeRegExp()` の呼び出しを一時的に外して**落ちること**を実際に確かめ、件数を `evidence` に書く。確認後は必ず元に戻す\n\n## 完了条件\n\n- `escapeRegExp()` の呼び出しを外すと足したテストが落ちる（件数を `evidence` に書く）。**この確認をしていないテストは守り手になっていないので不可**\n- `pnpm check` が通り、テスト件数が **418件から増えている**（実際の数を `evidence` に書く）\n- 既存の57件（`tag-format.test.ts`）が1件も落ちていない\n\n## 注意\n\n- **コードは変えない。** `escapeRegExp()` の実装は正しいので、足すのはテストだけ\n- テストの追加は最小限にする。`docs/coding-standards.md`「足すかどうか」の「未到達の行を全部は埋めない」に従い、**エスケープが効いていることを示す最小の組**にとどめる\n- `/loop /next-task` に載せてよい",
+    "status": "todo",
+    "difficulty": "sonnet",
+    "passes": false,
+    "evidence": "",
+    "dependencies": ["T-138"]
   }
 ]

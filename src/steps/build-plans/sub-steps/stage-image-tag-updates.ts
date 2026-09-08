@@ -113,8 +113,8 @@ async function stageImageTagUpdate(
     getRequiredValueAtAnchor(valuesYamlContent, target.anchorName, target.valuesPath),
   )
 
-  if (previousTagName === latestTagName) return { ...acc, draft }
-  if (trackedHeadTagNames.has(previousTagName)) {
+  // タグ名が同じ、またはタグ名は違っても追跡ブランチのHEADを指す（＝デプロイされる中身が同じ）ならスキップする
+  if (previousTagName === latestTagName || trackedHeadTagNames.has(previousTagName)) {
     return { ...acc, draft }
   }
 

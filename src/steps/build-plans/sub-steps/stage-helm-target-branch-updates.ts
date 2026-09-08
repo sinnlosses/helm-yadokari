@@ -6,7 +6,7 @@ import type {
 } from "../../../types/types.js"
 import { toBranchName } from "../../../types/types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
-import type { StageUpdatesAcc, BranchExists } from "./shared/types.js"
+import type { BranchExists, StageUpdatesAcc } from "./shared/types.js"
 import type { ValuesYamlDraft, ValuesYamlSource } from "./shared/values-yaml-draft.js"
 import { readValuesYamlDraft, writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 

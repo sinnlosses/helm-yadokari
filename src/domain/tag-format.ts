@@ -233,24 +233,27 @@ function compareSegments(a: number | string | undefined, b: number | string | un
  */
 function compileTagPattern(format: TagFormat, branch: BranchName): RegExp {
   const branchLiteral = branch.replaceAll("/", "-")
-  let source = "^"
-  let lastIndex = 0
-  for (const match of format.matchAll(PLACEHOLDER_PATTERN)) {
-    const index = match.index
-    source += escapeRegExp(format.slice(lastIndex, index))
-    const placeholder = match[1]
-    if (placeholder === "branch") {
-      source += escapeRegExp(branchLiteral)
-    } else if (placeholder === "date") {
-      source += "(?<date>\\d{8})"
-    } else {
-      source += "(?<time>\\d{6})"
-    }
-    lastIndex = index + match[0].length
+  const toPatternPart = (placeholder: string | undefined): string => {
+    if (placeholder === "branch") return escapeRegExp(branchLiteral)
+    if (placeholder === "date") return "(?<date>\\d{8})"
+    return "(?<time>\\d{6})"
   }
-  source += escapeRegExp(format.slice(lastIndex))
-  source += "$"
-  return new RegExp(source)
+
+  // 各プレースホルダの直前のリテラル部分（エスケープ済み）とプレースホルダの変換結果を
+  // 順に畳み込み、最後に末尾の残りリテラルを足す。`lastIndex`は「直前のプレースホルダの
+  // 終端」で、次のリテラルの切り出し開始位置になる
+  const { source, lastIndex } = [...format.matchAll(PLACEHOLDER_PATTERN)].reduce(
+    (acc, match) => ({
+      source:
+        acc.source +
+        escapeRegExp(format.slice(acc.lastIndex, match.index)) +
+        toPatternPart(match[1]),
+      lastIndex: match.index + match[0].length,
+    }),
+    { source: "^", lastIndex: 0 },
+  )
+
+  return new RegExp(`${source}${escapeRegExp(format.slice(lastIndex))}$`)
 }
 
 /**
