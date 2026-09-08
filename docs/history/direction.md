@@ -5,6 +5,88 @@
 [`docs/workflow.md`](../workflow.md)「指示メモ（`develop/direction.md`）」。
 **当時の記述はそのまま残し、後から書き換えない。**
 
+## 2026-09-08（2回目）
+
+生成したタスク: T-128（要件・用語の正典を「設定ユニット（深さ1〜2）」へ書き換え）/ T-129（コードの語彙を `unitPath` 1本に置換。振る舞い不変）/
+T-130（走査を深さ1〜2に拡張し、入れ子を設定エラーに）/ T-131（`config-test/` に深さ1のユニットを作り e2e で混在を守る）。
+**タスクにしなかった項目は無い**（1項目の指示で、設計判断4点はセッション内の対話で確定させたうえで4タスクに分割した）。
+分割の方針は「正典を先に確定 → 振る舞いを変えない語彙置換 → 振る舞いを変える階層拡張 → 実ファイルのフィクスチャ」で、
+**振る舞い不変のリファクタ（T-129）と振る舞いの変更（T-130）を分けてある**（前者は既存テストが全部通ることで守られるため）。
+
+## テナント/クライアント2階層固定の廃止 → 「設定ユニット」への抽象化
+
+ユーザーの原文:
+
+> 1つ重要な要件変更をお願いしたい。README.md に「ディレクトリ階層は常に
+> `<chartリポジトリ>/<tenantId>/<clientId>/` の2階層で固定です。テナント分けが不要な場合も
+> ダミーの1つの tenantId/clientId ディレクトリ配下に置いてください。」とあるけど、これを
+> 抽象化してテナント分けが不要なもの(例えば `<chartリポジトリ>/central/apps.yaml`) など
+> chartリポジトリ配下すべてに対応することはできるかな? 変更範囲はかなり広いと思う。
+
+### 確定した設計判断（このセッションでユーザーが選択）
+
+1. **深さは1〜2に限定**。`<chart>/central/config.yaml`（深さ1）と
+   `<chart>/tenant1/client1/config.yaml`（深さ2）の両方を許す。深さ0（`chart.yaml` と同階層に
+   `config.yaml`）は不可、深さ3以上も不可
+2. **入れ子は設定エラーで停止**。走査は `config.yaml` を見つけた時点でそれ以上降りるのを
+   やめ、その配下にさらに `config.yaml` があれば起動時に例外を投げる
+   （理由: Git の ref は D/F conflict を起こすため、`feature/yadokari/central` と
+   `feature/yadokari/central/sub` は同一リポジトリに共存できない。入れ子禁止がこの制約を
+   完全にカバーする ─ D/F conflict はパスがプレフィックス関係のときしか起きないため）
+3. **後方互換は取らない**（新名称に統一）。ログの `tenantId`/`clientId` は廃止して1本化、
+   環境変数 `TARGET_CLIENTS` も改名する。チーム内限定ツールなので破壊的変更を許容し、
+   コードに条件分岐を残さないことを優先する
+4. **新しい語彙は「設定ユニット」/ `configUnit`**（`updateUnit`・`scope` 案は不採用。
+   前者は既存の `ChartUpdateTarget`/`ChartUpdateResult`/`AppUpdatePlan` の "Update" と
+   衝突し、後者は `ACCESS_TOKEN` のスコープと衝突するため）
+   - 型: `ConfigUnitPath`（ブランド型。値は `"central"` も `"tenant1/client1"` も取る）
+   - フィールド: `ChartAndApps.unitPath`（`tenantId`/`clientId` を置き換える）
+   - ログ: `{"chartDirName":"teamA-chart","unitPath":"central",...}`
+   - 環境変数: `TARGET_UNITS="central,tenant2/client1"`
+   - ブランチ: `feature/yadokari/<unitPath>`（深さ2のとき既存の文字列と完全一致するため、
+     既存のオープンMR・ブランチは迷子にならない）
+   - ファイル: `src/domain/client-ref.ts` → `src/domain/config-unit.ts` に改名。
+     `formatClientRef`/`parseClientRef` は「相対パスの検証・正規化」に役割が変わる
+     （深さ1〜2チェック、空セグメント拒否、`..` 拒否）
+   - 日本語プロース: 「テナント/クライアント」→「設定ユニット」
+
+### 影響範囲（このセッションで調査済み）
+
+コア（2階層に依存しているのはこの6箇所だけ。パイプライン本体 build-plans / apply-updates /
+helm.ts / gitlab.ts は tenant/client を一切見ておらず `ChartAndApps` を透過的に運ぶだけ）:
+
+- `src/lib/config/config.ts:104-134` `listClientChartAndApps()` が `listSubdirectories()` を
+  2回ネストする決め打ち走査。ここを深さ1〜2の再帰＋入れ子検出に置き換える。
+  `clientDirExists()`（92-100行）も相対パス版に
+- `src/domain/feature-branch.ts:12` `buildFeatureBranch(tenantId, clientId)` → `unitPath` 1引数
+- `src/steps/apply-updates/sub-steps/build-mr-content.ts:10-30` MRタイトル
+- `src/steps/shared/step-outcome.ts:99-100` `buildLogContext()` のログフィールド
+- `src/lib/env.ts:80-127` `parseTargetClients()` / `parseTargetClientEntry()` → `TARGET_UNITS`
+- `scripts/lint/verify-config/verify-config.ts:57,77` エラーの位置表示
+- 型: `src/types/brand.ts` の `TenantId`/`ClientId` を削除し `ConfigUnitPath` を追加、
+  `src/types/types.ts` の `TargetClient` を廃止（`ConfigUnitPath` 単体で足りる）、
+  `ChartAndApps` のフィールド差し替え
+- `src/lib/config/chart-and-apps.ts:24-35,74-75` シグネチャと戻り値
+
+ドキュメント（作業量の大半はここ。「テナント/クライアント」がドメイン語彙として全体に浸透）:
+
+- `docs/glossary.md`(15箇所) ─ 「テナント / クライアント」エントリを「設定ユニット」に
+  差し替え、表記ゆれ注記として今回の経緯を書く。**正典なのでここを最初に直す**
+- `docs/requirements.md`(41箇所) ─ 「4.4 アプリの登録・設定」が config/ 構成の正典
+- `README.md`(24箇所) ─ 特に「設定」章の階層説明（162-163行）と環境変数表
+- `docs/architecture.md`(23箇所) / `docs/smoke-test.md`(22箇所) /
+  `docs/coding-standards.md`(2箇所)
+- `docs/requirements-grilling.md`(27箇所) は**過去のQ&Aログなので書き換えない**（アーカイブ扱い）
+- `.gitlab-ci.yml` の pipeline inputs（`TARGET_CLIENTS`）
+
+テスト・フィクスチャ:
+
+- `test/` 17ファイルが `tenantId`/`clientId` を参照（`test/helpers.ts`・
+  `test/lib/config/fixture.ts` が土台）
+- `config-test/` は深さ2のまま残しつつ、**深さ1のケースを1つ足して e2e で守る**
+  （深さ1と深さ2が同じ chart 配下に共存できることの回帰テストになる）
+- `scripts/smoke/smoke-fixture.ts`
+
 ## 2026-09-08
 
 生成したタスク: T-123・T-124（要件シナリオに対するe2eテストの方針決めと実装）/ T-125（パラメータ化候補の洗い出し）/
