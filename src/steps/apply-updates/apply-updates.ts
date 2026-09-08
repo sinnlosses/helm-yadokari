@@ -28,9 +28,7 @@ export async function applyUpdates(
 }
 
 /**
- * 1つのchartAndAppsにコミットとMR作成を適用する（このstepの並列処理1件分）。
- * ブランチの作り直しを含むGitLab APIの呼び出し順はサブステップの内側にあるため、
- * ここはサブステップを順に呼んで結果を受け渡すだけになっている。
+ * 1つのchartAndAppsにコミットとMR作成を適用する。
  */
 async function applyUpdate(
   gitlab: GitlabClient,
