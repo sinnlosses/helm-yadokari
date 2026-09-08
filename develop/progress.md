@@ -389,6 +389,11 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 
 ## 次にやること
 
+- ~~**T-152（`values-yaml-draft.ts` の型と命名の見直し、`sonnet`）**~~ **完了**。
+  `DraftValuesYaml`（`ValuesYamlDraft` と語順違いの紛らわしい名前）を削除してインライン型に、
+  戻り値のフィールドを `content`→`valuesYamlContent` に改名（呼び出し側2箇所の分解時の
+  改名が不要になった）。`ValuesYamlEntry` は非exportへ。
+
 - **T-144・T-145 は完了**。残る `todo` は **T-146〜T-150**。
 - ~~**T-153（`tagFormat` の置き場所を決め、正典を先に更新、`opus`）**~~ **完了**。
   ユーザーと詰めた結果、**ファイル分割の軸は「変更頻度」**で確定（`docs/requirements.md` 4.4節が

@@ -3592,3 +3592,83 @@ T-138（`compileTagPattern()` の再代入の排除）を実行した際、委�
 **difficulty**: opus
 
 **evidence**: 前段の sources.yaml 案を撤回し、config/ を chart.yaml と config.yaml の2ファイル構成に改めた（ユーザー承認済み）。実測比較（実config・app1件追加時・projectId/Name重複・tagFormat重複）: 移行前 7ファイル/2/10/5、sources.yaml案 8/3/12/2、採用案 4/2/7/2。**採用案だけが全指標で移行前より良い**。分割の軸を「変更頻度」から「スコープ」（chartリポジトリ単位 / 設定ユニット単位）に改めた。変更頻度で分けない理由3点を正典に記載: (1) 最多の編集であるappの追加・削除では結局どちらも触る、(2) セルフサービス方式なので編集者が分かれていない、(3) 実際によく変わるのは branchToSync だけで1ユニット十数行に収まる。更新: docs/requirements.md 4.4節（走査対象・構成図・分割の軸の表と理由・YAML例2つ・制約4箇所・helm節2箇所）、docs/architecture.md（節見出しごと書き換え+食い違い検証1箇所）。sources.yaml の言及は両ファイルで0件。コード・実config・テストは未変更（git diff --stat に src/ config/ test/ が現れない）。後続 T-154 の本文も2ファイル構成へ差し替えた。pnpm check 通過（32ファイル357テスト）。
+
+## T-154
+
+**タスク**: `docs/requirements.md` 4.4節で決まった2ファイル構成へ、コード・実 `config/`・テスト・ドキュメントを移行する。
+
+## 背景
+
+前段タスクで `config/` のファイル構成が確定し、`docs/requirements.md` 4.4節（`config/` スキーマの正典）と `docs/architecture.md`「`config/`は「スコープ」で2ファイルに分け、変更頻度では分けない」が更新済み。**このタスクは決まった形を実装と実ファイルに反映するだけで、方針を決め直さない。**
+
+確定した形（**ファイルは2種類だけ**）:
+
+```
+config/<chartディレクトリ>/
+  chart.yaml            # chart: (projectId/projectName/mrTargetBranch) + apps[]: (projectId/projectName/tagFormat)
+  <unitPath>/
+    config.yaml         # apps[]: (projectId/projectName/branchToSync/chart[]) + helm: (branchToSync/chart[])
+```
+
+移行の中身は3つ:
+
+1. **`anchors.yaml` を廃止**し、内容を同じディレクトリの `config.yaml` へ統合する。`apps[].chart[]`（`valuesPath`+`anchor`）は各appの中へ、`helm.chart[]` は `helm.branchToSync` と同じ `helm:` の下へ入る
+2. **`tagFormat` を `config.yaml` から `chart.yaml` の `apps[]` へ移す**（`chart.yaml` にトップレベルの `apps:` を新設する）
+3. `projectName` は `chart.yaml` を正典としつつ `config.yaml` にも残す
+
+移行前の実データ: `config/yadokari-smoke-test-chart/` に `chart.yaml` 1つと3設定ユニット（`anchor-app` / `tenant2/client1` / `tenant2/client2`）の `config.yaml`・`anchors.yaml` 各3つ＝**計7ファイル**。ソースリポジトリは2件（`82861978` sample-qa-sprint / `82861977` sample-develop-client）で、`tagFormat` は5箇所すべて `"{branch}-build-at-{date}-{time}"` と同値。移行後は**計4ファイル**になる。
+
+移行対象:
+
+| 対象                               | 現状                                                                                                                                                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/config/schema.ts`         | `ConfigYamlSchema`（`AppOperationalSchema` に `tagFormat`）と `AnchorsYamlSchema`・`loadAnchors()` が別々。`ChartYamlSchema` に `apps` は無い。`TagFormatSchema` のエラーメッセージが `"config.yaml の apps[] に..."` |
+| `src/lib/config/chart-and-apps.ts` | 34-35行目で `config.yaml` / `anchors.yaml` のパスを組み立て、`projectId` で結合                                                                                                                                       |
+| `src/lib/config/config.ts`         | 70行目付近で `existsSync(join(chartDirPath, "chart.yaml"))` を見てchartディレクトリを判定                                                                                                                             |
+| `src/lib/config/validate.ts`       | `validateProjectLinkage()`（config.yaml ↔ anchors.yaml の突き合わせ）/ `validateTagFormatConsistency()` / `validateNoDuplicateProjectIds()` / `validateNoDuplicateTargets()`                                          |
+| `src/types/types.ts`               | `App` 型のJSDocが「`tagFormat`はconfig.yamlの運用値」と書いている（33行目付近）                                                                                                                                       |
+| 文字列 `anchors.yaml`              | `docs/history/` ・`dist/` ・`coverage/` を除いて16ファイル106箇所                                                                                                                                                     |
+
+## 解くべき論点
+
+前段タスクで方針が確定しているため、このタスクで決める方針は無い。正典の記述だけで判断が付かない箇所が出たら、押し切らず**そこで止めて理由を `evidence` に書く**。
+
+## やること
+
+1. `docs/requirements.md` 4.4節と `docs/architecture.md` の該当節を読み、確定した形を確認する
+2. `src/lib/config/schema.ts`: `ChartYamlSchema` に `apps[]`（`projectId`/`projectName`/`tagFormat`）を足し、`AppOperationalSchema` から `tagFormat` を外して `chart[]` を足す。`ConfigYamlSchema` の `helm` に `chart[]` を足す。`AnchorsYamlSchema` と `loadAnchors()` を削除する。`TagFormatSchema` のエラーメッセージを `chart.yaml` に直す
+3. `src/lib/config/chart-and-apps.ts`: `anchors.yaml` の読み込みを削り、`chart.yaml` の `apps[]` と `config.yaml` の `apps[]` を `projectId` で結合して `App` 型を組み立てる
+4. 検証を更新する:
+   - `validateProjectLinkage()` の役割を「`config.yaml` ↔ `anchors.yaml`」から「`config.yaml` ↔ `chart.yaml` の `apps[]`」に変える。**`chart.yaml` 側にだけあってどの設定ユニットからも参照されないappはエラーにしない**（4.4節が明記）
+   - `validateTagFormatConsistency()` は**残す**（chartリポジトリをまたぐ食い違いの検出に役割が変わる）。JSDocを実態に合わせる
+   - `validateNoDuplicateTargets()`（`valuesPath`+`anchor` の重複）は同じ `config.yaml` 内の検証になる
+5. 実ファイルを移行する。3つの `anchors.yaml` の内容を同じディレクトリの `config.yaml` へ統合して**削除**し、`chart.yaml` に `apps[]` を足し、`config.yaml` から `tagFormat` を削る。**`projectId` / `projectName` / `branchToSync` / `valuesPath` / `anchor` の値は変更しない**（GitLab上の実物に合わせてある）
+6. テストを追随させる（`test/lib/config/` の4ファイル、`test/helpers.ts`、`test/main.e2e.test.ts`。e2eは**実ディレクトリを読む**ので実ファイルの変更が反映される）
+7. ドキュメントを追随させる（`README.md` の設定章・構成図・環境変数表、`docs/glossary.md`、`config/README.md`、`docs/smoke-test.md`、`scripts/smoke/smoke-fixture.ts` のコメント）。**`docs/requirements.md` と `docs/architecture.md` は前段で更新済みなので、実装と食い違っていないかの確認だけ行う**
+
+## 完了条件
+
+- `grep -rn 'anchors\.yaml' .` が `docs/history/` ・`dist/` ・`coverage/` ・`node_modules/` を除いて **0件**（出力を `evidence` に書く）
+- `find config -name '*.yaml' | wc -l` が **4**（移行前は7）
+- `grep -rn 'tagFormat' config/` が **`chart.yaml` の2件のみ**（移行前は3つの `config.yaml` に計5件）
+- `pnpm check` が通る。**テスト件数が着手前（357件）から減っていない**ことを `evidence` に書く
+- **`pnpm lint:validate-config` が通る**（`config OK: 3 設定ユニット, 5 apps` 相当）。出力を `evidence` に書く
+- `config.yaml` の `projectId` が `chart.yaml` の `apps[]` に無いときに設定エラーになるテストがある
+- `chart.yaml` にだけ書かれたappがエラーにならないテストがある
+- `git diff` で `projectId` / `projectName` / `branchToSync` / `valuesPath` / `anchor` の値が変わっていない
+- コード・ドキュメントにタスク番号が入っていない
+
+## 注意
+
+- **`sources.yaml` は作らない。** 前段タスクで一度その案を採ったが、ファイル数が増えて管理が重くなるため2ファイル構成に改めた経緯がある
+- **実GitLabへの書き込みはしない。** ローカルのファイル操作とテスト実行のみ
+- **`projectId`・`projectName`・`valuesPath`・`anchor` の値を変更しない。** GitLab上の実物に合わせてある値で、変えると `pnpm lint:validate-config:remote` と実機スモークテストが壊れる
+- `config/` は本番の定期実行が読む実設定でもある。**ファイルを減らすのでCIの `validate-config-remote` ジョブの対象も変わる**。`.gitlab-ci.yml` と `scripts/lint/` が `anchors.yaml` を前提にしていないか確認する
+- `docs/history/` 配下は変更しない
+- `/loop /next-task` に載せてよい
+
+**dependencies**: T-153
+
+**difficulty**: sonnet
+
+**evidence**: anchors.yaml を config.yaml へ統合して廃止し、tagFormat を chart.yaml の apps[] へ移した。実測: find config -name '\*.yaml' が 7→4件、grep tagFormat config/ が chart.yaml の2件のみ（移行前は config.yaml 3ファイルに5件）、grep anchors.yaml が src/・test/・config/ で0件（docs 側に残る3件は「以前は3ファイルだった」経緯の記述で意図的）。pnpm check 通過（32ファイル359テスト。着手前357から増加）、pnpm lint:validate-config が config OK: 3 設定ユニット, 5 apps。受け入れ時にメインで追加確認: steps/ の try 0件・新規 as キャスト0件・?: 記法0件・タスク番号0件、追加された3つの export（ChartApp/ChartYamlSchema/ConfigYamlSchema）はいずれも他ファイルから利用ありで規約適合。委譲先の報告どおり docs/architecture.md に前段タスクの更新漏れがあったため、受け入れ時にメインが修正: 旧「3ファイル分割」節を削除、節の索引2行（削除1・旧見出し名1）、各ファイルの責務表2行、走査の節1箇所、型の置き場所の Anchors/AnchorsApp→ChartApp を3箇所。索引36件が全て実在見出しに前方一致することを再検証済み。

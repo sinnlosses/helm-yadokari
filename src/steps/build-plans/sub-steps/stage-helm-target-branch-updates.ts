@@ -43,7 +43,7 @@ async function stageHelmTargetBranchUpdate(
   target: AnchorTarget,
 ): Promise<StageHelmTargetBranchUpdatesAcc> {
   const { branchName } = helmTargetBranch
-  const { content: valuesYamlContent, draft } = await readValuesYamlDraft(
+  const { valuesYamlContent, draft } = await readValuesYamlDraft(
     source,
     acc.draft,
     target.valuesPath,

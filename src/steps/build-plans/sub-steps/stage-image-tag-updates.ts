@@ -90,7 +90,7 @@ async function stageImageTagUpdate(
   target: AnchorTarget,
 ): Promise<StageAppImageTagUpdatesAcc> {
   const latestTagName = latestTag.name
-  const { content: valuesYamlContent, draft } = await readValuesYamlDraft(
+  const { valuesYamlContent, draft } = await readValuesYamlDraft(
     source,
     acc.draft,
     target.valuesPath,

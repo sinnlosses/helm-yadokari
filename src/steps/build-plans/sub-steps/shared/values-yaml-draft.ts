@@ -5,7 +5,7 @@ import type { ChartRepoConfig, FileUpdate, ValuesPath } from "../../../../types/
  * 1つのvaluesPathについての下書き状態。`modified`が指すのはこのchartAndAppsの処理中に
  * 書き換えたかどうかで、GitLabから読んだだけのエントリは`false`のまま。
  */
-export type ValuesYamlEntry = {
+type ValuesYamlEntry = {
   readonly content: string
   readonly modified: boolean
 }
@@ -20,12 +20,6 @@ export type ValuesYamlDraft = ReadonlyMap<ValuesPath, ValuesYamlEntry>
 export type ValuesYamlSource = {
   readonly gitlabCache: GitlabBatchCache
   readonly chart: ChartRepoConfig
-}
-
-/** `readValuesYamlDraft()`の結果。読み込んだ内容と、その内容を載せた下書き */
-export type DraftValuesYaml = {
-  readonly content: string
-  readonly draft: ValuesYamlDraft
 }
 
 /**
@@ -43,20 +37,23 @@ export async function readValuesYamlDraft(
   source: ValuesYamlSource,
   draft: ValuesYamlDraft,
   valuesPath: ValuesPath,
-): Promise<DraftValuesYaml> {
+): Promise<{ readonly valuesYamlContent: string; readonly draft: ValuesYamlDraft }> {
   const cached = draft.get(valuesPath)
-  if (cached !== undefined) return { content: cached.content, draft }
+  if (cached !== undefined) return { valuesYamlContent: cached.content, draft }
 
   const { gitlabCache, chart } = source
-  const content = await gitlabCache.getFileContent(
+  const valuesYamlContent = await gitlabCache.getFileContent(
     chart.projectId,
     valuesPath,
     chart.mrTargetBranch,
   )
-  if (content === undefined) {
+  if (valuesYamlContent === undefined) {
     throw new Error(`values.yaml が見つかりません: ${valuesPath}`)
   }
-  return { content, draft: cacheValuesYamlDraft(draft, valuesPath, content) }
+  return {
+    valuesYamlContent,
+    draft: cacheValuesYamlDraft(draft, valuesPath, valuesYamlContent),
+  }
 }
 
 /** 書き換え後の内容を積んだ新しい下書きを返す（引数の下書きは変更しない） */
