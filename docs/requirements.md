@@ -202,8 +202,8 @@ Helm chart でバージョン管理されているアプリケーションのバ
 
 管理対象の情報は、CLIリポジトリ側の `config/` ディレクトリで一元管理する
 （chartリポジトリ側に設定を持たせる自己申告方式は採用しない）。CLIは `config/` 配下を
-再帰的に走査し、見つけた全ての `config.yaml`（とその直近の親をたどって見つかる`chart.yaml`と
-`sources.yaml`、同じディレクトリの`anchors.yaml`）を処理対象とする。`config.yaml` を見つけたディレクトリが
+再帰的に走査し、見つけた全ての `config.yaml`（とその直近の親をたどって見つかる`chart.yaml`）を
+処理対象とする。`config.yaml` を見つけたディレクトリが
 1つの**設定ユニット**で、そこより深い階層へは降りない（後述のとおり設定ユニットの入れ子は
 禁止しており、降りた先に `config.yaml` があれば設定エラーとして検出する）。
 
@@ -212,35 +212,37 @@ Helm chart でバージョン管理されているアプリケーションのバ
 ```
 config/
   <chartリポジトリ名>/            # 例: teamA-chart（ディレクトリ名は人間向けのラベル）
-    chart.yaml                     # そのchartリポジトリ共通の情報
-    sources.yaml                   # ソースリポジトリの台帳（タグ形式など、リポジトリ単位の性質）
+    chart.yaml                     # chartリポジトリの情報＋ソースリポジトリの台帳
     <unitPath>/                    # 深さ1の設定ユニット
-      config.yaml                  # 運用値（どのプロジェクトのどのブランチを追跡するか等）
-      anchors.yaml                 # chart構造（values.yaml内のどこに書き込むか）
+      config.yaml                  # その設定ユニットの全て
     <unitPathの第1セグメント>/     # 深さ2の設定ユニット
       <unitPathの第2セグメント>/
         config.yaml
-        anchors.yaml
 ```
 
-**ファイルを分ける軸は「変更頻度」**とする。よく変更する値と滅多に変更しない値を同じ
-ファイルに置くと、頻繁なMRのたびに変わらないはずの記述まで差分に現れるため。
+**ファイルを分ける軸は「スコープ」**とする。値が何の単位で決まるかでファイルを決め、
+それ以上は分けない。
 
-| ファイル       | 変更頻度         | 持つもの                                                       | スコープ        |
-| -------------- | ---------------- | -------------------------------------------------------------- | --------------- |
-| `config.yaml`  | よく変更する     | どのプロジェクトのどのブランチを追跡するか                     | 設定ユニット    |
-| `anchors.yaml` | 滅多に変更しない | `values.yaml`のどこ（`valuesPath`+YAMLアンカー名）に書き込むか | 設定ユニット    |
-| `sources.yaml` | 滅多に変更しない | ソースリポジトリのタグ形式（`tagFormat`）                      | chartリポジトリ |
+| ファイル      | スコープ        | 持つもの                                                                        |
+| ------------- | --------------- | ------------------------------------------------------------------------------- |
+| `chart.yaml`  | chartリポジトリ | MRの作成先（`chart`）と、ソースリポジトリのタグ形式の台帳（`apps[].tagFormat`） |
+| `config.yaml` | 設定ユニット    | どのブランチを追跡し、`values.yaml`のどこへ書き込むか                           |
 
-`config.yaml`と`anchors.yaml`は`projectId`で対応付け、`anchors.yaml`側にも同じ
-`projectId`/`projectName`を重複して書くことで、`anchors.yaml`単体を見ても「どのappの
-設定か」が分かるようにしている。
+**変更頻度で更に分けることはしない。** かつては「よく変更する運用値」と「滅多に変更しない
+chart構造」を別ファイル（`config.yaml` と `anchors.yaml`）にしていたが、次の理由でやめた。
 
-`sources.yaml`を設定ユニットではなく**chartリポジトリ単位**に置くのは、`tagFormat`が
-ソースリポジトリ側の性質で、設定ユニットごとに変わる値ではないため。設定ユニット側に
-置くと、同じソースリポジトリを複数の設定ユニットが追跡する構成で同じ値を何度も書くことに
-なる。`projectName`は`sources.yaml`が正典だが、`config.yaml`/`anchors.yaml`にも重複して
-書く（各ファイル単体で「どのappか」が読めることを優先する。食い違いは設定エラーで防ぐ）。
+- **appの追加・削除ではどちらのファイルも触る。** 最も多い編集で手数が減らず、`projectId`と
+  `projectName`を両方のファイルに重複して書く手間だけが残っていた
+- **編集者が分かれていない。** 各チームがこの`config/`へMRを送るセルフサービス方式なので、
+  「別の担当者が別のファイルを触る」という分割理由が無い
+- **本当によく変わるのは`branchToSync`だけ**で、1つの設定ユニットのファイルは十数行に収まる。
+  分けなくても見通せる
+
+`tagFormat`をchartリポジトリ単位の`chart.yaml`に置くのは、タグ形式が**ソースリポジトリ側の
+性質**で、設定ユニットごとに変わる値ではないため。設定ユニット側に置くと、同じソース
+リポジトリを複数の設定ユニットが追跡する構成で同じ値を何度も書くことになる。`projectName`は
+`chart.yaml`が正典だが、`config.yaml`にも重複して書く（設定ユニットのファイル単体で
+「どのappか」が読めることを優先する。食い違いは設定エラーで防ぐ）。
 
 `chart.yaml`:
 
@@ -249,13 +251,8 @@ chart:
   projectId: 888 # values.yamlを更新するGitLabプロジェクトID
   projectName: teamA-chart
   mrTargetBranch: develop # MR作成先のベースブランチ
-```
-
-`sources.yaml`（`chart.yaml`と同じディレクトリ＝chartリポジトリ単位に置く）:
-
-```yaml
-apps:
-  - projectId: 1 # タグを取得するGitLabプロジェクトID（ソースリポジトリ）
+apps: # このchartリポジトリ配下の設定ユニットが追跡するソースリポジトリの台帳
+  - projectId: 1 # タグを取得するGitLabプロジェクトID（chart.projectIdとは別物）
     projectName: my-app
     tagFormat: "{branch}-build-at-{date}-{time}" # ソースリポジトリのタグ形式（必須）
   - projectId: 2
@@ -263,27 +260,22 @@ apps:
     tagFormat: "{date}-{time}-{branch}"
 ```
 
-`config.yaml`:
+`config.yaml`（このファイルがあるディレクトリが1つの設定ユニット）:
 
 ```yaml
 apps:
-  - projectId: 1 # sources.yaml と一致させる（chart.yamlのprojectIdとは別物）
-    projectName: my-app # sources.yaml と一致させる
+  - projectId: 1 # chart.yaml の apps[] と一致させる
+    projectName: my-app # chart.yaml の apps[] と一致させる
     branchToSync: main # 追跡するブランチ（設定ユニットごとに違ってよい）
-  - projectId: 2
-    projectName: another-app
-    branchToSync: main
-```
-
-`anchors.yaml`（`config.yaml`と同じディレクトリ＝同じ設定ユニットに置く）:
-
-```yaml
-apps:
-  - projectId: 1 # config.yaml と一致させる
-    projectName: my-app # config.yaml と一致させる
     chart:
       - valuesPath: charts/my-app/values.yaml
         anchor: myAppVersion # values.yaml内のYAMLアンカー名
+  - projectId: 2
+    projectName: another-app
+    branchToSync: main
+    chart:
+      - valuesPath: charts/another-app/values.yaml
+        anchor: anotherAppVersion
 ```
 
 - `apps[].chart[].anchor` は、`values.yaml`内のイメージタグの位置をYAMLアンカー名で
@@ -297,9 +289,10 @@ apps:
   ケースでは、`chart`に複数要素を指定することで、同じ最新タグを複数箇所へまとめて反映できる
 
   ```yaml
-  # anchors.yaml
+  # config.yaml
   apps:
     - projectId: 890
+      branchToSync: main
       projectName: multi-service-app
       chart:
         - valuesPath: charts/multi-service-app/values.yaml
@@ -310,25 +303,22 @@ apps:
           anchor: multiServiceAppDaemonVersion
   ```
 
-- `config.yaml`の各appに対応する`projectId`が`anchors.yaml`に見つからない場合、
-  逆に`anchors.yaml`に`config.yaml`側に存在しないappが定義されている場合（孤児設定）、
-  同じ`projectId`なのに`projectName`が食い違っている場合は、いずれも設定エラーになる
-  （`config.yaml`と`anchors.yaml`の紐づけを検証する仕組みが働く）
-- `config.yaml`の各appに対応する`projectId`が、同じchartリポジトリの`sources.yaml`に
-  見つからない場合も設定エラーになる。`tagFormat`が引けないため最新タグを判定できない。
-  `sources.yaml`側にだけ書かれていてどの設定ユニットからも参照されていないappは、
+- `config.yaml`の各appに対応する`projectId`が、同じchartリポジトリの`chart.yaml`の`apps[]`に
+  見つからない場合は設定エラーになる。`tagFormat`が引けないため最新タグを判定できない。
+  同じ`projectId`なのに`projectName`が食い違っている場合も設定エラーになる
+- `chart.yaml`の`apps[]`にだけ書かれていて、どの設定ユニットからも参照されていないappは
   **エラーにしない**（そのchartリポジトリで一時的に更新対象から外している状態を許すため）
 - 同じ`projectId`のappが1つのファイル内に複数書かれている場合も設定エラーになる。
   CLIは`projectId`をキーに2ファイルを突き合わせるため、重複していると片方が黙って無視され、
   同じ書き込み先へ別々のタグを順に書いて最後の値だけが残る
-- `sources.yaml`の`apps[].tagFormat` はそのアプリ（ソースリポジトリ）のタグ形式を表す
+- `chart.yaml`の`apps[].tagFormat` はそのアプリ（ソースリポジトリ）のタグ形式を表す
   テンプレート文字列で、**必須**（判定・生成の仕様は4.1節が正典）。省略した場合、
   `{branch}`/`{date}`/`{time}` のいずれかを含まない場合、同じプレースホルダを2回以上含む
   場合、未知のプレースホルダを含む場合はいずれも設定エラーになる
-- 同じ`projectId`のappが**複数のchartリポジトリ**の`sources.yaml`に登録されていて、
+- 同じ`projectId`のappが**複数のchartリポジトリ**の`chart.yaml`に登録されていて、
   `tagFormat` が食い違っている場合は設定エラーになる。タグ形式はソースリポジトリ側の性質で
   あって登録先ごとに変わる値ではなく、食い違ったまま実行すると同じアプリの最新タグが実行ごとに
-  違う形式で決まってしまうため。`sources.yaml`をchartリポジトリ単位にしたことで、同じchart
+  違う形式で決まってしまうため。台帳をchartリポジトリ単位にしたことで、同じchart
   リポジトリ配下の設定ユニット間では食い違いようが無くなり、この検証が働くのはchartリポジトリ
   をまたぐ場合だけになった（`branchToSync` は設定ユニットごとに違ってよい。こちらは
   「どのブランチを追うか」という設定ユニット側の判断のため）
@@ -367,14 +357,9 @@ apps:
 ```
 
 ```yaml
-# anchors.yaml トップレベル（chart構造。config.yaml の helm.branchToSync の値をどこに書くか）
-apps:
-  - projectId: 1
-    projectName: my-app
-    chart:
-      - valuesPath: charts/my-app/values.yaml
-        anchor: myAppVersion
+# config.yaml トップレベル（helm.branchToSync の値をどこに書くか）
 helm:
+  branchToSync: release/2026-q1
   chart:
     # helm.branchToSyncの値をこのvaluesPath内のこのアンカーに書き込む
     - valuesPath: charts/my-app/values.yaml
@@ -384,7 +369,7 @@ helm:
 - `config.yaml`の`helm.branchToSync`はchartリポジトリ内の別ブランチ（chart.yamlの`projectId`と
   同一プロジェクト）を指す、設定ユニット単位に1件の値。人間が自己申告方式で直接書き換える
   運用とし、タグ形式のような自動生成・自動判定の仕組みは持たない
-- `anchors.yaml`の`helm.chart[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、
+- `helm.chart[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、
   `apps[].chart[]`とは独立したリスト。どのappに紐づくかは`valuesPath`の一致だけで決まる
   （app側に専用フィールドは持たせない）。1つのappが複数の`valuesPath`を持つ場合、それぞれに
   対応する`helm.chart[]`の要素があれば複数箇所へまとめて反映できる

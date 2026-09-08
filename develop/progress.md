@@ -400,8 +400,15 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
   - `projectName` は `sources.yaml` を正典としつつ各ファイルにも残す（単体で読めることを優先）
   - `validateTagFormatConsistency()` は残す（chartリポジトリをまたぐ食い違いの検出に役割が変わる）
   - 実データの裏取り: ソースリポジトリ2件が3設定ユニットに5エントリ、`tagFormat` は5箇所とも同値
-- **T-154（決まった形へ移行、`sonnet`、T-153依存）**。**本文を新しい形に差し替え済み**
-  （改名ではなく `sources.yaml` の新設＋`config.yaml` から `tagFormat` を削る内容）。
+- ~~**T-155（`config/` を2ファイル構成に改める、`opus`、T-153依存）**~~ **完了**。
+  T-153 の `sources.yaml` 案は**ファイル数を7→8、app追加時に触る数を2→3、`projectId`/`projectName`
+  の重複を10→12組に増やしていた**（`tagFormat` の重複5→2だけが改善）。実測して比較し、
+  **`chart.yaml` + `config.yaml` の2ファイル構成**に改めた（4ファイル・触る数2・重複7組で、
+  **全指標が移行前より良い唯一の案**）。`anchors.yaml` は `config.yaml` に統合して廃止、
+  `sources.yaml` は作らない。分割の軸は「変更頻度」→**「スコープ」**（chartリポジトリ単位 /
+  設定ユニット単位）に変更。変更頻度で分けない理由3点は `docs/architecture.md` が正典。
+- **T-154（決まった形へ移行、`sonnet`、T-153依存）**。**本文を2ファイル構成へ差し替え済み**
+  （`anchors.yaml` を `config.yaml` へ統合して廃止＋`tagFormat` を `chart.yaml` へ）。
   `projectId`・`projectName`・`branchToSync`・`valuesPath`・`anchor` の値は変更しない
   （GitLab上の実物に合わせてあるため）。`/loop` 可。
 - **T-151（`StepOutcome` の settled が SKIPPED と ERROR を混ぜている点を解く、`opus`、依存なし）**。
