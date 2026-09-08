@@ -34,7 +34,7 @@ export async function buildPlans(
 
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
     withHandling(chartAndApps, (logContext) =>
-      buildPlan(gitlab, gitlabCache, chartAndApps, dryRun, resolveLatestTags, logContext),
+      buildPlan(gitlabCache, resolveLatestTags, chartAndApps, dryRun, logContext),
     ),
   )
 
@@ -56,11 +56,10 @@ export async function buildPlans(
  * 振り分ける。
  */
 async function buildPlan(
-  gitlab: GitlabClient,
   gitlabCache: GitlabBatchCache,
+  resolveLatestTags: ResolveLatestTags,
   chartAndApps: ChartAndApps,
   dryRun: boolean,
-  resolveLatestTags: ResolveLatestTags,
   logContext: Record<string, unknown>,
 ): Promise<StepOutcome<ChartUpdateTarget>> {
   const valuesYamlSource: ValuesYamlSource = { gitlabCache, chart: chartAndApps.chart }
