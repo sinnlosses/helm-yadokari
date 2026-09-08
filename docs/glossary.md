@@ -13,7 +13,7 @@
 ### アプリ
 
 - **英語識別子**: `AppConfig` / `app`
-- **定義**: Helm chartでデプロイされる1つのアプリケーション単位。`config/<chart>/<tenantId>/<clientId>/config.yaml`の1エントリ（運用値）と、同じディレクトリの`anchors.yaml`の対応するエントリ（chart構造）を`projectId`で結合したもの。
+- **定義**: Helm chartでデプロイされる1つのアプリケーション単位。`config/<chart>/<unitPath>/config.yaml`の1エントリ（運用値）と、同じディレクトリの`anchors.yaml`の対応するエントリ（chart構造）を`projectId`で結合したもの。
 
 ### ソースリポジトリ
 
@@ -26,22 +26,24 @@
 - **定義**: 1つの`chart.yaml`（Helm chartを管理するGitLabプロジェクトの情報）と、そのプロジェクト配下で管理する全アプリ（`config.yaml`群）をまとめた集約単位。「chartリポジトリ」はこの集約が指すGitLabプロジェクトそのものを指し、「chartAndApps」は範囲がそれより広い（chartリポジトリの情報＋配下の全アプリ設定を束ねたもの）。並列処理やエラーハンドリングの粒度を説明する文脈（「chartリポジトリ間/chartAndApps内」等）ではこの範囲の違いが意味を持つ。
 - **表記ゆれ（解消済み）**: 型名は元々「グループ」という語よりも中身（chart設定＋アプリ設定の集約）を表すよう`ChartAndApps`に改名されていたが、日本語の業務用語としては改名後も「chartグループ」という言葉が`CLAUDE.md`・コードコメント・ドキュメント全般で使われ続けており、型名との乖離があった。ユーザー指摘（「chartグループという単語はなくしてもらいたい。chartAndAppsになったし」）を受けて、日本語プロース上でも型名をそのまま`chartAndApps`と表記する方式に統一し、「chartグループ」という言い方は撤廃した。旧称への言及は`tasks.json`/`progress.md`の過去のエントリにのみ、当時の記録として残っている。
 
-### テナント / クライアント
+### 設定ユニット
 
-- **英語識別子**: `tenantId` / `clientId`（`TenantId`/`ClientId`ブランド型、`ChartAndApps`のフィールド）
-- **定義**: 同一chartリポジトリ配下でアプリ設定をさらに分割管理する単位。`config/<chart>/<tenantId>/<clientId>/config.yaml`というディレクトリ階層で表現される。MRを作成する単位でもある。
-- **表記ゆれ（解消済み）**: 当初`AppConfig`/`ChartAndApps`型にはtenantId/clientIdに対応するフィールドが存在せず、ディレクトリを走査してファイルを見つけるためだけに使われるディレクトリ名（永続化されないもの）だった。MRの粒度をtenantId/clientId単位に変更したのに伴い、`ChartAndApps.tenantId`/`ChartAndApps.clientId`として`TenantId`/`ClientId`ブランド型で保持するようになった。
+- **英語識別子**: `unitPath`（`ConfigUnitPath`ブランド型、`ChartAndApps`のフィールド）
+- **定義**: 同一chartリポジトリ配下でアプリ設定を分割管理する単位。`config.yaml`を1つ持つディレクトリがそのまま1つの設定ユニットで、`unitPath`は`config/<chart>/`からそのディレクトリまでの相対パス（`central`のような深さ1、`tenant1/client1`のような深さ2のいずれか。深さ0と深さ3以上は設定エラー）。MRを作成する単位でもあり、固定ブランチ名`feature/yadokari/<unitPath>`の可変部にもなる。
+- **`chartAndApps`との範囲の違い**: `ChartAndApps`は「1つの設定ユニット」の集約そのもの（`chart.yaml`の情報＋その設定ユニット配下の全アプリ設定）を指す型で、`unitPath`はその集約が`config/`のどこに置かれているかを表す1フィールド。「chartリポジトリ」は1つ上の粒度で、1つのchartリポジトリに複数の`ChartAndApps`（＝複数の設定ユニット）がぶら下がりうる。
+- **入れ子の禁止**: `config.yaml`を持つディレクトリの配下にさらに`config.yaml`があると設定エラーになる。Gitのrefは directory/file conflict を起こすため、`feature/yadokari/a`と`feature/yadokari/a/b`は同一リポジトリに共存できない。逆にプレフィックス関係でなければ衝突しないので、深さ1と深さ2の設定ユニットは同じchartリポジトリ配下に混在できる。
+- **表記ゆれ（解消済み）**: 当初はこの単位を「テナント / クライアント」と呼び、ディレクトリ階層も`<chart>/<tenantId>/<clientId>/`の2階層固定だった（`ChartAndApps`は`TenantId`/`ClientId`ブランド型のフィールドを2つ持ち、環境変数は`TARGET_CLIENTS`だった）。「テナント分けが不要なchartでもダミーのtenantId/clientIdを作らされる」というユーザー指摘を受けて深さ1〜2を許す仕様に変え、語彙も階層数を含意しない「設定ユニット」/`unitPath`へ一本化した。旧称は後方互換のために残さず廃止しており、`docs/requirements-grilling.md`と`tasks.json`/`progress.md`の過去のエントリにのみ当時の記録として残っている。
 
 ### config.yaml / anchors.yaml
 
 - **英語識別子**: なし（ファイル名そのもの）
-- **定義**: `<tenantId>/<clientId>`ディレクトリに置く2つの設定ファイル。`config.yaml`は
+- **定義**: 1つの設定ユニットのディレクトリに置く2つの設定ファイル。`config.yaml`は
   「どのプロジェクトのどのブランチを追跡するか」という運用値（`projectId`/`projectName`/
   `branchToSync`、Helmの向き先ブランチの値`helm.branchToSync`。頻繁に変更される）のみを持ち、
   `anchors.yaml`は「`values.yaml`のどこに書き込むか」というchart構造（`apps[].chart[]`、
   `helm.chart[]`。滅多に変更されない）のみを持つ。両者は`projectId`で対応付ける。
   `anchors.yaml`側の各appは`projectId`に加えて`projectName`も重複して持ち、
-  `loadClientChartAndApps()`内の`validateProjectLinkage()`が両ファイル間の紐づけ（`config.yaml`の各appに
+  `ChartAndApps`（1設定ユニット分の集約）の読み込み時に`validateProjectLinkage()`が両ファイル間の紐づけ（`config.yaml`の各appに
   対応するエントリが`anchors.yaml`にあるか、逆に`anchors.yaml`に孤児エントリが
   無いか、`projectName`が食い違っていないか）を検証する。
 - **経緯**: 元々は`config.yaml`（当時は`apps.yaml`）自身が`apps[].chart[]`・`helm.chart[]`と
@@ -78,10 +80,10 @@
 ### Helmの向き先ブランチ
 
 - **英語識別子**: `helm.branchToSync`（config.yamlのフィールド名）/
-  `ChartAndApps.helmTargetBranch: HelmTargetBranchConfig`（client単位で持つコード上の型）
+  `ChartAndApps.helmTargetBranch: HelmTargetBranchConfig`（設定ユニット単位で持つコード上の型）
 - **定義**: Helm chartは(1)`values.yaml`等のパラメータを定義するブランチ（既存の`mrTargetBranch`に相当）と、
   (2)そのパラメータを受け取ってk8sリソースを実際に構築するブランチの2種類で構成される、という前提のもと、
-  後者を指すブランチ名。タグではなくブランチ名そのもので指定する。1つのtenantId/clientId内のapps全体で
+  後者を指すブランチ名。タグではなくブランチ名そのもので指定する。1つの設定ユニット内のapps全体で
   共通の1つの値であり、`config.yaml`のトップレベルフィールド`helm`（`apps:`配列と同階層、
   `branchToSync`を持つ1件のオブジェクト。運用値のためconfig.yaml側に置く。`anchors.yaml`
   側の`helm`も同じくオブジェクト形式で、両者とも配列表記は使わない）として人間が直接
@@ -100,11 +102,11 @@
   ためconfig.yamlではなくanchors.yaml側に置く）。`apps[].chart[].anchor`と
   同様にYAMLアンカー名で位置を指定するが、書き込む値がタグではなくブランチ名である点が
   異なる。`apps[].chart[]`とは独立したリストで、app側に専用フィールドは持たせない。
-  向き先ブランチはclient内のapps全体で共通なので、コード上もapp単位に振り分けず
-  client単位（`ChartAndApps`）で1つ持ち、書き込みもappのループの外で1回だけ行う。
+  向き先ブランチは設定ユニット内のapps全体で共通なので、コード上もapp単位に振り分けず
+  設定ユニット単位（`ChartAndApps`）で1つ持ち、書き込みもappのループの外で1回だけ行う。
 - **制約**: config.yamlに`helm.branchToSync`が指定されている場合、そのconfig.yaml配下の全アプリの全
   `chart[].valuesPath`が`anchors.yaml`の`helm.chart[]`でカバーされている必要がある
-  （Helmの向き先ブランチは「1client内のapps全体で共通」という前提のため、1つでもvaluesPathが
+  （Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提のため、1つでもvaluesPathが
   漏れていると設定エラーになる）。`helm.branchToSync`と`helm.chart[]`は片方だけの指定も
   設定エラー。過去には`apps[].chart[].helmBranchAnchor`というapp単位の任意フィールドだったが、
   ユーザー指示によりトップレベルの独立リストへ再設計され、さらに`apps.yaml`から
@@ -189,9 +191,9 @@
 
 ### 固定ブランチ
 
-- **英語識別子**: `buildFeatureBranch(tenantId, clientId)`（値は`feature/yadokari/<tenantId>/<clientId>`）
-- **定義**: 1つのchartAndApps（`(chartリポジトリ, tenantId, clientId)`単位）でMRを送るために使い回す固定ブランチ名。tenantId/clientIdごとに異なる値になる。
-- **補足**: 要件定義の検討初期段階では`yadokari/<アプリ名>`というアプリ単位のブランチ名案だったが、議論の末に「chartリポジトリ単位で固定（`yadokari/update`）」に変更され、さらに「`(chartリポジトリ, tenantId, clientId)`単位」に変更された（同じchartリポジトリに複数のtenantId/clientIdが乗る場合、クライアントごとに独立したブランチ・MRになる）。以前は`UPDATE_BRANCH`という固定値のエクスポートだったが、tenantId/clientIdごとに値が変わるようになったため関数に変わった。
+- **英語識別子**: `buildFeatureBranch(unitPath)`（値は`feature/yadokari/<unitPath>`）
+- **定義**: 1つのchartAndApps（`(chartリポジトリ, 設定ユニット)`単位）でMRを送るために使い回す固定ブランチ名。設定ユニットごとに異なる値になる。`unitPath`の`/`はそのままブランチ名の階層になるため、深さ2の設定ユニットでは`feature/yadokari/tenant1/client1`のように3階層のブランチ名になる。
+- **補足**: 要件定義の検討初期段階では`yadokari/<アプリ名>`というアプリ単位のブランチ名案だったが、議論の末に「chartリポジトリ単位で固定（`yadokari/update`）」に変更され、さらに「`(chartリポジトリ, 設定ユニット)`単位」に変更された（同じchartリポジトリに複数の設定ユニットが乗る場合、設定ユニットごとに独立したブランチ・MRになる）。以前は`UPDATE_BRANCH`という固定値のエクスポートだったが、設定ユニットごとに値が変わるようになったため関数に変わった。設定ユニットの入れ子を禁止しているのは、この命名だとブランチ名がプレフィックス関係になりGitのrefが共存できなくなるため。
 - **バグ修正**: 要件定義には元々「マージまたはクローズされた後の実行で、改めて固定ブランチを作り直しMRを作成する」と明記されていたが、実装（`commitFileUpdates()`）はブランチが存在する場合は削除せず追加コミットを積むだけだった。`filterTargets`が「このブランチにオープン中のMRが無い」ことを確認済みという前提を活かし、ブランチが存在すれば`deleteBranch()`で無条件に削除してから作り直すよう修正した。
 
 ### mrTargetBranch
