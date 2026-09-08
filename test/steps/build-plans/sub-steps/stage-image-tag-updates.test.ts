@@ -2,13 +2,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../../src/lib/gitlab/gitlab.js")
 vi.mock("../../../../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), error: vi.fn() },
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-import { getFileContent } from "../../../../src/lib/gitlab/gitlab.js"
+import { createTag, getFileContent, listTags } from "../../../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
-import { toAnchorName, toValuesPath } from "../../../../src/types/types.js"
 import {
+  toAnchorName,
+  toCommitSha,
+  toProjectId,
+  toProjectName,
+  toTagName,
+  toValuesPath,
+} from "../../../../src/types/types.js"
+import {
+  HEAD_SHA,
   NEW_TAG,
   OLD_TAG,
   makeApp,
@@ -138,4 +146,40 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       expect(toApply[0]?.plans[0]?.updates[0]?.previousTagName).toBe(OLD_TAG)
     },
   )
+
+  it("最新タグが決まらないappは書き換えを積まず、同じ設定ユニットの他のappの更新は続く", async () => {
+    // semverモードのappは追跡ブランチのHEADにタグが無いので最新タグが決まらない。
+    // それでも同じ設定ユニットのtemplateモードのappは通常どおり更新する
+    const semverApp = makeApp({
+      projectId: toProjectId(2),
+      projectName: toProjectName("semver-app"),
+      tagNaming: { mode: "semver" },
+      imageTagTargets: [
+        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("semverAppVersion") },
+      ],
+    })
+    vi.mocked(listTags).mockImplementation(async (_client, projectId) =>
+      projectId === 1
+        ? [{ name: NEW_TAG, commitSha: HEAD_SHA }]
+        : [{ name: toTagName("v1.0.0"), commitSha: toCommitSha("older-sha") }],
+    )
+    vi.mocked(getFileContent).mockResolvedValue(
+      `variables:\n  - &appVersion ${OLD_TAG}\n  - &semverAppVersion v1.0.0\n`,
+    )
+
+    const { toApply, settled } = await buildPlans(
+      mockGitlab,
+      newBatchCache(),
+      [makeChartAndApps([semverApp, makeApp()])],
+      3,
+      false,
+    )
+
+    expect(createTag).not.toHaveBeenCalled()
+    expect(settled).toEqual([])
+    expect(toApply[0]?.plans).toHaveLength(1)
+    expect(toApply[0]?.plans[0]?.app.projectName).toBe("my-app")
+    expect(toApply[0]?.files[0]?.content).toContain(`&appVersion ${NEW_TAG}`)
+    expect(toApply[0]?.files[0]?.content).toContain("&semverAppVersion v1.0.0")
+  })
 })

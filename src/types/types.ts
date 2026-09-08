@@ -20,14 +20,13 @@ export type AnchorTarget = {
 }
 
 /**
- * タグ命名規則。`mode`を判別子にする判別共用体（現時点では`template`のみ実装。`semver`は後続タスク）。
- * ソースリポジトリ単位（`AppConfig`）の性質であり、設定ユニット単位・chartリポジトリ単位ではない
- * （仕様は`docs/requirements.md` 4.1節・4.4節が正典）。
+ * タグ命名規則。`mode`を判別子にする判別共用体。ソースリポジトリ単位（`AppConfig`）の性質であり、
+ * 設定ユニット単位・chartリポジトリ単位ではない（仕様は`docs/requirements.md` 4.1節・4.4節が正典）。
+ * `semver`モードはタグ名から追跡ブランチを読み取れないため、追加のフィールドを持たない。
  */
-export type TagNaming = {
-  readonly mode: "template"
-  readonly template: TagFormat
-}
+export type TagNaming =
+  | { readonly mode: "template"; readonly template: TagFormat }
+  | { readonly mode: "semver" }
 
 /**
  * Helmの向き先ブランチを扱うための設定。`branchName`はconfig.yamlの`helm.branchToSync`由来、
@@ -73,11 +72,19 @@ export type Config = {
   readonly chartAndAppsList: readonly ChartAndApps[]
 }
 
-/** タグ名から読み取れる情報。追跡ブランチとビルド日時 */
+/**
+ * タグの順序づけに使う比較値（`docs/glossary.md`「順序キー」）。要素は左から順に比べ、
+ * 数値同士は数値として、文字列同士はASCII順、数値と文字列では数値を小さいものとして扱う
+ * （semverのプレリリース識別子の規則）。組み立ても比較も`domain/tag-format.ts`に閉じ込めて
+ * あり、外から要素を読んで比べない。
+ */
+export type TagOrderKey = readonly (number | string)[]
+
+/** タグ名から読み取れる情報。追跡ブランチと、命名規則ごとの順序キー */
 export type ParsedTag = {
   readonly name: TagName
   readonly branchName: BranchName
-  readonly builtAt: Date
+  readonly orderKey: TagOrderKey
 }
 
 /** GitLab上のタグ1件分。名前とそのタグが指すコミットのSHA */

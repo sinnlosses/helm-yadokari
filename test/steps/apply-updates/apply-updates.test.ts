@@ -5,7 +5,7 @@ vi.mock("../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js")
 vi.mock("../../../src/steps/apply-updates/sub-steps/submit-merge-request.js")
 vi.mock("../../../src/domain/feature-branch.js")
 vi.mock("../../../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), error: vi.fn() },
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
 import { buildFeatureBranch } from "../../../src/domain/feature-branch.js"
@@ -35,7 +35,7 @@ const MR_CONTENT = {
 const NEW_TAG = {
   name: toTagName("main-build-at-20260101-000000"),
   branchName: toBranchName("main"),
-  builtAt: new Date("2026-01-01T00:00:00Z"),
+  orderKey: [Date.UTC(2026, 0, 1)],
 }
 
 function makeTarget(): ChartUpdateTarget {

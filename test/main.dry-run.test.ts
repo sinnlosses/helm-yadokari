@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 vi.mock("@gitbeaker/rest")
 vi.mock("../src/lib/config/config.js")
 vi.mock("../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), error: vi.fn() },
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
 import { Gitlab } from "@gitbeaker/rest"

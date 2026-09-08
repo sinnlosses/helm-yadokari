@@ -107,7 +107,7 @@ export function makePlan(
     latestTag: {
       name: toTagName("main-build-at-20260101-000000"),
       branchName: toBranchName("main"),
-      builtAt: new Date("2026-01-01T00:00:00Z"),
+      orderKey: [Date.UTC(2026, 0, 1)],
     },
     updates: overrides.updates ?? [
       {

@@ -1,7 +1,13 @@
 import { isFeatureBranch } from "../../src/domain/feature-branch.js"
-import { DEFAULT_TAG_TEMPLATE, findLatestParsedTag, parseTag } from "../../src/domain/tag-format.js"
+import {
+  DEFAULT_TAG_TEMPLATE,
+  compareTags,
+  findLatestParsedTag,
+  parseTag,
+} from "../../src/domain/tag-format.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
+import type { TagNaming } from "../../src/types/types.js"
 import { toBranchName, toTagName } from "../../src/types/types.js"
 
 // 実機スモークテスト（docs/smoke-test.md）用のフィクスチャ操作スクリプト。
@@ -100,11 +106,12 @@ async function ensureSeedTags(): Promise<void> {
     }
     const branchName = toBranchName(branch)
     // config-test/ 側の sample-qa-sprint / sample-develop-client は tagNaming を省略しており
-    // 既定（DEFAULT_TAG_TEMPLATE）に従うため、ここでも同じ既定値を直接使う
-    const seedTag = parseTag(toTagName(tag), branchName, DEFAULT_TAG_TEMPLATE)
-    const latestTag = findLatestParsedTag(names.map(toTagName), branchName, DEFAULT_TAG_TEMPLATE)
+    // 既定（DEFAULT_TAG_TEMPLATE の template モード）に従うため、ここでも同じ既定値を直接使う
+    const naming: TagNaming = { mode: "template", template: DEFAULT_TAG_TEMPLATE }
+    const seedTag = parseTag(toTagName(tag), branchName, naming)
+    const latestTag = findLatestParsedTag(names.map(toTagName), branchName, naming)
     const hasNewerTag =
-      seedTag !== undefined && latestTag !== undefined && latestTag.builtAt > seedTag.builtAt
+      seedTag !== undefined && latestTag !== undefined && compareTags(latestTag, seedTag) > 0
     if (!hasNewerTag) {
       console.log(
         `  ⚠ project ${sourceProjectId} に ${tag} より新しいタグがありません。` +

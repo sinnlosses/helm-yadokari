@@ -1,10 +1,16 @@
 import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
-import type { AnchorTarget, AppUpdatePlan, ImageTagUpdate } from "../../../types/types.js"
+import type {
+  AnchorTarget,
+  AppUpdatePlan,
+  ImageTagUpdate,
+  ParsedTag,
+  TagName,
+} from "../../../types/types.js"
 import { toTagName } from "../../../types/types.js"
 import { logger } from "../../../utils/logger.js"
 import { reduceAsync } from "../../../utils/sequential.js"
 import { withAppContext } from "../../shared/step-outcome.js"
-import type { AppWithLatestTag, StageUpdatesAcc, LatestTagResolution } from "./shared/types.js"
+import type { AppWithLatestTag, StageUpdatesAcc } from "./shared/types.js"
 import type { ValuesYamlDraft, ValuesYamlSource } from "./shared/values-yaml-draft.js"
 import { readValuesYamlDraft, writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 
@@ -41,15 +47,30 @@ export async function stageImageTagUpdates(
  * 1アプリの`app.imageTagTargets`（1件以上）を先頭から順に`stageImageTagUpdate()`へ渡し、
  * 差分が1件でもあれば`AppUpdatePlan`を1件積む。差分が無ければ理由をログに出し、下書きだけを
  * 引き継ぐ（読み込んだvalues.yamlは次のアプリで使い回せる）。
+ *
+ * 最新タグが決まらなかったアプリ（タグを自動作成しない命名規則で、追跡ブランチのHEADに
+ * タグが1件も無い場合）は書き換えを積まずに次へ進む。見送りの理由は
+ * `resolve-latest-tags.ts`が警告として出しているため、ここは他のスキップと同じ形で記録する。
  */
 async function stageAppImageTagUpdates(
   source: ValuesYamlSource,
   result: StageImageTagUpdatesResult,
   { app, latestTag }: AppWithLatestTag,
 ): Promise<StageImageTagUpdatesResult> {
+  const tag = latestTag.tag
+  if (tag === undefined) {
+    logger.info({
+      event: "check_app",
+      projectName: app.projectName,
+      result: "SKIPPED",
+      reason: "no_latest_tag",
+    })
+    return result
+  }
+
   const initialAcc: StageAppImageTagUpdatesAcc = { draft: result.draft, updates: [] }
   const { draft, updates } = await reduceAsync(app.imageTagTargets, initialAcc, (acc, target) =>
-    stageImageTagUpdate(source, latestTag, acc, target),
+    stageImageTagUpdate(source, tag, latestTag.trackedHeadTagNames, acc, target),
   )
 
   if (updates.length === 0) {
@@ -58,12 +79,12 @@ async function stageAppImageTagUpdates(
       projectName: app.projectName,
       result: "SKIPPED",
       reason: "already_up_to_date",
-      tag: latestTag.tag.name,
+      tag: tag.name,
     })
     return { plans: result.plans, draft }
   }
 
-  const plan: AppUpdatePlan = { app, latestTag: latestTag.tag, updates }
+  const plan: AppUpdatePlan = { app, latestTag: tag, updates }
   return { plans: [...result.plans, plan], draft }
 }
 
@@ -77,11 +98,12 @@ async function stageAppImageTagUpdates(
  */
 async function stageImageTagUpdate(
   source: ValuesYamlSource,
-  latestTag: LatestTagResolution,
+  latestTag: ParsedTag,
+  trackedHeadTagNames: ReadonlySet<TagName>,
   acc: StageAppImageTagUpdatesAcc,
   target: AnchorTarget,
 ): Promise<StageAppImageTagUpdatesAcc> {
-  const latestTagName = latestTag.tag.name
+  const latestTagName = latestTag.name
   const { content: valuesYamlContent, draft } = await readValuesYamlDraft(
     source,
     acc.draft,
@@ -92,7 +114,7 @@ async function stageImageTagUpdate(
   )
 
   if (previousTagName === latestTagName) return { ...acc, draft }
-  if (latestTag.trackedHeadTagNames.has(previousTagName)) {
+  if (trackedHeadTagNames.has(previousTagName)) {
     return { ...acc, draft }
   }
 

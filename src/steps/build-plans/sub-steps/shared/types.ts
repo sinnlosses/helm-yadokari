@@ -22,6 +22,11 @@ export type StageUpdatesAcc<U> = {
  * 1アプリ分の「最新タグの判定結果」。`resolve-latest-tags.ts`が組み立て、イメージタグの
  * 差分判定（`stage-image-tag-updates.ts`）が使う。
  *
+ * `tag`が`undefined`なのは「最新タグが決まらなかった」場合で、タグを自動作成しない命名規則
+ * （`semver`モード、`{time}`を含まないテンプレート）で追跡ブランチのHEADにタグが1件も
+ * 無いときに起きる。そのappはこの実行では更新せず、同じ設定ユニットの他のappは通常どおり
+ * 処理する（chartAndApps全体をERRORにはしない）。
+ *
  * `trackedHeadTagNames`は、「現在の追跡ブランチ由来（＝現在の`branchToSync`と`tagNaming`で
  * パースできる）で、かつ追跡ブランチの現在のHEADコミットを指すタグ名」の集合。values.yamlに
  * 書かれている現在値がこの集合に含まれるなら、たとえより新しい名前のタグが存在しても
@@ -30,7 +35,7 @@ export type StageUpdatesAcc<U> = {
  * HEADと同じコミットを指していてもスキップされない。
  */
 export type LatestTagResolution = {
-  readonly tag: ParsedTag
+  readonly tag: ParsedTag | undefined
   readonly trackedHeadTagNames: ReadonlySet<TagName>
 }
 

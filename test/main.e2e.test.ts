@@ -18,7 +18,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 // 両方が読みにくくなるため、`test/helpers.ts` には寄せずこのファイルに閉じ込める。
 vi.mock("@gitbeaker/rest")
 vi.mock("../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), error: vi.fn() },
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
 import { Gitlab } from "@gitbeaker/rest"

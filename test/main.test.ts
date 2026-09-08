@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 vi.mock("../src/lib/gitlab/gitlab.js")
 vi.mock("../src/lib/config/config.js")
 vi.mock("../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), error: vi.fn() },
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
 import { loadConfig } from "../src/lib/config/config.js"

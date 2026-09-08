@@ -17,6 +17,10 @@ export const logger = {
   info(fields: Record<string, unknown>): void {
     console.log(formatLog("info", fields))
   },
+  /** 実行は継続するが運用者に気づいてほしい事象（例: 最新タグが決まらずappを見送った） */
+  warn(fields: Record<string, unknown>): void {
+    console.warn(formatLog("warn", fields))
+  },
   error(fields: Record<string, unknown>): void {
     console.error(formatLog("error", fields))
   },

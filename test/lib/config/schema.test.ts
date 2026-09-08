@@ -122,11 +122,60 @@ describe("loadConfig（apps[].tagNaming）", () => {
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("サポート外のmode（semver）を指定すると例外をスローする", () => {
+  it("mode: semver は追加フィールド無しでAppConfigまで届く", () => {
     dir.writeChartYaml("teamA-chart", CHART_YAML)
     dir.writeConfigYaml("teamA-chart", "tenant1/client1",
       "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
         "    tagNaming:\n      mode: semver\n",
+    )
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
+
+    const { chartAndAppsList } = loadConfig(dir.path)
+    expect(chartAndAppsList[0]?.apps[0]?.tagNaming).toEqual({ mode: "semver" })
+  })
+
+  it("{time} を含まないテンプレートを受け入れる", () => {
+    dir.writeChartYaml("teamA-chart", CHART_YAML)
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
+        "    tagNaming:\n      mode: template\n      template: '{branch}-{date}'\n",
+    )
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
+
+    const { chartAndAppsList } = loadConfig(dir.path)
+    expect(chartAndAppsList[0]?.apps[0]?.tagNaming).toEqual({
+      mode: "template",
+      template: "{branch}-{date}",
+    })
+  })
+
+  it("templateが{branch}だけのとき例外をスローする", () => {
+    dir.writeChartYaml("teamA-chart", CHART_YAML)
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
+        "    tagNaming:\n      mode: template\n      template: '{branch}'\n",
+    )
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
+
+    expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
+  })
+
+  it("templateが{time}だけのとき例外をスローする", () => {
+    dir.writeChartYaml("teamA-chart", CHART_YAML)
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
+        "    tagNaming:\n      mode: template\n      template: '{time}'\n",
+    )
+    dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
+
+    expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
+  })
+
+  it("templateが{date}だけのとき例外をスローする", () => {
+    dir.writeChartYaml("teamA-chart", CHART_YAML)
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n" +
+        "    tagNaming:\n      mode: template\n      template: '{date}'\n",
     )
     dir.writeAnchorsYaml("teamA-chart", "tenant1/client1", ANCHORS_YAML)
 

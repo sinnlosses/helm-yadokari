@@ -40,9 +40,8 @@ const AnchorTargetSchema = z
   .transform((v): AnchorTarget => ({ valuesPath: v.valuesPath, anchorName: v.anchor }))
 
 /**
- * `apps[].tagNaming`のZodスキーマ。`mode`を判別子にする判別共用体で、現時点では`template`
- * モードのみ実装している（`semver`は後続タスク）。テンプレート文字列そのものの妥当性検証
- * （プレースホルダの過不足）は`validateTagFormat()`に委ねる。
+ * `apps[].tagNaming`のZodスキーマ。`mode`を判別子にする判別共用体。テンプレート文字列
+ * そのものの妥当性検証（プレースホルダの過不足）は`validateTagFormat()`に委ねる。
  */
 const TagNamingTemplateSchema = z.object({
   mode: z.literal("template"),
@@ -62,7 +61,13 @@ const TagNamingTemplateSchema = z.object({
     }),
 })
 
-const TagNamingSchema = z.discriminatedUnion("mode", [TagNamingTemplateSchema])
+/** `semver`モードは追加のフィールドを持たない（プレリリース除外などのオプションは設けない） */
+const TagNamingSemverSchema = z.object({ mode: z.literal("semver") })
+
+const TagNamingSchema = z.discriminatedUnion("mode", [
+  TagNamingTemplateSchema,
+  TagNamingSemverSchema,
+])
 
 /** `apps[].tagNaming`省略時の既定値。`docs/requirements.md` 4.1節・4.4節が正典 */
 const DEFAULT_TAG_NAMING: TagNaming = { mode: "template", template: DEFAULT_TAG_TEMPLATE }
