@@ -1,15 +1,40 @@
 # 現在の状態
 
-最終更新: 2026-09-08（`/plan-tasks` で `develop/direction.md` の4項目を T-123〜T-127 の
-5タスクとして登録し、続けて T-120・T-118・T-119・T-121・T-122・T-123・T-124・T-125・T-127 を完了した。
-そのあと**要件変更の指示**を受けて `/plan-tasks` を再実行し、T-128〜T-131 を登録して**4件とも完了した**。
+最終更新: 2026-09-08（**定期メンテの棚卸し**を実施。コード・テスト・ドキュメントの3軸で
+食い違いと冗長を洗い出し、T-136〜T-142 の7タスクとして登録した。実装はまだ1件も行っていない。
 前回までの流れは下の「完了したこと」を参照）
 
-T-001〜T-125・T-127〜T-131 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
+T-001〜T-125・T-127〜T-135 はすべて完了し、[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)
 へ移した。過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 定期メンテの棚卸し（2026-09-08）
+
+ユーザーの指示は3軸: (1) コードの冗長・誤り・規約違反・分かりにくさ、(2) 不要な／もっと
+シンプルにできるテスト、(3) `architecture.md`・`CLAUDE.md`・`README` 等のメンテ漏れ・冗長。
+`src/`（35ファイル）・`scripts/`・`test/`（36ファイル418テスト）・`docs/`・`README.md`・
+`.gitlab-ci.yml`・`.env.example` を読んで洗い出し、**修正はせずタスク化だけ**を行った
+（T-136〜T-142）。着手前の基準値は `pnpm check` 通過・36ファイル418テスト・oxlint 無警告。
+
+見つかった食い違いの性質は3つに分かれた:
+
+- **廃止済みの語彙の取り残し**（T-136）。「設定ユニット」へ一本化したはずの `client` が
+  `src/` のコメント12箇所・`loadAnchors()` の引数名・`docs/`・`README.md`・`.env.example`・
+  `.gitlab-ci.yml` に残る。`scripts/lint/validate-config.ts` の出力 `N chart groups` は
+  **廃止語彙であるうえに数えているのは設定ユニット数**で、表示として二重に誤っている
+- **正典が指す識別子がコードに無い**（T-141・T-142）。`runPipeline()` は5箇所で使われて
+  いるが実在しない（実体は `run()` / `runProcess()`）。`BuildPlanContext` 型も
+  `formatClientRef`/`parseClientRef` も無い。`README.md` のログ例は
+  `helmTargetBranchUpdates` を app の中に入れているが実装では兄弟フィールド
+- **到達しない分岐・重ねて通しているテスト**（T-137〜T-140）。`resolve-latest-tags.ts` の
+  未到達分岐は `docs/coding-standards.md` の「埋めない穴」に載っているが、
+  `isFatalStatus` の前例に倣えば**テストではなくコード側を畳むべきもの**
+
+`develop/progress.md` の「注意」にあった oxlint の no-shadow 警告2件は、
+`oxlint src scripts test` が exit=0・無警告になっており、関数名 `loadClientChartAndApps` も
+現存しない（`listUnitChartAndApps`）ため、この更新で削除した。
 
 ### 要件変更: テナント/クライアント2階層固定 → 設定ユニット（深さ1〜2）
 
@@ -295,28 +320,21 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 
 ## 次にやること
 
-- **タグ命名規則の一連（T-132〜T-135）が次の主題。** 原文と分解の理由は
-  `docs/history/direction.md` の2026-09-08（3回目）。
-  1. ~~**T-132（`opus`）**~~ **完了**。設計は `docs/requirements.md` 4.1節・4.4節と
-     `docs/architecture.md` が正典。要点: `template` は `{branch}`+`{date}` 必須・`{time}` 任意
-     （`{branch}` 単独と `{time}` 単独は設定エラー）、**タグ自動作成は `{time}` を含むときだけ**、
-     設定は `config.yaml` の `apps[].tagNaming`（`TAG_FORMAT` は廃止）、semverはHEADを指す
-     タグのみ・比較は自前実装、タイムゾーンは固定。
-     **`docs/` は「これから実装する仕様」の状態で、現在のコードと `README.md` とは
-     一時的に食い違う。** READMEの追随は下の実装タスクの作業項目に入っている。
-     `develop/parameterization-candidates.md` の項目6が今回の結論と逆向きのまま残っており、
-     JST化のタスクで併せて直す。
-  2. ~~**T-133（`sonnet`、T-132依存）**~~ **完了**。`config.yaml` の `apps[].tagNaming` が現行で
-     `TAG_FORMAT` は廃止済み。サポート外の設定が `pnpm lint:validate-config` で exit 1 になり
-     CIの `check` ジョブで止まることを実測済み。**残るは T-134（semver）のみ。**
-  3. ~~**T-134（`opus`、T-132・T-133依存）**~~ **完了**。**タグ命名規則の一連は4件とも完了。**
-     `ParsedTag` は `orderKey` を持ち、比較は `compareTags()` 1本。タグ自動作成は
-     `canCreateTag()` 型述語が門番で、作れないときは当該appだけ見送って `logger.warn`。
-     semver比較は依存なしの自前実装。
-  4. ~~**T-135（`sonnet`、依存なし）**~~ **完了**（`src/domain/tag-format.ts` が
-     T-134の書き換え対象と丸かぶりなので先に通した）。`JST_OFFSET_MS` を対称に足し引きする方式。
-     既存タグは一律 −9h シフトで相対順序が保たれるため**移行手順は不要**（実測で確認済み）。
-     残りは **T-133（`sonnet`）→ T-134（`opus`）** の2つ。
+- **定期メンテで登録した T-136〜T-142 が次の主題**（洗い出しの中身は上の「完了したこと」）。
+  依存関係は無く、どれからでも着手できる。`/loop /next-task` に全件載せてよい。
+  - **T-136（`sonnet`）** 廃止語彙 `client` / `chart groups` の一掃。振る舞いは変えない。
+    **ディレクトリ名の例としての `tenant1/client1` と、`config-test/` の実在するフィクスチャ名は
+    残す**のが分岐点
+  - **T-137（`sonnet`）** `resolve-latest-tags.ts` の到達不能分岐を畳み、
+    `docs/coding-standards.md` の「埋めない穴」の表から1行減らす
+  - **T-138（`sonnet`）** 連続する同一 return の統合と `compileTagPattern()` の再代入の排除。
+    純粋なリファクタでテストは足さない
+  - **T-139（`sonnet`）** `collect-mr-entries.ts` の防御フィルタを、消す／型で表す／残すの
+    3案から選ぶ。**唯一「判断」を含むタスク**
+  - **T-140（`sonnet`）** 冗長なテストの整理。`docs/coding-standards.md` の削除の手続き
+    （`it.skip` → `pnpm test:coverage`）を必ず踏む。`it.each` はこのリポジトリ初導入になる
+  - **T-141（`haiku`）** `README.md` のログ例の構造の誤りと Quick Start の深さ2前提
+  - **T-142（`sonnet`）** `CLAUDE.md` / `docs/architecture.md` の実在しない識別子
 - **T-126（`config/` の運用方針、`opus`）は `/loop /next-task` に載せない**
   （`config/` への登録が本番の pipeline schedule の対象を変えるため、ユーザー承認が要る）。
 - **`config-test/` の構成が変わったので、次回の実機スモークは `docs/smoke-test.md` の手順1から
@@ -351,8 +369,6 @@ values.yaml下書きの受け渡しの作り替え・スモークスクリプト
 - `<名前>/<名前>.ts` の形（`src/lib/` の gitlab / config、`scripts/lint/verify-config/`）で
   統一している。同名のファイルとディレクトリを並べない（T-092/T-094 の命名判断に効く）
 - `.claude/` と `config/` は `.prettierignore` で `oxfmt` の対象外にしている
-- `src/lib/config/config.ts` に oxlint の `no-shadow` 警告が2件あるが、分割前からある既存の警告
-  （`loadClientChartAndApps` の引数 `target` と、内側の `.map((target) => ...)`）
 - リモートは `origin` が `github.com/sinnlosses/helm-yadokari` と
   `gitlab.com/sinnlosses-group/helm-yadokari` の2つの push URL を持つ。
   `git push`/`git fetch` は両方に対して行われる

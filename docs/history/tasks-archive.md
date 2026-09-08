@@ -2738,6 +2738,108 @@ semver も同じ問題を持つ。`v1.2.3` にはブランチ名が入らない�
 
 **evidence**: タグ命名規則の設計を決め、`docs/requirements.md`（4.1節を全面改稿・4.4節に `apps[].tagNaming` を追加）と `docs/architecture.md`（設計判断の節と索引行を追加）に書き分け、`docs/glossary.md` の「タグ命名規則」「順序キー（新設）」「打刻日時」「最新タグ」「タグ自動作成」を追随させた。**結論**: (1) `template` モードの必須は `{branch}` と `{date}` の各1回、任意は `{time}` だけ（`{branch}` 単独・`{time}` 単独は設定エラー。後者は順序キーが毎日一周し `builtAt` を組み立てられないため）。**タグ自動作成の仕様を変更**し、`{time}` を含む `template` モードでのみ行う。それ以外はHEADにタグが無ければ**当該appのみ**警告して見送り、chartAndApps は `ERROR` にしない（`ERROR` は設定ユニット単位のオールオアナッシングで他appを巻き添えにするため）、(2) タイブレークは順序キーの降順、同値ならタグ名の降順、(3) semver は追跡ブランチ由来の判定をHEADコミットで行い（到達可能性判定は不採用＝API負荷と中心的な取り決めの一貫性を優先）、比較は依存を足さず自前実装、(4) 置き場所は `config.yaml` の `apps[].tagNaming`（`mode` 判別共用体）、`TAG_FORMAT` は廃止（環境変数だとCIの `check` で検証できず「サポート外の設定をMRで落とす」が成立しないため）。**同一 `projectId` で `tagNaming` が食い違う場合は設定エラー**（`createResolveLatestTags()` のキャッシュキー `projectId:branchToSync` を変えずに誤共有を防ぐため。`branchToSync` の食い違いは正当なので検証しない）、(5) タイムゾーンは固定で設定項目にしない。**ユーザー確認を2点実施**し、semverは「HEADを指すタグのみ」を追認、「`{branch}` 単独を許す」案は撤回して設定エラーに変更（あわせてメイン側の判断で `{time}` 単独も設定エラーにした）。後続3タスクの `task` 本文をこの結論に沿って書き換えた（`status`/`passes`/`evidence`/`difficulty`/`dependencies` は未変更であることをメイン側で差分検証）。**コード変更0行**（`git diff --stat` は `docs/` 3件と `develop/tasks.json` のみ、170挿入/30削除）、`pnpm check` exit=0（36ファイル373テスト）。**注意**: `docs/` はこれから実装する仕様を記述した状態で、現在のコードおよび `README.md` とは一時的に食い違う（READMEの追随は後続タスクの作業項目）。`develop/parameterization-candidates.md` の項目6が今回の結論と逆向きのまま残っており、JST化のタスクで併せて直す。（コミット `74a22d4`）
 
+## T-133
+
+**タスク**: タグ命名規則を `config.yaml` の `apps[].tagNaming` で設定できるようにし、環境変数 `TAG_FORMAT` を廃止する。
+
+## 前段のタスクで決まったこと
+
+正典は `docs/requirements.md` 4.1節・4.4節と、`docs/architecture.md`「タグ命名規則はapp単位に`config.yaml`へ置き、`TAG_FORMAT`は廃止する」。着手時にこの2つを読むこと。要点:
+
+- 置き場所は `config.yaml` の `apps[]` の各エントリ、キーは `tagNaming`。`chart.yaml`・`anchors.yaml`・設定ユニット単位ではない
+- `tagNaming` は `mode` を判別子にする判別共用体。**このタスクで実装するのは `mode: template` だけ**（`mode: semver` は後続タスク）
+- 省略時は `mode: template` / `template: "{branch}-build-at-{date}-{time}"`
+- 環境変数 `TAG_FORMAT` は**廃止**する（既定値としても残さない）
+- **必須プレースホルダは3つのまま変えない**（`{time}` を任意にするのは後続タスク）
+- 同じ `projectId` のappが複数の設定ユニットに登録されていて `tagNaming` が食い違う場合は設定エラー（`branchToSync` の食い違いは正当なので検証しない）
+
+`config/` に移すと**CIで落とす仕組みはほぼ自動で付いてくる**: `pnpm lint:validate-config`（`scripts/lint/validate-config.ts`）は `pnpm lint` → `pnpm check` 経由でCIの `check` ジョブに載っており、`loadConfig()` を通すのでZodスキーマと `validateTagFormat()` がMR時点で走る。
+
+## やること
+
+1. `src/types/types.ts` に `TagNaming` 型を足す（ドメイン語彙なので `types/types.ts`。`docs/architecture.md`「型の置き場所」の1行目）。`{ readonly mode: "template"; readonly template: TagFormat }` のような判別共用体にし、後続タスクで `semver` を足せる形にしておく
+2. `src/lib/config/schema.ts` の `AppOperationalSchema` に `tagNaming` を足す。`z.discriminatedUnion("mode", ...)` を使い、省略時は既定値に落とす。テンプレート文字列の検証は `validateTagFormat()` に委ねる
+3. `config.yaml` と `anchors.yaml` の突き合わせ検証に「同じ `projectId` で `tagNaming` が食い違ったら設定エラー」を足す。既存の `projectName` 食い違い検証と同じ場所・同じ形にする
+4. `AppConfig` に `tagNaming` を載せ、`resolve-latest-tags.ts` まで繋ぐ。`createResolveLatestTags()` の `tagFormat` 引数は不要になる（`app.tagNaming` から取る）。**キャッシュキー `projectId:branchToSync` は変えない**（理由は architecture の該当節）
+5. `src/lib/env.ts` から `TAG_FORMAT` / `parseTagFormat()` / `EnvConfig.tagFormat` を削除し、`src/main.ts` の `run_start` ログの `tagFormat` フィールドも削除する
+6. `.gitlab-ci.yml` の `spec.inputs.TAG_FORMAT` と `variables.TAG_FORMAT`、`.env.example` の該当行を削除する
+7. `scripts/smoke/smoke-fixture.ts` が `env.tagFormat` を使っている（102-105行）。対象appの `tagNaming` を `loadConfig()` から引くか、シード用の定数を自前で持つかを決めて追随させる
+8. テストを足す/直す（`test/lib/config/schema.test.ts`・`test/lib/config/config.test.ts`・`test/steps/build-plans/sub-steps/resolve-latest-tags.test.ts`・`test/lib/env.test.ts`・`test/main*.test.ts` の `EnvConfig` フィクスチャ）
+9. `README.md` の「タグ命名規則」章・環境変数表2箇所・`config/` の説明を追随させる。`docs/requirements.md` / `docs/architecture.md` / `docs/glossary.md` は 前段のタスクで更新済みなので**触らない**（食い違いを見つけたときだけ直す）
+
+## 完了条件
+
+- `config.yaml` でアプリごとに異なる `tagNaming` を指定でき、それが `resolveLatestTag()` まで届いていることがテストで確認できている
+- **サポート外のフォーマットを `config.yaml` に書くと `pnpm lint:validate-config` が失敗する**ことを、実際に不正な値を書いた一時ディレクトリで実行して確かめる（出力を `evidence` に書く）
+- **同じ `projectId` で `tagNaming` が食い違う `config/` が設定エラーになる**ことがテストで確認できている
+- `TAG_FORMAT` という文字列がリポジトリから消えている（`docs/history/` と `develop/` を除く。`grep -rn "TAG_FORMAT"` の結果を `evidence` に書く）
+- `pnpm check` が通り、テスト件数が減っていない（実際の数を `evidence` に書く）
+- `config-test/` を変更した場合、`pnpm lint:validate-config config-test` が通る（**ディレクトリは位置引数で渡す。`CONFIG_PATH` 環境変数では効かない**）
+
+## 注意
+
+- **`config-test/` が指すGitLabプロジェクトのprojectId・アンカー名・valuesPathは実物に合わせる。架空の値を書かない。** 実GitLabへの書き込みはしない
+- semver対応と必須プレースホルダの緩和は後続タスク。ここでは「実行全体で1つ」を「app単位」にする移設だけを行う
+- `/loop /next-task` に載せてよい
+
+**dependencies**: T-132
+
+**difficulty**: sonnet
+
+**evidence**: タグ命名規則を環境変数 `TAG_FORMAT`（実行全体で1つ）から app 単位の `config.yaml` の `apps[].tagNaming`（`mode` 判別共用体、省略時は `{branch}-build-at-{date}-{time}`）へ移設。`TagNaming` 型を `src/types/types.ts` に追加して `AppConfig` に載せ、`resolve-latest-tags.ts` まで貫通させた（`createResolveLatestTags()` の `tagFormat` 引数は廃止、**キャッシュキー `projectId:branchToSync` は不変**）。同じ `projectId` のappが複数の設定ユニットで `tagNaming` が食い違う場合は `src/lib/config/validate.ts` の `validateTagNamingConsistency()` で設定エラー（複数ユニットにまたがる検証なので、単一ユニットしか見えない `chart-and-apps.ts` ではなく全ユニットが揃う `config.ts` から呼ぶ）。`src/lib/env.ts` から `TAG_FORMAT`/`parseTagFormat()`/`EnvConfig.tagFormat` を削除し、`.gitlab-ci.yml`・`.env.example`・`README.md` を追随。`scripts/smoke/smoke-fixture.ts` は `DEFAULT_TAG_TEMPLATE` 定数の直接参照に変更。**メイン側で実測**: `pnpm check` exit=0（36ファイル380テスト、着手前375）、一時 `config/` を作って `pnpm lint:validate-config` を実行し、正常な `tagNaming` は `config OK`、`{branch}` を欠くテンプレートと未実装の `mode: semver` は**どちらも exit 1**（＝CIの `check` ジョブでMR時点に落ちる）。`grep -rn TAG_FORMAT` はコードから完全消滅し、残るのは docs の「廃止された」という過去形の記述のみ。**JST化（`29774b2`）は無傷**（`src/domain/tag-format.ts` の diff にJST関連の増減なし。`DEFAULT_TAG_FORMAT`→`DEFAULT_TAG_TEMPLATE` のリネームとエラーメッセージのみ）。`config-test/` は既定の `tagNaming` で整合するため未変更（`pnpm lint:validate-config config-test` が `3 chart groups, 5 apps`）。`docs/` は食い違いとして見つけた `architecture.md` の責務表1セルと `coding-standards.md` のテスト名1語のみ修正。semver対応と `{time}` の任意化は後続タスクの担当として先取りしていない。
+
+## T-134
+
+**タスク**: タグ命名規則を semver に対応させ、あわせて `{time}` を任意プレースホルダにする。
+
+## 前段のタスクで決まったこと
+
+正典は `docs/requirements.md` 4.1節と、`docs/architecture.md` の3節（「タグの順序づけは順序キーに閉じ込め、`builtAt`を直接比較しない」「最新タグが決まらないappはERRORにせずapp単位で見送る」「semverモードは「HEADを指すタグ」に限り、比較は自前で書く」）。着手時にこれらを読むこと。要点:
+
+- `template` モードの必須プレースホルダは `{branch}` と `{date}` のちょうど1回ずつ。任意にするのは `{time}`（0回か1回）だけで、**`{branch}` 単独も `{time}` 単独も設定エラー**。許される形は `{branch}`+`{date}`+`{time}` と `{branch}`+`{date}` の2つ
+- `semver` モードでは「追跡ブランチ由来」を名前ではなく**追跡ブランチのHEADコミットを指していること**で判定する。到達可能性（merge_base / コミット一覧）は使わない
+- semverの順序は semver 2.0.0 §11。先頭の `v` は任意で順序には影響させない、プレリリースも候補に含める、ビルドメタデータは順序に影響させない、semverとして読めないタグは候補から外す
+- **タグ自動作成は `template` モードで `{time}` を含むときだけ**。それ以外（semverモード、`{time}` を含まないテンプレート）は自動作成せず、HEADにタグが無ければそのappを更新対象から外して**警告ログ**を出す。chartAndApps 全体を `ERROR` にはしない
+- タイブレークは順序キーの降順。順序キーが同値のとき（`{time}` を含まないテンプレートで同じ日付のタグが複数あるとき、semverで同値の版が複数あるとき）はタグ名の降順
+- semverの比較は**依存パッケージを足さず自前で書く**
+
+## やること
+
+1. `src/types/types.ts` の `TagNaming` に `{ readonly mode: "semver" }` を足し、`src/lib/config/schema.ts` の判別共用体に載せる
+2. `ParsedTag` の `builtAt: Date` を順序キーに置き換える。`builtAt: Date | undefined` と semver 用フィールドを並べる形は採らない（理由は architecture の該当節）。`docs/architecture.md`「用途別の型エイリアスを作らない」に触れないこと
+3. `src/domain/tag-format.ts`
+   - `validateTagFormat()` の必須チェックを「`{branch}` と `{date}` はちょうど1回、`{time}` は0回か1回」に緩める（`{date}` を必須のまま残す理由は architecture の該当節）
+   - `compileTagPattern()` / `fillTagFormat()` を、`{time}` を含まないフォーマットでも動くようにする
+   - semverのパースと比較を足す
+   - タグの比較を担う関数を1つ export し、呼び出し側が `Date` を `>` で直接比べる形を残さない
+   - 自動作成できるフォーマットかどうかを判定する述語を用意し、`buildNewTag()` はそれが真のときだけ呼べる形にする
+4. `resolve-latest-tags.ts`
+   - `resolveTrackedHeadTagNames()` をモードで分岐させる（`template` は従来のパース、`semver` は semver として読めるかだけ）
+   - 自動作成できないフォーマットでHEADにタグが無い場合、`LatestTagResolution` の最新タグを「決まらない」で返し、警告ログを出す
+5. `stage-image-tag-updates.ts` を「最新タグが決まらないapp」を飛ばす形に追随させる
+6. テストを足す（`test/domain/tag-format.test.ts`・`test/steps/build-plans/sub-steps/resolve-latest-tags.test.ts`・`test/steps/build-plans/sub-steps/stage-image-tag-updates.test.ts`）
+7. `README.md` の「タグ命名規則」章を追随させる。`docs/requirements.md` / `docs/architecture.md` / `docs/glossary.md` は 前段のタスクで更新済みなので**触らない**（食い違いを見つけたときだけ直す）
+
+## 完了条件
+
+- semverのタグ（プレリリース付き・`v`接頭辞あり/なし・ビルドメタデータ付きを含む）から最新タグを決められることがテストで確認できている
+- **`{branch}` 単独・`{time}` 単独・`{date}` 単独のテンプレートがいずれも設定エラーになる**ことがテストで確認できている（`{branch}`+`{date}` は通ること）
+- semverモード、および `{time}` を含まないテンプレートで、HEADにタグが無いときに**タグが作成されず**、そのappがスキップされ、**同じ設定ユニットの他のappの更新は続く**ことがテストで固定されている
+- **既存方式の振る舞いが変わっていない**: `test/main.e2e.test.ts` の3件と既存の `tag-format` のテストが通る
+- `pnpm check` が通り、テスト件数が減っていない（実際の数を `evidence` に書く）
+
+## 注意
+
+- 依存パッケージは足さない（前段の結論）。足す判断に変える場合は理由を `evidence` に書く。`package.json` の変更は Renovate の対象になる
+- `docs/requirements-grilling.md` はアーカイブ扱いで書き換えない
+- `/loop /next-task` に載せてよい
+
+**dependencies**: T-132, T-133
+
+**difficulty**: opus
+
+**evidence**: `tagNaming` に `mode: semver` を追加し、`template` の `{time}` を任意化した。**`ParsedTag.builtAt: Date` を順序キー `orderKey: TagOrderKey`（`readonly (number|string)[]`）に置き換え**、template は `[epoch ms]`、semver は `[major, minor, patch, プレリリース有無, ...識別子]`。要素比較規則（数値同士は数値・文字列同士はASCII・数値<文字列・尽きた側が小）1つで semver 2.0.0 §11 が全部乗る。比較は `compareTags()` 1本に集約し、**`Date` を `>` で直接比べる箇所はコードベースから消滅**（`scripts/smoke/smoke-fixture.ts` も追随）。タグ自動作成は `canCreateTag()` 型述語を門番にし、`buildNewTag()` は `CreatableTagNaming`（ブランド型）しか受け取らない ── **`as` は不使用**（型述語なのでキャスト不要）。作れない場合は `LatestTagResolution.tag` を undefined で返して `logger.warn`（新設）を出し、`stage-image-tag-updates.ts` がそのappだけ飛ばす（chartAndApps は `ERROR` にしない）。**semver比較は依存を足さず自前実装**（`package.json`/`pnpm-lock.yaml` 無変更を確認）。**メイン側で独立に実測**: `pnpm check` exit=0（36ファイル418テスト、着手前380から+38）、`test/main.e2e.test.ts` 3件通過、semver §11.4 の公式な順序8段（`1.0.0-alpha` < `alpha.1` < `alpha.beta` < `beta` < `beta.2` < `beta.11` < `rc.1` < `1.0.0`）が全部成立、`v` 接頭辞とビルドメタデータが順序キーに影響しない（どちらも `[1,2,3,1]`）、`1.10.0 > 1.9.0`（辞書順でなく数値比較）、semverとして読めないタグは候補外、`compareTags` が同順序キーでもタグ名で全順序になり対称（+1/-1）。JST（`JST_OFFSET_MS`）は無傷。エージェント側は変異でも検証（`JST_OFFSET_MS` を0にすると11件、`canCreateTag` の `{time}` 判定を外すと2件落ちる。いずれも復元済み）。**メイン側で正典2箇所を追加修正**: `docs/glossary.md`「打刻日時」の英語識別子（`builtAt` は順序キーの中身になりローカル変数としてのみ残る）と、`docs/requirements.md` 4.1節のタイブレーク説明（`template` は順序キーがタグ名から一意に定まるため同値の分岐に到達しない）。`docs/architecture.md`「型の置き場所」の1文はエージェントが実態に合わせて修正済み。
+
 ## T-135
 
 **タスク**: タグ名の日時を UTC から JST にする。
