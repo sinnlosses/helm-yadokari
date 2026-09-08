@@ -246,6 +246,33 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 2箇所がどちらも `"CONFIG_PATH"` を渡すため実行時に使われないデフォルトだった（`isFatalStatus`
 と同じパターン）。テストを消すのではなく、デフォルトを外して `label` を必須にした。
 
+**残り32ファイルの中身の精査（実施済み）**。ファイル単位では消せなかったものについて、
+各ファイルが「唯一守っている行」を測ったうえで中身を読み、上位のテストが同じ入力分岐を
+固定しているものだけを消した（8件）。
+
+| 消したもの                                                           | 上位の守り手                                                                  |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `tag-format`「組み立てたタグ名は parseTag でパースし直せる」         | 「ミリ秒を含む now でも一致する」が同じラウンドトリップの上位互換             |
+| `tag-format`「フォーマットを変えると、その形式でタグ名を組み立てる」 | 回帰テスト`{date}-{time}-{branch}`の1行目が同一のアサーション                 |
+| `parallel`「空配列のとき空配列を返す」                               | `main.test.ts`「chartAndAppsListがないとき」                                  |
+| `parallel`「入力順を保った配列で返す」                               | `filter-targets`「判定順に振り分ける」・`apply-updates`「入力順を保った配列」 |
+| `parallel`「FatalErrorが発生したとき reject する」                   | 3stepと`main`の「401エラーのとき FatalError」計4件                            |
+| `helm`「getRequiredValueAtAnchor がアンカーの値を返す」              | `getValueAtAnchor` の同一入力のテストと `stage-image-tag-updates` 全件        |
+| `feature-branch`「buildFeatureBranch」2件                            | `main.e2e.test.ts` が深さ1・深さ2の固定ブランチ名を実文字列で固定             |
+
+**この精査で残したもの**（カバレッジは減らないが上位に守り手がいない）:
+
+- `parallel`「concurrencyLimitを超えて同時実行しない」「FatalError後に未着手を呼ばない」:
+  `CONCURRENCY_LIMIT` と `limit.clearQueue()` の唯一の守り手
+- `tag-format` の残り37件・`config.test.ts` 全44件・`env.test.ts` 全32件・`validate.test.ts`
+  全11件: いずれも `docs/requirements.md` 4.1〜4.4節の設定ルールと1対1で、同じ入力分岐を
+  他が通していても**別の入力を拒否／受理する仕様**を固定している（表の1行目に当たらない）
+- `gitlab.test.ts` の残り: `main.e2e.test.ts` はMR作成とコミットの引数を固定しているが、
+  404/403フォールバックと `action: "update"`・起点ブランチまでは通らない
+- `resolve-latest-tags.test.ts` 全21件: 固有カバレッジは1行だが、タグの再利用・追跡ブランチの
+  切り替え・dry-run・403の扱いという、`docs/architecture.md` に記録した判断ごとの振る舞いを
+  1件ずつ固定している
+
 **削除の手続き**。次の2つを両方満たしたものだけ消す。片方でも満たさなければ残す。
 
 1. 候補を `it.skip` にして `pnpm check` が落ちないことを確認する（落ちるなら、他のテストが

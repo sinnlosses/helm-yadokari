@@ -25,16 +25,6 @@ describe("getValueAtAnchor", () => {
 })
 
 describe("getRequiredValueAtAnchor", () => {
-  it("アンカー名に対応する値を返す", () => {
-    expect(
-      getRequiredValueAtAnchor(
-        VARIABLES_YAML,
-        toAnchorName("tenant1client1AppsVersion"),
-        toValuesPath("values.yaml"),
-      ),
-    ).toBe("main")
-  })
-
   it("該当するアンカーが存在しないとき、valuesPathを含む例外をスローする", () => {
     expect(() =>
       getRequiredValueAtAnchor(

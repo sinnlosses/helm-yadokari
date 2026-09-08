@@ -210,14 +210,6 @@ describe("buildNewTag", () => {
     expect(tag.builtAt).toEqual(now)
   })
 
-  it("組み立てたタグ名は parseTag で正しくパースし直せる", () => {
-    const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
-    const branch = toBranchName("main")
-    const tag = buildNewTag(branch, now, BUILD_AT_FORMAT)
-    const reparsed = parseTag(tag.name, branch, BUILD_AT_FORMAT)
-    expect(reparsed?.builtAt).toEqual(tag.builtAt)
-  })
-
   it("ミリ秒を含む now でも、タグ名から読み直した打刻日時と一致する", () => {
     const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56, 789))
     const branch = toBranchName("main")
@@ -229,12 +221,6 @@ describe("buildNewTag", () => {
     const now = new Date(Date.UTC(2026, 0, 5, 3, 7, 9))
     const tag = buildNewTag(toBranchName("main"), now, BUILD_AT_FORMAT)
     expect(tag.name).toBe("main-build-at-20260105-120709")
-  })
-
-  it("フォーマットを変えると、その形式でタグ名を組み立てる", () => {
-    const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
-    const tag = buildNewTag(toBranchName("main"), now, validateTagFormat("{date}-{time}-{branch}"))
-    expect(tag.name).toBe("20260902-213456-main")
   })
 })
 
