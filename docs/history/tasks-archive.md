@@ -3440,3 +3440,66 @@ T-138（`compileTagPattern()` の再代入の排除）を実行した際、委�
 **difficulty**: sonnet
 
 **evidence**: `config-test/yadokari-smoke-test-chart/`（7ファイル）を `git mv` で `config/` へ移動し、設定ディレクトリを既定パス1つに一本化。`config/README.md` の「移行中」注記を削除、`docs/smoke-test.md` から `CONFIG_PATH` を全廃、`README.md`（Quick Start・設定章・構成図）・`scripts/smoke/smoke-fixture.ts` のコメント・`test/main.e2e.test.ts`（`configDirPath` は**実ディレクトリを読むe2e**なので文字列変更ではなく実パスとして `config` へ）を追随。委譲先が tasks.json に無かった `docs/coding-standards.md`（「入口は config-test/ の実ファイル」）と `docs/architecture.md`（ディレクトリ構成の勘所2箇所）も grep 0件条件から拾って修正。**メイン側で実測**: `pnpm check` exit=0（36ファイル**393テスト**、着手前と同数で減っていない）。**`pnpm lint:validate-config` が位置引数なしで `config OK: 3 設定ユニット, 5 apps (config)`**（＝空ディレクトリを検証して通っていた状態が解消）。`grep -rn config-test` は `docs/history/` と `develop/` を除いて**0件**、`docs/smoke-test.md` の `CONFIG_PATH` も0件、`config-test/` ディレクトリは不在。移動はすべて `R`（内容差分0）で projectId・アンカー名・valuesPath は不変。**論点4件の判断**: (1) `git mv` でそのまま移動し3設定ユニット（深さ1・2混在）を維持、(2) `smoke-fixture.ts` の `config-test` 依存はコメントのみでコード上は環境変数経由、(3) e2eは実ファイルを読むため実パス変更が必要、(4) `.gitlab-ci.yml` の `CONFIG_PATH` 入力は逃げ道として温存。**受け入れ時にメインが `develop/progress.md` の古くなった `config-test` 記述3箇所を更新**。
+
+## T-149
+
+**タスク**: TARGET_UNITS / unitPath の説明文から、実在しない具体名（`central`・`tenant1/client1`）を外す。
+
+## 背景
+
+`unitPath` を説明する文章が、例示として `central`（深さ1）と `tenant1/client1`（深さ2）を使っている。**どちらも実在しない**:
+
+- 実際の `config/` にあるのは `anchor-app`（深さ1）、`tenant2/client1`・`tenant2/client2`（深さ2）
+- `tenant1/client1` は要件変更（テナント/クライアント2階層固定 → 設定ユニット・深さ1〜2）より前の名残で、`develop/progress.md`「次にやること」にも旧固定ブランチ `feature/yadokari/tenant1/client1` の後片付けとして出てくる
+- `central` はどの設定にも存在しない。深さ1の例として置かれているだけだが、予約語のように読める
+
+現状の出現箇所（`docs/history/` 配下と `test/` を除く）:
+
+| ファイル                    | 行                                         | 種類                                             |
+| --------------------------- | ------------------------------------------ | ------------------------------------------------ |
+| `src/lib/env.ts`            | 63, 64                                     | `TARGET_UNITS` パーサのJSDoc                     |
+| `src/lib/env.ts`            | 108                                        | **利用者に出るエラーメッセージ**                 |
+| `src/domain/config-unit.ts` | 15                                         | JSDoc                                            |
+| `src/types/brand.ts`        | 78                                         | JSDoc                                            |
+| `README.md`                 | 91, 137, 138, 158, 168, 171, 172, 255      | 設定手順・ログ例・環境変数表・ディレクトリ構成図 |
+| `docs/requirements.md`      | 74, 136, 137, 216, 219, 310, 311, 379, 381 | 用語表・4.2・4.4・4.5                            |
+| `docs/glossary.md`          | 57, 94, 225                                | 設定ユニット・固定ブランチの定義                 |
+| `.gitlab-ci.yml`            | 20, 68                                     | **CIジョブ変数の description（利用者に出る）**   |
+
+**抽象化の前例が既にある**（＝新しい規約を作る話ではなく、揺れを揃える話）。`README.md` 158行目は `"t1/c1"`・`"central,t2/c2"`、`.gitlab-ci.yml` 20行目は `"t1/c1,t2/c2"` と、同じ文脈で既に短い抽象形を使っている。一方で同じファイルの別の行（`README.md` 255行目、`.gitlab-ci.yml` 68行目）は `tenant1/client1` のまま。
+
+ユーザーからの指示は「TARGET_UNITS に central とか tenant1/client1 とか、特定の表現はないほうがいい」。
+
+## 解くべき論点
+
+1. **置き換え先の表記をどうするか。** 候補は (a) メタ変数（`<unitPath>` / `<第1セグメント>/<第2セグメント>`）、(b) 短い抽象名（既存の `t1/c1` 系に寄せる）、(c) 実在する値（`anchor-app`・`tenant2/client1`）。(c) は実物と一致する利点があるが、スモークテスト用フィクスチャの名前が仕様の説明文に固定される欠点がある
+2. **利用者に出る文字列（`src/lib/env.ts:108` のエラーメッセージ、`.gitlab-ci.yml` の description）で具体例を残すか。** エラーメッセージは具体例があるほうが直しやすい一方、実在しない名前を出すと「その名前でなければいけない」と誤読される。深さの構造だけを示す形（`"<名前>"` と `"<名前>/<名前>"`）で足りるかを判断する
+3. **深さ1と深さ2を1つの例で示す必要があるか。** 現状はほぼ全箇所で2つ並べており、これが記述量を増やしている。`docs/requirements.md` 4.4節が制約の正典なので、他は「深さ1〜2」とだけ書いて正典を参照する形に寄せられないか
+
+## やること
+
+1. 論点1〜3を決め、**適用する前にユーザーへ提案して承認を得る**。表記の統一はREADME・CI・エラーメッセージという利用者に見える面を横断するため、勝手に決めない
+2. 承認された表記で、上の表の箇所を置き換える
+3. `docs/glossary.md` 94行目の `&tenant1client1AppsVersion` はYAMLアンカー名の例。アンカー名は利用者が自由に付けるものなので、論点1の結論を機械的に当てず、**アンカー名の例として自然かどうかで個別に判断する**
+4. 調べた結果、ある箇所は具体名のままのほうがよいと判断したら、**変えずにその理由を `evidence` に書く**（全箇所を一律に置換することが目的ではない）
+
+## 完了条件
+
+- `grep -rn 'central\|tenant1/client1' src/ README.md docs/*.md .gitlab-ci.yml` の結果が、承認された方針で説明のつく状態になっている（0件にすることが条件ではない。残した箇所は `evidence` に理由を書く）
+- `README.md` と `.gitlab-ci.yml` の中で、同じ `TARGET_UNITS` の説明が**ファイル内・ファイル間で同じ表記**になっている（現状は `t1/c1` と `tenant1/client1` が混在している）
+- `pnpm check` が通る
+- `pnpm lint:validate-config` が通る（`config/` の実ディレクトリを触っていないことの確認を兼ねる）
+
+## 注意
+
+- **`config/` 配下の実ディレクトリ（`anchor-app`・`tenant2/client1`・`tenant2/client2`）を変更しない。** 本番の定期実行と実機スモークテストの対象そのもので、名前を変えるとGitLab上の固定ブランチ・MRとの対応が壊れる
+- **`test/` 配下のフィクスチャ名を変更しない。** テストデータに具体名を使うのは適切で、この指示の対象外
+- **`docs/history/` 配下を変更しない**（当時の記述をそのまま残す規約）
+- `scripts/smoke/smoke-fixture.ts` の `charts/smoke-tenant2/...` はGitLab上の実ファイルパスなので変更しない
+- 表記の決定には**ユーザー承認が要る**ため、`/loop /next-task` には載せない
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: 承認: メタ変数のみ（例を消す）＋深さの詳細は docs/requirements.md 4.4節に集約。8ファイル21箇所を置換（src/lib/env.ts・src/domain/config-unit.ts・src/types/brand.ts・README.md・docs/requirements.md・docs/glossary.md・.gitlab-ci.yml）。grep 'central|tenant1|client1' が src/・README.md・.gitlab-ci.yml・docs/\*.md で0件（docs/smoke-test.md は実在フィクスチャの手順書なので対象外のまま残した）。TARGET_UNITS の説明6箇所が同一表記「config/<chart...>/ からの深さ1〜2の相対パス」に統一。README.md:91 のmkdirとログ例2件はリテラルが要るためメタ変数化せず my-unit / my-group/my-unit に変更。pnpm check 通過（32ファイル357テスト）、pnpm lint:validate-config 通過（3設定ユニット5apps）。
