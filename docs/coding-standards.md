@@ -194,6 +194,12 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 - `test/domain/tag-format.test.ts` の「テンプレートのプレースホルダの並び順・区切り文字は
   任意（回帰テスト）」2件: skip してもカバレッジは変わらないが、過去の不具合の再発防止として
   書かれた回帰テストなので残す（表の「回帰テスト」行）
+- `test/domain/tag-format.test.ts` の「{branch}/{time}/{date} 単独のフォーマットは例外を
+  スローする」3件: 「{branch}がないとき」「{date}がないとき」と同じ分岐
+  （`REQUIRED_PLACEHOLDERS`の出現回数が1でない）しか通っておらず表の1行目に当たるが、
+  「単独形はいずれも設定エラーになる」ことは`docs/requirements.md` 4.1節が定める仕様なので
+  削除はせず、`it.each`で1件の表形式テストに畳んで意図だけ残した（アサーションは1つも
+  減らしていない）
 - `test/lib/gitlab/gitlab.test.ts`「createClient > Gitlab インスタンスを返す」: 薄いラッパの
   確認に見えるが、skip すると `createClient` の唯一の守り手を失う（下の削除の手続き2番目の
   基準に引っかかる）

@@ -77,18 +77,8 @@ describe("isFatalError", () => {
     expect(isFatalError(makeHttpError(404))).toBe(false)
   })
 
-  it("ECONNREFUSED のとき true を返す", () => {
-    const err = Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" })
-    expect(isFatalError(err)).toBe(true)
-  })
-
-  it("ENOTFOUND のとき true を返す", () => {
-    const err = Object.assign(new Error("getaddrinfo ENOTFOUND"), { code: "ENOTFOUND" })
-    expect(isFatalError(err)).toBe(true)
-  })
-
-  it("ETIMEDOUT のとき true を返す", () => {
-    const err = Object.assign(new Error("connect ETIMEDOUT"), { code: "ETIMEDOUT" })
+  it.each(["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT"])("%s のとき true を返す", (code) => {
+    const err = Object.assign(new Error(`connect ${code}`), { code })
     expect(isFatalError(err)).toBe(true)
   })
 

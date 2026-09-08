@@ -47,10 +47,10 @@
   {
     "id": "T-140",
     "task": "同じ分岐を重ねて通しているテストを畳み、繰り返しの多いテストを表形式にまとめる。\n\n## 背景\n\n`docs/coding-standards.md`「テスト」節の「消すかどうか」の表と「削除の手続き」が正典。**手続きを飛ばして消さないこと。**\n\n洗い出した候補は3つ。\n\n### 1. `test/domain/tag-format.test.ts` の `validateTagFormat`（消す候補）\n\n「{branch} 単独のフォーマットは例外をスローする」「{time} 単独のフォーマットは例外をスローする」「{date} 単独のフォーマットは例外をスローする」の3件は、**すぐ上にある「{branch} がないとき例外をスローする」「{date} がないとき例外をスローする」と同じ分岐**（`REQUIRED_PLACEHOLDERS` の出現回数が1でない）を通しているだけ。表の1行目「同じ入力分岐を別のテストが既に通している」に当たる。\n\n**ただし `T-134` の完了条件に「`{branch}` 単独・`{time}` 単独・`{date}` 単独のテンプレートがいずれも設定エラーになることがテストで確認できている」と明記されており、意図して足されたテストである。**消すのではなく1件の表形式テストに畳んで「単独形はすべて設定エラー」という意図を残すほうが妥当かどうかを判断すること。\n\n### 2. `test/utils/logger.test.ts` の `redact`（簡潔にする候補）\n\n`token` / `access_token` / `authorization` / `password` / `secret` の5件が、キー名以外まったく同じ本体を持つ。`SENSITIVE_KEYS` の全要素を1つの表で回す形にすれば、**定数に要素が増えたときテストを足し忘れないという利点も付く**。\n\n### 3. `test/utils/http.test.ts` の `isFatalError`（簡潔にする候補）\n\n`ECONNREFUSED` / `ENOTFOUND` / `ETIMEDOUT` の3件が同じ形。同様に表にできる。\n\n## やること\n\n1. 候補ごとに「消す」「表に畳む」「そのまま残す」を判断する。**畳む場合もアサーションの中身は1つも減らさない**（`it.each` を使えばケース名も個別に出る）\n2. `it.each` はこのリポジトリでまだ一度も使われていない。導入するなら**この3箇所で書き方を揃える**こと\n3. 消す判断をしたものだけ、`docs/coding-standards.md`「削除の手続き」の2ステップ（`it.skip` にして `pnpm check` が落ちないこと → `pnpm test:coverage` でそのテストだけが通していた行・分岐が無いこと）を実際に踏み、結果を `evidence` に書く\n4. 「そのまま残す」と判断したものがあれば、`docs/coding-standards.md`「個別の判断（実施済み）」の箇条書きに1行足して、次に同じ調査をしなくて済むようにする\n\n## 完了条件\n\n- `pnpm check` が通る\n- テスト件数の増減とその理由が `evidence` に書かれている（**表に畳んだ場合、`it.each` は1ケース1件として数えられるので件数は基本的に変わらない**）\n- 消したテストがある場合、削除の手続き2ステップを踏んだ結果が `evidence` にある\n\n## 注意\n\n- **MR本文のテスト（`build-mr-content.test.ts`）には手を付けない**。`docs/coding-standards.md` が「書式は他に守る手段が無いので残す」と明記している\n- 型が保証している性質の確認・実装の内部構造をなぞるだけのテストが他にも見つかったら、同じ手続きで扱ってよい。見つからなければ無理に探さない\n- `/loop /next-task` に載せてよい",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "3候補とも**消さず `it.each` に畳む**判断。(1) 単独形3件は既存テストと同じ分岐だが「単独形はすべて設定エラー」は `docs/requirements.md` 4.1節の仕様なので意図を残した。(2) redact の5キーと (3) isFatalError のネットワークcode 3件は定型の繰り返しなので表化（(3) は実際に別々のOR分岐を通しているので削除対象ではない）。`it.each` は`it.each([...])(\"%s ...\", (x) => {...})` の形で3箇所とも統一（リポジトリ初導入）。`SENSITIVE_KEYS` はテストのための export を避けテスト側にリテラルで保持。`authorization` だけ `logger.error` だったのは `logger.info` に統一（redact は`formatLog()` 内でレベルによらず走る純粋関数で、error 経路は別の describe が担保）。テストを1件も消していないので削除の手続きは対象外。メイン側で `pnpm check` exit=0（36ファイル418テスト、増減なし）。受け入れ時にメインで1点補正: 追記したコメント2箇所の`T-134` 参照が「タスク番号を書かない」規約違反だったので仕様（requirements.md）参照に置換。",
     "dependencies": []
   },
   {

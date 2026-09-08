@@ -56,17 +56,15 @@ describe("validateTagFormat", () => {
     expect(() => validateTagFormat("{branch}-build-at-{time}")).toThrow("tagNaming.template")
   })
 
-  it("{branch} 単独のフォーマットは例外をスローする", () => {
-    expect(() => validateTagFormat("{branch}")).toThrow("tagNaming.template")
-  })
-
-  it("{time} 単独のフォーマットは例外をスローする", () => {
-    expect(() => validateTagFormat("{time}")).toThrow("tagNaming.template")
-  })
-
-  it("{date} 単独のフォーマットは例外をスローする", () => {
-    expect(() => validateTagFormat("{date}")).toThrow("tagNaming.template")
-  })
+  // {branch}/{time}/{date} 単独はいずれも「{branch}がないとき」「{date}がないとき」と
+  // 同じ分岐（REQUIRED_PLACEHOLDERSの出現回数が1でない）しか通らないが、「単独形はすべて
+  // 設定エラー」という仕様（docs/requirements.md 4.1節）の確認として1件にまとめて残す
+  it.each(["{branch}", "{time}", "{date}"])(
+    "%s 単独のフォーマットは例外をスローする",
+    (template) => {
+      expect(() => validateTagFormat(template)).toThrow("tagNaming.template")
+    },
+  )
 
   it("同じプレースホルダが複数回あるとき例外をスローする", () => {
     expect(() => validateTagFormat("{branch}-{branch}-{date}-{time}")).toThrow("tagNaming.template")

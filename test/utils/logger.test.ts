@@ -88,34 +88,15 @@ describe("logger", () => {
   })
 
   describe("redact", () => {
-    it("token キーの値を [REDACTED] に置換する", () => {
-      logger.info({ event: "test", token: "secret-value" })
-      const output = JSON.parse(lastLog)
-      expect(output.token).toBe("[REDACTED]")
-    })
+    // src/utils/logger.ts の SENSITIVE_KEYS と同じ一覧。テストのためだけに export しない
+    // 方針（コーディング規約）のため、ここにリテラルで持つ。定数に要素が増えたら
+    // このリストにも手で追記する必要がある
+    const sensitiveKeys = ["token", "access_token", "authorization", "password", "secret"]
 
-    it("access_token キーの値を [REDACTED] に置換する", () => {
-      logger.info({ event: "test", access_token: "my-token" })
+    it.each(sensitiveKeys)("%s キーの値を [REDACTED] に置換する", (key) => {
+      logger.info({ event: "test", [key]: "secret-value" })
       const output = JSON.parse(lastLog)
-      expect(output.access_token).toBe("[REDACTED]")
-    })
-
-    it("authorization キーの値を [REDACTED] に置換する", () => {
-      logger.error({ event: "test", authorization: "Bearer xyz" })
-      const output = JSON.parse(lastError)
-      expect(output.authorization).toBe("[REDACTED]")
-    })
-
-    it("password キーの値を [REDACTED] に置換する", () => {
-      logger.info({ event: "test", password: "hunter2" })
-      const output = JSON.parse(lastLog)
-      expect(output.password).toBe("[REDACTED]")
-    })
-
-    it("secret キーの値を [REDACTED] に置換する", () => {
-      logger.info({ event: "test", secret: "shh" })
-      const output = JSON.parse(lastLog)
-      expect(output.secret).toBe("[REDACTED]")
+      expect(output[key]).toBe("[REDACTED]")
     })
 
     it("センシティブでないキーはそのまま出力する", () => {
