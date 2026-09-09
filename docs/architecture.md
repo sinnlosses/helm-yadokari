@@ -311,6 +311,17 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - **対象外**: `lib/`の404/403フォールバックと`utils/retry.ts`（特定のHTTPステータスを正常系に
   変換するだけでchartAndApps単位の結果とは無関係）、`scripts/lint/verify-config/`（問題を全件
   列挙して返すのが目的の別プログラムで、fatalで全体を落とす方針そのものを持たない）
+- **リクエストのタイムアウトもfatalに数える**。gitbeakerは`createClient()`に渡した
+  `queryTimeout`を`AbortSignal.timeout()`として全リクエストに載せ、超過すると
+  `GitbeakerTimeoutError`を投げる。このエラーはHTTPステータスも`code`も持たないため、
+  `isFatalError()`は**エラーの名前**で判定する（クラスの`instanceof`にしないのは、
+  パッケージの実体が二重に解決されると偽になるため）。1リクエストに5分かかる状態は
+  特定プロジェクトの問題ではなくGitLab側の異常とみなし、全chartAndAppsを1件ずつ
+  5分待たせるより即時終了を選んでいる
+- **`queryTimeout`の値をgitbeakerの既定値に委ねず`lib/gitlab/gitlab.ts`で明示する**。
+  値自体は既定値と同じだが、既定値がバージョンアップで黙って変わると気づけないため。
+  gitbeakerが429/502に対して行う内部リトライ（最大10回）も同じsignalを共有するので、
+  この5分は**リトライ込みの総予算**になる
 
 #### アプリ名の付与は`steps/shared/`に置き、アプリ単位の処理を切り出した箇所すべてから呼ぶ
 

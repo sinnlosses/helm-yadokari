@@ -57,6 +57,16 @@ describe("createClient", () => {
     )
     expect(client).toBeInstanceOf(Gitlab)
   })
+
+  it("queryTimeout を明示して gitbeaker の既定値に依存しない", () => {
+    // gitbeaker はこの値を AbortSignal.timeout() として全リクエストに載せる。
+    // 既定値と同値だが、バージョンアップで黙って変わらないようここで固定する
+    const client = createClient(
+      toGitLabUrl("https://gitlab.example.com"),
+      toAccessToken("test-token"),
+    )
+    expect(client.Projects.queryTimeout).toBe(300_000)
+  })
 })
 
 describe("listTags", () => {

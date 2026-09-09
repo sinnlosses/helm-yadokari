@@ -18,8 +18,18 @@ import { withRetry } from "../../utils/retry.js"
 
 export type GitlabClient = InstanceType<typeof Gitlab>
 
+/**
+ * GitLab APIへの1リクエストあたりの上限時間（ミリ秒）。gitbeakerはこの値を
+ * `AbortSignal.timeout()`として全リクエストに載せる。gitbeakerが429/502で行う内部リトライも
+ * 同じsignalを共有するため、これは**リトライ込みの総予算**になる。
+ *
+ * 値はgitbeakerの既定値と同じだが、明示しているのは既定値がバージョンアップで黙って変わっても
+ * 気づけないため。超過時の`GitbeakerTimeoutError`は`isFatalError()`が致命的エラーとして扱う。
+ */
+const QUERY_TIMEOUT_MS = 300_000
+
 export function createClient(host: GitLabUrl, token: AccessToken): GitlabClient {
-  return new Gitlab({ host, token })
+  return new Gitlab({ host, token, queryTimeout: QUERY_TIMEOUT_MS })
 }
 
 /** タグ名とそれが指すコミットSHAの一覧を返す */

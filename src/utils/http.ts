@@ -1,5 +1,11 @@
-// @gitbeaker/rest がスローするエラー構造 (Error → cause.response.status) に依存している。
-// ライブラリのメジャーバージョンアップ時はこの構造が変わる可能性がある。
+// @gitbeaker/rest がスローするエラー構造 (Error → cause.response.status) と、
+// タイムアウト時のエラー名 (GitbeakerTimeoutError) に依存している。
+// ライブラリのメジャーバージョンアップ時はこれらが変わる可能性がある。
+
+// gitbeaker が queryTimeout の超過時に投げるエラーの名前。クラスの `instanceof` ではなく名前で
+// 判定するのは、@gitbeaker/requester-utils の実体が二重に解決されると `instanceof` が偽になる
+// ため（gitbeaker はコンストラクタでこの名前を明示的に設定している）。
+const GITBEAKER_TIMEOUT_ERROR_NAME = "GitbeakerTimeoutError"
 
 export function extractHttpStatus(error: unknown): number | undefined {
   if (!(error instanceof Error)) return undefined
@@ -17,12 +23,14 @@ export function isNotFoundError(error: unknown): boolean {
   return extractHttpStatus(error) === 404
 }
 
-// HTTP ステータスのほか、DNS 解決失敗・接続拒否・タイムアウトなどネットワーク障害も
-// 全プロジェクトに影響する致命的エラーとして扱う。
+// HTTP ステータスのほか、DNS 解決失敗・接続拒否・リクエストのタイムアウトなどネットワーク障害も
+// 全プロジェクトに影響する致命的エラーとして扱う。gitbeaker の queryTimeout 超過
+// (`GitbeakerTimeoutError`) は HTTP ステータスも `code` も持たないため、名前で判定する。
 export function isFatalError(error: unknown): boolean {
   const status = extractHttpStatus(error)
   if (status !== undefined) return isFatalStatus(status)
   if (!(error instanceof Error)) return false
+  if (error.name === GITBEAKER_TIMEOUT_ERROR_NAME) return true
   if (!hasKey(error, "code")) return false
   const { code } = error
   return code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ETIMEDOUT"

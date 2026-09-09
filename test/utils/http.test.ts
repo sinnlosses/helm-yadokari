@@ -82,6 +82,14 @@ describe("isFatalError", () => {
     expect(isFatalError(err)).toBe(true)
   })
 
+  it("gitbeaker の queryTimeout 超過（GitbeakerTimeoutError）のとき true を返す", () => {
+    // gitbeaker が実際に投げる形。HTTP ステータスも code も持たず、name だけが手掛かりになる
+    const err = new Error("Query timeout was reached")
+    err.name = "GitbeakerTimeoutError"
+    expect(extractHttpStatus(err)).toBeUndefined()
+    expect(isFatalError(err)).toBe(true)
+  })
+
   it("HTTP ステータスも code もない通常の Error のとき false を返す", () => {
     expect(isFatalError(new Error("generic error"))).toBe(false)
   })
