@@ -24,12 +24,9 @@ type StageAppImageTagUpdatesAcc = StageUpdatesAcc<ImageTagUpdate>
 
 /**
  * 1つのchartAndApps配下の全アプリについて、イメージタグの更新を1つの下書きに積み上げる。
- * アプリと書き込み先の両方のループを扱うのはこの関数の責務で、呼び出し元（`build-plans.ts`）は
- * 「この設定ユニットの全アプリのイメージタグを適用する」という1つの操作として呼ぶだけでよい。
  *
  * 同じvalues.yamlを参照する複数アプリ・複数箇所の変更が1つの下書きに積み重なるよう、
- * アプリは並列化せず1つずつ処理する。**下書きを作るのはこの関数**で、後続の
- * `stageHelmTargetBranchUpdates()`はここで作られた下書きに重ねる。
+ * アプリは並列化せず1つずつ処理する。
  */
 export async function stageImageTagUpdates(
   source: ValuesYamlSource,

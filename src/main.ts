@@ -29,11 +29,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
  * config/ を読み込み、以下のステップを順に呼び出して全chartリポジトリを更新する。
  * dryRun のときはブランチ作成・MR作成をせず、更新予定の内容のみログ出力する。
  * targetChart / targetUnits が設定されている場合は、該当するchart・設定ユニットのみに
- * 絞り込んで実行する（`loadConfig`側の`target`絞り込み。指定した対象がconfig/配下に
- * 見つからない場合は`loadConfig`が例外をスローする）。
- *
- * GitLabへの読み取りのキャッシュ（`GitlabBatchCache`）はここで1つ作り、必要なstepへ渡す。
- * バッチの寿命を知っているのはこの関数だけなので、生成もここに置く。
+ * 絞り込んで実行する。
  *
  * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがあるchartAndAppsを除外する
  * 2. buildPlans: 残ったchartAndAppsそれぞれの更新計画（差分）を構築する

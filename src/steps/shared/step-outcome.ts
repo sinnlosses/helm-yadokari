@@ -11,16 +11,8 @@ import { FatalError, toErrorMessage } from "../../utils/errors.js"
 import { logger } from "../../utils/logger.js"
 
 // 3つのstep（filter-targets / build-plans / apply-updates）が共通で使う、
-// 「chartAndApps 1件の処理結果をどう記録し、失敗をどう扱うか」だけを置く。
-// 特定の技術・外部システムには依存しない（ドメイン型にのみ依存する）ため lib/ には置かず、
-// 「複数のstepから呼ばれる」ため特定stepの sub-steps/ にも置かない。
+// 「chartAndApps 1件の処理結果をどう記録し、失敗をどう扱うか」を置く。
 
-/**
- * chartAndApps 1件分の処理結果。`filter-targets`/`build-plans`はSKIPPED/ERROR判定を持つため
- * 成功時の値（`value`）を使わずchartAndAppsをそのまま次工程に渡し、`apply-updates`は成功時の
- * 値として`ChartUpdateResult`（"CREATED"）を使う。3つのstepで別々に定義されていた
- * `TargetOutcome`/`PlanResult`をこの型に統一する。
- */
 /**
  * chartAndApps 1件分の処理結果ログに共通で載せる識別情報。3つのstepが`withHandling()`から
  * 受け取り、自分の`result`/`reason`を足してログに出す。
