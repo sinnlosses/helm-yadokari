@@ -95,7 +95,8 @@ async function verifyChartAndApps(
           `${where}: registry.yaml の mrTargetBranch "${chart.mrTargetBranch}" が ${chart.projectName} に見つかりません`,
         ]
 
-  const appProblems = await reduceAsync(apps, [] as string[], async (acc, app) => [
+  const initial: readonly string[] = []
+  const appProblems = await reduceAsync(apps, initial, async (acc, app) => [
     ...acc,
     ...(await verifyApp(context, app, baseBranchFound)),
   ])
@@ -165,8 +166,9 @@ function verifyTargets(
   context: VerifyContext,
   targets: readonly AnchorTarget[],
   label: string,
-): Promise<string[]> {
-  return reduceAsync(targets, [] as string[], async (acc, target) => [
+): Promise<readonly string[]> {
+  const initial: readonly string[] = []
+  return reduceAsync(targets, initial, async (acc, target) => [
     ...acc,
     ...(await verifyTarget(context, target, label)),
   ])

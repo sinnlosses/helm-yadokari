@@ -11,10 +11,10 @@
   {
     "id": "T-164",
     "task": "`verify-config.ts` の `[] as string[]` 2箇所から `as` を外す。\n\n## 背景\n\n`scripts/lint/verify-config/verify-config.ts` に `as` キャストが2箇所ある:\n\n- `:98` `const appProblems = await reduceAsync(apps, [] as string[], async (acc, app) => [...])`\n- `:169` `return reduceAsync(targets, [] as string[], async (acc, target) => [...])`\n\n`CLAUDE.md`「コーディング規約」の「`as` キャストは極力使わない」に照らすと避けたい形で、\n**`src/` 側は同じことを `as` なしで書いている**。`src/steps/build-plans/sub-steps/resolve-latest-tags.ts:44`:\n\n```ts\nconst initial: readonly AppWithLatestTag[] = []\nreturn reduceAsync(apps, initial, async (acc, app) => [...])\n```\n\n`reduceAsync()` の第2引数に型注釈付きの `const` を渡せば、ジェネリック `Acc` が確定するので\nキャストは要らない。ついでに `readonly` も付き、`CLAUDE.md`「コレクションも不変\n（`ReadonlyMap`・`readonly`）に保つ」にも合う。\n\n## やること\n\n1. 2箇所を `resolve-latest-tags.ts:44` と同じ形（型注釈付きの `const` を渡す）に書き換える。\n   要素型は `string`、`readonly string[]` にできるか確認する\n2. `reduceAsync()` の戻り値を受ける側（`verifyChartAndApps()` の `[...chartProblems,\n   ...baseBranchProblems, ...appProblems, ...helmProblems]` と `verifyTargets()` の呼び出し元）で\n   型エラーが出ないことを確認する。出る場合は関数の戻り値型（`Promise<string[]>`）も\n   `readonly string[]` に揃えるかを検討する。**`verifyConfigExistence()` の公開シグネチャ\n   （`Promise<string[]>`）は変えない**（`scripts/lint/validate-config.ts` が\n   `problems.length` と `for...of` で使っている）\n\n## 完了条件\n\n- `grep -n \" as \" scripts/lint/verify-config/verify-config.ts` に `[] as string[]` が\n  **1件も残っていない**（import の `as` は対象外）\n- `pnpm lint:validate-config` が位置引数なしで `config OK: 3 設定ユニット, 5 apps` を出す\n  （出力を `evidence` に書く）\n- `pnpm check` が通る（テスト件数を `evidence` に書く。書き換えのみなので**359件のまま**が\n  正しい）\n\n## 注意\n\n- **報告される問題の文言・順序・件数を変えない。**\n  `test/scripts/lint/verify-config/verify-config.test.ts` が無改変で通ることで確認する\n- `verifyConfigExistence()` の公開シグネチャを変えない\n- T-165 が同じファイル（`verify-config.ts`）を触るので、前後した場合は競合を確認する\n- `/loop /next-task` に載せてよい",
-    "status": "todo",
+    "status": "done",
     "difficulty": "haiku",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "`haiku` に委譲。`verify-config.ts` の `[] as string[]` 2箇所を、型注釈付きの `const initial: readonly string[] = []` を `reduceAsync()` に渡す形（`resolve-latest-tags.ts` と同じ書き方）に置き換えた。`verifyTargets()` の戻り値型は `Promise<string[]>` → `Promise<readonly string[]>` に揃えた。\n`grep -n ' as ' scripts/lint/verify-config/verify-config.ts`（import除く）は**0件**。`verifyConfigExistence()` の公開シグネチャ `Promise<string[]>` は不変。`test/` の差分は0行で、報告される問題の文言・順序・件数は変わっていない。\n`src`+`scripts` 全体で `brand.ts` 以外の `as` キャストが**0件**になった。`pnpm lint:validate-config` は `config OK: 3 設定ユニット, 5 apps`。`pnpm check` 通過（33ファイル366テスト。書き換えのみなので着手前と同数が正しい）。",
     "dependencies": []
   },
   {
