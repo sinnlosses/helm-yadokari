@@ -120,6 +120,33 @@ describe("isFatalError", () => {
     expect(isFatalError(err)).toBe(true)
   })
 
+  it("gitbeaker が内部リトライを使い切った 502（GitbeakerRetryError）のとき true を返す", () => {
+    // gitbeaker は 429/502 を内部で最大10回リトライし、使い切るとこのエラーを投げる。
+    // `cause` を持たないためステータスはメッセージにしか残らない
+    const err = new Error(
+      "Could not successfully complete this request after 10 retries, last status code: 502. Verify the status of the endpoint.",
+    )
+    err.name = "GitbeakerRetryError"
+    expect(extractHttpStatus(err)).toBeUndefined()
+    expect(isFatalError(err)).toBe(true)
+  })
+
+  it("gitbeaker が内部リトライを使い切った 429（GitbeakerRetryError）のとき false を返す", () => {
+    // レート制限は該当プロジェクトの問題で、実行全体を止める理由にならない
+    const err = new Error(
+      "Could not successfully complete this request after 10 retries, last status code: 429. Check the applicable rate limits for this endpoint.",
+    )
+    err.name = "GitbeakerRetryError"
+    expect(isFatalError(err)).toBe(false)
+  })
+
+  it("GitbeakerRetryError のメッセージからステータスを読めないときは false を返す", () => {
+    // ライブラリがメッセージの書式を変えたときに、黙って実行全体を止めない安全側に倒す
+    const err = new Error("Could not successfully complete this request")
+    err.name = "GitbeakerRetryError"
+    expect(isFatalError(err)).toBe(false)
+  })
+
   it("HTTP ステータスも code もない通常の Error のとき false を返す", () => {
     expect(isFatalError(new Error("generic error"))).toBe(false)
   })

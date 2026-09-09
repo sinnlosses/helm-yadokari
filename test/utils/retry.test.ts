@@ -55,6 +55,19 @@ describe("withRetry", () => {
     expect(fn).toHaveBeenCalledTimes(1)
   })
 
+  it("gitbeaker が内部リトライを使い切ったエラー（GitbeakerRetryError）は再試行しない", async () => {
+    // gitbeaker が既に10回試したあとなので、こちらから追加で叩く相手ではない。
+    // ステータス（メッセージ中の 502/429）は isFatalError の判定にだけ使う
+    const err = new Error(
+      "Could not successfully complete this request after 10 retries, last status code: 502.",
+    )
+    err.name = "GitbeakerRetryError"
+    const fn = vi.fn().mockRejectedValue(err)
+
+    await expect(withRetry(fn, { baseDelayMs: 1 })).rejects.toThrow(err)
+    expect(fn).toHaveBeenCalledTimes(1)
+  })
+
   it("リトライ対象外の通常エラーは即座にスローする", async () => {
     const err = new Error("network error")
     const fn = vi.fn().mockRejectedValue(err)
