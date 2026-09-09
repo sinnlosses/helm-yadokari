@@ -38,10 +38,10 @@
   {
     "id": "T-167",
     "task": "タグ名の中でのブランチ名表現（`/` → `-`）を1つの関数にまとめる。\n\n## 背景\n\n`src/domain/tag-format.ts` に `branch.replaceAll(\"/\", \"-\")` が2箇所ある:\n\n- `:109` `compileTagPattern()` 内 — タグ名を**パースする**正規表現を組み立てるとき\n- `:143` `fillTagFormat()` 内 — タグ名を**生成する**とき\n\nどちらも「タグ名の中では、ブランチ名の `/` を `-` に置き換えた形で表す」という同じ規則で、\nパース側と生成側が対称であることが `parseTag()` / `buildNewTag()` の往復が成立する前提に\nなっている。片方だけ変えると `buildNewTag()` で作ったタグが `parseTag()` で読めなくなるが、\n今は2箇所に分かれているためその結び付きがコードから見えない。\n\n## やること\n\n1. `src/domain/tag-format.ts` にファイル内の非公開関数を1つ足し、2箇所をそれに置き換える。\n   関数名は「タグ名の中でのブランチ名表現」であることが分かるものにする\n2. `docs/coding-standards.md`「関数の並び順」に従って配置する（外から使うもの →\n   その内部で使うもの）。`escapeRegExp()` と同じくファイル末尾側になるはず\n3. 「パース側と生成側で同じ表現を使う」という前提をコメントに残すか判断する。\n   `docs/coding-standards.md`「コメント」の判断表に従い、**コードから読み取れることは書かない**\n   （関数を1本にした時点で読み取れるなら書かない）\n\n## 完了条件\n\n- `grep -c 'replaceAll(\"/\", \"-\")' src/domain/tag-format.ts` が **1**\n- `test/domain/tag-format.test.ts` が**無改変で通る**（`evidence` に書く）\n- `buildNewTag()` が作ったタグ名を `parseTag()` が読めることを確かめるテストが既にあることを\n  確認する。**無ければ1件足す**（`docs/coding-standards.md`「足すかどうか」の\n  「`docs/requirements.md` が明示している振る舞い」に当たるため）\n- `pnpm check` が通る（テスト件数を `evidence` に書く）\n\n## 注意\n\n- **`escapeRegExp()` を消したり簡略化したりしない。** 過去に「`escapeRegExp()` を守るテストが\n  1件も無い」という穴が T-143 で埋められている\n- タグ形式のプレースホルダの扱い（`PLACEHOLDER_PATTERN` / `REQUIRED_PLACEHOLDERS`）を変えない\n- JST の扱い（`JST_OFFSET_MS`）に触れない\n- `/loop /next-task` に載せてよい",
-    "status": "todo",
+    "status": "done",
     "difficulty": "haiku",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "`haiku` に委譲。`toBranchLiteralInTag(branch)` を `src/domain/tag-format.ts` の末尾側（`escapeRegExp()` の直前）に追加し、`compileTagPattern()` と `fillTagFormat()` の2箇所を置き換えた。`grep -c 'replaceAll(\"/\", \"-\")' src/domain/tag-format.ts` は **1**。\n変異検証は委譲先・メイン双方で実施。置換をやめて `branch` をそのまま返すと**6件落ちる**（`parseTag`・`buildNewTag`・並び順の回帰・`compileTagPattern`・`resolve-latest-tags` の各テスト）。往復（`buildNewTag()`→`parseTag()`）を確かめるテストは既存で3箇所あり、追加不要と確認した。\n**受け入れ時にメインがJSDocを2箇所直した**。`fillTagFormat()` の説明が「`{branch}`は**呼び出し元が渡した**`branch`（\"/\"を\"-\"に置換済み）」となっていたが、実際は自分で変換しており事実と違っていた（このタスク以前からの誤り）。両方の JSDoc を新関数に向け、パース側と生成側が同じものを使うことがコメントからも読めるようにした。`pnpm check` 通過（33ファイル377テスト、着手前と同数）。",
     "dependencies": []
   },
   {

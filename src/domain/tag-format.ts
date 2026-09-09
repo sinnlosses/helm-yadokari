@@ -102,11 +102,12 @@ export function buildNewTag(branch: BranchName, now: Date, format: TagFormat): P
 
 /**
  * `format`と`branch`から、タグ名をパースするための正規表現を組み立てる。`{branch}`は
- * `branch`の具体値（"/"を"-"に置換済み）へのリテラル一致、`{date}`/`{time}`は名前付き
- * キャプチャグループにする。プレースホルダ以外の部分はリテラルとしてエスケープする。
+ * `branch`をタグ名の中での表現に変換した値（`toBranchLiteralInTag()`）へのリテラル一致、
+ * `{date}`/`{time}`は名前付きキャプチャグループにする。プレースホルダ以外の部分は
+ * リテラルとしてエスケープする。
  */
 function compileTagPattern(format: TagFormat, branch: BranchName): RegExp {
-  const branchLiteral = branch.replaceAll("/", "-")
+  const branchLiteral = toBranchLiteralInTag(branch)
   const toPatternPart = (placeholder: string | undefined): string => {
     if (placeholder === "branch") return escapeRegExp(branchLiteral)
     if (placeholder === "date") return "(?<date>\\d{8})"
@@ -131,8 +132,9 @@ function compileTagPattern(format: TagFormat, branch: BranchName): RegExp {
 }
 
 /**
- * `format`のプレースホルダを埋めてタグ名を組み立てる。`{branch}`は呼び出し元が渡した
- * `branch`（"/"を"-"に置換済み）、`{date}`/`{time}`は呼び出し元が渡した値にそのまま置換する。
+ * `format`のプレースホルダを埋めてタグ名を組み立てる。`{branch}`はタグ名の中での表現
+ * （`toBranchLiteralInTag()`。`compileTagPattern()`と同じもの）に変換して埋め、
+ * `{date}`/`{time}`は呼び出し元が渡した値にそのまま置換する。
  */
 function fillTagFormat(
   format: TagFormat,
@@ -140,12 +142,16 @@ function fillTagFormat(
   datePart: string,
   timePart: string,
 ): string {
-  const branchLiteral = branch.replaceAll("/", "-")
+  const branchLiteral = toBranchLiteralInTag(branch)
   return format.replace(PLACEHOLDER_PATTERN, (_, placeholder: string) => {
     if (placeholder === "branch") return branchLiteral
     if (placeholder === "date") return datePart
     return timePart
   })
+}
+
+function toBranchLiteralInTag(branch: BranchName): string {
+  return branch.replaceAll("/", "-")
 }
 
 function escapeRegExp(literal: string): string {
