@@ -91,14 +91,23 @@ const AppSchema = z.object({
 })
 
 /**
- * `branchToSync`・`chart`のどちらも省略可能にしているのは、`helm`オブジェクト自体が
- * 丸ごと省略可能な設定だから。片方だけの指定を設定エラーにする判定（両方揃って初めて
- * 意味を持つ）はスキーマではなく`chart-and-apps.ts`の`resolveHelmTargetBranch()`が担う
+ * `helm`オブジェクト自体は省略できるが、書き込む値（`branchToSync`）と書き込み先（`chart[]`）は
+ * 両方揃って初めて意味を持つため中身は必須にする。片方だけの指定はここで設定エラーになる
+ * （`docs/requirements.md` 4.4節）。
  */
 const HelmSchema = z.object({
-  branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName).optional(),
-  chart: z.array(AnchorTargetSchema).min(1, "chart は1件以上指定してください").optional(),
+  branchToSync: z
+    .string({ error: "helm.branchToSync は必須です（helm.chart とセットで指定してください）" })
+    .min(1, "helm.branchToSync は空にできません")
+    .transform(toBranchName),
+  chart: z
+    .array(AnchorTargetSchema, {
+      error: "helm.chart は必須です（helm.branchToSync とセットで指定してください）",
+    })
+    .min(1, "helm.chart は1件以上指定してください"),
 })
+
+export type HelmConfig = z.infer<typeof HelmSchema>
 
 export const ConfigYamlSchema = z.object({
   helm: HelmSchema.optional(),

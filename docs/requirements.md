@@ -347,23 +347,18 @@ apps:
 ブランチ。既存の`mrTargetBranch`＝値定義ブランチとは別物）の追従・更新も、このMRの対象に含める:
 
 ```yaml
-# config.yaml トップレベル。apps:配列と同階層、設定ユニット単位に1件のオブジェクト（運用値）
-helm:
-  branchToSync: release/2026-q1
-apps:
-  - projectId: 1
-    projectName: my-app
-    branchToSync: main
-```
-
-```yaml
-# config.yaml トップレベル（helm.branchToSync の値をどこに書くか）
+# config.yaml トップレベル。apps:配列と同階層、設定ユニット単位に1件のオブジェクト。
+# helm 自体は省略できるが、書くなら branchToSync と chart[] の両方が必須
 helm:
   branchToSync: release/2026-q1
   chart:
     # helm.branchToSyncの値をこのvaluesPath内のこのアンカーに書き込む
     - valuesPath: charts/my-app/values.yaml
       anchor: myAppTargetBranch
+apps:
+  - projectId: 1
+    projectName: my-app
+    branchToSync: main
 ```
 
 - `config.yaml`の`helm.branchToSync`はchartリポジトリ内の別ブランチ（`registry.yaml`の`chartToUpdate.projectId`と

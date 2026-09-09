@@ -1,9 +1,7 @@
 import { join } from "node:path"
 
 import type {
-  AnchorTarget,
   AppConfig,
-  BranchName,
   ChartAndApps,
   ChartDirName,
   ChartRepoConfig,
@@ -11,7 +9,7 @@ import type {
   HelmTargetBranchConfig,
 } from "../../types/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
-import type { AppSpec } from "./schema.js"
+import type { AppSpec, HelmConfig } from "./schema.js"
 import { CONFIG_YAML_FILE_NAME, ConfigYamlSchema } from "./schema.js"
 import {
   validateNoDuplicateProjectIds,
@@ -74,47 +72,30 @@ export function loadChartAndApps(
     unitPath,
     chart,
     apps: appConfigs,
-    helmTargetBranch: resolveHelmTargetBranch(
-      configYamlPath,
-      helm?.branchToSync,
-      helm?.chart,
-      appConfigs,
-    ),
+    helmTargetBranch: resolveHelmTargetBranch(configYamlPath, helm, appConfigs),
   }
 }
 
 /**
- * config.yamlの`helm.branchToSync`（書き込む値）と`helm.chart[]`（書き込み先の`valuesPath`+
+ * config.yamlの`helm`（`branchToSync`＝書き込む値、`chart[]`＝書き込み先の`valuesPath`+
  * `anchor`一覧）から、設定ユニット単位の`HelmTargetBranchConfig`を作る。Helmの向き先ブランチは
  * 「1設定ユニット内のapps全体で共通」という前提なので、appごとに振り分けず設定ユニット単位で
- * 1つだけ持つ。`branchToSync`が指定されている場合は、そのconfig.yaml配下の全アプリの全
+ * 1つだけ持つ。`helm`が指定されている場合は、そのconfig.yaml配下の全アプリの全
  * `chart[].valuesPath`が`helm.chart[]`でカバーされている必要がある（1つでも漏れていれば、
- * そのvaluesPathだけ更新対象から漏れてしまう設定ミスとして例外をスローする）。`branchToSync`と
- * `helm.chart[]`は片方だけの指定も設定ミスとして例外をスローする。
+ * そのvaluesPathだけ更新対象から漏れてしまう設定ミスとして例外をスローする）。
  * 逆にどのappも書き込まないvaluesPathを指す`helm.chart[]`の要素は`targets`に含めない。
  */
 function resolveHelmTargetBranch(
   configYamlPath: string,
-  branchToSync: BranchName | undefined,
-  helmChart: readonly AnchorTarget[] | undefined,
+  helm: HelmConfig | undefined,
   apps: readonly AppConfig[],
 ): HelmTargetBranchConfig | undefined {
-  if (branchToSync === undefined && helmChart === undefined) return undefined
-  if (branchToSync === undefined) {
-    throw new Error(
-      `${configYamlPath}: helm.chart が指定されていますが、helm.branchToSync がありません`,
-    )
-  }
-  if (helmChart === undefined) {
-    throw new Error(
-      `${configYamlPath}: helm.branchToSync が指定されていますが、helm.chart がありません`,
-    )
-  }
+  if (helm === undefined) return undefined
 
   for (const app of apps) {
     const appValuesPaths = [...new Set(app.imageTagTargets.map((target) => target.valuesPath))]
     const uncoveredValuesPaths = appValuesPaths.filter(
-      (valuesPath) => !helmChart.some((target) => target.valuesPath === valuesPath),
+      (valuesPath) => !helm.chart.some((target) => target.valuesPath === valuesPath),
     )
     if (uncoveredValuesPaths.length > 0) {
       throw new Error(
@@ -126,6 +107,6 @@ function resolveHelmTargetBranch(
   const allValuesPaths = new Set(
     apps.flatMap((app) => app.imageTagTargets.map((target) => target.valuesPath)),
   )
-  const targets = helmChart.filter((target) => allValuesPaths.has(target.valuesPath))
-  return { branchName: branchToSync, targets }
+  const targets = helm.chart.filter((target) => allValuesPaths.has(target.valuesPath))
+  return { branchName: helm.branchToSync, targets }
 }
