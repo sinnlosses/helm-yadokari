@@ -1,5 +1,6 @@
-// @gitbeaker/rest がスローするエラー構造 (Error → cause.response.status) と、
-// タイムアウト時のエラー名 (GitbeakerTimeoutError) に依存している。
+// @gitbeaker/rest がスローするエラー構造 (Error → cause.response.status)、その内部の fetch が
+// ネットワーク障害時に投げる構造 (TypeError: fetch failed → cause.code)、タイムアウト時の
+// エラー名 (GitbeakerTimeoutError) に依存している。
 // ライブラリのメジャーバージョンアップ時はこれらが変わる可能性がある。
 
 // gitbeaker が queryTimeout の超過時に投げるエラーの名前。クラスの `instanceof` ではなく名前で
@@ -31,8 +32,7 @@ export function isFatalError(error: unknown): boolean {
   if (status !== undefined) return isFatalStatus(status)
   if (!(error instanceof Error)) return false
   if (error.name === GITBEAKER_TIMEOUT_ERROR_NAME) return true
-  if (!hasKey(error, "code")) return false
-  const { code } = error
+  const code = extractErrorCode(error)
   return code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ETIMEDOUT"
 }
 
@@ -48,4 +48,22 @@ function hasKey<K extends string>(obj: object, key: K): obj is Record<K, unknown
 // 401（認証失敗）と 5xx（サーバー障害）は全プロジェクトに影響するため即時終了する。
 function isFatalStatus(status: number): boolean {
   return status === 401 || status >= 500
+}
+
+/**
+ * エラー自身の `code`、無ければ `cause` の `code` を返す。fetch はネットワーク障害を
+ * `TypeError: fetch failed` として投げ、`ENOTFOUND` などの実際の `code` は `cause` に入れるため。
+ * `extractHttpStatus()` と同様に `cause` は1段だけ辿る。これで足りるのは、致命的エラーを包み直さない
+ * ことを `rethrowWithAppContext()` が保証しているため。際限なく辿ると、無関係な内側のエラーの
+ * `code` で実行全体を止める危険がある。
+ */
+function extractErrorCode(error: Error): string | undefined {
+  return readCode(error) ?? readCode(error.cause)
+}
+
+function readCode(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null) return undefined
+  if (!hasKey(value, "code")) return undefined
+  const { code } = value
+  return typeof code === "string" ? code : undefined
 }

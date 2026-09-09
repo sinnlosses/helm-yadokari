@@ -77,9 +77,39 @@ describe("isFatalError", () => {
     expect(isFatalError(makeHttpError(404))).toBe(false)
   })
 
-  it.each(["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT"])("%s のとき true を返す", (code) => {
-    const err = Object.assign(new Error(`connect ${code}`), { code })
-    expect(isFatalError(err)).toBe(true)
+  it.each(["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT"])(
+    "エラー自身が code=%s を持つとき true を返す",
+    (code) => {
+      const err = Object.assign(new Error(`connect ${code}`), { code })
+      expect(isFatalError(err)).toBe(true)
+    },
+  )
+
+  it.each(["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT"])(
+    "cause に code=%s を持つとき true を返す",
+    (code) => {
+      // fetch が実際に投げる形。code は TypeError 自身ではなく cause に入る
+      const err = new TypeError("fetch failed", {
+        cause: Object.assign(new Error(`connect ${code}`), { code }),
+      })
+      expect(extractHttpStatus(err)).toBeUndefined()
+      expect(isFatalError(err)).toBe(true)
+    },
+  )
+
+  it("cause が code を持たないとき false を返す", () => {
+    expect(isFatalError(new TypeError("fetch failed", { cause: new Error("boom") }))).toBe(false)
+  })
+
+  it("cause の code がネットワーク障害以外のとき false を返す", () => {
+    const err = new TypeError("fetch failed", {
+      cause: Object.assign(new Error("aborted"), { code: "ERR_UNKNOWN" }),
+    })
+    expect(isFatalError(err)).toBe(false)
+  })
+
+  it("cause の code が文字列でないとき false を返す", () => {
+    expect(isFatalError(new Error("oops", { cause: { code: 500 } }))).toBe(false)
   })
 
   it("gitbeaker の queryTimeout 超過（GitbeakerTimeoutError）のとき true を返す", () => {

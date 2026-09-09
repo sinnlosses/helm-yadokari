@@ -142,6 +142,21 @@ T-161 のコミットで整形し直した。手順は下の「注意」に追�
 - 型の置き場所は `docs/architecture.md` の表の4行目・5行目に対応。表の例示に
   `ChartUpdateLogContext` を追記した
 
+### 2026-09-09 `/loop /next-task` による自動進行
+
+**T-158 完了**（`opus`、委譲）。棚卸しで見つけた**本物のバグ**の修正。undici の `fetch` が
+`TypeError: fetch failed` を投げ `code` を `cause` に入れるため、`isFatalError()` が
+DNS障害・接続拒否を検出できていなかった。正典3箇所（`README.md`・`CLAUDE.md`・
+`docs/coding-standards.md`）が約束していた「ネットワーク障害は即時終了」が効いていなかった。
+
+- **正典は無修正**。元から正しい方針を書いており、ズレていたのはコード側だけだった
+- `cause` は**1段だけ**辿る。際限なく辿ると無関係な内側エラーの `code` で実行全体を止める危険が
+  あり、1段で足りる根拠は `rethrowWithAppContext()` が「致命的エラーは包み直さない」ことを
+  保証していること（既存の不変条件が設計判断の裏づけになった）
+- **受け入れ時にメインが独立に実測**: 連鎖は `TypeError -> Error(code=ENOTFOUND)` の1段で、
+  DNS失敗・接続拒否とも `isFatalError: true`（着手前は false）
+- 変異確認: `cause` を辿るのをやめると3件、`ETIMEDOUT` を消すと2件が落ちる
+
 ## 次にやること
 
 棚卸し（2026-09-09）で登録した13件のうち**残り9件**と、作業中に見つかった **T-171** の計10件。**ユーザーの希望で1項目=1タスクに分けてあるので、
@@ -149,12 +164,6 @@ T-161 のコミットで整形し直した。手順は下の「注意」に追�
 
 **承認が要る3件（T-159・T-162・T-168）と依存の T-161 は完了。残る承認待ちは T-171 の1件だけで、他の9件は `/loop /next-task` に載せられる。**
 
-- **T-158（`isFatalError()` がネットワーク障害を検出できない、`opus`、依存なし）**。
-  実測で確認済みの**本物のバグ**。undici の `fetch` は `TypeError: fetch failed` を投げ、
-  `ECONNREFUSED`/`ENOTFOUND` は `cause.code` に入るが、`src/utils/http.ts:26` は
-  エラー自身の `code` しか見ていない。正典3箇所（`README.md`・`CLAUDE.md`・
-  `docs/coding-standards.md`）が「ネットワーク障害は即時終了」と書いているのに効いていない。
-  `test/utils/http.test.ts:80` が実在しない平たい形を検証しているので**テストは緑のまま**。
 - **T-160（未使用の `logger.warn` の存否、`sonnet`、依存なし）**。T-134 で新設され T-144 の
   撤回で唯一の呼び出し元が消えた残骸。JSDoc が今は無い挙動を説明している。
 - **T-163（`cacheByArgs()` を `utils/cache.ts` へ上げる、`sonnet`、依存なし）**。
