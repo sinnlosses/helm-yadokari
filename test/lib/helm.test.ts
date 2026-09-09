@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { parse as parseYaml } from "yaml"
 
-import { getRequiredValueAtAnchor, getValueAtAnchor, setValueAtAnchor } from "../../src/lib/helm.js"
+import {
+  getRequiredValueAtAnchor,
+  lookupValueAtAnchor,
+  setValueAtAnchor,
+} from "../../src/lib/helm.js"
 import { toAnchorName, toValuesPath } from "../../src/types/types.js"
 
 const VARIABLES_YAML = `variables:
@@ -10,18 +14,26 @@ const VARIABLES_YAML = `variables:
   - &tenant1client2AppsVersion main
 `
 
-describe("getValueAtAnchor", () => {
+describe("lookupValueAtAnchor", () => {
   it("アンカー名に対応する値を返す", () => {
-    expect(getValueAtAnchor(VARIABLES_YAML, toAnchorName("tenant1client1AppsVersion"))).toBe("main")
+    expect(lookupValueAtAnchor(VARIABLES_YAML, toAnchorName("tenant1client1AppsVersion"))).toEqual({
+      kind: "scalar",
+      value: "main",
+    })
   })
 
   it("ネストの深い位置にあるアンカーも見つける", () => {
     const yamlContent = "other:\n  nested:\n    - &deepAnchor value1\n"
-    expect(getValueAtAnchor(yamlContent, toAnchorName("deepAnchor"))).toBe("value1")
+    expect(lookupValueAtAnchor(yamlContent, toAnchorName("deepAnchor"))).toEqual({
+      kind: "scalar",
+      value: "value1",
+    })
   })
 
-  it("該当するアンカーが存在しないとき undefined を返す", () => {
-    expect(getValueAtAnchor(VARIABLES_YAML, toAnchorName("noSuchAnchor"))).toBeUndefined()
+  it("該当するアンカーが存在しないとき not_found を返す", () => {
+    expect(lookupValueAtAnchor(VARIABLES_YAML, toAnchorName("noSuchAnchor"))).toEqual({
+      kind: "not_found",
+    })
   })
 
   it("クォートなしの数値に見える値（例: ブランチ名が数字だけ）も文字列として返す", () => {
@@ -29,12 +41,15 @@ describe("getValueAtAnchor", () => {
     // ここで文字列化しておかないと、config.yaml側（branchToSyncはz.string()）の値と
     // 型が合わず比較できない
     const yamlContent = "variables:\n  - &b 2026\n"
-    expect(getValueAtAnchor(yamlContent, toAnchorName("b"))).toBe("2026")
+    expect(lookupValueAtAnchor(yamlContent, toAnchorName("b"))).toEqual({
+      kind: "scalar",
+      value: "2026",
+    })
   })
 
-  it("アンカーがマッピングに付いているとき（スカラーではないとき）も undefined を返す", () => {
+  it("アンカーがマッピングに付いているとき（スカラーではないとき）、アンカー不在と区別できる non_scalar を返す", () => {
     const yamlContent = "group: &group\n  a: 1\n  b: 2\n"
-    expect(getValueAtAnchor(yamlContent, toAnchorName("group"))).toBeUndefined()
+    expect(lookupValueAtAnchor(yamlContent, toAnchorName("group"))).toEqual({ kind: "non_scalar" })
   })
 })
 
@@ -66,11 +81,18 @@ describe("setValueAtAnchor", () => {
       toAnchorName("tenant1client1AppsVersion"),
       "release/1.2.3",
     )
-    expect(getValueAtAnchor(result, toAnchorName("tenant1client1AppsVersion"))).toBe(
-      "release/1.2.3",
-    )
-    expect(getValueAtAnchor(result, toAnchorName("helmVersion"))).toBe("develop")
-    expect(getValueAtAnchor(result, toAnchorName("tenant1client2AppsVersion"))).toBe("main")
+    expect(lookupValueAtAnchor(result, toAnchorName("tenant1client1AppsVersion"))).toEqual({
+      kind: "scalar",
+      value: "release/1.2.3",
+    })
+    expect(lookupValueAtAnchor(result, toAnchorName("helmVersion"))).toEqual({
+      kind: "scalar",
+      value: "develop",
+    })
+    expect(lookupValueAtAnchor(result, toAnchorName("tenant1client2AppsVersion"))).toEqual({
+      kind: "scalar",
+      value: "main",
+    })
   })
 
   it("アンカー記法自体は書き換え後も維持される", () => {

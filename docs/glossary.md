@@ -110,7 +110,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   のように、配列要素にアンカーで名前を付けた構成のvalues.yamlを前提とする。1つのソース
   リポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を管理している場合は、`chart`配列に
   要素を複数指定し、それぞれ異なる`anchor`を持たせる。
-- **補足**: `yaml`パッケージ（`src/lib/helm.ts`の`getValueAtAnchor`/`setValueAtAnchor`）がASTを
+- **補足**: `yaml`パッケージ（`src/lib/helm.ts`の`lookupValueAtAnchor`/`setValueAtAnchor`）がASTを
   `visit()`で走査し、アンカー名をノードのプロパティとして直接引く。オブジェクトのネストを
   dotパスで辿る`imageTagKey`方式も過去に存在したが、実運用ではYAMLアンカー方式のみで
   十分なため削除された。過去には`imageTagAnchor`という名前だったが、ユーザー指示により

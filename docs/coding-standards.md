@@ -296,7 +296,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 | `parallel`「空配列のとき空配列を返す」                               | `main.test.ts`「chartAndAppsListがないとき」                                  |
 | `parallel`「入力順を保った配列で返す」                               | `filter-targets`「判定順に振り分ける」・`apply-updates`「入力順を保った配列」 |
 | `parallel`「FatalErrorが発生したとき reject する」                   | 3stepと`main`の「401エラーのとき FatalError」計4件                            |
-| `helm`「getRequiredValueAtAnchor がアンカーの値を返す」              | `getValueAtAnchor` の同一入力のテストと `stage-image-tag-updates` 全件        |
+| `helm`「getRequiredValueAtAnchor がアンカーの値を返す」              | `lookupValueAtAnchor` の同一入力のテストと `stage-image-tag-updates` 全件     |
 | `feature-branch`「buildFeatureBranch」2件                            | `main.e2e.test.ts` が深さ1・深さ2の固定ブランチ名を実文字列で固定             |
 
 **この精査で残したもの**（カバレッジは減らないが上位に守り手がいない）:

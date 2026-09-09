@@ -236,7 +236,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 1. 同じ理由で一緒に書き換わる
 2. 非公開ヘルパーを共有している（分けると非公開だったものを`export`に昇格させることになる。
    分割の最も見えにくいコスト）
-3. 対になっていて片方だけでは意味が分からない（`getValueAtAnchor`/`setValueAtAnchor`）
+3. 対になっていて片方だけでは意味が分からない（`lookupValueAtAnchor`/`setValueAtAnchor`）
 4. 呼び出し側がほぼ必ずセットでimportする
 
 **分ける合図**（1つでも当てはまれば分割する。①〜④が優先で、行数だけを理由には割らない）:
@@ -856,8 +856,8 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
   場合、`setValueAtAnchor()`（`src/lib/helm.ts`）で書き戻すとクォートが付く。これは`yaml`
   パッケージが「文字列として代入した値がクォートなしだと再パース時に数値・真偽値へ化ける」
   ケースを検知して自動的にクォートを付ける挙動で、書き込む値は常にHelmが期待する文字列型
-  として正しく保存される（誤動作ではない）。読み取り側（`getValueAtAnchor()`/
-  `getRequiredValueAtAnchor()`）も`String(node.value)`で文字列化しているため、クォートの
+  として正しく保存される（誤動作ではない）。読み取り側（`lookupValueAtAnchor()`。
+  `getRequiredValueAtAnchor()`もこれを通す）も`String(node.value)`で文字列化しているため、クォートの
   有無に関わらず読み取り値は一貫して文字列になり、読み取り→比較→書き戻しの往復は壊れない
 - タグに紐づくGitLabプロジェクトのURLは `Projects.show` で取得している（`config/`に
   namespace slugを持たせていないため）。バッチ1回につきprojectIdごとに1回で、それ以降は

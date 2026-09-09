@@ -112,6 +112,20 @@ describe("verifyConfigExistence", () => {
     expect(problems[0]).toContain("noSuchAnchor")
   })
 
+  it("アンカーがスカラー以外に付いているとき、アンカー不在とは違う文言で問題として返す", async () => {
+    vi.mocked(getFileContent).mockResolvedValue("group: &appVersion\n  a: 1\n")
+    const app = makeApp({
+      imageTagTargets: [
+        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
+      ],
+    })
+
+    const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps([app])], 3)
+
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain("スカラー値に付いていません")
+  })
+
   it("Helmの向き先ブランチが存在しないとき問題として返す", async () => {
     const helmTargetBranch = {
       branchName: toBranchName("release/ghost"),

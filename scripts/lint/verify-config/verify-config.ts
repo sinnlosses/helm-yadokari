@@ -1,6 +1,6 @@
 import { buildConfigUnitLocation } from "../../../src/domain/config-unit.js"
 import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
-import { getValueAtAnchor } from "../../../src/lib/helm.js"
+import { lookupValueAtAnchor } from "../../../src/lib/helm.js"
 import type {
   AnchorTarget,
   AppConfig,
@@ -177,7 +177,8 @@ function verifyTargets(
 
 /**
  * 書き込み先1件分（`valuesPath`+`anchor`）を検証する。ファイルが無ければファイルの問題を、
- * ファイルはあるがアンカーが無ければアンカーの問題を返す。同じ`valuesPath`について
+ * ファイルはあるがアンカーを引けなければアンカーの問題を返す（アンカー自体が無いのか、
+ * スカラー以外に付いているのかは直せる手が違うので文言を分ける）。同じ`valuesPath`について
  * ファイル不在を何度も報告しないよう、報告済みのパスは`reportedPaths`で覚えておく。
  */
 async function verifyTarget(
@@ -185,7 +186,7 @@ async function verifyTarget(
   target: AnchorTarget,
   label: string,
 ): Promise<string[]> {
-  const { content } = await cache.loadValuesYaml(
+  const content = await cache.loadValuesYaml(
     chart.projectId,
     chart.mrTargetBranch,
     target.valuesPath,
@@ -198,9 +199,15 @@ async function verifyTarget(
       `${where}: ${label} の values.yaml が見つかりません（${target.valuesPath} @ ${chart.mrTargetBranch}）`,
     ]
   }
-  if (getValueAtAnchor(content, target.anchorName) === undefined) {
+  const lookup = lookupValueAtAnchor(content, target.anchorName)
+  if (lookup.kind === "not_found") {
     return [
       `${where}: ${label} のアンカー "${target.anchorName}" が ${target.valuesPath} に見つかりません`,
+    ]
+  }
+  if (lookup.kind === "non_scalar") {
+    return [
+      `${where}: ${label} のアンカー "${target.anchorName}" が ${target.valuesPath} でスカラー値に付いていません（マッピングまたはシーケンスに付いています）`,
     ]
   }
   return []

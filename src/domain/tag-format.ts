@@ -2,8 +2,10 @@ import type { BranchName, ParsedTag, TagFormat, TagName } from "../types/types.j
 import { toTagFormat, toTagName } from "../types/types.js"
 
 const REQUIRED_PLACEHOLDERS: readonly string[] = ["branch", "date", "time"]
-const PLACEHOLDER_PATTERN = /\{(branch|date|time)\}/g
-const ANY_PLACEHOLDER_PATTERN = /\{([^}]*)\}/g
+// どちらもキャプチャグループを持たせない。読むのはマッチ全体（`{...}`）だけで、グループを
+// 置くと「必ず参加するのに型は `string | undefined`」という実体のない分岐が呼び出し側に増える。
+const PLACEHOLDER_PATTERN = /\{(?:branch|date|time)\}/g
+const ANY_PLACEHOLDER_PATTERN = /\{[^}]*\}/g
 
 // タグ名の{date}/{time}はJST（UTC+9固定）で組み立て・解釈する。日本にサマータイムは無いため
 // オフセット計算で足りる（buildNewTagで足してparseTagで引く、単純に対称）。
@@ -16,8 +18,8 @@ const JST_OFFSET_MS = 9 * 60 * 60 * 1000
  */
 export function validateTagFormat(raw: string): TagFormat {
   const unknownPlaceholders = [...raw.matchAll(ANY_PLACEHOLDER_PATTERN)]
-    .map((match) => match[1])
-    .filter((name): name is string => name !== undefined && !REQUIRED_PLACEHOLDERS.includes(name))
+    .map((match) => match[0].slice(1, -1))
+    .filter((name) => !REQUIRED_PLACEHOLDERS.includes(name))
   if (unknownPlaceholders.length > 0) {
     throw new Error(
       `tagFormat に未知のプレースホルダがあります: ${unknownPlaceholders.join(", ")}` +
@@ -108,9 +110,9 @@ export function buildNewTag(branch: BranchName, now: Date, format: TagFormat): P
  */
 function compileTagPattern(format: TagFormat, branch: BranchName): RegExp {
   const branchLiteral = toBranchLiteralInTag(branch)
-  const toPatternPart = (placeholder: string | undefined): string => {
-    if (placeholder === "branch") return escapeRegExp(branchLiteral)
-    if (placeholder === "date") return "(?<date>\\d{8})"
+  const toPatternPart = (placeholder: string): string => {
+    if (placeholder === "{branch}") return escapeRegExp(branchLiteral)
+    if (placeholder === "{date}") return "(?<date>\\d{8})"
     return "(?<time>\\d{6})"
   }
 
@@ -122,7 +124,7 @@ function compileTagPattern(format: TagFormat, branch: BranchName): RegExp {
       source:
         acc.source +
         escapeRegExp(format.slice(acc.lastIndex, match.index)) +
-        toPatternPart(match[1]),
+        toPatternPart(match[0]),
       lastIndex: match.index + match[0].length,
     }),
     { source: "^", lastIndex: 0 },
@@ -143,9 +145,9 @@ function fillTagFormat(
   timePart: string,
 ): string {
   const branchLiteral = toBranchLiteralInTag(branch)
-  return format.replace(PLACEHOLDER_PATTERN, (_, placeholder: string) => {
-    if (placeholder === "branch") return branchLiteral
-    if (placeholder === "date") return datePart
+  return format.replace(PLACEHOLDER_PATTERN, (placeholder) => {
+    if (placeholder === "{branch}") return branchLiteral
+    if (placeholder === "{date}") return datePart
     return timePart
   })
 }
