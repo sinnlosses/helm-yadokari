@@ -3672,3 +3672,276 @@ config/<chartディレクトリ>/
 **difficulty**: sonnet
 
 **evidence**: anchors.yaml を config.yaml へ統合して廃止し、tagFormat を chart.yaml の apps[] へ移した。実測: find config -name '\*.yaml' が 7→4件、grep tagFormat config/ が chart.yaml の2件のみ（移行前は config.yaml 3ファイルに5件）、grep anchors.yaml が src/・test/・config/ で0件（docs 側に残る3件は「以前は3ファイルだった」経緯の記述で意図的）。pnpm check 通過（32ファイル359テスト。着手前357から増加）、pnpm lint:validate-config が config OK: 3 設定ユニット, 5 apps。受け入れ時にメインで追加確認: steps/ の try 0件・新規 as キャスト0件・?: 記法0件・タスク番号0件、追加された3つの export（ChartApp/ChartYamlSchema/ConfigYamlSchema）はいずれも他ファイルから利用ありで規約適合。委譲先の報告どおり docs/architecture.md に前段タスクの更新漏れがあったため、受け入れ時にメインが修正: 旧「3ファイル分割」節を削除、節の索引2行（削除1・旧見出し名1）、各ファイルの責務表2行、走査の節1箇所、型の置き場所の Anchors/AnchorsApp→ChartApp を3箇所。索引36件が全て実在見出しに前方一致することを再検証済み。
+
+## T-147
+
+**タスク**: progress.md のアーカイブ基準とトリガーを定義し、tasks.json と同じ検査点に組み込む。
+
+## 背景
+
+`develop/progress.md` が455行・42.7KBまで肥大化している。うち376行（83%）が `## 完了したこと（このセッション）` で、その配下に `### 定期メンテの棚卸し（2026-09-08）`・`### 要件変更: テナント/クライアント2階層固定 → 設定ユニット（深さ1〜2）`・`### 実機スモークテスト（2026-09-07、docs/smoke-test.md の手順どおり）` と複数日付の小節が並ぶ。「このセッション」と題した節に複数セッション分が溜まっている。
+
+規約自体は既にある。`docs/workflow.md`「progress.md の構成」は「**このセッション分のみ**を書き、過去セッション分はアーカイブへ移す」と定めており、`docs/history/progress-archive.md` の冒頭にも同じ運用に切り替えた経緯が残っている。それでも再肥大化したのは、規約を**実行させる仕組みが tasks.json 側にしか無い**ため:
+
+- `docs/workflow.md`「肥大化したときのアーカイブ」の「いつ移すか（トリガー）」は `develop/tasks.json` を読む／書く直後の2点（`/next-task` 手順1、`/plan-tasks` 手順5）に紐付いており、判定基準も `done` 10件以上／30KB超と**tasks.json の数値だけ**。progress.md の肥大化を判定する箇所がどこにも無い
+- `.claude/skills/next-task/SKILL.md` 手順6 は progress.md の「完了したこと」へ**追記する**とだけ書かれていて、減らす手順を持たない。追記だけが毎サイクル走るので単調増加する
+- 「このセッション」の境界が progress.md 自身から判別できない。セッションは切れて再開する運用（`CLAUDE.md`「進捗管理とHandoff」）なので、次のセッションから見てどこまでが前回分かを機械的に決められない。現に上の3小節は日付を持つものと持たないものが混在している
+
+ユーザーからの指示は「progress.md がメンテされてなく400行以上ある。タスクのtasks.jsonと一緒にメンテされるような仕組みにしてほしい」。
+
+## 解くべき論点
+
+1. **トリガーの基準を何にするか。** tasks.json は「`done` 10件以上／30KB超」の2つの数値を持つ。progress.md には `done` に相当するものが無いので、行数・KB・「完了したこと」配下の小節数などから選ぶ必要がある。tasks.json と桁を揃えるか、progress.md 固有の値にするか
+2. **「このセッション」の境界をどう判定可能にするか。** 「完了したこと」配下の小節に日付見出しを必須にすれば機械的に判定できるが書式の縛りが増える。別案の「常に直近1件だけ残す」なら日付に依存しない。現状の書式（日付あり/なしの混在）をどう扱うかも含めて決める
+3. **減らす責務をどの手順に置くか。** 追記する `/next-task` 手順6 に持たせるか、検査点である手順1に寄せるか。tasks.json のアーカイブは手順1にあるので、「一緒にメンテされる」という要望に素直なのは手順1への集約
+4. **tasks.json のアーカイブと同時に行うことを規約にするか。** 同時にすれば「一緒にメンテされる」がそのまま満たせるが、片方だけがトリガーに達したときの扱いを決める必要がある
+
+## やること
+
+1. 論点1〜4を決める。**決めた理由も `docs/workflow.md` に書く**（このリポジトリは「なぜ今の形なのか」を正典に残す方針。`docs/coding-standards.md`「コメント」参照）
+2. `docs/workflow.md` に反映する:
+   - 「progress.md の構成」に、境界の判定方法（論点2の結論）を書く
+   - 「肥大化したときのアーカイブ」の「いつ移すか（トリガー）」「何を移すか」に progress.md の基準を追加する（現状は tasks.json のことしか書かれていない）
+3. `.claude/skills/next-task/SKILL.md` の手順1（論点3の結論次第で手順6も）と、`.claude/skills/plan-tasks/SKILL.md` の手順5 に progress.md の判定を追加する
+4. `CLAUDE.md`「進捗管理とHandoff」手順1の「アーカイブすべきタイミングなら作業前にアーカイブする」が progress.md も対象だと読めるかを確認し、読めないなら1行だけ足す（CLAUDE.md に判断材料を二重に書かず、正典は workflow.md 側に置く）
+5. **実際のアーカイブ作業はこのタスクでは行わない**（後続タスクに分けてある）。規約とトリガーの定義だけで閉じる
+6. 調べた結果、既存のトリガー定義に progress.md を足すだけでは要望を満たせないと分かった場合（例:「一緒に」を満たすには tasks.json 側の基準も変える必要がある）は、その設計変更をユーザーに提案して承認を得てから進める。**承認が得られなければやらずに、理由を `evidence` に書いて閉じる**
+
+## 完了条件
+
+- `docs/workflow.md` の「いつ移すか（トリガー）」の節を読むだけで、tasks.json と progress.md **両方**の判定基準とタイミングが分かる
+- `.claude/skills/next-task/SKILL.md` と `.claude/skills/plan-tasks/SKILL.md` の該当手順に progress.md の判定が入っている
+- 決めた基準を**現状の `develop/progress.md`（455行・42.7KB・「完了したこと」376行・配下の小節3件）に当てはめると「アーカイブ対象」と判定される**ことを、`evidence` に具体的な数値で書く（基準が現状を素通りするなら基準として機能していない）
+- `pnpm check` が通る
+- コード・ドキュメントにタスク番号を書かない（`docs/coding-standards.md`「タスク番号を書かない」。コミットメッセージは対象外）
+
+## 注意
+
+- **`develop/progress.md` の中身は移動しない。** このタスクは規約とトリガーの定義まで
+- `docs/history/progress-archive.md` は「当時の記述をそのまま残す」規約なので、書式を変えるために遡って書き換えない
+- `docs/workflow.md` は現在13KBで通読ガードを入れていない（20KB未満のため対象外とした）。この変更で20KBを超えるようなら、他の正典と同じガード（冒頭の「通読しない」＋節の索引）を入れるか検討する
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: 論点1（tasks.jsonの基準）: ユーザー承認により **todo を判定対象外**にし、done の件数(10件以上)と done のサイズ(30KB超)で判定する形にした。ファイル全体で測っていた頃は todo だけで30KBを超え『基準は超えているのに移せるものが0件』が本セッションで4回空振りしていた。論点2（境界）: 「完了したこと」配下の小節を `### YYYY-MM-DD 〜` 形式に必須化し、最新の日付以外を過去セッション分と判定する（grep '^### ' で機械的に判定可能）。論点3（責務の置き場所）: 追記する next-task 手順6 ではなく検査点の手順1に寄せ、tasks.json と同じ場所で2ファイルまとめて判定する。論点4（同時実行）: 同じ検査点で両方見て、該当した側だけを移す形にした。更新: docs/workflow.md（progress.md の構成に日付見出しの規約／いつ移すかの基準を全面書き換え／何を移すかに progress.md を追加）、.claude/skills/next-task/SKILL.md 手順1・手順6、.claude/skills/plan-tasks/SKILL.md 手順5、CLAUDE.md 手順1に1行。検証: 新基準を現状に当てると tasks.json は done 1件/3694 bytes で『不要』（空振りが消えた）、progress.md は小節3件・日付 2026-09-07 と 2026-09-08 が混在で『**アーカイブ対象**』と正しく判定される。実アーカイブは T-148 で行うため未実施。pnpm check 通過（32ファイル359テスト）。
+
+## T-148
+
+**タスク**: 定めた基準で develop/progress.md を実際にアーカイブする。
+
+## 背景
+
+`develop/progress.md` が455行・42.7KBあり、うち376行が `## 完了したこと（このセッション）`。配下は `### 定期メンテの棚卸し（2026-09-08）`（15行目〜）・`### 要件変更: テナント/クライアント2階層固定 → 設定ユニット（深さ1〜2）`（108行目〜）・`### 実機スモークテスト（2026-09-07、docs/smoke-test.md の手順どおり）`（141行目〜）の3小節で、複数セッション分が溜まっている。
+
+前段タスクで progress.md のアーカイブ基準・境界の判定方法・トリガーが `docs/workflow.md` に定義される。このタスクはそれを**最初に適用する**もの。移動先は `docs/history/progress-archive.md`（124KB、冒頭に通読ガードあり）。
+
+## 解くべき論点
+
+前段タスクで基準が決まっているため、このタスクで決める方針は無い。基準の当てはめで判断が割れたら押し切らず、`difficulty` を上げてから再開する（`docs/workflow.md`「difficulty」の運用ルール）。
+
+## やること
+
+1. `docs/workflow.md` の「progress.md の構成」「肥大化したときのアーカイブ」を読み、前段タスクで決まった基準と境界の判定方法を確認する
+2. その基準に従って `develop/progress.md` の「完了したこと」から過去セッション分を `docs/history/progress-archive.md` へ移す。**当時の記述をそのまま移し、書き換えない**。追記位置は progress-archive.md の既存の並びに合わせる
+3. `## 次にやること` / `## 未解決` / `## 注意` は残す。**特に「注意」節は未完了タスクの完了条件が参照している記述（テスト用アクセストークンの扱いなど）を含むので消さない**
+4. 残した progress.md が `docs/workflow.md`「progress.md の構成」の4セクション構成になっていることを確認する
+
+## 完了条件
+
+- `develop/progress.md` が前段タスクで定めた基準を満たす（アーカイブ対象と判定されない状態になっている）。`evidence` に**アーカイブ前後の行数とKB**を書く
+- 移した記述が `docs/history/progress-archive.md` に**一字一句そのまま**存在することを `diff` または `grep` で確認し、その確認方法と結果を `evidence` に書く
+- `## 次にやること` / `## 未解決` / `## 注意` の3節が `develop/progress.md` に残っている
+- `pnpm check` が通る
+
+## 注意
+
+- **記述の書き換え・要約をしない。** アーカイブは「そのまま移す」のが規約
+- 消す前に移し先へ書き、`git diff` で欠落が無いことを確かめる。**取り違えると復元できない情報がある**（実機スモークテストの結果など、再取得にGitLab上の操作が要るもの）
+- `/loop /next-task` に載せてよい
+
+**dependencies**: T-147
+
+**difficulty**: sonnet
+
+**evidence**: 新基準の最初の適用。develop/progress.md を **534行/50,902バイト → 252行/23,480バイト**（-53%）に縮小。残したのは最新日付の小節1件のみで、見出しを新規約の形 `### 2026-09-08 定期メンテの棚卸し` に修正。移したのは `### 実機スモークテスト（2026-09-07…）` と日付なしの `### 要件変更: テナント/クライアント2階層固定→設定ユニット` の2小節で、後者は本文が docs/history/direction.md の『2026-09-08（2回目）』を指しており、同じ暦日でも別セッションと判断した（委譲先の根拠を受け入れ時に確認）。**独立検証**: git diff から消えた283行（空行除く245行）を抽出し、progress-archive.md か現行 progress.md に一字一句存在するかを全件照合 → 見つからなかったのは上記の見出し書式修正1行のみで、**欠落ゼロ**。4セクション（完了したこと/次にやること/未解決/注意）は維持、T-146 が参照するアクセストークンの記述も残存を確認。新基準で再判定すると『不要』（小節1件・日付1種）。pnpm check 通過（32ファイル359テスト）。
+
+## T-150
+
+**タスク**: ドキュメント整備の定型作業をスキル化する（`docs/` の `history/` 以外・`README.md`・`CLAUDE.md` が対象）。
+
+## 背景
+
+同じ形のドキュメント整備タスクが繰り返し発生している。アーカイブ済み145タスクのうち、少なくとも次の10件が「実物とのズレ・冗長・重複・読みにくい構造」を直す作業だった:
+
+- T-028（README と requirements 4.4 の食い違い）、T-029（ドキュメント・設定サンプルの実態ドリフト）、T-031（architecture.md 195行の整理）、T-039（MR出力仕様の変更に伴うドキュメント追従）、T-057（README 390行から冗長な記述を削る）、T-077（実装と食い違う記述の除去）、T-078（glossary をコードに合わせる）、T-128（requirements・glossary の用語統一）、T-141（README の実物とのズレ）、T-142（CLAUDE.md・architecture.md の実態と違う記述）
+
+直近でも同じ形の作業をしている。`docs/architecture.md` にしか無かった「通読しない＋節の索引」を `coding-standards.md`・`requirements.md`・`glossary.md`・`history/test-inventory.md` へ展開し、`sed` の終端パターンの誤り（コードブロック内のYAMLコメントを見出しと誤認して節が途中で切れる）を修正した。
+
+このリポジトリには既にプロジェクト独自スキルが2つある（`.claude/skills/next-task/SKILL.md`、`.claude/skills/plan-tasks/SKILL.md`）。どちらも `---` の frontmatter（`name` / `description`）＋「## 手順」＋「## 完了報告のフォーマット」という構成で、**判断基準そのものは `CLAUDE.md` と `docs/workflow.md` に置き、スキル側では繰り返さない**という書き方をしている。
+
+ユーザーからの指示は「docs/ ディレクトリ配下の history/ ディレクトリ配下以外のドキュメントとREADME.mdとCLAUDE.mdをメンテナンスし、冗長な表現、重複、人間にとって読みにくい構造を改善する、というタスクが定型化されつつあるから skills 化してほしい」。
+
+## 解くべき論点
+
+1. **「冗長」「重複」「読みにくい」を、読み手によって結論が変わらない形にどう落とすか。** これが決まらないとスキルは「気をつけて直す」以上のものにならない。手がかりは既にある: 正典の二重化（同じ規約が複数ファイルにある）、実物とのズレ（コード・`config/` と食い違う記述）、通読ガードの有無（20KB以上か）、`docs/coding-standards.md`「コメント」の「今の挙動か昔の話か」の判定。どれを検査項目として採用するか
+2. **どこまでを機械的に検査できるようにするか。** `grep`/`wc` で判定できるもの（サイズ超過、通読ガードの有無、タスク番号の混入、リンク切れ）と、読まないと分からないもの（重複・冗長）を分ける。前者はスキルにコマンドとして書ける
+3. **1回の実行でどこまでやるか。** 対象は `docs/`（`history/` 除く）9ファイル＋`README.md`＋`CLAUDE.md`。全件を1回で見るのか、1ファイル/1観点ずつなのか。`/next-task` が「1タスク＝1コミット」なので、スキルの実行単位もそれに合わせる必要がある
+4. **委譲してよいか、`/loop` に載せてよいか。** `plan-tasks` は方針決めを含むため委譲禁止・`/loop` 禁止としている。ドキュメント整備は「正典をどちらに寄せるか」の判断を含むので、同じ扱いにするかを決める
+5. **`develop/tasks.json` にタスクを登録する形にするか、その場で直す形にするか。** 前者なら `/plan-tasks` と役割が重なる。後者なら `/next-task` と重なる。既存2スキルとの境界を決める
+
+## やること
+
+1. 論点1〜5を決める。**論点1（検査項目）が最も重要**で、ここが曖昧なままだとスキルとして機能しない
+2. `.claude/skills/<スキル名>/SKILL.md` を作る。既存2スキルと同じ構成（frontmatter の `name` / `description`、`## 手順`、`## 完了報告のフォーマット`）に揃える
+3. **判断基準は既存の正典（`docs/coding-standards.md`「コメント」、`docs/architecture.md`「このドキュメントの読み方」、`docs/workflow.md`）に置き、スキル側で二重に書かない。** 既存2スキルがこの書き方をしている
+4. `CLAUDE.md`「導入済みスキル」に1行追加する（プロジェクト独自スキルとして `next-task`・`plan-tasks` を挙げている箇所）
+5. **作ったスキルを実際に1回走らせて、検査項目が機能することを確かめる**。何も指摘が出ない、あるいは全ファイルが指摘だらけになるなら、論点1の基準が使い物になっていない
+6. 調べた結果、既存の `/code-review` スキルのStandards軸と大きく重なると分かった場合は、新規スキルを作らず既存スキルの拡張として提案する。**その場合は新規作成せず、理由を `evidence` に書いて閉じる**
+
+## 完了条件
+
+- `.claude/skills/<スキル名>/SKILL.md` が存在し、frontmatter に `name` と `description` がある
+- スキルの手順に、**機械的に実行できる検査コマンドが最低1つ**書かれている（`grep`・`wc` など、実行すれば真偽が決まるもの）
+- 「冗長」「重複」「読みにくい」に対応する検査項目が、**それぞれ何を見れば判定できるかの形で**書かれている（「適切に整理する」のような、読み手によって結論が変わる書き方をしない）
+- スキルを1回実行した結果（対象ファイルと、出た指摘の件数）が `evidence` に書かれている
+- 対象範囲に `docs/history/` が**含まれていない**ことがスキル本文に明記されている
+- `CLAUDE.md`「導入済みスキル」に追記されている
+- `pnpm check` が通る
+- スキル本文・ドキュメントにタスク番号を書かない（`docs/coding-standards.md`「タスク番号を書かない」）
+
+## 注意
+
+- **`docs/history/` 配下は対象外**（`tasks-archive.md` 532KB・`progress-archive.md` 124KB・`direction.md` 20KB・`test-inventory.md` 22KB）。当時の記述をそのまま残す規約があるため、整備の対象にしない。ただし `test-inventory.md` は `history/` にありながら `docs/coding-standards.md` から参照される現役の資料なので、対象に含めるかは論点として扱ってよい
+- **既存スキル（`.claude/skills/` 配下の他9つ）を書き換えない。** mattpocock/skills 由来のものを含む
+- スキルの設計はユーザーと決める前提のため、`/loop /next-task` には載せない
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: `.claude/skills/maintain-docs/SKILL.md` を新規作成（機械的検査7項目）。SKILL.md に埋め込んだコマンドをそのままコピペ実行して動作を確認。 初回実行: 対象8ファイル、確定群（検査1・3・4）0件、検査2は3件とも `docs/workflow.md` の文書化済み例外、候補群は検査5=7件・検査6=6件・検査7=4件の計17件。 `pnpm check` 通過（32ファイル・359テスト）。`/code-review` は git diff 起点で対象が重ならないため既存スキルの拡張ではなく新規作成とした。
+
+## T-152
+
+**タスク**: `src/steps/build-plans/sub-steps/shared/values-yaml-draft.ts` の型と命名を見直す。
+
+## 背景
+
+このファイルは4つの型を export しているが、**2つは外部から1度も使われていない**（`grep -rn '<型名>' src/` で確認済み）:
+
+| 型                 | ファイル外での使用                                                                                                              | 実態                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `ValuesYamlDraft`  | 4ファイル（`build-plans.ts`・`stage-image-tag-updates.ts`・`stage-helm-target-branch-updates.ts`・`sub-steps/shared/types.ts`） | 現役                                                                    |
+| `ValuesYamlSource` | 3ファイル（`build-plans.ts:65` が構築、2つのサブステップが引数で受ける）                                                        | 現役                                                                    |
+| `ValuesYamlEntry`  | **0件**                                                                                                                         | `ValuesYamlDraft` の値型としてファイル内でしか使われない                |
+| `DraftValuesYaml`  | **0件**                                                                                                                         | `readValuesYamlDraft()` の戻り値型。呼び出し側2箇所は即座に分解している |
+
+**命名が読みにくさの主因になっている**:
+
+- `ValuesYamlDraft`（下書きそのもの＝`ReadonlyMap`）と `DraftValuesYaml`（読み込み結果＝`{content, draft}`）が**語順を入れ替えただけの名前**で、同じファイルに隣り合って定義されている
+- 呼び出し側2箇所（`stage-image-tag-updates.ts:93`・`stage-helm-target-branch-updates.ts:46`）はどちらも `const { content: valuesYamlContent, draft } = await readValuesYamlDraft(...)` と、`content` を `valuesYamlContent` に**改名しながら**分解している。フィールド名がその場では曖昧だという合図
+- `readValuesYamlDraft(source, draft, valuesPath)` の引数 `source` は `{gitlabCache, chart}` を束ねただけの値
+
+ユーザーからの指摘は「型がなぜそういう型でまとめたのか、引数がなぜそういう命名なのかなど疑問に思う程度にはわかりづらい」。
+
+**先に読むこと**: `docs/architecture.md` の「下書き（`ValuesYamlDraft`）は受け取って返す」節に、現在の形にした理由が3点書かれている（複製の責任を実装側に寄せた／読み込み用と書き込み用で入口を分けて不変条件を保っている／内容と「書き換えた」印を1つのエントリにまとめて「印はあるのに内容が無い」を型で防いでいる）。**これらは維持する**。
+
+## 解くべき論点
+
+1. **`DraftValuesYaml` を無くすか。** 呼び出し側が必ず分解しているので、戻り値の形をその場に書けば名前の衝突が消える。一方で戻り値に名前が無くなることの読みにくさもある
+2. **`ValuesYamlEntry` を export のままにするか。** `docs/coding-standards.md`「関数の並び順」は「テストのためだけの export はしない」と定めており、型も同じ考え方で判断する
+3. **`content` というフィールド名・引数名を変えるか。** 呼び出し側が毎回 `valuesYamlContent` に改名しているので、その名前を型側に寄せる案がある
+
+## やること
+
+1. `docs/architecture.md`「下書き（`ValuesYamlDraft`）は受け取って返す」を読み、維持すべき不変条件を確認する
+2. 論点1〜3を決めて適用する。**`ValuesYamlDraft` と `ValuesYamlSource` は現役なので消さない**
+3. JSDoc を見直す。「なぜこの単位でまとめたのか」がコードから読み取れないなら、**その理由は `docs/architecture.md` が正典**なので、コメントには書かず正典を参照する（`docs/coding-standards.md`「コメント」）
+4. 型の統廃合が上記3つの不変条件のいずれかを壊すと分かったら、**その変更はやらずに理由を `evidence` に書く**
+5. 論点1〜3を超える構造変更（`ValuesYamlDraft` の表現そのものを変える、サブステップ間の受け渡し方を変える等）が必要だと判断したら、**押し切らずユーザーに提案する**。`difficulty` を上げて再開してよい
+
+## 完了条件
+
+- `grep -rn 'ValuesYamlEntry\|DraftValuesYaml' src/` の結果が、決めた方針で説明できる状態になっている（残した場合は理由を `evidence` に書く）
+- `ValuesYamlDraft` と語順を入れ替えただけの型名が同じファイルに存在しない
+- `docs/architecture.md`「下書き（`ValuesYamlDraft`）は受け取って返す」に書かれた3つの理由が、変更後のコードでも成り立っている（成り立たなくなった項目があれば正典側を更新する）
+- `src/steps/build-plans/sub-steps/` 配下のファイル同士が互いに import していない（`CLAUDE.md` 原則1。共有は `sub-steps/shared/` 経由）
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- **`ValuesYamlDraft` と `ValuesYamlSource` は他ファイルから使われているので消さない**
+- 引数として渡した下書きを呼び出し先で書き換える形に戻さない（`docs/architecture.md`「引数として渡した入れ物が呼び出し先で書き変わる契約にしない」）
+- 読み込み用（`readValuesYamlDraft`）と書き込み用（`writeValuesYamlDraft`）の入口を1つにまとめない。分けてあること自体が「`modified` なエントリは書き込み経由でしか生まれない」不変条件を保っている
+- `/loop /next-task` に載せてよい（論点5に当たったら止めてユーザーに預ける）
+
+**dependencies**: なし
+
+**difficulty**: sonnet
+
+**evidence**: DraftValuesYaml を削除し readValuesYamlDraft() の戻り値をインライン型に、フィールド名を content→valuesYamlContent に変更。ValuesYamlEntry は export を外してファイル内限定に（外部・テストとも0件だったため）。ValuesYamlDraft・ValuesYamlSource は現役なので維持。呼び出し側2箇所の `content: valuesYamlContent` という分解時の改名が不要になった。実測: grep 'ValuesYamlEntry|DraftValuesYaml' src/ は非exportの型定義と ValuesYamlDraft の別名定義の2行のみ、DraftValuesYaml は0件。docs/architecture.md「下書きは受け取って返す」の3つの不変条件（複製の責任・読み書きの入口分離・内容と印を1エントリ）はいずれも維持。pnpm check 通過（32ファイル359テスト、着手前と同数）。受け入れ時にメインで追加確認: steps/ の try 0件・新規 as 0件・?: 0件、sub-steps/ 直下のファイル同士の import 0件、ドキュメント側に旧型名の残存なし（architecture.md:466 の ReadDraftValuesYaml は「以前この形だった」の経緯記述で別物）。
+
+## T-156
+
+**タスク**: `config/` のファイル名とキー名の変更を正典に先行して反映し、コード側の識別子をどこまで追随させるかを決める。
+
+## 背景
+
+`config/<chartディレクトリ>/chart.yaml` は2つのトップレベルキーを持つ（`src/lib/config/schema.ts` の `ChartYamlSchema`）:
+
+- `chart:` … MRを送る先のGitLabプロジェクト（`projectId` / `projectName` / `mrTargetBranch`）。型は `ChartRepoConfig`（`src/types/types.ts`）
+- `apps:` … ソースリポジトリごとの `tagFormat` の台帳（`projectId` / `projectName` / `tagFormat`）。型は `ChartApp`（`schema.ts` からexport）
+
+一方 `config/<chartディレクトリ>/<unitPath>/config.yaml` は `apps[].chart[]` と `helm.chart[]` を持つ。結果として **`chart` と `apps` という同じ2語が入れ子違いで両方のファイルに現れ**、別々のことを定義しているのに鏡写しに見える。さらに `chart` は「更新先のGitLabプロジェクト」と「values.yaml内の書き込み位置」という2つの意味で使われており、`docs/architecture.md`「1つの語を2つの意味に使わない」（用途を語らない `chart` を避けるべき例として名指ししている）に反している。
+
+ユーザーとの合意で**次の3点は決定済み**。ここを論点にしない:
+
+- ファイル名 `chart.yaml` → `registry.yaml`
+- キー `chart:` → `chartToUpdate:`（`config.yaml` の `branchToSync` と同じ `XToY` の語形）
+- キー `apps:` → `appSpecs:`
+
+`config.yaml` は**変更しない**（ファイル名・キー名とも据え置き。`apps[].chart[]` と `helm.chart[]` も触らない）。
+
+このタスクは正典の更新までで止め、実装・テスト・実 `config/` は次のタスクが行う。`tagFormat` の置き場所を変えたときも「正典を先に更新 → 移行」の順で進めた前例がある。
+
+## 解くべき論点
+
+1. **コード側の識別子をどこまでYAMLキーに追随させるか。** 候補は `ChartYamlSchema`・`ChartApp`（`src/lib/config/schema.ts`）、`chartYamlPath`・`chartApps`（`src/lib/config/config.ts`・`chart-and-apps.ts` のローカル変数）、`ChartRepoConfig`（`src/types/types.ts`）、`ChartAndApps.chart` フィールド。
+   **`ChartAndApps.chart` は残す方向で検討する**: `docs/architecture.md`「1つの語を2つの意味に使わない」が「包含する型名が用途を与えている場合は短い名前のままでよい」の例として `ChartAndApps.chart` を名指ししているため。この判断を覆すなら、その節も書き換える必要がある
+2. **`ChartRepoConfig` を改名するか。** YAMLキーが `chartToUpdate` になっても、型が表しているのは「chartリポジトリの設定」であって変わらない。改名するなら `docs/architecture.md`「型の置き場所」の表も追随させる
+3. **`docs/glossary.md`「chart.yaml / config.yaml」の項をどう書き換えるか。** この項は**経緯**（`apps.yaml` → `anchors.yaml` → 2ファイル構成）を長く持っている。経緯は当時の名前のまま残し、現在の姿の記述だけを新しい名前にするのか、経緯側も置換するのか
+4. **`docs/requirements-grilling.md` の1箇所を触るか。** 要件検討時のQ&Aログで、`docs/history/` と同じく当時の記述をそのまま残す扱い（`/maintain-docs` の対象からも外している）。**触らない方向で検討する**
+
+## やること
+
+1. 論点1〜4を決める。決めた内容は `docs/architecture.md`「`config/`は「スコープ」で2ファイルに分け、変更頻度では分けない」節に追記する（改名の理由と、`config.yaml` を据え置いた理由）
+2. 正典3ファイルを新しい名前に書き換える。現状の出現数は `docs/requirements.md` 17箇所・`docs/glossary.md` 13箇所・`docs/architecture.md` 6箇所（`grep -c 'chart\.yaml'`）
+   - `docs/requirements.md` 4.4節が `config/` のスキーマの正典。YAMLの実例を含むので、実例のキー名も直す
+   - `docs/glossary.md` の「chart.yaml / config.yaml」の項は見出し名自体が変わる。**見出しを変えたら冒頭の「用語の索引」も直す**
+   - `docs/architecture.md` の該当節を直したら、**同じファイル内の「節の索引」・各ファイルの責務表・「型の置き場所」の表まで `grep` で洗う**
+3. 実装・テスト・実 `config/` は**触らない**（次のタスク）。この時点で正典とコードが食い違うのは想定どおり
+
+## 完了条件
+
+- 論点1〜4の結論が `docs/architecture.md` に書かれている（コード側の識別子について「何を変え、何を変えないか」が読み取れる）
+- `grep -rn 'chart\.yaml' docs/requirements.md docs/architecture.md docs/glossary.md` が0件
+- `grep -rn 'chart\.yaml' src scripts test` は**まだ0件でなくてよい**（次のタスクの範囲）
+- `docs/glossary.md` の「用語の索引」と `docs/architecture.md` の「節の索引」が、変更後の見出しと一致している
+- `pnpm check` が通る
+- ドキュメントにタスク番号を書かない
+
+## 注意
+
+- **`docs/history/` 配下は触らない**（当時の記述をそのまま残す）
+- `docs/requirements-grilling.md` も同じ扱い（論点4で確認する）
+- 実 `config/yadokari-smoke-test-chart/chart.yaml` はこのタスクでは触らない
+- `/loop /next-task` に載せてよい（命名は決定済みで、残る判断は正典に書く範囲の話）
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: 正典3ファイルを新名称に更新（`docs/requirements.md` 17件・`docs/glossary.md` 13件・`docs/architecture.md` 6件 → `grep -rn 'chart\.yaml'` で3ファイルとも0件）。 コード識別子の追随範囲は「外部ファイル形式の写しかどうか」で決め、7件の識別子の可否表を `docs/architecture.md` の該当節に追記（`ChartRepoConfig`・`ChartAndApps.chart` は据え置き）。 `pnpm check` 通過（32ファイル・359テスト）。索引の整合も検査済み（索引エントリを sed で切り出す検査でNG 0件）。
