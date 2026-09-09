@@ -7,7 +7,7 @@ import { toChartDirName, toConfigUnitPath } from "../../types/types.js"
 import { assertSafePath, listSubdirectories } from "../../utils/fs.js"
 import { parseYamlFile } from "../../utils/yaml.js"
 import { loadChartAndApps } from "./chart-and-apps.js"
-import { RegistryYamlSchema } from "./schema.js"
+import { CONFIG_YAML_FILE_NAME, REGISTRY_YAML_FILE_NAME, RegistryYamlSchema } from "./schema.js"
 import { validateNoDuplicateProjectIds, validateTagFormatConsistency } from "./validate.js"
 
 /** `CONFIG_PATH`・コマンドライン引数のどちらも省略されたときに読む設定ディレクトリ */
@@ -68,7 +68,7 @@ export function loadConfig(configDirPath: string, target: ConfigTarget = NO_TARG
   // （絞り込み実行でしか通らない検証を作らないため）。YAMLの読み込みは絞り込んだ後だけ
   const chartUnitsList = targetChartDirs.flatMap((chartDir): ChartUnits[] => {
     const chartDirPath = join(configDirPath, chartDir)
-    if (!existsSync(join(chartDirPath, "registry.yaml"))) return []
+    if (!existsSync(join(chartDirPath, REGISTRY_YAML_FILE_NAME))) return []
     return [
       {
         chartDirName: toChartDirName(chartDir),
@@ -83,7 +83,7 @@ export function loadConfig(configDirPath: string, target: ConfigTarget = NO_TARG
   if (missingUnits.length > 0) {
     throw new Error(
       `TARGET_UNITS で指定された "${missingUnits.join(", ")}" が見つかりません` +
-        `（config.yaml を持つディレクトリの、chartディレクトリからの相対パスを指定してください）`,
+        `（${CONFIG_YAML_FILE_NAME} を持つディレクトリの、chartディレクトリからの相対パスを指定してください）`,
     )
   }
 
@@ -95,7 +95,7 @@ export function loadConfig(configDirPath: string, target: ConfigTarget = NO_TARG
   if (isExplicitlyTargeted(target) && chartAndAppsList.length === 0) {
     throw new Error(
       "TARGET_CHART / TARGET_UNITS で絞り込んだ結果、対象となるchartが1件も見つかりませんでした。" +
-        "config/ 直下のディレクトリ名を指定し、そのディレクトリに registry.yaml と config.yaml が" +
+        `config/ 直下のディレクトリ名を指定し、そのディレクトリに ${REGISTRY_YAML_FILE_NAME} と ${CONFIG_YAML_FILE_NAME} が` +
         `両方存在するか確認してください（実在するディレクトリ: ${formatChartDirs(chartDirs)}）`,
     )
   }
@@ -118,7 +118,7 @@ function findUnitPaths(chartDirPath: string): readonly ConfigUnitPath[] {
 
   if (unitSegmentsList.some((segments) => segments.length === 0)) {
     throw new Error(
-      `${join(chartDirPath, "config.yaml")}: config.yaml が registry.yaml と同じ階層にあります` +
+      `${join(chartDirPath, CONFIG_YAML_FILE_NAME)}: ${CONFIG_YAML_FILE_NAME} が ${REGISTRY_YAML_FILE_NAME} と同じ階層にあります` +
         `（設定ユニットは chartディレクトリから数えて深さ1〜${MAX_UNIT_DEPTH} のディレクトリに置いてください）`,
     )
   }
@@ -126,8 +126,8 @@ function findUnitPaths(chartDirPath: string): readonly ConfigUnitPath[] {
   const tooDeep = unitSegmentsList.find((segments) => segments.length > MAX_UNIT_DEPTH)
   if (tooDeep !== undefined) {
     throw new Error(
-      `${join(chartDirPath, ...tooDeep, "config.yaml")}: 設定ユニットのディレクトリが深すぎます` +
-        `（深さ${tooDeep.length}）。config.yaml は chartディレクトリから数えて` +
+      `${join(chartDirPath, ...tooDeep, CONFIG_YAML_FILE_NAME)}: 設定ユニットのディレクトリが深すぎます` +
+        `（深さ${tooDeep.length}）。${CONFIG_YAML_FILE_NAME} は chartディレクトリから数えて` +
         `深さ1〜${MAX_UNIT_DEPTH} のディレクトリに置いてください`,
     )
   }
@@ -151,7 +151,7 @@ function findUnitPaths(chartDirPath: string): readonly ConfigUnitPath[] {
  * 報告するため。YAMLは読まず`config.yaml`の有無だけを見る。
  */
 function collectUnitSegments(dirPath: string, segments: UnitSegments): readonly UnitSegments[] {
-  const here = existsSync(join(dirPath, "config.yaml")) ? [segments] : []
+  const here = existsSync(join(dirPath, CONFIG_YAML_FILE_NAME)) ? [segments] : []
   const deeper = listSubdirectories(dirPath).flatMap((childDir) =>
     collectUnitSegments(join(dirPath, childDir), [...segments, childDir]),
   )
@@ -184,7 +184,7 @@ function listUnitChartAndApps(
   chartUnits: ChartUnits,
   units: readonly ConfigUnitPath[] | undefined,
 ): ChartAndApps[] {
-  const registryYamlPath = join(chartUnits.chartDirPath, "registry.yaml")
+  const registryYamlPath = join(chartUnits.chartDirPath, REGISTRY_YAML_FILE_NAME)
   const { chartToUpdate: chart, appSpecs } = parseYamlFile(registryYamlPath, RegistryYamlSchema)
   validateNoDuplicateProjectIds(registryYamlPath, appSpecs)
   return chartUnits.unitPaths

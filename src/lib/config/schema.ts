@@ -15,6 +15,12 @@ import {
  * スキーマの仕様（何をどう書くか）は `docs/requirements.md` 4.4節が正典。
  */
 
+/** chartリポジトリ単位の設定ファイル名。`config.ts`・`chart-and-apps.ts`から参照する */
+export const REGISTRY_YAML_FILE_NAME = "registry.yaml"
+
+/** 設定ユニット単位の設定ファイル名。`config.ts`・`chart-and-apps.ts`から参照する */
+export const CONFIG_YAML_FILE_NAME = "config.yaml"
+
 /**
  * `apps[].chart[]`（イメージタグの書き込み先）と`helm.chart[]`（Helm向き先ブランチの
  * 書き込み先）はどちらも`valuesPath`+`anchor`という同じ形なので、スキーマも共有する

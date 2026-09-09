@@ -12,7 +12,7 @@ import type {
 } from "../../types/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
 import type { AppSpec } from "./schema.js"
-import { ConfigYamlSchema } from "./schema.js"
+import { CONFIG_YAML_FILE_NAME, ConfigYamlSchema } from "./schema.js"
 import {
   validateNoDuplicateProjectIds,
   validateNoDuplicateTargets,
@@ -34,7 +34,7 @@ export function loadChartAndApps(
   appSpecs: readonly AppSpec[],
   registryYamlPath: string,
 ): ChartAndApps {
-  const configYamlPath = join(unitDirPath, "config.yaml")
+  const configYamlPath = join(unitDirPath, CONFIG_YAML_FILE_NAME)
 
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
   validateNoDuplicateProjectIds(configYamlPath, apps)
