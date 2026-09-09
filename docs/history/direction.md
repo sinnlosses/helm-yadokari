@@ -9,6 +9,25 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-10
+
+生成したタスク: **T-172**（`validate`/`verify` の使い分けを決めて正典に反映、`opus`、依存なし）、
+**T-173**（決めた命名を実装・CI・ドキュメントへ反映、`sonnet`、T-172依存）、
+**T-174**（`stageHelmTargetBranchUpdates()` への `BranchExists` 注入の要否、`opus`、依存なし）。
+タスクにしなかった項目は無い。
+
+1件目は「改名するか、正典への導線を足すだけにするか」から判断が要り、改名すると
+`package.json` のスクリプト名と `.gitlab-ci.yml` のジョブ名という外部インターフェースに
+波及するため、決定（T-172）と追随（T-173）に分けた。2件目は指摘が事実であることを
+確認済みで、**正典（`BranchExists` のJSDocと `docs/architecture.md` の該当節）が
+「キャッシュを隠す」と説明しているのに、同じ関数が `source` 経由でキャッシュを受け取っている**
+という食い違いも見つかったため、実装を変えない結論でも正典の修正は必須にしてある。
+
+なお指示メモの `lib/config.validate.ts` は実際には `src/lib/config/validate.ts`（表記ゆれ）。
+
+- verify-config.ts と validate-config.ts があって違いがわからない。lib/config.validate.ts もあって何がなんだか...改善してくれるかな。
+- stageHelmTargetBranchUpdates に branchExists を渡していますが、source に gitlabCache も渡してるよね? branchExists を渡す必要ある?あまりキレイに見えず。
+
 ## 2026-09-09（3回目）
 
 生成したタスク: **T-171**（429/502 のリトライが二重にかかっている件、`opus`、依存なし）。
