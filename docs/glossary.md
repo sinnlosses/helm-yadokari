@@ -24,55 +24,55 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### 用語の索引
 
-| 節                          | 収録している用語                                                                                                                                                                                                                          |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ## 設定・登録関連           | アプリ / ソースリポジトリ / chartリポジトリ・chartAndApps / 設定ユニット / chart.yaml・config.yaml / valuesPath / anchor（chart[].anchor） / Helmの向き先ブランチ / helm.chart[].anchor / chartDirName / セルフサービス方式・自己申告方式 |
-| ## タグ・バージョン管理関連 | 追跡ブランチ / タグ形式 / 打刻日時・ビルド日時 / 最新タグ / 反映済みタグ / タグ自動作成                                                                                                                                                   |
-| ## MR・GitLab操作関連       | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング / Group Access Token                                                                                                                                           |
-| ## 実行結果・処理単位関連   | 更新計画 / chartAndApps更新対象 / chartAndApps処理結果 / 実行結果                                                                                                                                                                         |
-| ## 実行環境・運用関連       | Dry-runモード / GitLab CI pipeline schedules・スケジュールパイプライン / renovateジョブ                                                                                                                                                   |
-| ## その他の注記             | 「反映」「適用」「更新」の使い分け / gitlab-watari-dori                                                                                                                                                                                   |
+| 節                          | 収録している用語                                                                                                                                                                                                                             |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ## 設定・登録関連           | アプリ / ソースリポジトリ / chartリポジトリ・chartAndApps / 設定ユニット / registry.yaml・config.yaml / valuesPath / anchor（chart[].anchor） / Helmの向き先ブランチ / helm.chart[].anchor / chartDirName / セルフサービス方式・自己申告方式 |
+| ## タグ・バージョン管理関連 | 追跡ブランチ / タグ形式 / 打刻日時・ビルド日時 / 最新タグ / 反映済みタグ / タグ自動作成                                                                                                                                                      |
+| ## MR・GitLab操作関連       | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング / Group Access Token                                                                                                                                              |
+| ## 実行結果・処理単位関連   | 更新計画 / chartAndApps更新対象 / chartAndApps処理結果 / 実行結果                                                                                                                                                                            |
+| ## 実行環境・運用関連       | Dry-runモード / GitLab CI pipeline schedules・スケジュールパイプライン / renovateジョブ                                                                                                                                                      |
+| ## その他の注記             | 「反映」「適用」「更新」の使い分け / gitlab-watari-dori                                                                                                                                                                                      |
 
 ## 設定・登録関連
 
 ### アプリ
 
 - **英語識別子**: `AppConfig` / `app`
-- **定義**: Helm chartでデプロイされる1つのアプリケーション単位。`config/<chart>/<unitPath>/config.yaml`の1エントリ（運用値＋chart構造）と、同じchartリポジトリの`chart.yaml`の対応するエントリ（タグ形式の台帳）を`projectId`で結合したもの。
+- **定義**: Helm chartでデプロイされる1つのアプリケーション単位。`config/<chart>/<unitPath>/config.yaml`の1エントリ（運用値＋chart構造）と、同じchartリポジトリの`registry.yaml`の対応するエントリ（タグ形式の台帳）を`projectId`で結合したもの。
 
 ### ソースリポジトリ
 
 - **定義**: アプリのソースコードが置かれ、タグが打たれるGitLabプロジェクト。chartリポジトリ（後述）とは別のプロジェクトを指す。
-- **表記ゆれ**: コード上は「ソースリポジトリ」に対応する専用の識別子がなく、chart側の`chart.projectId`と同じ`projectId`という汎用フィールド名（`app.projectId`）が使われている。
+- **表記ゆれ**: コード上は「ソースリポジトリ」に対応する専用の識別子がなく、chart側の`chartToUpdate.projectId`と同じ`projectId`という汎用フィールド名（`app.projectId`）が使われている。
 
 ### chartリポジトリ / chartAndApps
 
 - **英語識別子**: `ChartAndApps`（旧`ChartGroup`）
-- **定義**: 1つの`chart.yaml`（Helm chartを管理するGitLabプロジェクトの情報）と、そのプロジェクト配下で管理する全アプリ（`config.yaml`群）をまとめた集約単位。「chartリポジトリ」はこの集約が指すGitLabプロジェクトそのものを指し、「chartAndApps」は範囲がそれより広い（chartリポジトリの情報＋配下の全アプリ設定を束ねたもの）。並列処理やエラーハンドリングの粒度を説明する文脈（「chartリポジトリ間/chartAndApps内」等）ではこの範囲の違いが意味を持つ。
+- **定義**: 1つの`registry.yaml`（Helm chartを管理するGitLabプロジェクトの情報）と、そのプロジェクト配下で管理する全アプリ（`config.yaml`群）をまとめた集約単位。「chartリポジトリ」はこの集約が指すGitLabプロジェクトそのものを指し、「chartAndApps」は範囲がそれより広い（chartリポジトリの情報＋配下の全アプリ設定を束ねたもの）。並列処理やエラーハンドリングの粒度を説明する文脈（「chartリポジトリ間/chartAndApps内」等）ではこの範囲の違いが意味を持つ。
 - **表記ゆれ（解消済み）**: 型名は元々「グループ」という語よりも中身（chart設定＋アプリ設定の集約）を表すよう`ChartAndApps`に改名されていたが、日本語の業務用語としては改名後も「chartグループ」という言葉が`CLAUDE.md`・コードコメント・ドキュメント全般で使われ続けており、型名との乖離があった。ユーザー指摘（「chartグループという単語はなくしてもらいたい。chartAndAppsになったし」）を受けて、日本語プロース上でも型名をそのまま`chartAndApps`と表記する方式に統一し、「chartグループ」という言い方は撤廃した。旧称への言及は`tasks.json`/`progress.md`の過去のエントリにのみ、当時の記録として残っている。
 
 ### 設定ユニット
 
 - **英語識別子**: `unitPath`（`ConfigUnitPath`ブランド型、`ChartAndApps`のフィールド）
 - **定義**: 同一chartリポジトリ配下でアプリ設定を分割管理する単位。`config.yaml`を1つ持つディレクトリがそのまま1つの設定ユニットで、`unitPath`は`config/<chart>/`からそのディレクトリまでの相対パス（深さ1〜2のいずれか。深さ0と深さ3以上は設定エラー。詳細は`docs/requirements.md` 4.4節）。MRを作成する単位でもあり、固定ブランチ名`feature/yadokari/<unitPath>`の可変部にもなる。
-- **`chartAndApps`との範囲の違い**: `ChartAndApps`は「1つの設定ユニット」の集約そのもの（`chart.yaml`の情報＋その設定ユニット配下の全アプリ設定）を指す型で、`unitPath`はその集約が`config/`のどこに置かれているかを表す1フィールド。「chartリポジトリ」は1つ上の粒度で、1つのchartリポジトリに複数の`ChartAndApps`（＝複数の設定ユニット）がぶら下がりうる。
+- **`chartAndApps`との範囲の違い**: `ChartAndApps`は「1つの設定ユニット」の集約そのもの（`registry.yaml`の情報＋その設定ユニット配下の全アプリ設定）を指す型で、`unitPath`はその集約が`config/`のどこに置かれているかを表す1フィールド。「chartリポジトリ」は1つ上の粒度で、1つのchartリポジトリに複数の`ChartAndApps`（＝複数の設定ユニット）がぶら下がりうる。
 - **入れ子の禁止**: `config.yaml`を持つディレクトリの配下にさらに`config.yaml`があると設定エラーになる。Gitのrefは directory/file conflict を起こすため、`feature/yadokari/a`と`feature/yadokari/a/b`は同一リポジトリに共存できない。逆にプレフィックス関係でなければ衝突しないので、深さ1と深さ2の設定ユニットは同じchartリポジトリ配下に混在できる。
 - **表記ゆれ（解消済み）**: 当初はこの単位を「テナント / クライアント」と呼び、ディレクトリ階層も`<chart>/<tenantId>/<clientId>/`の2階層固定だった（`ChartAndApps`は`TenantId`/`ClientId`ブランド型のフィールドを2つ持ち、環境変数は`TARGET_CLIENTS`だった）。「テナント分けが不要なchartでもダミーのtenantId/clientIdを作らされる」というユーザー指摘を受けて深さ1〜2を許す仕様に変え、語彙も階層数を含意しない「設定ユニット」/`unitPath`へ一本化した。旧称は後方互換のために残さず廃止しており、`docs/requirements-grilling.md`と`tasks.json`/`progress.md`の過去のエントリにのみ当時の記録として残っている。
 
-### chart.yaml / config.yaml
+### registry.yaml / config.yaml
 
 - **英語識別子**: なし（ファイル名そのもの）
 - **定義**: `config/<chart>/`配下に置く2つの設定ファイル。ファイルを分ける軸は
-  「スコープ」（値が何の単位で決まるか）。`chart.yaml`はchartリポジトリ単位で、
-  MRの作成先（`chart`）と、ソースリポジトリのタグ形式の台帳（`apps[].tagFormat`）を持つ。
+  「スコープ」（値が何の単位で決まるか）。`registry.yaml`はchartリポジトリ単位で、
+  MRの作成先（`chartToUpdate`）と、ソースリポジトリのタグ形式の台帳（`appSpecs[].tagFormat`）を持つ。
   `config.yaml`は設定ユニット単位で、「どのプロジェクトのどのブランチを追跡するか」という
   運用値（`projectId`/`projectName`/`branchToSync`、Helmの向き先ブランチの値
   `helm.branchToSync`）と、「`values.yaml`のどこに書き込むか」というchart構造
   （`apps[].chart[]`、`helm.chart[]`）の両方を持つ。両者は`projectId`で対応付ける。
-  `chart.yaml`側の各appは`projectId`に加えて`projectName`も重複して持ち、
+  `registry.yaml`側の各appは`projectId`に加えて`projectName`も重複して持ち、
   `ChartAndApps`（1設定ユニット分の集約）の読み込み時に`validateProjectLinkage()`が
-  両ファイル間の紐づけ（`config.yaml`の各appに対応するエントリが`chart.yaml`の`apps[]`に
-  あるか、`projectName`が食い違っていないか）を検証する。`chart.yaml`の`apps[]`にだけ
+  両ファイル間の紐づけ（`config.yaml`の各appに対応するエントリが`registry.yaml`の`appSpecs[]`に
+  あるか、`projectName`が食い違っていないか）を検証する。`registry.yaml`の`appSpecs[]`にだけ
   あってどの設定ユニットからも参照されないappはエラーにしない（そのchartリポジトリで
   一時的に更新対象から外している状態を許すため）。
 - **経緯**: 元々は`config.yaml`（当時は`apps.yaml`）自身が`apps[].chart[]`・`helm.chart[]`と
@@ -87,9 +87,13 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   「appの追加・削除ではどちらのファイルも触る」「編集者が分かれていない」という実際の
   編集の形と合っていなかったことが分かり、分割の軸を「スコープ」（chartリポジトリ単位 /
   設定ユニット単位）に改めた。`anchors.yaml`は`config.yaml`へ統合して廃止し、
-  `tagFormat`はチームごとに独立した台帳になるよう`chart.yaml`へ移した
-  （詳細は`docs/architecture.md`「`config/`は「スコープ」で2ファイルに分け、
-  変更頻度では分けない」節）。
+  `tagFormat`はチームごとに独立した台帳になるよう`registry.yaml`へ移した。
+  最後に名前を見直した。chartリポジトリ単位のファイルは、ファイル名とトップレベルキーの
+  両方に`chart`という語を使っていたため、`config.yaml`の`apps[].chart[]`・`helm.chart[]`と
+  同じ2語が入れ子違いで両方のファイルに現れ、別々のことを定義しているのに鏡写しに見えていた。
+  ファイル名を`registry.yaml`、トップレベルキーを`chartToUpdate:`／`appSpecs:`に改め、
+  `config.yaml`側は据え置いた（詳細は`docs/architecture.md`「`config/`は「スコープ」で
+  2ファイルに分け、変更頻度では分けない」節）。
 
 ### valuesPath
 
@@ -146,7 +150,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   ユーザー指示によりトップレベルの独立リストへ再設計された。当初`helm`は`[{chart: [...]}]`という
   配列表記だったが、ユーザーが`{chart: [...]}`という単純なオブジェクトに直接修正した。
   さらにその後、`config.yaml`と別ファイル（`apps.yaml`→`anchors.yaml`）だった`helm.chart[]`は
-  `config.yaml`の`helm`オブジェクトへ統合された（`chart.yaml`/`config.yaml`の項参照）。
+  `config.yaml`の`helm`オブジェクトへ統合された（`registry.yaml`/`config.yaml`の項参照）。
 
 ### chartDirName
 
@@ -171,7 +175,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### タグ形式
 
 - **英語識別子**: `tagFormat` / `TagFormat`（`AppConfig`のフィールド。ブランド型は`TagFormat`）
-- **定義**: アプリ（ソースリポジトリ）ごとに`chart.yaml`の`apps[]`で指定する、タグ名の読み方と
+- **定義**: アプリ（ソースリポジトリ）ごとに`registry.yaml`の`appSpecs[]`で指定する、タグ名の読み方と
   作り方を表すテンプレート文字列。`{branch}`/`{date}`/`{time}`をそれぞれちょうど1回含み、
   並び順と区切り文字は自由。既定値は持たず必須。`validateTagFormat()`/`parseTag()`/
   `buildNewTag()`が扱う。仕様は`docs/requirements.md` 4.1節が正典。
@@ -239,7 +243,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### mrTargetBranch
 
 - **英語識別子**: `mrTargetBranch`（`ChartRepoConfig`のフィールド）
-- **定義**: MRの作成先（ベースブランチ）を指定する`chart.yaml`のフィールド。
+- **定義**: MRの作成先（ベースブランチ）を指定する`registry.yaml`の`chartToUpdate`のフィールド。
 
 ### オールオアナッシング
 

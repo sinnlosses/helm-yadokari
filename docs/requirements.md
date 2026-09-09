@@ -70,7 +70,7 @@ Helm chart でバージョン管理されているアプリケーションのバ
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | アプリ                        | 管理対象とする、Helm chartでデプロイされる1つのアプリケーション単位。`config.yaml`の1エントリに対応する                                                                                                                                                                         |
 | ソースリポジトリ              | アプリのソースコードが置かれ、タグが打たれるGitLabプロジェクト                                                                                                                                                                                                                  |
-| chartリポジトリ               | Helm chart（`values.yaml`を含む）を管理するGitLabプロジェクト。ソースリポジトリとは別プロジェクト。`config/`配下では1ディレクトリ（`chart.yaml`）に対応する                                                                                                                     |
+| chartリポジトリ               | Helm chart（`values.yaml`を含む）を管理するGitLabプロジェクト。ソースリポジトリとは別プロジェクト。`config/`配下では1ディレクトリ（`registry.yaml`）に対応する                                                                                                                  |
 | 設定ユニット (`unitPath`)     | 同一のchartリポジトリ配下で、アプリの設定を分割管理するための単位。`config/<chartリポジトリ>/<unitPath>/config.yaml` というディレクトリ階層で表現する。`unitPath`は`config/<chartリポジトリ>/`からの相対パスで、深さ1か深さ2のいずれか（詳細は4.4節）。MRを作成する単位でもある |
 | 追跡ブランチ (`branchToSync`) | アプリごとに設定する、最新タグの判定対象とするソースリポジトリ側のブランチ                                                                                                                                                                                                      |
 
@@ -80,7 +80,7 @@ Helm chart でバージョン管理されているアプリケーションのバ
 
 - GitLabのタグ一覧から、アプリごとに設定された追跡ブランチ (`branchToSync`) 由来のタグ
   のみを対象に最新版を判定する
-- タグ形式はアプリ（ソースリポジトリ）単位に `config.yaml` の `apps[].tagFormat` で
+- タグ形式はアプリ（ソースリポジトリ）単位に `registry.yaml` の `appSpecs[].tagFormat` で
   指定する（**必須**。既定値は持たない。スキーマは4.4節が正典）。タグ形式は新規タグ作成・
   既存タグ判定の両方に使う
   - `{branch}`（追跡ブランチ名の "/" を "-" に置換した値）・`{date}`（`yyyymmdd`）・
@@ -147,7 +147,7 @@ Helm chart でバージョン管理されているアプリケーションのバ
   追加バリデーションは**行わず**、ブランチ作成APIのエラーを4.3節のエラーハンドリング方針
   （該当分だけERROR）に委ねる。何がブランチ名として通るかはGitLab側の判断であり、
   失敗しても影響がその設定ユニット1件に閉じるため、全体を止める理由がない
-- MRの作成先ブランチ（ベースブランチ）は、そのchartリポジトリの `chart.yaml` に設定する
+- MRの作成先ブランチ（ベースブランチ）は、そのchartリポジトリの `registry.yaml` に設定する
   `mrTargetBranch` を使う（設定ユニットに関わらず、同じchartリポジトリ内では共通）
 - MRタイトルは `Auto MR by yadokari: update ${unitPath} (image tag ${N}, helm branch ${M})`
   とし、同一プロジェクトに複数MRが並んでもタイトルだけで見分けられるようにする。件数は
@@ -202,7 +202,7 @@ Helm chart でバージョン管理されているアプリケーションのバ
 
 管理対象の情報は、CLIリポジトリ側の `config/` ディレクトリで一元管理する
 （chartリポジトリ側に設定を持たせる自己申告方式は採用しない）。CLIは `config/` 配下を
-再帰的に走査し、見つけた全ての `config.yaml`（とその直近の親をたどって見つかる`chart.yaml`）を
+再帰的に走査し、見つけた全ての `config.yaml`（とその直近の親をたどって見つかる`registry.yaml`）を
 処理対象とする。`config.yaml` を見つけたディレクトリが
 1つの**設定ユニット**で、そこより深い階層へは降りない（後述のとおり設定ユニットの入れ子は
 禁止しており、降りた先に `config.yaml` があれば設定エラーとして検出する）。
@@ -212,7 +212,7 @@ Helm chart でバージョン管理されているアプリケーションのバ
 ```
 config/
   <chartリポジトリ名>/            # 例: teamA-chart（ディレクトリ名は人間向けのラベル）
-    chart.yaml                     # chartリポジトリの情報＋ソースリポジトリの台帳
+    registry.yaml                  # chartリポジトリの情報＋ソースリポジトリの台帳
     <unitPath>/                    # 深さ1の設定ユニット
       config.yaml                  # その設定ユニットの全て
     <unitPathの第1セグメント>/     # 深さ2の設定ユニット
@@ -223,10 +223,10 @@ config/
 **ファイルを分ける軸は「スコープ」**とする。値が何の単位で決まるかでファイルを決め、
 それ以上は分けない。
 
-| ファイル      | スコープ        | 持つもの                                                                        |
-| ------------- | --------------- | ------------------------------------------------------------------------------- |
-| `chart.yaml`  | chartリポジトリ | MRの作成先（`chart`）と、ソースリポジトリのタグ形式の台帳（`apps[].tagFormat`） |
-| `config.yaml` | 設定ユニット    | どのブランチを追跡し、`values.yaml`のどこへ書き込むか                           |
+| ファイル        | スコープ        | 持つもの                                                                                    |
+| --------------- | --------------- | ------------------------------------------------------------------------------------------- |
+| `registry.yaml` | chartリポジトリ | MRの作成先（`chartToUpdate`）と、ソースリポジトリのタグ形式の台帳（`appSpecs[].tagFormat`） |
+| `config.yaml`   | 設定ユニット    | どのブランチを追跡し、`values.yaml`のどこへ書き込むか                                       |
 
 **変更頻度で更に分けることはしない。** かつては「よく変更する運用値」と「滅多に変更しない
 chart構造」を別ファイル（`config.yaml` と `anchors.yaml`）にしていたが、次の理由でやめた。
@@ -238,21 +238,21 @@ chart構造」を別ファイル（`config.yaml` と `anchors.yaml`）にして�
 - **本当によく変わるのは`branchToSync`だけ**で、1つの設定ユニットのファイルは十数行に収まる。
   分けなくても見通せる
 
-`tagFormat`をchartリポジトリ単位の`chart.yaml`に置くのは、タグ形式が**ソースリポジトリ側の
+`tagFormat`をchartリポジトリ単位の`registry.yaml`に置くのは、タグ形式が**ソースリポジトリ側の
 性質**で、設定ユニットごとに変わる値ではないため。設定ユニット側に置くと、同じソース
 リポジトリを複数の設定ユニットが追跡する構成で同じ値を何度も書くことになる。`projectName`は
-`chart.yaml`が正典だが、`config.yaml`にも重複して書く（設定ユニットのファイル単体で
+`registry.yaml`が正典だが、`config.yaml`にも重複して書く（設定ユニットのファイル単体で
 「どのappか」が読めることを優先する。食い違いは設定エラーで防ぐ）。
 
-`chart.yaml`:
+`registry.yaml`:
 
 ```yaml
-chart:
+chartToUpdate:
   projectId: 888 # values.yamlを更新するGitLabプロジェクトID
   projectName: teamA-chart
   mrTargetBranch: develop # MR作成先のベースブランチ
-apps: # このchartリポジトリ配下の設定ユニットが追跡するソースリポジトリの台帳
-  - projectId: 1 # タグを取得するGitLabプロジェクトID（chart.projectIdとは別物）
+appSpecs: # このchartリポジトリ配下の設定ユニットが追跡するソースリポジトリの台帳
+  - projectId: 1 # タグを取得するGitLabプロジェクトID（chartToUpdate.projectIdとは別物）
     projectName: my-app
     tagFormat: "{branch}-build-at-{date}-{time}" # ソースリポジトリのタグ形式（必須）
   - projectId: 2
@@ -264,8 +264,8 @@ apps: # このchartリポジトリ配下の設定ユニットが追跡するソ�
 
 ```yaml
 apps:
-  - projectId: 1 # chart.yaml の apps[] と一致させる
-    projectName: my-app # chart.yaml の apps[] と一致させる
+  - projectId: 1 # registry.yaml の appSpecs[] と一致させる
+    projectName: my-app # registry.yaml の appSpecs[] と一致させる
     branchToSync: main # 追跡するブランチ（設定ユニットごとに違ってよい）
     chart:
       - valuesPath: charts/my-app/values.yaml
@@ -303,19 +303,19 @@ apps:
           anchor: multiServiceAppDaemonVersion
   ```
 
-- `config.yaml`の各appに対応する`projectId`が、同じchartリポジトリの`chart.yaml`の`apps[]`に
+- `config.yaml`の各appに対応する`projectId`が、同じchartリポジトリの`registry.yaml`の`appSpecs[]`に
   見つからない場合は設定エラーになる。`tagFormat`が引けないため最新タグを判定できない。
   同じ`projectId`なのに`projectName`が食い違っている場合も設定エラーになる
-- `chart.yaml`の`apps[]`にだけ書かれていて、どの設定ユニットからも参照されていないappは
+- `registry.yaml`の`appSpecs[]`にだけ書かれていて、どの設定ユニットからも参照されていないappは
   **エラーにしない**（そのchartリポジトリで一時的に更新対象から外している状態を許すため）
 - 同じ`projectId`のappが1つのファイル内に複数書かれている場合も設定エラーになる。
   CLIは`projectId`をキーに2ファイルを突き合わせるため、重複していると片方が黙って無視され、
   同じ書き込み先へ別々のタグを順に書いて最後の値だけが残る
-- `chart.yaml`の`apps[].tagFormat` はそのアプリ（ソースリポジトリ）のタグ形式を表す
+- `registry.yaml`の`appSpecs[].tagFormat` はそのアプリ（ソースリポジトリ）のタグ形式を表す
   テンプレート文字列で、**必須**（判定・生成の仕様は4.1節が正典）。省略した場合、
   `{branch}`/`{date}`/`{time}` のいずれかを含まない場合、同じプレースホルダを2回以上含む
   場合、未知のプレースホルダを含む場合はいずれも設定エラーになる
-- 同じ`projectId`のappが**複数のchartリポジトリ**の`chart.yaml`に登録されていて、
+- 同じ`projectId`のappが**複数のchartリポジトリ**の`registry.yaml`に登録されていて、
   `tagFormat` が食い違っている場合は設定エラーになる。タグ形式はソースリポジトリ側の性質で
   あって登録先ごとに変わる値ではなく、食い違ったまま実行すると同じアプリの最新タグが実行ごとに
   違う形式で決まってしまうため。台帳をchartリポジトリ単位にしたことで、同じchart
@@ -329,7 +329,7 @@ apps:
   数えて**1〜2**とする。深さ1（`<chartリポジトリ>/<ユニット名>/config.yaml`）と深さ2
   （`<chartリポジトリ>/<第1セグメント>/<第2セグメント>/config.yaml`）のどちらでもよく、**同じchart
   リポジトリ配下に深さ1と深さ2の設定ユニットを混在させてもよい**（入れ子でない限り
-  `feature/yadokari/<unitPath>` が衝突しないため）。深さ0（`chart.yaml`と同じ階層に
+  `feature/yadokari/<unitPath>` が衝突しないため）。深さ0（`registry.yaml`と同じ階層に
   `config.yaml`を置く）と深さ3以上はいずれも設定エラーとする。深さ0は`unitPath`が空になって
   固定ブランチ名を組み立てられず、かつ同じchartリポジトリ配下の全設定ユニットと必ず入れ子に
   なる。深さ3以上は現時点で必要とする運用が無く、上限を明示しておくほうが走査の停止条件と
@@ -366,7 +366,7 @@ helm:
       anchor: myAppTargetBranch
 ```
 
-- `config.yaml`の`helm.branchToSync`はchartリポジトリ内の別ブランチ（chart.yamlの`projectId`と
+- `config.yaml`の`helm.branchToSync`はchartリポジトリ内の別ブランチ（`registry.yaml`の`chartToUpdate.projectId`と
   同一プロジェクト）を指す、設定ユニット単位に1件の値。人間が自己申告方式で直接書き換える
   運用とし、タグ形式のような自動生成・自動判定の仕組みは持たない
 - `helm.chart[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、
@@ -398,7 +398,7 @@ helm:
 - 指定した`TARGET_CHART`、または`TARGET_UNITS`内の各`unitPath`が
   `config/`配下に1件も見つからない場合は、typo等に気づけるようエラーとして即時終了する
   （`TARGET_UNITS`に複数指定した場合、1件でも見つからない`unitPath`があればエラーにする。
-  ディレクトリ自体は存在していても`chart.yaml`/`config.yaml`が無く、絞り込み結果として
+  ディレクトリ自体は存在していても`registry.yaml`/`config.yaml`が無く、絞り込み結果として
   対象アプリが1件も残らない場合も同様にエラーにする。対象0件のまま正常終了はしない）
 - どちらも未指定の場合の挙動（全件実行）は変わらない
 
