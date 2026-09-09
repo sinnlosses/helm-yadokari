@@ -185,6 +185,14 @@ T-001〜T-146 のうち T-146 を除く全タスクが完了し、[`docs/history
 
 ## 未解決
 
+- **T-151（`StepOutcome` の `settled` が SKIPPED と ERROR を混ぜている件）は着手しない判断**
+  （ユーザー判断、2026-09-09）。`tasks.json` では `status: done` / `passes: false` で閉じてある。
+  判断を変えたくなったときのために理由だけ残す: 指摘は事実だが、**消費側3箇所（`filter-targets.ts:28`・
+  `build-plans.ts:42`・`apply-updates.ts:27`）は SKIPPED と ERROR を区別しておらず**、
+  区別が要る最終集計（`main.ts:72`）には `result` の文字列として情報が残っているため、
+  実害が出ていない。再開するときは `docs/architecture.md`「エラーは『fatalは例外・それ以外は
+  戻り値』の2チャネル」の方針変更をユーザー承認するところから始める。
+
 - **`develop/tasks.json` のアーカイブ基準（30KB超）が、`todo` だけで超えたときに機能しない。**
   T-151・T-152 を登録した時点で39.5KBに達し、`done` の T-149 を
   `docs/history/tasks-archive.md` へ移したが、**残り6件の `todo` だけで32.9KB**あり基準内に
