@@ -1,3 +1,4 @@
+import { buildConfigUnitLocation } from "../../../src/domain/config-unit.js"
 import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
 import { getValueAtAnchor } from "../../../src/lib/helm.js"
 import type {
@@ -53,7 +54,7 @@ export async function verifyConfigExistence(
         return await verifyChartAndApps(cache, chartAndApps)
       } catch (err) {
         return [
-          `${chartAndApps.chartDirName}/${chartAndApps.unitPath}: 検証中にエラーが発生しました（${toErrorMessage(err)}）`,
+          `${buildConfigUnitLocation(chartAndApps.chartDirName, chartAndApps.unitPath)}: 検証中にエラーが発生しました（${toErrorMessage(err)}）`,
         ]
       }
     },
@@ -73,7 +74,7 @@ async function verifyChartAndApps(
   const { chart, apps, helmTargetBranch } = chartAndApps
   const context: VerifyContext = {
     cache,
-    where: `${chartAndApps.chartDirName}/${chartAndApps.unitPath}`,
+    where: buildConfigUnitLocation(chartAndApps.chartDirName, chartAndApps.unitPath),
     chart,
     reportedPaths: new Set<string>(),
   }

@@ -1,3 +1,4 @@
+import { buildConfigUnitLocation } from "../../domain/config-unit.js"
 import type { AnchorTarget, ChartAndApps, ProjectId, ProjectName, TagFormat } from "../../types/types.js"
 
 /**
@@ -52,7 +53,7 @@ export function validateTagFormatConsistency(chartAndAppsList: readonly ChartAnd
     { readonly projectName: ProjectName; readonly tagFormat: TagFormat; readonly location: string }
   >()
   for (const chartAndApps of chartAndAppsList) {
-    const location = `${chartAndApps.chartDirName}/${chartAndApps.unitPath}`
+    const location = buildConfigUnitLocation(chartAndApps.chartDirName, chartAndApps.unitPath)
     for (const app of chartAndApps.apps) {
       const prior = seen.get(app.projectId)
       if (prior === undefined) {
