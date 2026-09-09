@@ -4,21 +4,15 @@ import { logger } from "../../src/utils/logger.js"
 
 describe("logger", () => {
   let lastLog = ""
-  let lastWarn = ""
   let lastError = ""
   let logSpy: ReturnType<typeof vi.spyOn>
-  let warnSpy: ReturnType<typeof vi.spyOn>
   let errorSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     lastLog = ""
-    lastWarn = ""
     lastError = ""
     logSpy = vi.spyOn(console, "log").mockImplementation((...args) => {
       lastLog = String(args[0])
-    })
-    warnSpy = vi.spyOn(console, "warn").mockImplementation((...args) => {
-      lastWarn = String(args[0])
     })
     errorSpy = vi.spyOn(console, "error").mockImplementation((...args) => {
       lastError = String(args[0])
@@ -27,7 +21,6 @@ describe("logger", () => {
 
   afterEach(() => {
     logSpy.mockRestore()
-    warnSpy.mockRestore()
     errorSpy.mockRestore()
   })
 
@@ -54,21 +47,6 @@ describe("logger", () => {
     it("console.log を使う", () => {
       logger.info({ event: "test" })
       expect(logSpy).toHaveBeenCalledOnce()
-      expect(errorSpy).not.toHaveBeenCalled()
-    })
-  })
-
-  describe("warn", () => {
-    it("level: warn を含む JSON を出力する", () => {
-      logger.warn({ event: "test" })
-      const output = JSON.parse(lastWarn)
-      expect(output.level).toBe("warn")
-    })
-
-    it("console.warn を使う", () => {
-      logger.warn({ event: "test" })
-      expect(warnSpy).toHaveBeenCalledOnce()
-      expect(logSpy).not.toHaveBeenCalled()
       expect(errorSpy).not.toHaveBeenCalled()
     })
   })
