@@ -4,7 +4,13 @@ import type { ChartAndApps, ChartUpdateResult } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
-import { type StepOutcome, ok, settle, withHandling } from "../shared/step-outcome.js"
+import {
+  type ChartUpdateLogContext,
+  type StepOutcome,
+  ok,
+  settle,
+  withHandling,
+} from "../shared/step-outcome.js"
 
 export type FilterTargetsResult = {
   readonly targets: readonly ChartAndApps[]
@@ -37,7 +43,7 @@ export async function filterTargets(
 async function evaluateTarget(
   gitlab: GitlabClient,
   chartAndApps: ChartAndApps,
-  logContext: Record<string, unknown>,
+  logContext: ChartUpdateLogContext,
 ): Promise<StepOutcome<ChartAndApps>> {
   if (chartAndApps.apps.length === 0) {
     logger.info({ ...logContext, result: "SKIPPED", reason: "no_apps" })

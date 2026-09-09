@@ -1,4 +1,11 @@
-import type { ChartAndApps, ChartUpdateResult, ProjectName } from "../../types/types.js"
+import type {
+  ChartAndApps,
+  ChartDirName,
+  ChartUpdateResult,
+  ConfigUnitPath,
+  ProjectId,
+  ProjectName,
+} from "../../types/types.js"
 import { FatalError } from "../../utils/errors.js"
 import { extractHttpStatus, isFatalError, toErrorMessage } from "../../utils/http.js"
 import { logger } from "../../utils/logger.js"
@@ -14,6 +21,21 @@ import { logger } from "../../utils/logger.js"
  * 値として`ChartUpdateResult`（"CREATED"）を使う。3つのstepで別々に定義されていた
  * `TargetOutcome`/`PlanResult`をこの型に統一する。
  */
+/**
+ * chartAndApps 1件分の処理結果ログに共通で載せる識別情報。3つのstepが`withHandling()`から
+ * 受け取り、自分の`result`/`reason`を足してログに出す。
+ *
+ * `types/types.ts`ではなくここに置くのは、これがドメイン語彙ではなく「3つのstepが共有する
+ * ログの形」だから（`docs/architecture.md`「型の置き場所」の表4行目）。
+ */
+export type ChartUpdateLogContext = {
+  readonly event: "update_chart"
+  readonly chartDirName: ChartDirName
+  readonly unitPath: ConfigUnitPath
+  readonly chartProjectId: ProjectId
+  readonly chartProjectName: ProjectName
+}
+
 export type StepOutcome<T> =
   | { readonly status: "ok"; readonly value: T }
   | { readonly status: "settled"; readonly result: ChartUpdateResult }
@@ -48,7 +70,7 @@ export function withAppContext<T>(projectName: ProjectName, fn: () => Promise<T>
  */
 export function withHandling<T>(
   chartAndApps: ChartAndApps,
-  fn: (logContext: Record<string, unknown>) => Promise<StepOutcome<T>>,
+  fn: (logContext: ChartUpdateLogContext) => Promise<StepOutcome<T>>,
 ): Promise<StepOutcome<T>> {
   const logContext = buildLogContext(chartAndApps)
   return fn(logContext).catch((err: unknown) => settle<T>(settleAsError(err, logContext)))
@@ -78,7 +100,7 @@ function rethrowWithAppContext(err: unknown, projectName: ProjectName): never {
  *
  * 方針そのものを1箇所に置くための関数。3つのstepからは直接ではなく`withHandling()`経由で呼ぶ。
  */
-function settleAsError(err: unknown, logContext: Record<string, unknown>): "ERROR" {
+function settleAsError(err: unknown, logContext: ChartUpdateLogContext): "ERROR" {
   if (isFatalError(err)) throw new FatalError(extractHttpStatus(err), err)
   logger.error({
     ...logContext,
@@ -92,7 +114,7 @@ function settleAsError(err: unknown, logContext: Record<string, unknown>): "ERRO
  * chartAndApps 1件分の処理結果ログに共通で載せる識別情報。3つのstepすべてが
  * 同じキー・同じ値で出力するよう、ここ1箇所で組み立てる。
  */
-function buildLogContext(chartAndApps: ChartAndApps): Record<string, unknown> {
+function buildLogContext(chartAndApps: ChartAndApps): ChartUpdateLogContext {
   return {
     event: "update_chart",
     chartDirName: chartAndApps.chartDirName,

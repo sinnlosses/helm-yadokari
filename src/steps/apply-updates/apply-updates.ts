@@ -5,7 +5,12 @@ import type { ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { describeHelmTargetBranchUpdates, describePlan } from "../shared/describe-plan.js"
-import { type StepOutcome, ok, withHandling } from "../shared/step-outcome.js"
+import {
+  type ChartUpdateLogContext,
+  type StepOutcome,
+  ok,
+  withHandling,
+} from "../shared/step-outcome.js"
 import { buildMrContent } from "./sub-steps/build-mr-content.js"
 import { collectMrEntries } from "./sub-steps/collect-mr-entries.js"
 import { submitMergeRequest } from "./sub-steps/submit-merge-request.js"
@@ -34,7 +39,7 @@ async function applyUpdate(
   gitlab: GitlabClient,
   gitlabCache: GitlabBatchCache,
   target: ChartUpdateTarget,
-  logContext: Record<string, unknown>,
+  logContext: ChartUpdateLogContext,
 ): Promise<StepOutcome<ChartUpdateResult>> {
   const { chartAndApps, plans, helmTargetBranchUpdates, files } = target
   const { chart, unitPath } = chartAndApps

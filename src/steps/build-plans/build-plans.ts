@@ -5,7 +5,13 @@ import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
 import { describeHelmTargetBranchUpdates, describePlan } from "../shared/describe-plan.js"
-import { type StepOutcome, ok, withHandling, settle } from "../shared/step-outcome.js"
+import {
+  type ChartUpdateLogContext,
+  type StepOutcome,
+  ok,
+  settle,
+  withHandling,
+} from "../shared/step-outcome.js"
 import { type ResolveLatestTags, createResolveLatestTags } from "./sub-steps/resolve-latest-tags.js"
 import { type ValuesYamlSource, toFileUpdates } from "./sub-steps/shared/values-yaml-draft.js"
 import { stageHelmTargetBranchUpdates } from "./sub-steps/stage-helm-target-branch-updates.js"
@@ -60,7 +66,7 @@ async function buildPlan(
   resolveLatestTags: ResolveLatestTags,
   chartAndApps: ChartAndApps,
   dryRun: boolean,
-  logContext: Record<string, unknown>,
+  logContext: ChartUpdateLogContext,
 ): Promise<StepOutcome<ChartUpdateTarget>> {
   const valuesYamlSource: ValuesYamlSource = { gitlabCache, chart: chartAndApps.chart }
 

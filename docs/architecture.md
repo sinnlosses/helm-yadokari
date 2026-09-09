@@ -267,7 +267,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 | ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                           | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ChartAndApps`・`AppUpdatePlan`・`ChartUpdateResult`・`Config`・`ParsedTag`     |
 | 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                   | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`AppSpec`・`EnvConfig`                          |
 | ドメイン知識を持たない汎用処理の型                                                   | その`utils/`ファイル                             | `Sorted`                                                                        |
-| 複数のstepが共有する、ドメイン型にだけ依存する型                                     | `steps/shared/`                                  | `StepOutcome<T>`                                                                |
+| 複数のstepが共有する、ドメイン型にだけ依存する型                                     | `steps/shared/`                                  | `StepOutcome<T>`・`ChartUpdateLogContext`                                       |
 | ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlansResult`・`FilterTargetsResult`・`ValuesYamlDraft`・`LabeledTarget`   |
 | 特定の1ファイルに帰属せず、複数のサブステップが共有する型                            | `steps/<step名>/sub-steps/shared/types.ts`       | `BranchExists`・`LatestTagResolution`・`AppWithLatestTag`・`StageUpdatesAcc<U>` |
 
