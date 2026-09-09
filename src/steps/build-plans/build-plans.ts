@@ -78,7 +78,6 @@ async function buildPlan(
   const { draft, updates: helmTargetBranchUpdates } = chartAndApps.helmTargetBranch
     ? await stageHelmTargetBranchUpdates(
         valuesYamlSource,
-        (branch) => gitlabCache.branchExists(chartAndApps.chart.projectId, branch),
         chartAndApps.helmTargetBranch,
         draftAfterApps,
       )

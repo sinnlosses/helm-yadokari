@@ -61,7 +61,7 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 | ------------------------------------------------------------------------------------- | -------------------------------------------- |
 | #### 引数として渡した入れ物が呼び出し先で書き変わる契約にしない                       | データの受け渡しの契約                       |
 | #### GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で1つ持ち回る | 何をキャッシュしてよいかの判断               |
-| #### サブステップに関数型を注入するのは、親stepが持つキャッシュを隠すときだけ         | DIを絞っている理由                           |
+| #### サブステップに関数型を注入しない。キャッシュを持つ側が工場関数を公開する         | DIを置かない理由と、唯一の例外               |
 | #### ブランチの作り直しはサブステップに置き、`lib/gitlab/`は薄いラッパーに保つ        | コミット周りの分担と、以前の判断を覆した理由 |
 
 `### 型と命名` の中:
@@ -263,14 +263,14 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 **利用箇所の数では決めない。** 型の性質だけで決める。
 
-| 型の性質                                                                             | 置き場所                                         | 例                                                                              |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------- |
-| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                           | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ChartAndApps`・`AppUpdatePlan`・`ChartUpdateResult`・`Config`・`ParsedTag`     |
-| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                   | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`AppSpec`・`EnvConfig`                          |
-| ドメイン知識を持たない汎用処理の型                                                   | その`utils/`ファイル                             | `Sorted`                                                                        |
-| 複数のstepが共有する、ドメイン型にだけ依存する型                                     | `steps/shared/`                                  | `StepOutcome<T>`・`ChartUpdateLogContext`                                       |
-| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlansResult`・`FilterTargetsResult`・`ValuesYamlDraft`・`LabeledTarget`   |
-| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                            | `steps/<step名>/sub-steps/shared/types.ts`       | `BranchExists`・`LatestTagResolution`・`AppWithLatestTag`・`StageUpdatesAcc<U>` |
+| 型の性質                                                                             | 置き場所                                         | 例                                                                            |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                           | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ChartAndApps`・`AppUpdatePlan`・`ChartUpdateResult`・`Config`・`ParsedTag`   |
+| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                   | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`AppSpec`・`EnvConfig`                        |
+| ドメイン知識を持たない汎用処理の型                                                   | その`utils/`ファイル                             | `Sorted`                                                                      |
+| 複数のstepが共有する、ドメイン型にだけ依存する型                                     | `steps/shared/`                                  | `StepOutcome<T>`・`ChartUpdateLogContext`                                     |
+| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlansResult`・`FilterTargetsResult`・`ValuesYamlDraft`・`LabeledTarget` |
+| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                            | `steps/<step名>/sub-steps/shared/types.ts`       | `LatestTagResolution`・`AppWithLatestTag`・`StageUpdatesAcc<U>`               |
 
 - 「型は`types/`にまとめる」という運用にしないのは、`types/`が「ドメイン語彙の一覧」ではなく
   「型の物置」になると、どの型がこのツールの語彙でどの型が実装の都合かが読み分けられなくなるため。
@@ -499,23 +499,29 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
 `getProjectWebUrl()`だけを残し、一意化はキャッシュに一本化した。あわせて「依頼した
 `projectId`はすべて解決済み」という呼び出し元側の前提チェックも要らなくなっている。
 
-#### サブステップに関数型を注入するのは、親stepが持つキャッシュを隠すときだけ
+#### サブステップに関数型を注入しない。キャッシュを持つ側が工場関数を公開する
 
-関数型で受け取るのはブランチ存在確認（`BranchExists`）だけで、**バッチ単位のキャッシュ**
-（`GitlabBatchCache`）とchartのprojectIdを親step側に閉じ込める。それ以外のサブステップは
-`GitlabClient`や`GitlabBatchCache`をそのまま受け取る。隠すべきキャッシュが無いなら、関数型に
-しても間接層が増えるだけになる。
+**親stepがクロージャを組み立ててサブステップに渡す形は採らない。** サブステップは
+`GitlabClient`や`GitlabBatchCache`（`ValuesYamlSource`に束ねた形を含む）をそのまま受け取り、
+必要な問い合わせを自分で呼ぶ。読み込み先はそれ自体がただのデータなので、関数型で包んでも
+間接層が増えるだけになる。
 
-- **サブステップ自身がバッチ単位のキャッシュを持つ場合は、工場関数を公開して親stepに寿命だけを
-  持たせる**（`createResolveLatestTags()`）。親stepにキャッシュ付きの関数を組み立てさせると
-  サブステップの内部関数を並べて公開することになり、「1ファイル＝1公開関数」に反するため。
-  `BranchExists`との違いは、包む対象が`lib/gitlab/`の関数か、そのサブステップ自身の処理か
+この形に落ち着くまでに、同じ理由で2つの注入をやめている:
 
-values.yamlの読み込みは以前この形（`ReadDraftValuesYaml`）だったが、注入をやめて
-`readValuesYamlDraft(source, draft, valuesPath)`の直接呼び出しにした。下書きの読み書きが
-「読みは親stepが組み立てたクロージャ、書きは`values-yaml-draft.ts`の関数」と別々の出所に
-分かれていて、一連の操作として追いにくかったため。読み込み先（`ValuesYamlSource`＝バッチ
-キャッシュ＋chartリポジトリ）はそれ自体がただのデータなので、関数型で隠す必要が無い。
+- **values.yamlの読み込み**（`ReadDraftValuesYaml`）: 下書きの読み書きが「読みは親stepが
+  組み立てたクロージャ、書きは`values-yaml-draft.ts`の関数」と別々の出所に分かれていて、
+  一連の操作として追いにくかった。`readValuesYamlDraft(source, draft, valuesPath)`の
+  直接呼び出しにした
+- **ブランチの実在確認**（`BranchExists`）: 「バッチ単位のキャッシュとchartのprojectIdを親step側に
+  閉じ込めるため」という理由で注入していたが、**同じ関数が`source`（`ValuesYamlSource`＝
+  `gitlabCache`+`chart`）を別の引数で受け取っており、隠せていなかった**。
+  `source.gitlabCache.branchExists(source.chart.projectId, ...)`の直接呼び出しにして、
+  問い合わせ先を決める情報が関数の中で1つに揃うようにした
+
+**唯一の例外は、サブステップ自身がバッチ単位のキャッシュを持つ場合**で、工場関数を公開して
+親stepに寿命だけを持たせる（`createResolveLatestTags()`）。親stepにキャッシュ付きの関数を
+組み立てさせるとサブステップの内部関数を並べて公開することになり、「1ファイル＝1公開関数」に
+反するため。上の2つとの違いは、包む対象が`lib/gitlab/`の関数か、そのサブステップ自身の処理か。
 
 #### ブランチの作り直しはサブステップに置き、`lib/gitlab/`は薄いラッパーに保つ
 
