@@ -3945,3 +3945,667 @@ config/<chartディレクトリ>/
 **difficulty**: opus
 
 **evidence**: 正典3ファイルを新名称に更新（`docs/requirements.md` 17件・`docs/glossary.md` 13件・`docs/architecture.md` 6件 → `grep -rn 'chart\.yaml'` で3ファイルとも0件）。 コード識別子の追随範囲は「外部ファイル形式の写しかどうか」で決め、7件の識別子の可否表を `docs/architecture.md` の該当節に追記（`ChartRepoConfig`・`ChartAndApps.chart` は据え置き）。 `pnpm check` 通過（32ファイル・359テスト）。索引の整合も検査済み（索引エントリを sed で切り出す検査でNG 0件）。
+
+## T-146
+
+**タスク**: 既定パス `config/` で本番の定期実行を開始する（手動のDRY_RUN実行 → pipeline schedule 作成）。
+
+## 背景
+
+`config/` への登録が済み（前段タスク）、gitlab.com の `sinnlosses-group/helm-yadokari` で定期実行を開始できる状態になる。CI/CD Variables（`GITLAB_URL` / `ACCESS_TOKEN`）は**登録済み**だが、**pipeline schedule はまだ作成されていない**（2026-09-08時点、ユーザー確認済み）。
+
+ユーザーとの合意事項:
+
+- 対象GitLabは gitlab.com の `sinnlosses-group`
+- 対象chartリポジトリは `yadokari-smoke-test-chart`（スモークテスト用と同じもの）
+- **まず `DRY_RUN=true` で手動実行し、ログを確認してから** schedule を有効化する
+- schedule は **平日 JST 9:00**、`DRY_RUN` は載せない（＝既定の `false` で実際にMRを作る）
+
+`update-app-versions` ジョブは `.gitlab-ci.yml` の rules により `schedule`（`RENOVATE != "true"`）と `web`（手動）で動く。`web` トリガーは `when: manual` なのでパイプライン作成後に手で開始する。
+
+## 解くべき論点
+
+1. **`DRY_RUN=true` の手動実行を、CI（web トリガー）で行うかローカル（`pnpm dev`）で行うか。** CIで行えば「CI環境の変数・権限で既定パスが通る」ことまで確かめられるが、ローカルより手間がかかる。既定パスをCIで通すことがこのタスクの主目的なので**CI側が本命**
+2. **手動実行で対象を絞るか（`TARGET_UNITS`）、全件で回すか。** 登録は3設定ユニットなので全件でも小さい
+
+## やること
+
+**このタスクはGitLab UI上の操作を含むため、実行はユーザーに依頼する。エージェントが代行しない。**
+
+1. ユーザーに提示する手順を、コピーして実行できる形にまとめる:
+   - `DRY_RUN=true` での手動実行（GitLab UI: CI/CD > Pipelines > Run pipeline、変数 `DRY_RUN=true` を追加 → `update-app-versions` ジョブを手動開始）
+   - 確認すべきログの箇所（`run_start` の `configDirPath` が `config` になっていること、各設定ユニットの結果、`DRY_RUN` でMR・タグ・ブランチが作られていないこと）
+   - pipeline schedule の作成手順（Settings > CI/CD > Schedules、cron・タイムゾーン `Asia/Tokyo`・平日 JST 9:00、変数は追加しない）
+2. ユーザーが実行した結果（ログの要点）を受け取り、`evidence` に記録する
+3. 想定と違う挙動があれば、原因を切り分けて報告する（修正は別タスクに切る）
+
+## 完了条件
+
+- `DRY_RUN=true` の手動実行が成功し、**ログの `run_start` に `configDirPath: "config"` が出ている**ことをユーザーの実行結果で確認できている（`evidence` に該当行を書く）
+- 手動実行でMR・タグ・ブランチが**作られていない**ことを確認できている
+- pipeline schedule が作成され、cron・タイムゾーン・変数の設定内容が `evidence` に書かれている
+- `develop/progress.md` の「注意」にある**テスト用アクセストークンの扱いが「本番用として継続利用」に更新されている**（失効させない方針に決まったため、宿題として残さない）
+
+## 注意
+
+- **GitLab上の操作（手動実行・schedule作成・変数の変更）はすべてユーザーが行う。** エージェント／セッションから実行しない
+- **`/loop /next-task` には載せない**（ユーザー操作の完了を待つため）
+- schedule を有効化すると、平日毎朝 `yadokari-smoke-test-chart` にMRが作られるようになる。スモークテストを回すときは定期実行と時間が重ならないよう注意する（同じ固定ブランチを使うため）
+
+**dependencies**: T-145
+
+**difficulty**: sonnet
+
+**evidence**: CIの手動実行（web、`DRY_RUN=true`）のログで `{"event":"run_start",...,"dryRun":true,"configDirPath":"config"}` を確認。3設定ユニットとも `reason:"dry_run"` で `summary` は `CREATED:0, SKIPPED:3, ERROR:0`（MR・タグ・ブランチは未作成）。 作成済みスケジュールをAPIで実測（`GET /projects/86060538/pipeline_schedules`、1本のみ）: cron `0 9 * * *` / timezone `UTC` / ref `refs/heads/main` / variables `[]` / active `true` / next_run_at `2026-09-10T09:00:00Z`。 **合意の「平日 JST 9:00」に対し実際は「毎日 18:00 JST」だが、ユーザー判断でこのまま採用**（土日は更新が無ければ `no_diff` で終わるため）。着手前にスモーク残骸（MR !28/!29・固定ブランチ2本）を `reset --apply` で除去済み。
+
+## T-151
+
+**タスク**: `StepOutcome` の `settled` が SKIPPED と ERROR の2種を1つの枝に混ぜている点を解く。
+
+## 背景
+
+`src/steps/shared/step-outcome.ts` の `StepOutcome<T>` は2枝:
+
+```ts
+export type StepOutcome<T> =
+  | { readonly status: "ok"; readonly value: T }
+  | { readonly status: "settled"; readonly result: ChartUpdateResult }
+```
+
+`settled` に入る値は実際には2種類ある（指摘は事実）:
+
+- `settle("SKIPPED")` … `src/steps/filter-targets/filter-targets.ts:44,50`（登録アプリ0件 / オープン中のMRあり）と `src/steps/build-plans/build-plans.ts:83,93`（差分なし / dry-run）の計4箇所
+- `"ERROR"` … `withHandling()` が捕捉した例外を `settleAsError()` に渡した戻り値。`settle<T>(settleAsError(err, logContext))` の形で同じ枝に入る
+
+**さらに型が実態より広い。** `settle()` の引数は `ChartUpdateResult = "CREATED" | "SKIPPED" | "ERROR"`（`src/types/types.ts:107`）だが、`"CREATED"` は `settle()` に渡されない。`"CREATED"` は `src/steps/apply-updates/apply-updates.ts` の `return ok<ChartUpdateResult>("CREATED")` として `ok` 枝から出る。つまり `settle("CREATED")` は型では書けてしまうが意味を持たない。
+
+一方、**消費側3箇所は SKIPPED と ERROR を区別していない**:
+
+- `filter-targets.ts:28` / `build-plans.ts:42`: `partitionMap(outcomes, (o) => o.status === "ok" ? left(o.value) : right(o.result))`
+- `apply-updates.ts:27`: `outcomes.map((o) => o.status === "ok" ? o.value : o.result)`
+
+区別が必要になるのは最終集計だけで、`src/main.ts:72` が `{ CREATED: 0, SKIPPED: 0, ERROR: 0 }` に数え上げ、`main.ts:25` が `resultCounts.ERROR === 0` で終了コードを決める。判別に使う情報は `result` の文字列として既に載っているため、**情報は失われていない**。問題は型の枝の名前（`settled`）が「意図的なスキップ」と「失敗」を同居させていることが読み取れない点にある。
+
+## 解くべき論点
+
+1. **3枝に分ける（`ok` / `skipped` / `error`）か、2枝のまま型を狭めるか。** 3枝にすると消費側3箇所が2分岐では書けなくなり、`partitionMap()`（`src/utils/partition.ts`。2バケツ前提のユーティリティ）の使い方も変わる。2枝のまま `settle()` の引数と `settled.result` を `"SKIPPED" | "ERROR"` に狭めるだけなら、消費側は無変更で `settle("CREATED")` が書けなくなる
+2. **`docs/architecture.md`「エラーは『fatalは例外・それ以外は戻り値』の2チャネル」との整合。** この節は「2チャネルを1つの`Result`型に寄せる案は採らない」と明記している。今回の変更が、そこで退けた形（stepにfatal判断が戻る）に近づいていないかを確認する。**近づくなら採らない**
+3. **狭めた型に名前を付けるか。** `"SKIPPED" | "ERROR"` に `SettledResult` のような名前を与えるか、その場に書くか。`docs/architecture.md`「型の置き場所」の判断表に従う
+4. **`settled` という枝名を変えるか。** 変えると `main.ts:50,55` の `settled: filtered` / `settled: planned` や `FilterTargetsResult`・`BuildPlansResult` のフィールド名にも波及する
+
+## やること
+
+1. 論点1〜4を検討し、**結論をユーザーに提案して承認を得てから適用する**。エラー方針は `docs/architecture.md` が設計判断として明文化している領域なので、勝手に変えない
+2. 承認された形に `src/steps/shared/step-outcome.ts` を変更し、波及先（`filter-targets.ts`・`build-plans.ts`・`apply-updates.ts`・必要なら `main.ts` と `src/types/types.ts`）を追従させる
+3. 変更後、`docs/architecture.md`「エラーは『fatalは例外・それ以外は戻り値』の2チャネル」の節を実態に合わせる。**この節が現在の形を説明できなくなっていたら、節のほうを更新する**
+4. 検討の結果「現状のままがよい」と結論した場合は、**変更せずにその理由を `evidence` に書いて閉じる**。ただしその場合でも、型が実態より広い点（`settle("CREATED")` が書ける）は独立した欠陥なので、そこだけは狭める
+
+## 完了条件
+
+- `settle()` に `"CREATED"` を渡すコードが**型エラーになる**（`npx tsc --noEmit` で確認し、確認方法を `evidence` に書く）
+- SKIPPED と ERROR を区別したい箇所（`src/main.ts` の集計）が、区別できる形のままである
+- `grep -rn "try {" src/steps/` が **0件**（`docs/architecture.md` が定める機械的確認。この規約を壊していないことの担保）
+- `docs/architecture.md`「エラーは『fatalは例外・それ以外は戻り値』の2チャネル」の記述が、変更後のコードを説明できている
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- **`src/steps/` 配下に `try`/`catch` を書かない**という規約を壊さない（`docs/coding-standards.md`「エラーハンドリング」）
+- `settleAsError()` が `FatalError` を投げる経路（401/5xx/ネットワーク障害で実行全体を止める）を変えない。ここを戻り値に寄せる案は `docs/architecture.md` が明示的に退けている
+- `src/steps/` 配下の各ファイルは互いに import しない（`CLAUDE.md` 原則1）。共通化するなら `steps/shared/` に置く
+- **設計変更の承認が要るので `/loop /next-task` には載せない**
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**passes**: false（完了条件を満たしていない）
+
+**evidence**: ユーザー判断により**着手しない方針で閉じた**（2026-09-09）。`passes: false` は完了条件を満たしていないことを表す。 指摘自体は事実（`settle("SKIPPED")` 4箇所と `settleAsError()` の `"ERROR"` が同じ枝に入り、`settle()` の引数型には `"CREATED"` も渡せる）だが、消費側3箇所は両者を区別しておらず、集計に必要な情報は `result` の文字列として失われていない。 再開するなら `docs/architecture.md`「エラーは『fatalは例外・それ以外は戻り値』の2チャネル」の方針変更の承認から始める。
+
+## T-157
+
+**タスク**: `chart.yaml` → `registry.yaml` の改名とキー名の変更を、実装・テスト・実 `config/`・残りのドキュメントに反映する。
+
+## 背景
+
+前段タスクで正典（`docs/requirements.md` 4.4節・`docs/architecture.md`・`docs/glossary.md`）は新しい名前に更新済み。この時点で正典とコードが食い違っているので、実装側を追随させる。
+
+決定済みの変更:
+
+- ファイル名 `chart.yaml` → `registry.yaml`
+- キー `chart:` → `chartToUpdate:`
+- キー `apps:` → `appSpecs:`
+- `config.yaml` は**変更しない**（ファイル名・キー名とも据え置き）
+
+コード側の識別子をどこまで追随させるかは**前段タスクが `docs/architecture.md` に記録済み**。着手前にその節を読み、そこに書かれた範囲で改名する（このタスクで決め直さない）。
+
+主な変更箇所（`grep -rn 'chart\.yaml'` の現状値）:
+
+- `src/` 25箇所。特に `src/lib/config/config.ts:71`（`existsSync(join(chartDirPath, "chart.yaml"))`）と `:187`（`const chartYamlPath = join(...)`）がファイル名のリテラル、`:98`・`:121` がエラーメッセージ中の文字列
+- `src/lib/config/schema.ts` の `ChartYamlSchema`（`chart` / `apps` の2キー）と `ChartApp`
+- `test/` 23箇所（`test/lib/config/fixture.ts`・`config.test.ts`・`schema.test.ts`・`validate.test.ts`・`test/main.e2e.test.ts`）
+- `scripts/lint/verify-config/verify-config.ts` 2箇所
+- `README.md` 7箇所
+- 実 `config/yadokari-smoke-test-chart/chart.yaml` 1ファイル（`git mv` で改名し、2キーを書き換える）
+
+## やること
+
+1. `docs/architecture.md` の該当節を読み、コード側の識別子の改名範囲を確認する
+2. 実 `config/yadokari-smoke-test-chart/chart.yaml` を `git mv` で `registry.yaml` にし、`chart:` → `chartToUpdate:`、`apps:` → `appSpecs:` に書き換える
+3. `src/`・`scripts/`・`test/` を追随させる。ファイル名のリテラルとエラーメッセージも含む
+4. `README.md`・`config/README.md`・`docs/smoke-test.md`・`CLAUDE.md` に `chart.yaml` の記述があれば直す（`config/README.md`・`docs/smoke-test.md`・`CLAUDE.md` は現状0件だが、前段タスクの結果で増える可能性があるので着手時に `grep` で確認する）
+5. `pnpm lint:validate-config` が実 `config/` を読めることを確認する（位置引数なしで `3 設定ユニット, 5 apps` が出る）
+
+## 完了条件
+
+- `grep -rn 'chart\.yaml' src scripts test config README.md CLAUDE.md docs` が0件（`docs/history/` と `docs/requirements-grilling.md` を除く）
+- 実 `config/` に `registry.yaml` が存在し、`chart.yaml` が存在しない
+- `pnpm lint:validate-config` が位置引数なしで成功する（出力を evidence に書く）
+- `pnpm check` が通る（テスト件数を evidence に書く。改名だけなので**件数は変わらないはず**で、減っていたら理由を確認する）
+
+## 注意
+
+- **`docs/history/` 配下と `docs/requirements-grilling.md` は触らない**
+- 実 `config/` の変更はGitLab上のプロジェクトIDやアンカー名を変えるものではないので、`validate-config-remote` の検証結果は変わらない。**値そのものは書き換えない**
+- ファイルの移動は `git mv` を使う（履歴を残すため）
+- `/loop /next-task` に載せてよい
+
+**dependencies**: T-156
+
+**difficulty**: sonnet
+
+**evidence**: `config/yadokari-smoke-test-chart/chart.yaml` を `git mv` で `registry.yaml` にし（`git status` が `RM` で記録、値は不変）、16ファイルを追随させた。 `grep -rn 'chart\.yaml' src scripts test config README.md CLAUDE.md docs`（history・grilling除く）が0件。`pnpm lint:validate-config` が位置引数なしで `config OK: 3 設定ユニット, 5 apps`。 `pnpm check` 通過（32ファイル・359テスト。改名のみなので着手前と同数）。可否表の据え置き対象（`ChartRepoConfig`・`ChartAndApps.chart`・`chart-and-apps.ts`・`ConfigYamlSchema`/`AppSchema`）が残存し、旧名5種は0件。
+
+## T-158
+
+**タスク**: `isFatalError()` がネットワーク障害を検出できていない件を解く。
+
+## 背景
+
+`src/utils/http.ts` の `isFatalError()` は、HTTPステータスが取れないときエラー自身の `code` を見る:
+
+```ts
+if (!(error instanceof Error)) return false
+if (!hasKey(error, "code")) return false
+const { code } = error
+return code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ETIMEDOUT"
+```
+
+しかし gitbeaker が使う undici の `fetch` は `TypeError: fetch failed` を投げ、**実際の
+`code` は `error.cause.code` に入る**。実測（gitbeaker 経由で存在しないホストへ
+`Projects.show` を呼ぶ）で確認した結果:
+
+```
+name: TypeError | msg: fetch failed
+e.code: undefined
+cause: Error code=ENOTFOUND msg=getaddrinfo ENOTFOUND ...
+extractHttpStatus: undefined
+>>> isFatalError: false
+```
+
+この結果、DNS障害・接続拒否でも `FatalError` にならず、`settleAsError()` は各chartAndAppsを
+`ERROR` としてログに落として処理を続ける。`mapWithConcurrency()` の `limit.clearQueue()` も
+走らないため、全設定ユニットぶん同じ失敗を繰り返す。`fatal_error` イベントも出ない。
+
+**正典3箇所がこの挙動を約束している**:
+
+- `README.md`「エラーハンドリング」表の「401 認証エラー / 5xx サーバーエラー / ネットワーク障害
+  → 即時 `exit(1)` でパイプライン失敗」
+- `CLAUDE.md`「コーディング規約・レビュー方針」の「401 / 5xx / ネットワーク障害は
+  `FatalError` を投げて即時終了」
+- `docs/coding-standards.md`「エラーハンドリング」の同じ記述
+
+`exit(1)` にはなる（`ERROR` が1件以上あるため）ので終了コードは合っているが、「即時」も
+`FatalError` の識別も失われている。
+
+**テストが実在しない形を検証している。** `test/utils/http.test.ts:80` は
+`Object.assign(new Error(...), { code })` という平たいエラーを組み立てているため、
+`cause` にコードが入る実際の形では落ちない。ここを直さないと修正しても回帰を検知できない。
+
+## 解くべき論点
+
+1. **`cause` を何段まで辿るか。** 1段（`error.cause.code`）で足りるか、ループで辿るか。
+   `extractHttpStatus()` は `cause.response.status` の1段だけを見ており、そちらとの
+   一貫性をどう取るか。深く辿るほど、無関係な内側のエラーを拾う危険が増える
+2. **`code` の判定をどこに置くか。** `extractHttpStatus()` と同じ「エラーの形を読む」責務なので
+   `http.ts` 内の非公開ヘルパー（例: `extractErrorCode()`）に切り出すか、`isFatalError()` に
+   直接書くか。`src/utils/http.ts` 冒頭のコメントが「@gitbeaker/rest がスローするエラー構造に
+   依存している」と宣言しているので、その宣言も実態に合わせる必要がある
+3. **リトライ方針を変えるか。** `src/utils/retry.ts` の `RETRYABLE_STATUSES` は
+   429/502/503/504 だけで、ネットワーク障害はリトライしない。fatal 扱いにするなら
+   リトライしないのが筋だが、**この論点で結論を出して `evidence` に書く**（変えるなら
+   `README.md` のリトライ行も直す）
+4. **`ETIMEDOUT` は現状の `fetch` では発生しうるか。** タイムアウトを設定していないため
+   `ETIMEDOUT` が実際に来るのはOSのTCPタイムアウト時だけ。ここは T-159 の論点なので
+   **このタスクでは判定リストから外さない**（消すなら T-159 と一緒に判断する）
+
+## やること
+
+1. 論点1〜4を検討する。**`docs/architecture.md`「エラーは『fatalは例外・それ以外は戻り値』の
+   2チャネル」を先に読む**。今回の変更は方針の変更ではなく「方針どおりに動いていなかったのを
+   直す」ことなので、この節の記述が変わらないことを確認する（変わるなら方針変更なので
+   ユーザー承認を取る）
+2. `src/utils/http.ts` の `isFatalError()` を、`cause` に入った `code` も見るように直す
+3. `test/utils/http.test.ts` の `isFatalError` のテストを**実際の形**に合わせる。
+   平たい `code` のケースを消すのではなく、`cause` に入る形のケースを**足す**
+   （gitbeaker のバージョン差でどちらの形も来うるため）
+4. 実測で裏を取る。存在しないホストを指す `GitlabClient` で `Projects.show` を呼び、
+   `isFatalError()` が `true` を返すことを確認する（確認に使ったコマンドと出力を
+   `evidence` に書く）
+5. 論点3の結論に応じて `src/utils/retry.ts` と `README.md` を直す。変えない結論なら
+   その理由を `evidence` に書く
+
+## 完了条件
+
+- gitbeaker 経由の DNS 解決失敗（存在しないホスト）で `isFatalError()` が `true` を返すことを、
+  実行して確認できている（コマンドと出力を `evidence` に書く）
+- `isFatalError()` の修正を戻すと落ちるテストが**1件以上ある**（変異で確認し、件数を
+  `evidence` に書く）
+- `grep -rn "try {" src/steps/` が **0件**（`docs/architecture.md` が定める機械的確認）
+- `README.md`「エラーハンドリング」表・`CLAUDE.md`・`docs/coding-standards.md`
+  「エラーハンドリング」の記述が、修正後のコードを説明できている
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- **`src/steps/` 配下に `try`/`catch` を書かない**規約を壊さない
+- `FatalError` が投げられる経路（`settleAsError()`）自体は変えない。直すのは判定だけ
+- HTTPステータスの直書きを散らさない（`docs/coding-standards.md`「エラーハンドリング」）
+- タイムアウトの追加は **T-159 の担当**。このタスクでは入れない
+- `/loop /next-task` に載せてよい（正典が既に約束している挙動へ寄せる修正のため）
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: `opus` に委譲。`isFatalError()` の `code` 直読みを非公開ヘルパー `extractErrorCode()` に切り出し、**`cause` を1段だけ辿る**ようにした（際限なく辿らない根拠は `rethrowWithAppContext()` が「致命的エラーは包み直さない」を保証していること）。`code` が文字列であることも確認する。論点3は「リトライ方針を変えない」で決着（fatal＝即時終了とリトライは両立しないため）。 **メイン側で独立に実測**: `createClient()` 経由で存在しないホスト／接続拒否ポートへ `Projects.show`。連鎖は `TypeError(code=undefined) -> Error(code=ENOTFOUND/ECONNREFUSED)` の1段で、どちらも `isFatalError: true`（着手前は false）。 変異確認: `cause` を辿るのをやめると3件、`ETIMEDOUT` を消すと2件のテストが落ちる。`grep -rn 'try {' src/steps/` は0件。`pnpm check` 通過（32ファイル367テスト、着手前361から+6）。正典3箇所は元から正しい方針を書いていたので無修正（ズレていたのはコード側だけ）。
+
+## T-159
+
+**タスク**: GitLab APIへのリクエストのタイムアウト方針を決めて、正典に書く。
+
+## 背景
+
+`src/utils/http.ts` の `isFatalError()` は `ETIMEDOUT` を致命的エラーとして数えているが、
+**このツールはどこにもタイムアウトを設定していない**:
+
+- `src/lib/gitlab/gitlab.ts` の `createClient()` は `new Gitlab({ host, token })` だけで、
+  タイムアウトのオプションを渡していない
+- Node の `fetch`（undici）に既定のリクエストタイムアウトは無い
+
+`grep -rn "タイムアウト|timeout|ETIMEDOUT" docs/requirements.md docs/architecture.md README.md`
+が**0件**で、方針そのものが正典に無い。
+
+現状の歯止めは `.gitlab-ci.yml` の `update-app-versions` ジョブの `timeout: 30 minutes` だけ。
+定期実行（毎日18:00 JST）なので、1本ハングすると30分ぶん占有してからジョブ失敗になり、
+どこで止まったかはログからしか分からない。
+
+## 解くべき論点
+
+1. **そもそも入れるか。** 入れない場合の被害は「CIジョブのタイムアウトまで待たされる」で、
+   定期実行かつ個人〜チーム内利用という前提では許容できる可能性がある。**入れない結論も
+   正当な答え**で、その場合は理由を正典に書いて閉じる
+2. **どの層に置くか。** (a) `createClient()` に gitbeaker のオプションとして渡す、
+   (b) `src/utils/retry.ts` の `withRetry()` に `AbortSignal.timeout()` を挟む、
+   (c) `lib/gitlab/gitlab.ts` の各関数。原則2では「GitLab固有の知識」は `lib/gitlab/` だが、
+   タイムアウト値そのものは技術非依存の設定値。**gitbeaker 43.x がタイムアウトのオプションを
+   持っているかを実際に確認してから決める**（持っていないなら (a) は消える）
+3. **値をどう決めるか。** 固定値にするか、環境変数（`CONCURRENCY_LIMIT` と同じ扱い）にするか。
+   環境変数にするなら `src/lib/env.ts`・`.env.example`・`.gitlab-ci.yml` の `spec.inputs`・
+   `README.md`「設定」章の4箇所に足すことになる。**外部インターフェースが増える**ので、
+   固定値で足りるならそちらを選ぶ
+4. **タイムアウトを fatal 扱いのままにするか。** 1本のリクエストが遅いだけなら、そのchart
+   リポジトリを `ERROR` にして続けるほうが被害が小さいかもしれない。`isFatalError()` の
+   `ETIMEDOUT` の扱いと整合させる（T-158 の論点4と対になる）
+
+## やること
+
+1. 論点1〜4を検討し、**結論をユーザーに提案して承認を得てから適用する**。エラー方針と
+   外部インターフェース（環境変数）に触れる可能性があるため、勝手に決めない
+2. 承認された形を実装する。**論点1で「入れない」と結論した場合は、実装せずに理由を
+   `docs/architecture.md`「既知の制約・注意点」に1項目として書いて閉じる**（`evidence` にも
+   同じ理由を書く）
+3. 入れる結論の場合、`docs/architecture.md` に「なぜその層・その値なのか」を書く。
+   環境変数を増やしたなら `README.md`「設定」章・`.env.example`・`.gitlab-ci.yml` の
+   `spec.inputs` と `variables` の**4箇所すべて**を追随させる
+4. タイムアウトが実際に効くことをテストで守る（`AbortSignal` を使うなら `vi.useFakeTimers()`
+   で待たずに検証できる形にする）
+
+## 完了条件
+
+- 論点1〜4それぞれの結論と根拠が `evidence` に書かれている
+- 「入れる」結論の場合: タイムアウトが発火する経路を通るテストが1件以上あり、実装を戻すと
+  落ちることを変異で確認できている
+- 「入れない」結論の場合: `docs/architecture.md`「既知の制約・注意点」に理由が書かれており、
+  `grep -n "タイムアウト" docs/architecture.md` が1件以上ヒットする
+- 環境変数を増やした場合、`README.md` / `.env.example` / `.gitlab-ci.yml`（`spec.inputs` と
+  `variables` の両方）に記述があることを `grep` で確認できている
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- **方針決めとユーザー承認が要るので `/loop /next-task` には載せない**
+- `.gitlab-ci.yml` の `timeout: 30 minutes` は消さない（最後の歯止めとして残す）
+- `CONCURRENCY_LIMIT` の既定値・上限（1〜20）を変えない
+- T-158（`isFatalError()` の修正）とは独立に着手してよいが、**論点4だけは互いの結論が
+  食い違わないようにする**（先に片方が決まっていたらその結論に合わせる）
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: 承認された案「値を明示＋タイムアウトも fatal」を実装。**前提の誤りを実測で訂正**: gitbeakerは既定 `queryTimeout=300000`ms を `@gitbeaker/core` が全リクエストの `AbortSignal.timeout()` に配線済みで、タイムアウトは元から存在した（永久に応答しないローカルサーバへ `queryTimeout:300` で発火307ms・`GitbeakerTimeoutError`）。`createClient()` に `QUERY_TIMEOUT_MS = 300_000` を明示し、`isFatalError()` がエラー名 `GitbeakerTimeoutError` を fatal と判定するようにした。 変異確認: `isFatalError` の判定行を消すと `http.test.ts` が1件落ちる。**`createClient` の `queryTimeout` を消しても落ちない**（gitbeakerの既定値と同値のため。このテストが守るのは「実効値が5分であること」で、既定値がバージョンアップで変わったら落ちる）。 `grep -rn 'try {' src/steps/` は0件。`pnpm check` 通過（32ファイル361テスト、着手前359から+2）。gitbeakerが429/502に行う内部リトライ（最大10回）も同じsignalを共有するため、5分はリトライ込みの総予算。
+
+## T-160
+
+**タスク**: 本番コードから呼ばれていない `logger.warn` の存否を決める。
+
+## 背景
+
+`src/utils/logger.ts` の `logger.warn` は、**`src/` と `scripts/` から1回も呼ばれていない**
+（`grep -rn "logger.warn" src scripts` が0件）。呼んでいるのは
+`test/utils/logger.test.ts:63,69` の2件だけ。
+
+`git log -S` で追跡した経緯:
+
+- `882ebec` T-134「タグ命名規則を semver に対応させ、{time} を任意にする」で**新設**された。
+  当時は「最新タグが決まらない」場合に `LatestTagResolution.tag` を `undefined` で返し、
+  そのappだけ飛ばすときの警告として使われていた
+- `e302888` T-144「タグ形式から semver と `{time}` 任意化を撤回し、`tagFormat` 必須にする」で
+  **唯一の呼び出し元が消えた**。T-144 のコミットメッセージ自身が「『最新タグが決まらない』
+  undefined 経路と app 単位スキップも消滅した」と書いている
+
+関数だけが残り、JSDoc も当時のまま残っている:
+
+```ts
+/** 実行は継続するが運用者に気づいてほしい事象（例: 最新タグが決まらずappを見送った） */
+warn(fields: Record<string, unknown>): void {
+```
+
+この「例」は**今は存在しない挙動**の説明で、`docs/coding-standards.md`「コメント」の
+「今の挙動の制約・前提は残す、昔の経緯は正典へ」に反している。
+
+## 解くべき論点
+
+1. **消すか残すか。** 残すなら「将来 warn レベルが要る場面がある」という根拠が要る。
+   `README.md`「ログ」章や `docs/requirements.md` が warn レベルの出力を要求していないかを
+   先に確認する（要求していれば、消すのではなく**呼び出し元が無いことのほうが欠陥**）
+2. 消す場合、`test/utils/logger.test.ts` の該当テスト2件も一緒に消えるか。
+   `docs/coding-standards.md`「消すかどうか」の判定表と、消す前の手続きに従う
+
+## やること
+
+1. `README.md`・`docs/requirements.md`・`docs/architecture.md` に warn レベルのログを
+   要求する記述が無いか `grep` で確認する（`"warn"`・`"警告"`）
+2. **要求する記述があった場合**: `logger.warn` は消さず、「呼び出し元が無い」ことを
+   欠陥として報告し、このタスクは**やらずに理由を `evidence` に書いて閉じる**
+   （呼び出し元を足すのは別タスク）
+3. 要求が無ければ `logger.warn` と `formatLog` の warn 経路、`test/utils/logger.test.ts` の
+   該当テストを削除する
+4. `docs/coding-standards.md`「テスト」節の「消さないと決めたもの」に該当していないことを
+   確認してから消す
+
+## 完了条件
+
+- `grep -rn "logger.warn\|console.warn" src scripts test` が **0件**（消す結論の場合）
+- 消したテストが `docs/coding-standards.md`「消さないと決めたもの」に載っていないことを
+  確認済み（確認した節名を `evidence` に書く）
+- `README.md` のログ出力例に warn レベルの行が無いことを確認済み
+- `pnpm check` が通る（テスト件数を `evidence` に書く。テストを消すので**359件から減るのが
+  正しい**。減った件数と内訳を書く）
+
+## 注意
+
+- `logger.info` / `logger.error` と `redact()` の挙動は変えない
+- `SENSITIVE_KEYS` の秘匿処理を巻き込まない（warn 経路だけを消す）
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: sonnet
+
+**evidence**: `sonnet` に委譲。論点1の結論は**消す**。`grep -rn 'warn|警告' README.md docs/requirements.md docs/architecture.md docs/coding-standards.md` が**0件**で、warnレベルの出力を要求する記述が正典のどこにも無いことをメイン側でも独立に確認した（＝「呼び出し元が無いほうが欠陥」には当たらない）。 `src/utils/logger.ts` の `warn()` とそのJSDoc（T-144で消えた挙動の説明）、`test/utils/logger.test.ts` の `describe("warn")` 2件と未使用になった `warnSpy`/`lastWarn` を削除。`formatLog()` は level を引数で受けるだけで分岐を持たないため無変更。`redact()`/`SENSITIVE_KEYS` も無傷。 `grep -rn 'logger.warn|console.warn' src scripts test` は0件。2ファイル・26行の削除のみ。`pnpm check` 通過（32ファイル365テスト、着手前367から**-2**＝削除したテストの数と一致）。正典は無修正。
+
+## T-161
+
+**タスク**: `tsconfig.json` に、現状エラー0件で入る型チェックのフラグを足す。
+
+## 背景
+
+`tsconfig.json` の `compilerOptions` は現在 `strict` と `noUncheckedIndexedAccess` /
+`verbatimModuleSyntax` まで。追加できるフラグを `npx tsc --noEmit -p tsconfig.json --<flag>`
+で1つずつ実測した結果:
+
+| フラグ                       | 現状のエラー                                                |
+| ---------------------------- | ----------------------------------------------------------- |
+| `noUnusedLocals`             | 0                                                           |
+| `noUnusedParameters`         | 0                                                           |
+| `exactOptionalPropertyTypes` | 0                                                           |
+| `noImplicitOverride`         | 0                                                           |
+| `noFallthroughCasesInSwitch` | 0                                                           |
+| `isolatedModules`            | 0                                                           |
+| `useUnknownInCatchVariables` | 0                                                           |
+| `noImplicitReturns`          | 1（`src/lib/helm.ts(64,5)` TS7030）                         |
+| `erasableSyntaxOnly`         | 1（`src/utils/errors.ts(3,5)` TS1294 = parameter property） |
+
+このプロジェクトにとって効きが大きいもの:
+
+- **`exactOptionalPropertyTypes`**: `docs/coding-standards.md`「`undefined`」の
+  「`?:` を使わない」規約を、レビューではなく型で機械的に守らせる
+- **`noUnusedLocals`**: 撤回作業の取り残し（T-160 の `logger.warn` のような、呼び出し元が
+  消えたのに残った定義）を次から自動検出する
+
+`noImplicitReturns` の1件は `src/lib/helm.ts` の `findAnchorNode()` 内、`visit()` に渡す
+`Scalar(_key, node)` コールバックが `visit.BREAK` を返す枝と何も返さない枝を持つため。
+
+## 解くべき論点
+
+1. **`erasableSyntaxOnly` を入れるか。** 入れると `src/utils/errors.ts` の `FatalError` の
+   parameter property（`public readonly httpStatus`）を明示的なフィールド宣言に書き換える
+   ことになる。得られるのは「Node の型ストリップだけで動く」性質だが、ビルドは `tsc`、
+   ローカル実行は `tsx` で、どちらも parameter property を扱えるため**必要性が無い**。
+   見送りを推奨するが、結論と理由を `evidence` に書く
+2. **`noImplicitReturns` の1件をどう直すか。** `yaml` パッケージの `visit()` は
+   コールバックの戻り値 `undefined` を「探索を続ける」と解釈する。明示的に
+   `return undefined` を書くのが素直だが、`docs/coding-standards.md`「`undefined`」の
+   「避ける `undefined`」に当たらないかを確認する（これは外部ライブラリの契約を
+   なぞる `undefined` なので「許容する」側と判断できるはず）
+
+## やること
+
+1. 上表の**エラー0件の7フラグ**を `tsconfig.json` に足す
+2. `src/lib/helm.ts` の `findAnchorNode()` を直してから `noImplicitReturns` を足す
+3. 論点1を検討し、`erasableSyntaxOnly` を入れるか決める（見送るなら理由を `evidence` に書く。
+   `tsconfig.json` には書かない）
+4. `tsconfig.build.json` は `tsconfig.json` を `extends` しているので追加作業は不要。
+   実際に `pnpm build` が通ることで確認する
+5. フラグを足した理由が「型で規約を守らせるため」であることを、
+   `docs/coding-standards.md` の該当節（「`undefined`」）から辿れるようにするかを検討する。
+   **書く場所が無ければ書かなくてよい**（正典を増やすこと自体が目的ではない）
+
+## 完了条件
+
+- `tsconfig.json` に上表のエラー0件の7フラグと `noImplicitReturns` が入っている
+- `npx tsc --noEmit` がエラー0件（実行結果を `evidence` に書く）
+- `pnpm build` が成功する（`dist/` が生成されることを確認し、`evidence` に書く）
+- `exactOptionalPropertyTypes` が実際に効いていることを、`?:` を1箇所わざと足すと
+  型エラーになることで確認する（確認方法を `evidence` に書き、確認後は元に戻す）
+- `pnpm check` が通る（テスト件数を `evidence` に書く。フラグ追加だけなので**359件のまま**が
+  正しく、減っていたら理由を確認する）
+
+## 注意
+
+- **既存のコードの書き方を変えるためのタスクではない。** フラグを足してエラーが出たら、
+  そのフラグは足さずに `evidence` へ理由を書く（`noImplicitReturns` の1件だけが例外で、
+  これは直すと決まっている）
+- `noPropertyAccessFromIndexSignature` は**このタスクでは入れない**。4件のエラーが出るが、
+  それはログのフィールドが `Record<string, unknown>` であることが原因で、T-162 の担当
+- `strict` 配下の既存フラグを外さない
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: sonnet
+
+**evidence**: `sonnet` に委譲。エラー0件の7フラグ＋`noImplicitReturns` の計8つを `tsconfig.json` に追加。`erasableSyntaxOnly` は見送り（ビルドは `tsc`・実行は `tsx` でどちらも parameter property を扱えるため、`FatalError` を書き換える必要が無い）。`src/lib/helm.ts` の `findAnchorNode()` は `visit()` の契約（戻り値 `undefined` は探索継続）をコメントに残して `return undefined` を明示。 **メイン側で独立に変異検証**: `?:` に `undefined` を渡すと TS2375、未使用の `const` で TS6133、`helm.ts` の `return undefined` を戻すと TS7030。いずれも復元後 `npx tsc --noEmit` はエラー0件。 `pnpm build` 成功（`dist/` に .js 41個）。`pnpm check` 通過（32ファイル361テスト。フラグ追加のみなので着手前と同数が正しい）。`docs/coding-standards.md`「`undefined`」節に、`?:` 規約が型でも強制される旨を2行追記。
+
+## T-162
+
+**タスク**: ログのフィールドに型を与え、`Record<string, unknown>` の素通しをやめる。
+
+## 背景
+
+構造化ログのフィールドが全て `Record<string, unknown>` で、キー名にも `event` の値にも
+型が無い。`grep -rc "Record<string, unknown>" src` の内訳:
+
+| ファイル                                     | 件数 | 何に使っているか                                                             |
+| -------------------------------------------- | ---- | ---------------------------------------------------------------------------- |
+| `src/utils/logger.ts`                        | 5    | `logger.info/warn/error` の引数、`redact()`・`formatLog()`                   |
+| `src/steps/shared/step-outcome.ts`           | 3    | `withHandling()` が組み立てて渡す `logContext`、`buildLogContext()` の戻り値 |
+| `src/steps/shared/describe-plan.ts`          | 2    | `describePlan()` / `describeHelmTargetBranchUpdates()` の戻り値              |
+| `src/steps/filter-targets/filter-targets.ts` | 1    | `evaluateTarget()` の引数                                                    |
+| `src/steps/build-plans/build-plans.ts`       | 1    | `buildPlan()` の引数                                                         |
+| `src/steps/apply-updates/apply-updates.ts`   | 1    | `applyUpdate()` の引数                                                       |
+
+そのため次が型で守られていない:
+
+- `event` の値（現在 `run_start` / `summary` / `run_end` / `update_chart` / `check_app` /
+  `create_tag` / `fatal_error` / `unhandled_error` の8種）がただの文字列
+- `logContext` が3つのstepの関数シグネチャを貫通しているのに、何が入っているか型に出ない
+- `describePlan()` の戻り値のフィールド名を打ち間違えても型では分からない
+
+証拠として `npx tsc --noEmit -p tsconfig.json --noPropertyAccessFromIndexSignature` を
+かけるとテスト側で4件エラーになる（`build-plans.test.ts:192`、
+`stage-helm-target-branch-updates.test.ts:185-187`。いずれも `.reason` を index signature
+越しに読んでいる）。
+
+置き場所は既に決まっている。`docs/architecture.md`「型の置き場所」の表**4行目**
+「複数のstepが共有する、ドメイン型にだけ依存する型 → `steps/shared/`」で、
+`StepOutcome<T>` と同じ行に当たる。
+
+## 解くべき論点
+
+1. **どこまで型を付けるか。** 3案ある。(a) `logContext` に名前を付けるだけ、
+   (b) それに加えてログのフィールド全体に `LogFields` のような型を置く、
+   (c) `event` ごとの判別共用体まで作る。(c) は8種すべてのイベントの形を型で固定できるが、
+   ログを1行足すたびに型を触ることになる。**ログは運用のための出力で、形の自由度を
+   落としすぎると足しにくくなる**というトレードオフをどう見るか
+2. **`logger` の引数を狭めるか。** `logger.info()` の引数を狭めると、`src/index.ts` の
+   `fatal_error` / `unhandled_error` や `main.ts` の `summary`（`...resultCounts` を展開）も
+   その型に合わせることになる。`summary` は `Record<ChartUpdateResult, number>` を展開して
+   いるので、キーが動的に決まる形をどう表すかが論点になる
+3. **`describePlan()` の戻り値に名前を付けるか。** 付けるなら置き場所は
+   `steps/shared/describe-plan.ts`（表5行目「その型を生み出す関数と同じファイル」）か
+   4行目か。`describePlan()` は `build-plans.ts` と `apply-updates.ts` の2stepから
+   呼ばれているので4行目にも読めるが、**生み出す関数と同じファイル**が素直
+4. **`noPropertyAccessFromIndexSignature` を最後に入れるか。** 型を付けてもテスト側が
+   `Record` 越しにログを読み続けるなら4件のエラーは残る。入れるならテスト側も
+   型付きで読むように直すことになる
+
+## やること
+
+1. 論点1〜4を検討し、**結論をユーザーに提案して承認を得てから適用する**。ログは
+   `README.md`「ログ」章に出力例が載っている外部インターフェースでもあるため、
+   出力される JSON の**キー名と値が1つも変わらない**ことを設計の前提に置く
+2. 承認された形で型を定義し、`docs/architecture.md`「型の置き場所」の判断表に沿った
+   場所へ置く。表のどの行を根拠にしたかを `evidence` に書く
+3. 波及先（`logger.ts`・`step-outcome.ts`・`describe-plan.ts`・3つのstep・`index.ts`・
+   `main.ts`）を追随させる
+4. 論点4の結論に応じて `tsconfig.json` に `noPropertyAccessFromIndexSignature` を足し、
+   テスト側を直す
+5. **検討の結果「今の `Record<string, unknown>` のままがよい」と結論した場合は、変更せずに
+   その理由を `evidence` に書いて閉じてよい。** ただしその場合でも、3つのstepを貫通する
+   `logContext` の引数だけは名前付きの型にする（読み手が引数の意味を追えないため）
+
+## 完了条件
+
+- 実行して得られるログのJSONが、**キー名も値も変更前と一致する**ことを確認できている
+  （`test/main.e2e.test.ts` と `test/main.test.ts` のログ検証が無改変で通ることを
+  `evidence` に書く。ログの形を変えていないなら、これらのテストは触らずに通るはず）
+- `grep -rn "Record<string, unknown>" src` の件数が**減っている**（前後の件数を `evidence` に書く）
+- `event` の値を打ち間違えると型エラーになる（論点1で判別共用体を採った場合のみ。
+  採らなかった場合はその理由を `evidence` に書く）
+- `docs/architecture.md`「型の置き場所」の表と、置いた場所が一致している
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- **`README.md`「ログ」章の出力例と1文字でも変わる変更をしない。** 変える必要が出たら
+  それは設計変更なのでユーザー承認を取る
+- `redact()` の秘匿処理（`SENSITIVE_KEYS`）を型変更で迂回できるようにしない
+- `src/steps/` 配下は互いに import しない（`CLAUDE.md` 原則1）。共有するなら `steps/shared/`
+- **設計判断の承認が要るので `/loop /next-task` には載せない**
+- T-161（tsconfig のフラグ追加）と同じ `tsconfig.json` を触るため、**T-161 の完了後に着手する**
+
+**dependencies**: T-161
+
+**difficulty**: opus
+
+**evidence**: ユーザー承認は中間案（`logContext` と `describePlan` に型を付け、`logger` の引数は `Record` のまま）。`ChartUpdateLogContext` を `steps/shared/step-outcome.ts`（型の置き場所の表**4行目**）に、`PlanLogSummary`/`HelmTargetBranchLogSummary` を `steps/shared/describe-plan.ts`（**5行目**）に置いた。`Record<string, unknown>` は **13件→6件**（残りは `logger.ts` のみ＝意図どおり）。 **出力JSONは不変**: `test/` に差分ゼロのまま `main.test.ts`・`main.e2e.test.ts` が通る。 変異確認: `describePlan` のキー名を打ち間違えると TS2561、`logContext` に無い項目を読むと TS2551（どちらも変更前は黙って通っていた）。`noPropertyAccessFromIndexSignature` は論点4の結論として**入れていない**（`logger` の引数を `Record` のまま残す案を採ったのでテスト側の4件が解消しないため）。`pnpm check` 通過（32ファイル361テスト。型付けのみなので同数が正しい）。`pnpm build` 成功。
+
+## T-168
+
+**タスク**: ログのキー `duration_ms` だけが snake_case である件の扱いを決める。
+
+## 背景
+
+構造化ログのフィールド名は camelCase で統一されている（`httpStatus`・`chartDirName`・
+`unitPath`・`chartProjectId`・`projectName`・`previousTagName`・`dryRun`・
+`concurrencyLimit`・`configDirPath`）。唯一 `duration_ms` だけが snake_case:
+
+- `src/utils/timer.ts:1` `Promise<{ value: T; duration_ms: number }>`
+- `src/main.ts:22,24` `const { value: resultCounts, duration_ms } = await timed(...)` /
+  `logger.info({ event: "run_end", duration_ms })`
+
+これは**外部インターフェース**でもある。`README.md:139` に出力例が載っている:
+
+```
+{"level":"info","timestamp":"2026-09-02T00:00:00.520Z","event":"run_end","duration_ms":520}
+```
+
+`test/main.test.ts:118` もこのキーで検証しており、`docs/coding-standards.md:262` の
+「消すかどうか」の表にも `run_end` の `duration_ms` ログとして登場する。
+
+## 解くべき論点
+
+1. **そもそも直すか。** ログはCIの出力として人と（将来は）ログ収集基盤が読むもので、
+   キー名を変えると既存のログとの互換が切れる。**直さない結論も正当**で、その場合は
+   「単位付きのキーは snake_case にする」といった規則を正典に書いて意図的な例外にする
+2. **直す場合、どこまで変えるか。** `src/utils/timer.ts` の `timed()` の戻り値の
+   フィールド名まで変えるか、ログに出すときだけ変換するか。`timed()` の戻り値は
+   `main.ts` でしか使われていないので、揃えるなら戻り値ごと変えるのが素直
+3. **正典の追随範囲。** `README.md` のログ出力例（1箇所）、`docs/coding-standards.md:262` の
+   表、`test/main.test.ts:118`。他に無いか `grep -rn "duration_ms"` で確認する
+
+## やること
+
+1. 論点1を検討し、**結論をユーザーに提案して承認を得てから適用する**。ログのキー名は
+   外部インターフェースなので勝手に変えない
+2. 「直さない」結論なら、その理由をログのフィールド命名の規則として正典に書く。
+   書く先は `README.md`「ログ」章か `docs/coding-standards.md` のいずれかで、
+   **どちらが正典かを決めてから**書く（二重に書かない）
+3. 「直す」結論なら、論点2の範囲で書き換え、論点3の全箇所を追随させる
+
+## 完了条件
+
+- 論点1の結論と根拠が `evidence` に書かれている
+- 「直す」結論の場合: `grep -rn "duration_ms" src test README.md docs` が **0件**
+- 「直さない」結論の場合: ログのフィールド命名の規則が正典のどちらか一方に書かれており、
+  `grep` でヒットする（書いた場所を `evidence` に書く）
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- **`timestamp` と `level` のキー名は変えない**（`logger.ts` の `formatLog()` が出す固定キーで、
+  多くのログ収集基盤が前提にする名前）
+- `duration_ms` の**値の意味と単位**（ミリ秒）は変えない
+- **外部インターフェースの変更なのでユーザー承認が要る。`/loop /next-task` には載せない**
+- T-162（ログのフィールドの型付け）と同じ領域を触るため、片方が先に終わっていたら
+  その結果に合わせる
+
+**dependencies**: なし
+
+**difficulty**: sonnet
+
+**evidence**: ユーザー判断で `durationMs` への統一を採用。`src/utils/timer.ts`（`timed()` の戻り値のフィールド名ごと）2件・`src/main.ts` 2件・`test/main.test.ts` 1件・`README.md:139` のログ出力例1件・`docs/coding-standards.md:262` の表1件の計7箇所を置換。 `grep -rn duration_ms src test scripts README.md docs CLAUDE.md` は **`docs/history/` の3件を除いて0件**（history は当時の記述をそのまま残す規約のため対象外。完了条件のgrepはこの除外が必要だった）。 変異確認: ログキーだけ `duration_ms` に戻すと `main.test.ts` の「run_start / summary / run_end イベントをログ出力する」が落ちる。`pnpm check` 通過（32ファイル361テスト。改名のみなので着手前と同数が正しい）。
