@@ -31,6 +31,11 @@ describe("getValueAtAnchor", () => {
     const yamlContent = "variables:\n  - &b 2026\n"
     expect(getValueAtAnchor(yamlContent, toAnchorName("b"))).toBe("2026")
   })
+
+  it("アンカーがマッピングに付いているとき（スカラーではないとき）も undefined を返す", () => {
+    const yamlContent = "group: &group\n  a: 1\n  b: 2\n"
+    expect(getValueAtAnchor(yamlContent, toAnchorName("group"))).toBeUndefined()
+  })
 })
 
 describe("getRequiredValueAtAnchor", () => {
@@ -42,6 +47,15 @@ describe("getRequiredValueAtAnchor", () => {
         toValuesPath("values.yaml"),
       ),
     ).toThrow('values.yaml にアンカー "noSuchAnchor" が見つかりません (valuesPath: values.yaml)')
+  })
+
+  it("アンカーがマッピングに付いているとき（スカラーではないとき）、アンカー不在とは区別できる例外をスローする", () => {
+    const yamlContent = "group: &group\n  a: 1\n  b: 2\n"
+    expect(() =>
+      getRequiredValueAtAnchor(yamlContent, toAnchorName("group"), toValuesPath("values.yaml")),
+    ).toThrow(
+      'values.yaml のアンカー "group" はスカラー値に付いていません（マッピングまたはシーケンスに付いています） (valuesPath: values.yaml)',
+    )
   })
 })
 
@@ -71,6 +85,13 @@ describe("setValueAtAnchor", () => {
   it("該当するアンカーが存在しないとき例外をスローする", () => {
     expect(() => setValueAtAnchor(VARIABLES_YAML, toAnchorName("noSuchAnchor"), "x")).toThrow(
       "noSuchAnchor",
+    )
+  })
+
+  it("アンカーがマッピングに付いているとき（スカラーではないとき）、アンカー不在とは区別できる例外をスローする", () => {
+    const yamlContent = "group: &group\n  a: 1\n  b: 2\n"
+    expect(() => setValueAtAnchor(yamlContent, toAnchorName("group"), "x")).toThrow(
+      'values.yaml のアンカー "group" はスカラー値に付いていません（マッピングまたはシーケンスに付いています）',
     )
   })
 

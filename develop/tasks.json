@@ -56,10 +56,10 @@
   {
     "id": "T-170",
     "task": "`src/lib/helm.ts` の「アンカーが無い」まわりのエラー表現を整える。\n\n## 背景\n\n`src/lib/helm.ts` に、同じ「アンカーが見つからない」という不変条件を扱う箇所が2つある。\n\n**(1) スカラー以外に付いたアンカーを区別できない。** `findAnchorNode()` は\n`visit(doc, { Scalar(_key, node) { ... } })` でスカラーノードだけを探すため、アンカーが\nマップやシーケンスに付いている（例: `&group\\n  key: value`）と「見つからない」扱いになる。\n`getRequiredValueAtAnchor()` は\n\n```\nvalues.yaml にアンカー \"...\" が見つかりません (valuesPath: ...)\n```\n\nと報告するが、実際にはアンカーは存在していてスカラーでないだけなので、**設定を直す人が\n原因にたどり着けない**。同じことが `scripts/lint/verify-config/verify-config.ts` の\n実在チェックでも起きる（`getValueAtAnchor()` 経由で「アンカーが見つかりません」と出る）。\n\n**(2) 同じ不変条件を2つの関数が別々に投げている。** `getRequiredValueAtAnchor()`（:31）と\n`setValueAtAnchor()`（:51）がどちらも「アンカーが見つかりません」を投げる。呼び出し側\n（`stage-image-tag-updates.ts` / `stage-helm-target-branch-updates.ts`）は必ず\n`getRequiredValueAtAnchor()` を先に呼んで同じ内容に対して `setValueAtAnchor()` を呼ぶため、\n**後者の分岐は実行時には到達しない**。\n\n## 解くべき論点\n\n1. **(1) をどこまで直すか。** アンカーの有無とスカラーかどうかを区別するには\n   `findAnchorNode()` の探索を変える（全ノードを見てからスカラーか判定する）必要がある。\n   エラーメッセージが増える一方、`config/` の設定ミスとしては起こりにくいケースでもある。\n   **`docs/requirements.md` 4.4節が「アンカーはスカラーに付ける」と規定しているかを先に確認し、\n   規定があるなら「規定違反を検知するメッセージ」として直す価値がある**\n2. **(2) を統合するか、到達不能なまま残すか。** `docs/coding-standards.md`「足すかどうか」は\n   「到達不能な防御的コード（`internal error:` を投げる分岐など）は埋めない」と書いており、\n   **到達不能な防御的分岐を残すこと自体は許容されている**。統合するなら\n   `setValueAtAnchor()` の引数を「既に取得済みのノード」に変えるといった設計変更になり、\n   `lib/helm.ts` の公開インターフェースが変わる。**割に合わないなら残す結論でよい**\n3. `getValueAtAnchor()`（`undefined` を返す、`verify-config.ts` 向け）と\n   `getRequiredValueAtAnchor()`（例外を投げる）の2本立ては維持する。用途の違いが\n   JSDocに書かれている\n\n## やること\n\n1. 論点1を検討する。`docs/requirements.md` 4.4節を\n   `sed -n '/^#### /,/^#\\{2,4\\} /p'` の形で確認してから決める\n2. 論点2を検討する。**「今のままでよい」と結論した場合は、変更せずに理由を `evidence` に\n   書いて閉じてよい**（ただしその場合も、論点1で直すと決めた分は実施する）\n3. 直す結論の分について実装し、テストを足す\n\n## 完了条件\n\n- 論点1・2それぞれの結論と根拠が `evidence` に書かれている\n- (1) を直した場合: スカラー以外に付いたアンカーを渡したときのメッセージが\n  「見つからない」と区別できることを守るテストが `test/lib/helm.test.ts` に1件以上ある\n- (2) を統合した場合: `grep -c \"アンカー\" src/lib/helm.ts` が減っており、\n  `test/lib/helm.test.ts` と2つの `stage-*` のテストが通る\n- どちらも直さない結論の場合: `src/lib/helm.ts` が無変更で、理由が `evidence` にある\n- `pnpm check` が通る（テスト件数を `evidence` に書く）\n\n## 注意\n\n- **`getValueAtAnchor()` の戻り値（`string | undefined`）を変えない。**\n  `scripts/lint/verify-config/verify-config.ts` が「1件目で止めず全問題を集める」ために\n  この形を必要としている\n- `setValueAtAnchor()` がASTを直接書き換える方式を変えない\n- `src/steps/` 配下に `try`/`catch` を書かない規約を壊さない\n- `/loop /next-task` に載せてよい",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "`sonnet` に委譲。論点1は**直す**（`docs/requirements.md` 4.4節が「アンカーは**スカラー値**に付ける」構成を明文で前提にしているため、規定違反を検知する価値がある）。`findAnchorNode()` を `Scalar` 限定の `visit` から全ノード＋`isScalar()` に変え、戻り値を判別可能ユニオン `AnchorLookup`（`not_found`/`non_scalar`/`scalar`、ファイル内限定の型）にした。論点2は**統合しない**（到達不能な防御的分岐は残してよい規約があり、統合には公開インターフェースの変更が要る）。\n**メインが独立に実測**: マッピング/シーケンスにアンカーが付くと `getRequired`/`set` が「スカラー値に付いていません」を投げ、不在は従来どおり「見つかりません」。スカラーは無変化。変異（`non_scalar` を `not_found` と同じ扱いに戻す）で2件落ちる。\n**残った制約**: `verify-config.ts` は `getValueAtAnchor()`（`string | undefined`）を使うため、実在チェックの経路では両者を区別できず「アンカーが見つかりません」のまま。戻り値契約を変えない制約（全問題を集める用途）とのトレードオフで、意図的に残している。`grep -rn 'try {' src/steps/` は0件。`pnpm check` 通過（33ファイル382テスト、着手前379から+3）。",
     "dependencies": []
   },
   {
@@ -87,9 +87,7 @@
     "difficulty": "sonnet",
     "passes": false,
     "evidence": "",
-    "dependencies": [
-      "T-172"
-    ]
+    "dependencies": ["T-172"]
   },
   {
     "id": "T-174",
