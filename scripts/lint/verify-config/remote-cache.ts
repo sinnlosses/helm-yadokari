@@ -5,7 +5,7 @@ import {
   projectExists,
 } from "../../../src/lib/gitlab/gitlab.js"
 import type { BranchName, ProjectId, ValuesPath } from "../../../src/types/types.js"
-import { getOrFetchShared } from "../../../src/utils/cache.js"
+import { cacheByArgs } from "../../../src/utils/cache.js"
 
 /**
  * 実在チェック（`verify-config.ts`）がGitLabへ投げる問い合わせのキャッシュ層。
@@ -30,21 +30,19 @@ export type RemoteCache = {
 }
 
 export function newRemoteCache(gitlab: GitlabClient): RemoteCache {
-  // chartAndApps単位の並列実行から同時に呼ばれるため、値ではなくPromiseを共有する
-  const projects = new Map<ProjectId, Promise<boolean>>()
-  const branches = new Map<string, Promise<boolean>>()
-  const files = new Map<string, Promise<FileResult>>()
-
   return {
-    hasProject: (projectId) =>
-      getOrFetchShared(projects, projectId, () => projectExists(gitlab, projectId)),
-    hasBranch: (projectId, branch) =>
-      getOrFetchShared(branches, `${projectId}#${branch}`, () =>
-        branchExists(gitlab, projectId, branch),
-      ),
-    loadValuesYaml: (projectId, ref, valuesPath) =>
-      getOrFetchShared(files, `${projectId}#${ref}#${valuesPath}`, async () => ({
+    hasProject: cacheByArgs((projectId: ProjectId) => projectExists(gitlab, projectId)),
+    hasBranch: cacheByArgs((projectId: ProjectId, branch: BranchName) =>
+      branchExists(gitlab, projectId, branch),
+    ),
+    loadValuesYaml: cacheByArgs(
+      async (
+        projectId: ProjectId,
+        ref: BranchName,
+        valuesPath: ValuesPath,
+      ): Promise<FileResult> => ({
         content: await getFileContent(gitlab, projectId, valuesPath, ref),
-      })),
+      }),
+    ),
   }
 }

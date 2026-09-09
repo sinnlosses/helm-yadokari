@@ -181,15 +181,15 @@ GitLab APIにも外部ファイル形式にも依存せず、ブランド型・�
 
 ### `src/utils/` — ドメイン知識を一切持たない汎用ユーティリティ
 
-| ファイル                                                        | 責務                                                                   |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `parallel.ts`                                                   | 並列実行＋`FatalError`検知時の未着手タスクのキャンセル                 |
-| `sequential.ts`                                                 | 配列を順に処理する非同期reduce（`parallel.ts`の逐次版）                |
-| `partition.ts`                                                  | 判別可能ユニオンの配列を中身を取り出しつつ2つに振り分ける              |
-| `cache.ts`                                                      | 並列向けに実行中のPromiseを共有するキャッシュ                          |
-| `fs.ts`                                                         | パストラバーサル検証・サブディレクトリ列挙                             |
-| `yaml.ts`                                                       | YAMLファイル読み込み + Zodバリデーション                               |
-| `errors.ts` / `http.ts` / `retry.ts` / `timer.ts` / `logger.ts` | カスタムエラー・HTTPステータス判定・リトライ・実行時間計測・構造化ログ |
+| ファイル                                                        | 責務                                                                                                                                                    |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parallel.ts`                                                   | 並列実行＋`FatalError`検知時の未着手タスクのキャンセル                                                                                                  |
+| `sequential.ts`                                                 | 配列を順に処理する非同期reduce（`parallel.ts`の逐次版）                                                                                                 |
+| `partition.ts`                                                  | 判別可能ユニオンの配列を中身を取り出しつつ2つに振り分ける                                                                                               |
+| `cache.ts`                                                      | 並列向けに実行中のPromiseを共有するキャッシュ（`getOrFetchShared()`）と、引数からキーを組み立てて読み取り1つをキャッシュ付きの関数にする`cacheByArgs()` |
+| `fs.ts`                                                         | パストラバーサル検証・サブディレクトリ列挙                                                                                                              |
+| `yaml.ts`                                                       | YAMLファイル読み込み + Zodバリデーション                                                                                                                |
+| `errors.ts` / `http.ts` / `retry.ts` / `timer.ts` / `logger.ts` | カスタムエラー・HTTPステータス判定・リトライ・実行時間計測・構造化ログ                                                                                  |
 
 ## 新しいコードを置く場所
 
@@ -463,13 +463,15 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
 - **stepごとにキャッシュを作る**: 今キャッシュしたい読み取りはたまたまstepをまたがないが、
   寿命の宣言がstepごとに散り、またぐ読み取りが出たときに気づけない。バッチの寿命を知っているのは
   `runProcess()`だけなので、生成もそこに置く
-- **`utils/`にキャッシュ付きの関数を置く**: どの読み取りがバッチ中に変わらないかはGitLab固有の
-  知識なので、原則2で`lib/`。`utils/cache.ts`に残るのは技術非依存のメモ化（`getOrFetchShared()`）
-  だけで、`scripts/lint/verify-config/remote-cache.ts`も同じものを使っている
+- **`utils/`に`GitlabBatchCache`そのものを置く**: どの読み取りがバッチ中に変わらないかはGitLab
+  固有の知識なので、原則2で`lib/`。`utils/cache.ts`にあるのは技術非依存のメモ化
+  （`getOrFetchShared()`・引数からキーを組み立てて読み取り1つをキャッシュ付きにする
+  `cacheByArgs()`）だけで、`scripts/lint/verify-config/remote-cache.ts`も同じものを使っている
 
 `getOrFetchShared()`は「未キャッシュ」の判定に`undefined`を使う（`V extends {}`）ため、
-`GitlabBatchCache`は値を箱に入れてから載せる。これで`getFileContent`・`getLatestPipelineForRef`の
-ように`undefined`を返す読み取りも、メンバーごとに独自の箱を作らずそのまま載せられる。
+`cacheByArgs()`は値を箱に入れてから載せる。これで`GitlabBatchCache`の`getFileContent`・
+`getLatestPipelineForRef`のように`undefined`を返す読み取りも、メンバーごとに独自の箱を
+作らずそのまま載せられる。
 
 **キャッシュと下書きは別の層として重ねる。** values.yamlはchartAndApps単位の下書き
 （`ValuesYamlDraft`）で書き換えを持ち回るが、下書きに無いときの読み込みだけはこのキャッシュを
