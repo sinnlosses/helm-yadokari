@@ -1,3 +1,4 @@
+import { extractHttpStatus, isFatalError } from "../../lib/gitlab/errors.js"
 import type {
   ChartAndApps,
   ChartDirName,
@@ -6,8 +7,7 @@ import type {
   ProjectId,
   ProjectName,
 } from "../../types/types.js"
-import { FatalError } from "../../utils/errors.js"
-import { extractHttpStatus, isFatalError, toErrorMessage } from "../../utils/http.js"
+import { FatalError, toErrorMessage } from "../../utils/errors.js"
 import { logger } from "../../utils/logger.js"
 
 // 3つのstep（filter-targets / build-plans / apply-updates）が共通で使う、

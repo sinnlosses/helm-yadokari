@@ -1,84 +1,63 @@
 import { describe, expect, it, vi } from "vitest"
 
 import { withRetry } from "../../src/utils/retry.js"
-import { makeHttpError } from "../helpers.js"
+
+// `withRetry()` はどのエラーを再試行するかを自分で決めない（`isRetryable` で受け取る）。
+// GitLab APIに対する判定は `test/lib/gitlab/errors.test.ts` が守る
+const always = () => true
+const never = () => false
 
 describe("withRetry", () => {
   it("成功する操作はそのまま結果を返す", async () => {
     const fn = vi.fn().mockResolvedValue("ok")
-    expect(await withRetry(fn)).toBe("ok")
+    expect(await withRetry(fn, always)).toBe("ok")
     expect(fn).toHaveBeenCalledTimes(1)
   })
 
-  it("429 で失敗後に成功する場合はリトライして結果を返す", async () => {
-    const fn = vi.fn().mockRejectedValueOnce(makeHttpError(429)).mockResolvedValueOnce("ok")
-    expect(await withRetry(fn, { baseDelayMs: 0 })).toBe("ok")
+  it("isRetryable が true のエラーは再試行し、成功したらその結果を返す", async () => {
+    const fn = vi.fn().mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce("ok")
+    expect(await withRetry(fn, always, { baseDelayMs: 0 })).toBe("ok")
     expect(fn).toHaveBeenCalledTimes(2)
   })
 
-  it("502 で失敗後に成功する場合はリトライして結果を返す", async () => {
-    const fn = vi.fn().mockRejectedValueOnce(makeHttpError(502)).mockResolvedValueOnce("ok")
-    expect(await withRetry(fn, { baseDelayMs: 0 })).toBe("ok")
-    expect(fn).toHaveBeenCalledTimes(2)
-  })
-
-  it("503 で失敗後に成功する場合はリトライして結果を返す", async () => {
-    const fn = vi.fn().mockRejectedValueOnce(makeHttpError(503)).mockResolvedValueOnce("ok")
-    expect(await withRetry(fn, { baseDelayMs: 0 })).toBe("ok")
-    expect(fn).toHaveBeenCalledTimes(2)
-  })
-
-  it("504 で失敗後に成功する場合はリトライして結果を返す", async () => {
-    const fn = vi.fn().mockRejectedValueOnce(makeHttpError(504)).mockResolvedValueOnce("ok")
-    expect(await withRetry(fn, { baseDelayMs: 0 })).toBe("ok")
-    expect(fn).toHaveBeenCalledTimes(2)
-  })
-
-  it("maxAttempts 回リトライしても失敗し続けた場合は最後のエラーをスローする", async () => {
-    const err = makeHttpError(503)
+  it("isRetryable が false のエラーは即座にスローする", async () => {
+    const err = new Error("boom")
     const fn = vi.fn().mockRejectedValue(err)
-    await expect(withRetry(fn, { maxAttempts: 3, baseDelayMs: 0 })).rejects.toBe(err)
+    await expect(withRetry(fn, never, { baseDelayMs: 0 })).rejects.toBe(err)
+    expect(fn).toHaveBeenCalledTimes(1)
+  })
+
+  it("maxAttempts 回試しても失敗し続けた場合は最後のエラーをスローする", async () => {
+    const err = new Error("boom")
+    const fn = vi.fn().mockRejectedValue(err)
+    await expect(withRetry(fn, always, { maxAttempts: 3, baseDelayMs: 0 })).rejects.toBe(err)
     expect(fn).toHaveBeenCalledTimes(3)
-  })
-
-  it("リトライ対象外のエラー（401）は即座にスローする", async () => {
-    const err = makeHttpError(401)
-    const fn = vi.fn().mockRejectedValue(err)
-    await expect(withRetry(fn, { baseDelayMs: 0 })).rejects.toBe(err)
-    expect(fn).toHaveBeenCalledTimes(1)
-  })
-
-  it("リトライ対象外のエラー（500）は即座にスローする", async () => {
-    const err = makeHttpError(500)
-    const fn = vi.fn().mockRejectedValue(err)
-    await expect(withRetry(fn, { baseDelayMs: 0 })).rejects.toBe(err)
-    expect(fn).toHaveBeenCalledTimes(1)
-  })
-
-  it("gitbeaker が内部リトライを使い切ったエラー（GitbeakerRetryError）は再試行しない", async () => {
-    // gitbeaker が既に10回試したあとなので、こちらから追加で叩く相手ではない。
-    // ステータス（メッセージ中の 502/429）は isFatalError の判定にだけ使う
-    const err = new Error(
-      "Could not successfully complete this request after 10 retries, last status code: 502.",
-    )
-    err.name = "GitbeakerRetryError"
-    const fn = vi.fn().mockRejectedValue(err)
-
-    await expect(withRetry(fn, { baseDelayMs: 1 })).rejects.toThrow(err)
-    expect(fn).toHaveBeenCalledTimes(1)
-  })
-
-  it("リトライ対象外の通常エラーは即座にスローする", async () => {
-    const err = new Error("network error")
-    const fn = vi.fn().mockRejectedValue(err)
-    await expect(withRetry(fn, { baseDelayMs: 0 })).rejects.toBe(err)
-    expect(fn).toHaveBeenCalledTimes(1)
   })
 
   it("maxAttempts のデフォルトは 3", async () => {
-    const err = makeHttpError(503)
-    const fn = vi.fn().mockRejectedValue(err)
-    await expect(withRetry(fn, { baseDelayMs: 0 })).rejects.toBeDefined()
+    const fn = vi.fn().mockRejectedValue(new Error("boom"))
+    await expect(withRetry(fn, always, { baseDelayMs: 0 })).rejects.toBeDefined()
     expect(fn).toHaveBeenCalledTimes(3)
+  })
+
+  it("待ち時間は指数バックオフで伸びる", async () => {
+    vi.useFakeTimers()
+    try {
+      const delays: number[] = []
+      vi.spyOn(globalThis, "setTimeout").mockImplementation(((cb: () => void, ms?: number) => {
+        delays.push(ms ?? 0)
+        cb()
+        return 0 as unknown as ReturnType<typeof setTimeout>
+      }) as typeof setTimeout)
+
+      const fn = vi.fn().mockRejectedValue(new Error("boom"))
+      await expect(
+        withRetry(fn, always, { maxAttempts: 3, baseDelayMs: 100 }),
+      ).rejects.toBeDefined()
+      expect(delays).toEqual([100, 200])
+    } finally {
+      vi.useRealTimers()
+      vi.restoreAllMocks()
+    }
   })
 })

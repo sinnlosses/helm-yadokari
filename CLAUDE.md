@@ -89,7 +89,8 @@ CI/CD Variables に `ACCESS_TOKEN` を **Protected: OFF** で登録する（理�
   `export` はしない
 - `as` キャストは極力使わない。ブランド型の生成は `toProjectId` のような factory 関数に封じ込める
 - 変数は基本 `const`。コレクションも不変（`ReadonlyMap`・`readonly`）に保つ
-- HTTP エラーの判定は `src/utils/http.ts` の既存ユーティリティ（`isFatalError` 等）を使う
+- HTTP エラーの判定は `src/lib/gitlab/errors.ts` の既存ユーティリティ（`isFatalError` 等）を使う。
+  gitbeakerのエラーの形を知ってよいのはこのファイルだけで、`src/utils/` には置かない（原則2）
 - 401 / 5xx / ネットワーク障害は `FatalError` を投げて即時終了、それ以外は該当chartリポジトリを
   `ERROR` としてログ記録し処理継続する。`src/steps/` 配下に `try`/`catch` を書かない
 - 環境変数はすべて `src/lib/env.ts` で管理し、読み取りは `loadEnvConfig()` を通す。モジュールの

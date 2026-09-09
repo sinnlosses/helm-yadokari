@@ -156,17 +156,18 @@ importせず〜」の節を参照）。
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
-| ファイル                   | 責務                                                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `gitlab/gitlab.ts`         | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ                                        |
-| `gitlab/web-url.ts`        | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                   |
-| `gitlab/batch-cache.ts`    | バッチ1回を通して使い回すGitLab読み取りのキャッシュ。キャッシュしてよい読み取りの一覧                              |
-| `config/config.ts`         | 公開API `loadConfig()`。`config/` の走査（設定ユニットの探索と階層の検証）と絞り込み                               |
-| `config/chart-and-apps.ts` | 設定ユニットの `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を結合し `ChartAndApps` にする |
-| `config/schema.ts`         | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                  |
-| `config/validate.ts`       | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                                                           |
-| `helm.ts`                  | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                     |
-| `env.ts`                   | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                               |
+| ファイル                   | 責務                                                                                                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlab/gitlab.ts`         | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ                                                                    |
+| `gitlab/web-url.ts`        | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                               |
+| `gitlab/batch-cache.ts`    | バッチ1回を通して使い回すGitLab読み取りのキャッシュ。キャッシュしてよい読み取りの一覧                                                          |
+| `gitlab/errors.ts`         | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所** |
+| `config/config.ts`         | 公開API `loadConfig()`。`config/` の走査（設定ユニットの探索と階層の検証）と絞り込み                                                           |
+| `config/chart-and-apps.ts` | 設定ユニットの `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を結合し `ChartAndApps` にする                             |
+| `config/schema.ts`         | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                              |
+| `config/validate.ts`       | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                                                                                       |
+| `helm.ts`                  | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                 |
+| `env.ts`                   | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                                                           |
 
 ### `src/domain/` — このツールの取り決めを tech非依存で表す
 
@@ -181,15 +182,15 @@ GitLab APIにも外部ファイル形式にも依存せず、ブランド型・�
 
 ### `src/utils/` — ドメイン知識を一切持たない汎用ユーティリティ
 
-| ファイル                                                        | 責務                                                                                                                                                    |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `parallel.ts`                                                   | 並列実行＋`FatalError`検知時の未着手タスクのキャンセル                                                                                                  |
-| `sequential.ts`                                                 | 配列を順に処理する非同期reduce（`parallel.ts`の逐次版）                                                                                                 |
-| `partition.ts`                                                  | 判別可能ユニオンの配列を中身を取り出しつつ2つに振り分ける                                                                                               |
-| `cache.ts`                                                      | 並列向けに実行中のPromiseを共有するキャッシュ（`getOrFetchShared()`）と、引数からキーを組み立てて読み取り1つをキャッシュ付きの関数にする`cacheByArgs()` |
-| `fs.ts`                                                         | パストラバーサル検証・サブディレクトリ列挙                                                                                                              |
-| `yaml.ts`                                                       | YAMLファイル読み込み + Zodバリデーション                                                                                                                |
-| `errors.ts` / `http.ts` / `retry.ts` / `timer.ts` / `logger.ts` | カスタムエラー・HTTPステータス判定・リトライ・実行時間計測・構造化ログ                                                                                  |
+| ファイル                                            | 責務                                                                                                                                                    |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parallel.ts`                                       | 並列実行＋`FatalError`検知時の未着手タスクのキャンセル                                                                                                  |
+| `sequential.ts`                                     | 配列を順に処理する非同期reduce（`parallel.ts`の逐次版）                                                                                                 |
+| `partition.ts`                                      | 判別可能ユニオンの配列を中身を取り出しつつ2つに振り分ける                                                                                               |
+| `cache.ts`                                          | 並列向けに実行中のPromiseを共有するキャッシュ（`getOrFetchShared()`）と、引数からキーを組み立てて読み取り1つをキャッシュ付きの関数にする`cacheByArgs()` |
+| `fs.ts`                                             | パストラバーサル検証・サブディレクトリ列挙                                                                                                              |
+| `yaml.ts`                                           | YAMLファイル読み込み + Zodバリデーション                                                                                                                |
+| `errors.ts` / `retry.ts` / `timer.ts` / `logger.ts` | カスタムエラーと例外→文字列の変換・指数バックオフ（再試行の可否は引数で受け取る）・実行時間計測・構造化ログ                                             |
 
 ## 新しいコードを置く場所
 
@@ -321,13 +322,13 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - **リトライは2層あり、429と502では下の層しか動かない**。gitbeakerの`defaultRequestHandler`は
   429と502を内部で最大10回リトライするが、バックオフが`delay(2 ** i * 0.25)`（ミリ秒）で
   **合計255.75msしかない**（実測で10回・280ms）。使い切ると`cause`を持たない
-  `GitbeakerRetryError`を投げるため、`utils/retry.ts`の`isRetryable()`はステータスを読めず、
+  `GitbeakerRetryError`を投げるため、`lib/gitlab/errors.ts`の`isRetryableError()`はステータスを読めず、
   この2つでは**こちらの指数バックオフ（1s/2s/4s）が一度も動かない**。503と504はgitbeakerの
   リトライ対象外なので、こちらのリトライが設計どおり効く（実測で3回・3.0秒）。
 - **`GitbeakerRetryError`からはメッセージ経由でステータスを読み、`isFatalError()`の判定にだけ使う**。
   読まないと**502が5xxとして扱われず**、ゲートウェイ障害でも各chartAndAppsを1件ずつ`ERROR`にして
   進んでしまう（正典が約束する「5xxは即時終了」を満たせない）。一方でこの値を
-  `isRetryable()`には渡さない。gitbeakerが既に10回試したあとで、こちらから追加で叩く相手では
+  `isRetryableError()`には渡さない。gitbeakerが既に10回試したあとで、こちらから追加で叩く相手では
   ないため（429で30リクエストになるのを避ける）。メッセージが読めないときは`undefined`を返し、
   fatalに昇格させない安全側に倒す
 - **`queryTimeout`の値をgitbeakerの既定値に委ねず`lib/gitlab/gitlab.ts`で明示する**。
@@ -613,6 +614,19 @@ values.yamlの書き込み位置は用途を問わず`AnchorTarget`1つ。TypeSc
   依存で、このツール自身が定義したテンプレートはそこに当てはまらない
 - GitLab固有のURLパス形式（`/-/tags/`・`/-/compare/`）に依存する部分だけは`lib/gitlab/`に残す。
   「外部I/Oは`gitlab.ts`だけ」を保つため、I/Oを持たないURL組み立ては別ファイルにしている
+- **gitbeakerのエラーの形を読む処理も同じ理由で`lib/gitlab/errors.ts`に置く**。以前は
+  `utils/http.ts`にあったが、`cause.response.status`という構造依存に加えて、
+  クラス名（`GitbeakerTimeoutError`・`GitbeakerRetryError`）とメッセージの書式
+  （`last status code: N`）まで持つようになり、「ドメイン知識を一切持たない汎用ユーティリティ」
+  という`utils/`の定義と両立しなくなった。**ライブラリを差し替えたときに書き換える範囲が
+  `lib/gitlab/`に収まるかどうか**が判断の軸
+- **再試行の仕組み（`utils/retry.ts`）と、再試行してよいかの判断（`lib/gitlab/errors.ts`の
+  `isRetryableError()`）は分ける**。429/502/503/504という選定はGitLab APIに対する方針で、
+  指数バックオフそのものは技術非依存。`withRetry()`は判定を引数で受け取り、
+  `lib/gitlab/gitlab.ts`の非公開`withGitlabRetry()`が両者を束ねる。
+  採らなかった案は`utils/retry.ts`ごと`lib/gitlab/`へ移すことで、**バックオフの仕組みまで
+  GitLab専用にしてしまう**ため見送った（利用者が1ファイルしかないことは`utils/`から
+  出す理由にならない。原則2は依存対象だけで決める）
 
 #### URLは`URL`オブジェクトではなく文字列のブランド型で扱う
 

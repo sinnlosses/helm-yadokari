@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { FatalError } from "../../src/utils/errors.js"
+import { FatalError, toErrorMessage } from "../../src/utils/errors.js"
 
 describe("FatalError", () => {
   it("cause が Error のとき message を引き継ぐ", () => {
@@ -18,5 +18,17 @@ describe("FatalError", () => {
   it("httpStatus が undefined のとき保持する", () => {
     const err = new FatalError(undefined, new Error("ECONNREFUSED"))
     expect(err.httpStatus).toBeUndefined()
+  })
+})
+
+describe("toErrorMessage", () => {
+  it("Error インスタンスのとき message を返す", () => {
+    expect(toErrorMessage(new Error("something went wrong"))).toBe("something went wrong")
+  })
+
+  it("Error でない値のとき String() に変換して返す", () => {
+    expect(toErrorMessage("raw string")).toBe("raw string")
+    expect(toErrorMessage(42)).toBe("42")
+    expect(toErrorMessage(null)).toBe("null")
   })
 })

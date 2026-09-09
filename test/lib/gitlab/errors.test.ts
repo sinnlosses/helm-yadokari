@@ -4,9 +4,9 @@ import {
   extractHttpStatus,
   isFatalError,
   isNotFoundError,
-  toErrorMessage,
-} from "../../src/utils/http.js"
-import { makeHttpError } from "../helpers.js"
+  isRetryableError,
+} from "../../../src/lib/gitlab/errors.js"
+import { makeHttpError } from "../../helpers.js"
 
 describe("extractHttpStatus", () => {
   it("Error でない値は undefined を返す", () => {
@@ -157,14 +157,28 @@ describe("isFatalError", () => {
   })
 })
 
-describe("toErrorMessage", () => {
-  it("Error インスタンスのとき message を返す", () => {
-    expect(toErrorMessage(new Error("something went wrong"))).toBe("something went wrong")
+describe("isRetryableError", () => {
+  it.each([429, 502, 503, 504])("%s は再試行してよい", (status) => {
+    expect(isRetryableError(makeHttpError(status))).toBe(true)
   })
 
-  it("Error でない値のとき String() に変換して返す", () => {
-    expect(toErrorMessage("raw string")).toBe("raw string")
-    expect(toErrorMessage(42)).toBe("42")
-    expect(toErrorMessage(null)).toBe("null")
+  it.each([401, 403, 404, 500])("%s は再試行しない", (status) => {
+    expect(isRetryableError(makeHttpError(status))).toBe(false)
+  })
+
+  it("gitbeaker が内部リトライを使い切ったエラーは再試行しない", () => {
+    // gitbeaker が既に10回試したあとなので、こちらから追加で叩く相手ではない。
+    // メッセージ中のステータスは isFatalError の判定にだけ使う
+    const err = new Error(
+      "Could not successfully complete this request after 10 retries, last status code: 502.",
+    )
+    err.name = "GitbeakerRetryError"
+    expect(isRetryableError(err)).toBe(false)
+    expect(isFatalError(err)).toBe(true)
+  })
+
+  it("HTTP ステータスを持たないエラーは再試行しない", () => {
+    expect(isRetryableError(new Error("network error"))).toBe(false)
+    expect(isRetryableError("string")).toBe(false)
   })
 })

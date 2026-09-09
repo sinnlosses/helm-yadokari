@@ -198,6 +198,26 @@ JSDocごと削除した。2ファイル・26行の削除のみで、`redact()`/`
 - メッセージが読めないときは `undefined` を返して fatal に昇格させない（ライブラリが書式を
   変えたときに、黙って実行全体を止めないため）
 
+**ユーザー指摘により `src/utils/http.ts` を `src/lib/gitlab/errors.ts` へ移した**（タスクIDなし）。
+`src/utils/` は正典が「**ドメイン知識を一切持たない**汎用ユーティリティ」と定義しているのに、
+gitbeakerのクラス名とメッセージ書式を持つ状態になっていた。
+
+- **原因の大半はこのセッションのメイン**。構造依存（`cause.response.status`）はセッション前から
+  あったが、`GitbeakerTimeoutError`（T-159）と `GitbeakerRetryError` + `/last status code: (\d+)/`
+  （T-171）を足したのはメイン側。**ライブラリのクラス名を文字列で持ち英語メッセージを
+  正規表現でパースする**のは構造依存とは質が違い、原則2に照らせば最初から `lib/gitlab/` だった
+- ユーザー判断で **`utils/retry.ts` は汎用のまま残した**。再試行の可否を引数
+  （`isRetryable`）で受け取る形にし、429/502/503/504 という選定は
+  `lib/gitlab/errors.ts` の `isRetryableError()` が持つ。両者は `gitlab.ts` の非公開
+  `withGitlabRetry()` が束ねる（13箇所の呼び出しはこれ1つに集約）
+- 汎用な `toErrorMessage()` だけ `utils/errors.ts`（`FatalError` の隣）へ移し、
+  **`utils/http.ts` はファイルごと消えた**。`git mv` で履歴を残している
+- 正典も追随: `CLAUDE.md`・`docs/coding-standards.md` の「HTTPエラーの判定は〜を使う」の
+  名指し、`docs/architecture.md` の `src/utils/`・`src/lib/` の責務表、
+  「`lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く」節に判断の根拠を追記
+- **判断の軸として書き残したこと**: 「ライブラリを差し替えたときに書き換える範囲が
+  `lib/gitlab/` に収まるか」。利用者が1ファイルしかないことは `utils/` から出す理由にならない
+
 **`develop/tasks.json` の `done` 9件をアーカイブした**（T-146・T-151・T-157・T-158・T-159・
 T-160・T-161・T-162・T-168）。`done` が9件・30,240バイトで基準（10件 or 30KB超）にかかったため、
 `/next-task` 手順1の検査点でその場で実施。**86.7KB → 34.6KB**、`done` は0件になった。

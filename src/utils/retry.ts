@@ -1,13 +1,15 @@
-import { extractHttpStatus } from "./http.js"
-
-const RETRYABLE_STATUSES = new Set([429, 502, 503, 504])
-
+/**
+ * 指数バックオフ付きの再試行。**どのエラーを再試行してよいかはこのファイルが決めない**
+ * （`isRetryable`で受け取る）。特定の技術・外部システムに依存しないための形で、
+ * GitLab APIに対する判定は`lib/gitlab/errors.ts`の`isRetryableError()`が持つ。
+ */
 export async function withRetry<T>(
   fn: () => Promise<T>,
+  isRetryable: (error: unknown) => boolean,
   options: { maxAttempts?: number; baseDelayMs?: number } = {},
 ): Promise<T> {
   const { maxAttempts = 3, baseDelayMs = 1000 } = options
-  return runAttempt(fn, 1, maxAttempts, baseDelayMs)
+  return runAttempt(fn, isRetryable, 1, maxAttempts, baseDelayMs)
 }
 
 /**
@@ -16,6 +18,7 @@ export async function withRetry<T>(
  */
 async function runAttempt<T>(
   fn: () => Promise<T>,
+  isRetryable: (error: unknown) => boolean,
   attempt: number,
   maxAttempts: number,
   baseDelayMs: number,
@@ -25,13 +28,8 @@ async function runAttempt<T>(
   } catch (err) {
     if (!isRetryable(err) || attempt === maxAttempts) throw err
     await sleep(baseDelayMs * 2 ** (attempt - 1))
-    return runAttempt(fn, attempt + 1, maxAttempts, baseDelayMs)
+    return runAttempt(fn, isRetryable, attempt + 1, maxAttempts, baseDelayMs)
   }
-}
-
-function isRetryable(error: unknown): boolean {
-  const status = extractHttpStatus(error)
-  return status !== undefined && RETRYABLE_STATUSES.has(status)
 }
 
 function sleep(ms: number): Promise<void> {

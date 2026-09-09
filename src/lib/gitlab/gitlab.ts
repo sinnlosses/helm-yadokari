@@ -13,8 +13,8 @@ import type {
   ValuesPath,
 } from "../../types/types.js"
 import { toCommitSha, toGitLabUrl, toTagName } from "../../types/types.js"
-import { extractHttpStatus, isNotFoundError } from "../../utils/http.js"
 import { withRetry } from "../../utils/retry.js"
+import { extractHttpStatus, isNotFoundError, isRetryableError } from "./errors.js"
 
 export type GitlabClient = InstanceType<typeof Gitlab>
 
@@ -34,7 +34,7 @@ export function createClient(host: GitLabUrl, token: AccessToken): GitlabClient 
 
 /** タグ名とそれが指すコミットSHAの一覧を返す */
 export async function listTags(gitlab: GitlabClient, projectId: ProjectId): Promise<TagInfo[]> {
-  const tags = await withRetry(() => gitlab.Tags.all(projectId))
+  const tags = await withGitlabRetry(() => gitlab.Tags.all(projectId))
   return tags.map((tag) => ({ name: toTagName(tag.name), commitSha: toCommitSha(tag.commit.id) }))
 }
 
@@ -43,7 +43,7 @@ export async function listTags(gitlab: GitlabClient, projectId: ProjectId): Prom
  * 設定ファイルに書かれた projectId の実在確認に使う。
  */
 export async function projectExists(gitlab: GitlabClient, projectId: ProjectId): Promise<boolean> {
-  return withRetry(() =>
+  return withGitlabRetry(() =>
     withNotFoundFallback(async () => {
       await gitlab.Projects.show(projectId)
       return true
@@ -56,7 +56,7 @@ export async function branchExists(
   projectId: ProjectId,
   branch: BranchName,
 ): Promise<boolean> {
-  return withRetry(() =>
+  return withGitlabRetry(() =>
     withNotFoundFallback(async () => {
       await gitlab.Branches.show(projectId, branch)
       return true
@@ -69,7 +69,7 @@ export async function deleteBranch(
   projectId: ProjectId,
   branch: BranchName,
 ): Promise<void> {
-  await withRetry(() => gitlab.Branches.remove(projectId, branch))
+  await withGitlabRetry(() => gitlab.Branches.remove(projectId, branch))
 }
 
 /** 指定ブランチの現在のHEADコミットSHAを返す。ブランチが存在しない場合は undefined */
@@ -78,7 +78,7 @@ export async function getBranchHeadSha(
   projectId: ProjectId,
   branch: BranchName,
 ): Promise<CommitSha | undefined> {
-  return withRetry(() =>
+  return withGitlabRetry(() =>
     withNotFoundFallback(async () => {
       const result = await gitlab.Branches.show(projectId, branch)
       return toCommitSha(result.commit.id)
@@ -95,7 +95,7 @@ export async function getFileContent(
   filePath: ValuesPath,
   ref: BranchName,
 ): Promise<string | undefined> {
-  return withRetry(() =>
+  return withGitlabRetry(() =>
     withNotFoundFallback(async () => {
       const file = await gitlab.RepositoryFiles.show(projectId, filePath, ref)
       return Buffer.from(file.content, "base64").toString("utf-8")
@@ -108,7 +108,7 @@ export async function openMergeRequestExists(
   projectId: ProjectId,
   sourceBranch: BranchName,
 ): Promise<boolean> {
-  const mergeRequests = await withRetry(() =>
+  const mergeRequests = await withGitlabRetry(() =>
     gitlab.MergeRequests.all({
       projectId,
       sourceBranch,
@@ -144,7 +144,7 @@ export async function commitFileUpdates(
     filePath: file.valuesPath,
     content: file.content,
   }))
-  await withRetry(() =>
+  await withGitlabRetry(() =>
     gitlab.Commits.create(projectId, featureBranch, message, actions, { startBranch: baseBranch }),
   )
 }
@@ -157,7 +157,7 @@ export async function createMergeRequest(
   title: string,
   description: string,
 ): Promise<void> {
-  await withRetry(() =>
+  await withGitlabRetry(() =>
     gitlab.MergeRequests.create(projectId, sourceBranch, targetBranch, title, { description }),
   )
 }
@@ -171,7 +171,7 @@ export async function createTag(
   tagName: TagName,
   ref: BranchName,
 ): Promise<void> {
-  await withRetry(() => gitlab.Tags.create(projectId, tagName, ref))
+  await withGitlabRetry(() => gitlab.Tags.create(projectId, tagName, ref))
 }
 
 /** プロジェクトのweb URL（MR本文のリンクの起点）を返す */
@@ -179,7 +179,7 @@ export async function getProjectWebUrl(
   gitlab: GitlabClient,
   projectId: ProjectId,
 ): Promise<GitLabUrl> {
-  const project = await withRetry(() => gitlab.Projects.show(projectId))
+  const project = await withGitlabRetry(() => gitlab.Projects.show(projectId))
   return toGitLabUrl(String(project.web_url), "GitLab APIが返したプロジェクトの web_url")
 }
 
@@ -194,7 +194,7 @@ export async function getLatestPipelineForRef(
   projectId: ProjectId,
   ref: TagName,
 ): Promise<PipelineInfo | undefined> {
-  return withRetry(async () => {
+  return withGitlabRetry(async () => {
     try {
       const pipeline = await gitlab.Pipelines.showLatest(projectId, { ref })
       return {
@@ -218,4 +218,12 @@ async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promi
     if (isNotFoundError(error)) return fallback
     throw error
   }
+}
+
+/**
+ * `lib/gitlab/`からのすべての呼び出しに同じリトライ方針を当てる。どのエラーを再試行するかの
+ * 判断は`errors.ts`が持ち、`withRetry()`は指数バックオフの仕組みだけを提供する。
+ */
+function withGitlabRetry<T>(fn: () => Promise<T>): Promise<T> {
+  return withRetry(fn, isRetryableError)
 }

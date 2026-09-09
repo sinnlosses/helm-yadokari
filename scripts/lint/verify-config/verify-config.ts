@@ -7,7 +7,7 @@ import type {
   ChartRepoConfig,
   HelmTargetBranchConfig,
 } from "../../../src/types/types.js"
-import { toErrorMessage } from "../../../src/utils/http.js"
+import { toErrorMessage } from "../../../src/utils/errors.js"
 import { mapWithConcurrency } from "../../../src/utils/parallel.js"
 import { reduceAsync } from "../../../src/utils/sequential.js"
 import { type RemoteCache, newRemoteCache } from "./remote-cache.js"

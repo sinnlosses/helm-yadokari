@@ -1,3 +1,7 @@
+// gitbeakerが投げるエラーを、このツールのエラー方針（`docs/architecture.md`「エラーは
+// 『fatalは例外・それ以外は戻り値』の2チャネル」）に翻訳する。**gitbeakerのエラーの形を
+// 知っているのはこのファイルだけ**で、`utils/`にはこの知識を置かない（原則2）。
+//
 // @gitbeaker/rest がスローするエラー構造 (Error → cause.response.status)、その内部の fetch が
 // ネットワーク障害時に投げる構造 (TypeError: fetch failed → cause.code)、タイムアウト時の
 // エラー名 (GitbeakerTimeoutError)、内部リトライを使い切ったときのエラー名と
@@ -14,6 +18,9 @@ const GITBEAKER_TIMEOUT_ERROR_NAME = "GitbeakerTimeoutError"
 // 付けないため、ステータスはメッセージにしか残らない。
 const GITBEAKER_RETRY_ERROR_NAME = "GitbeakerRetryError"
 const EXHAUSTED_RETRY_STATUS_PATTERN = /last status code: (\d+)/
+
+// 再試行してよいステータス。429は混雑、502/503/504は一時的なゲートウェイ障害を表す。
+const RETRYABLE_STATUSES = new Set([429, 502, 503, 504])
 
 export function extractHttpStatus(error: unknown): number | undefined {
   if (!(error instanceof Error)) return undefined
@@ -45,8 +52,18 @@ export function isFatalError(error: unknown): boolean {
   return code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ETIMEDOUT"
 }
 
-export function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+/**
+ * このエラーを再試行してよいか。混雑・一時的なゲートウェイ障害を表すステータスだけを対象にする。
+ * 判定に使うステータスの選定はGitLab APIに対する方針なので、汎用の`utils/retry.ts`ではなく
+ * ここが持つ（`withRetry()`にはこの関数を渡す）。
+ *
+ * `GitbeakerRetryError`（gitbeakerが429/502を内部で10回試して使い切った状態）は**対象外**。
+ * こちらから追加で叩く相手ではないため、`extractHttpStatus()`が`undefined`を返すことで
+ * 自然に除外される。
+ */
+export function isRetryableError(error: unknown): boolean {
+  const status = extractHttpStatus(error)
+  return status !== undefined && RETRYABLE_STATUSES.has(status)
 }
 
 function hasKey<K extends string>(obj: object, key: K): obj is Record<K, unknown> {
@@ -85,7 +102,7 @@ function readCode(value: unknown): string | undefined {
  * gitbeakerが内部リトライするのは429と502だけなので、ここで拾えるのは実質その2つ。
  * 502は5xxとして即時終了になり、429は該当chartAndAppsの`ERROR`のままになる。
  *
- * **この値は`isFatalError()`の判定にだけ使い、`utils/retry.ts`のリトライ判定には渡さない。**
+ * **この値は`isFatalError()`の判定にだけ使い、`isRetryableError()`には渡さない。**
  * gitbeakerが既に10回試したあとなので、こちらから追加で叩く相手ではない。
  */
 function extractExhaustedRetryStatus(error: Error): number | undefined {

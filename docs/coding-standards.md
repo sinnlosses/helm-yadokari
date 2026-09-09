@@ -81,7 +81,7 @@ sed -n '/^### 消すかどうか/,/^#\{2,4\} /p' docs/coding-standards.md
 
 ## エラーハンドリング
 
-- HTTPエラーの判定は `src/utils/http.ts` の既存ユーティリティ（`isFatalError`等）を使う。
+- HTTPエラーの判定は `src/lib/gitlab/errors.ts` の既存ユーティリティ（`isFatalError`等）を使う。
   ステータスコードの直書きを散らさないため
 - 401 / 5xx / ネットワーク障害は `FatalError` を投げて即時終了、それ以外のエラーは該当chart
   リポジトリを `ERROR` としてログ記録し処理継続する（README「エラーハンドリング」参照）
@@ -341,7 +341,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 | `src/lib/config/config.ts` の `formatChartDirs` の `"(なし)"`                                    | エラーメッセージの文面だけが変わる分岐で、判断は変わらない                                                                                                                             |
 | `src/steps/shared/describe-plan.ts` の `describeHelmTargetBranchUpdates` 内の `map` コールバック | Helmの向き先ブランチ更新のログサマリが空配列でしか組み立てられていない。更新そのものの振る舞いは `stage-helm-target-branch-updates.test.ts` が確かめており、未到達なのはログの文面だけ |
 
-（`src/utils/http.ts` の `isFatalStatus` にあった同種の分岐は、テストではなくコード側の
+（`src/lib/gitlab/errors.ts` の `isFatalStatus` にあった同種の分岐は、テストではなくコード側の
 問題だった。引数の型を `number` に狭めることで分岐ごと削除済み。上の「避ける`undefined`」
 節の1つ目のパターン「実行時には到達しないのに型に残っている`undefined`」の実例）
 
