@@ -31,7 +31,7 @@ export type HelmTargetBranchConfig = {
 
 /**
  * `projectId`/`projectName`/`branchToSync`/`imageTagTargets`はconfig.yamlの運用値、
- * `tagFormat`は同じchartリポジトリの`chart.yaml`の`apps[]`から`projectId`で引いた値
+ * `tagFormat`は同じchartリポジトリの`registry.yaml`の`appSpecs[]`から`projectId`で引いた値
  */
 export type AppConfig = {
   readonly projectId: ProjectId
@@ -42,7 +42,7 @@ export type AppConfig = {
   readonly imageTagTargets: readonly AnchorTarget[]
 }
 
-/** chartリポジトリ共通の設定。chart.yamlに対応する */
+/** chartリポジトリ共通の設定。registry.yamlに対応する */
 export type ChartRepoConfig = {
   readonly projectId: ProjectId
   readonly projectName: ProjectName

@@ -11,7 +11,7 @@ import {
 } from "../../types/types.js"
 
 /**
- * `config/` の2ファイル（`chart.yaml` / `config.yaml`）のZodスキーマ。
+ * `config/` の2ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ。
  * スキーマの仕様（何をどう書くか）は `docs/requirements.md` 4.4節が正典。
  */
 
@@ -28,7 +28,7 @@ const AnchorTargetSchema = z
   .transform((v): AnchorTarget => ({ valuesPath: v.valuesPath, anchorName: v.anchor }))
 
 /**
- * `chart.yaml`の`apps[].tagFormat`のZodスキーマ。既定値は持たせず必須にしているのは、
+ * `registry.yaml`の`appSpecs[].tagFormat`のZodスキーマ。既定値は持たせず必須にしているのは、
  * ソースリポジトリごとに実際のタグ形式が違い、既定に当てはまらないappを黙って取りこぼすより
  * 明示させるほうが安全なため。テンプレート文字列そのものの妥当性検証（プレースホルダの
  * 過不足）は`validateTagFormat()`に委ねる。
@@ -36,7 +36,7 @@ const AnchorTargetSchema = z
 const TagFormatSchema = z
   .string({
     error:
-      "tagFormat は必須です。chart.yaml の apps[] に、ソースリポジトリのタグ形式を " +
+      "tagFormat は必須です。registry.yaml の appSpecs[] に、ソースリポジトリのタグ形式を " +
       "{branch}/{date}/{time} で書いてください（例: '{branch}-build-at-{date}-{time}'）",
   })
   .transform((raw, ctx) => {
@@ -52,30 +52,30 @@ const TagFormatSchema = z
   })
 
 /**
- * chart.yaml側の1app分。ソースリポジトリのタグ形式（`tagFormat`）の台帳で、
+ * registry.yaml側の1app分。ソースリポジトリのタグ形式（`tagFormat`）の台帳で、
  * `projectId`をキーに`config.yaml`側の`apps[]`と結合する。`projectName`は
  * `config.yaml`側と食い違っていないかの検証用に重複して持つ
  */
-const ChartAppSchema = z.object({
+const AppSpecSchema = z.object({
   projectId: z.number().int().transform(toProjectId),
   projectName: z.string().min(1).transform(toProjectName),
   tagFormat: TagFormatSchema,
 })
 
-export type ChartApp = z.infer<typeof ChartAppSchema>
+export type AppSpec = z.infer<typeof AppSpecSchema>
 
-export const ChartYamlSchema = z.object({
-  chart: z.object({
+export const RegistryYamlSchema = z.object({
+  chartToUpdate: z.object({
     projectId: z.number().int().transform(toProjectId),
     projectName: z.string().min(1).transform(toProjectName),
     mrTargetBranch: z.string().min(1, "mrTargetBranch は空にできません").transform(toBranchName),
   }),
-  apps: z.array(ChartAppSchema),
+  appSpecs: z.array(AppSpecSchema),
 })
 
 /**
  * config.yaml側の1app分。運用値（`branchToSync`）とchart構造（`chart[]`）の両方を持つ。
- * `tagFormat`は持たず、`chart.yaml`の`apps[]`から`projectId`で引く
+ * `tagFormat`は持たず、`registry.yaml`の`appSpecs[]`から`projectId`で引く
  */
 const AppSchema = z.object({
   projectId: z.number().int().transform(toProjectId),

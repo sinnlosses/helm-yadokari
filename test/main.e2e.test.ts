@@ -28,7 +28,7 @@ import { run } from "../src/main.js"
 import { toAccessToken, toConfigUnitPath, toGitLabUrl } from "../src/types/types.js"
 import { makeHttpError } from "./helpers.js"
 
-/** `config/yadokari-smoke-test-chart/chart.yaml` の projectId */
+/** `config/yadokari-smoke-test-chart/registry.yaml` の projectId */
 const CHART_PROJECT_ID = 86061211
 /** `sample-qa-sprint`。3つの設定ユニット（`anchor-app`＋`tenant2/client1`＋`tenant2/client2`）
  * 共通で登録されているapp。追跡ブランチ`main`のHEADに現在値と異なる名前のタグが
@@ -173,7 +173,7 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
     for (const call of [anchorApp, tenant2Client1, tenant2Client2]) {
       // (projectId, sourceBranch, targetBranch, title, { description })
       expect(call[0]).toBe(CHART_PROJECT_ID)
-      expect(call[2]).toBe("main") // chart.yaml の mrTargetBranch
+      expect(call[2]).toBe("main") // registry.yaml の mrTargetBranch
     }
 
     expect(anchorApp[3]).toContain("anchor-app")

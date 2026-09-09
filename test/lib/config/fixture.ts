@@ -12,7 +12,7 @@ export type ConfigDir = {
   /** 現在のテスト用ディレクトリの絶対パス */
   readonly path: string
   readonly writeFile: (relativePath: string, content: string) => void
-  readonly writeChartYaml: (chartDir: string, chart: string) => void
+  readonly writeRegistryYaml: (chartDir: string, registry: string) => void
   readonly writeConfigYaml: (chartDir: string, unitPath: string, config: string) => void
 }
 
@@ -39,17 +39,17 @@ export function useConfigDir(): ConfigDir {
       return tmpDir
     },
     writeFile,
-    writeChartYaml: (chartDir, chart) => writeFile(`${chartDir}/chart.yaml`, chart),
+    writeRegistryYaml: (chartDir, registry) => writeFile(`${chartDir}/registry.yaml`, registry),
     writeConfigYaml: (chartDir, unitPath, config) =>
       writeFile(`${chartDir}/${unitPath}/config.yaml`, config),
   }
 }
 
-/** `chartYaml()`/`configYaml()` の既定タグ形式（`config/`の実ファイルと同じ値） */
+/** `registryYaml()`/`configYaml()` の既定タグ形式（`config/`の実ファイルと同じ値） */
 export const DEFAULT_TAG_FORMAT = "{branch}-build-at-{date}-{time}"
 
-/** `chart.yaml`の`apps[]`1件分（タグ形式の台帳） */
-export type ChartAppFixture = {
+/** `registry.yaml`の`appSpecs[]`1件分（タグ形式の台帳） */
+export type AppSpecFixture = {
   readonly projectId: number
   readonly projectName: string
   readonly tagFormat?: string
@@ -62,20 +62,24 @@ export type AnchorTargetFixture = {
 }
 
 /**
- * `chart.yaml`のYAML文字列を組み立てる。`apps`を省略すると`apps: []`になる
- * （`ChartYamlSchema`が`apps`を必須キーとして要求するため、空でも明示が要る）。
+ * `registry.yaml`のYAML文字列を組み立てる。`appSpecs`を省略すると`appSpecs: []`になる
+ * （`RegistryYamlSchema`が`appSpecs`を必須キーとして要求するため、空でも明示が要る）。
  */
-export function chartYaml(
-  chart: { readonly projectId: number; readonly projectName: string; readonly mrTargetBranch: string },
-  apps: readonly ChartAppFixture[] = [],
+export function registryYaml(
+  chartToUpdate: {
+    readonly projectId: number
+    readonly projectName: string
+    readonly mrTargetBranch: string
+  },
+  appSpecs: readonly AppSpecFixture[] = [],
 ): string {
-  const chartYamlBlock =
-    `chart:\n  projectId: ${chart.projectId}\n  projectName: ${chart.projectName}\n` +
-    `  mrTargetBranch: ${chart.mrTargetBranch}\n`
-  return chartYamlBlock + appsField(apps, (app) => appEntry(app))
+  const chartToUpdateBlock =
+    `chartToUpdate:\n  projectId: ${chartToUpdate.projectId}\n  projectName: ${chartToUpdate.projectName}\n` +
+    `  mrTargetBranch: ${chartToUpdate.mrTargetBranch}\n`
+  return chartToUpdateBlock + listField("appSpecs", appSpecs, (app) => appSpecEntry(app))
 }
 
-function appEntry(app: ChartAppFixture): string {
+function appSpecEntry(app: AppSpecFixture): string {
   return (
     `  - projectId: ${app.projectId}\n    projectName: ${app.projectName}\n` +
     `    tagFormat: '${app.tagFormat ?? DEFAULT_TAG_FORMAT}'\n`
@@ -104,7 +108,7 @@ export function configYaml(
   helm?: ConfigHelmFixture,
 ): string {
   const helmBlock = helm === undefined ? "" : helmField(helm)
-  return helmBlock + appsField(apps, (app) => configAppEntry(app))
+  return helmBlock + listField("apps", apps, (app) => configAppEntry(app))
 }
 
 function helmField(helm: ConfigHelmFixture): string {
@@ -125,6 +129,7 @@ function targetsBlock(targets: readonly AnchorTargetFixture[], indent: string): 
     .join("")
 }
 
-function appsField<T>(apps: readonly T[], toEntry: (app: T) => string): string {
-  return apps.length === 0 ? "apps: []\n" : `apps:\n${apps.map(toEntry).join("")}`
+/** `key: []`（空）または`key:\n<entry>...`のYAMLブロックを組み立てる */
+function listField<T>(key: string, list: readonly T[], toEntry: (item: T) => string): string {
+  return list.length === 0 ? `${key}: []\n` : `${key}:\n${list.map(toEntry).join("")}`
 }

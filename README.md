@@ -43,7 +43,7 @@ chart リポジトリ単位に更新をまとめた MR 作成を自動化しま�
 ## タグ形式
 
 GitLab のタグのうち、追跡ブランチの現在のHEADコミットを指しているものから最新タグを決めます。
-タグ形式はアプリ（ソースリポジトリ）単位に `chart.yaml` の `apps[].tagFormat` で指定します
+タグ形式はアプリ（ソースリポジトリ）単位に `registry.yaml` の `appSpecs[].tagFormat` で指定します
 （**必須**。既定値はありません）。
 
 `{branch}`（追跡ブランチ名の "/" を "-" に置換した値）・`{date}`（`yyyymmdd`）・
@@ -57,8 +57,8 @@ GitLab のタグのうち、追跡ブランチの現在のHEADコミットを指
 → `release-foo-build-at-20260902-123456`
 
 ```yaml
-# chart.yaml
-apps:
+# registry.yaml
+appSpecs:
   - projectId: 2
     projectName: my-app
     tagFormat: "{branch}-build-at-{date}-{time}"
@@ -88,7 +88,7 @@ pnpm install
 
 # 2. 設定ファイルを作成（config/ 配下の構成は下記「設定」を参照）
 mkdir -p config/my-team-chart/my-unit   # 深さ2も可（例: config/my-team-chart/my-group/my-unit）
-# → chart.yaml / config.yaml を作成する
+# → registry.yaml / config.yaml を作成する
 #   （記述例は docs/requirements.md 4.4節。config/yadokari-smoke-test-chart/ の実物も参考になる）
 
 # 3. 動作確認（ブランチ作成・MR作成なし・安全）
@@ -163,7 +163,7 @@ flowchart TD
 ```
 config/
   <chartリポジトリ名>/            # 例: teamA-chart（ディレクトリ名は人間向けのラベル）
-    chart.yaml                     # chartリポジトリの情報＋ソースリポジトリのタグ形式の台帳
+    registry.yaml                  # chartリポジトリの情報＋ソースリポジトリのタグ形式の台帳
     <ユニット名>/                  # 設定ユニット（深さ1）
       config.yaml                  # 運用値（どのプロジェクトのどのブランチを追跡するか）＋
                                     # chart構造（values.yaml内のどこに書き込むか）
@@ -172,8 +172,8 @@ config/
         config.yaml
 ```
 
-ファイルを分ける軸は「スコープ」です。`chart.yaml` はchartリポジトリ単位で、MRの作成先
-（`chart`）と、ソースリポジトリのタグ形式（`apps[].tagFormat`。詳細は
+ファイルを分ける軸は「スコープ」です。`registry.yaml` はchartリポジトリ単位で、MRの作成先
+（`chartToUpdate`）と、ソースリポジトリのタグ形式（`appSpecs[].tagFormat`。詳細は
 「[タグ形式](#タグ形式)」参照）の台帳を持ちます。`config.yaml` は設定ユニット単位で、
 どのプロジェクトのどのブランチを追跡し `values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
 書き込むかを持ちます。両者は `projectId` で対応付けます。Helmの向き先ブランチ（values.yamlの
@@ -185,10 +185,10 @@ config/
 `feature/yadokari/<unitPath>` にもそのまま入ります。階層は**深さ1〜2**で、同じchartリポジトリの
 配下に深さ1と深さ2を混在させられます（テナント分けが不要ならダミーの階層を作らず深さ1で
 構いません）。設定ユニットの入れ子（`config.yaml` を持つディレクトリの配下にさらに
-`config.yaml` があること）と、深さ0（`chart.yaml` と同じ階層）・深さ3以上はいずれも
+`config.yaml` があること）と、深さ0（`registry.yaml` と同じ階層）・深さ3以上はいずれも
 設定エラーになります。
 
-各ファイルの記述例・フィールドの完全な仕様・制約（`config.yaml`/`chart.yaml` 間の対応チェック、
+各ファイルの記述例・フィールドの完全な仕様・制約（`config.yaml`/`registry.yaml` 間の対応チェック、
 重複禁止など、設定ミスは実行前に例外で停止します）は [`docs/requirements.md`](./docs/requirements.md)
 の「4.4 アプリの登録・設定」が正典です（`config/yadokari-smoke-test-chart/` にも実物の記述例があります）。
 

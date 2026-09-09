@@ -24,7 +24,7 @@ export function validateGitlabUrl(raw: string): GitLabUrl {
 
 /**
  * CONFIG_PATH は `loadConfig()`（`lib/config/config.ts`）が読む設定ディレクトリの
- * ルートパス（`<configDirPath>/<chartディレクトリ>/chart.yaml` という2階層固定の構成を
+ * ルートパス（`<configDirPath>/<chartディレクトリ>/registry.yaml` という2階層固定の構成を
  * 走査する起点）。単一ファイルではなくディレクトリを指すため、フィールド名・変数名は
  * 常に「ディレクトリ」であることが分かる `configDirPath` を使う（`CONFIG_PATH`という
  * 環境変数名自体は外部インターフェースのため変えない）。

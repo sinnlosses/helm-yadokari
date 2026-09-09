@@ -10,7 +10,7 @@ const ANY_PLACEHOLDER_PATTERN = /\{([^}]*)\}/g
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000
 
 /**
- * タグ形式のテンプレート文字列（`chart.yaml`の`apps[].tagFormat`）の妥当性を検証する。
+ * タグ形式のテンプレート文字列（`registry.yaml`の`appSpecs[].tagFormat`）の妥当性を検証する。
  * `{branch}`/`{date}`/`{time}` をちょうど1回ずつ含む必要があり、それ以外のプレースホルダは
  * 許可しない。並び順と区切り文字は自由。
  */

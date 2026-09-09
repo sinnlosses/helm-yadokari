@@ -1,38 +1,38 @@
 import type { AnchorTarget, ChartAndApps, ProjectId, ProjectName, TagFormat } from "../../types/types.js"
 
 /**
- * `chart.yaml` / `config.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス
+ * `registry.yaml` / `config.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス
  * （紐づけの矛盾・重複）を検証する。実体の有無（projectIdやブランチの実在）は
  * `scripts/lint/verify-config/` の担当。
  */
 
 /**
- * `config.yaml`（運用値＋chart構造）の各appが、同じchartリポジトリの`chart.yaml`の`apps[]`
+ * `config.yaml`（運用値＋chart構造）の各appが、同じchartリポジトリの`registry.yaml`の`appSpecs[]`
  * （タグ形式の台帳）に紐づいているか検証する。どちらのファイルも`projectId`を持つため、
  * 単純な存在チェックに加えて`projectName`の食い違い（コピペミス等）も検知できる
- * - config.yamlの各appに対応するprojectIdがchart.yamlの`apps[]`に無ければ、`tagFormat`が
+ * - config.yamlの各appに対応するprojectIdがregistry.yamlの`appSpecs[]`に無ければ、`tagFormat`が
  *   引けず最新タグを判定できない設定ミスとして例外をスローする
  * - 両方に存在するprojectIdについて、projectNameが一致しなければ例外をスローする
- * - `chart.yaml`の`apps[]`にだけあってどの設定ユニットからも参照されないappは
+ * - `registry.yaml`の`appSpecs[]`にだけあってどの設定ユニットからも参照されないappは
  *   エラーにしない（そのchartリポジトリで一時的に更新対象から外している状態を許すため）
  */
 export function validateProjectLinkage(
   configYamlPath: string,
-  chartYamlPath: string,
+  registryYamlPath: string,
   configApps: readonly { readonly projectId: ProjectId; readonly projectName: ProjectName }[],
-  chartApps: readonly { readonly projectId: ProjectId; readonly projectName: ProjectName }[],
+  appSpecs: readonly { readonly projectId: ProjectId; readonly projectName: ProjectName }[],
 ): void {
-  const chartAppByProjectId = new Map(chartApps.map((app) => [app.projectId, app]))
+  const appSpecByProjectId = new Map(appSpecs.map((app) => [app.projectId, app]))
   for (const app of configApps) {
-    const chartApp = chartAppByProjectId.get(app.projectId)
-    if (chartApp === undefined) {
+    const appSpec = appSpecByProjectId.get(app.projectId)
+    if (appSpec === undefined) {
       throw new Error(
-        `${configYamlPath}: app "${app.projectName}"（projectId: ${app.projectId}）に対応する設定が ${chartYamlPath} に見つかりません`,
+        `${configYamlPath}: app "${app.projectName}"（projectId: ${app.projectId}）に対応する設定が ${registryYamlPath} に見つかりません`,
       )
     }
-    if (chartApp.projectName !== app.projectName) {
+    if (appSpec.projectName !== app.projectName) {
       throw new Error(
-        `${configYamlPath} と ${chartYamlPath} で projectId ${app.projectId} の projectName が一致しません（"${app.projectName}" / "${chartApp.projectName}"）`,
+        `${configYamlPath} と ${registryYamlPath} で projectId ${app.projectId} の projectName が一致しません（"${app.projectName}" / "${appSpec.projectName}"）`,
       )
     }
   }

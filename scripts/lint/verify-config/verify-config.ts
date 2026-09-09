@@ -83,7 +83,7 @@ async function verifyChartAndApps(
   const chartProblems = chartProjectFound
     ? []
     : [
-        `${where}: chart.yaml の projectId ${chart.projectId}（${chart.projectName}）が見つかりません`,
+        `${where}: registry.yaml の projectId ${chart.projectId}（${chart.projectName}）が見つかりません`,
       ]
 
   const baseBranchFound =
@@ -92,7 +92,7 @@ async function verifyChartAndApps(
     !chartProjectFound || baseBranchFound
       ? []
       : [
-          `${where}: chart.yaml の mrTargetBranch "${chart.mrTargetBranch}" が ${chart.projectName} に見つかりません`,
+          `${where}: registry.yaml の mrTargetBranch "${chart.mrTargetBranch}" が ${chart.projectName} に見つかりません`,
         ]
 
   const appProblems = await reduceAsync(apps, [] as string[], async (acc, app) => [

@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 import { loadConfig } from "../../../src/lib/config/config.js"
 import type { ConfigUnitPath } from "../../../src/types/types.js"
 import { toChartDirName, toConfigUnitPath } from "../../../src/types/types.js"
-import { chartYaml, configYaml, useConfigDir } from "./fixture.js"
+import { configYaml, registryYaml, useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
 
@@ -29,10 +29,10 @@ describe("loadConfig（パストラバーサル）", () => {
 })
 
 describe("loadConfig（正常系）", () => {
-  it("chart.yaml と config.yaml を読み込み ChartAndApps を返す", () => {
-    dir.writeChartYaml(
+  it("registry.yaml と config.yaml を読み込み ChartAndApps を返す", () => {
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 888, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "my-app" }],
       ),
@@ -78,14 +78,14 @@ describe("loadConfig（正常系）", () => {
   })
 
   it("複数のchartディレクトリをすべて読み込む", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
+      registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYaml())
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamB-chart",
-      chartYaml({ projectId: 2, projectName: "teamB-chart", mrTargetBranch: "main" }),
+      registryYaml({ projectId: 2, projectName: "teamB-chart", mrTargetBranch: "main" }),
     )
     dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYaml())
 
@@ -94,9 +94,9 @@ describe("loadConfig（正常系）", () => {
   })
 
   it("同じchartディレクトリ配下の複数の設定ユニットはそれぞれ別のChartAndAppsになる", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [
           { projectId: 1, projectName: "app-1" },
@@ -151,11 +151,11 @@ describe("loadConfig（正常系）", () => {
     ])
   })
 
-  it("chart.yaml がないディレクトリは無視する", () => {
+  it("registry.yaml がないディレクトリは無視する", () => {
     dir.writeFile("not-a-chart/readme.txt", "hello")
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
+      registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYaml())
 
@@ -164,9 +164,9 @@ describe("loadConfig（正常系）", () => {
   })
 
   it("config.yaml が存在しないtenant/clientディレクトリはChartAndAppsを作らない", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
+      registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
     )
     mkdirSync(join(dir.path, "teamA-chart", "tenant1", "client1"), { recursive: true })
 
@@ -181,9 +181,9 @@ describe("loadConfig（正常系）", () => {
 
 describe("loadConfig（設定ユニットの階層）", () => {
   beforeEach(() => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
+      registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
     )
   })
 
@@ -230,10 +230,10 @@ describe("loadConfig（設定ユニットの階層）", () => {
     expect(() => loadConfig(dir.path)).toThrow("深さ")
   })
 
-  it("深さ0（chart.yamlと同じ階層）にconfig.yamlがあるとき例外をスローする", () => {
+  it("深さ0（registry.yamlと同じ階層）にconfig.yamlがあるとき例外をスローする", () => {
     dir.writeFile("teamA-chart/config.yaml", configYaml())
 
-    expect(() => loadConfig(dir.path)).toThrow("chart.yaml と同じ階層")
+    expect(() => loadConfig(dir.path)).toThrow("registry.yaml と同じ階層")
   })
 
   it("unitsで絞り込んでいても、対象外の設定ユニットの階層の誤りを検出する", () => {
@@ -245,7 +245,7 @@ describe("loadConfig（設定ユニットの階層）", () => {
     ).toThrow("深さ")
   })
 
-  it("chart.yamlが無いディレクトリの配下は走査しない（深さの検証もしない）", () => {
+  it("registry.yamlが無いディレクトリの配下は走査しない（深さの検証もしない）", () => {
     dir.writeConfigYaml("not-a-chart", "tenant1/client1/extra", configYaml())
 
     expect(loadConfig(dir.path)).toEqual({ chartAndAppsList: [] })
@@ -254,9 +254,9 @@ describe("loadConfig（設定ユニットの階層）", () => {
 
 describe("loadConfig（chartの複数指定）", () => {
   it("1アプリにつきchartを複数指定できる（同一タグを複数箇所へ反映する用途）", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "my-service" }],
       ),
@@ -293,9 +293,9 @@ describe("loadConfig（存在しないパス）", () => {
 
 describe("loadConfig（target絞り込み）", () => {
   beforeEach(() => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [
           { projectId: 1, projectName: "app-1" },
@@ -327,9 +327,9 @@ describe("loadConfig（target絞り込み）", () => {
         },
       ]),
     )
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamB-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 2, projectName: "teamB-chart", mrTargetBranch: "main" },
         [{ projectId: 3, projectName: "app-3" }],
       ),
@@ -447,15 +447,15 @@ describe("loadConfig（target絞り込み）", () => {
 })
 
 describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
-  it("target未指定でchart.yamlが無いディレクトリしか無いとき、0件のまま正常終了する（現状仕様）", () => {
+  it("target未指定でregistry.yamlが無いディレクトリしか無いとき、0件のまま正常終了する（現状仕様）", () => {
     dir.writeFile("not-a-chart/readme.txt", "hello")
 
     expect(loadConfig(dir.path)).toEqual({ chartAndAppsList: [] })
   })
 
-  it("chartDirNameを指定した先にchart.yamlが無いとき例外をスローする", () => {
+  it("chartDirNameを指定した先にregistry.yamlが無いとき例外をスローする", () => {
     // ディレクトリ自体は実在するので chartDirs.includes チェックは通過するが、
-    // chart.yaml が無いため絞り込み結果が0件になる
+    // registry.yaml が無いため絞り込み結果が0件になる
     dir.writeFile("teamA-chart/readme.txt", "hello")
 
     expect(() =>
@@ -463,10 +463,10 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
     ).toThrow("TARGET_CHART / TARGET_UNITS で絞り込んだ結果")
   })
 
-  it("chartDirNameを指定した先にchart.yamlはあるがtenant/clientが1つも無いとき例外をスローする", () => {
-    dir.writeChartYaml(
+  it("chartDirNameを指定した先にregistry.yamlはあるがtenant/clientが1つも無いとき例外をスローする", () => {
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
+      registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
     )
 
     expect(() =>
@@ -475,9 +475,9 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
   })
 
   it("unitsに指定した先にconfig.yamlが無いとき、設定ユニットが見つからない旨の例外をスローする", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
+      registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
     )
     // config.yaml を置かず、ディレクトリだけ実在させる。ディレクトリの有無ではなく
     // 「config.yaml を持つディレクトリか」で判定するため TARGET_UNITS のエラーになる
@@ -490,9 +490,9 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
 
   it("0件エラーのメッセージに実在するディレクトリ名の一覧を含める", () => {
     dir.writeFile("teamA-chart/readme.txt", "hello")
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamB-chart",
-      chartYaml({ projectId: 2, projectName: "teamB-chart", mrTargetBranch: "main" }),
+      registryYaml({ projectId: 2, projectName: "teamB-chart", mrTargetBranch: "main" }),
     )
     dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYaml())
 
@@ -502,9 +502,9 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
   })
 
   it("絞り込みで実際に1件以上ヒットしていれば例外をスローしない", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
+      registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYaml())
 
@@ -518,9 +518,9 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
 
 describe("loadConfig（helmTargetBranch）", () => {
   it("config.yamlのhelm.chart[].valuesPathがappのchart[].valuesPathと一致すると、appのhelmTargetBranchにマージされる", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "app-1" }],
       ),
@@ -549,9 +549,9 @@ describe("loadConfig（helmTargetBranch）", () => {
   })
 
   it("どちらにも無いとき、helmTargetBranchはundefinedになる", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "app-1" }],
       ),
@@ -574,9 +574,9 @@ describe("loadConfig（helmTargetBranch）", () => {
   })
 
   it("helm.branchToSyncはあるがhelm.chartが無いとき例外をスローする", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "app-1" }],
       ),
@@ -601,9 +601,9 @@ describe("loadConfig（helmTargetBranch）", () => {
   })
 
   it("helm.chartはあるがhelm.branchToSyncが無いとき例外をスローする", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "app-1" }],
       ),
@@ -625,9 +625,9 @@ describe("loadConfig（helmTargetBranch）", () => {
   })
 
   it("helm.chartが空配列のとき例外をスローする", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "app-1" }],
       ),
@@ -650,9 +650,9 @@ describe("loadConfig（helmTargetBranch）", () => {
   })
 
   it("helmが指定されているのに、一部のappのvaluesPathがhelm.chart[]に無いとき例外をスローする", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [
           { projectId: 1, projectName: "app-1" },
@@ -686,9 +686,9 @@ describe("loadConfig（helmTargetBranch）", () => {
   })
 
   it("helmが指定されているとき、全appのvaluesPathがhelm.chart[]でカバーされていれば読み込める", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [
           { projectId: 1, projectName: "app-1" },
@@ -732,9 +732,9 @@ describe("loadConfig（helmTargetBranch）", () => {
   })
 
   it("1アプリのchart内で複数のvaluesPathがそれぞれhelm.chart[]と一致すると、helmTargetBranch.targetsに複数含める", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "app-1" }],
       ),

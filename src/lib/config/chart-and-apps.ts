@@ -11,7 +11,7 @@ import type {
   HelmTargetBranchConfig,
 } from "../../types/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
-import type { ChartApp } from "./schema.js"
+import type { AppSpec } from "./schema.js"
 import { ConfigYamlSchema } from "./schema.js"
 import {
   validateNoDuplicateProjectIds,
@@ -21,7 +21,7 @@ import {
 
 /**
  * 1つの設定ユニットのディレクトリ（`<chartDir>/<unitPath>/`）の`config.yaml`（運用値＋chart構造）を
- * 読み込み、`chartApps`（`chart.yaml`の`apps[]`、`projectId`をキーにしたタグ形式の台帳）と
+ * 読み込み、`appSpecs`（`registry.yaml`の`appSpecs[]`、`projectId`をキーにしたタグ形式の台帳）と
  * `projectId`で結合して`ChartAndApps`（MRを作成する単位）1件にする。両者間の紐づけ矛盾は
  * `validateProjectLinkage()`で検証する。`config.yaml`が実在するディレクトリだけが渡ってくる
  * 前提（どのディレクトリが設定ユニットかは`config.ts`の走査が決める）。
@@ -31,14 +31,14 @@ export function loadChartAndApps(
   chartDirName: ChartDirName,
   unitPath: ConfigUnitPath,
   chart: ChartRepoConfig,
-  chartApps: readonly ChartApp[],
-  chartYamlPath: string,
+  appSpecs: readonly AppSpec[],
+  registryYamlPath: string,
 ): ChartAndApps {
   const configYamlPath = join(unitDirPath, "config.yaml")
 
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
   validateNoDuplicateProjectIds(configYamlPath, apps)
-  validateProjectLinkage(configYamlPath, chartYamlPath, apps, chartApps)
+  validateProjectLinkage(configYamlPath, registryYamlPath, apps, appSpecs)
   validateNoDuplicateTargets(configYamlPath, [
     ...apps.flatMap((app) =>
       app.chart.map((target) => ({
@@ -52,10 +52,10 @@ export function loadChartAndApps(
     })),
   ])
 
-  const chartAppByProjectId = new Map(chartApps.map((chartApp) => [chartApp.projectId, chartApp]))
+  const appSpecByProjectId = new Map(appSpecs.map((appSpec) => [appSpec.projectId, appSpec]))
   const appConfigs: AppConfig[] = apps.map((app) => {
-    const chartApp = chartAppByProjectId.get(app.projectId)
-    if (chartApp === undefined) {
+    const appSpec = appSpecByProjectId.get(app.projectId)
+    if (appSpec === undefined) {
       throw new Error(
         `internal error: validateProjectLinkage を通過したのに projectId ${app.projectId} が見つからない`,
       )
@@ -64,7 +64,7 @@ export function loadChartAndApps(
       projectId: app.projectId,
       projectName: app.projectName,
       branchToSync: app.branchToSync,
-      tagFormat: chartApp.tagFormat,
+      tagFormat: appSpec.tagFormat,
       imageTagTargets: app.chart,
     }
   })

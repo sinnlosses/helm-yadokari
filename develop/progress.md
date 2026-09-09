@@ -14,6 +14,18 @@ T-001〜T-146 のうち T-146 を除く全タスクが完了し、[`docs/history
 
 ### 2026-09-09 ドキュメント整備のスキル化
 
+**T-157 完了**（`sonnet`、委譲）。改名を実装・テスト・実`config/`・`README.md` へ反映し、
+**T-156で先行更新した正典の名前が全てコード側に実在する状態になった**（`AppSpec` 3件・
+`RegistryYamlSchema` 4件・`registryYamlPath` 9件・`appSpecs` 28件）。16ファイル +199/-194行、
+テストは359件のまま（改名のみなので増減しないのが正しい）。
+
+- 実 `config/` は `git mv` で `RM`（rename）として記録され、`projectId`等の値は不変
+- **テストフィクスチャの `appsField()` → `listField(key, ...)` はスコープ増ではなく必然**。
+  元はキー名 `"apps"` をリテラルで埋め込んで registry 側と config 側で共用していたため、
+  片側だけ `appSpecs` になった時点でキーを引数に取る以外に選択肢がない
+- 受け入れで確認: 可否表の据え置き対象4種が残存、旧名5種が0件、`steps/` の try 0件・
+  新規の `as`/`?:`/タスク番号 0件、`/maintain-docs` の指摘は既存12件のまま増えず
+
 **T-156 完了**（`opus`、委譲）。`config/` の改名（`chart.yaml`→`registry.yaml`、
 `chart:`→`chartToUpdate:`、`apps:`→`appSpecs:`）を正典3ファイルに先行反映した。実装・テスト・
 実`config/`は未変更（T-157）。**コード識別子の追随は「外部ファイル形式の写しかどうか」で決める**

@@ -1,39 +1,39 @@
 import { describe, expect, it } from "vitest"
 
 import { loadConfig } from "../../../src/lib/config/config.js"
-import { chartYaml, configYaml, useConfigDir } from "./fixture.js"
+import { configYaml, registryYaml, useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
 
 describe("loadConfig（スキーマ検証エラー）", () => {
-  it("chart.yaml の projectId が数値でないとき例外をスローする", () => {
-    dir.writeChartYaml(
+  it("registry.yaml の projectId が数値でないとき例外をスローする", () => {
+    dir.writeRegistryYaml(
       "teamA-chart",
-      'chart:\n  projectId: "not-a-number"\n  projectName: teamA-chart\n  mrTargetBranch: develop\napps: []\n',
+      'chartToUpdate:\n  projectId: "not-a-number"\n  projectName: teamA-chart\n  mrTargetBranch: develop\nappSpecs: []\n',
     )
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("chart.yaml の mrTargetBranch がないとき例外をスローする", () => {
-    dir.writeChartYaml(
+  it("registry.yaml の mrTargetBranch がないとき例外をスローする", () => {
+    dir.writeRegistryYaml(
       "teamA-chart",
-      "chart:\n  projectId: 1\n  projectName: teamA-chart\napps: []\n",
+      "chartToUpdate:\n  projectId: 1\n  projectName: teamA-chart\nappSpecs: []\n",
     )
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("chart.yaml の apps がないとき例外をスローする", () => {
-    dir.writeChartYaml(
+  it("registry.yaml の appSpecs がないとき例外をスローする", () => {
+    dir.writeRegistryYaml(
       "teamA-chart",
-      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+      "chartToUpdate:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
   it("config.yaml の branchToSync が空文字のとき例外をスローする", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "app-1" }],
       ),
@@ -47,9 +47,9 @@ describe("loadConfig（スキーマ検証エラー）", () => {
   })
 
   it("config.yaml の apps[].chart が空配列のとき例外をスローする", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "app-1" }],
       ),
@@ -64,9 +64,9 @@ describe("loadConfig（スキーマ検証エラー）", () => {
   })
 
   it("config.yaml の apps[].chart[].valuesPath が無いとき例外をスローする", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "app-1" }],
       ),
@@ -81,9 +81,9 @@ describe("loadConfig（スキーマ検証エラー）", () => {
   })
 
   it("config.yaml の apps[].chart[].anchor が無いとき例外をスローする", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "app-1" }],
       ),
@@ -98,7 +98,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
   })
 })
 
-describe("loadConfig（chart.yamlのapps[].tagFormat）", () => {
+describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
   const CONFIG_YAML = configYaml([
     {
       projectId: 1,
@@ -109,9 +109,9 @@ describe("loadConfig（chart.yamlのapps[].tagFormat）", () => {
   ])
 
   it("指定したタグ形式がそのままAppConfigまで届く", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      chartYaml(
+      registryYaml(
         { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "app-1", tagFormat: "{date}-{time}-{branch}" }],
       ),
@@ -123,10 +123,10 @@ describe("loadConfig（chart.yamlのapps[].tagFormat）", () => {
   })
 
   it("省略したとき例外をスローする", () => {
-    dir.writeChartYaml(
+    dir.writeRegistryYaml(
       "teamA-chart",
-      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n" +
-        "apps:\n  - projectId: 1\n    projectName: app-1\n",
+      "chartToUpdate:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n" +
+        "appSpecs:\n  - projectId: 1\n    projectName: app-1\n",
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
@@ -136,9 +136,9 @@ describe("loadConfig（chart.yamlのapps[].tagFormat）", () => {
   it.each(["{date}-{time}", "{branch}-{date}", "{branch}", "{time}", "{date}"])(
     "プレースホルダが足りないフォーマット %s は例外をスローする",
     (tagFormat) => {
-      dir.writeChartYaml(
+      dir.writeRegistryYaml(
         "teamA-chart",
-        chartYaml(
+        registryYaml(
           { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
           [{ projectId: 1, projectName: "app-1", tagFormat }],
         ),
