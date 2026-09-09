@@ -70,7 +70,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   `helm.branchToSync`）と、「`values.yaml`のどこに書き込むか」というchart構造
   （`apps[].chart[]`、`helm.chart[]`）の両方を持つ。両者は`projectId`で対応付ける。
   `registry.yaml`側の各appは`projectId`に加えて`projectName`も重複して持ち、
-  `ChartAndApps`（1設定ユニット分の集約）の読み込み時に`validateProjectLinkage()`が
+  `ChartAndApps`（1設定ユニット分の集約）の読み込み時に`resolveProjectLinkage()`が
   両ファイル間の紐づけ（`config.yaml`の各appに対応するエントリが`registry.yaml`の`appSpecs[]`に
   あるか、`projectName`が食い違っていないか）を検証する。`registry.yaml`の`appSpecs[]`にだけ
   あってどの設定ユニットからも参照されないappはエラーにしない（そのchartリポジトリで

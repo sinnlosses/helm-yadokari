@@ -90,6 +90,8 @@ const AppSchema = z.object({
   chart: z.array(AnchorTargetSchema).min(1, "chart は1件以上指定してください"),
 })
 
+export type ConfigApp = z.infer<typeof AppSchema>
+
 /**
  * `helm`オブジェクト自体は省略できるが、書き込む値（`branchToSync`）と書き込み先（`chart[]`）は
  * 両方揃って初めて意味を持つため中身は必須にする。片方だけの指定はここで設定エラーになる

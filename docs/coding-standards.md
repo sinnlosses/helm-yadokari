@@ -332,18 +332,19 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 変わる分岐は埋めない。
 
 **埋めないと決めた穴は、理由を添えて書き残す**。次にカバレッジを見た人が同じ調査を
-繰り返さずに済むようにするため。現時点で埋めないと決めているのは次の3件（元になった調査は
+繰り返さずに済むようにするため。現時点で埋めないと決めているのは次の2件（元になった調査は
 `docs/history/test-inventory.md`）:
 
 | 未到達                                                                                           | 埋めない理由                                                                                                                                                                           |
 | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/config/chart-and-apps.ts` の `internal error:` を投げる分岐                             | `validateProjectLinkage` を通過した後は到達しない防御的分岐                                                                                                                            |
 | `src/lib/config/config.ts` の `formatChartDirs` の `"(なし)"`                                    | エラーメッセージの文面だけが変わる分岐で、判断は変わらない                                                                                                                             |
 | `src/steps/shared/describe-plan.ts` の `describeHelmTargetBranchUpdates` 内の `map` コールバック | Helmの向き先ブランチ更新のログサマリが空配列でしか組み立てられていない。更新そのものの振る舞いは `stage-helm-target-branch-updates.test.ts` が確かめており、未到達なのはログの文面だけ |
 
-（`src/lib/gitlab/errors.ts` の `isFatalStatus` にあった同種の分岐は、テストではなくコード側の
-問題だった。引数の型を `number` に狭めることで分岐ごと削除済み。上の「避ける`undefined`」
-節の1つ目のパターン「実行時には到達しないのに型に残っている`undefined`」の実例）
+（同種の分岐が2件、テストではなくコード側の問題として解消済み。どちらも上の「避ける`undefined`」
+節の1つ目のパターン「実行時には到達しないのに型に残っている`undefined`」の実例。
+`src/lib/gitlab/errors.ts` の `isFatalStatus` は引数の型を `number` に狭めて分岐ごと削除。
+`src/lib/config/chart-and-apps.ts` の `internal error:` は、紐づけの検証が結果を捨てていたため
+同じ突き合わせを2回していたのが原因で、`resolveProjectLinkage()` が組を返すようにして削除）
 
 ### 通し（e2e）で守るのは「実ファイル → MRの中身」の連結だけ
 

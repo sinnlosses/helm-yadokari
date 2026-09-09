@@ -12,16 +12,16 @@ import { parseYamlFile } from "../../utils/yaml.js"
 import type { AppSpec, HelmConfig } from "./schema.js"
 import { CONFIG_YAML_FILE_NAME, ConfigYamlSchema } from "./schema.js"
 import {
+  resolveProjectLinkage,
   validateNoDuplicateProjectIds,
   validateNoDuplicateTargets,
-  validateProjectLinkage,
 } from "./validate.js"
 
 /**
  * 1つの設定ユニットのディレクトリ（`<chartDir>/<unitPath>/`）の`config.yaml`（運用値＋chart構造）を
  * 読み込み、`appSpecs`（`registry.yaml`の`appSpecs[]`、`projectId`をキーにしたタグ形式の台帳）と
- * `projectId`で結合して`ChartAndApps`（MRを作成する単位）1件にする。両者間の紐づけ矛盾は
- * `validateProjectLinkage()`で検証する。`config.yaml`が実在するディレクトリだけが渡ってくる
+ * `projectId`で結合して`ChartAndApps`（MRを作成する単位）1件にする。両者間の紐づけ矛盾の検証と
+ * 結合そのものは`resolveProjectLinkage()`が一度に行う。`config.yaml`が実在するディレクトリだけが渡ってくる
  * 前提（どのディレクトリが設定ユニットかは`config.ts`の走査が決める）。
  */
 export function loadChartAndApps(
@@ -36,7 +36,7 @@ export function loadChartAndApps(
 
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
   validateNoDuplicateProjectIds(configYamlPath, apps)
-  validateProjectLinkage(configYamlPath, registryYamlPath, apps, appSpecs)
+  const linkedApps = resolveProjectLinkage(configYamlPath, registryYamlPath, apps, appSpecs)
   validateNoDuplicateTargets(configYamlPath, [
     ...apps.flatMap((app) =>
       app.chart.map((target) => ({
@@ -50,22 +50,13 @@ export function loadChartAndApps(
     })),
   ])
 
-  const appSpecByProjectId = new Map(appSpecs.map((appSpec) => [appSpec.projectId, appSpec]))
-  const appConfigs: AppConfig[] = apps.map((app) => {
-    const appSpec = appSpecByProjectId.get(app.projectId)
-    if (appSpec === undefined) {
-      throw new Error(
-        `internal error: validateProjectLinkage を通過したのに projectId ${app.projectId} が見つからない`,
-      )
-    }
-    return {
-      projectId: app.projectId,
-      projectName: app.projectName,
-      branchToSync: app.branchToSync,
-      tagFormat: appSpec.tagFormat,
-      imageTagTargets: app.chart,
-    }
-  })
+  const appConfigs: readonly AppConfig[] = linkedApps.map(({ app, appSpec }) => ({
+    projectId: app.projectId,
+    projectName: app.projectName,
+    branchToSync: app.branchToSync,
+    tagFormat: appSpec.tagFormat,
+    imageTagTargets: app.chart,
+  }))
 
   return {
     chartDirName,
