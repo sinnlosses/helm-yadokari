@@ -9,6 +9,113 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-09（2回目）
+
+生成したタスク: **T-158**（`isFatalError()` がネットワーク障害を検出できない件、`opus`）、
+**T-159**（HTTPタイムアウト方針の決定、`opus`）、**T-160**（未使用の `logger.warn` の存否、`sonnet`）、
+**T-161**（tsconfig のフラグ追加、`sonnet`）、**T-162**（ログのフィールドの型付け、`opus`、T-161依存）、
+**T-163**（`cacheByArgs()` を `utils/` へ、`sonnet`）、**T-164**（`[] as string[]` の除去、`haiku`）、
+**T-165**（設定ユニットの位置表示の一本化、`sonnet`）、**T-166**（config/ のファイル名リテラルの定数化、`sonnet`）、
+**T-167**（タグ名内のブランチ名表現の一本化、`haiku`）、**T-168**（`duration_ms` の命名、`sonnet`）、
+**T-169**（数値スカラーのクォート化、`sonnet`）、**T-170**（`helm.ts` のアンカー不在まわりのエラー表現、`sonnet`）。
+E2 と E3 は同じ `src/lib/helm.ts` の同じ不変条件を扱うため T-170 に統合した。それ以外は
+ユーザーの「1つ1つ判断しながら解きたい」という希望に沿って A1〜E1 を1項目=1タスクで分けている。
+「調べたうえで『出さない』と決めたもの」の6項目は、正典に既に判断があるためタスクにしていない。
+
+## ソースコード全体の棚卸し（アーキテクチャ・保守性・拡張性・可読性・型安全）
+
+`src/` と `scripts/` の全44ファイル（3,377行）を読んで改善点を洗い出した。**正典の修正も
+検討対象に含める。** ユーザーの希望は「1つ1つ判断しながら解きたい」ので、**項目ごとに
+個別のタスクへ分ける**（まとめて1タスクにしない）。
+
+各項目は洗い出し時にコマンドで裏を取ってある。ベースラインは `pnpm check` 通過・
+32ファイル359テスト。
+
+### A. 実装が正典の約束を守れていない
+
+- **A1. `isFatalError()` がネットワーク障害を検出できていない。** `src/utils/http.ts:26` は
+  エラー自身の `code` を見ているが、gitbeaker が使う undici の `fetch` は
+  `TypeError: fetch failed` を投げ、`ECONNREFUSED`/`ENOTFOUND` は `cause.code` に入る。
+  実測（gitbeaker 経由で存在しないホストへ `Projects.show`）で `isFatalError: false` を確認。
+  `README.md`「エラーハンドリング」表・`CLAUDE.md`・`docs/coding-standards.md`
+  「エラーハンドリング」の3箇所が「ネットワーク障害は即時終了」と書いているのに効いていない。
+  `test/utils/http.test.ts:80` が実在しない平たい形（`Object.assign(new Error, {code})`）を
+  検証しているためテストは緑のまま。
+- **A2. HTTPリクエストにタイムアウトが無い。** `ETIMEDOUT` を fatal に数える設計なのに、
+  `fetch` に既定タイムアウトは無く gitbeaker にも渡していない。`docs/requirements.md`・
+  `docs/architecture.md`・`README.md` にタイムアウトの記述は0件で、方針そのものが未定。
+
+### B. 撤回作業の取り残し
+
+- **B1. `logger.warn` が本番コードから0回も呼ばれていない。** `git log -S` で追跡した結果、
+  T-134（semver対応）で新設され、T-144 の撤回で唯一の呼び出し元が消えた（T-144 のコミット
+  メッセージ自身が「『最新タグが決まらない』undefined 経路と app 単位スキップも消滅した」と
+  書いている）。JSDoc の「例: 最新タグが決まらずappを見送った」は今は存在しない挙動の説明で、
+  `docs/coding-standards.md`「コメント」に反する。生かしているのは `logger.test.ts` の2件だけ。
+
+### C. 型安全
+
+- **C1. tsconfig に足せるフラグがある。** `npx tsc --noEmit --<flag>` で1つずつ実測した:
+  `noUnusedLocals` / `noUnusedParameters` / `exactOptionalPropertyTypes` / `noImplicitOverride` /
+  `noFallthroughCasesInSwitch` / `isolatedModules` / `useUnknownInCatchVariables` は
+  **エラー0件**。`noImplicitReturns` は1件（`src/lib/helm.ts:64`）。`erasableSyntaxOnly` は
+  1件（`errors.ts` の parameter property）で、入れる価値は薄い。
+  `exactOptionalPropertyTypes` は「`?:` を使わない」規約を型で機械的に固定でき、
+  `noUnusedLocals` は B1 のような撤回残骸を次から自動検出する。
+- **C2. ログのフィールドに型が無い。** `Record<string, unknown>` が6ファイル13箇所。`event` 名も、
+  3つのstepの引数を貫通する `logContext` も、`describePlan()` の戻り値も全部これ。
+  `noPropertyAccessFromIndexSignature` を入れるとテスト側で4件エラーになる（index signature
+  越しにログを読んでいる証拠）。`docs/architecture.md`「型の置き場所」の表4行目
+  （複数のstepが共有する、ドメイン型にだけ依存する型 → `steps/shared/`）に当てはまる。
+
+### D. 重複・一貫性（片側だけ既に解けている系）
+
+- **D1. `scripts/lint/verify-config/remote-cache.ts` が `batch-cache.ts` の `cacheByArgs()`
+  相当を手書きしている。** キー3本を `#` 連結し、箱詰めも手書き。`#` はGitのブランチ名に
+  使える文字なので `files` のキーは理屈上衝突しうる（`ref="a#b",path="c"` と
+  `ref="a",path="b#c"`）。`batch-cache.ts` は `\0` 区切りで既に解いてある。`cacheByArgs` は
+  技術非依存なので `utils/cache.ts` へ上げれば原則2に合うし、`docs/architecture.md` 自身が
+  「`utils/cache.ts`に残るのは技術非依存のメモ化」と書いている。
+- **D2. `scripts/lint/verify-config/verify-config.ts:98,169` に `[] as string[]` が2箇所。**
+  `src` 側の同じ形（`resolve-latest-tags.ts:44`）は
+  `const initial: readonly AppWithLatestTag[] = []` で `as` を避けている。同じ手が使えるのに
+  片方だけキャストしていて、ついでに `readonly` も落ちている。
+- **D3. `${chartDirName}/${unitPath}` の組み立てが3箇所**（`src/lib/config/validate.ts:55`、
+  `scripts/lint/verify-config/verify-config.ts:56,76`）。設定ユニットの位置表示という
+  ドメイン語彙なので `src/domain/config-unit.ts` に1本置ける。
+- **D4. `"registry.yaml"` / `"config.yaml"` のリテラルが散っている**（`src/lib/config/config.ts`
+  に5箇所、`chart-and-apps.ts` に1箇所、ほかエラーメッセージ内）。直近の T-157 がまさに
+  この改名で25箇所を触った実績がある。
+- **D5. `branch.replaceAll("/", "-")` が `src/domain/tag-format.ts` に2箇所**
+  （`compileTagPattern` と `fillTagFormat`）。タグ名内でのブランチ名表現という同じ規則で、
+  パースと生成の対称性を1関数で担保できる。
+- **D6. ログキーで `duration_ms` だけ snake_case**（他は `httpStatus`・`chartDirName`）。
+  `README.md:139` に出力例が載っているので、直すなら正典も同時に。
+
+### E. 細かい挙動の穴
+
+- **E1. `setValueAtAnchor()` が数値に見えるスカラーをクォート付きで書き戻す。** 実測で
+  `- &ver 20260101` に書き込むと `- &ver "20260102"` になった。イメージタグは `{branch}` 必須
+  なので該当しないが、`helm.branchToSync` の向き先ブランチ名が数字だけ（例 `2026`）だと
+  values.yaml の差分にクォートが混じる。`docs/architecture.md`「その他」の
+  「クォートスタイルは概ね保持」に、この条件が書かれていない。
+- **E2. `findAnchorNode` は Scalar しか見ない**ので、アンカーがマップ/シーケンスに付いていると
+  「アンカーが見つかりません」と報告する。原因が読み取れないメッセージになる。
+- **E3. 「アンカーが無い」という同じ不変条件を `getRequiredValueAtAnchor` と
+  `setValueAtAnchor` が別々に投げている**（呼び出し順が固定なので後者は到達しない）。
+
+### 調べたうえで「出さない」と決めたもの（タスクにしない）
+
+正典に既に判断があるものは蒸し返さない。念のため記録だけ残す:
+
+- stepの入口の「並列実行 → 振り分け」の共通化 → `docs/architecture.md` が理由3点つきで却下済み
+- `StepOutcome.settled` の SKIPPED/ERROR 分離 → T-151 でユーザー判断により着手しない決定済み
+- `env.ts` のテスト専用 export → `docs/coding-standards.md` が例外として明記済み
+- `reduceAsync`/`partitionMap` のスプレッド蓄積（O(n^2)）→ 不変性を核の規約にしている方針との
+  トレードオフになるので、性能問題が出るまで触らない
+- 未到達行3件 → 「埋めない穴」として理由つきで記録済み
+- `coverage/` は `.gitignore` 済み（git追跡0件）で問題なし
+
 ## 2026-09-09
 
 生成したタスク: **T-156**（正典の先行更新＋コード側識別子の追随範囲の決定、`opus`）、
