@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { parse as parseYaml } from "yaml"
 
 import { getRequiredValueAtAnchor, getValueAtAnchor, setValueAtAnchor } from "../../src/lib/helm.js"
 import { toAnchorName, toValuesPath } from "../../src/types/types.js"
@@ -21,6 +22,14 @@ describe("getValueAtAnchor", () => {
 
   it("該当するアンカーが存在しないとき undefined を返す", () => {
     expect(getValueAtAnchor(VARIABLES_YAML, toAnchorName("noSuchAnchor"))).toBeUndefined()
+  })
+
+  it("クォートなしの数値に見える値（例: ブランチ名が数字だけ）も文字列として返す", () => {
+    // yaml パッケージは `&b 2026` のようなクォートなしのスカラーを number としてパースする。
+    // ここで文字列化しておかないと、config.yaml側（branchToSyncはz.string()）の値と
+    // 型が合わず比較できない
+    const yamlContent = "variables:\n  - &b 2026\n"
+    expect(getValueAtAnchor(yamlContent, toAnchorName("b"))).toBe("2026")
   })
 })
 
@@ -63,5 +72,22 @@ describe("setValueAtAnchor", () => {
     expect(() => setValueAtAnchor(VARIABLES_YAML, toAnchorName("noSuchAnchor"), "x")).toThrow(
       "noSuchAnchor",
     )
+  })
+
+  it("数値に見える値（例: ブランチ名が数字だけ）を書き戻しても、文字列として読み取れる", () => {
+    // 元のスカラーがクォートなしの数値としてパースされるケース（&b 2026 は yaml パッケージ上
+    // number になる）。setValueAtAnchor は文字列として代入するため、再パース時に数値へ
+    // 化けないようクォートが付くが、getRequiredValueAtAnchor で読み戻した値は文字列のまま保たれる
+    const yamlContent = "variables:\n  - &b 2026\n"
+    const written = setValueAtAnchor(yamlContent, toAnchorName("b"), "2027")
+    expect(getRequiredValueAtAnchor(written, toAnchorName("b"), toValuesPath("values.yaml"))).toBe(
+      "2027",
+    )
+    // yaml.parse()（このライブラリ自身のプレーンなパーサ）で素直に読んでも number に化けず、
+    // 文字列として保たれていることを確認する（getRequiredValueAtAnchor側のString()変換に
+    // 頼らない検証）
+    const reparsed: { variables: readonly unknown[] } = parseYaml(written)
+    expect(reparsed.variables[0]).toBe("2027")
+    expect(typeof reparsed.variables[0]).toBe("string")
   })
 })

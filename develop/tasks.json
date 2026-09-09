@@ -47,10 +47,10 @@
   {
     "id": "T-169",
     "task": "数値に見えるスカラーを書き戻すとクォートが付く件を、正典に書くか実装で防ぐか決める。\n\n## 背景\n\n`src/lib/helm.ts` の `setValueAtAnchor()` は `yaml` パッケージのDocument（AST）の\n`node.value` に**文字列**を代入して再シリアライズする。元のスカラーが数値として\nパースされていた場合、書き戻すとクォートが付く。実測:\n\n```\n入力:  variables:\\n  - &ver 20260101\\n  - &b main\\n\nnode.value の型: number（20260101）\n書き戻し後: - &ver \"20260102\"\n```\n\nイメージタグは `tagFormat` が `{branch}` を必須にしている（`src/domain/tag-format.ts` の\n`REQUIRED_PLACEHOLDERS`）ため、タグ名が純粋な数値になることはなく**この経路では起きない**。\n\n起きうるのは **Helmの向き先ブランチ**（`config.yaml` の `helm.branchToSync`）で、ブランチ名が\n数字だけ（例: `2026`）の場合。`stage-helm-target-branch-updates.ts` が\n`setValueAtAnchor(valuesYamlContent, target.anchorName, branchName)` を呼ぶため、\nvalues.yaml の差分にクォートが増える。\n\n`docs/architecture.md`「既知の制約・注意点」の「その他」には\n\n> `values.yaml` の書き換えは `yaml` パッケージのDocument（AST）を直接操作する方式のため、\n> 書き換え対象以外のコメント・クォートスタイルは概ね保持される（完全な保持を保証するものではない）\n\nとあるが、**書き換え対象そのもののクォートが変わる**この条件は書かれていない。\n\n## 解くべき論点\n\n1. **実装で防ぐか、制約として書くか。** 防ぐなら「元の `node.type` を保つ」「元が数値なら\n   数値として代入する」などが考えられるが、**ブランチ名は文字列なので数値として書くのは\n   むしろ誤り**（YAMLとして読み直すと数値になり、Helmが期待する型と食い違う）。\n   クォートが付くのは**正しい挙動**とも言える。この見立てが正しいかを検証する\n2. **`getRequiredValueAtAnchor()` 側の `String(node.value)` も対になっている。** 元が数値の\n   `2026` を読むと文字列 `\"2026\"` になり、`config.yaml` の `branchToSync: 2026`（Zodが\n   `z.string()` で弾く）とは比較できる形になっている。読み取り側の挙動も合わせて確認する\n3. **書くなら、どの正典のどの節か。** `docs/architecture.md`「その他」に1行足すのが素直だが、\n   `docs/requirements.md` 4.4節（`config/` のスキーマ仕様）が\n   「ブランチ名に数字だけの名前を使わない」と書くべき性質かもしれない\n\n## やること\n\n1. 論点1を検証する。**「クォートが付くのが正しい」と結論できれば、実装は変えずに\n   制約として正典に書いて閉じる**（`evidence` に検証内容を書く）\n2. 論点2を確認する。読み取り→比較→書き戻しの往復が、数値に見える値でも壊れないことを\n   テストで守る（`test/lib/helm.test.ts` に1件足す）\n3. 論点3の結論に従って正典に1項目足す\n\n## 完了条件\n\n- 数値に見えるアンカー値（例 `&b 2026`）に対する読み取り・書き戻しの往復を守るテストが\n  `test/lib/helm.test.ts` に**1件以上ある**\n- `docs/architecture.md`「既知の制約・注意点」または `docs/requirements.md` に、この条件が\n  1項目として書かれている（書いた場所を `evidence` に書く）\n- 実装を変えた場合: 変更前後で `test/steps/build-plans/sub-steps/stage-helm-target-branch-updates.test.ts`\n  が無改変で通る\n- `pnpm check` が通る（テスト件数を `evidence` に書く。テストを足すので**359件より増える**のが正しい）\n\n## 注意\n\n- **`yaml` パッケージを別のものに置き換えない。** `docs/architecture.md`\n  「`values.yaml` の位置指定はYAMLアンカーのみ、YAML処理は `yaml` パッケージ」が\n  `js-yaml` を使わない理由を持っている\n- `setValueAtAnchor()` がASTを直接書き換える方式（＝他の要素・インデント・アンカー記法を\n  保つ）を変えない\n- 実 `config/` とスモークテスト用リポジトリのブランチ名を変えない\n- `/loop /next-task` に載せてよい",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "`sonnet` に委譲。論点1の結論は**クォートが付くのが正しい挙動なので実装は変えない**（`src/lib/helm.ts` は `git diff` 0行）。`yaml` パッケージは「文字列として代入した値がクォートなしだと再パース時に数値・真偽値へ化ける」ケースだけを検知してクォートを付ける。\n**メインが独立に実測して一致を確認**: `&b 2026`→`\"2027\"`、`&b 007`→`\"008\"`、`&b true`→`\"false\"` はクォートが付き、`&b no`→`yes`（YAML1.2で `no` は文字列）と `&b main`→`develop` には付かない。**必要なときだけ最小限に付く**ことが確認できた。\n`test/lib/helm.test.ts` に2件追加（素の `yaml.parse()` でも文字列であることを確認しており、`String()` 変換に依存しない検証）。変異（`getValueAtAnchor` の `String()` を外す）で1件落ちる。正典は `docs/architecture.md`「既知の制約・注意点」→「その他」に1項目（7行）。`docs/requirements.md` は変更なし（`branchToSync` は `z.string()` が数値を弾くため、運用上の禁止事項として書くのは的外れという判断）。`pnpm check` 通過（33ファイル379テスト、+2）。",
     "dependencies": []
   },
   {
@@ -87,7 +87,9 @@
     "difficulty": "sonnet",
     "passes": false,
     "evidence": "",
-    "dependencies": ["T-172"]
+    "dependencies": [
+      "T-172"
+    ]
   },
   {
     "id": "T-174",
