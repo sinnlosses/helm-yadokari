@@ -140,6 +140,12 @@ validate-config-remote:
     - if: '$CI_PIPELINE_SOURCE == "web"'
   timeout: 10 minutes
 
+# 本体。定期実行（schedule）と手動実行（web）のどちらでも自動で開始する。
+# web を when: manual にしない: 手動実行の主な用途が DRY_RUN での確認で、そのたびに
+#   ジョブを手で開始させる手間に見合わないと判断した。
+#   トレードオフとして、DRY_RUN の既定値は false なので、check や validate-config-remote を
+#   回すつもりで Run pipeline を実行すると本物のMR・ブランチ・タグが作られる。
+#   MRを作りたくないときは Run pipeline の Inputs で DRY_RUN を true にすること。
 update-app-versions:
   extends: .node-setup
   stage: deploy
@@ -150,7 +156,6 @@ update-app-versions:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $RENOVATE != "true"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
-      when: manual
   retry:
     max: 2
     when:
