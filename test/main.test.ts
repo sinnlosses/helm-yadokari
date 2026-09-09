@@ -115,7 +115,7 @@ describe("run", () => {
       expect.objectContaining({ event: "summary", CREATED: 0, SKIPPED: 0, ERROR: 0 }),
     )
     expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
-      expect.objectContaining({ event: "run_end", duration_ms: expect.any(Number) }),
+      expect.objectContaining({ event: "run_end", durationMs: expect.any(Number) }),
     )
   })
 })

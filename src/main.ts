@@ -19,9 +19,9 @@ export async function run(env: EnvConfig): Promise<RunResult> {
     targetChart: env.targetChart,
     targetUnits: env.targetUnits,
   })
-  const { value: resultCounts, duration_ms } = await timed(() => runProcess(env))
+  const { value: resultCounts, durationMs } = await timed(() => runProcess(env))
   logger.info({ event: "summary", ...resultCounts })
-  logger.info({ event: "run_end", duration_ms })
+  logger.info({ event: "run_end", durationMs })
   return resultCounts.ERROR === 0 ? "SUCCESS" : "PARTIAL_FAILURE"
 }
 

@@ -125,10 +125,10 @@
   {
     "id": "T-168",
     "task": "ログのキー `duration_ms` だけが snake_case である件の扱いを決める。\n\n## 背景\n\n構造化ログのフィールド名は camelCase で統一されている（`httpStatus`・`chartDirName`・\n`unitPath`・`chartProjectId`・`projectName`・`previousTagName`・`dryRun`・\n`concurrencyLimit`・`configDirPath`）。唯一 `duration_ms` だけが snake_case:\n\n- `src/utils/timer.ts:1` `Promise<{ value: T; duration_ms: number }>`\n- `src/main.ts:22,24` `const { value: resultCounts, duration_ms } = await timed(...)` /\n  `logger.info({ event: \"run_end\", duration_ms })`\n\nこれは**外部インターフェース**でもある。`README.md:139` に出力例が載っている:\n\n```\n{\"level\":\"info\",\"timestamp\":\"2026-09-02T00:00:00.520Z\",\"event\":\"run_end\",\"duration_ms\":520}\n```\n\n`test/main.test.ts:118` もこのキーで検証しており、`docs/coding-standards.md:262` の\n「消すかどうか」の表にも `run_end` の `duration_ms` ログとして登場する。\n\n## 解くべき論点\n\n1. **そもそも直すか。** ログはCIの出力として人と（将来は）ログ収集基盤が読むもので、\n   キー名を変えると既存のログとの互換が切れる。**直さない結論も正当**で、その場合は\n   「単位付きのキーは snake_case にする」といった規則を正典に書いて意図的な例外にする\n2. **直す場合、どこまで変えるか。** `src/utils/timer.ts` の `timed()` の戻り値の\n   フィールド名まで変えるか、ログに出すときだけ変換するか。`timed()` の戻り値は\n   `main.ts` でしか使われていないので、揃えるなら戻り値ごと変えるのが素直\n3. **正典の追随範囲。** `README.md` のログ出力例（1箇所）、`docs/coding-standards.md:262` の\n   表、`test/main.test.ts:118`。他に無いか `grep -rn \"duration_ms\"` で確認する\n\n## やること\n\n1. 論点1を検討し、**結論をユーザーに提案して承認を得てから適用する**。ログのキー名は\n   外部インターフェースなので勝手に変えない\n2. 「直さない」結論なら、その理由をログのフィールド命名の規則として正典に書く。\n   書く先は `README.md`「ログ」章か `docs/coding-standards.md` のいずれかで、\n   **どちらが正典かを決めてから**書く（二重に書かない）\n3. 「直す」結論なら、論点2の範囲で書き換え、論点3の全箇所を追随させる\n\n## 完了条件\n\n- 論点1の結論と根拠が `evidence` に書かれている\n- 「直す」結論の場合: `grep -rn \"duration_ms\" src test README.md docs` が **0件**\n- 「直さない」結論の場合: ログのフィールド命名の規則が正典のどちらか一方に書かれており、\n  `grep` でヒットする（書いた場所を `evidence` に書く）\n- `pnpm check` が通る（テスト件数を `evidence` に書く）\n\n## 注意\n\n- **`timestamp` と `level` のキー名は変えない**（`logger.ts` の `formatLog()` が出す固定キーで、\n  多くのログ収集基盤が前提にする名前）\n- `duration_ms` の**値の意味と単位**（ミリ秒）は変えない\n- **外部インターフェースの変更なのでユーザー承認が要る。`/loop /next-task` には載せない**\n- T-162（ログのフィールドの型付け）と同じ領域を触るため、片方が先に終わっていたら\n  その結果に合わせる",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "ユーザー判断で `durationMs` への統一を採用。`src/utils/timer.ts`（`timed()` の戻り値のフィールド名ごと）2件・`src/main.ts` 2件・`test/main.test.ts` 1件・`README.md:139` のログ出力例1件・`docs/coding-standards.md:262` の表1件の計7箇所を置換。\n`grep -rn duration_ms src test scripts README.md docs CLAUDE.md` は **`docs/history/` の3件を除いて0件**（history は当時の記述をそのまま残す規約のため対象外。完了条件のgrepはこの除外が必要だった）。\n変異確認: ログキーだけ `duration_ms` に戻すと `main.test.ts` の「run_start / summary / run_end イベントをログ出力する」が落ちる。`pnpm check` 通過（32ファイル361テスト。改名のみなので着手前と同数が正しい）。",
     "dependencies": []
   },
   {
