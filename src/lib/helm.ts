@@ -66,6 +66,8 @@ function findAnchorNode(doc: Document, anchorName: AnchorName): Scalar | undefin
         found = node
         return visit.BREAK
       }
+      // yaml の visit() は戻り値 undefined を「探索を続ける」と解釈する契約。
+      return undefined
     },
   })
   return found

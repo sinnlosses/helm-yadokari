@@ -6,9 +6,7 @@
     "difficulty": "sonnet",
     "passes": true,
     "evidence": "CIの手動実行（web、`DRY_RUN=true`）のログで `{\"event\":\"run_start\",...,\"dryRun\":true,\"configDirPath\":\"config\"}` を確認。3設定ユニットとも `reason:\"dry_run\"` で `summary` は `CREATED:0, SKIPPED:3, ERROR:0`（MR・タグ・ブランチは未作成）。\n作成済みスケジュールをAPIで実測（`GET /projects/86060538/pipeline_schedules`、1本のみ）: cron `0 9 * * *` / timezone `UTC` / ref `refs/heads/main` / variables `[]` / active `true` / next_run_at `2026-09-10T09:00:00Z`。\n**合意の「平日 JST 9:00」に対し実際は「毎日 18:00 JST」だが、ユーザー判断でこのまま採用**（土日は更新が無ければ `no_diff` で終わるため）。着手前にスモーク残骸（MR !28/!29・固定ブランチ2本）を `reset --apply` で除去済み。",
-    "dependencies": [
-      "T-145"
-    ]
+    "dependencies": ["T-145"]
   },
   {
     "id": "T-151",
@@ -25,9 +23,7 @@
     "difficulty": "sonnet",
     "passes": true,
     "evidence": "`config/yadokari-smoke-test-chart/chart.yaml` を `git mv` で `registry.yaml` にし（`git status` が `RM` で記録、値は不変）、16ファイルを追随させた。\n`grep -rn 'chart\\.yaml' src scripts test config README.md CLAUDE.md docs`（history・grilling除く）が0件。`pnpm lint:validate-config` が位置引数なしで `config OK: 3 設定ユニット, 5 apps`。\n`pnpm check` 通過（32ファイル・359テスト。改名のみなので着手前と同数）。可否表の据え置き対象（`ChartRepoConfig`・`ChartAndApps.chart`・`chart-and-apps.ts`・`ConfigYamlSchema`/`AppSchema`）が残存し、旧名5種は0件。",
-    "dependencies": [
-      "T-156"
-    ],
+    "dependencies": ["T-156"],
     "task": "`chart.yaml` → `registry.yaml` の改名とキー名の変更を、実装・テスト・実 `config/`・残りのドキュメントに反映する。\n\n## 背景\n\n前段タスクで正典（`docs/requirements.md` 4.4節・`docs/architecture.md`・`docs/glossary.md`）は新しい名前に更新済み。この時点で正典とコードが食い違っているので、実装側を追随させる。\n\n決定済みの変更:\n\n- ファイル名 `chart.yaml` → `registry.yaml`\n- キー `chart:` → `chartToUpdate:`\n- キー `apps:` → `appSpecs:`\n- `config.yaml` は**変更しない**（ファイル名・キー名とも据え置き）\n\nコード側の識別子をどこまで追随させるかは**前段タスクが `docs/architecture.md` に記録済み**。着手前にその節を読み、そこに書かれた範囲で改名する（このタスクで決め直さない）。\n\n主な変更箇所（`grep -rn 'chart\\.yaml'` の現状値）:\n\n- `src/` 25箇所。特に `src/lib/config/config.ts:71`（`existsSync(join(chartDirPath, \"chart.yaml\"))`）と `:187`（`const chartYamlPath = join(...)`）がファイル名のリテラル、`:98`・`:121` がエラーメッセージ中の文字列\n- `src/lib/config/schema.ts` の `ChartYamlSchema`（`chart` / `apps` の2キー）と `ChartApp`\n- `test/` 23箇所（`test/lib/config/fixture.ts`・`config.test.ts`・`schema.test.ts`・`validate.test.ts`・`test/main.e2e.test.ts`）\n- `scripts/lint/verify-config/verify-config.ts` 2箇所\n- `README.md` 7箇所\n- 実 `config/yadokari-smoke-test-chart/chart.yaml` 1ファイル（`git mv` で改名し、2キーを書き換える）\n\n## やること\n\n1. `docs/architecture.md` の該当節を読み、コード側の識別子の改名範囲を確認する\n2. 実 `config/yadokari-smoke-test-chart/chart.yaml` を `git mv` で `registry.yaml` にし、`chart:` → `chartToUpdate:`、`apps:` → `appSpecs:` に書き換える\n3. `src/`・`scripts/`・`test/` を追随させる。ファイル名のリテラルとエラーメッセージも含む\n4. `README.md`・`config/README.md`・`docs/smoke-test.md`・`CLAUDE.md` に `chart.yaml` の記述があれば直す（`config/README.md`・`docs/smoke-test.md`・`CLAUDE.md` は現状0件だが、前段タスクの結果で増える可能性があるので着手時に `grep` で確認する）\n5. `pnpm lint:validate-config` が実 `config/` を読めることを確認する（位置引数なしで `3 設定ユニット, 5 apps` が出る）\n\n## 完了条件\n\n- `grep -rn 'chart\\.yaml' src scripts test config README.md CLAUDE.md docs` が0件（`docs/history/` と `docs/requirements-grilling.md` を除く）\n- 実 `config/` に `registry.yaml` が存在し、`chart.yaml` が存在しない\n- `pnpm lint:validate-config` が位置引数なしで成功する（出力を evidence に書く）\n- `pnpm check` が通る（テスト件数を evidence に書く。改名だけなので**件数は変わらないはず**で、減っていたら理由を確認する）\n\n## 注意\n\n- **`docs/history/` 配下と `docs/requirements-grilling.md` は触らない**\n- 実 `config/` の変更はGitLab上のプロジェクトIDやアンカー名を変えるものではないので、`validate-config-remote` の検証結果は変わらない。**値そのものは書き換えない**\n- ファイルの移動は `git mv` を使う（履歴を残すため）\n- `/loop /next-task` に載せてよい"
   },
   {
@@ -60,10 +56,10 @@
   {
     "id": "T-161",
     "task": "`tsconfig.json` に、現状エラー0件で入る型チェックのフラグを足す。\n\n## 背景\n\n`tsconfig.json` の `compilerOptions` は現在 `strict` と `noUncheckedIndexedAccess` /\n`verbatimModuleSyntax` まで。追加できるフラグを `npx tsc --noEmit -p tsconfig.json --<flag>`\nで1つずつ実測した結果:\n\n| フラグ | 現状のエラー |\n| --- | --- |\n| `noUnusedLocals` | 0 |\n| `noUnusedParameters` | 0 |\n| `exactOptionalPropertyTypes` | 0 |\n| `noImplicitOverride` | 0 |\n| `noFallthroughCasesInSwitch` | 0 |\n| `isolatedModules` | 0 |\n| `useUnknownInCatchVariables` | 0 |\n| `noImplicitReturns` | 1（`src/lib/helm.ts(64,5)` TS7030） |\n| `erasableSyntaxOnly` | 1（`src/utils/errors.ts(3,5)` TS1294 = parameter property） |\n\nこのプロジェクトにとって効きが大きいもの:\n\n- **`exactOptionalPropertyTypes`**: `docs/coding-standards.md`「`undefined`」の\n  「`?:` を使わない」規約を、レビューではなく型で機械的に守らせる\n- **`noUnusedLocals`**: 撤回作業の取り残し（T-160 の `logger.warn` のような、呼び出し元が\n  消えたのに残った定義）を次から自動検出する\n\n`noImplicitReturns` の1件は `src/lib/helm.ts` の `findAnchorNode()` 内、`visit()` に渡す\n`Scalar(_key, node)` コールバックが `visit.BREAK` を返す枝と何も返さない枝を持つため。\n\n## 解くべき論点\n\n1. **`erasableSyntaxOnly` を入れるか。** 入れると `src/utils/errors.ts` の `FatalError` の\n   parameter property（`public readonly httpStatus`）を明示的なフィールド宣言に書き換える\n   ことになる。得られるのは「Node の型ストリップだけで動く」性質だが、ビルドは `tsc`、\n   ローカル実行は `tsx` で、どちらも parameter property を扱えるため**必要性が無い**。\n   見送りを推奨するが、結論と理由を `evidence` に書く\n2. **`noImplicitReturns` の1件をどう直すか。** `yaml` パッケージの `visit()` は\n   コールバックの戻り値 `undefined` を「探索を続ける」と解釈する。明示的に\n   `return undefined` を書くのが素直だが、`docs/coding-standards.md`「`undefined`」の\n   「避ける `undefined`」に当たらないかを確認する（これは外部ライブラリの契約を\n   なぞる `undefined` なので「許容する」側と判断できるはず）\n\n## やること\n\n1. 上表の**エラー0件の7フラグ**を `tsconfig.json` に足す\n2. `src/lib/helm.ts` の `findAnchorNode()` を直してから `noImplicitReturns` を足す\n3. 論点1を検討し、`erasableSyntaxOnly` を入れるか決める（見送るなら理由を `evidence` に書く。\n   `tsconfig.json` には書かない）\n4. `tsconfig.build.json` は `tsconfig.json` を `extends` しているので追加作業は不要。\n   実際に `pnpm build` が通ることで確認する\n5. フラグを足した理由が「型で規約を守らせるため」であることを、\n   `docs/coding-standards.md` の該当節（「`undefined`」）から辿れるようにするかを検討する。\n   **書く場所が無ければ書かなくてよい**（正典を増やすこと自体が目的ではない）\n\n## 完了条件\n\n- `tsconfig.json` に上表のエラー0件の7フラグと `noImplicitReturns` が入っている\n- `npx tsc --noEmit` がエラー0件（実行結果を `evidence` に書く）\n- `pnpm build` が成功する（`dist/` が生成されることを確認し、`evidence` に書く）\n- `exactOptionalPropertyTypes` が実際に効いていることを、`?:` を1箇所わざと足すと\n  型エラーになることで確認する（確認方法を `evidence` に書き、確認後は元に戻す）\n- `pnpm check` が通る（テスト件数を `evidence` に書く。フラグ追加だけなので**359件のまま**が\n  正しく、減っていたら理由を確認する）\n\n## 注意\n\n- **既存のコードの書き方を変えるためのタスクではない。** フラグを足してエラーが出たら、\n  そのフラグは足さずに `evidence` へ理由を書く（`noImplicitReturns` の1件だけが例外で、\n  これは直すと決まっている）\n- `noPropertyAccessFromIndexSignature` は**このタスクでは入れない**。4件のエラーが出るが、\n  それはログのフィールドが `Record<string, unknown>` であることが原因で、T-162 の担当\n- `strict` 配下の既存フラグを外さない\n- `/loop /next-task` に載せてよい",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "`sonnet` に委譲。エラー0件の7フラグ＋`noImplicitReturns` の計8つを `tsconfig.json` に追加。`erasableSyntaxOnly` は見送り（ビルドは `tsc`・実行は `tsx` でどちらも parameter property を扱えるため、`FatalError` を書き換える必要が無い）。`src/lib/helm.ts` の `findAnchorNode()` は `visit()` の契約（戻り値 `undefined` は探索継続）をコメントに残して `return undefined` を明示。\n**メイン側で独立に変異検証**: `?:` に `undefined` を渡すと TS2375、未使用の `const` で TS6133、`helm.ts` の `return undefined` を戻すと TS7030。いずれも復元後 `npx tsc --noEmit` はエラー0件。\n`pnpm build` 成功（`dist/` に .js 41個）。`pnpm check` 通過（32ファイル361テスト。フラグ追加のみなので着手前と同数が正しい）。`docs/coding-standards.md`「`undefined`」節に、`?:` 規約が型でも強制される旨を2行追記。",
     "dependencies": []
   },
   {
@@ -73,9 +69,7 @@
     "difficulty": "opus",
     "passes": false,
     "evidence": "",
-    "dependencies": [
-      "T-161"
-    ]
+    "dependencies": ["T-161"]
   },
   {
     "id": "T-163",

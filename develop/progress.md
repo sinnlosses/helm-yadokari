@@ -113,6 +113,19 @@ gitbeakerは既定 `queryTimeout=300000`ms を `@gitbeaker/core` が全リクエ
   `grep` はこの除外を含んでいなかったので、evidence に明記した
 - 変異確認: ログキーだけ `duration_ms` に戻すと `main.test.ts` が落ちる
 
+**T-161 完了**（`sonnet`、委譲）。エラー0件の7フラグ＋`noImplicitReturns` の計8つを `tsconfig.json` に
+追加した。`erasableSyntaxOnly` は見送り（`tsc`/`tsx` のどちらも parameter property を扱えるため）。
+
+- **受け入れ時にメインが独立に変異検証した**（委譲先の報告を鵜呑みにしない）: `?:` に `undefined` を
+  渡すと TS2375、未使用の `const` で TS6133、`helm.ts` の `return undefined` を戻すと TS7030
+- **`noUnusedLocals` が入ったので、T-160 の `logger.warn` のような撤回残骸は次から型チェックで落ちる**
+- `docs/coding-standards.md`「`undefined`」節に、`?:` 規約が型でも強制される旨を2行追記
+
+**この3コミットでメイン側の手順ミスを1つ踏んだ。** T-159・T-168 の記録で `develop/tasks.json` を
+Pythonで書き換えたあと `pnpm format` を回さずコミットしたため、**その2コミットは `format:check` に
+落ちる状態で入っている**（単一要素配列が1行に畳まれるかどうかの差のみ。コード・テストへの影響は無い）。
+T-161 のコミットで整形し直した。手順は下の「注意」に追加してある。
+
 ## 次にやること
 
 棚卸し（2026-09-09）で登録した13件。**ユーザーの希望で1項目=1タスクに分けてあるので、
@@ -128,11 +141,7 @@ gitbeakerは既定 `queryTimeout=300000`ms を `@gitbeaker/core` が全リクエ
   `test/utils/http.test.ts:80` が実在しない平たい形を検証しているので**テストは緑のまま**。
 - **T-160（未使用の `logger.warn` の存否、`sonnet`、依存なし）**。T-134 で新設され T-144 の
   撤回で唯一の呼び出し元が消えた残骸。JSDoc が今は無い挙動を説明している。
-- **T-161（tsconfig のフラグ追加、`sonnet`、依存なし）**。実測でエラー0件の7フラグ
-  （`noUnusedLocals`・`exactOptionalPropertyTypes` ほか）＋`noImplicitReturns`（1件、
-  `src/lib/helm.ts:64`）。`exactOptionalPropertyTypes` は「`?:` を使わない」規約を型で固定し、
-  `noUnusedLocals` は T-160 のような撤回残骸を次から自動検出する。
-- **T-162（ログのフィールドの型付け、`opus`、T-161依存）**。`Record<string, unknown>` が
+- **T-162（ログのフィールドの型付け、`opus`、T-161は完了済み）**。`Record<string, unknown>` が
   6ファイル13箇所。**出力JSONのキー名・値を1つも変えない**ことが設計の前提。`/loop` 不可。
 - **T-163（`cacheByArgs()` を `utils/cache.ts` へ上げる、`sonnet`、依存なし）**。
   `remote-cache.ts` が `batch-cache.ts` と同じ仕組みを手書きしている。`#` 連結のキーは
@@ -200,6 +209,10 @@ gitbeakerは既定 `queryTimeout=300000`ms を `@gitbeaker/core` が全リクエ
 
 ## 注意
 
+- **`develop/tasks.json` を書き換えたら、コミット前に必ず `pnpm format` を回す。** このファイルは
+  `oxfmt` の対象（`.prettierignore` で除外されているのは `.claude/` と `config/` だけ）で、
+  スクリプトで `json.dump(indent=2)` すると単一要素配列が展開されて `format:check` に落ちる。
+  2026-09-09 に T-159・T-168 の2コミットでこれを踏んだ（`pnpm check` を通したあとに記録を書いたため）。
 - `config/` には実在の登録だけを置く（架空の設定例を置くとCIの `validate-config-remote` が
   必ず失敗する）。定期実行の登録とスモーク用フィクスチャは**同居させる**（理由は
   `config/README.md`）。記述例は `docs/requirements.md` 4.4節、実物は

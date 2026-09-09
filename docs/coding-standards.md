@@ -164,6 +164,8 @@ top-level await が使えるため `await` + `try`/`catch` で書く。`try` が
 「無いかもしれない」プロパティは `readonly x: T | undefined` で書き、`?:` のオプショナル
 プロパティ記法は使わない。`?:` は「キー自体が無い」場合まで許してしまい、渡し忘れが型で
 見えなくなる。`readonly x: T | undefined` なら値の受け渡しのたびに`undefined`を明示させられる。
+`tsconfig.json` の `exactOptionalPropertyTypes` により、`?:` に対して `undefined` を渡すと
+型エラーになる（レビューだけでなく型でも強制される）。
 
 例外は、それ自体を丸ごと省略できるオプション引数の中身（`src/utils/retry.ts` の
 `options: { maxAttempts?: number; baseDelayMs?: number } = {}`）。既定値を持つ調整用の
