@@ -9,6 +9,58 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-11
+
+生成したタスク: **T-183**（`src/lib/config/config.ts` から走査を `unit-scan.ts` へ切り出す、
+`sonnet`、依存なし）。見送った案2・案3はタスク化していない（ユーザーが案1のみを選択したため。
+必要になった時点で改めて提案する）。`loadConfig()` のエラーメッセージが環境変数名を直書きしている
+件も、既存の `assertSafePath(configDirPath, "CONFIG_PATH")` と同じ作法のためタスク化していない。
+
+タスク化にあたっての事実確認で1点訂正が出た: 下記メモの分ける合図 **④「依存が違う（走査側だけが
+`node:fs` と再帰I/Oを持つ）」は成立しない**。`loadConfig()` 自身も `listSubdirectories()`（58行目）と
+`existsSync()`（71行目）を使っており、fs依存は両側にある。該当するのは①②③⑤の4つで、
+分割の根拠としてはこれで足りるため案1の採否は変わらない。
+
+## src/lib/config のリファクタリング（案1: `config.ts` を走査と入口＋絞り込みに分ける）
+
+`src/lib/config/` をわかりやすくしたい、という相談に対して3案を提示し、**案1を採用**（案2・案3は
+今回は見送り。必要になった時点で改めて提案する）。
+
+採用した案1: `src/lib/config/config.ts`（207行）から**設定ユニットの走査と階層の検証**を
+`src/lib/config/unit-scan.ts`（仮名。公開は `findUnitPaths()` 1つ）へ切り出し、`config.ts` は
+「公開API `loadConfig()` ＋ `ConfigTarget` による絞り込み」だけにする。
+
+根拠（`docs/architecture.md`「1ファイルにまとめるか分けるか」の**分ける合図**が5つとも該当）:
+
+1. 責務を「走査**と**絞り込み」でしか説明できない（`docs/architecture.md` の責務表の記述自体が
+   その形になっている）
+2. 変更理由が別（階層ルールの変更 vs `TARGET_CHART`/`TARGET_UNITS` の仕様変更）
+3. 非公開ヘルパーが2グループに割れている — 走査側は `findUnitPaths` / `collectUnitSegments` /
+   `findNestedPair` / `isPrefixOf`、絞り込み側は `formatChartDirs` / `isExplicitlyTargeted`
+4. 依存が違う（走査側だけが `node:fs` と再帰I/Oを持つ）
+5. 200行超
+
+前提・制約:
+
+- `listUnitChartAndApps()` は走査ではなく「絞り込み＋`registry.yaml`の読み込み」なので `config.ts` 側に残す
+- 分割後の行数の目安は `config.ts` 約120行・`unit-scan.ts` 約70行
+- テストは4ファイルとも `loadConfig()` 経由でしか触っていない（`validate.test.ts` すら
+  `loadConfig` しか import していない）ため、**テストの書き換えは発生しない見込み**。
+  発生するなら分割の仕方を疑う
+- 併せて `docs/architecture.md`「各ファイルの責務」の `src/lib/` の表に `config/unit-scan.ts` の
+  行を足し、`config/config.ts` の行から走査の記述を外す
+
+見送った案（今回はやらない）:
+
+- 案2: `resolveProjectLinkage` を `validate.ts` → `chart-and-apps.ts` へ移す（結合であって検証ではない）
+- 案3: `loadChartAndApps()` の6引数をスコープ別の2オブジェクトにまとめる（`configYamlPath` と
+  `registryYamlPath` が同じ `LocalPath` で隣接しており取り違えても型エラーにならない）
+
+会話中に気づいた別件（未タスク化）: `loadConfig()` のエラーメッセージが `TARGET_CHART` /
+`TARGET_UNITS` という環境変数名を直書きしていて、`lib/config` が `lib/env` の語彙を知っている。
+ただし `assertSafePath(configDirPath, "CONFIG_PATH")` も同じ形で既存の作法になっているため、
+直すかどうかは別途相談。
+
 ## 2026-09-10（3回目・会話中の指示）
 
 `develop/direction.md` を経由せず、会話の中で出た指示。**生成したタスク: T-180**
