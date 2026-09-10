@@ -20,106 +20,22 @@
   **振る舞いは無変更**で、`test/` は1文字も触っていない（`git diff --stat test/` が空）。
   `pnpm check` 通過: 33 Test Files / 385 Tests（変更前と同数）
 
-### 2026-09-10 指示メモのタスク化とトークンのマスク確認
-
-`/plan-tasks` で T-175〜T-179 を登録し、`done` 9件を `docs/history/tasks-archive.md` へ
-アーカイブした。**T-176（`outcome`→`result`）は指示のまま改名すると `StepResult` の中に
-`result` が入り、`docs/architecture.md`「1つの語を2つの意味に使わない」と衝突する**ため、
-方針決めを前段に切り出してユーザー判断待ちにしてある。
-
-**T-175 完了**（`sonnet`、委譲）。アクセストークンがログに出うる経路を全件洗い、
-**今の呼び出し方では漏れない**ことを確認したうえで、`SENSITIVE_KEYS` に `accesstoken` を
-足す1件だけを対処した（`toLowerCase()` の完全一致では `EnvConfig` のキー名 `accessToken` が
-素通りしていた）。gitbeaker はトークンをヘッダでのみ送り、`error.message` に混ぜないことを
-ソースで確認済み。再帰的なマスクと値ベースの伏せ込みは**採らない判断**（後者は `src/utils/` が
-環境を知ることになり原則2に反する）。方針は `docs/requirements.md` 5章に1箇所だけ追記した。
-
-**T-176・T-177 は着手しない判断で閉じた**（`status: done` / `passes: false`）。理由は下の「未解決」。
-
-**T-178 完了**（`opus`、方針決めはメイン・執筆は委譲）。HTTPエラー処理の資料は
-**新規ファイルを作らず** `docs/architecture.md`「エラー処理と並列実行」に
-`#### HTTPエラーの経路` を1節足す形にした（ユーザー判断）。理由の記述が既に同じ節グループに
-あるため「1節読めば分かる」になり、正典を5箇所目にしなくて済む。**`README.md` の8行表は据え置き**で
-ステータス別の挙動の正典を保ち、新設節には機構（どの関数がどの順で判定するか）だけを書いた。
-埋めた穴は、判定の順序・`getLatestPipelineForRef()` だけが403を「パイプライン無し」に
-読み替えること・9関数の登場人物表の3つ。
-
-**T-172 完了**（`opus`、方針決めのためメインで実行）。**タスク登録時の前提が誤っていた**:
-正典は「形」と「実在」の2段構成を定めているだけで、`validate`/`verify` という語の割り当ては
-どこにも書かれていなかった。実測すると `validate` は21ファイルに散る**一般動詞**
-（`validateGitlabUrl`・タグ形式・スキーマ・`.gitlab-ci.yml` の stage 名まで）で、狭い意味を
-割り当て直せない。**例外は `verify` のほう**で `scripts/lint/verify-config/` 1箇所だけ。
-そこで**例外側を一般動詞に寄せる**方針をユーザー承認のうえ決定し、`docs/architecture.md`
-「型と命名」に対応表つきで新設した。**外部インターフェース（pnpmスクリプト名・CIジョブ名・
-stage名）は一切変えない**ので、承認のコストが要る範囲は残っていない。
-
-**T-180 を登録**（`opus`、`/loop` 不可）。会話の中で `config.yaml` の `helm` が
-`optional` である理由を問われ、**chartリポジトリは常に2ブランチ構成（`apps` を定義する
-ブランチと、それを流し込んで k8s リソースを構築する `helm` のブランチ）**という前提を
-ユーザーが確定させたため、必須化をタスクにした。着手には**GitLab側のスモークフィクスチャに
-受け皿アンカーを足すことが先に必要**（外部書き込み・要承認）。経緯は
-`docs/history/direction.md`「2026-09-10（3回目・会話中の指示）」。
-
-**T-173 完了**（`sonnet`、委譲）。T-172 の対応表どおりに `verify` → `validate` を改名し、
-`scripts/lint/verify-config/` を `scripts/lint/remote-existence/` へ `git mv`（3件とも `R` で記録）。
-**外部インターフェースは差分ゼロ**（`package.json`・`.gitlab-ci.yml`・`README.md`・`CLAUDE.md`）。
-対応表に無かった追随が1件あり、`vitest.config.ts` の coverage の `include` パスを直した
-（放置すると `scripts/` のカバレッジ対象が黙って外れる）。残った `verify` は gitbeaker の
-エラー文言と正典の対応表本体だけ。
-
-**T-179 完了**（`sonnet`、委譲）。索引を持たなかった3ファイルに追加した。`README.md` は
-**リンク付き目次**（GitHub上で人が上から読むため）、`docs/workflow.md` と
-`docs/smoke-test.md` は既存4ファイルと同じ**表形式**。ただし見出し名は `## 目次` とし、
-既存の `### 節の索引` とは分けてある（あちらは「通読せず `sed` で節を切り出す」運用とセット）。
-`docs/requirements-grilling.md`（完了済みの検討ログ）と `CLAUDE.md`（全文が読まれる前提）には
-**付けない判断**。索引の各行が実在見出しと順序込みで一致することを突き合わせで確認済み。
-
-**T-180 はコード側だけ完了**（`opus`、方針決めはメイン・実装は委譲）。`todo` のまま残してある。
-`config.yaml` の `helm` を必須にし、`helmTargetBranch` から `| undefined` を消した。受け皿
-アンカーは `smoke-fixture.ts` の `SEED_FILES` で用意する（ユーザー指示「自動で頼む」）。
-**消えるはずだったスモークシナリオは維持できた** — `client2` と `anchor-app` のシード値を
-`HELM_TARGET_BRANCH` と同値にすれば向き先ブランチが差分なしになり、「image tag更新のみ」の
-検証がそのまま成立する。差分が出る側は `client1` だけ。
-
-着手後にユーザーが実物を確認して**前提のズレが1つ見つかった**: `charts/anchor-app/values.yaml`
-には既に `&smokeTestTargetBranch release/2025-q4` があり、`&helmVersion develop` という
-このツールが読み書きしないアンカーも同居していた。当初案の「`anchorAppHelmTargetBranch` を
-新規に作る」は**GitLab上に存在しないアンカーを指すので `validate-config-remote` が落ちる**うえ、
-`SEED_FILES` の丸ごと上書きで既存2アンカーを消すところだった。既存の `smokeTestTargetBranch` を
-使う形に変更し、`helmVersion` はシード内容に含めて保存する。**どちらもユーザー確認済み**
-（2026-09-10）— 向き先ブランチの受け皿は `smokeTestTargetBranch` で正しく、`helmVersion` は
-`SEED_FILES` に含めて `setup` のたびに `develop` に戻す扱いでよい。
-
-**T-181 完了**（`sonnet`、委譲）と **T-182 を登録**。`src/lib/config/chart-and-apps.ts` の
-`unitDirPath` が `unitPath` と見た目の双子で紛らわしい、というユーザー指摘から。
-`unitDirPath` は `join()` のためだけに存在していた（使用箇所1つ）ので消し、
-`configYamlPath` を直接受け取る形にした。**調査で型の穴が見つかった** —
-ブランド型は `string` に代入可能なので、`ConfigUnitPath` を素の `string` 引数に渡しても
-コンパイルが通る（最小再現で確認済み）。`unitPath` と `unitDirPath` の取り違えが型で
-止まらない状態だった。これを塞ぐ `LocalPath` ブランド型を **T-182 で導入して完了**
-（`TS2345` が出ることをメイン側でも独自に実証）。`ValuesPath`（GitLab上のパス）と
-`LocalPath`（ローカル）が名前で対比されるようになり、`src/utils/` は原則2どおり
-`string` のまま据え置いた。受け入れ時に `docs/architecture.md` の型の件数（53→54件）の
-追随漏れも直した。
-
-**GitLabへの反映まで完了**（ユーザー承認のうえ実行）。`smoke-fixture.ts setup --apply` が
-3ファイルを update し、`anchor-app` の実変更は `smokeTestTargetBranch` の
-`release/2025-q4` → `release/2026-q1` の1行だけだった（`helmVersion` と
-`tenantId1client1AppsVersion` は現状と同値）。`pnpm lint:validate-config:remote` が
-`config OK（実在チェック）: projectId・ブランチ・valuesPath・アンカーをすべて確認` を出し、
-**T-180 の全完了条件を満たした**。
-
-**未着手のタスクは0件になった。**
-
 ## 次にやること
 
-**未着手のタスクは0件**（T-172〜T-183 はすべて `done`）。T-176・T-177 は着手しない判断で
-閉じたもので、理由は下の「未解決」にある。
+**未着手のタスクは1件**:
+
+- **T-184**（`sonnet`、依存なし）: `loadConfig()` を「名前の付いた段を順に呼ぶだけ」の薄い入口に
+  組み替え、`listUnitChartAndApps()` を `chart-and-apps.ts` へ移す。ファイルは5のまま増やさない。
+  **走査の順序（`TARGET_CHART` で絞った chartディレクトリだけを走査する）を変えないこと**が
+  最重要の制約で、これは既存テストでは検出できない
+
+T-172〜T-183 はすべて `done`。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
+「未解決」にある。
 
 `src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から
-`chart-and-apps.ts` へ移す）と案3（`loadChartAndApps()` の6引数をスコープ別の2オブジェクトに
-まとめる）を**提案したうえで見送っている**（2026-09-11、ユーザー判断）。経緯は
-`docs/history/direction.md` の 2026-09-11 にある。
+`chart-and-apps.ts` へ移す）・案3（`loadChartAndApps()` の6引数をスコープ別の2オブジェクトに
+まとめる）・案B（`select-units.ts` の新設）を**提案したうえで見送っている**（2026-09-11、
+ユーザー判断）。経緯は `docs/history/direction.md` の 2026-09-11 の2つの節にある。
 
 - **次回の実機スモークは `docs/smoke-test.md` の手順1からやり直す。** `helm` 必須化で
   3つの設定ユニットすべてが `helm` を持つようになり、差分が出るのは `tenant2/client1` だけ

@@ -9,6 +9,76 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-11（2回目）
+
+生成したタスク: **T-184**（`loadConfig()` を段の並びに組み替え、`listUnitChartAndApps()` を
+`chart-and-apps.ts` へ移す、`sonnet`、依存なし）。見送った案Bはタスク化していない。
+
+タスク化にあたって、`docs/architecture.md`「設定ユニットの走査は深さで打ち切らず、絞り込みより
+先に階層を検証する」を確認し、**走査の順序を変えないこと**（`TARGET_CHART` で絞り込んだ
+chartディレクトリだけを走査する現在の挙動）を T-184 の最重要の落とし穴として本文に明記した。
+既存テストでは検出できない違反のため。
+
+## src/lib/config の入口を薄くする（案A: `loadConfig()` を段の並びにする）
+
+「入口を狭くして塊ごとにステップを作りたい。やりたいことに対してファイルが多く感じる
+（`schema`・`validate` はまだ分かる）」という相談に対し、2案を提示して**案Aを採用**。
+
+**前提の確認: ファイル数は減らない。** ステップ化しても `src/lib/config/` は5ファイルのまま
+（案Bなら6に増える）。「多く感じる」原因はファイル数ではなく、**入口を読んでも全体の流れが
+見えないこと**だと整理した。実際、いまの `config.ts` は:
+
+- `TARGET_CHART` / `TARGET_UNITS` の扱いが**4箇所に散っている** — chart絞り込み（`config.ts:56-62`）、
+  `TARGET_UNITS` の不一致検証（`:79-86`）、実際のunit絞り込み（`:122`。しかも
+  `listUnitChartAndApps()` の中）、0件エラー（`:92`）
+- 主役の「YAMLを読んで結合する」が `loadConfig` → `listUnitChartAndApps` → `loadChartAndApps` と
+  **2段潜った先**にある
+- chartDir → unit → app の3重ループに、読み込みと検証が交互に挟まっている
+
+採用した案A（**新ファイルを作らない**）:
+
+1. `TARGET_*` の解釈を名前の付いた段にまとめ、`loadConfig()` の本体を「段を順に呼ぶだけ」にする
+2. `listUnitChartAndApps()` を `config.ts` から `chart-and-apps.ts` へ移す（読み込みと結合は
+   そのファイルの責務のため）
+3. 0件エラーも絞り込みの一部として段に寄せる
+
+目標の形（名前は実装時に詰める）:
+
+```ts
+export function loadConfig(configDirPath: LocalPath, target: ConfigTarget = NO_TARGET): Config {
+  assertSafePath(configDirPath, "CONFIG_PATH")
+  const chartDirs = selectChartDirs(listSubdirectories(configDirPath), target)  // TARGET_CHART
+  const chartUnitsList = chartDirs.flatMap((dir) => scanChartDir(configDirPath, dir))  // 走査＋階層検証
+  const selected = selectTargetUnits(chartUnitsList, target)                    // TARGET_UNITS
+  const chartAndAppsList = selected.flatMap(loadUnitChartAndApps)               // 読み込み＋結合
+  validateTagFormatConsistency(chartAndAppsList)                                // 横断検証
+  assertTargetMatched(target, chartAndAppsList)                                 // 0件エラー
+  return { chartAndAppsList }
+}
+```
+
+**相談中に判明した制約（当初案の訂正）**: 当初は「`TARGET_*` の解釈を `selectTargetUnits()`
+**1関数**に集約する」と書いたが、これは成立しない。`docs/architecture.md`「設定ユニットの走査は
+深さで打ち切らず、絞り込みより先に階層を検証する」が、階層の検証は `TARGET_UNITS` の絞り込み
+**より前**・`config.yaml` の読み込みは**より後**と意図的に分けており、`TARGET_CHART` は走査
+そのものより前に効いている（無関係なchartの設定ミスで限定実行を止めないため）。よって
+`TARGET_CHART`（走査前）と `TARGET_UNITS`（走査後）は**2つの段に分かれるのが正しい**。
+集約先が1つから2つになるだけで、案Aの狙い（入口が流れを語る・ファイルは5のまま）は変わらない。
+
+制約:
+
+- **振る舞いは一切変えない。エラーメッセージの文言も変えない**（`test/lib/config/config.test.ts` に
+  `toThrow` が23件ある）。特に、`TARGET_CHART` 指定時に対象外のchartディレクトリを走査しない
+  現在の挙動を変えない（走査してから絞り込む形にすると、無関係なchartの階層エラーで
+  限定実行が落ちるようになる）
+- `test/` は無変更で通るはず。書き換えが要るなら分け方を疑う
+- `unit-scan.ts`（T-183で切り出した走査）はパイプラインの1段目としてそのまま残す。ただし
+  `TARGET_*` 側を入口に寄せ直す動きなので、T-183で引いた線の引き直しにはなる
+
+見送った案B: `select-units.ts` を新設して `TARGET_*` を丸ごと別ファイルにする。`config.ts` は
+30行ほどになるが**ファイルが6に増える**。`TARGET_*` の解釈は入口の都合そのものなので、入口
+ファイルに残るほうが自然と判断した。
+
 ## 2026-09-11
 
 生成したタスク: **T-183**（`src/lib/config/config.ts` から走査を `unit-scan.ts` へ切り出す、
