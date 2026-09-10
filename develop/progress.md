@@ -30,7 +30,14 @@
 
 ## 次にやること
 
-**未着手のタスクは0件**（T-172〜T-184 はすべて `done`）。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
+**未着手のタスクは1件**:
+
+- **T-185**（`sonnet`、依存なし）: `scanChartDir()` を `unit-scan.ts` へ、`TARGET_*` の解釈5つと
+  `ConfigTarget` / `NO_TARGET` を新設の `select-units.ts` へ移し、`config.ts` を
+  `DEFAULT_CONFIG_DIR_PATH` と `loadConfig()` だけ（50行以下）にする。ファイルは5→6に増える。
+  **走査の順序を変えないこと**が引き続き最重要の制約（既存テストでは検出できない）
+
+T-172〜T-184 はすべて `done`。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
 「未解決」にある。
 
 `src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から

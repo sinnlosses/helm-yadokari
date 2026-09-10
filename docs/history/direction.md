@@ -9,6 +9,55 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-11（3回目）
+
+生成したタスク: **T-185**（`scanChartDir()` を `unit-scan.ts` へ、`TARGET_*` の解釈を
+`select-units.ts` へ移して `config.ts` を入口だけにする、`sonnet`、依存なし）。
+
+実装時の論点として残していた `ConfigTarget` / `NO_TARGET` の置き場所は、**`select-units.ts` へ
+移す**方に決めてタスク本文に書いた（`ConfigTarget` が表しているのは `TARGET_*` そのもので、
+型の置き場所は構成で決める＝CLAUDE.md 原則5）。これにより `config.ts` に残るのは
+`DEFAULT_CONFIG_DIR_PATH` と `loadConfig()` だけになる。
+
+## `config.ts` を本当に入口だけにする（前回見送った案Bの採用）
+
+「`config.ts` が入口なのに大きすぎる」という指摘。T-184 の結果、`loadConfig()` の本体は9行に
+なったが、**ファイル自体は138行→140行と増えていた**。数えると中身は3グループ:
+
+- 公開APIの表面（`DEFAULT_CONFIG_DIR_PATH` / `ConfigTarget` / `NO_TARGET` / `loadConfig`）— 約40行
+- **`TARGET_*` の解釈**（`selectChartDirs` / `selectTargetUnits` / `assertTargetMatched` /
+  `isExplicitlyTargeted` / `formatChartDirs`）— **非公開ヘルパー6つ中5つ、約65行**
+- 走査の呼び出し（`scanChartDir`）— 約11行
+
+つまり入口を名乗るファイルの約7割が `TARGET_*` の解釈だった。
+
+**これは T-184 をタスク化した時点の判断ミス。** 案B（`select-units.ts` の新設）を
+「ファイルを増やしたくない」という理由で見送るよう勧めたが、`TARGET_*` の解釈は入口の都合では
+なくそれ自体が1つの塊で、ファイル数を守った代償が140行の入口では割に合わない。案Bを採用する。
+
+やること:
+
+1. **`scanChartDir()` を `unit-scan.ts` へ移す**。`registry.yaml` の有無を見て `findUnitPaths()` を
+   呼び `ChartUnits` を作る、走査そのもの。**`ChartUnits` 型も生産側であるこちらへ移す**
+   （T-184 で消費側の `chart-and-apps.ts` に置いたが、`scanChartDir` が来るならこちらが生産側）
+2. **`TARGET_*` の解釈5つを `select-units.ts`（新設）へ移す**
+
+想定する結果: `config.ts` 約45行 / `select-units.ts` 約75行 / `unit-scan.ts` 約92行。
+`chart-and-apps.ts` / `schema.ts` / `validate.ts` は据え置き。ファイルは5→6に増えるが、
+**6つ全部が「パイプラインのどの段か」で説明できる**状態になる。
+
+根拠は `docs/architecture.md`「1ファイルにまとめるか分けるか」の**分ける合図**①（責務を
+「入口と `TARGET_*` の解釈と走査の呼び出し」でしか説明できない）と③（非公開ヘルパーが
+2グループに割れている）。**⑤（200行超）は該当しない**（140行）ので、行数は分ける理由ではない。
+
+**相談中に出た提案の撤回**: 「`ConfigTarget` の `export` が誰にも使われていない（`main.ts` も
+`scripts/lint/validate-config.ts` もオブジェクトリテラルを直接渡している）ので `export` を
+外せる」と提案したが、**この分割とは両立しない**。`select-units.ts` が `ConfigTarget` を引数の
+型に使うため、`export` は必要になる。代わりに **`ConfigTarget` と `NO_TARGET` ごと
+`select-units.ts` へ移す**ほうが筋が良い（型の置き場所は構成で決める＝原則5。`ConfigTarget` が
+表しているのは `TARGET_*` そのもの）。そうすると `config.ts` はさらに薄くなる。
+最終的にどちらを採るかは実装時の論点として残す。
+
 ## 2026-09-11（2回目）
 
 生成したタスク: **T-184**（`loadConfig()` を段の並びに組み替え、`listUnitChartAndApps()` を
