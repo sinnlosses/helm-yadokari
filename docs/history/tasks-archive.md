@@ -4544,6 +4544,334 @@ warn(fields: Record<string, unknown>): void {
 
 **evidence**: ユーザー承認は中間案（`logContext` と `describePlan` に型を付け、`logger` の引数は `Record` のまま）。`ChartUpdateLogContext` を `steps/shared/step-outcome.ts`（型の置き場所の表**4行目**）に、`PlanLogSummary`/`HelmTargetBranchLogSummary` を `steps/shared/describe-plan.ts`（**5行目**）に置いた。`Record<string, unknown>` は **13件→6件**（残りは `logger.ts` のみ＝意図どおり）。 **出力JSONは不変**: `test/` に差分ゼロのまま `main.test.ts`・`main.e2e.test.ts` が通る。 変異確認: `describePlan` のキー名を打ち間違えると TS2561、`logContext` に無い項目を読むと TS2551（どちらも変更前は黙って通っていた）。`noPropertyAccessFromIndexSignature` は論点4の結論として**入れていない**（`logger` の引数を `Record` のまま残す案を採ったのでテスト側の4件が解消しないため）。`pnpm check` 通過（32ファイル361テスト。型付けのみなので同数が正しい）。`pnpm build` 成功。
 
+## T-163
+
+**タスク**: `cacheByArgs()` を `src/utils/cache.ts` へ上げ、`remote-cache.ts` の手書きキャッシュを置き換える。
+
+## 背景
+
+引数からキーを組み立ててメモ化する仕組みが、2箇所に別々の実装で存在する。
+
+`src/lib/gitlab/batch-cache.ts` は非公開の `cacheByArgs()` を持っている。キーは
+`args.join("\0")` で、区切りにヌル文字を使う理由もJSDocに書かれている（区切りが値の中に
+現れると、引数の切れ目が違う組み合わせが同じキーになるため）。値は箱に入れてから
+`getOrFetchShared()` に載せる。
+
+`scripts/lint/verify-config/remote-cache.ts` は同じことを手書きしている:
+
+```ts
+hasBranch: (projectId, branch) =>
+  getOrFetchShared(branches, `${projectId}#${branch}`, () => ...),
+loadValuesYaml: (projectId, ref, valuesPath) =>
+  getOrFetchShared(files, `${projectId}#${ref}#${valuesPath}`, async () => ({
+    content: await getFileContent(gitlab, projectId, valuesPath, ref),
+  })),
+```
+
+キーは `#` 連結で、箱詰め（`FileResult`）も手書き。**`#` はGitのブランチ名に使える文字**
+（`git check-ref-format` は `~^:?*[\` と空白は禁じるが `#` は禁じない）なので、`files` の
+キーは理屈上衝突しうる: `ref="a#b", valuesPath="c"` と `ref="a", valuesPath="b#c"` が
+どちらも `1#a#b#c` になる。`batch-cache.ts` 側はこの問題を `\0` 区切りで既に解いてある。
+
+`cacheByArgs()` は**技術非依存のメモ化**でGitLabの知識を持たないため、`CLAUDE.md` 原則2に
+照らすと `lib/` ではなく `utils/` が置き場所。`docs/architecture.md`
+「GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し〜」節も、
+「`utils/cache.ts`に残るのは技術非依存のメモ化（`getOrFetchShared()`）だけで、
+`scripts/lint/verify-config/remote-cache.ts`も同じものを使っている」と書いている。
+
+## やること
+
+1. `cacheByArgs()` と `toCacheKey()`、`CacheKeyPart` 型を `src/lib/gitlab/batch-cache.ts` から
+   `src/utils/cache.ts` へ移す。JSDoc の「`mapWithConcurrency`により〜」のような
+   `lib/gitlab/` 固有の説明は、移動先に合う形に直す（**消すのではなく、どこに書くべきかを
+   `docs/coding-standards.md`「コメント」の判断表で決める**）
+2. `batch-cache.ts` を移動先から import する形に直す
+3. `scripts/lint/verify-config/remote-cache.ts` の3つのメンバー（`hasProject` / `hasBranch` /
+   `loadValuesYaml`）を `cacheByArgs()` 経由に置き換える。`FileResult` の箱詰めが
+   `cacheByArgs()` 側で行われるようになるなら、`FileResult` 型が不要にならないか確認する
+   （`RemoteCache.loadValuesYaml` の戻り値の形を変えると `verify-config.ts` にも波及するため、
+   **戻り値の形は変えない**方向で検討する）
+4. `docs/architecture.md` の該当節（上記の引用元）と「各ファイルの責務」の `src/utils/` の表を、
+   移動後の実態に合わせる
+
+## 完了条件
+
+- `grep -n "cacheByArgs" src/utils/cache.ts` がヒットし、`src/lib/gitlab/batch-cache.ts` には
+  定義が無い（import だけがある）
+- `grep -n '#\${' scripts/lint/verify-config/remote-cache.ts` が **0件**（手書きのキー連結が
+  残っていない）
+- `pnpm lint:validate-config` が位置引数なしで `config OK: 3 設定ユニット, 5 apps` を出す
+  （出力を `evidence` に書く）
+- `docs/architecture.md`「各ファイルの責務」の `src/utils/` の表に `cacheByArgs` の行がある
+- `pnpm check` が通る（テスト件数を `evidence` に書く。`test/lib/gitlab/batch-cache.test.ts` が
+  無改変で通ることも確認する）
+
+## 注意
+
+- **`GitlabBatchCache` に載せる読み取りの一覧を変えない。** 何をキャッシュしてよいかの判断は
+  `docs/architecture.md` が正典で、今回は置き場所を移すだけ
+- `getOrFetchShared()` の `V extends {}` 制約を緩めない（「未キャッシュ」の判定が壊れる）
+- `RemoteCache` の公開インターフェース（3メンバーの引数と戻り値）を変えない
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: sonnet
+
+**evidence**: `sonnet` に委譲。`cacheByArgs()`/`toCacheKey()`/`CacheKeyPart` を `lib/gitlab/batch-cache.ts` から `src/utils/cache.ts` へ移し（原則2＝技術非依存のメモ化）、`remote-cache.ts` の3メンバーを `cacheByArgs()` 経由に置き換えて手書きの `#` 連結キーを廃止。`RemoteCache` の公開型と `verify-config.ts` は無変更（`git diff` が0行）。
+**受け入れ時にメインがテストを1件追加した**。委譲先の実装は正しかったが、`toCacheKey()` の区切りを `\0`→`#` に戻す変異で**365テスト全部が通ってしまい**、このタスクの主目的（キー衝突の回避）がまったく守られていなかったため。`test/utils/cache.test.ts` を新設し、`("a#b","c")` と `("a","b#c")` が別キーになることを検証する。
+実測: 追加後は同じ変異で1件落ちる。`pnpm lint:validate-config` は `config OK: 3 設定ユニット, 5 apps`。`pnpm check` 通過（33ファイル366テスト、着手前365から+1）。`docs/architecture.md` は `src/utils/` の責務表と「採らなかった案」の3箇所を実態に合わせた。
+
+## T-164
+
+**タスク**: `verify-config.ts` の `[] as string[]` 2箇所から `as` を外す。
+
+## 背景
+
+`scripts/lint/verify-config/verify-config.ts` に `as` キャストが2箇所ある:
+
+- `:98` `const appProblems = await reduceAsync(apps, [] as string[], async (acc, app) => [...])`
+- `:169` `return reduceAsync(targets, [] as string[], async (acc, target) => [...])`
+
+`CLAUDE.md`「コーディング規約」の「`as` キャストは極力使わない」に照らすと避けたい形で、
+**`src/` 側は同じことを `as` なしで書いている**。`src/steps/build-plans/sub-steps/resolve-latest-tags.ts:44`:
+
+```ts
+const initial: readonly AppWithLatestTag[] = []
+return reduceAsync(apps, initial, async (acc, app) => [...])
+```
+
+`reduceAsync()` の第2引数に型注釈付きの `const` を渡せば、ジェネリック `Acc` が確定するので
+キャストは要らない。ついでに `readonly` も付き、`CLAUDE.md`「コレクションも不変
+（`ReadonlyMap`・`readonly`）に保つ」にも合う。
+
+## やること
+
+1. 2箇所を `resolve-latest-tags.ts:44` と同じ形（型注釈付きの `const` を渡す）に書き換える。
+   要素型は `string`、`readonly string[]` にできるか確認する
+2. `reduceAsync()` の戻り値を受ける側（`verifyChartAndApps()` の `[...chartProblems,
+...baseBranchProblems, ...appProblems, ...helmProblems]` と `verifyTargets()` の呼び出し元）で
+   型エラーが出ないことを確認する。出る場合は関数の戻り値型（`Promise<string[]>`）も
+   `readonly string[]` に揃えるかを検討する。**`verifyConfigExistence()` の公開シグネチャ
+   （`Promise<string[]>`）は変えない**（`scripts/lint/validate-config.ts` が
+   `problems.length` と `for...of` で使っている）
+
+## 完了条件
+
+- `grep -n " as " scripts/lint/verify-config/verify-config.ts` に `[] as string[]` が
+  **1件も残っていない**（import の `as` は対象外）
+- `pnpm lint:validate-config` が位置引数なしで `config OK: 3 設定ユニット, 5 apps` を出す
+  （出力を `evidence` に書く）
+- `pnpm check` が通る（テスト件数を `evidence` に書く。書き換えのみなので**359件のまま**が
+  正しい）
+
+## 注意
+
+- **報告される問題の文言・順序・件数を変えない。**
+  `test/scripts/lint/verify-config/verify-config.test.ts` が無改変で通ることで確認する
+- `verifyConfigExistence()` の公開シグネチャを変えない
+- T-165 が同じファイル（`verify-config.ts`）を触るので、前後した場合は競合を確認する
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: haiku
+
+**evidence**: `haiku` に委譲。`verify-config.ts` の `[] as string[]` 2箇所を、型注釈付きの `const initial: readonly string[] = []` を `reduceAsync()` に渡す形（`resolve-latest-tags.ts` と同じ書き方）に置き換えた。`verifyTargets()` の戻り値型は `Promise<string[]>` → `Promise<readonly string[]>` に揃えた。
+`grep -n ' as ' scripts/lint/verify-config/verify-config.ts`（import除く）は**0件**。`verifyConfigExistence()` の公開シグネチャ `Promise<string[]>` は不変。`test/` の差分は0行で、報告される問題の文言・順序・件数は変わっていない。
+`src`+`scripts` 全体で `brand.ts` 以外の `as` キャストが**0件**になった。`pnpm lint:validate-config` は `config OK: 3 設定ユニット, 5 apps`。`pnpm check` 通過（33ファイル366テスト。書き換えのみなので着手前と同数が正しい）。
+
+## T-165
+
+**タスク**: 設定ユニットの位置表示（`<chartDirName>/<unitPath>`）の組み立てを1箇所にまとめる。
+
+## 背景
+
+「どの設定ユニットで起きたか」を人に見せる文字列が、同じ形で3箇所に手書きされている:
+
+- `src/lib/config/validate.ts:55` `const location = \`${chartAndApps.chartDirName}/${chartAndApps.unitPath}\``
+（`validateTagFormatConsistency()` のエラーメッセージ用）
+- `scripts/lint/verify-config/verify-config.ts:56` （検証中の例外の報告用）
+- `scripts/lint/verify-config/verify-config.ts:76` （`VerifyContext.where`）
+
+`chartDirName` と `unitPath` はどちらもブランド型（`ChartDirName` / `ConfigUnitPath`）で、
+その2つを `/` でつないだものが「設定ユニットの位置表示」というこのツールの語彙になっている。
+`docs/glossary.md` に載る概念かどうかを確認したうえで、`src/domain/config-unit.ts`
+（既に `UNIT_PATH_SEPARATOR` と `MAX_UNIT_DEPTH` を持ち、`ConfigUnitPath` の扱いを担っている）
+に1本置ける。
+
+`CLAUDE.md` 原則2に照らすと、この組み立ては特定の技術・外部システムに依存しないので `lib/` では
+なく `domain/`。`scripts/` からも `src/domain/` を import する前例は
+`scripts/smoke/smoke-fixture.ts`（`isFeatureBranch`）にある。
+
+## 解くべき論点
+
+1. **関数の引数を何にするか。** `(chartDirName, unitPath)` の2引数にするか、`ChartAndApps` を
+   丸ごと受け取るか。後者だと `src/domain/` が `ChartAndApps`（`types/types.ts` のドメイン型）に
+   依存する。`src/domain/` の既存3ファイルが何に依存しているかを確認して決める
+   （`config-unit.ts` と `feature-branch.ts` はブランド型にしか依存していない）
+2. **戻り値をブランド型にするか。** `docs/architecture.md`「ブランド型にするのは『同じ`string`の
+   別物と取り違えうる識別子』」に照らして判断する。表示専用の文字列なので**素の `string` で
+   足りる**と判断できるはずだが、根拠を `evidence` に書く
+
+## やること
+
+1. 論点1・2を検討し、`src/domain/config-unit.ts` に関数を1つ足す。区切り文字は既存の
+   `UNIT_PATH_SEPARATOR` を使う
+2. 上記3箇所を置き換える
+3. `src/domain/` に関数を足したので、`docs/architecture.md`「各ファイルの責務」の
+   `src/domain/` の表を追随させる
+4. `docs/glossary.md` にこの概念（設定ユニットの位置表示）の見出しが要るかを検討する。
+   **既存の用語で説明が付くなら足さない**（用語集を膨らませること自体が目的ではない）
+
+## 完了条件
+
+- `grep -rn 'chartDirName}/' src scripts` が **0件**（手書きの組み立てが残っていない）
+- 出力される文言が変更前と**一字一句同じ**である（`test/lib/config/validate.test.ts` と
+  `test/scripts/lint/verify-config/verify-config.test.ts` が無改変で通ることで確認し、
+  `evidence` に書く）
+- `pnpm lint:validate-config` が位置引数なしで `config OK: 3 設定ユニット, 5 apps` を出す
+- `docs/architecture.md`「各ファイルの責務」の `src/domain/` の表に新しい関数の行がある
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- **`src/steps/shared/step-outcome.ts` の `buildLogContext()` は対象外。** あちらは
+  `chartDirName` と `unitPath` を**別々のログフィールドとして**出しており、連結した文字列では
+  ない。連結形に変えると `README.md` のログ出力例が変わるので触らない
+- T-164 が同じファイル（`verify-config.ts`）を触るので、前後した場合は競合を確認する
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: sonnet
+
+**evidence**: `sonnet` に委譲。`buildConfigUnitLocation(chartDirName, unitPath)` を `src/domain/config-unit.ts` に追加し、3箇所（`validate.ts` の `validateTagFormatConsistency`、`verify-config.ts` の catch節と `VerifyContext.where`）を置き換えた。引数は2つのブランド型（`domain/` の既存2ファイルと同じくブランド型にしか依存しない形を保つため）、戻り値は素の `string`（表示専用で取り違えうる識別子ではない）。`grep -rn 'chartDirName}/' src scripts` は0件。
+**受け入れ時にメインがテストを2件追加した**。委譲先は「テストが無改変で通ったことが文言不変の証拠」と報告したが、**変異（区切りを `::` に変更）をかけても375テスト全部が通り**、この文言を assert しているテストが1件も無いことが分かったため。`test/domain/config-unit.test.ts` に書式を固定するテストを足した。
+追加後は同じ変異で2件落ちる。`pnpm lint:validate-config` は `config OK: 3 設定ユニット, 5 apps`。`pnpm check` 通過（33ファイル377テスト、着手前375から+2）。`docs/architecture.md` の `src/domain/` 責務表を追随。`docs/glossary.md` は既存の用語で説明が付くため追加せず。
+
+## T-166
+
+**タスク**: `registry.yaml` / `config.yaml` のファイル名リテラルを定数にまとめる。
+
+## 背景
+
+`config/` の2ファイルのファイル名が、コード中に文字列リテラルとして散っている。
+`join()` に渡している箇所だけで6件:
+
+- `src/lib/config/config.ts:71` `existsSync(join(chartDirPath, "registry.yaml"))`
+- `src/lib/config/config.ts:121` `${join(chartDirPath, "config.yaml")}: config.yaml が registry.yaml と同じ階層にあります`
+- `src/lib/config/config.ts:129` `${join(chartDirPath, ...tooDeep, "config.yaml")}: ...`
+- `src/lib/config/config.ts:154` `existsSync(join(dirPath, "config.yaml"))`
+- `src/lib/config/config.ts:187` `join(chartUnits.chartDirPath, "registry.yaml")`
+- `src/lib/config/chart-and-apps.ts:37` `join(unitDirPath, "config.yaml")`
+
+これに加えてエラーメッセージ本文にもファイル名が現れる。`grep -rn 'registry\.yaml\|config\.yaml' src scripts`
+は50件ヒットする（大半はJSDoc・エラーメッセージ）。
+
+直近の T-157 が `chart.yaml` → `registry.yaml` の改名で `src/` 25箇所を触っており、
+**同じ改名がもう一度起きたときのコストが実測されている**。
+
+同じファイルには既に `DEFAULT_CONFIG_DIR_PATH`（`src/lib/config/config.ts:14`）という
+同種の定数がある。
+
+## 解くべき論点
+
+1. **定数をどこまで使うか。** `join()` に渡す6件だけにするか、エラーメッセージ本文の
+   文字列も定数に寄せるか。後者はテンプレートリテラルが読みにくくなるトレードオフがある。
+   **JSDoc内のファイル名は対象外**（コメントは文章なので定数化しない）
+2. **`export` するか。** `DEFAULT_CONFIG_DIR_PATH` は `src/lib/env.ts` から使われるため
+   export されている。今回の2定数は `lib/config/` の中だけで足りるなら
+   非公開のままにする（`docs/coding-standards.md`「テストのためだけの `export` はしない」）
+3. **置き場所。** `config.ts` と `chart-and-apps.ts` の両方から使うので、片方に置いて
+   import するか、`schema.ts` に置くか。`CLAUDE.md` 原則4（ファイル名が概念になっているか）に
+   照らして決める。**`constants.ts` のような置き場所を名前にしたファイルは作らない**
+
+## やること
+
+1. 論点1〜3を検討し、2つの定数を定義して `join()` に渡す6件を置き換える
+2. 論点1で「エラーメッセージ本文も寄せる」と決めた場合のみ、そちらも置き換える
+3. 定数名は外部ファイル形式の写しであることが分かる名前にする
+   （`docs/architecture.md`「`config/`は「スコープ」で2ファイルに分け〜」節の可否表が、
+   コード側識別子を外部形式に追随させる基準を持っているので**先に読む**）
+
+## 完了条件
+
+- `grep -n '"registry.yaml"\|"config.yaml"' src/lib/config/*.ts` が、定数の定義行以外で
+  **0件**（論点1で本文も寄せた場合。`join()` だけに絞った場合はその旨を `evidence` に書く）
+- `pnpm lint:validate-config` が位置引数なしで `config OK: 3 設定ユニット, 5 apps` を出す
+- エラーメッセージの文言が変更前と**一字一句同じ**である
+  （`test/lib/config/config.test.ts` が無改変で通ることで確認し、`evidence` に書く）
+- `constants.ts` / `helpers.ts` のような置き場所を名前にしたファイルを**作っていない**
+  （`CLAUDE.md` 原則4）
+- `pnpm check` が通る（テスト件数を `evidence` に書く。書き換えのみなので**359件のまま**が正しい）
+
+## 注意
+
+- **`config/` の実ファイルには一切触らない**（`config/yadokari-smoke-test-chart/` 配下）
+- `DEFAULT_CONFIG_DIR_PATH` の値と export を変えない（`src/lib/env.ts` が使っている）
+- JSDoc・`docs/`・`README.md` のファイル名の記述は変えない（文章なので定数化の対象外）
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: sonnet
+
+**evidence**: `sonnet` に委譲。`REGISTRY_YAML_FILE_NAME` / `CONFIG_YAML_FILE_NAME` を `src/lib/config/schema.ts` に置き、`join()` の6件に加えエラーメッセージ本文の裸のファイル名も定数化した（改名コストを下げるというタスクの動機に沿う判断）。JSDocは対象外。
+**置き場所が `schema.ts` なのは必然**（受け入れ時にメインが確認）: `config.ts` に置くと `config.ts` → `chart-and-apps.ts` → `config.ts` の**循環importになる**。`schema.ts` は両者が既に import しており新しい依存辺を作らない。`constants.ts` 等は作っていない（原則4）。
+**変異検証をメインが独立に実施**: `CONFIG_YAML_FILE_NAME` を `config-x.yaml` にすると `config.test.ts` が**26件落ちる**（委譲先の報告と一致）。`grep -n '"registry.yaml"|"config.yaml"' src/lib/config/*.ts` は定義2行のみ。`pnpm check` 通過（33ファイル377テスト、着手前と同数が正しい）。
+
+## T-167
+
+**タスク**: タグ名の中でのブランチ名表現（`/` → `-`）を1つの関数にまとめる。
+
+## 背景
+
+`src/domain/tag-format.ts` に `branch.replaceAll("/", "-")` が2箇所ある:
+
+- `:109` `compileTagPattern()` 内 — タグ名を**パースする**正規表現を組み立てるとき
+- `:143` `fillTagFormat()` 内 — タグ名を**生成する**とき
+
+どちらも「タグ名の中では、ブランチ名の `/` を `-` に置き換えた形で表す」という同じ規則で、
+パース側と生成側が対称であることが `parseTag()` / `buildNewTag()` の往復が成立する前提に
+なっている。片方だけ変えると `buildNewTag()` で作ったタグが `parseTag()` で読めなくなるが、
+今は2箇所に分かれているためその結び付きがコードから見えない。
+
+## やること
+
+1. `src/domain/tag-format.ts` にファイル内の非公開関数を1つ足し、2箇所をそれに置き換える。
+   関数名は「タグ名の中でのブランチ名表現」であることが分かるものにする
+2. `docs/coding-standards.md`「関数の並び順」に従って配置する（外から使うもの →
+   その内部で使うもの）。`escapeRegExp()` と同じくファイル末尾側になるはず
+3. 「パース側と生成側で同じ表現を使う」という前提をコメントに残すか判断する。
+   `docs/coding-standards.md`「コメント」の判断表に従い、**コードから読み取れることは書かない**
+   （関数を1本にした時点で読み取れるなら書かない）
+
+## 完了条件
+
+- `grep -c 'replaceAll("/", "-")' src/domain/tag-format.ts` が **1**
+- `test/domain/tag-format.test.ts` が**無改変で通る**（`evidence` に書く）
+- `buildNewTag()` が作ったタグ名を `parseTag()` が読めることを確かめるテストが既にあることを
+  確認する。**無ければ1件足す**（`docs/coding-standards.md`「足すかどうか」の
+  「`docs/requirements.md` が明示している振る舞い」に当たるため）
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- **`escapeRegExp()` を消したり簡略化したりしない。** 過去に「`escapeRegExp()` を守るテストが
+  1件も無い」という穴が T-143 で埋められている
+- タグ形式のプレースホルダの扱い（`PLACEHOLDER_PATTERN` / `REQUIRED_PLACEHOLDERS`）を変えない
+- JST の扱い（`JST_OFFSET_MS`）に触れない
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: haiku
+
+**evidence**: `haiku` に委譲。`toBranchLiteralInTag(branch)` を `src/domain/tag-format.ts` の末尾側（`escapeRegExp()` の直前）に追加し、`compileTagPattern()` と `fillTagFormat()` の2箇所を置き換えた。`grep -c 'replaceAll("/", "-")' src/domain/tag-format.ts` は **1**。
+変異検証は委譲先・メイン双方で実施。置換をやめて `branch` をそのまま返すと**6件落ちる**（`parseTag`・`buildNewTag`・並び順の回帰・`compileTagPattern`・`resolve-latest-tags` の各テスト）。往復（`buildNewTag()`→`parseTag()`）を確かめるテストは既存で3箇所あり、追加不要と確認した。
+**受け入れ時にメインがJSDocを2箇所直した**。`fillTagFormat()` の説明が「`{branch}`は**呼び出し元が渡した**`branch`（"/"を"-"に置換済み）」となっていたが、実際は自分で変換しており事実と違っていた（このタスク以前からの誤り）。両方の JSDoc を新関数に向け、パース側と生成側が同じものを使うことがコメントからも読めるようにした。`pnpm check` 通過（33ファイル377テスト、着手前と同数）。
+
 ## T-168
 
 **タスク**: ログのキー `duration_ms` だけが snake_case である件の扱いを決める。
@@ -4609,3 +4937,363 @@ warn(fields: Record<string, unknown>): void {
 **difficulty**: sonnet
 
 **evidence**: ユーザー判断で `durationMs` への統一を採用。`src/utils/timer.ts`（`timed()` の戻り値のフィールド名ごと）2件・`src/main.ts` 2件・`test/main.test.ts` 1件・`README.md:139` のログ出力例1件・`docs/coding-standards.md:262` の表1件の計7箇所を置換。 `grep -rn duration_ms src test scripts README.md docs CLAUDE.md` は **`docs/history/` の3件を除いて0件**（history は当時の記述をそのまま残す規約のため対象外。完了条件のgrepはこの除外が必要だった）。 変異確認: ログキーだけ `duration_ms` に戻すと `main.test.ts` の「run_start / summary / run_end イベントをログ出力する」が落ちる。`pnpm check` 通過（32ファイル361テスト。改名のみなので着手前と同数が正しい）。
+
+## T-169
+
+**タスク**: 数値に見えるスカラーを書き戻すとクォートが付く件を、正典に書くか実装で防ぐか決める。
+
+## 背景
+
+`src/lib/helm.ts` の `setValueAtAnchor()` は `yaml` パッケージのDocument（AST）の
+`node.value` に**文字列**を代入して再シリアライズする。元のスカラーが数値として
+パースされていた場合、書き戻すとクォートが付く。実測:
+
+```
+入力:  variables:\n  - &ver 20260101\n  - &b main\n
+node.value の型: number（20260101）
+書き戻し後: - &ver "20260102"
+```
+
+イメージタグは `tagFormat` が `{branch}` を必須にしている（`src/domain/tag-format.ts` の
+`REQUIRED_PLACEHOLDERS`）ため、タグ名が純粋な数値になることはなく**この経路では起きない**。
+
+起きうるのは **Helmの向き先ブランチ**（`config.yaml` の `helm.branchToSync`）で、ブランチ名が
+数字だけ（例: `2026`）の場合。`stage-helm-target-branch-updates.ts` が
+`setValueAtAnchor(valuesYamlContent, target.anchorName, branchName)` を呼ぶため、
+values.yaml の差分にクォートが増える。
+
+`docs/architecture.md`「既知の制約・注意点」の「その他」には
+
+> `values.yaml` の書き換えは `yaml` パッケージのDocument（AST）を直接操作する方式のため、
+> 書き換え対象以外のコメント・クォートスタイルは概ね保持される（完全な保持を保証するものではない）
+
+とあるが、**書き換え対象そのもののクォートが変わる**この条件は書かれていない。
+
+## 解くべき論点
+
+1. **実装で防ぐか、制約として書くか。** 防ぐなら「元の `node.type` を保つ」「元が数値なら
+   数値として代入する」などが考えられるが、**ブランチ名は文字列なので数値として書くのは
+   むしろ誤り**（YAMLとして読み直すと数値になり、Helmが期待する型と食い違う）。
+   クォートが付くのは**正しい挙動**とも言える。この見立てが正しいかを検証する
+2. **`getRequiredValueAtAnchor()` 側の `String(node.value)` も対になっている。** 元が数値の
+   `2026` を読むと文字列 `"2026"` になり、`config.yaml` の `branchToSync: 2026`（Zodが
+   `z.string()` で弾く）とは比較できる形になっている。読み取り側の挙動も合わせて確認する
+3. **書くなら、どの正典のどの節か。** `docs/architecture.md`「その他」に1行足すのが素直だが、
+   `docs/requirements.md` 4.4節（`config/` のスキーマ仕様）が
+   「ブランチ名に数字だけの名前を使わない」と書くべき性質かもしれない
+
+## やること
+
+1. 論点1を検証する。**「クォートが付くのが正しい」と結論できれば、実装は変えずに
+   制約として正典に書いて閉じる**（`evidence` に検証内容を書く）
+2. 論点2を確認する。読み取り→比較→書き戻しの往復が、数値に見える値でも壊れないことを
+   テストで守る（`test/lib/helm.test.ts` に1件足す）
+3. 論点3の結論に従って正典に1項目足す
+
+## 完了条件
+
+- 数値に見えるアンカー値（例 `&b 2026`）に対する読み取り・書き戻しの往復を守るテストが
+  `test/lib/helm.test.ts` に**1件以上ある**
+- `docs/architecture.md`「既知の制約・注意点」または `docs/requirements.md` に、この条件が
+  1項目として書かれている（書いた場所を `evidence` に書く）
+- 実装を変えた場合: 変更前後で `test/steps/build-plans/sub-steps/stage-helm-target-branch-updates.test.ts`
+  が無改変で通る
+- `pnpm check` が通る（テスト件数を `evidence` に書く。テストを足すので**359件より増える**のが正しい）
+
+## 注意
+
+- **`yaml` パッケージを別のものに置き換えない。** `docs/architecture.md`
+  「`values.yaml` の位置指定はYAMLアンカーのみ、YAML処理は `yaml` パッケージ」が
+  `js-yaml` を使わない理由を持っている
+- `setValueAtAnchor()` がASTを直接書き換える方式（＝他の要素・インデント・アンカー記法を
+  保つ）を変えない
+- 実 `config/` とスモークテスト用リポジトリのブランチ名を変えない
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: sonnet
+
+**evidence**: `sonnet` に委譲。論点1の結論は**クォートが付くのが正しい挙動なので実装は変えない**（`src/lib/helm.ts` は `git diff` 0行）。`yaml` パッケージは「文字列として代入した値がクォートなしだと再パース時に数値・真偽値へ化ける」ケースだけを検知してクォートを付ける。
+**メインが独立に実測して一致を確認**: `&b 2026`→`"2027"`、`&b 007`→`"008"`、`&b true`→`"false"` はクォートが付き、`&b no`→`yes`（YAML1.2で `no` は文字列）と `&b main`→`develop` には付かない。**必要なときだけ最小限に付く**ことが確認できた。
+`test/lib/helm.test.ts` に2件追加（素の `yaml.parse()` でも文字列であることを確認しており、`String()` 変換に依存しない検証）。変異（`getValueAtAnchor` の `String()` を外す）で1件落ちる。正典は `docs/architecture.md`「既知の制約・注意点」→「その他」に1項目（7行）。`docs/requirements.md` は変更なし（`branchToSync` は `z.string()` が数値を弾くため、運用上の禁止事項として書くのは的外れという判断）。`pnpm check` 通過（33ファイル379テスト、+2）。
+
+## T-170
+
+**タスク**: `src/lib/helm.ts` の「アンカーが無い」まわりのエラー表現を整える。
+
+## 背景
+
+`src/lib/helm.ts` に、同じ「アンカーが見つからない」という不変条件を扱う箇所が2つある。
+
+**(1) スカラー以外に付いたアンカーを区別できない。** `findAnchorNode()` は
+`visit(doc, { Scalar(_key, node) { ... } })` でスカラーノードだけを探すため、アンカーが
+マップやシーケンスに付いている（例: `&group\n  key: value`）と「見つからない」扱いになる。
+`getRequiredValueAtAnchor()` は
+
+```
+values.yaml にアンカー "..." が見つかりません (valuesPath: ...)
+```
+
+と報告するが、実際にはアンカーは存在していてスカラーでないだけなので、**設定を直す人が
+原因にたどり着けない**。同じことが `scripts/lint/verify-config/verify-config.ts` の
+実在チェックでも起きる（`getValueAtAnchor()` 経由で「アンカーが見つかりません」と出る）。
+
+**(2) 同じ不変条件を2つの関数が別々に投げている。** `getRequiredValueAtAnchor()`（:31）と
+`setValueAtAnchor()`（:51）がどちらも「アンカーが見つかりません」を投げる。呼び出し側
+（`stage-image-tag-updates.ts` / `stage-helm-target-branch-updates.ts`）は必ず
+`getRequiredValueAtAnchor()` を先に呼んで同じ内容に対して `setValueAtAnchor()` を呼ぶため、
+**後者の分岐は実行時には到達しない**。
+
+## 解くべき論点
+
+1. **(1) をどこまで直すか。** アンカーの有無とスカラーかどうかを区別するには
+   `findAnchorNode()` の探索を変える（全ノードを見てからスカラーか判定する）必要がある。
+   エラーメッセージが増える一方、`config/` の設定ミスとしては起こりにくいケースでもある。
+   **`docs/requirements.md` 4.4節が「アンカーはスカラーに付ける」と規定しているかを先に確認し、
+   規定があるなら「規定違反を検知するメッセージ」として直す価値がある**
+2. **(2) を統合するか、到達不能なまま残すか。** `docs/coding-standards.md`「足すかどうか」は
+   「到達不能な防御的コード（`internal error:` を投げる分岐など）は埋めない」と書いており、
+   **到達不能な防御的分岐を残すこと自体は許容されている**。統合するなら
+   `setValueAtAnchor()` の引数を「既に取得済みのノード」に変えるといった設計変更になり、
+   `lib/helm.ts` の公開インターフェースが変わる。**割に合わないなら残す結論でよい**
+3. `getValueAtAnchor()`（`undefined` を返す、`verify-config.ts` 向け）と
+   `getRequiredValueAtAnchor()`（例外を投げる）の2本立ては維持する。用途の違いが
+   JSDocに書かれている
+
+## やること
+
+1. 論点1を検討する。`docs/requirements.md` 4.4節を
+   `sed -n '/^#### /,/^#\{2,4\} /p'` の形で確認してから決める
+2. 論点2を検討する。**「今のままでよい」と結論した場合は、変更せずに理由を `evidence` に
+   書いて閉じてよい**（ただしその場合も、論点1で直すと決めた分は実施する）
+3. 直す結論の分について実装し、テストを足す
+
+## 完了条件
+
+- 論点1・2それぞれの結論と根拠が `evidence` に書かれている
+- (1) を直した場合: スカラー以外に付いたアンカーを渡したときのメッセージが
+  「見つからない」と区別できることを守るテストが `test/lib/helm.test.ts` に1件以上ある
+- (2) を統合した場合: `grep -c "アンカー" src/lib/helm.ts` が減っており、
+  `test/lib/helm.test.ts` と2つの `stage-*` のテストが通る
+- どちらも直さない結論の場合: `src/lib/helm.ts` が無変更で、理由が `evidence` にある
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- **`getValueAtAnchor()` の戻り値（`string | undefined`）を変えない。**
+  `scripts/lint/verify-config/verify-config.ts` が「1件目で止めず全問題を集める」ために
+  この形を必要としている
+- `setValueAtAnchor()` がASTを直接書き換える方式を変えない
+- `src/steps/` 配下に `try`/`catch` を書かない規約を壊さない
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: sonnet
+
+**evidence**: `sonnet` に委譲。論点1は**直す**（`docs/requirements.md` 4.4節が「アンカーは**スカラー値**に付ける」構成を明文で前提にしているため、規定違反を検知する価値がある）。`findAnchorNode()` を `Scalar` 限定の `visit` から全ノード＋`isScalar()` に変え、戻り値を判別可能ユニオン `AnchorLookup`（`not_found`/`non_scalar`/`scalar`、ファイル内限定の型）にした。論点2は**統合しない**（到達不能な防御的分岐は残してよい規約があり、統合には公開インターフェースの変更が要る）。
+**メインが独立に実測**: マッピング/シーケンスにアンカーが付くと `getRequired`/`set` が「スカラー値に付いていません」を投げ、不在は従来どおり「見つかりません」。スカラーは無変化。変異（`non_scalar` を `not_found` と同じ扱いに戻す）で2件落ちる。
+**残った制約**: `verify-config.ts` は `getValueAtAnchor()`（`string | undefined`）を使うため、実在チェックの経路では両者を区別できず「アンカーが見つかりません」のまま。戻り値契約を変えない制約（全問題を集める用途）とのトレードオフで、意図的に残している。`grep -rn 'try {' src/steps/` は0件。`pnpm check` 通過（33ファイル382テスト、着手前379から+3）。
+
+## T-171
+
+**タスク**: 429/502 のリトライが二重にかかっていて、効くほうが動いていない件を解く。
+
+## 背景
+
+GitLab APIへのリトライが2層ある。
+
+**1層目（gitbeaker の内部）**: `@gitbeaker/rest` の `defaultRequestHandler` は
+`retryCodes = [429, 502]` / `maxRetries = 10` を持ち、この2つのステータスを内部で最大10回
+リトライする。バックオフは `await delay(2 ** i * 0.25)`（i は 0..9）で、`delay` の定義は
+`function delay(ms) { return new Promise((resolve) => setTimeout(resolve, ms)) }` と
+**ミリ秒**を取る。つまり待ち時間は 0.25ms → 0.5 → 1 → … → 128ms の**合計 255.75ms** で、
+実質「0.26秒のあいだに10連射する」動きになる。`Retry-After` は見ていない。
+
+**2層目（このツールの `src/utils/retry.ts`）**: `RETRYABLE_STATUSES = [429, 502, 503, 504]` に
+対して `maxAttempts = 3` / `baseDelayMs = 1000` の指数バックオフ（1s → 2s → 4s）を行う。
+
+問題は、**1層目が使い切ったときに投げる `GitbeakerRetryError` が `cause` を持たない**こと。
+メッセージは
+`Could not successfully complete this request after 10 retries, last status code: 429. ...`
+だけで、`cause.response.status` が無い。そのため `isRetryable()` が呼ぶ
+`extractHttpStatus()` は `undefined` を返し、**429/502 では2層目が一度も動かない**。
+効かないリトライ（0.26秒で10連射）だけが動き、効くリトライ（秒単位のバックオフ）は
+動かない状態になっている。
+
+503/504 は gitbeaker の `retryCodes` に入っておらず `throwFailedRequestError()` が
+`cause.response.status` を立てるため、2層目が設計どおり効く。
+
+`isFatalError(GitbeakerRetryError)` は false（名前が `GitbeakerTimeoutError` ではなく、
+`code` も HTTP ステータスも持たない）なので、該当設定ユニットが `ERROR` になり処理は継続する。
+
+**正典が事実と食い違っている**: `README.md`「エラーハンドリング」表の
+「429 / 502 / 503 / 504 → 指数バックオフで最大3回リトライ後にエラー」は、429と502について
+実態と違う。
+
+実害の大きさ: 定期実行は1日1回・3設定ユニットで、429を踏む頻度は低い。**「実装は変えず
+正典だけ実態に合わせる」も正当な結論になりうる。**
+
+## 解くべき論点
+
+1. **リトライを二重にかけてよいか。** gitbeaker の10回は `requesterFn` を差し替えない限り
+   止められない。2層目を429/502でも効かせると「0.26秒で10連射 → 1秒待つ → また10連射」を
+   3回、**合計30リクエスト**になる。レート制限を受けている相手にこれが親切かを判断する
+2. **`GitbeakerRetryError` から元のステータスをどう得るか。** メッセージに
+   `last status code: 429` が含まれるが、**メッセージ文字列のパースに依存してよいか**。
+   代案として「エラー名が `GitbeakerRetryError` なら、ステータスを問わずリトライ可能とみなす」
+   がある（T-159 で `GitbeakerTimeoutError` を名前で判定した前例と揃う）
+3. **`Retry-After` ヘッダを見るか。** gitbeaker は捨てている。見るなら `requesterFn` の
+   差し替えが要るので、論点1と一緒に判断する
+4. **`src/utils/retry.ts` を残すか。** 503/504 のためには要る。残す前提でよいかを確認する
+5. **`README.md` のリトライ行をどう直すか。** 実装を変える場合も変えない場合も、
+   この行は実態に合わせる必要がある
+
+## やること
+
+1. **まず実測する。** 429 を返し続けるローカルHTTPサーバを立て、`createClient()` 経由の
+   呼び出しが実際に何回リクエストを投げ、何秒かかり、最終的にどのエラーになるかを測る
+   （`GitbeakerRetryError` の `message` の実物も記録する）。背景の記述はソースを読んだ結論なので、
+   **ここで裏を取ってから設計を決める**
+2. 論点1〜5を検討し、**結論をユーザーに提案して承認を得てから適用する**。エラー方針は
+   `docs/architecture.md` が設計判断として明文化している領域なので勝手に変えない
+3. 承認された形を実装する。**「実装は変えず `README.md` だけ実態に合わせる」と結論した場合は、
+   その理由を `evidence` に書いて閉じてよい**（ただし `README.md` の修正は必ず行う）
+4. 実装を変えた場合、`docs/architecture.md`「エラーは『fatalは例外・それ以外は戻り値』の
+   2チャネル」の節に、2層のリトライの関係を1項目として書く
+
+## 完了条件
+
+- 429 を返し続けるサーバに対する**実測値**（リクエストの実回数・所要時間・最終的なエラーの
+  名前とメッセージ）が `evidence` に書かれている
+- `README.md`「エラーハンドリング」表のリトライ行が、実測した挙動を説明できている
+- 実装を変えた場合: 変更を戻すと落ちるテストが1件以上ある（変異で確認し、`evidence` に書く）
+- 実装を変えなかった場合: その判断の理由が `evidence` に書かれている
+- `grep -rn "try {" src/steps/` が **0件**
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- **gitbeaker の内部リトライは `requesterFn` を差し替えないと止められない。** 差し替えは
+  `lib/gitlab/` の責務を大きく変える（`createClient()` がgitbeakerの素のインスタンスを返す
+  という前提が崩れる）ので、採る場合はユーザー承認を必ず取る
+- **T-159 で入れた `queryTimeout`（5分）は全リトライの総予算。** 1層目の10回も同じ
+  `AbortSignal` を共有している。2層目を重ねるときは、この予算内に収まるかを確認する
+  （2層目の待ち時間は `AbortSignal` の外なので、1リクエストあたりの予算は毎回5分にリセットされる）
+- `src/steps/` 配下に `try`/`catch` を書かない
+- HTTPステータスの直書きを散らさない（`docs/coding-standards.md`「エラーハンドリング」）
+- **設計変更の承認が要るので `/loop /next-task` には載せない**
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: **実測（429を返し続けるローカルサーバ）**: 429=10回/280ms、502=10回/282ms、503=3回/3015ms、504=3回/3013ms、500=1回/8ms。429と502は `GitbeakerRetryError`（`cause` なし）に化けて `extractHttpStatus` が `undefined` になり、**502 が fatal 判定から漏れていた**（正典は「5xxは即時終了」）。指摘の「自前バックオフが動かない」より重い欠陥で、これが修正の主動機になった。
+ユーザー承認は「status を fatal 判定にだけ使う」。`extractExhaustedRetryStatus()` を追加し message の `last status code: N` を読む。**`isRetryable()` には渡さない**ので追加リクエストはゼロ（gitbeakerが既に10回試したあとのため）。読めなければ `undefined` で fatal に昇格させない安全側。
+修正後の実測: 502 が `fatal=true` に、**リクエスト回数は10回のまま**（429は `false` で据え置き）。変異2件を確認（fatal判定行を消すと1件、リトライ判定に混ぜると1件落ちる）。`steps/` の try は0件。`pnpm check` 通過（33ファイル370テスト、着手前366から+4）。README のリトライ行を503/504と429/502の2行に分け、`docs/architecture.md` に2層リトライの節を追加。Retry-After は `requesterFn` の差し替えが要るため見送り。
+
+## T-174
+
+**タスク**: `stageHelmTargetBranchUpdates()` への `BranchExists` の注入をやめるかどうかを決めて反映する。
+
+## 背景
+
+`src/steps/build-plans/build-plans.ts` は、サブステップに**同じキャッシュを2つの経路で**渡している。
+
+```ts
+const valuesYamlSource: ValuesYamlSource = { gitlabCache, chart: chartAndApps.chart }
+...
+await stageHelmTargetBranchUpdates(
+  valuesYamlSource,                                                    // ← gitlabCache と chart を含む
+  (branch) => gitlabCache.branchExists(chartAndApps.chart.projectId, branch),  // ← 同じものから作った関数
+  chartAndApps.helmTargetBranch,
+  draftAfterApps,
+)
+```
+
+`ValuesYamlSource`（`sub-steps/shared/values-yaml-draft.ts`）は
+`{ gitlabCache: GitlabBatchCache; chart: ChartRepoConfig }` で、**`chart.projectId` も
+`gitlabCache.branchExists` も既にサブステップから見えている**。つまり
+`stageHelmTargetBranchUpdate()` は `source.gitlabCache.branchExists(source.chart.projectId, branchName)`
+と直接書けるため、`BranchExists` の注入は情報を隠せていない。
+
+**正典の説明が実態と食い違っている**（着手前に必ず読むこと）。
+`sub-steps/shared/types.ts` の `BranchExists` のJSDocは
+
+> `build-plans.ts`側でバッチ単位のキャッシュ（`GitlabBatchCache`）とchartのprojectIdを閉じ込めるため、
+> サブステップ側はキャッシュの存在を知らずにブランチの実在確認だけを依頼できる
+
+と書いているが、同じ関数が `source` 経由でキャッシュを受け取っているので「知らずに」が成り立たない。
+`docs/architecture.md`「サブステップに関数型を注入するのは、親stepが持つキャッシュを隠すときだけ」も
+同じ主張をしている。
+
+さらに**同じ節が、逆向きの前例を自分で記録している**: values.yaml の読み込みは以前
+`ReadDraftValuesYaml` という関数型の注入だったが、「読み込み先（`ValuesYamlSource`＝バッチ
+キャッシュ＋chartリポジトリ）はそれ自体がただのデータなので、関数型で隠す必要が無い」という理由で
+直接呼び出しに変えている。**この理由は `BranchExists` にもそのまま当てはまる。**
+
+`BranchExists` 型の利用箇所は `sub-steps/shared/types.ts`（定義）と
+`stage-helm-target-branch-updates.ts`（引数）の2ファイルのみ。
+
+## 解くべき論点
+
+1. **注入をやめて `source` から直接呼ぶか。** やめると引数が1つ減り、`BranchExists` 型が
+   消える。一方でサブステップが「キャッシュ経由でブランチの実在を問い合わせる」ことを
+   知ることになる。ただし**既に `source` 経由で `getFileContent` を呼んでいる**
+   （`readValuesYamlDraft()`）ので、新しく知ることにはならない点を確認する
+2. **逆に `ValuesYamlSource` の側を絞る案はあるか。** `stageHelmTargetBranchUpdates()` が
+   本当に必要としているのは「values.yamlの読み書き」と「ブランチの実在確認」の2つで、
+   どちらも `gitlabCache` + `chart` から導ける。`source` を関数の集合に変える案は、
+   上の正典が「ただのデータなので関数型で隠す必要が無い」として**既に退けた形**に戻らないかを確認する
+3. **`sub-steps/shared/types.ts` から `BranchExists` が消えると、このファイルに残るのは
+   `StageUpdatesAcc` / `LatestTagResolution` / `AppWithLatestTag` の3つ**になる。
+   `docs/architecture.md`「型の置き場所」の6行目（複数のサブステップが共有する型）に
+   照らして、ファイルを残す判断でよいかを確認する
+4. **`docs/architecture.md`「サブステップに関数型を注入するのは、親stepが持つキャッシュを
+   隠すときだけ」の節をどう書き換えるか。** 注入をやめると、この節が説明する対象が
+   `createResolveLatestTags()`（工場関数の側）だけになる。節ごと組み替えるか、
+   前例の記録として残すかを決める
+
+## やること
+
+1. 論点1〜4を検討し、**結論をユーザーに提案して承認を得てから適用する**。
+   `docs/architecture.md` が設計判断として明文化している領域なので勝手に変えない
+2. 承認された形に実装を変え、波及先（`build-plans.ts` の呼び出し、
+   `stage-helm-target-branch-updates.ts` の2関数、`sub-steps/shared/types.ts`）を追随させる
+3. `docs/architecture.md` の該当節と、`sub-steps/shared/types.ts` のJSDocを実態に合わせる。
+   **`BranchExists` を残す結論でも、「キャッシュを隠している」という現在の説明は事実と違うので
+   必ず直す**
+4. **検討の結果「今の形のままがよい」と結論した場合は、実装を変えずに理由を `evidence` に
+   書いて閉じてよい。** ただしその場合も手順3のJSDoc・正典の修正は行う
+
+## 完了条件
+
+- 論点1〜4それぞれの結論と根拠が `evidence` に書かれている
+- `sub-steps/shared/types.ts` の `BranchExists` のJSDoc（残す場合）または
+  `docs/architecture.md` の該当節が、**「キャッシュを隠す」という事実と違う説明を含まない**
+  （該当箇所を `evidence` に引用する）
+- 実装を変えた場合: `test/steps/build-plans/sub-steps/stage-helm-target-branch-updates.test.ts` が
+  **無改変で通る**（向き先ブランチが存在しないときに例外を投げる振る舞いが変わっていないこと）。
+  無改変で通らないなら、なぜテストの書き換えが要るのかを `evidence` に書く
+- `grep -rn "BranchExists" src` の件数が結論と一致している（件数を `evidence` に書く）
+- `grep -rn "try {" src/steps/` が **0件**
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- **`stage-helm-target-branch-updates.ts` の振る舞いを変えない。** 向き先ブランチが
+  chartリポジトリに実在しないときに例外を投げる（＝該当設定ユニットが `ERROR` になる）経路は維持する
+- サブステップ同士は互いに import しない（`docs/architecture.md`「サブステップ同士は互いを
+  importせず、共有物は`sub-steps/shared/`に置く」）
+- `createResolveLatestTags()`（工場関数でキャッシュの寿命を親stepに持たせる形）は**別の話**なので触らない
+- `src/steps/` 配下に `try`/`catch` を書かない
+- **設計判断とユーザー承認が要るので `/loop /next-task` には載せない**
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: ユーザー承認は「注入をやめて `source` から直接呼ぶ」。`stageHelmTargetBranchUpdates()` の引数を4→3に減らし、内部で `source.gitlabCache.branchExists(source.chart.projectId, branchName)` を呼ぶ形に。`BranchExists` 型を削除し、`sub-steps/shared/types.ts` は3型（`StageUpdatesAcc`・`LatestTagResolution`・`AppWithLatestTag`）になった（論点3: 複数サブステップが共有する型が残るのでファイルの存在理由は保たれる）。論点2の `ValuesYamlSource` を絞る案は、正典が既に退けた形に戻るため不採用。
+**テストは無改変で通った**（`test/` の `git diff` が0行）。既存テストが `buildPlans()` 経由で `lib/gitlab/gitlab.js` をモックする作りだったため、注入の有無に依存していなかった。変異2件で守られていることを確認: 実在確認を消すと4件、別のprojectIdを見るようにすると3件落ちる。
+正典は `docs/architecture.md` の該当節を**見出しごと書き換え**（節の索引も追随）。この変更で関数型の注入が0件になったため、節の主張が「注入するのはキャッシュを隠すときだけ」から「注入しない。キャッシュを持つ側が工場関数を公開する」に変わる。`ReadDraftValuesYaml` と `BranchExists` を同じ理由でやめた経緯を並べて記録した。型の置き場所の表からも `BranchExists` を除去。`grep -rn 'try {' src/steps/` は0件。`pnpm check` 通過（33ファイル382テスト、着手前と同数）。
