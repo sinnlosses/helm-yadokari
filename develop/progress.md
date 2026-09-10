@@ -37,7 +37,14 @@
 
 ## 次にやること
 
-**未着手のタスクは0件**（T-172〜T-185 はすべて `done`）。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
+**未着手のタスクは1件**:
+
+- **T-186**（`sonnet`、依存なし）: `src/lib/config/` の3ファイルを改名する
+  （`unit-scan.ts`→`find-config-units.ts` / `select-units.ts`→`limit-to-target.ts` /
+  `chart-and-apps.ts`→`load-chart-and-apps.ts`）。**改名だけで振る舞いは変えない。**
+  `docs/architecture.md` の「`chart-and-apps.ts` は変えない」の行を新しい理由で書き換える必要がある
+
+T-172〜T-185 はすべて `done`。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
 「未解決」にある。
 
 `src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から

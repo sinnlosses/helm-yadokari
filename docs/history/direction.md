@@ -9,6 +9,74 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-11（4回目）
+
+生成したタスク: **T-186**（`src/lib/config/` の3ファイルを、何をするか分かる名前に改名する、
+`sonnet`、依存なし）。
+
+命名の検討は会話の中で2度差し戻されている。1度目は `scan-chart-dir.ts` / `config-target.ts` /
+`load-chart-and-apps.ts` を提案したが、**`config-target` は名詞で何をするか言えていない**、
+**「走査」は機構であって結果を言っていない**というユーザー指摘を受けて取り下げ、
+`find-config-units.ts` / `limit-to-target.ts` に改めた。下のメモは差し戻し後の最終案。
+
+## `src/lib/config/` の3ファイルを、何をするか分かる名前に改名する
+
+「`chart-and-apps` / `select-units` / `unit-scan` はファイル名から何をするのか分かりづらい」という
+指摘。実物と突き合わせたところ、**3つとも名前が中身を説明できていなかった**:
+
+- `unit-scan.ts` — 公開関数は `scanChartDir()`。**ファイル名は「unit」、関数名は「chartDir」**で
+  語が食い違い、名前から関数にたどり着けない。加えて「走査」は木を降りる**やり方**の話で、
+  欲しい結果（設定ユニットがどこにあるか）を言っていない
+- `select-units.ts` — 公開は `selectChartDirs` / `selectTargetUnits` / `assertTargetMatched` の3つ。
+  **名前は「units を select」だが、実際は chartDirs も select し、0件検出もする**。中身の
+  3分の1しか説明していない
+- `chart-and-apps.ts` — **動詞がない**。名詞対でデータの入れ物のように読めるが、実際は
+  「2つのYAMLを読んで `projectId` で結合する」という動作
+
+**改名の指針は「機構ではなく、何が手に入るか」**。`src/steps/` が既に
+「ファイル名＝公開関数名のケバブケースで動詞始まり」（`filter-targets.ts`→`filterTargets()`、
+`build-plans.ts`、`resolve-latest-tags.ts` 等）で統一されている前例に合わせる。
+
+改名:
+
+| 現在                | 新                       | 関数の改名                                                                                       |
+| ------------------- | ------------------------ | ------------------------------------------------------------------------------------------------ |
+| `unit-scan.ts`      | `find-config-units.ts`   | `scanChartDir()` → `findConfigUnits()`                                                           |
+| `select-units.ts`   | `limit-to-target.ts`     | 関数名はそのまま                                                                                 |
+| `chart-and-apps.ts` | `load-chart-and-apps.ts` | 公開 `loadUnitChartAndApps()` → `loadChartAndApps()`、今その名前の非公開 → `buildChartAndApps()` |
+
+補足:
+
+- `find-config-units.ts` の「設定ユニット」は `docs/glossary.md` の確立した語彙
+  （`ConfigUnitPath` / `src/domain/config-unit.ts`）に合わせたもの
+- `limit-to-target.ts` は公開関数が3つあるが**動詞名でよい**。`config/validate.ts` が既に
+  「動詞名で複数の検証関数を持つ」形の前例になっている。当初 `config-target.ts` を検討したが、
+  **名詞では何をするか言えない**というユーザー指摘で取り下げた
+- **`filter-targets` は使えない**。`src/steps/filter-targets/` が「GitLab上で更新対象のchartを
+  絞る」という別の意味で既に取っており、1つの語を2つの意味に使うことになる
+
+改名後の `ls src/lib/config/`（上から `loadConfig()` のパイプライン順）:
+
+```
+config.ts               入口
+limit-to-target.ts      TARGET_* で処理対象を限定する
+find-config-units.ts    設定ユニットを見つける
+load-chart-and-apps.ts  2つのYAMLを読んで結合する
+schema.ts               スキーマ
+validate.ts             設定ミスを検証する
+```
+
+正典側の対応:
+
+- `docs/architecture.md` の**「`lib/config/chart-and-apps.ts`（ファイル名）→ 変えない」の行を
+  書き換える**（812行目付近）。当時の理由は「YAMLのファイル名が `registry.yaml` に変わっても
+  コード側は追随しない」で、今回の「動詞が無くて何をするか読めない」とは別の論点。
+  **矛盾を残さないよう、新しい理由で書き換える**
+- 旧ファイル名の参照は `docs/` に8箇所（`architecture.md` 6・`coding-standards.md` 1 ほか）。
+  `docs/history/` の48箇所は**当時の記述として書き換えない**
+- コード側の参照は `src/lib/config/` 内のみ。`test/` と `scripts/` からの参照は**ゼロ**なので、
+  テストの書き換えは発生しない見込み
+
 ## 2026-09-11（3回目）
 
 生成したタスク: **T-185**（`scanChartDir()` を `unit-scan.ts` へ、`TARGET_*` の解釈を
