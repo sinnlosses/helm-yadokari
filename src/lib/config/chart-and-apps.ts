@@ -1,5 +1,3 @@
-import { join } from "node:path"
-
 import type {
   AppConfig,
   ChartAndApps,
@@ -10,7 +8,7 @@ import type {
 } from "../../types/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
 import type { AppSpec, HelmConfig } from "./schema.js"
-import { CONFIG_YAML_FILE_NAME, ConfigYamlSchema } from "./schema.js"
+import { ConfigYamlSchema } from "./schema.js"
 import {
   resolveProjectLinkage,
   validateNoDuplicateProjectIds,
@@ -23,17 +21,16 @@ import {
  * `projectId`で結合して`ChartAndApps`（MRを作成する単位）1件にする。両者間の紐づけ矛盾の検証と
  * 結合そのものは`resolveProjectLinkage()`が一度に行う。`config.yaml`が実在するディレクトリだけが渡ってくる
  * 前提（どのディレクトリが設定ユニットかは`config.ts`の走査が決める）。
+ * `unitPath`は識別子（ログ・`TARGET_UNITS`・固定ブランチ名に使う）、`*YamlPath`はローカルの実ファイルパス。
  */
 export function loadChartAndApps(
-  unitDirPath: string,
   chartDirName: ChartDirName,
   unitPath: ConfigUnitPath,
   chart: ChartRepoConfig,
   appSpecs: readonly AppSpec[],
+  configYamlPath: string,
   registryYamlPath: string,
 ): ChartAndApps {
-  const configYamlPath = join(unitDirPath, CONFIG_YAML_FILE_NAME)
-
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
   validateNoDuplicateProjectIds(configYamlPath, apps)
   const linkedApps = resolveProjectLinkage(configYamlPath, registryYamlPath, apps, appSpecs)

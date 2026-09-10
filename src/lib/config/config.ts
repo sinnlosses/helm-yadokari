@@ -191,11 +191,11 @@ function listUnitChartAndApps(
     .filter((unitPath) => !units || units.includes(unitPath))
     .map((unitPath) =>
       loadChartAndApps(
-        join(chartUnits.chartDirPath, unitPath),
         chartUnits.chartDirName,
         unitPath,
         chart,
         appSpecs,
+        join(chartUnits.chartDirPath, unitPath, CONFIG_YAML_FILE_NAME),
         registryYamlPath,
       ),
     )

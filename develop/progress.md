@@ -5,7 +5,7 @@
 詳細は下の「完了したこと」を参照。2026-09-09以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手は T-180 の1件だけ**で、残りは**GitLabへの反映と `validate-config-remote` の確認だけ**。完了タスクは
+**未着手は T-180（反映待ち）と T-182（`LocalPath` の導入）の2件**。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -81,6 +81,14 @@ stage名）は一切変えない**ので、承認のコストが要る範囲は�
 （2026-09-10）— 向き先ブランチの受け皿は `smokeTestTargetBranch` で正しく、`helmVersion` は
 `SEED_FILES` に含めて `setup` のたびに `develop` に戻す扱いでよい。
 
+**T-181 完了**（`sonnet`、委譲）と **T-182 を登録**。`src/lib/config/chart-and-apps.ts` の
+`unitDirPath` が `unitPath` と見た目の双子で紛らわしい、というユーザー指摘から。
+`unitDirPath` は `join()` のためだけに存在していた（使用箇所1つ）ので消し、
+`configYamlPath` を直接受け取る形にした。**調査で型の穴が見つかった** —
+ブランド型は `string` に代入可能なので、`ConfigUnitPath` を素の `string` 引数に渡しても
+コンパイルが通る（最小再現で確認済み）。`unitPath` と `unitDirPath` の取り違えが型で
+止まらない状態だった。これを塞ぐ `LocalPath` ブランド型の導入が T-182。
+
 **残っているのはGitLabへの反映のみ**（`.env` がリポジトリに無いため、ユーザーが実行する）:
 
 ```bash
@@ -95,7 +103,7 @@ pnpm lint:validate-config:remote                                    # 残る完�
 
 ## 次にやること
 
-**未着手は T-180 の1件だけ**で、**`/loop` では進められない** —
+**未着手は2件**。**T-182 は `/loop /next-task` で進められる**。T-180 は **`/loop` では進められない** —
 GitLab側フィクスチャへの書き込み承認と、消えるスモークシナリオの組み直しを含む。
 T-176・T-177 は着手しない判断で閉じた（下の「未解決」）。
 
@@ -105,6 +113,11 @@ T-176・T-177 は着手しない判断で閉じた（下の「未解決」）。
   `tsx scripts/smoke/smoke-fixture.ts setup --apply` を**ユーザーが実行する**必要がある
   （`.env` がリポジトリに無いため私からは反映できない）。手順とコマンドは上の
   「完了したこと」に書いた。`/loop` 不可。
+- **T-182（ローカルのファイルパスを `LocalPath` ブランド型にする、`sonnet`、T-181依存）**。
+  `docs/architecture.md`「ブランド型にするのは〜」の基準（別の識別子と同じ型の式に並ぶか）に
+  **該当することを実証済み**。`src/utils/` は `types/` を import していないので、
+  汎用ユーティリティ側は `string` のまま無改修で通る。⚠️ `scripts/smoke/smoke-fixture.ts` の
+  `fileExists(filePath)` と `SEED_FILES` のキーは**GitLab側のパス**なので付けない。`/loop` 可。
 
 **タスクにしなかったもの**（正典に既に判断があるので蒸し返さない）: stepの入口の
 「並列実行 → 振り分け」の共通化、`StepOutcome.settled` の分離（T-151）、`env.ts` の
