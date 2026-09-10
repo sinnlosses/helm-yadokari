@@ -1,6 +1,6 @@
 import type { ChartAndApps, ChartDirName, ConfigUnitPath } from "../../types/types.js"
 import { CONFIG_YAML_FILE_NAME, REGISTRY_YAML_FILE_NAME } from "./schema.js"
-import type { ChartUnits } from "./unit-scan.js"
+import type { ChartUnits } from "./find-config-units.js"
 
 /**
  * 特定のchartディレクトリ・特定の設定ユニット（複数可）に処理対象を絞り込むためのフィルタ。
@@ -31,7 +31,7 @@ export function selectChartDirs(chartDirs: readonly string[], target: ConfigTarg
 }
 
 /**
- * `target.units`（`TARGET_UNITS`）で設定ユニットを絞り込む。階層の検証（`scanChartDir()`）は
+ * `target.units`（`TARGET_UNITS`）で設定ユニットを絞り込む。階層の検証（`findConfigUnits()`）は
  * 対象外の設定ユニットも含めて既に済んでいるため、ここでは走査結果の`unitPath`との照合だけを行う。
  * 指定した`unitPath`が1件でも見つからなければ例外をスローする。
  */

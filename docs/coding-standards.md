@@ -343,7 +343,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 （同種の分岐が2件、テストではなくコード側の問題として解消済み。どちらも上の「避ける`undefined`」
 節の1つ目のパターン「実行時には到達しないのに型に残っている`undefined`」の実例。
 `src/lib/gitlab/errors.ts` の `isFatalStatus` は引数の型を `number` に狭めて分岐ごと削除。
-`src/lib/config/chart-and-apps.ts` の `internal error:` は、紐づけの検証が結果を捨てていたため
+`src/lib/config/load-chart-and-apps.ts` の `internal error:` は、紐づけの検証が結果を捨てていたため
 同じ突き合わせを2回していたのが原因で、`resolveProjectLinkage()` が組を返すようにして削除）
 
 ### 通し（e2e）で守るのは「実ファイル → MRの中身」の連結だけ

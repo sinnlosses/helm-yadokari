@@ -13,6 +13,16 @@
 
 ### 2026-09-11 `src/lib/config/config.ts` の分割
 
+- **T-186**: `src/lib/config/` の3ファイルを、何をするか分かる名前に改名した
+  （`unit-scan.ts`→`find-config-units.ts` / `select-units.ts`→`limit-to-target.ts` /
+  `chart-and-apps.ts`→`load-chart-and-apps.ts`）。`src/steps/` の「ファイル名＝公開関数名で
+  動詞始まり」に揃えたもの。**改名だけで振る舞いは無変更**（使い捨てconfigでの実行で
+  改名前後の一致を確認）。`docs/architecture.md` の「`chart-and-apps.ts` は変えない」の行は、
+  当時の論点（YAMLファイル名への追随）は据え置いたまま別の論点で改名した旨を添えて書き換えた。
+  受け入れで、`schema.ts` のJSDoc「`config.ts`から参照する」が **T-185 の時点で既に嘘に
+  なっていた**（`config.ts` は `schema.ts` を import していない）のを見つけ、参照元の列挙自体を
+  削除した（grepで分かることをコメントに書くと腐る実例）。`pnpm check` 通過: 385 Tests
+
 - **T-185**: `config.ts` を **140行→36行**（`DEFAULT_CONFIG_DIR_PATH` と `loadConfig()` だけ）に
   した。`TARGET_*` の解釈（`ConfigTarget` / `NO_TARGET` 含む）を新設の `select-units.ts` へ、
   `scanChartDir()` と `ChartUnits` 型を `unit-scan.ts` へ移し、`findUnitPaths()` は非公開に降格。
@@ -37,14 +47,7 @@
 
 ## 次にやること
 
-**未着手のタスクは1件**:
-
-- **T-186**（`sonnet`、依存なし）: `src/lib/config/` の3ファイルを改名する
-  （`unit-scan.ts`→`find-config-units.ts` / `select-units.ts`→`limit-to-target.ts` /
-  `chart-and-apps.ts`→`load-chart-and-apps.ts`）。**改名だけで振る舞いは変えない。**
-  `docs/architecture.md` の「`chart-and-apps.ts` は変えない」の行を新しい理由で書き換える必要がある
-
-T-172〜T-185 はすべて `done`。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
+**未着手のタスクは0件**（T-172〜T-186 はすべて `done`）。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
 「未解決」にある。
 
 `src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から

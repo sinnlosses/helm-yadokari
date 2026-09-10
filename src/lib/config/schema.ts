@@ -15,10 +15,10 @@ import {
  * スキーマの仕様（何をどう書くか）は `docs/requirements.md` 4.4節が正典。
  */
 
-/** chartリポジトリ単位の設定ファイル名。`config.ts`・`chart-and-apps.ts`から参照する */
+/** chartリポジトリ単位の設定ファイル名 */
 export const REGISTRY_YAML_FILE_NAME = "registry.yaml"
 
-/** 設定ユニット単位の設定ファイル名。`config.ts`・`chart-and-apps.ts`から参照する */
+/** 設定ユニット単位の設定ファイル名 */
 export const CONFIG_YAML_FILE_NAME = "config.yaml"
 
 /**

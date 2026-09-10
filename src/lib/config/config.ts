@@ -1,10 +1,10 @@
 import type { Config, LocalPath } from "../../types/types.js"
 import { toLocalPath } from "../../types/types.js"
 import { assertSafePath, listSubdirectories } from "../../utils/fs.js"
-import { loadUnitChartAndApps } from "./chart-and-apps.js"
-import type { ConfigTarget } from "./select-units.js"
-import { NO_TARGET, assertTargetMatched, selectChartDirs, selectTargetUnits } from "./select-units.js"
-import { scanChartDir } from "./unit-scan.js"
+import { findConfigUnits } from "./find-config-units.js"
+import { loadChartAndApps } from "./load-chart-and-apps.js"
+import type { ConfigTarget } from "./limit-to-target.js"
+import { NO_TARGET, assertTargetMatched, selectChartDirs, selectTargetUnits } from "./limit-to-target.js"
 import { validateTagFormatConsistency } from "./validate.js"
 
 /** `CONFIG_PATH`・コマンドライン引数のどちらも省略されたときに読む設定ディレクトリ */
@@ -27,9 +27,9 @@ export function loadConfig(configDirPath: LocalPath, target: ConfigTarget = NO_T
   assertSafePath(configDirPath, "CONFIG_PATH")
   const allChartDirs = listSubdirectories(configDirPath)
   const chartDirs = selectChartDirs(allChartDirs, target)
-  const chartUnitsList = chartDirs.flatMap((dir) => scanChartDir(configDirPath, dir))
+  const chartUnitsList = chartDirs.flatMap((dir) => findConfigUnits(configDirPath, dir))
   const selected = selectTargetUnits(chartUnitsList, target)
-  const chartAndAppsList = selected.flatMap(loadUnitChartAndApps)
+  const chartAndAppsList = selected.flatMap(loadChartAndApps)
   validateTagFormatConsistency(chartAndAppsList)
   assertTargetMatched(target, allChartDirs, chartAndAppsList)
   return { chartAndAppsList }

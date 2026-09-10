@@ -158,20 +158,20 @@ importせず〜」の節を参照）。
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
-| ファイル                   | 責務                                                                                                                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `gitlab/gitlab.ts`         | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ                                                                                              |
-| `gitlab/web-url.ts`        | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                                                         |
-| `gitlab/batch-cache.ts`    | バッチ1回を通して使い回すGitLab読み取りのキャッシュ。キャッシュしてよい読み取りの一覧                                                                                    |
-| `gitlab/errors.ts`         | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所**                           |
-| `config/config.ts`         | 公開API `loadConfig()`。絞り込み（`select-units.ts`）→走査（`unit-scan.ts`）→読み込み・結合（`chart-and-apps.ts`）の段を順に呼ぶだけの入口                               |
-| `config/select-units.ts`   | `TARGET_CHART`/`TARGET_UNITS`（`ConfigTarget`）の解釈。絞り込み（`selectChartDirs`/`selectTargetUnits`）と絞り込み結果0件の検出（`assertTargetMatched`）                 |
-| `config/unit-scan.ts`      | 1つのchartディレクトリの走査（`scanChartDir()`）。`registry.yaml`の有無を見て設定ユニットの探索（`findUnitPaths()`）と階層の検証（深さ・入れ子）を行い`ChartUnits`にする |
-| `config/chart-and-apps.ts` | 走査で見つかった設定ユニットごとに `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を読み込み・結合し `ChartAndApps` にする                         |
-| `config/schema.ts`         | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                                        |
-| `config/validate.ts`       | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                                                                                                                 |
-| `helm.ts`                  | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                           |
-| `env.ts`                   | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                                                                                     |
+| ファイル                        | 責務                                                                                                                                                                     |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `gitlab/gitlab.ts`              | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ                                                                                              |
+| `gitlab/web-url.ts`             | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                                                         |
+| `gitlab/batch-cache.ts`         | バッチ1回を通して使い回すGitLab読み取りのキャッシュ。キャッシュしてよい読み取りの一覧                                                                                    |
+| `gitlab/errors.ts`              | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所**                           |
+| `config/config.ts`              | 公開API `loadConfig()`。絞り込み（`limit-to-target.ts`）→設定ユニットの発見（`find-config-units.ts`）→読み込み・結合（`load-chart-and-apps.ts`）の段を順に呼ぶだけの入口 |
+| `config/limit-to-target.ts`     | `TARGET_CHART`/`TARGET_UNITS`（`ConfigTarget`）の解釈。絞り込み（`selectChartDirs`/`selectTargetUnits`）と絞り込み結果0件の検出（`assertTargetMatched`）                 |
+| `config/find-config-units.ts`   | 1つのchartディレクトリから設定ユニットを見つける（`findConfigUnits()`）。`registry.yaml`の有無を見て、階層の検証（深さ・入れ子）込みで`ChartUnits`にする                 |
+| `config/load-chart-and-apps.ts` | 走査で見つかった設定ユニットごとに `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を読み込み・結合し `ChartAndApps` にする                         |
+| `config/schema.ts`              | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                                        |
+| `config/validate.ts`            | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                                                                                                                 |
+| `helm.ts`                       | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                           |
+| `env.ts`                        | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                                                                                     |
 
 ### `src/domain/` — このツールの取り決めを tech非依存で表す
 
@@ -290,7 +290,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
   タグから読み取れる情報そのものというドメイン語彙なので `types/types.ts` に置く。
   **語彙かどうかが先**で、どの関数が作るかは後。現に `src/domain/` には型定義が1つも無い
 - **関数が引数として受け取る形も5行目**（`LabeledTarget` は `validateNoDuplicateTargets()` の
-  引数で、呼び出し側の `chart-and-apps.ts` が組み立てる）。「生み出す」だけでなく
+  引数で、呼び出し側の `load-chart-and-apps.ts` が組み立てる）。「生み出す」だけでなく
   「その関数のためだけに存在する」かで判断する
 - **Zodスキーマから `z.infer` で導出した型はスキーマと同じファイル**（`AppSpec` は
   `lib/config/schema.ts`）。外部ファイル形式の写しなので2行目に当たる。内部表現への詰め替えは
@@ -802,15 +802,15 @@ projectIdが本番実行時にはじめて`ERROR`になっていた。
 キー名に追随し、1行目（ドメイン語彙）は `docs/glossary.md` の語に従う。YAML上の名前が
 変わってもドメインの語彙は変わらないため。
 
-| 識別子                                                                           | どうするか                             | 理由                                                                                           |
-| -------------------------------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `ChartYamlSchema`（`lib/config/schema.ts`）                                      | `RegistryYamlSchema` へ改名            | 外部ファイル形式の写しなので、ファイル名に追随する                                             |
-| `ChartApp` / `ChartAppSchema`（同上）                                            | `AppSpec` / `AppSpecSchema` へ改名     | 同上。`appSpecs[]` の1要素そのもの                                                             |
-| `chartYamlPath` / `chartApps`（`config.ts`・`chart-and-apps.ts`・`validate.ts`） | `registryYamlPath` / `appSpecs` へ改名 | ファイル名・キー名をそのまま指しているローカル変数・引数                                       |
-| `ChartRepoConfig`（`types/types.ts`）                                            | 変えない                               | ドメイン語彙。キーが `chartToUpdate` になっても、型が表すものは「chartリポジトリの設定」のまま |
-| `ChartAndApps` とそのフィールド `chart`                                          | 変えない                               | ドメイン語彙。フィールド名は包含する型名が用途を与えている（「1つの語を2つの意味に使わない」） |
-| `lib/config/chart-and-apps.ts`（ファイル名）                                     | 変えない                               | ファイル名は生成する型 `ChartAndApps` に対応しており、YAMLのファイル名ではない                 |
-| `ConfigYamlSchema` / `AppSchema`（`lib/config/schema.ts`）                       | 変えない                               | `config.yaml` を据え置くため                                                                   |
+| 識別子                                                                                | どうするか                                 | 理由                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ChartYamlSchema`（`lib/config/schema.ts`）                                           | `RegistryYamlSchema` へ改名                | 外部ファイル形式の写しなので、ファイル名に追随する                                                                                                                                                                                |
+| `ChartApp` / `ChartAppSchema`（同上）                                                 | `AppSpec` / `AppSpecSchema` へ改名         | 同上。`appSpecs[]` の1要素そのもの                                                                                                                                                                                                |
+| `chartYamlPath` / `chartApps`（`config.ts`・`load-chart-and-apps.ts`・`validate.ts`） | `registryYamlPath` / `appSpecs` へ改名     | ファイル名・キー名をそのまま指しているローカル変数・引数                                                                                                                                                                          |
+| `ChartRepoConfig`（`types/types.ts`）                                                 | 変えない                                   | ドメイン語彙。キーが `chartToUpdate` になっても、型が表すものは「chartリポジトリの設定」のまま                                                                                                                                    |
+| `ChartAndApps` とそのフィールド `chart`                                               | 変えない                                   | ドメイン語彙。フィールド名は包含する型名が用途を与えている（「1つの語を2つの意味に使わない」）                                                                                                                                    |
+| `lib/config/load-chart-and-apps.ts`（ファイル名）                                     | この論点では変えない（別の論点で改名済み） | ここでの論点はYAMLのファイル名（`chart.yaml`→`registry.yaml`）への追随の要否で、`ChartAndApps` に対応する名前という位置づけは変わらないため据え置いた。のちに「動詞が無く何をするか読めない」という別の論点で現在名へ改名している |
+| `ConfigYamlSchema` / `AppSchema`（`lib/config/schema.ts`）                            | 変えない                                   | `config.yaml` を据え置くため                                                                                                                                                                                                      |
 
 **正典を先に更新し、実装・テスト・実 `config/`・`README.md` は後から追随させる**
 （`tagFormat` の置き場所を変えたときと同じ順序）。正典の書き換えでは旧名を残さず現在の名前に

@@ -18,7 +18,7 @@ import {
   REGISTRY_YAML_FILE_NAME,
   RegistryYamlSchema,
 } from "./schema.js"
-import type { ChartUnits } from "./unit-scan.js"
+import type { ChartUnits } from "./find-config-units.js"
 import {
   resolveProjectLinkage,
   validateNoDuplicateProjectIds,
@@ -30,12 +30,12 @@ import {
  * 絞り込み済み）それぞれを設定ユニット単位の`ChartAndApps`にする。`registry.yaml`の`appSpecs[]`
  * （タグ形式の台帳）は1つのchartディレクトリで共有されるため、重複チェックもここで1回だけ行う。
  */
-export function loadUnitChartAndApps(chartUnits: ChartUnits): readonly ChartAndApps[] {
+export function loadChartAndApps(chartUnits: ChartUnits): readonly ChartAndApps[] {
   const registryYamlPath = toLocalPath(join(chartUnits.chartDirPath, REGISTRY_YAML_FILE_NAME))
   const { chartToUpdate: chart, appSpecs } = parseYamlFile(registryYamlPath, RegistryYamlSchema)
   validateNoDuplicateProjectIds(registryYamlPath, appSpecs)
   return chartUnits.unitPaths.map((unitPath) =>
-    loadChartAndApps(
+    buildChartAndApps(
       chartUnits.chartDirName,
       unitPath,
       chart,
@@ -51,10 +51,10 @@ export function loadUnitChartAndApps(chartUnits: ChartUnits): readonly ChartAndA
  * 読み込み、`appSpecs`（`registry.yaml`の`appSpecs[]`、`projectId`をキーにしたタグ形式の台帳）と
  * `projectId`で結合して`ChartAndApps`（MRを作成する単位）1件にする。両者間の紐づけ矛盾の検証と
  * 結合そのものは`resolveProjectLinkage()`が一度に行う。`config.yaml`が実在するディレクトリだけが渡ってくる
- * 前提（どのディレクトリが設定ユニットかは`unit-scan.ts`の走査が決める）。
+ * 前提（どのディレクトリが設定ユニットかは`find-config-units.ts`の走査が決める）。
  * `unitPath`は識別子（ログ・`TARGET_UNITS`・固定ブランチ名に使う）、`*YamlPath`はローカルの実ファイルパス。
  */
-function loadChartAndApps(
+function buildChartAndApps(
   chartDirName: ChartDirName,
   unitPath: ConfigUnitPath,
   chart: ChartRepoConfig,

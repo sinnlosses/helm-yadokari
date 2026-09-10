@@ -23,7 +23,7 @@ type UnitSegments = readonly string[]
  * 例外でスローする）。`registry.yaml`が無いディレクトリは配下ごと無視する（走査対象の
  * chartとみなさない）。
  */
-export function scanChartDir(configDirPath: LocalPath, chartDir: string): readonly ChartUnits[] {
+export function findConfigUnits(configDirPath: LocalPath, chartDir: string): readonly ChartUnits[] {
   const chartDirPath = toLocalPath(join(configDirPath, chartDir))
   if (!existsSync(join(chartDirPath, REGISTRY_YAML_FILE_NAME))) return []
   return [
