@@ -47,13 +47,14 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 
 `### エラー処理と並列実行` の中:
 
-| 節                                                                                         | 中身                                     |
-| ------------------------------------------------------------------------------------------ | ---------------------------------------- |
-| #### エラーは「fatalは例外・それ以外は戻り値」の2チャネル                                  | `steps/`に`try`/`catch`を書かない理由    |
-| #### アプリ名の付与は`steps/shared/`に置き、アプリ単位の処理を切り出した箇所すべてから呼ぶ | `withAppContext()`の置き場所と呼び出し先 |
-| #### stepの入口にある「並列実行 → 振り分け」の重複は共通化しない                           | 検討したうえで採らなかった共通化         |
-| #### アプリ単位は逐次のまま（並列化しない）                                                | 並列化しない理由                         |
-| #### dry-runは分岐を集約せず、書き込みに到達しないことをテストで守る                       | dry-runの分岐を分離しない理由            |
+| 節                                                                                         | 中身                                                                       |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| #### エラーは「fatalは例外・それ以外は戻り値」の2チャネル                                  | `steps/`に`try`/`catch`を書かない理由                                      |
+| #### HTTPエラーの経路                                                                      | 失敗が`ERROR`/`FatalError`/リトライ/フォールバックに落ちるまでの関数と順序 |
+| #### アプリ名の付与は`steps/shared/`に置き、アプリ単位の処理を切り出した箇所すべてから呼ぶ | `withAppContext()`の置き場所と呼び出し先                                   |
+| #### stepの入口にある「並列実行 → 振り分け」の重複は共通化しない                           | 検討したうえで採らなかった共通化                                           |
+| #### アプリ単位は逐次のまま（並列化しない）                                                | 並列化しない理由                                                           |
+| #### dry-runは分岐を集約せず、書き込みに到達しないことをテストで守る                       | dry-runの分岐を分離しない理由                                              |
 
 `### データの受け渡し` の中:
 
@@ -335,6 +336,52 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
   値自体は既定値と同じだが、既定値がバージョンアップで黙って変わると気づけないため。
   gitbeakerが429/502に対して行う内部リトライ（最大10回）も同じsignalを共有するので、
   この5分は**リトライ込みの総予算**になる
+
+#### HTTPエラーの経路
+
+1リクエストの失敗が「リトライ」「フォールバック」「`ERROR`」「`FatalError`」のどれに落ちるかは、
+4ファイルに分かれた関数を**どの順で通るか**で決まる。ステータス別に何が起きるかは
+`README.md`「エラーハンドリング」が正典で、ここに書くのは判定を担う関数とその順序だけ
+（なぜその方針なのかは上の節）。
+
+**登場人物**（`*` はファイル内からのみ呼ぶ非公開の関数）
+
+| 関数                         | 置き場所                           | 役割                                                                                      |
+| ---------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| `withNotFoundFallback()` `*` | `src/lib/gitlab/gitlab.ts`         | 404のときだけ既定値を返し、それ以外は再スローする                                         |
+| `isNotFoundError()`          | `src/lib/gitlab/errors.ts`         | ステータスが404か                                                                         |
+| `withGitlabRetry()` `*`      | `src/lib/gitlab/gitlab.ts`         | `lib/gitlab/`の全リクエストに同じリトライ方針を当てる                                     |
+| `withRetry()`                | `src/utils/retry.ts`               | 指数バックオフの仕組みだけを持ち、再試行の可否は引数で受け取る                            |
+| `isRetryableError()`         | `src/lib/gitlab/errors.ts`         | 429 / 502 / 503 / 504 か（`RETRYABLE_STATUSES`）                                          |
+| `withHandling()`             | `src/steps/shared/step-outcome.ts` | chartAndApps 1件分を包み、抜けてきた例外を`settleAsError()`に渡す                         |
+| `settleAsError()` `*`        | `src/steps/shared/step-outcome.ts` | fatalなら`FatalError`を投げ、それ以外は`ERROR`をログに記録して返す                        |
+| `isFatalError()`             | `src/lib/gitlab/errors.ts`         | 401 / 5xx / `GitbeakerTimeoutError` / `ECONNREFUSED`・`ENOTFOUND`・`ETIMEDOUT` を真とする |
+| `extractHttpStatus()`        | `src/lib/gitlab/errors.ts`         | `error.cause.response.status`を1段だけ辿って読む                                          |
+
+`errors.ts`には、`isFatalError()`の中からしか呼ばない`isFatalStatus()`・`extractErrorCode()`・
+`extractExhaustedRetryStatus()`もある。
+
+**判定の順序**（`lib/gitlab/`の関数1回ぶんの失敗が落ち着くまで）
+
+1. `withNotFoundFallback()`（`projectExists()`・`branchExists()`などこれで包んだ呼び出しだけ）が
+   `isNotFoundError()`に尋ね、404なら既定値を返してここで終わる。この包みは
+   `withGitlabRetry()`の**内側**にあるので、404はリトライ判定まで届かない
+2. `withGitlabRetry()`→`withRetry()`が`isRetryableError()`に尋ねる。真なら
+   `baseDelayMs * 2 ** (attempt - 1)`だけ待って再試行し、`maxAttempts`で打ち切る
+   （`src/utils/retry.ts`の既定は`maxAttempts` 3・`baseDelayMs` 1000）
+3. 抜けてきた例外は`lib/gitlab/`の外へ出て、途中で`withAppContext()`がアプリ名を前置する（次節）
+4. `withHandling()`が捕まえて`settleAsError()`に渡す。`isFatalError()`が真なら
+   `new FatalError(extractHttpStatus(err), err)`を投げ、偽なら`httpStatus`とメッセージを
+   `result: "ERROR"`としてログに出し、`ChartUpdateResult`の`"ERROR"`を返す
+5. `FatalError`は`src/index.ts`まで上がり、`event: "fatal_error"`をログに出して`exit(1)`
+
+**404と403の読み替えは`lib/gitlab/`の内側で完結する**。`withNotFoundFallback()`が既定値に変えるのは
+404だけで、403は変換せずそのまま上がる（`isFatalError()`も403をfatalにしない。トークンが特定の
+プロジェクトの権限を持たないだけで、他のchartAndAppsは処理できるため）。例外は
+`getLatestPipelineForRef()`で、ここだけ`withNotFoundFallback()`を使わず**403も「パイプライン無し」
+として`undefined`に読み替える**。`pipelines/latest`はパイプラインが1件も無いプロジェクトに対して
+404ではなく403を返すことが実機で確認されており、パイプラインのURLはMR本文の参考情報にすぎず更新処理の
+必須条件ではないため。
 
 #### アプリ名の付与は`steps/shared/`に置き、アプリ単位の処理を切り出した箇所すべてから呼ぶ
 
