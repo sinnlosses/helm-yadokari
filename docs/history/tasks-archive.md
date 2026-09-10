@@ -5193,6 +5193,159 @@ GitLab APIへのリトライが2層ある。
 ユーザー承認は「status を fatal 判定にだけ使う」。`extractExhaustedRetryStatus()` を追加し message の `last status code: N` を読む。**`isRetryable()` には渡さない**ので追加リクエストはゼロ（gitbeakerが既に10回試したあとのため）。読めなければ `undefined` で fatal に昇格させない安全側。
 修正後の実測: 502 が `fatal=true` に、**リクエスト回数は10回のまま**（429は `false` で据え置き）。変異2件を確認（fatal判定行を消すと1件、リトライ判定に混ぜると1件落ちる）。`steps/` の try は0件。`pnpm check` 通過（33ファイル370テスト、着手前366から+4）。README のリトライ行を503/504と429/502の2行に分け、`docs/architecture.md` に2層リトライの節を追加。Retry-After は `requesterFn` の差し替えが要るため見送り。
 
+## T-172
+
+**タスク**: `validate` と `verify` の使い分けを決めて、正典に反映する（実装は次のタスク）。
+
+## 背景
+
+設定の検証に関わるファイルが3つあり、**`validate` と `verify` という似た語が別の層に散っている**。
+
+| ファイル                                      | 公開しているもの                                                                                                                  | 何をするか                                                                                  | GitLabに問い合わせるか |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------- |
+| `scripts/lint/validate-config.ts`             | なし（トップレベル実行のCLI）                                                                                                     | **入口**。既定はローカル検証のみ、`--remote` を付けると実在チェックも走らせる               | 条件付き               |
+| `scripts/lint/verify-config/verify-config.ts` | `verifyConfigExistence()`                                                                                                         | 上記 `--remote` の中身。projectId・ブランチ・valuesPath・アンカーが**GitLab上に実在するか** | する                   |
+| `src/lib/config/validate.ts`                  | `resolveProjectLinkage()` / `validateTagFormatConsistency()` / `validateNoDuplicateProjectIds()` / `validateNoDuplicateTargets()` | 本体パイプラインの一部。**YAMLの形と紐づきの矛盾**（重複・projectName不一致など）           | しない                 |
+
+**設計そのものは意図的で、正典に理由が書かれている**（着手前に必ず読むこと）:
+
+- `docs/architecture.md`「設定ミスの検知は「形」と「実在」で2段に分ける」… `loadConfig()` とCIジョブの分担
+- `docs/architecture.md`「実在チェックは`src/lib/`ではなく`scripts/lint/`に置く」… 原則3が原則2に優先する例
+
+問題は設計ではなく**名前**で、次の3点が読み手を迷わせる:
+
+1. `validate` が `scripts/lint/validate-config.ts`（CLI入口）と `src/lib/config/validate.ts`（形の検証）の**両方**に現れ、層が違うのに同じ語
+2. `validate-config.ts`（CLI）は `--remote` を付けると**verify側も呼ぶ**ので、名前が2つの役割にまたがっている
+3. `verify` と `validate` のどちらが「形」でどちらが「実在」かは、**ファイル名からは決まらない**（正典を読まないと分からない）
+
+ユーザーの指示は「verify-config.ts と validate-config.ts があって違いがわからない。lib/config.validate.ts もあって何がなんだか...改善してくれるかな」（実際のパスは `src/lib/config/validate.ts`）。
+
+**改名した場合に波及する範囲**（`grep` で実測した値）:
+
+- `package.json` のスクリプト名2つ（`lint:validate-config` / `lint:validate-config:remote`）
+- `.gitlab-ci.yml` 4箇所（ジョブ名 `validate-config-remote`、`script`、コメント2箇所）
+- `README.md`（`validate-config-remote` の言及2箇所ほか「設定」章・「CI/CD」章）
+- `CLAUDE.md`（「よく使うコマンド」「CI/CD」）
+- `docs/architecture.md`（節の索引・2つの設計判断の節・「各ファイルの責務」の表）
+- `test/scripts/lint/verify-config/verify-config.test.ts`（ディレクトリ構成がテスト側にも写っている）
+
+## 解くべき論点
+
+1. **そもそも改名するか、ドキュメントで解決するか。** 「`validate`＝形、`verify`＝実在」という
+   対応は**既に正典が定めている**ので、名前を変えずに「どこを読めば分かるか」の導線を足すだけでも
+   指示の目的（違いが分かる）は達成しうる。**改名しない結論も正当**で、その場合は
+   どこに何を書けば迷わなくなるかを決める
+2. **改名するなら、どの語をどの層に割り当てるか。** 候補の軸は「形／実在」「ローカル／リモート」
+   「CLI入口／実装本体」の3つ。`docs/architecture.md`「1つの語を2つの意味に使わない」と
+   「`steps/`配下はファイル名＝公開関数名のケバブケース」の既存規約に照らして決める
+3. **外部インターフェースをどこまで変えるか。** `pnpm lint:validate-config` はチーム内の
+   手順として `CLAUDE.md`・`README.md` に載っており、`.gitlab-ci.yml` のジョブ名
+   `validate-config-remote` は**GitLab上のパイプライン表示・過去のジョブ履歴にも現れる**。
+   名前を変える価値がこのコストに見合うかを判断する
+4. **`src/lib/config/validate.ts` の関数名（`validateXxx`）も変えるか。** 4関数あり、
+   呼び出し元は `config.ts` と `chart-and-apps.ts`。ファイル名だけ変えて関数名を残すと
+   別の食い違いを生む
+5. **`docs/glossary.md` に用語として載せるか。** 「形の検証」「実在チェック」がドメイン用語なら
+   用語集に項目を作る判断がある（`docs/glossary.md` の「用語の索引」を見て決める）
+
+## やること
+
+1. 上の表の3ファイルと、`docs/architecture.md` の該当2節を実際に読んで現状を確認する
+2. 論点1〜5を検討し、**結論をユーザーに提案して承認を得る**。改名は外部インターフェース
+   （pnpmスクリプト名・CIジョブ名）に波及するため、勝手に決めない
+3. 承認された結論を**正典にだけ**反映する（`docs/architecture.md`、必要なら `docs/glossary.md`）。
+   **実装・`package.json`・`.gitlab-ci.yml` はこのタスクでは触らない**（T-173の担当）
+4. 改名する結論の場合、**新旧の対応表を正典に書く**（T-173 がそれを見て機械的に作業できる形にする）
+5. **論点1で「改名しない」と結論した場合**は、正典に導線（どこを読めば違いが分かるか）を
+   足して閉じる。その場合 **T-173 は不要になるので、その旨を `evidence` に書く**
+
+## 完了条件
+
+- 論点1〜5それぞれの結論と根拠が `evidence` に書かれている
+- 改名する結論の場合: 新旧の対応表が `docs/architecture.md` にあり、`grep` でヒットする
+  （表の行数を `evidence` に書く）
+- 改名しない結論の場合: 「どちらが形でどちらが実在か」が `docs/architecture.md` の
+  「各ファイルの責務」の表から**1画面で読み取れる**状態になっている
+- **実装ファイル（`src/` / `scripts/` / `test/`）と `package.json` / `.gitlab-ci.yml` の差分が0**
+  （`git diff --stat` で確認し、`evidence` に書く）
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- **正典を先に更新し、実装は T-173 で追随させる**（T-156→T-157 と同じ進め方）
+- `docs/history/` 配下と `docs/requirements-grilling.md` は触らない
+- **設計判断とユーザー承認が要るので `/loop /next-task` には載せない**
+- 「形」と「実在」で2段に分ける設計そのものは変えない。変えたくなったらそれは別の話
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: **タスク本文の前提が誤りだった**: 正典の2節（「設定ミスの検知は「形」と「実在」で2段に分ける」「実在チェックは`src/lib/`ではなく`scripts/lint/`に置く」）は2段構成を定めているだけで、`validate`/`verify` という語の割り当てはどこにも書かれていなかった。実測で分かった決め手: `validate` は21ファイルに散る**一般動詞**（`validateGitlabUrl`・タグ形式・スキーマ・`.gitlab-ci.yml` の stage 名まで）で狭い意味を割り当て直せない。一方 `verify` は `scripts/lint/verify-config/` 1箇所だけの例外。論点の結論（ユーザー承認済み）: (1) 改名する、ただし例外側の `verify` を `validate` に寄せる、(2) ディレクトリ名は `remote-existence`（`--remote`・`lint:validate-config:remote`・ジョブ名 `validate-config-remote` と語彙が揃う）、(3) **外部インターフェースは一切変えない**（pnpmスクリプト名・CIジョブ名・stage名・CLI入口のファイル名）、(4) `lib/config/validate.ts` の4関数も据え置き。`docs/architecture.md`「型と命名」に `#### 検証の動詞は`validate`に統一し、`verify`は使わない` を新設し（本文651行目）、10行の旧名→新名の対応表を置いた。索引（78行目）にも同じ見出し名で追加（`grep -n "検証の動詞は"` が2件）。実装は未変更（T-173）。`pnpm check` 通過（33ファイル385テスト）。
+
+## T-173
+
+**タスク**: T-172 で決めた `validate` / `verify` の命名を、実装・CI・ドキュメントに反映する。
+
+## 背景
+
+前段タスク（T-172）で正典に新旧の対応表が入っている。この時点で正典と実装が食い違っているので、
+実装側を追随させる。**T-172 が「改名しない」と結論した場合、このタスクは不要**なので、
+着手時に T-172 の `evidence` を読んで確認し、不要ならやらずに理由を `evidence` に書いて閉じる。
+
+改名する結論だった場合の主な変更箇所（`grep` で実測した現状値。着手時に再計測すること）:
+
+- `scripts/lint/validate-config.ts`（CLI入口）
+- `scripts/lint/verify-config/`（ディレクトリ名。配下に `verify-config.ts` と `remote-cache.ts`）
+- `src/lib/config/validate.ts` と、その4つの公開関数（`resolveProjectLinkage` /
+  `validateTagFormatConsistency` / `validateNoDuplicateProjectIds` / `validateNoDuplicateTargets`）。
+  呼び出し元は `src/lib/config/config.ts` と `src/lib/config/chart-and-apps.ts`
+- `package.json` のスクリプト名2つ（`lint:validate-config` / `lint:validate-config:remote`）と、
+  `lint` スクリプトからの参照
+- `.gitlab-ci.yml` 4箇所（ジョブ名 `validate-config-remote`、`script`、コメント2箇所）
+- `README.md` / `CLAUDE.md`（「よく使うコマンド」「設定」「CI/CD」の各章）
+- `test/scripts/lint/verify-config/verify-config.test.ts`（ディレクトリ構成がテスト側にも写る）
+
+## やること
+
+1. **T-172 の `evidence` と `docs/architecture.md` の対応表を読み、そこに書かれた範囲でだけ改名する**
+   （このタスクで名前を決め直さない）
+2. ファイルの移動・改名は `git mv` を使う（履歴を残すため）
+3. `package.json` のスクリプト名を変えた場合、`lint` スクリプト内の参照と `.gitlab-ci.yml` の
+   `script` 行を必ず揃える。**片方だけ変えるとCIが壊れる**
+4. `.gitlab-ci.yml` のジョブ名を変えた場合、`README.md`・`CLAUDE.md`・`.gitlab-ci.yml` の
+   コメント内の言及もすべて追随させる
+5. `test/` のディレクトリ構成を実装に合わせる（`docs/coding-standards.md`「置き場所とモック」）
+
+## 完了条件
+
+- `docs/architecture.md` の対応表にある**旧名すべてが `grep -rn <旧名> src scripts test package.json
+.gitlab-ci.yml README.md CLAUDE.md docs` で0件**（`docs/history/` と
+  `docs/requirements-grilling.md` を除く）。旧名の一覧と件数を `evidence` に書く
+- 対応表にある**新名すべてが実在する**（各1件以上ヒットすることを `grep` で確認し、`evidence` に書く）
+- `pnpm lint:validate-config`（改名後の名前）が位置引数なしで
+  `config OK: 3 設定ユニット, 5 apps` を出す（出力を `evidence` に書く）
+- `.gitlab-ci.yml` の `script` 行に書かれた pnpm スクリプトが `package.json` に実在する
+  （両方を `grep` して突き合わせ、`evidence` に書く）
+- `pnpm check` が通る（テスト件数を `evidence` に書く。改名のみなので**件数は変わらないはず**で、
+  減っていたら理由を確認する）
+
+## 注意
+
+- **T-172 が「改名しない」と結論していたら、このタスクはやらずに閉じる**
+- ファイルの移動は `git mv`（`docs/workflow.md` と T-157 の前例）
+- `docs/history/` 配下と `docs/requirements-grilling.md` は触らない
+- 実 `config/` の中身（`projectId` 等の値）は変えない
+- **T-165 も `scripts/lint/verify-config/verify-config.ts` を触る**。どちらかが先に終わったら、
+  もう片方は着手時にファイルパスを再確認する
+- `/loop /next-task` に載せてよい（名前は T-172 で決定済みで、ここは機械的な追随）
+
+**dependencies**: T-172
+
+**difficulty**: sonnet
+
+**evidence**: T-172 の対応表10行どおりに改名。`git mv` 3件が `R`（rename）として記録されている（`scripts/lint/verify-config/{verify-config,remote-cache}.ts` と `test/scripts/lint/verify-config/verify-config.test.ts`）。旧名は対応表の全行で**0件**、新名は各2〜4ファイルで実在。**外部インターフェースは差分ゼロ**（`package.json`・`.gitlab-ci.yml`・`README.md`・`CLAUDE.md` の `git diff` が空）。`src/lib/config/validate.ts` は参照コメント1行のみで4関数は無変更。対応表に無かった追随が1件: `vitest.config.ts` の coverage の `include` パス（放置すると `scripts/` のカバレッジ対象が黙って外れる）。残存 `verify` は狙いどおり2種類だけ — gitbeaker のエラー文言（`test/lib/gitlab/errors.test.ts:127`）と `docs/architecture.md` の対応表本体。`pnpm lint:validate-config` は `config OK: 3 設定ユニット, 5 apps (config)`。`pnpm check` 通過（33ファイル385テスト、改名のみなので着手前と同数が正しい）。
+
 ## T-174
 
 **タスク**: `stageHelmTargetBranchUpdates()` への `BranchExists` の注入をやめるかどうかを決めて反映する。
@@ -5297,3 +5450,599 @@ await stageHelmTargetBranchUpdates(
 **evidence**: ユーザー承認は「注入をやめて `source` から直接呼ぶ」。`stageHelmTargetBranchUpdates()` の引数を4→3に減らし、内部で `source.gitlabCache.branchExists(source.chart.projectId, branchName)` を呼ぶ形に。`BranchExists` 型を削除し、`sub-steps/shared/types.ts` は3型（`StageUpdatesAcc`・`LatestTagResolution`・`AppWithLatestTag`）になった（論点3: 複数サブステップが共有する型が残るのでファイルの存在理由は保たれる）。論点2の `ValuesYamlSource` を絞る案は、正典が既に退けた形に戻るため不採用。
 **テストは無改変で通った**（`test/` の `git diff` が0行）。既存テストが `buildPlans()` 経由で `lib/gitlab/gitlab.js` をモックする作りだったため、注入の有無に依存していなかった。変異2件で守られていることを確認: 実在確認を消すと4件、別のprojectIdを見るようにすると3件落ちる。
 正典は `docs/architecture.md` の該当節を**見出しごと書き換え**（節の索引も追随）。この変更で関数型の注入が0件になったため、節の主張が「注入するのはキャッシュを隠すときだけ」から「注入しない。キャッシュを持つ側が工場関数を公開する」に変わる。`ReadDraftValuesYaml` と `BranchExists` を同じ理由でやめた経緯を並べて記録した。型の置き場所の表からも `BranchExists` を除去。`grep -rn 'try {' src/steps/` は0件。`pnpm check` 通過（33ファイル382テスト、着手前と同数）。
+
+## T-175
+
+**タスク**: アクセストークンがログに出うる経路を洗い、必要ならマスクの隙間を塞ぐ。
+
+## 背景
+
+`src/utils/logger.ts` の `redact()` が、フィールド名を `toLowerCase()` して
+`SENSITIVE_KEYS`（`token` / `access_token` / `authorization` / `password` / `secret`）と
+**完全一致**したものだけを `[REDACTED]` に置換する。見るのは**トップレベルのキーだけ**で、
+ネストしたオブジェクトの中は見ない。
+
+そのため **`accessToken` というキー名は現状ヒットしない**（`toLowerCase()` すると
+`accesstoken` になり、`access_token` と一致しない）。`src/lib/env.ts` の `EnvConfig` は
+まさにこのキー名でトークンを保持している（`readonly accessToken: AccessToken`）ので、
+`logger.info({ ...env })` のような書き方をした瞬間に素通りする。
+
+一方、**現時点の呼び出し元はどれもトークンを渡していない**（`grep -rn "logger\.\(info\|error\)" src scripts`
+で13箇所。`src/index.ts` 2件・`src/main.ts` 3件・`steps/` 7件・`step-outcome.ts` 1件）。
+`src/main.ts:13` の `run_start` はフィールドを個別に並べている。
+
+例外経路は `src/utils/errors.ts` の `toErrorMessage()` を通り、
+`src/steps/shared/step-outcome.ts` の `settleAsError()` と `src/index.ts` がメッセージを出す。
+トークンは `src/lib/gitlab/gitlab.ts` の `createClient()` が `new Gitlab({ host, token, ... })`
+としてgitbeakerに渡しており、HTTPヘッダで送られる。エラーメッセージやURLに載るかは実物で確かめる。
+
+`scripts/smoke/smoke-fixture.ts` と `scripts/lint/validate-config.ts` は `logger` を通さない
+生の `console.log`/`console.error` を使う（現状トークンは出していない）。
+
+テストは `test/utils/logger.test.ts` の `describe("redact")` にあり、5キーと大文字の
+`ACCESS_TOKEN` を確認している。
+
+正典側は `docs/requirements.md` 5章「GitLab認証」が **CI/CD変数（masked）で渡す**ことを
+決めているだけで、**アプリ自身のログ出力でマスクする方針はどこにも書かれていない**。
+
+## 解くべき論点
+
+1. `SENSITIVE_KEYS` に `accesstoken` 相当を足すだけでよいか、完全一致をやめて部分一致
+   （キー名が `token` を含む）にするか。部分一致は無関係なキー（`tokenCount` など）まで潰す
+2. ネストしたオブジェクトまで再帰的に見るか。現状 `logger` に渡しているのは平坦な
+   フィールドだけなので、再帰は「将来の事故防止」への投資になる。**やらない結論も正当**
+3. 値そのものを見て伏せる方式（トークン文字列と一致したら伏せる）を採るか。採ると
+   `src/utils/logger.ts` が環境変数を知ることになり **CLAUDE.md 原則2に反する**ので、
+   採るなら置き場所から決める
+4. 決めた方針を正典に書くか。書くなら `docs/requirements.md` 5章と
+   `docs/architecture.md` のどちらか**一方**（二重に書かない）
+
+## やること
+
+1. 上の背景を現物で再確認する（`src/utils/logger.ts`、`grep -rn "logger\.\(info\|error\)" src scripts`）
+2. トークンが実際にログへ出うる経路があるかを調べる。**調べた結果「今の呼び出し元では漏れない」
+   と分かったら、コードを変えずに閉じてよい**（その根拠を `evidence` に書く）。
+   キー名の隙間だけ塞いで閉じる判断も可
+3. 変えるなら `src/utils/logger.ts` を直し、`test/utils/logger.test.ts` にケースを足す
+4. 方針を正典に書く場合、書き足す場所は1箇所に絞る
+
+## 完了条件
+
+- 調べた経路の一覧（`logger` 呼び出し13箇所・例外メッセージの経路・`scripts/` の生 `console`）と、
+  そこにトークンが載りうるかの結論が `evidence` に書かれている
+- コードを変えた場合、**`accessToken` というキー名で渡した値が `[REDACTED]` になる**ことを
+  テストで示す（テスト名を `evidence` に書く）
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- 実際のトークン値をログ・テスト・`evidence` に**絶対に書かない**（ダミー文字列を使う）
+- `.env` と CI/CD Variables の設定は変えない（変更はユーザー承認が要る）
+- `src/utils/` はドメイン知識・環境依存を持たない（CLAUDE.md 原則2）。環境変数を読むコードを
+  ここに足さない
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: sonnet
+
+**evidence**: 結論は「隙間だけ塞ぐ」。`logger` 呼び出し13箇所を全件読み、`EnvConfig` や `Error` を丸ごと spread している箇所は0件（`main.ts:13` の `run_start` も個別フィールド）。gitbeaker 43.8.0 のソースで、トークンは `private-token`/`Authorization` ヘッダ送信のみ・`error.message` はレスポンスボディ由来の `description` だけと確認したので、`toErrorMessage()` 経由でも載らない。対処は `SENSITIVE_KEYS` への `accesstoken` 追加1件のみ（`toLowerCase()` の完全一致ではキャメルケースの `accessToken` が素通りしていた）。再帰化と値ベースの伏せ込みは不採用（後者は `src/utils/` が環境を知ることになり原則2に反する）。方針は `docs/requirements.md` 5章「GitLab認証」の1箇所だけに追記（`docs/architecture.md` には書かない）。変異確認: set の `accesstoken` を潰すと `accesstoken キーの値を [REDACTED] に置換する` と `accessToken キー（キャメルケース）の値を [REDACTED] に置換する` の2件が落ちる。`pnpm check` 通過（33ファイル385テスト、着手前383から+2）。
+
+## T-176
+
+**タスク**: `outcome` と `result` の使い分けを決めて正典に反映する（実装への反映は次のタスク）。
+
+## 背景
+
+ユーザーの指示は「`step-outcome.ts` を見てて思ったこととして、outcome よりは result のほうが
+馴染みがあるんだけどどうかな? `step-result`、その他 outcome ではなく result を使う」。
+
+`src/steps/shared/step-outcome.ts` が `StepOutcome<T>` を公開しており、定義はこう:
+
+```ts
+export type StepOutcome<T> =
+  | { readonly status: "ok"; readonly value: T }
+  | { readonly status: "settled"; readonly result: ChartUpdateResult }
+```
+
+問題は、**`result` という語がこのリポジトリで既に別の意味で使われている**こと:
+
+- `src/types/types.ts:107` の `ChartUpdateResult = "CREATED" | "SKIPPED" | "ERROR"`
+  （chartAndApps 1件の最終的な処理結果）
+- **JSONログのフィールド名 `result`**（`filter-targets.ts:49,55`・`build-plans.ts:87,91`・
+  `apply-updates.ts:52`・`step-outcome.ts:97` ほか）。`README.md`「実行ログの例」にも出る
+- `src/main.ts:23` の `resultCounts`
+- `StepOutcome` 自身の `settled` 側のフィールド名が `result`
+
+つまり `StepOutcome` → `StepResult` に改名すると、**`StepResult` の中に
+`result: ChartUpdateResult` が入る**形になり、`docs/architecture.md`
+「#### 1つの語を2つの意味に使わない」（`### 型と命名` の中）と正面から衝突する。
+
+波及範囲（`grep -rn "utcome" src scripts test docs README.md` の実測。`docs/history/` を除く）:
+
+- `src/steps/shared/step-outcome.ts`（ファイル名 + 本文6箇所）
+- `src/steps/filter-targets/filter-targets.ts` / `build-plans/build-plans.ts` /
+  `apply-updates/apply-updates.ts` 各9箇所（`outcomes` / `outcome` のローカル変数を含む）
+- `sub-steps` 3ファイル（`collect-mr-entries.ts` / `resolve-latest-tags.ts` /
+  `stage-image-tag-updates.ts`）の import 各1箇所
+- `src/utils/partition.ts` のJSDocの使用例5箇所
+- `docs/architecture.md` 5箇所（各ファイルの責務表・型の置き場所の表・設計判断の本文）
+- `docs/coding-standards.md` 3箇所
+
+`docs/architecture.md`「#### `steps/`配下はファイル名＝公開関数名のケバブケース」があるため、
+型名を変えるならファイル名（`step-outcome.ts`）も追随する。
+
+## 解くべき論点
+
+1. **上の衝突をどう解くか。** 少なくとも3案ある: (a) `ChartUpdateResult` 側を別の語にする、
+   (b) `StepOutcome` の `settled` 側のフィールド名を変える、(c) 改名しない。
+   ユーザーの指示は「result を使う」だが、**衝突を説明したうえで採らない結論も正当**
+2. **ログのフィールド名 `result` を変えるか。** JSONログは運用で `grep` される
+   **外部インターフェース**で、`README.md`「実行ログの例」にも載っている
+3. `status: "ok" | "settled"` というタグと、`ok()` / `settle()` という関数名は据え置くか
+4. 散文中の `outcome`（JSDocの「settled outcome」など）をどこまで書き換えるか
+
+## やること
+
+1. `docs/architecture.md` の「#### 1つの語を2つの意味に使わない」と
+   「#### `steps/`配下はファイル名＝公開関数名のケバブケース」を読む
+2. 論点1〜4を**ユーザーと合意してから**決める（このタスクはユーザーがいるセッションで行う）
+3. 決めた対応表（旧名 → 新名、変えないものとその理由）を `docs/architecture.md` の
+   該当する節に反映する。**改名しない結論なら、その理由**を同じ節に残す
+4. 実装・テストのコードはこのタスクでは変えない（T-177 が行う）
+
+## 完了条件
+
+- 論点1〜4すべてに結論が出ていて、根拠が `evidence` に書かれている
+- 改名する結論なら、`docs/architecture.md` に旧名→新名の対応表があり、
+  `grep -rn "utcome" src docs README.md`（`docs/history/` を除く）でヒットする識別子が
+  漏れなく載っている（件数を突き合わせて `evidence` に書く）
+- 改名しない結論なら、実装・ドキュメントとも識別子は無変更で、理由が
+  `docs/architecture.md` の**1箇所だけ**に書かれている
+- `pnpm check` が通る（ドキュメントのみの変更でも実行する。テスト件数を `evidence` に書く）
+
+## 注意
+
+- **ユーザーへの確認を含むので `/loop` の自動進行に載せない。サブエージェントにも委譲しない**
+- `docs/history/` は触らない
+- 実装・テストのコードはこのタスクでは変えない
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: ユーザー判断で**着手しない**（2026-09-10）。共有した懸念: (1) `result` のドメイン型が既に2つある（`ChartUpdateResult`・`RunResult`。どちらも `docs/glossary.md` 掲載）のに `StepOutcome` は制御フローの型で層が違う、(2) `StepResult` にすると `{ status: "settled"; result: ChartUpdateResult }` が `result.result` になり、`docs/architecture.md`「1つの語を2つの意味に使わない」の本文（値の意味を語れないフィールド名は避ける）を自分で踏む、(3) ログのフィールド名 `result` は `README.md` の実行ログ例3箇所に出る外部インターフェースで動かせない、(4) `src/main.ts:66` の reduce が既に `(counts, result)` を使っており局所変数が衝突する。波及は src 8ファイル・docs 2ファイルの約40箇所。正典（`docs/architecture.md`）は無変更で、理由は `develop/progress.md`「未解決」に残した（T-151 と同じ閉じ方）。
+
+## T-177
+
+**タスク**: T-176 で決めた `outcome` / `result` の命名を、実装・テスト・ドキュメントに反映する。
+
+## 背景
+
+前段タスク（T-176）で `docs/architecture.md` に旧名→新名の対応表が入っている。この時点で
+正典と実装が食い違っているので、実装側を追随させる。**T-176 が「改名しない」と結論した場合、
+このタスクは不要**なので、着手時に T-176 の `evidence` を読んで確認し、不要ならやらずに
+理由を `evidence` に書いて閉じる。
+
+改名する結論だった場合の変更箇所（着手時に `grep -rn "utcome" src scripts test docs README.md`
+で再計測すること。以下は登録時点の実測値）:
+
+- `src/steps/shared/step-outcome.ts`（ファイル名 + 本文6箇所）
+- `src/steps/filter-targets/filter-targets.ts` / `src/steps/build-plans/build-plans.ts` /
+  `src/steps/apply-updates/apply-updates.ts` 各9箇所（`outcomes` / `outcome` のローカル変数を含む）
+- `src/steps/apply-updates/sub-steps/collect-mr-entries.ts` /
+  `src/steps/build-plans/sub-steps/resolve-latest-tags.ts` /
+  `src/steps/build-plans/sub-steps/stage-image-tag-updates.ts` の import 各1箇所
+- `src/utils/partition.ts` のJSDocの使用例5箇所
+- `docs/architecture.md` 5箇所 / `docs/coding-standards.md` 3箇所
+- T-176 がログのフィールド名や `ChartUpdateResult` も変える結論だった場合は、
+  `README.md`「実行ログの例」と `test/` の該当アサーションも対象になる
+
+## やること
+
+1. **T-176 の `evidence` と `docs/architecture.md` の対応表を読み、そこに書かれた範囲でだけ
+   改名する**（このタスクで名前を決め直さない）
+2. ファイルの改名は `git mv` を使う（履歴を残すため。T-157 の前例）
+3. `test/` 側のファイル名・ディレクトリ構成も実装に合わせる
+   （`docs/coding-standards.md`「置き場所とモック」）
+4. 対応表に載っていない `outcome` が残った場合は、消さずに理由を `evidence` に書く
+
+## 完了条件
+
+- 対応表にある**旧名すべてが `grep -rn <旧名> src scripts test docs README.md CLAUDE.md` で0件**
+  （`docs/history/` と `docs/requirements-grilling.md` を除く）。旧名の一覧と件数を `evidence` に書く
+- 対応表にある**新名すべてが実在する**（各1件以上ヒットすることを `grep` で確認し `evidence` に書く）
+- `pnpm check` が通る（テスト件数を `evidence` に書く。**改名のみなので件数は変わらないはず**で、
+  減っていたら理由を確認する）
+
+## 注意
+
+- **T-176 が「改名しない」と結論していたら、このタスクはやらずに閉じる**
+- ファイルの移動は `git mv`
+- `docs/history/` 配下と `docs/requirements-grilling.md` は触らない
+- 挙動は変えない（型名・変数名・ファイル名の変更だけ）
+- `/loop /next-task` に載せてよい（名前は T-176 で決定済みで、ここは機械的な追随）
+
+**dependencies**: T-176
+
+**difficulty**: sonnet
+
+**evidence**: 前段の T-176 が「改名しない」で閉じたため**不要**（タスク本文の「T-176 が改名しないと結論していたら、このタスクはやらずに閉じる」に従う）。コード・ドキュメントとも無変更。
+
+## T-178
+
+**タスク**: HTTPエラー処理の「今の実装」を1つの資料にまとめる（散らばった記述の集約先を決めるところから）。
+
+## 背景
+
+ユーザーの指示は「http 周りのエラーが複雑になってきたけど今の実装がまとまった資料ある?
+なければ作ってほしいな」。
+
+調べたところ、HTTPエラーの扱いは**4箇所に分かれて書かれており、実装を1枚で追える資料は無い**:
+
+| 場所                                                                                | 書いてあること                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `README.md`「エラーハンドリング」                                                   | ケース→挙動の表8行（利用者向け。401/5xx・queryTimeout・503/504・429/502 など）                                                                                                                                                                                                                                                                                                              |
+| `docs/architecture.md`「#### エラーは「fatalは例外・それ以外は戻り値」の2チャネル」 | なぜ2チャネルなのか、`steps/` に `try` を書かない理由（設計判断）                                                                                                                                                                                                                                                                                                                           |
+| `docs/coding-standards.md`「エラーハンドリング」                                    | `try`/`catch` を書いてよい場所の一覧、`.then()`/`.catch()` の例外                                                                                                                                                                                                                                                                                                                           |
+| コード内のコメント                                                                  | 実際の判定。`src/lib/gitlab/errors.ts`（`GitbeakerTimeoutError` / `GitbeakerRetryError` / `RETRYABLE_STATUSES` = 429,502,503,504 / `isFatalStatus()` = 401と5xx）、`src/utils/retry.ts`（最大3回・基準1000msの指数バックオフ）、`src/lib/gitlab/gitlab.ts`（`QUERY_TIMEOUT_MS` = 300_000）、`src/steps/shared/step-outcome.ts`（`withHandling()` / `withAppContext()` / `settleAsError()`） |
+
+登場する部品: `extractHttpStatus()` / `isNotFoundError()` / `isFatalError()` /
+`isRetryableError()`（`src/lib/gitlab/errors.ts`）、`withRetry()`（`src/utils/retry.ts`）、
+`FatalError` / `toErrorMessage()`（`src/utils/errors.ts`）、`withHandling()` /
+`withAppContext()` / `ok()` / `settle()`（`src/steps/shared/step-outcome.ts`）、
+`ChartUpdateResult`（`src/types/types.ts`）。
+
+## 解くべき論点
+
+1. **新規ファイル（例 `docs/error-handling.md`）を作るか、`docs/architecture.md` の
+   既存節を厚くするか。** このリポジトリは**正典を二重に書かないこと**を強く守っているので、
+   新規ファイルを作るなら既存3箇所との分担（どれが何の正典か）を先に決める
+2. **何を載せれば「まとまった」と言えるか。** 1リクエストの失敗が
+   リトライ / `ERROR` として継続 / `FatalError` で即時終了 のどれになるかの経路
+   （ステータス別の分岐表、またはフロー図）が要るか
+3. **コードのコメントから移すものがあるか。** `docs/coding-standards.md`「コメント」は
+   「今の挙動の制約・前提は残す、昔の経緯は正典へ」なので、gitbeaker依存の事実
+   （エラー名・メッセージ形式）はコメントに残すのが正しい可能性が高い
+4. リンクの導線。`CLAUDE.md`「関連リンク」と `docs/architecture.md` の「節の索引」に足すか
+
+## やること
+
+1. 上の4箇所を実際に読み、重複と欠落を洗い出す
+2. 論点1を決めてから書く。**「既に必要なことは書かれていて、新規資料は要らない」という結論なら、
+   どこを読めば分かるかの導線だけを足して閉じてよい**（その理由を `evidence` に書く）
+3. 書く内容は**実物のコードと突き合わせて検証する**（ステータス番号・リトライ回数・
+   タイムアウト値をコードから引き、記憶で書かない）
+4. 新規ファイルを作った場合は `CLAUDE.md`「関連リンク」から辿れるようにする
+
+## 完了条件
+
+- 資料に書いたHTTPステータス・リトライ回数・タイムアウト値が
+  `src/lib/gitlab/errors.ts`・`src/utils/retry.ts`・`src/lib/gitlab/gitlab.ts` の実値と一致する
+  （対応を `evidence` に書く）
+- 既存3箇所（`README.md` / `docs/architecture.md` / `docs/coding-standards.md`）と
+  **同じ説明が2箇所に増えていない**。移したもの・残したものの一覧を `evidence` に書く
+- 新規ファイルを作った場合、`CLAUDE.md`「関連リンク」からのリンクが存在する（`grep` で示す）
+- `pnpm check` が通る（`format:check` があるので表の整形が崩れると落ちる。テスト件数を `evidence` に書く）
+
+## 注意
+
+- **正典の構成を決める判断を含むので `/loop` の自動進行には載せない**
+- `src/` のコードは変えない（資料化だけ。コメントの移動は論点3の結論に従う）
+- `docs/history/` は触らない
+- 資料を新設した場合、T-179（索引の付与）の対象に含まれる
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: ユーザー合意は「新規ファイルを作らず `docs/architecture.md`「エラー処理と並列実行」に節を1つ足す／`README.md` の8行表は据え置き、新設節は機構だけ」。`#### HTTPエラーの経路` を2チャネル節の直後（本文340行目）に新設し、節の索引（53行目）にも同じ見出し名で追加した（`grep -n "HTTPエラーの経路"` が索引と本文の2件でヒット）。中身は登場人物表（9関数・4ファイル、非公開は `*` 印）／判定の順序5ステップ／404と403の読み替え／「ステータス別の挙動は README が正典」の一文。埋めた穴は、機構の順序・`getLatestPipelineForRef()` だけが403を「パイプライン無し」に読み替えること（`gitlab.ts:205`）・関数の一覧の3つ。記述はメイン側でも実物と突き合わせ済み（`withNotFoundFallback()` が `withGitlabRetry()` の内側にあること、リトライ既定が `maxAttempts` 3・`baseDelayMs` 1000 であること）。重複回避のため `queryTimeout` の5分と2層リトライの実測値は既存節に任せて書いていない。`git diff --stat -- README.md src test` は0行。`pnpm check` 通過（33ファイル385テスト、ドキュメントのみの変更なので据え置きが正しい）。
+
+## T-179
+
+**タスク**: 索引・目次を持たないドキュメントに、既存の形式に合わせた索引を付ける。
+
+## 背景
+
+ユーザーの指示は「各ドキュメントに目次とかあると見やすいんだけどな。ないドキュメントに
+付与してくれる?」。
+
+現状（`grep -n "^#\{2,3\} " docs/*.md README.md CLAUDE.md` で実測）:
+
+| ファイル                        | サイズ | 索引                                                                                                             |
+| ------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------- |
+| `docs/architecture.md`          | 87KB   | あり（`### 節の索引`。`###`/`####` を表で並べる）                                                                |
+| `docs/coding-standards.md`      | 34KB   | あり（`### 節の索引`）                                                                                           |
+| `docs/glossary.md`              | 30KB   | あり（`### 用語の索引`）                                                                                         |
+| `docs/requirements.md`          | 36KB   | あり（`### 節の索引`）                                                                                           |
+| `docs/workflow.md`              | 15KB   | **なし**                                                                                                         |
+| `docs/smoke-test.md`            | 8.7KB  | **なし**                                                                                                         |
+| `docs/requirements-grilling.md` | 16KB   | **なし**（`/grilling` の途中経過ログ）                                                                           |
+| `README.md`                     | 23KB   | **なし**                                                                                                         |
+| `CLAUDE.md`                     | —      | **なし**（毎セッション全文が読まれる）                                                                           |
+| `docs/history/*.md`             | —      | **なし**。`progress-archive.md` と `direction.md` は冒頭に「時系列の追記ログなので節の索引は持たない」と明記済み |
+
+既にあるものは単なる見出しの列挙ではなく、**「どの節に何が書いてあるか」を1行で説明する表**で、
+「このファイルは通読しない」という運用（`sed` で節を切り出して読む）とセットになっている。
+
+## 解くべき論点
+
+1. **どのファイルに付けるか。** `docs/history/` の2つは「索引は持たない」と明記済みなので対象外。
+   `docs/requirements-grilling.md` は完了済みの検討ログ、`CLAUDE.md` は全文が読まれる前提。
+   **付けない判断も正当**で、その場合は理由を残す
+2. **形式。** 既存の「節の索引」（表 + 説明）に揃えるか、`README.md` のように
+   **GitHub上で人が上から読む**ファイルには普通のリンク付き目次にするか。用途が違う
+3. **粒度。** `##` だけを並べるか、`###` まで含めるか（ファイルの大きさで変えてよいか）
+
+## やること
+
+1. 論点1〜3を決める
+2. 既存4ファイルの索引の書き方を実際に読んでから、それに揃えて書く
+3. **見出し自体は書き換えない**（索引を足すだけ。見出しの改名は別タスク）
+4. 索引の各行が**実在する見出しと文字列一致**することを `grep` で確認する
+
+## 完了条件
+
+- 付けた各ファイルについて、索引に並べた見出し名がすべて実在する
+  （`grep -n "^#\{2,3\} " <file>` の結果と突き合わせ、`evidence` に書く）
+- 付けなかったファイルは、その理由が `evidence` に1行ずつ書かれている
+- 既存4ファイル（`architecture` / `coding-standards` / `glossary` / `requirements`）の索引を
+  壊していない（`git diff --stat` に出ないこと、または意図した更新であることを `evidence` に書く）
+- `pnpm check` が通る（`format:check` があるので表の整形が崩れると落ちる。テスト件数を `evidence` に書く）
+
+## 注意
+
+- **T-178 が新しいドキュメントを作った場合、そのファイルも対象に含める**（着手時に
+  `ls docs/*.md` で確認する）
+- 本文の内容は書き換えない（索引の追加だけ）
+- `docs/history/` は触らない
+- `/loop /next-task` に載せてよい
+
+**dependencies**: T-178
+
+**difficulty**: sonnet
+
+**evidence**: `README.md`（リンク付き目次16項目）・`docs/workflow.md`（表形式11行）・`docs/smoke-test.md`（表形式5行）に追加。索引の各行が実在見出しと**順序込みで文字列一致**することを突き合わせで確認（16/16・11/11・5/5）。README のアンカーはGitHubのslug規則に沿う（`config/`→`#config`、`CI/CD`→`#cicd`、`手動実行時のオプション（Pipeline inputs）`→`#手動実行時のオプションpipeline-inputs`）。重複見出しは0件。付けなかったのは3種: `docs/requirements-grilling.md`（完了済みの検討ログで時系列の記録）、`CLAUDE.md`（毎セッション全文が読まれるので索引が二重情報になる）、`docs/history/`（冒頭に索引を持たない旨が明記済み）。見出し名は `## 目次` を使い、既存4ファイルの `### 節の索引` とは分けた（あちらは「通読せず sed で節を切り出す」運用とセット、こちらは上から読むファイル向け）。既存4ファイルの索引は `git diff --stat` に出ず無傷。追加のみ45行、`pnpm check` 通過（33ファイル385テスト）。
+
+## T-180
+
+**タスク**: `config.yaml` の `helm` を省略可能から必須に変える。
+
+## 背景
+
+**ユーザー確認済みの前提（2026-09-10）**: chartリポジトリは常に2ブランチ構成で、
+「`apps` というパラメータを定義するブランチ」と「`apps` を流し込んで k8s リソースを構築する
+`helm` のブランチ」で構成される。**設定ユニットごとにアンカーを2つ指定するのは当然**という
+運用判断。したがって `helm` を省略できる現在のスキーマは、この前提を表せていない。
+
+現状は `src/lib/config/schema.ts:115` が `helm: HelmSchema.optional()`。中身
+（`branchToSync` / `chart[]`）は既に両方必須で、片方だけの指定は設定エラーになる。
+省略できるのは `helm` オブジェクト自体だけ。
+
+`helm` は `apps[]` とは独立した書き込み指示で、イメージタグの解決・タグの作成には一切関与
+しない（`apps[].chart[]` がイメージタグ、`helm.chart[]` がブランチ名を、それぞれ別のアンカーへ
+書く）。`apps` が0件なら設定ユニットは `SKIPPED`（`filter-targets.ts:48`、`reason: "no_apps"`）に
+なるため、`helm` だけの設定ユニットは動かない。この関係は変えない。
+
+**波及範囲**（`grep` で実測した登録時点の値。着手時に再計測すること）:
+
+| 対象         | 箇所                                                                                                                                                                                          |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| スキーマ     | `src/lib/config/schema.ts:115`（`.optional()` を外し、欠落時のエラーメッセージを足す）                                                                                                        |
+| 型           | `src/types/types.ts:59` `readonly helmTargetBranch: HelmTargetBranchConfig \| undefined` から `\| undefined` を消す                                                                           |
+| 結合         | `src/lib/config/chart-and-apps.ts:66` の `resolveHelmTargetBranch()`                                                                                                                          |
+| 本体         | `src/steps/build-plans/build-plans.ts:78` の分岐（`helmTargetBranch` の有無で処理を分けている）                                                                                               |
+| 実在チェック | `scripts/lint/verify-config/verify-config.ts:105` の `helmTargetBranch !== undefined` 分岐                                                                                                    |
+| テスト       | `test/helpers.ts:92` の既定値 `helmTargetBranch: undefined`、`test/lib/config/config.test.ts:551` の「どちらにも無いとき、helmTargetBranchはundefinedになる」                                 |
+| 実 `config/` | `config/yadokari-smoke-test-chart/anchor-app/config.yaml` と `.../tenant2/client2/config.yaml` に `helm` ブロックを足す（現在この2つには無い）                                                |
+| 正典         | `docs/requirements.md:351` の「helm 自体は省略できるが、書くなら〜」とその前後の箇条書き、`docs/glossary.md`「Helmの向き先ブランチ」、`docs/smoke-test.md`（下の論点2）、`README.md` の設定例 |
+
+## 解くべき論点
+
+1. **GitLab側のフィクスチャに受け皿アンカーが無い（着手の前提条件）。**
+   `helm.chart[].anchor` は values.yaml に**実在しないと設定エラー**になる
+   （`verify-config.ts:203` がMR時点で検出、`lib/helm.ts` の `getRequiredValueAtAnchor()` が
+   実行時に throw）。`config/` に `helm` を足すには、GitLab の `yadokari-smoke-test-chart` の
+   `charts/anchor-app/values.yaml` と `charts/smoke-tenant2/client2/values.yaml` に
+   向き先ブランチ用のアンカーを追加する必要がある。**これは外部への書き込みなので
+   ユーザー承認が要る**。`scripts/smoke/smoke-fixture.ts` で追加するのか手で入れるのかも決める
+2. **スモークシナリオが1つ消える。** `tenant2/client2` は
+   「複数appのimage tag更新のみを検証するclient（Helm向き先ブランチは持たない）」として
+   置かれている（`config.yaml` の1行目コメント、`docs/smoke-test.md`）。`helm` 必須化で
+   この区別が作れなくなるので、`docs/smoke-test.md` の検証シナリオをどう組み直すかを決める
+3. **`build-plans.ts:78` の分岐が消えたあとの形。** 現在は `helmTargetBranch` の有無で
+   `stageHelmTargetBranchUpdates()` を呼ぶか決めている。必須化すると常に呼ぶことになるので、
+   `docs/architecture.md`「Helmの向き先ブランチはapp単位に振り分けず設定ユニット単位で持つ」節の
+   記述と食い違わないか確認する
+4. **`docs/coding-standards.md`「許容する `undefined`」との整合。** 今の
+   `helmTargetBranch: ... | undefined` は「外部の世界の『無い』を写したもの」として許容側に
+   分類されていた。必須化するとこの `undefined` は**構造的に発生しなくなる**ので消せる。
+   規約自体は変えない（分類が変わるだけ）
+
+## やること
+
+1. 論点1をユーザーと決め、**GitLab側のアンカー追加を先に済ませる**。ここが済むまで
+   `config/` に `helm` を足すとCIの `validate-config-remote` が落ちる
+2. スキーマ・型・結合・本体・実在チェックの順に `undefined` を消す
+3. 実 `config/` の2ファイルに `helm` を足す
+4. テストを追随させる。**「どちらにも無いとき undefined になる」テストは削除ではなく
+   「`helm` が無いと設定エラーになる」テストに置き換える**（`docs/coding-standards.md`
+   「消すかどうか」）
+5. 正典（`docs/requirements.md` 4.4節・`docs/glossary.md`・`docs/smoke-test.md`・`README.md`）を追随させる
+6. 論点2でスモークシナリオを組み直したら `docs/smoke-test.md` に反映する
+
+## 完了条件
+
+- `grep -rn "helmTargetBranch.*| undefined" src` が **0件**
+- `helm` を書いていない `config.yaml` を読ませると `loadConfig()` が設定エラーになることを
+  テストで示す（テスト名を `evidence` に書く）
+- `pnpm lint:validate-config` が実 `config/` に対して成功する（出力を `evidence` に書く）
+- `pnpm lint:validate-config:remote` が成功する（**GitLab側のアンカー追加が済んでいること**の
+  確認を兼ねる。出力を `evidence` に書く）
+- `pnpm check` が通る（テスト件数を `evidence` に書く。テストの置き換えがあるので
+  件数が変わってよいが、増減の理由を `evidence` に書く）
+
+## 注意
+
+- **GitLabの `yadokari-smoke-test-chart` への書き込みはユーザー承認が要る**。
+  勝手に実行しない（`CLAUDE.md`「進捗管理とHandoff」）
+- **`/loop /next-task` に載せない**（外部への書き込みの承認と、論点2の判断を含むため）
+- `apps` 側の扱いは変えない（`apps` が0件なら `SKIPPED` のまま）
+- `helm.chart[]` が全アプリの全 `valuesPath` をカバーする規則も変えない
+- `docs/history/` は触らない
+
+**dependencies**: なし
+
+**difficulty**: opus
+
+**evidence**: **コード側は完了、GitLabへの反映だけ未実施**（`.env` がリポジトリに無く、外部書き込みはユーザーが実行する）。`helm: HelmSchema.optional()` を必須にし、`ChartAndApps.helmTargetBranch` から `| undefined` を除去（`grep -rn helmTargetBranch src scripts | grep undefined` が0件）。`resolveHelmTargetBranch()`・`build-plans.ts` の三項演算子・`remote-existence.ts` の `!== undefined` 分岐も削除。論点1は `smoke-fixture.ts` の `SEED_FILES` で自動化（`charts/anchor-app/values.yaml` を新たに対象に加えた。これまで手動管理だったので `docs/smoke-test.md` の記述も更新）。論点2は**シナリオを維持できた** — `client2`・`anchor-app` のシード値を `HELM_TARGET_BRANCH` と同値にして差分なしにし、`client1` だけ `main` のままにした。**当初は `anchorAppHelmTargetBranch` という新規アンカーを作る想定だったが、ユーザーが実物を確認したところ `charts/anchor-app/values.yaml` には既に `&smokeTestTargetBranch release/2025-q4` があり、`&helmVersion develop` という別のアンカーも同居していた**。新規作成をやめて既存の `smokeTestTargetBranch` を使う形に変更し、`helmVersion`（このツールが読み書きしない）はシード内容に含めて上書きで消えないようにした。`config/` の全 `anchor` 8件に seed 側の受け皿があることを突き合わせで確認。テストは385件で増減なし（「どちらにも無いとき undefined になる」を「helm自体が無いとき例外をスローする」に1対1で置き換え）。`test/main.e2e.test.ts` の values.yaml フィクスチャにも向き先ブランチのアンカーが要る（無いと `PARTIAL_FAILURE` になる）。`pnpm lint:validate-config` は `config OK: 3 設定ユニット, 5 apps (config)`、`pnpm check` 通過（33ファイル385テスト）。**GitLabへの反映も完了**（2026-09-10、ユーザー承認のうえ実行）。`smoke-fixture.ts setup --apply` が3ファイル（`charts/anchor-app/values.yaml`・`charts/smoke-tenant2/client1/values.yaml`・`charts/smoke-tenant2/client2/values.yaml`）を update。`anchor-app` の実変更は `smokeTestTargetBranch` の `release/2025-q4` → `release/2026-q1` の1行のみで、`helmVersion` と `tenantId1client1AppsVersion` は現状と同値だった。`pnpm lint:validate-config:remote` が `config OK（実在チェック）: projectId・ブランチ・valuesPath・アンカーをすべて確認 (https://gitlab.com)` を出して**全完了条件を満たした**。
+
+## T-181
+
+**タスク**: `loadChartAndApps()` の `unitDirPath` をやめ、`configYamlPath` を受け取る形にする。
+
+## 背景
+
+ユーザーから「`unitDirPath` は string で型がないし `unitPath` との違いがわからない。
+`registryYamlPath` も string で型がない。いろいろよくわからん」という指摘があった
+（2026-09-10）。調べた結果、**型が無いのは規約どおり**（ローカルのファイルパスは
+リポジトリ全体で素の `string`）だが、**引数の設計は改善できる**ことが分かった。
+
+`src/lib/config/chart-and-apps.ts` の `loadChartAndApps()` は6つの位置引数を持ち、
+そのうち3つがパスっぽい `string`:
+
+```ts
+export function loadChartAndApps(
+  unitDirPath: string, // config/<chartDir>/<unitPath> というローカルのディレクトリ
+  chartDirName: ChartDirName,
+  unitPath: ConfigUnitPath, // config/<chartDir>/ からの相対パス（ドメインの識別子）
+  chart: ChartRepoConfig,
+  appSpecs: readonly AppSpec[],
+  registryYamlPath: string,
+): ChartAndApps
+```
+
+問題は `unitDirPath` と `unitPath` が**見た目の双子**なのに別物であること。前者は
+ローカルの実ファイルパス、後者はログ・`TARGET_UNITS`・固定ブランチ名に使う識別子で、
+`unitDirPath = join(configDirPath, chartDirName, unitPath)` という包含関係にある。
+
+**`unitDirPath` は関数内で1箇所でしか使われていない**（`grep -n "unitDirPath"` で実測）:
+
+```ts
+const configYamlPath = join(unitDirPath, CONFIG_YAML_FILE_NAME) // 35行目。ここだけ
+```
+
+つまりこの関数はディレクトリを必要としておらず、`config.yaml` のパスが欲しいだけ。
+
+## やること
+
+1. `unitDirPath: string` を `configYamlPath: string` に置き換え、関数内の
+   `join(unitDirPath, CONFIG_YAML_FILE_NAME)` を消す
+2. **`configYamlPath` と `registryYamlPath` を引数リストで隣接させる**。どちらも
+   「パースした値の出どころのYAMLファイル」で、どちらも `resolveProjectLinkage()` の
+   エラーメッセージに使われる（`src/lib/config/validate.ts:41,46`）。役割が同じものを並べる
+3. 呼び出し元 `src/lib/config/config.ts` の `listUnitChartAndApps()`（193行目付近）で
+   `join(chartUnits.chartDirPath, unitPath, CONFIG_YAML_FILE_NAME)` を組み立てて渡す
+4. `loadChartAndApps()` のJSDocに、**`unitPath` は識別子・`*YamlPath` はローカルのファイルパス**
+   という区別を1行足す（コードから読み取れないため）
+
+## 完了条件
+
+- `grep -rn "unitDirPath" src scripts test` が **0件**
+- `src/lib/config/chart-and-apps.ts` に `join(` が残っていない（`node:path` の import も消える）
+- 引数リストで `configYamlPath` と `registryYamlPath` が隣接している
+- `pnpm check` が通る（テスト件数を `evidence` に書く。**挙動は変えないので385件から変わらないはず**）
+- `pnpm lint:validate-config` が `config OK: 3 設定ユニット, 5 apps (config)` を出す
+
+## 注意
+
+- **挙動は変えない**（引数の形と組み立て場所だけの変更）
+- `resolveHelmTargetBranch()` の `configYamlPath` 引数はそのまま
+- ブランド型の導入は別タスク。ここでは `string` のまま
+- `/loop /next-task` に載せてよい
+
+**dependencies**: なし
+
+**difficulty**: sonnet
+
+**evidence**: `loadChartAndApps()` の引数を `(chartDirName, unitPath, chart, appSpecs, configYamlPath, registryYamlPath)` に変更。`unitDirPath` は `join()` のためだけに存在していた（使用箇所1つ）ので消し、組み立てを呼び出し元 `config.ts` の `listUnitChartAndApps()` へ寄せた。引数は「識別子（chartDirName・unitPath）→ データ（chart・appSpecs）→ 出どころのパス（configYamlPath・registryYamlPath）」の3グループに並ぶ。`chart-and-apps.ts` から `node:path` の import が消え、path結合が0件になった（残る `join(` は `Array.prototype.join`）。`grep -rn unitDirPath src scripts test` は0件。`pnpm lint:validate-config` は `config OK: 3 設定ユニット, 5 apps (config)`。`pnpm check` 通過（33ファイル385テスト、引数の形だけの変更なので着手前と同数が正しい）。
+
+## T-182
+
+**タスク**: ローカルのファイルシステムパスをブランド型（`LocalPath`）にする。
+
+## 背景
+
+ユーザー指摘（2026-09-10）「ファイルパスなら Path とか使えない?」を受けて調査した結果、
+**正典の基準に照らして該当することが実証できた**。
+
+`docs/architecture.md`「ブランド型にするのは「同じ`string`の別物と取り違えうる識別子」」の
+基準は「その値が別の識別子と**同じ型の式に並ぶ**か」。ローカルのパスはこれに該当する:
+
+- `join(chartUnits.chartDirPath, unitPath)` … ローカルのパスと `ConfigUnitPath` が同じ式に並ぶ
+- **今は `ConfigUnitPath` を素の `string` 引数に渡してもコンパイルが通る**
+  （ブランド型は `string` に代入可能なため）。実際に最小再現で確認済み。
+  これは `unitPath` と `unitDirPath` の取り違えが型で止まらないということ
+
+`src/utils/` は `types/` を一切 import していない（`grep -rn "^import" src/utils/*.ts` で
+`types/` への参照0件）。ブランド型は `string` に代入可能なので、
+`parseYamlFile(filePath: string)` などの**汎用ユーティリティ側は無改修で通る**。
+
+## 解くべき論点
+
+1. **1つのブランドか、パスの種類ごとに分けるか。** 正典が「数を増やすほどブランド型の定義は
+   重くなる」と言っているので**1つ**を推す。`configYamlPath` と `registryYamlPath` の
+   取り違えは、前段タスクで引数を隣接させ役割を揃えたことで読みやすさ側で解決している
+2. **名前。** `FilePath` はディレクトリも含むため誤解を招く。`LocalPath` なら
+   `ValuesPath`（GitLab上のchart内パス）との対比が名前に出る。他の候補は `FsPath`
+3. **`src/utils/` の引数を `string` のまま据え置くか。** 据え置きを推す
+   （`utils/` はドメイン知識・型を持たない。CLAUDE.md 原則2）
+
+## やること
+
+1. `src/types/brand.ts` に `LocalPath` と `toLocalPath()` を足す。JSDocに
+   **`ValuesPath`（GitLab上のパス）・`ConfigUnitPath`（識別子）との違い**を書く
+2. ローカルのパスを表す宣言を `LocalPath` にする（着手時に再計測すること。登録時点の実測）:
+   - `src/lib/env.ts`: `EnvConfig.configDirPath`、`parseConfigDirPath()` の戻り値
+   - `src/lib/config/config.ts`: `loadConfig()` の第1引数、`ChartUnits.chartDirPath`、
+     `findUnitPaths()`・`collectUnitSegments()` の引数、`registryYamlPath`
+   - `src/lib/config/chart-and-apps.ts`: `configYamlPath` / `registryYamlPath`
+   - `src/lib/config/validate.ts`: `configYamlPath` / `registryYamlPath` / `filePath`（2箇所）
+   - `scripts/lint/validate-config.ts`: コマンドライン引数から作る `configDirPath`
+3. **`src/utils/fs.ts`・`src/utils/yaml.ts` の引数は `string` のまま据え置く**（論点3）
+4. `docs/architecture.md`「ブランド型にするのは〜」の節に、
+   **ローカルのファイルパスはブランド型にする／GitLab上のパスとは別の型である**ことを追記する
+
+## ⚠️ 取り違えてはいけないもの（GitLab側のパスであってローカルではない）
+
+- `scripts/smoke/smoke-fixture.ts` の `fileExists(filePath: string)` と `SEED_FILES` のキー …
+  **chartリポジトリ内のパス**。`LocalPath` にしない
+- `ValuesPath` … chart内の `values.yaml` の相対パス。既にブランド型があるので触らない
+- `scripts/lint/remote-existence/` が扱う `valuesPath` … 同上
+
+判断の軸は「`readFileSync`・`existsSync`・`readdirSync` に渡るか（＝ローカル）」と
+「GitLab APIに渡るか（＝リモート）」。
+
+## 完了条件
+
+- `LocalPath` を素の `string` 引数に渡す箇所が残っていない
+  （`pnpm check` の `tsc --noEmit` が通ることで担保）
+- **型の穴が塞がったことを実証する**: `loadConfig()` に `ConfigUnitPath` を渡すコードが
+  `tsc` でエラーになることを確認し、エラーコード（`TS2345` 等）を `evidence` に書く
+- `src/utils/` の `dirPath` / `filePath` / `inputPath` の引数が `string` のままである
+- `grep -rn "LocalPath" scripts/smoke/` が **0件**（GitLab側のパスに付けていないこと）
+- `pnpm check` が通る（テスト件数を `evidence` に書く。**挙動は変えないので変わらないはず**）
+- `pnpm lint:validate-config` が `config OK: 3 設定ユニット, 5 apps (config)` を出す
+
+## 注意
+
+- 挙動は変えない（型だけの変更）
+- `as` キャストを使わない。生成は `toLocalPath()` の factory 関数に封じ込める（CLAUDE.md）
+- `docs/history/` は触らない
+- `/loop /next-task` に載せてよい
+
+**dependencies**: T-181
+
+**difficulty**: sonnet
+
+**evidence**: `LocalPath` / `toLocalPath()` を `src/types/brand.ts` に追加し、ローカルのパスを表す宣言（`env.ts` 2件・`config.ts` 6件・`chart-and-apps.ts` 3件・`validate.ts` 4件・`scripts/lint/validate-config.ts` 1件）を揃えた。**型の穴が塞がったことをメイン側でも独自に実証**: `loadConfig(toConfigUnitPath("tenant2/client1"))` を書くと `TS2345: Argument of type 'ConfigUnitPath' is not assignable to parameter of type 'LocalPath'.`（検証後にファイルは削除、`tsc --noEmit` は exit 0）。着手前はこれがコンパイルを通っていた。据え置きは論点どおり: `src/utils/fs.ts`・`yaml.ts` の引数は `string` のまま（原則2）、`scripts/smoke/` はGitLab側のパスなので `grep -rn LocalPath scripts/smoke/` が0件。`git diff --stat -- src/utils scripts/smoke` も0行。受け入れ時に**正典の追随漏れを1件修正**: `docs/architecture.md`「型の置き場所は`src/`全件と突き合わせて確かめてある」の件数が53件（`brand.ts` 12）のままだったので54件（13）に更新。`pnpm check` 通過（33ファイル385テスト、型だけの変更なので着手前と同数が正しい）。

@@ -5,7 +5,7 @@
 詳細は下の「完了したこと」を参照。2026-09-09以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手は T-180 の1件だけ**（GitLabへの反映待ち）。完了タスクは
+**未着手のタスクは0件**。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -93,48 +93,25 @@ stage名）は一切変えない**ので、承認のコストが要る範囲は�
 `string` のまま据え置いた。受け入れ時に `docs/architecture.md` の型の件数（53→54件）の
 追随漏れも直した。
 
-**残っているのはGitLabへの反映のみ**（`.env` がリポジトリに無いため、ユーザーが実行する）:
+**GitLabへの反映まで完了**（ユーザー承認のうえ実行）。`smoke-fixture.ts setup --apply` が
+3ファイルを update し、`anchor-app` の実変更は `smokeTestTargetBranch` の
+`release/2025-q4` → `release/2026-q1` の1行だけだった（`helmVersion` と
+`tenantId1client1AppsVersion` は現状と同値）。`pnpm lint:validate-config:remote` が
+`config OK（実在チェック）: projectId・ブランチ・valuesPath・アンカーをすべて確認` を出し、
+**T-180 の全完了条件を満たした**。
 
-```bash
-npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup        # dry-run
-npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
-pnpm lint:validate-config:remote                                    # 残る完了条件
-```
-
-**これを実行するまでCIの `validate-config-remote` は落ちる**（`config/` に書いた
-`helm.chart[].anchor` がGitLab側にまだ無いため）。手順2は
-`charts/anchor-app/values.yaml` を**丸ごと上書き**する（これまで手動管理だったファイル）。
+**未着手のタスクは0件になった。**
 
 ## 次にやること
 
-**未着手は T-180 の1件だけ**で、**`/loop` では進められない** —
-GitLab側フィクスチャへの書き込み承認と、消えるスモークシナリオの組み直しを含む。
-T-176・T-177 は着手しない判断で閉じた（下の「未解決」）。
+**未着手のタスクは0件**（T-172〜T-182 はすべて `done`）。T-176・T-177 は着手しない判断で
+閉じたもので、理由は下の「未解決」にある。
 
-- **T-180（`config.yaml` の `helm` を必須にする、`opus`、依存なし）**。
-  **コード・設定・テスト・正典はすべて反映済み**。残る完了条件は
-  `pnpm lint:validate-config:remote` の成功だけで、そのために
-  `tsx scripts/smoke/smoke-fixture.ts setup --apply` を**ユーザーが実行する**必要がある
-  （`.env` がリポジトリに無いため私からは反映できない）。手順とコマンドは上の
-  「完了したこと」に書いた。`/loop` 不可。
-
-**タスクにしなかったもの**（正典に既に判断があるので蒸し返さない）: stepの入口の
-「並列実行 → 振り分け」の共通化、`StepOutcome.settled` の分離（T-151）、`env.ts` の
-テスト専用 export、`reduceAsync`/`partitionMap` のスプレッド蓄積、未到達行3件。
-棚卸しの全文は `docs/history/direction.md` の「2026-09-09（2回目）」にある。
-
-- **設定の構成が変わったので、次回の実機スモークは `docs/smoke-test.md` の手順1から
-  やり直す。** 旧ブランチ `feature/yadokari/tenant1/client1` がGitLab上に残っていれば
-  `smoke-fixture.ts reset --apply` が拾って片付ける（`isFeatureBranch()` は接頭辞判定のみ）。
-  **統合後はスモークも定期実行も同じ `config/` を見るため、`CONFIG_PATH` の指定は不要**。
-  同じ固定ブランチを使うので、スモークと定期実行を同時に走らせないこと。
-- `scripts/lint/validate-config.ts` はディレクトリを**位置引数**で受け取る（`CONFIG_PATH`
-  環境変数では効かない）。統合後は既定の `config/` を見るので `pnpm lint:validate-config` だけでよい。
-- 新しいGitLab読み取りをキャッシュ機構に載せる手順と「載せてよいかの判断」は
-  `docs/architecture.md`「GitLabへの問い合わせのキャッシュは`lib/gitlab/`に列挙し、バッチ単位で
-  1つ持ち回る」節にある。
-- 「埋めない穴」「消さないと決めたもの」の正典は `docs/coding-standards.md`「テスト」節に
-  移した（T-119）。判断を変えたくなったら、まずそちらの理由を更新する。
+- **次回の実機スモークは `docs/smoke-test.md` の手順1からやり直す。** `helm` 必須化で
+  3つの設定ユニットすべてが `helm` を持つようになり、差分が出るのは `tenant2/client1` だけ
+  （`client2` と `anchor-app` は向き先ブランチが `helm.branchToSync` と同値）。
+  `smoke-fixture.ts setup --apply` は 2026-09-10 に実行済みで、フィクスチャは初期状態にある
+- 新しい指示は `develop/direction.md` に書き、`/plan-tasks` でタスク化する
 
 ## 未解決
 
