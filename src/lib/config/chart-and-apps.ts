@@ -18,18 +18,12 @@ import {
   REGISTRY_YAML_FILE_NAME,
   RegistryYamlSchema,
 } from "./schema.js"
+import type { ChartUnits } from "./unit-scan.js"
 import {
   resolveProjectLinkage,
   validateNoDuplicateProjectIds,
   validateNoDuplicateTargets,
 } from "./validate.js"
-
-/** 1つのchartディレクトリと、その配下の走査で見つかった設定ユニットの`unitPath`一覧 */
-export type ChartUnits = {
-  readonly chartDirName: ChartDirName
-  readonly chartDirPath: LocalPath
-  readonly unitPaths: readonly ConfigUnitPath[]
-}
 
 /**
  * 1つのchartディレクトリの`registry.yaml`を読み、`chartUnits.unitPaths`（走査＋`TARGET_UNITS`の

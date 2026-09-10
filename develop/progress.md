@@ -13,6 +13,13 @@
 
 ### 2026-09-11 `src/lib/config/config.ts` の分割
 
+- **T-185**: `config.ts` を **140行→36行**（`DEFAULT_CONFIG_DIR_PATH` と `loadConfig()` だけ）に
+  した。`TARGET_*` の解釈（`ConfigTarget` / `NO_TARGET` 含む）を新設の `select-units.ts` へ、
+  `scanChartDir()` と `ChartUnits` 型を `unit-scan.ts` へ移し、`findUnitPaths()` は非公開に降格。
+  T-184 のタスク化時に「ファイルを増やしたくない」で `select-units.ts` の新設を見送ったのが
+  判断ミスで、その結果 `config.ts` が138行→140行と増えていたのを直したもの。
+  `pnpm check` 通過: 33 Test Files / 385 Tests
+
 - **T-184**: `loadConfig()` を「名前の付いた段を順に呼ぶだけ」の入口（本体9行）に組み替え、
   `selectChartDirs` / `scanChartDir` / `selectTargetUnits` / `loadUnitChartAndApps` /
   `validateTagFormatConsistency` / `assertTargetMatched` の並びにした。`listUnitChartAndApps()` は
@@ -30,14 +37,7 @@
 
 ## 次にやること
 
-**未着手のタスクは1件**:
-
-- **T-185**（`sonnet`、依存なし）: `scanChartDir()` を `unit-scan.ts` へ、`TARGET_*` の解釈5つと
-  `ConfigTarget` / `NO_TARGET` を新設の `select-units.ts` へ移し、`config.ts` を
-  `DEFAULT_CONFIG_DIR_PATH` と `loadConfig()` だけ（50行以下）にする。ファイルは5→6に増える。
-  **走査の順序を変えないこと**が引き続き最重要の制約（既存テストでは検出できない）
-
-T-172〜T-184 はすべて `done`。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
+**未着手のタスクは0件**（T-172〜T-185 はすべて `done`）。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
 「未解決」にある。
 
 `src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から

@@ -158,19 +158,20 @@ importせず〜」の節を参照）。
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
-| ファイル                   | 責務                                                                                                                                                        |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlab/gitlab.ts`         | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ                                                                                 |
-| `gitlab/web-url.ts`        | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                                            |
-| `gitlab/batch-cache.ts`    | バッチ1回を通して使い回すGitLab読み取りのキャッシュ。キャッシュしてよい読み取りの一覧                                                                       |
-| `gitlab/errors.ts`         | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所**              |
-| `config/config.ts`         | 公開API `loadConfig()`。`TARGET_CHART`/`TARGET_UNITS` による絞り込みの段（走査は `unit-scan.ts`、読み込み・結合は `chart-and-apps.ts`）を順に呼ぶだけの入口 |
-| `config/unit-scan.ts`      | 1つのchartディレクトリ配下の設定ユニットの探索（`findUnitPaths()`）と階層の検証（深さ・入れ子）                                                             |
-| `config/chart-and-apps.ts` | 走査で見つかった設定ユニットごとに `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を読み込み・結合し `ChartAndApps` にする            |
-| `config/schema.ts`         | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                           |
-| `config/validate.ts`       | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                                                                                                    |
-| `helm.ts`                  | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                              |
-| `env.ts`                   | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                                                                        |
+| ファイル                   | 責務                                                                                                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `gitlab/gitlab.ts`         | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ                                                                                              |
+| `gitlab/web-url.ts`        | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                                                         |
+| `gitlab/batch-cache.ts`    | バッチ1回を通して使い回すGitLab読み取りのキャッシュ。キャッシュしてよい読み取りの一覧                                                                                    |
+| `gitlab/errors.ts`         | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所**                           |
+| `config/config.ts`         | 公開API `loadConfig()`。絞り込み（`select-units.ts`）→走査（`unit-scan.ts`）→読み込み・結合（`chart-and-apps.ts`）の段を順に呼ぶだけの入口                               |
+| `config/select-units.ts`   | `TARGET_CHART`/`TARGET_UNITS`（`ConfigTarget`）の解釈。絞り込み（`selectChartDirs`/`selectTargetUnits`）と絞り込み結果0件の検出（`assertTargetMatched`）                 |
+| `config/unit-scan.ts`      | 1つのchartディレクトリの走査（`scanChartDir()`）。`registry.yaml`の有無を見て設定ユニットの探索（`findUnitPaths()`）と階層の検証（深さ・入れ子）を行い`ChartUnits`にする |
+| `config/chart-and-apps.ts` | 走査で見つかった設定ユニットごとに `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を読み込み・結合し `ChartAndApps` にする                         |
+| `config/schema.ts`         | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                                        |
+| `config/validate.ts`       | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                                                                                                                 |
+| `helm.ts`                  | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                           |
+| `env.ts`                   | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                                                                                     |
 
 ### `src/domain/` — このツールの取り決めを tech非依存で表す
 

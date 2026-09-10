@@ -2,20 +2,45 @@ import { existsSync } from "node:fs"
 import { join } from "node:path"
 
 import { MAX_UNIT_DEPTH, UNIT_PATH_SEPARATOR } from "../../domain/config-unit.js"
-import type { ConfigUnitPath, LocalPath } from "../../types/types.js"
-import { toConfigUnitPath, toLocalPath } from "../../types/types.js"
+import type { ChartDirName, ConfigUnitPath, LocalPath } from "../../types/types.js"
+import { toChartDirName, toConfigUnitPath, toLocalPath } from "../../types/types.js"
 import { listSubdirectories } from "../../utils/fs.js"
 import { CONFIG_YAML_FILE_NAME, REGISTRY_YAML_FILE_NAME } from "./schema.js"
 
+/** 1つのchartディレクトリと、その配下の走査で見つかった設定ユニットの`unitPath`一覧 */
+export type ChartUnits = {
+  readonly chartDirName: ChartDirName
+  readonly chartDirPath: LocalPath
+  readonly unitPaths: readonly ConfigUnitPath[]
+}
+
 /** 設定ユニットのディレクトリを、chartディレクトリからの相対パスのセグメント列で表したもの */
 type UnitSegments = readonly string[]
+
+/**
+ * 1つのchartディレクトリを走査し、`config.yaml`を持つディレクトリ（＝設定ユニット）の
+ * `unitPath`一覧を集める（階層の検証込み。`findUnitPaths()`が深さ・入れ子の設定エラーを
+ * 例外でスローする）。`registry.yaml`が無いディレクトリは配下ごと無視する（走査対象の
+ * chartとみなさない）。
+ */
+export function scanChartDir(configDirPath: LocalPath, chartDir: string): readonly ChartUnits[] {
+  const chartDirPath = toLocalPath(join(configDirPath, chartDir))
+  if (!existsSync(join(chartDirPath, REGISTRY_YAML_FILE_NAME))) return []
+  return [
+    {
+      chartDirName: toChartDirName(chartDir),
+      chartDirPath,
+      unitPaths: findUnitPaths(chartDirPath),
+    },
+  ]
+}
 
 /**
  * 1つのchartディレクトリ配下から、`config.yaml`を持つディレクトリ（＝設定ユニット）の
  * `unitPath`を集める。深さ0・深さ3以上・入れ子はいずれも設定エラーとして例外をスローする
  * （`docs/requirements.md` 4.4節。なぜ走査を深さで打ち切らないかは`docs/architecture.md`）。
  */
-export function findUnitPaths(chartDirPath: LocalPath): readonly ConfigUnitPath[] {
+function findUnitPaths(chartDirPath: LocalPath): readonly ConfigUnitPath[] {
   const unitSegmentsList = collectUnitSegments(chartDirPath, [])
 
   if (unitSegmentsList.some((segments) => segments.length === 0)) {
