@@ -1,4 +1,13 @@
-const SENSITIVE_KEYS = new Set(["token", "access_token", "authorization", "password", "secret"])
+// "accesstoken" は `EnvConfig` のキー名 `accessToken` を `toLowerCase()` した形。
+// アンダースコアの有無は `toLowerCase()` では吸収できないため、"access_token" と別に持つ。
+const SENSITIVE_KEYS = new Set([
+  "token",
+  "access_token",
+  "accesstoken",
+  "authorization",
+  "password",
+  "secret",
+])
 
 function redact(fields: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
