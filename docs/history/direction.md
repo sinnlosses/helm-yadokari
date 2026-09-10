@@ -47,12 +47,12 @@ chartディレクトリだけを走査する現在の挙動）を T-184 の最�
 ```ts
 export function loadConfig(configDirPath: LocalPath, target: ConfigTarget = NO_TARGET): Config {
   assertSafePath(configDirPath, "CONFIG_PATH")
-  const chartDirs = selectChartDirs(listSubdirectories(configDirPath), target)  // TARGET_CHART
-  const chartUnitsList = chartDirs.flatMap((dir) => scanChartDir(configDirPath, dir))  // 走査＋階層検証
-  const selected = selectTargetUnits(chartUnitsList, target)                    // TARGET_UNITS
-  const chartAndAppsList = selected.flatMap(loadUnitChartAndApps)               // 読み込み＋結合
-  validateTagFormatConsistency(chartAndAppsList)                                // 横断検証
-  assertTargetMatched(target, chartAndAppsList)                                 // 0件エラー
+  const chartDirs = selectChartDirs(listSubdirectories(configDirPath), target) // TARGET_CHART
+  const chartUnitsList = chartDirs.flatMap((dir) => scanChartDir(configDirPath, dir)) // 走査＋階層検証
+  const selected = selectTargetUnits(chartUnitsList, target) // TARGET_UNITS
+  const chartAndAppsList = selected.flatMap(loadUnitChartAndApps) // 読み込み＋結合
+  validateTagFormatConsistency(chartAndAppsList) // 横断検証
+  assertTargetMatched(target, chartAndAppsList) // 0件エラー
   return { chartAndAppsList }
 }
 ```

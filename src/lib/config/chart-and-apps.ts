@@ -1,3 +1,5 @@
+import { join } from "node:path"
+
 import type {
   AppConfig,
   ChartAndApps,
@@ -7,14 +9,48 @@ import type {
   HelmTargetBranchConfig,
   LocalPath,
 } from "../../types/types.js"
+import { toLocalPath } from "../../types/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
 import type { AppSpec, HelmConfig } from "./schema.js"
-import { ConfigYamlSchema } from "./schema.js"
+import {
+  CONFIG_YAML_FILE_NAME,
+  ConfigYamlSchema,
+  REGISTRY_YAML_FILE_NAME,
+  RegistryYamlSchema,
+} from "./schema.js"
 import {
   resolveProjectLinkage,
   validateNoDuplicateProjectIds,
   validateNoDuplicateTargets,
 } from "./validate.js"
+
+/** 1つのchartディレクトリと、その配下の走査で見つかった設定ユニットの`unitPath`一覧 */
+export type ChartUnits = {
+  readonly chartDirName: ChartDirName
+  readonly chartDirPath: LocalPath
+  readonly unitPaths: readonly ConfigUnitPath[]
+}
+
+/**
+ * 1つのchartディレクトリの`registry.yaml`を読み、`chartUnits.unitPaths`（走査＋`TARGET_UNITS`の
+ * 絞り込み済み）それぞれを設定ユニット単位の`ChartAndApps`にする。`registry.yaml`の`appSpecs[]`
+ * （タグ形式の台帳）は1つのchartディレクトリで共有されるため、重複チェックもここで1回だけ行う。
+ */
+export function loadUnitChartAndApps(chartUnits: ChartUnits): readonly ChartAndApps[] {
+  const registryYamlPath = toLocalPath(join(chartUnits.chartDirPath, REGISTRY_YAML_FILE_NAME))
+  const { chartToUpdate: chart, appSpecs } = parseYamlFile(registryYamlPath, RegistryYamlSchema)
+  validateNoDuplicateProjectIds(registryYamlPath, appSpecs)
+  return chartUnits.unitPaths.map((unitPath) =>
+    loadChartAndApps(
+      chartUnits.chartDirName,
+      unitPath,
+      chart,
+      appSpecs,
+      toLocalPath(join(chartUnits.chartDirPath, unitPath, CONFIG_YAML_FILE_NAME)),
+      registryYamlPath,
+    ),
+  )
+}
 
 /**
  * 1つの設定ユニットのディレクトリ（`<chartDir>/<unitPath>/`）の`config.yaml`（運用値＋chart構造）を
@@ -24,7 +60,7 @@ import {
  * 前提（どのディレクトリが設定ユニットかは`unit-scan.ts`の走査が決める）。
  * `unitPath`は識別子（ログ・`TARGET_UNITS`・固定ブランチ名に使う）、`*YamlPath`はローカルの実ファイルパス。
  */
-export function loadChartAndApps(
+function loadChartAndApps(
   chartDirName: ChartDirName,
   unitPath: ConfigUnitPath,
   chart: ChartRepoConfig,

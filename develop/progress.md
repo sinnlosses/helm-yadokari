@@ -13,6 +13,14 @@
 
 ### 2026-09-11 `src/lib/config/config.ts` の分割
 
+- **T-184**: `loadConfig()` を「名前の付いた段を順に呼ぶだけ」の入口（本体9行）に組み替え、
+  `selectChartDirs` / `scanChartDir` / `selectTargetUnits` / `loadUnitChartAndApps` /
+  `validateTagFormatConsistency` / `assertTargetMatched` の並びにした。`listUnitChartAndApps()` は
+  `chart-and-apps.ts` へ移設し、`ChartUnits` 型もそちらへ。**ファイルは5のまま増やしていない**。
+  受け入れでは、壊れた兄弟chartディレクトリを置いた使い捨て `config/` を作り、
+  `TARGET_CHART` 指定時にそれを走査しないことを**変更前後の実行結果の一致**で確認した
+  （既存テストでは検出できない不変条件のため）。`pnpm check` 通過: 33 Test Files / 385 Tests
+
 - **T-183**: `config.ts`（207行）から設定ユニットの走査と階層の検証を
   `src/lib/config/unit-scan.ts`（77行、`export` は `findUnitPaths` のみ）へ切り出し、`config.ts` は
   138行になった。`docs/architecture.md`「1ファイルにまとめるか分けるか」の分ける合図①②③⑤に
@@ -22,14 +30,7 @@
 
 ## 次にやること
 
-**未着手のタスクは1件**:
-
-- **T-184**（`sonnet`、依存なし）: `loadConfig()` を「名前の付いた段を順に呼ぶだけ」の薄い入口に
-  組み替え、`listUnitChartAndApps()` を `chart-and-apps.ts` へ移す。ファイルは5のまま増やさない。
-  **走査の順序（`TARGET_CHART` で絞った chartディレクトリだけを走査する）を変えないこと**が
-  最重要の制約で、これは既存テストでは検出できない
-
-T-172〜T-183 はすべて `done`。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
+**未着手のタスクは0件**（T-172〜T-184 はすべて `done`）。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
 「未解決」にある。
 
 `src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から
