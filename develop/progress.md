@@ -72,6 +72,13 @@ stage名）は一切変えない**ので、承認のコストが要る範囲は�
 `HELM_TARGET_BRANCH` と同値にすれば向き先ブランチが差分なしになり、「image tag更新のみ」の
 検証がそのまま成立する。差分が出る側は `client1` だけ。
 
+着手後にユーザーが実物を確認して**前提のズレが1つ見つかった**: `charts/anchor-app/values.yaml`
+には既に `&smokeTestTargetBranch release/2025-q4` があり、`&helmVersion develop` という
+このツールが読み書きしないアンカーも同居していた。当初案の「`anchorAppHelmTargetBranch` を
+新規に作る」は**GitLab上に存在しないアンカーを指すので `validate-config-remote` が落ちる**うえ、
+`SEED_FILES` の丸ごと上書きで既存2アンカーを消すところだった。既存の `smokeTestTargetBranch` を
+使う形に変更し、`helmVersion` はシード内容に含めて保存する。
+
 **残っているのはGitLabへの反映のみ**（`.env` がリポジトリに無いため、ユーザーが実行する）:
 
 ```bash

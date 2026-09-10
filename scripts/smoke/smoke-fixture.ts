@@ -78,12 +78,14 @@ const SEED_TAGS = {
  * 各設定ユニットのvalues.yamlの初期状態。アンカー名は`config/yadokari-smoke-test-chart/`の
  * `apps[].chart[].anchor`・`helm.chart[].anchor`と一致させる（食い違うと書き込み先が見つからず
  * その設定ユニットが`ERROR`になる）。
+ * `anchor-app`の`helmVersion`はこのツールが読み書きしないアンカーだが、chartリポジトリ側の
+ * 実物にあるものなので、上書きで消さないようここにも書く。
  * 向き先ブランチのシード値は`client1`だけ`main`（＝`HELM_TARGET_BRANCH`と差分があり更新される）にし、
  * `client2`と`anchor-app`は`HELM_TARGET_BRANCH`と同じ値にする。後者2つは向き先ブランチが差分なしに
  * なるので「image tag更新のみ」というシナリオ（docs/smoke-test.md）を保てる。
  */
 const SEED_FILES: Record<string, string> = {
-  "charts/anchor-app/values.yaml": `variables:\n  - &tenantId1client1AppsVersion ${SEED_TAGS.qaSprint.tag}\n  - &anchorAppHelmTargetBranch ${HELM_TARGET_BRANCH}\n`,
+  "charts/anchor-app/values.yaml": `variables:\n  - &helmVersion develop\n  - &tenantId1client1AppsVersion ${SEED_TAGS.qaSprint.tag}\n  - &smokeTestTargetBranch ${HELM_TARGET_BRANCH}\n`,
   "charts/smoke-tenant2/client1/values.yaml": `variables:\n  - &t2c1QaSprintVersion ${SEED_TAGS.qaSprint.tag}\n  - &t2c1DevelopClientVersion ${SEED_TAGS.developClient.tag}\n  - &t2c1HelmTargetBranch main\n`,
   "charts/smoke-tenant2/client2/values.yaml": `variables:\n  - &t2c2QaSprintVersion ${SEED_TAGS.qaSprint.tag}\n  - &t2c2DevelopClientVersion ${SEED_TAGS.developClient.tag}\n  - &t2c2HelmTargetBranch ${HELM_TARGET_BRANCH}\n`,
 }

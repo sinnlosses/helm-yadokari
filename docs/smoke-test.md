@@ -42,12 +42,14 @@ chartリポジトリ側に必要なもの（`smoke-fixture.ts setup` が用意�
   （`t2c1QaSprintVersion` / `t2c1DevelopClientVersion` / `t2c1HelmTargetBranch`）
 - `charts/smoke-tenant2/client2/values.yaml` … アンカー3つ
   （`t2c2QaSprintVersion` / `t2c2DevelopClientVersion` / `t2c2HelmTargetBranch`）
-- `charts/anchor-app/values.yaml` … アンカー2つ
-  （`tenantId1client1AppsVersion` / `anchorAppHelmTargetBranch`）。深さ1の設定ユニット
-  `anchor-app` 用
+- `charts/anchor-app/values.yaml` … アンカー3つ
+  （`helmVersion` / `tenantId1client1AppsVersion` / `smokeTestTargetBranch`）。深さ1の設定ユニット
+  `anchor-app` 用。**`helmVersion` はこのツールが読み書きしないアンカー**だが、chartリポジトリ側の
+  実物にあるものなので、`setup` の上書きで消さないようシード内容にも含めている
 
 向き先ブランチのアンカーは3ユニットとも必須（`config.yaml`の`helm`は必須フィールド）。
-`t2c1HelmTargetBranch` だけシード値が `main` で、残る2つは `release/2026-q1`（＝`helm.branchToSync`
+`t2c1HelmTargetBranch` だけシード値が `main` で、残る2つ（`t2c2HelmTargetBranch` /
+`smokeTestTargetBranch`）は `release/2026-q1`（＝`helm.branchToSync`
 と同じ値）をシードするので差分が出ない。これで「image tag更新のみ」のシナリオが保たれる。
 
 対応する設定は `config/yadokari-smoke-test-chart/` に置いてある（gitで管理）。

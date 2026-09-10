@@ -59,8 +59,9 @@ const OLD_HELM_BRANCH = "release/2025-q4"
 // シード値と同じ考え方）。差分が出る側は `tenant2/client1` だけ。
 const VALUES_YAML_ANCHOR_APP =
   `variables:\n` +
+  `  - &helmVersion develop\n` +
   `  - &tenantId1client1AppsVersion ${QA_OLD_VALUE}\n` +
-  `  - &anchorAppHelmTargetBranch ${NEW_HELM_BRANCH}\n`
+  `  - &smokeTestTargetBranch ${NEW_HELM_BRANCH}\n`
 const VALUES_YAML_TENANT2_CLIENT1 =
   `variables:\n` +
   `  - &t2c1QaSprintVersion ${QA_OLD_VALUE}\n` +
