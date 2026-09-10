@@ -56,10 +56,10 @@
   {
     "id": "T-179",
     "task": "索引・目次を持たないドキュメントに、既存の形式に合わせた索引を付ける。\n\n## 背景\n\nユーザーの指示は「各ドキュメントに目次とかあると見やすいんだけどな。ないドキュメントに\n付与してくれる?」。\n\n現状（`grep -n \"^#\\{2,3\\} \" docs/*.md README.md CLAUDE.md` で実測）:\n\n| ファイル | サイズ | 索引 |\n| --- | --- | --- |\n| `docs/architecture.md` | 87KB | あり（`### 節の索引`。`###`/`####` を表で並べる） |\n| `docs/coding-standards.md` | 34KB | あり（`### 節の索引`） |\n| `docs/glossary.md` | 30KB | あり（`### 用語の索引`） |\n| `docs/requirements.md` | 36KB | あり（`### 節の索引`） |\n| `docs/workflow.md` | 15KB | **なし** |\n| `docs/smoke-test.md` | 8.7KB | **なし** |\n| `docs/requirements-grilling.md` | 16KB | **なし**（`/grilling` の途中経過ログ） |\n| `README.md` | 23KB | **なし** |\n| `CLAUDE.md` | — | **なし**（毎セッション全文が読まれる） |\n| `docs/history/*.md` | — | **なし**。`progress-archive.md` と `direction.md` は冒頭に「時系列の追記ログなので節の索引は持たない」と明記済み |\n\n既にあるものは単なる見出しの列挙ではなく、**「どの節に何が書いてあるか」を1行で説明する表**で、\n「このファイルは通読しない」という運用（`sed` で節を切り出して読む）とセットになっている。\n\n## 解くべき論点\n\n1. **どのファイルに付けるか。** `docs/history/` の2つは「索引は持たない」と明記済みなので対象外。\n   `docs/requirements-grilling.md` は完了済みの検討ログ、`CLAUDE.md` は全文が読まれる前提。\n   **付けない判断も正当**で、その場合は理由を残す\n2. **形式。** 既存の「節の索引」（表 + 説明）に揃えるか、`README.md` のように\n   **GitHub上で人が上から読む**ファイルには普通のリンク付き目次にするか。用途が違う\n3. **粒度。** `##` だけを並べるか、`###` まで含めるか（ファイルの大きさで変えてよいか）\n\n## やること\n\n1. 論点1〜3を決める\n2. 既存4ファイルの索引の書き方を実際に読んでから、それに揃えて書く\n3. **見出し自体は書き換えない**（索引を足すだけ。見出しの改名は別タスク）\n4. 索引の各行が**実在する見出しと文字列一致**することを `grep` で確認する\n\n## 完了条件\n\n- 付けた各ファイルについて、索引に並べた見出し名がすべて実在する\n  （`grep -n \"^#\\{2,3\\} \" <file>` の結果と突き合わせ、`evidence` に書く）\n- 付けなかったファイルは、その理由が `evidence` に1行ずつ書かれている\n- 既存4ファイル（`architecture` / `coding-standards` / `glossary` / `requirements`）の索引を\n  壊していない（`git diff --stat` に出ないこと、または意図した更新であることを `evidence` に書く）\n- `pnpm check` が通る（`format:check` があるので表の整形が崩れると落ちる。テスト件数を `evidence` に書く）\n\n## 注意\n\n- **T-178 が新しいドキュメントを作った場合、そのファイルも対象に含める**（着手時に\n  `ls docs/*.md` で確認する）\n- 本文の内容は書き換えない（索引の追加だけ）\n- `docs/history/` は触らない\n- `/loop /next-task` に載せてよい",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "`README.md`（リンク付き目次16項目）・`docs/workflow.md`（表形式11行）・`docs/smoke-test.md`（表形式5行）に追加。索引の各行が実在見出しと**順序込みで文字列一致**することを突き合わせで確認（16/16・11/11・5/5）。README のアンカーはGitHubのslug規則に沿う（`config/`→`#config`、`CI/CD`→`#cicd`、`手動実行時のオプション（Pipeline inputs）`→`#手動実行時のオプションpipeline-inputs`）。重複見出しは0件。付けなかったのは3種: `docs/requirements-grilling.md`（完了済みの検討ログで時系列の記録）、`CLAUDE.md`（毎セッション全文が読まれるので索引が二重情報になる）、`docs/history/`（冒頭に索引を持たない旨が明記済み）。見出し名は `## 目次` を使い、既存4ファイルの `### 節の索引` とは分けた（あちらは「通読せず sed で節を切り出す」運用とセット、こちらは上から読むファイル向け）。既存4ファイルの索引は `git diff --stat` に出ず無傷。追加のみ45行、`pnpm check` 通過（33ファイル385テスト）。",
     "dependencies": ["T-178"]
   },
   {

@@ -5,7 +5,7 @@
 詳細は下の「完了したこと」を参照。2026-09-09以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手は2件**（T-179・T-180）。完了タスクは
+**未着手は T-180 の1件だけ**（`/loop` 不可）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -58,17 +58,19 @@ stage名）は一切変えない**ので、承認のコストが要る範囲は�
 （放置すると `scripts/` のカバレッジ対象が黙って外れる）。残った `verify` は gitbeaker の
 エラー文言と正典の対応表本体だけ。
 
+**T-179 完了**（`sonnet`、委譲）。索引を持たなかった3ファイルに追加した。`README.md` は
+**リンク付き目次**（GitHub上で人が上から読むため）、`docs/workflow.md` と
+`docs/smoke-test.md` は既存4ファイルと同じ**表形式**。ただし見出し名は `## 目次` とし、
+既存の `### 節の索引` とは分けてある（あちらは「通読せず `sed` で節を切り出す」運用とセット）。
+`docs/requirements-grilling.md`（完了済みの検討ログ）と `CLAUDE.md`（全文が読まれる前提）には
+**付けない判断**。索引の各行が実在見出しと順序込みで一致することを突き合わせで確認済み。
+
 ## 次にやること
 
-**未着手は2件**。T-179 は **`/loop /next-task` で進められる**（既存ファイルへの索引付与）。
-**T-180 は `/loop` 不可** —
+**未着手は T-180 の1件だけ**で、**`/loop` では進められない** —
 GitLab側フィクスチャへの書き込み承認と、消えるスモークシナリオの組み直しを含む。
 T-176・T-177 は着手しない判断で閉じた（下の「未解決」）。
 
-- **T-179（索引が無いドキュメントへの索引付与、`sonnet`、T-178依存）**。
-  索引があるのは `architecture` / `coding-standards` / `glossary` / `requirements` の4つ。
-  `workflow.md`・`smoke-test.md`・`README.md` などが対象候補で、**付けない判断も正当**。
-  T-178 は**新規ドキュメントを作らなかった**ので、対象は既存ファイルだけでよい。`/loop` 可。
 - **T-180（`config.yaml` の `helm` を必須にする、`opus`、依存なし）**。
   chartが常に2ブランチ構成であることが前提として確定したため、`helm` の省略を認めない。
   **着手の前提として、GitLabの `yadokari-smoke-test-chart` の
