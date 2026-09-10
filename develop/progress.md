@@ -11,6 +11,15 @@
 
 ## 完了したこと（このセッション）
 
+### 2026-09-11 `src/lib/config/config.ts` の分割
+
+- **T-183**: `config.ts`（207行）から設定ユニットの走査と階層の検証を
+  `src/lib/config/unit-scan.ts`（77行、`export` は `findUnitPaths` のみ）へ切り出し、`config.ts` は
+  138行になった。`docs/architecture.md`「1ファイルにまとめるか分けるか」の分ける合図①②③⑤に
+  該当（④「依存が違う」は不成立。`loadConfig()` 自身も `listSubdirectories()`・`existsSync()` を使う）。
+  **振る舞いは無変更**で、`test/` は1文字も触っていない（`git diff --stat test/` が空）。
+  `pnpm check` 通過: 33 Test Files / 385 Tests（変更前と同数）
+
 ### 2026-09-10 指示メモのタスク化とトークンのマスク確認
 
 `/plan-tasks` で T-175〜T-179 を登録し、`done` 9件を `docs/history/tasks-archive.md` へ
@@ -104,14 +113,13 @@ stage名）は一切変えない**ので、承認のコストが要る範囲は�
 
 ## 次にやること
 
-**未着手のタスクは1件**:
+**未着手のタスクは0件**（T-172〜T-183 はすべて `done`）。T-176・T-177 は着手しない判断で
+閉じたもので、理由は下の「未解決」にある。
 
-- **T-183**（`sonnet`、依存なし）: `src/lib/config/config.ts`（207行）から設定ユニットの走査と
-  階層の検証を `src/lib/config/unit-scan.ts` へ切り出し、`config.ts` を「公開API `loadConfig()` ＋
-  `ConfigTarget` による絞り込み」だけにする。振る舞いは変えず、`test/` は無変更のままにする
-
-T-172〜T-182 はすべて `done`。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
-「未解決」にある。
+`src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から
+`chart-and-apps.ts` へ移す）と案3（`loadChartAndApps()` の6引数をスコープ別の2オブジェクトに
+まとめる）を**提案したうえで見送っている**（2026-09-11、ユーザー判断）。経緯は
+`docs/history/direction.md` の 2026-09-11 にある。
 
 - **次回の実機スモークは `docs/smoke-test.md` の手順1からやり直す。** `helm` 必須化で
   3つの設定ユニットすべてが `helm` を持つようになり、差分が出るのは `tenant2/client1` だけ

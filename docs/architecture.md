@@ -164,7 +164,8 @@ importせず〜」の節を参照）。
 | `gitlab/web-url.ts`        | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                               |
 | `gitlab/batch-cache.ts`    | バッチ1回を通して使い回すGitLab読み取りのキャッシュ。キャッシュしてよい読み取りの一覧                                                          |
 | `gitlab/errors.ts`         | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所** |
-| `config/config.ts`         | 公開API `loadConfig()`。`config/` の走査（設定ユニットの探索と階層の検証）と絞り込み                                                           |
+| `config/config.ts`         | 公開API `loadConfig()`。chartディレクトリの列挙と `TARGET_CHART`/`TARGET_UNITS` による絞り込み（走査は `unit-scan.ts`）                        |
+| `config/unit-scan.ts`      | 1つのchartディレクトリ配下の設定ユニットの探索（`findUnitPaths()`）と階層の検証（深さ・入れ子）                                                |
 | `config/chart-and-apps.ts` | 設定ユニットの `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を結合し `ChartAndApps` にする                             |
 | `config/schema.ts`         | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                              |
 | `config/validate.ts`       | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                                                                                       |

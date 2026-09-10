@@ -21,7 +21,7 @@ import {
  * 読み込み、`appSpecs`（`registry.yaml`の`appSpecs[]`、`projectId`をキーにしたタグ形式の台帳）と
  * `projectId`で結合して`ChartAndApps`（MRを作成する単位）1件にする。両者間の紐づけ矛盾の検証と
  * 結合そのものは`resolveProjectLinkage()`が一度に行う。`config.yaml`が実在するディレクトリだけが渡ってくる
- * 前提（どのディレクトリが設定ユニットかは`config.ts`の走査が決める）。
+ * 前提（どのディレクトリが設定ユニットかは`unit-scan.ts`の走査が決める）。
  * `unitPath`は識別子（ログ・`TARGET_UNITS`・固定ブランチ名に使う）、`*YamlPath`はローカルの実ファイルパス。
  */
 export function loadChartAndApps(
