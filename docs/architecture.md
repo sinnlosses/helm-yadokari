@@ -75,6 +75,7 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 | #### 用途別の型エイリアスを作らない                                               | 構造的型付けゆえ別名に効果が無い  |
 | #### 配列の非空を型で保証するより、生成経路を1つに保つ（`AppUpdatePlan.updates`） | 非空タプル型を見送った理由        |
 | #### 1つの語を2つの意味に使わない                                                 | 命名（`chart`のような語を避ける） |
+| #### 検証の動詞は`validate`に統一し、`verify`は使わない                           | 命名（`verify`を使わない理由）    |
 | #### `steps/`配下はファイル名＝公開関数名のケバブケース                           | ファイル名の付け方                |
 
 `### ディレクトリ配置` の中:
@@ -646,6 +647,42 @@ values.yamlの書き込み位置は用途を問わず`AnchorTarget`1つ。TypeSc
 そのため、値の意味を語れないフィールド名（用途を何も語らない`chart`、既に別の意味で使われて
 いる`targets`）は避ける。既存の語彙とそのまま繋がる名前を選ぶ。ただし**包含する型名が用途を
 与えている場合は短い名前のままでよい**（`helmTargetBranch.targets`・`ChartAndApps.chart`）。
+
+#### 検証の動詞は`validate`に統一し、`verify`は使わない
+
+`validate`はこのコードベース全体の「検証する」の一般動詞で、`validateGitlabUrl()`（`lib/env.ts`）・
+タグ形式の検証（`domain/`・`types/brand.ts`）・スキーマ検証（`lib/config/schema.ts`）から
+`.gitlab-ci.yml`のstage名（検証全般を指す）まで、層をまたいで使われている。**`validate`に
+「形の検証だけ」のような狭い意味を割り当て直すことはできない**。
+
+`verify`はこれに対して`scripts/lint/`の実在チェック1箇所でしか使っておらず、そこだけが例外に
+なっていた。隣り合う`scripts/lint/validate-config.ts`（CLI入口）と実在チェックで動詞が違うと、
+どちらがどちらの一部なのかがファイル名から読めない。**例外の側（`verify`）を一般動詞に寄せる**。
+
+実在チェックのディレクトリ名には`remote`を使う。`--remote`オプション・pnpmスクリプトの
+`lint:validate-config:remote`・CIジョブの`validate-config-remote`と語彙が揃い、**入口の
+どのモードの実装なのかが名前で分かる**ため。
+
+| 旧名                                          | 新名                                                |
+| --------------------------------------------- | --------------------------------------------------- |
+| `scripts/lint/verify-config/`                 | `scripts/lint/remote-existence/`                    |
+| `scripts/lint/verify-config/verify-config.ts` | `scripts/lint/remote-existence/remote-existence.ts` |
+| `verifyConfigExistence()`                     | `validateRemoteExistence()`                         |
+| `VerifyContext`                               | `ValidateContext`                                   |
+| `verifyChartAndApps()`                        | `validateChartAndApps()`                            |
+| `verifyApp()`                                 | `validateApp()`                                     |
+| `verifyHelmTargetBranch()`                    | `validateHelmTargetBranch()`                        |
+| `verifyTargets()`                             | `validateTargets()`                                 |
+| `verifyTarget()`                              | `validateTarget()`                                  |
+| `test/scripts/lint/verify-config/`            | `test/scripts/lint/remote-existence/`               |
+
+`remote-cache.ts`はファイル名を変えず、`verify-config/`から`remote-existence/`へ移すだけ。
+
+**外部インターフェースは変えない**。pnpmスクリプト名（`lint:validate-config`・
+`lint:validate-config:remote`）、`.gitlab-ci.yml`のジョブ名`validate-config-remote`とstage名
+`validate`、`scripts/lint/validate-config.ts`というCLI入口のファイル名、`lib/config/validate.ts`の
+4つの公開関数はすべてそのまま。ジョブ名はGitLab上のパイプライン表示と過去のジョブ履歴にも
+現れるため、名前を揃える利益がこの互換性のコストを上回らない。
 
 #### `steps/`配下はファイル名＝公開関数名のケバブケース
 
