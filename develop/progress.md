@@ -7,7 +7,7 @@
 **本番の定期実行を開始**した。ドキュメント整備を `/maintain-docs` としてスキル化し、
 最後に**ソースコード全体の棚卸しで13タスクを登録**した。詳細は下の「完了したこと」を参照）
 
-**未着手は6件**（T-172・T-173・T-176〜T-179。下の「次にやること」）。完了タスクは
+**未着手は4件**（T-172・T-173・T-178・T-179。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -26,6 +26,8 @@
 素通りしていた）。gitbeaker はトークンをヘッダでのみ送り、`error.message` に混ぜないことを
 ソースで確認済み。再帰的なマスクと値ベースの伏せ込みは**採らない判断**（後者は `src/utils/` が
 環境を知ることになり原則2に反する）。方針は `docs/requirements.md` 5章に1箇所だけ追記した。
+
+**T-176・T-177 は着手しない判断で閉じた**（`status: done` / `passes: false`）。理由は下の「未解決」。
 
 ### 2026-09-09 ドキュメント整備のスキル化
 
@@ -312,9 +314,9 @@ T-160・T-161・T-162・T-168）。`done` が9件・30,240バイトで基準（1
 
 ## 次にやること
 
-**未着手は6件**。うち **T-172・T-176・T-178 は方針決め・承認を含むので `/loop /next-task` に
-載せない**（ユーザーがいるセッションで扱う）。T-173 と T-177 は前段の結論待ちで、前段が
-「改名しない」と決めたら丸ごと不要になる。
+**未着手は4件**。うち **T-172・T-178 は方針決め・承認を含むので `/loop /next-task` に載せない**
+（ユーザーがいるセッションで扱う）。T-173 は T-172 の結論待ちで、「改名しない」なら丸ごと不要になる。
+T-176・T-177 は着手しない判断で閉じた（下の「未解決」）。
 
 - **T-172（`validate`/`verify` の使い分けを決めて正典に反映、`opus`、依存なし）**。
   `scripts/lint/validate-config.ts`（CLI入口）・`scripts/lint/verify-config/verify-config.ts`
@@ -324,13 +326,6 @@ T-160・T-161・T-162・T-168）。`done` が9件・30,240バイトで基準（1
   ジョブ名に波及するため承認が要る。**「改名しない」も正当な結論**。`/loop` 不可。
 - **T-173（決めた命名を実装・CI・ドキュメントへ反映、`sonnet`、T-172依存）**。
   T-172 が「改名しない」と結論したら**不要になるタスク**。`/loop` 可。
-- **T-176（`outcome`/`result` の使い分けを決めて正典に反映、`opus`、依存なし）**。
-  指示は「outcome ではなく result を使う」だが、**`result` は既に `ChartUpdateResult`・
-  JSONログのフィールド名・`StepOutcome` 自身のフィールド名として使われている**。改名すると
-  `StepResult` の中に `result` が入り、`docs/architecture.md`「1つの語を2つの意味に使わない」と
-  衝突する。**ユーザー合意が要る。`/loop` 不可**。
-- **T-177（決めた命名を実装・ドキュメントへ反映、`sonnet`、T-176依存）**。
-  T-176 が「改名しない」と結論したら**不要になるタスク**。`/loop` 可。
 - **T-178（HTTPエラー処理の実装を1つの資料にまとめる、`opus`、依存なし）**。
   現状は `README.md`（挙動の表）・`docs/architecture.md`（設計判断）・
   `docs/coding-standards.md`（try を書く場所）・コード内コメント（gitbeaker依存の判定）の
@@ -359,6 +354,22 @@ T-160・T-161・T-162・T-168）。`done` が9件・30,240バイトで基準（1
   移した（T-119）。判断を変えたくなったら、まずそちらの理由を更新する。
 
 ## 未解決
+
+- **T-176（`outcome` を `result` に改名する件）は着手しない判断**（ユーザー判断、2026-09-10）。
+  `tasks.json` では `status: done` / `passes: false` で閉じてあり、**正典（`docs/architecture.md`）は
+  無変更**。判断を変えたくなったときのために懸念だけ残す:
+  - `result` のドメイン型が既に2つある（`ChartUpdateResult` = CREATED/SKIPPED/ERROR、
+    `RunResult` = SUCCESS/PARTIAL_FAILURE。どちらも `docs/glossary.md` に掲載）のに対し、
+    `StepOutcome` は**ドメインではなく制御フローの型**（`ok` = 続行 / `settled` = 打ち切り）で層が違う
+  - `StepResult` にすると `{ status: "settled"; result: ChartUpdateResult }` が **`result.result`** になり、
+    `docs/architecture.md`「1つの語を2つの意味に使わない」の本文（値の意味を語れないフィールド名は
+    避ける）を自分で踏む
+  - ログのフィールド名 `result` は `README.md`「実行ログの例」3箇所に出る**外部インターフェース**で、
+    `ChartUpdateResult` の意味に固定したい
+  - `src/main.ts:66` の reduce が既に `(counts, result)` を使っており、局所変数が衝突する
+  - 再開するなら、型名を `StepResult` にしたうえで `settled` 側のフィールド名を
+    `settledAs` などに変えて `result.result` を避ける案（波及は src 8ファイル・docs 2ファイルの約40箇所）
+    から検討する。**T-177（反映タスク）も同時に閉じてある**ので、再開時は両方を起こし直す
 
 - **T-151（`StepOutcome` の `settled` が SKIPPED と ERROR を混ぜている件）は着手しない判断**
   （ユーザー判断、2026-09-09）。`tasks.json` では `status: done` / `passes: false` で閉じてある。
