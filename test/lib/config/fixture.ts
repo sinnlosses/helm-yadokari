@@ -3,6 +3,9 @@ import { join } from "node:path"
 
 import { afterEach, beforeEach } from "vitest"
 
+import type { LocalPath } from "../../../src/types/types.js"
+import { toLocalPath } from "../../../src/types/types.js"
+
 /**
  * `loadConfig()` のテスト用に、テストごとの使い捨て `config/` ディレクトリを用意する。
  * `beforeEach`/`afterEach` の登録も行うので、テストファイル側は
@@ -10,7 +13,7 @@ import { afterEach, beforeEach } from "vitest"
  */
 export type ConfigDir = {
   /** 現在のテスト用ディレクトリの絶対パス */
-  readonly path: string
+  readonly path: LocalPath
   readonly writeFile: (relativePath: string, content: string) => void
   readonly writeRegistryYaml: (chartDir: string, registry: string) => void
   readonly writeConfigYaml: (chartDir: string, unitPath: string, config: string) => void
@@ -36,7 +39,7 @@ export function useConfigDir(): ConfigDir {
 
   return {
     get path() {
-      return tmpDir
+      return toLocalPath(tmpDir)
     },
     writeFile,
     writeRegistryYaml: (chartDir, registry) => writeFile(`${chartDir}/registry.yaml`, registry),

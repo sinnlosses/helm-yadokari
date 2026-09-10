@@ -25,7 +25,7 @@ import { Gitlab } from "@gitbeaker/rest"
 
 import type { EnvConfig } from "../src/lib/env.js"
 import { run } from "../src/main.js"
-import { toAccessToken, toConfigUnitPath, toGitLabUrl } from "../src/types/types.js"
+import { toAccessToken, toConfigUnitPath, toGitLabUrl, toLocalPath } from "../src/types/types.js"
 import { makeHttpError } from "./helpers.js"
 
 /** `config/yadokari-smoke-test-chart/registry.yaml` の projectId */
@@ -76,7 +76,7 @@ const VALUES_YAML_TENANT2_CLIENT2 =
 const env: EnvConfig = {
   gitlabUrl: toGitLabUrl("https://gitlab.test"),
   accessToken: toAccessToken("test-token"),
-  configDirPath: "config",
+  configDirPath: toLocalPath("config"),
   concurrencyLimit: 3,
   dryRun: false,
   targetChart: undefined,

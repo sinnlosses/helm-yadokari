@@ -602,10 +602,18 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 生成は必ずfactory関数（`toProjectId`等）を通す。形式の検証を付けるかは値ごとに決めてよい
 （外部から受け取った値をそのまま比較するだけなら不要）。
 
+ローカルのファイルシステムパス（`config/`配下のディレクトリ・`registry.yaml`・`config.yaml`など、
+`readFileSync`・`existsSync`・`readdirSync`に渡る値）は`LocalPath`にする。`join()`で
+`ConfigUnitPath`（識別子）と同じ式に並ぶため、この基準に該当する。GitLab上のパスを表す
+`ValuesPath`（chart内での相対パス）とは別の型で、`LocalPath`にはしない。パスの種類ごとに
+ブランドを分けることはせず、ローカルパス全体で`LocalPath`1つにまとめる。
+`src/utils/`（`fs.ts`・`yaml.ts`）は技術・ファイル形式に特化した汎用ユーティリティで
+ドメインの型を持たないため（原則2）、そちらの引数は素の`string`のまま据え置く。
+
 #### 型の置き場所は`src/`全件と突き合わせて確かめてある
 
-「型の置き場所」の表は、`src/`の型定義53件（`types/types.ts` 16・`brand.ts` 12・残り25）を
-全件突き合わせたうえでの形（2026-09-08）。**表から外れているものは1件も無い**。
+「型の置き場所」の表は、`src/`の型定義54件（`types/types.ts` 16・`brand.ts` 13・残り25）を
+全件突き合わせたうえでの形（2026-09-08に53件で実施し、`LocalPath`の追加で1件増えた）。**表から外れているものは1件も無い**。
 表に足りなかったのは基準の側で、`ParsedTag`（1行目と5行目の競合）・`LabeledTarget`（引数の形）・
 `AppSpec`（`z.infer`由来）・`EnvConfig`（2行目の例）を補って埋めた。
 

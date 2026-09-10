@@ -1,5 +1,12 @@
 import { buildConfigUnitLocation } from "../../domain/config-unit.js"
-import type { AnchorTarget, ChartAndApps, ProjectId, ProjectName, TagFormat } from "../../types/types.js"
+import type {
+  AnchorTarget,
+  ChartAndApps,
+  LocalPath,
+  ProjectId,
+  ProjectName,
+  TagFormat,
+} from "../../types/types.js"
 import type { AppSpec, ConfigApp } from "./schema.js"
 
 /**
@@ -28,8 +35,8 @@ export type LinkedApp = {
  * 済ませるため。2回引くと、ここを通った時点で起こりえない「見つからない」を型と分岐に持つことになる。
  */
 export function resolveProjectLinkage(
-  configYamlPath: string,
-  registryYamlPath: string,
+  configYamlPath: LocalPath,
+  registryYamlPath: LocalPath,
   configApps: readonly ConfigApp[],
   appSpecs: readonly AppSpec[],
 ): readonly LinkedApp[] {
@@ -88,7 +95,7 @@ export function validateTagFormatConsistency(chartAndAppsList: readonly ChartAnd
  * 同じ書き込み先へ別々のタグを順番に書いて最後の値だけが残る。
  */
 export function validateNoDuplicateProjectIds(
-  filePath: string,
+  filePath: LocalPath,
   apps: readonly { readonly projectId: ProjectId; readonly projectName: ProjectName }[],
 ): void {
   const seen = new Set<ProjectId>()
@@ -113,7 +120,7 @@ export type LabeledTarget = { readonly target: AnchorTarget; readonly label: str
  * イメージタグ用（`apps[].chart[]`）と向き先ブランチ用（`helm.chart[]`）の衝突も対象にする。
  */
 export function validateNoDuplicateTargets(
-  filePath: string,
+  filePath: LocalPath,
   targets: readonly LabeledTarget[],
 ): void {
   const seen = new Map<string, string>()

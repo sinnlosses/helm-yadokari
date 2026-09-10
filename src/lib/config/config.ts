@@ -2,8 +2,8 @@ import { existsSync } from "node:fs"
 import { join } from "node:path"
 
 import { MAX_UNIT_DEPTH, UNIT_PATH_SEPARATOR } from "../../domain/config-unit.js"
-import type { ChartAndApps, ChartDirName, Config, ConfigUnitPath } from "../../types/types.js"
-import { toChartDirName, toConfigUnitPath } from "../../types/types.js"
+import type { ChartAndApps, ChartDirName, Config, ConfigUnitPath, LocalPath } from "../../types/types.js"
+import { toChartDirName, toConfigUnitPath, toLocalPath } from "../../types/types.js"
 import { assertSafePath, listSubdirectories } from "../../utils/fs.js"
 import { parseYamlFile } from "../../utils/yaml.js"
 import { loadChartAndApps } from "./chart-and-apps.js"
@@ -11,7 +11,7 @@ import { CONFIG_YAML_FILE_NAME, REGISTRY_YAML_FILE_NAME, RegistryYamlSchema } fr
 import { validateNoDuplicateProjectIds, validateTagFormatConsistency } from "./validate.js"
 
 /** `CONFIG_PATH`・コマンドライン引数のどちらも省略されたときに読む設定ディレクトリ */
-export const DEFAULT_CONFIG_DIR_PATH = "config"
+export const DEFAULT_CONFIG_DIR_PATH: LocalPath = toLocalPath("config")
 
 /**
  * 特定のchartディレクトリ・特定の設定ユニット（複数可）に処理対象を絞り込むためのフィルタ。
@@ -29,7 +29,7 @@ const NO_TARGET: ConfigTarget = { chartDirName: undefined, units: undefined }
 /** 1つのchartディレクトリと、その配下の走査で見つかった設定ユニットの`unitPath`一覧 */
 type ChartUnits = {
   readonly chartDirName: ChartDirName
-  readonly chartDirPath: string
+  readonly chartDirPath: LocalPath
   readonly unitPaths: readonly ConfigUnitPath[]
 }
 
@@ -52,7 +52,7 @@ type UnitSegments = readonly string[]
  * （`validateTagFormatConsistency()`。同じchartリポジトリ配下ではtagFormatの台帳が
  * `registry.yaml`1つに集約されるため、この検証が働くのはchartリポジトリをまたぐ場合だけ）。
  */
-export function loadConfig(configDirPath: string, target: ConfigTarget = NO_TARGET): Config {
+export function loadConfig(configDirPath: LocalPath, target: ConfigTarget = NO_TARGET): Config {
   assertSafePath(configDirPath, "CONFIG_PATH")
 
   const chartDirs = listSubdirectories(configDirPath)
@@ -67,7 +67,7 @@ export function loadConfig(configDirPath: string, target: ConfigTarget = NO_TARG
   // 走査と階層の検証は`target.units`で絞り込む前に、対象外の設定ユニットも含めて行う
   // （絞り込み実行でしか通らない検証を作らないため）。YAMLの読み込みは絞り込んだ後だけ
   const chartUnitsList = targetChartDirs.flatMap((chartDir): ChartUnits[] => {
-    const chartDirPath = join(configDirPath, chartDir)
+    const chartDirPath = toLocalPath(join(configDirPath, chartDir))
     if (!existsSync(join(chartDirPath, REGISTRY_YAML_FILE_NAME))) return []
     return [
       {
@@ -113,7 +113,7 @@ function formatChartDirs(chartDirs: readonly string[]): string {
  * `unitPath`を集める。深さ0・深さ3以上・入れ子はいずれも設定エラーとして例外をスローする
  * （`docs/requirements.md` 4.4節。なぜ走査を深さで打ち切らないかは`docs/architecture.md`）。
  */
-function findUnitPaths(chartDirPath: string): readonly ConfigUnitPath[] {
+function findUnitPaths(chartDirPath: LocalPath): readonly ConfigUnitPath[] {
   const unitSegmentsList = collectUnitSegments(chartDirPath, [])
 
   if (unitSegmentsList.some((segments) => segments.length === 0)) {
@@ -150,10 +150,10 @@ function findUnitPaths(chartDirPath: string): readonly ConfigUnitPath[] {
  * 深すぎる位置に置かれた`config.yaml`を「見つからなかった」ではなく設定エラーとして
  * 報告するため。YAMLは読まず`config.yaml`の有無だけを見る。
  */
-function collectUnitSegments(dirPath: string, segments: UnitSegments): readonly UnitSegments[] {
+function collectUnitSegments(dirPath: LocalPath, segments: UnitSegments): readonly UnitSegments[] {
   const here = existsSync(join(dirPath, CONFIG_YAML_FILE_NAME)) ? [segments] : []
   const deeper = listSubdirectories(dirPath).flatMap((childDir) =>
-    collectUnitSegments(join(dirPath, childDir), [...segments, childDir]),
+    collectUnitSegments(toLocalPath(join(dirPath, childDir)), [...segments, childDir]),
   )
   return [...here, ...deeper]
 }
@@ -184,7 +184,7 @@ function listUnitChartAndApps(
   chartUnits: ChartUnits,
   units: readonly ConfigUnitPath[] | undefined,
 ): ChartAndApps[] {
-  const registryYamlPath = join(chartUnits.chartDirPath, REGISTRY_YAML_FILE_NAME)
+  const registryYamlPath = toLocalPath(join(chartUnits.chartDirPath, REGISTRY_YAML_FILE_NAME))
   const { chartToUpdate: chart, appSpecs } = parseYamlFile(registryYamlPath, RegistryYamlSchema)
   validateNoDuplicateProjectIds(registryYamlPath, appSpecs)
   return chartUnits.unitPaths
@@ -195,7 +195,7 @@ function listUnitChartAndApps(
         unitPath,
         chart,
         appSpecs,
-        join(chartUnits.chartDirPath, unitPath, CONFIG_YAML_FILE_NAME),
+        toLocalPath(join(chartUnits.chartDirPath, unitPath, CONFIG_YAML_FILE_NAME)),
         registryYamlPath,
       ),
     )

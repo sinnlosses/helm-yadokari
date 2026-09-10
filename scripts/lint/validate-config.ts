@@ -2,6 +2,7 @@ import { DEFAULT_CONFIG_DIR_PATH, loadConfig } from "../../src/lib/config/config
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
 import type { Config } from "../../src/types/types.js"
+import { toLocalPath } from "../../src/types/types.js"
 import { validateRemoteExistence } from "./remote-existence/remote-existence.js"
 
 // config/ の検証スクリプト。2つのモードを持つ:
@@ -11,7 +12,9 @@ import { validateRemoteExistence } from "./remote-existence/remote-existence.js"
 
 const args = process.argv.slice(2)
 const remote = args.includes("--remote")
-const configDirPath = args.find((arg) => !arg.startsWith("--")) ?? DEFAULT_CONFIG_DIR_PATH
+const configDirPath = toLocalPath(
+  args.find((arg) => !arg.startsWith("--")) ?? DEFAULT_CONFIG_DIR_PATH,
+)
 
 function fail(message: string): never {
   console.error(`config ERROR: ${message}`)

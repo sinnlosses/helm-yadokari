@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 
 import { loadConfig } from "../../../src/lib/config/config.js"
 import type { ConfigUnitPath } from "../../../src/types/types.js"
-import { toChartDirName, toConfigUnitPath } from "../../../src/types/types.js"
+import { toChartDirName, toConfigUnitPath, toLocalPath } from "../../../src/types/types.js"
 import { configYaml, registryYaml, useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
@@ -16,15 +16,15 @@ function unit(parentDir: string, childDir: string): ConfigUnitPath {
 
 describe("loadConfig（パストラバーサル）", () => {
   it(".. を含む相対パスのとき例外をスローする", () => {
-    expect(() => loadConfig("../../etc/passwd")).toThrow("CONFIG_PATH")
+    expect(() => loadConfig(toLocalPath("../../etc/passwd"))).toThrow("CONFIG_PATH")
   })
 
   it(".. を含む絶対パスのとき例外をスローする", () => {
-    expect(() => loadConfig("/tmp/../etc/passwd")).toThrow("CONFIG_PATH")
+    expect(() => loadConfig(toLocalPath("/tmp/../etc/passwd"))).toThrow("CONFIG_PATH")
   })
 
   it("cwd() 外の絶対パスのとき例外をスローする", () => {
-    expect(() => loadConfig("/etc/passwd")).toThrow("CONFIG_PATH")
+    expect(() => loadConfig(toLocalPath("/etc/passwd"))).toThrow("CONFIG_PATH")
   })
 })
 
@@ -296,7 +296,7 @@ describe("loadConfig（chartの複数指定）", () => {
 
 describe("loadConfig（存在しないパス）", () => {
   it("ディレクトリが存在しないとき例外をスローする", () => {
-    expect(() => loadConfig(join(dir.path, "nonexistent"))).toThrow()
+    expect(() => loadConfig(toLocalPath(join(dir.path, "nonexistent")))).toThrow()
   })
 })
 

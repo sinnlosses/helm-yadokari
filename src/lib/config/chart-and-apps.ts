@@ -5,6 +5,7 @@ import type {
   ChartRepoConfig,
   ConfigUnitPath,
   HelmTargetBranchConfig,
+  LocalPath,
 } from "../../types/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
 import type { AppSpec, HelmConfig } from "./schema.js"
@@ -28,8 +29,8 @@ export function loadChartAndApps(
   unitPath: ConfigUnitPath,
   chart: ChartRepoConfig,
   appSpecs: readonly AppSpec[],
-  configYamlPath: string,
-  registryYamlPath: string,
+  configYamlPath: LocalPath,
+  registryYamlPath: LocalPath,
 ): ChartAndApps {
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
   validateNoDuplicateProjectIds(configYamlPath, apps)
@@ -74,7 +75,7 @@ export function loadChartAndApps(
  * 逆にどのappも書き込まないvaluesPathを指す`helm.chart[]`の要素は`targets`に含めない。
  */
 function resolveHelmTargetBranch(
-  configYamlPath: string,
+  configYamlPath: LocalPath,
   helm: HelmConfig,
   apps: readonly AppConfig[],
 ): HelmTargetBranchConfig {

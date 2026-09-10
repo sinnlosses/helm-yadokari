@@ -1,8 +1,14 @@
 import { existsSync, statSync } from "node:fs"
 
 import { parseConfigUnitPath } from "../domain/config-unit.js"
-import type { AccessToken, ChartDirName, ConfigUnitPath, GitLabUrl } from "../types/types.js"
-import { toAccessToken, toChartDirName, toGitLabUrl } from "../types/types.js"
+import type {
+  AccessToken,
+  ChartDirName,
+  ConfigUnitPath,
+  GitLabUrl,
+  LocalPath,
+} from "../types/types.js"
+import { toAccessToken, toChartDirName, toGitLabUrl, toLocalPath } from "../types/types.js"
 import { assertSafePath } from "../utils/fs.js"
 import { DEFAULT_CONFIG_DIR_PATH } from "./config/config.js"
 
@@ -37,13 +43,13 @@ export function validateGitlabUrl(raw: string): GitLabUrl {
  * ディレクトリとして実在することもここで検証する。無いままだと後段の`listSubdirectories()`が
  * 生の`ENOENT`を投げるだけで、どの環境変数が原因か分からないため。
  */
-export function parseConfigDirPath(raw: string | undefined): string {
+export function parseConfigDirPath(raw: string | undefined): LocalPath {
   const configDirPath = raw ?? DEFAULT_CONFIG_DIR_PATH
   assertSafePath(configDirPath, "CONFIG_PATH")
   if (!existsSync(configDirPath) || !statSync(configDirPath).isDirectory()) {
     throw new Error(`CONFIG_PATH で指定されたディレクトリが存在しません: "${configDirPath}"`)
   }
-  return configDirPath
+  return toLocalPath(configDirPath)
 }
 
 export function parseConcurrencyLimit(raw: string | undefined): number {
@@ -73,7 +79,7 @@ export function parseTargetUnits(raw: string | undefined): readonly ConfigUnitPa
 export type EnvConfig = {
   readonly gitlabUrl: GitLabUrl
   readonly accessToken: AccessToken
-  readonly configDirPath: string
+  readonly configDirPath: LocalPath
   readonly concurrencyLimit: number
   readonly dryRun: boolean
   readonly targetChart: ChartDirName | undefined
