@@ -55,8 +55,8 @@ export type ChartAndApps = {
   readonly unitPath: ConfigUnitPath
   readonly chart: ChartRepoConfig
   readonly apps: readonly AppConfig[]
-  /** config.yamlの`helm.branchToSync`と`helm.chart[]`の両方でHelmの向き先ブランチが指定されている場合のみ値を持つ */
-  readonly helmTargetBranch: HelmTargetBranchConfig | undefined
+  /** `targets`は`helm.chart[]`のうちapps側が実際に書き込むvaluesPathを指す要素だけになる（空もありうる） */
+  readonly helmTargetBranch: HelmTargetBranchConfig
 }
 
 export type Config = {

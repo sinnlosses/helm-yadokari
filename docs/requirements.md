@@ -348,7 +348,7 @@ apps:
 
 ```yaml
 # config.yaml トップレベル。apps:配列と同階層、設定ユニット単位に1件のオブジェクト。
-# helm 自体は省略できるが、書くなら branchToSync と chart[] の両方が必須
+# helm は必須で、branchToSync と chart[] の両方が必要
 helm:
   branchToSync: release/2026-q1
   chart:
@@ -361,6 +361,12 @@ apps:
     branchToSync: main
 ```
 
+- `helm`は**必須**とする。chartリポジトリは「`values.yaml`等のパラメータを定義するブランチ」と
+  「そのパラメータを受け取ってk8sリソースを構築するブランチ」の2ブランチ構成である、というのが
+  この運用の前提だからで、設定ユニットごとに向き先ブランチを1件書くのが常態になる。
+  `helm`自体の省略も、`helm.branchToSync`と`helm.chart[]`の片方だけの指定も設定エラー。
+  向き先ブランチを更新したくない設定ユニットは、`helm.branchToSync`に現在の値と同じブランチ名を
+  書けば差分が出ないので更新されない
 - `config.yaml`の`helm.branchToSync`はchartリポジトリ内の別ブランチ（`registry.yaml`の`chartToUpdate.projectId`と
   同一プロジェクト）を指す、設定ユニット単位に1件の値。人間が自己申告方式で直接書き換える
   運用とし、タグ形式のような自動生成・自動判定の仕組みは持たない
@@ -368,10 +374,9 @@ apps:
   `apps[].chart[]`とは独立したリスト。どのappに紐づくかは`valuesPath`の一致だけで決まる
   （app側に専用フィールドは持たせない）。1つのappが複数の`valuesPath`を持つ場合、それぞれに
   対応する`helm.chart[]`の要素があれば複数箇所へまとめて反映できる
-- Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提のため、`helm.branchToSync`が
-  指定されている場合、そのconfig.yaml配下の**全アプリ**の**全`chart[].valuesPath`**が
-  `helm.chart[]`でカバーされている必要がある（1つでも漏れていると設定エラー）。
-  `helm.branchToSync`と`helm.chart[]`は片方だけの指定も設定エラー
+- Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提のため、そのconfig.yaml
+  配下の**全アプリ**の**全`chart[].valuesPath`**が`helm.chart[]`でカバーされている必要がある
+  （1つでも漏れていると設定エラー）
 - 書き込み前に、指定されたブランチ名がchartリポジトリ上に実在するか検証する。存在しなければ
   そのchartAndApps全体を`ERROR`として扱う（他のアプリの更新も含めオールオアナッシングで見送る）
 - 同じ`unitPath`が複数のchartディレクトリにまたがる場合、各`config.yaml`が独立して

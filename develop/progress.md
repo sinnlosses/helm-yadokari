@@ -5,7 +5,7 @@
 詳細は下の「完了したこと」を参照。2026-09-09以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手は T-180 の1件だけ**（`/loop` 不可）。完了タスクは
+**未着手は T-180 の1件だけ**で、残りは**GitLabへの反映と `validate-config-remote` の確認だけ**。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -65,6 +65,25 @@ stage名）は一切変えない**ので、承認のコストが要る範囲は�
 `docs/requirements-grilling.md`（完了済みの検討ログ）と `CLAUDE.md`（全文が読まれる前提）には
 **付けない判断**。索引の各行が実在見出しと順序込みで一致することを突き合わせで確認済み。
 
+**T-180 はコード側だけ完了**（`opus`、方針決めはメイン・実装は委譲）。`todo` のまま残してある。
+`config.yaml` の `helm` を必須にし、`helmTargetBranch` から `| undefined` を消した。受け皿
+アンカーは `smoke-fixture.ts` の `SEED_FILES` で用意する（ユーザー指示「自動で頼む」）。
+**消えるはずだったスモークシナリオは維持できた** — `client2` と `anchor-app` のシード値を
+`HELM_TARGET_BRANCH` と同値にすれば向き先ブランチが差分なしになり、「image tag更新のみ」の
+検証がそのまま成立する。差分が出る側は `client1` だけ。
+
+**残っているのはGitLabへの反映のみ**（`.env` がリポジトリに無いため、ユーザーが実行する）:
+
+```bash
+npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup        # dry-run
+npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
+pnpm lint:validate-config:remote                                    # 残る完了条件
+```
+
+**これを実行するまでCIの `validate-config-remote` は落ちる**（`config/` に書いた
+`helm.chart[].anchor` がGitLab側にまだ無いため）。手順2は
+`charts/anchor-app/values.yaml` を**丸ごと上書き**する（これまで手動管理だったファイル）。
+
 ## 次にやること
 
 **未着手は T-180 の1件だけ**で、**`/loop` では進められない** —
@@ -72,12 +91,11 @@ GitLab側フィクスチャへの書き込み承認と、消えるスモーク�
 T-176・T-177 は着手しない判断で閉じた（下の「未解決」）。
 
 - **T-180（`config.yaml` の `helm` を必須にする、`opus`、依存なし）**。
-  chartが常に2ブランチ構成であることが前提として確定したため、`helm` の省略を認めない。
-  **着手の前提として、GitLabの `yadokari-smoke-test-chart` の
-  `charts/anchor-app/values.yaml` と `charts/smoke-tenant2/client2/values.yaml` に
-  向き先ブランチ用のアンカーを足す必要がある**（無いまま `config/` に `helm` を書くと
-  `validate-config-remote` が落ちる）。`tenant2/client2` の
-  「image tag更新のみ」というスモークシナリオが作れなくなる点も要判断。`/loop` 不可。
+  **コード・設定・テスト・正典はすべて反映済み**。残る完了条件は
+  `pnpm lint:validate-config:remote` の成功だけで、そのために
+  `tsx scripts/smoke/smoke-fixture.ts setup --apply` を**ユーザーが実行する**必要がある
+  （`.env` がリポジトリに無いため私からは反映できない）。手順とコマンドは上の
+  「完了したこと」に書いた。`/loop` 不可。
 
 **タスクにしなかったもの**（正典に既に判断があるので蒸し返さない）: stepの入口の
 「並列実行 → 振り分け」の共通化、`StepOutcome.settled` の分離（T-151）、`env.ts` の

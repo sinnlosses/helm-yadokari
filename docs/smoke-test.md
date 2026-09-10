@@ -40,10 +40,15 @@ chartリポジトリ側に必要なもの（`smoke-fixture.ts setup` が用意�
   （比較リンクは開けるが差分は空になる）
 - `charts/smoke-tenant2/client1/values.yaml` … アンカー3つ
   （`t2c1QaSprintVersion` / `t2c1DevelopClientVersion` / `t2c1HelmTargetBranch`）
-- `charts/smoke-tenant2/client2/values.yaml` … アンカー2つ
-  （`t2c2QaSprintVersion` / `t2c2DevelopClientVersion`）
-- `charts/anchor-app/values.yaml` … アンカー1つ（`tenantId1client1AppsVersion`）。深さ1の
-  設定ユニット `anchor-app` 用で、`smoke-fixture.ts setup` の対象外（初期値は手動で管理する）
+- `charts/smoke-tenant2/client2/values.yaml` … アンカー3つ
+  （`t2c2QaSprintVersion` / `t2c2DevelopClientVersion` / `t2c2HelmTargetBranch`）
+- `charts/anchor-app/values.yaml` … アンカー2つ
+  （`tenantId1client1AppsVersion` / `anchorAppHelmTargetBranch`）。深さ1の設定ユニット
+  `anchor-app` 用
+
+向き先ブランチのアンカーは3ユニットとも必須（`config.yaml`の`helm`は必須フィールド）。
+`t2c1HelmTargetBranch` だけシード値が `main` で、残る2つは `release/2026-q1`（＝`helm.branchToSync`
+と同じ値）をシードするので差分が出ない。これで「image tag更新のみ」のシナリオが保たれる。
 
 対応する設定は `config/yadokari-smoke-test-chart/` に置いてある（gitで管理）。
 `tenant2/` 配下が深さ2の設定ユニット、`anchor-app/` が深さ1の設定ユニットで、
@@ -60,7 +65,7 @@ chartリポジトリ側に必要なもの（`smoke-fixture.ts setup` が用意�
 | 設定ユニット      | 期待する結果                                                                |
 | ----------------- | --------------------------------------------------------------------------- |
 | `tenant2/client1` | image tag更新 **＋ Helmの向き先ブランチ更新**（`main` → `release/2026-q1`） |
-| `tenant2/client2` | image tag更新のみ                                                           |
+| `tenant2/client2` | image tag更新のみ（向き先ブランチは差分なし。上の節参照）                   |
 
 各ユニットには2つのappを登録してあるが、`sample-develop-client` は反映済みタグが追跡ブランチの
 HEADを指すため更新対象から外れる。「複数app登録の状態で、更新が必要なappだけが

@@ -75,13 +75,11 @@ async function buildPlan(
     valuesYamlSource,
     appsWithLatestTag,
   )
-  const { draft, updates: helmTargetBranchUpdates } = chartAndApps.helmTargetBranch
-    ? await stageHelmTargetBranchUpdates(
-        valuesYamlSource,
-        chartAndApps.helmTargetBranch,
-        draftAfterApps,
-      )
-    : { draft: draftAfterApps, updates: [] }
+  const { draft, updates: helmTargetBranchUpdates } = await stageHelmTargetBranchUpdates(
+    valuesYamlSource,
+    chartAndApps.helmTargetBranch,
+    draftAfterApps,
+  )
 
   if (plans.length === 0 && helmTargetBranchUpdates.length === 0) {
     logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })

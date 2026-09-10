@@ -94,26 +94,47 @@ export type ConfigAppFixture = {
   readonly chart: readonly AnchorTargetFixture[]
 }
 
-/** `config.yaml`の`helm`（Helmの向き先ブランチ）1件分 */
+/**
+ * `config.yaml`の`helm`（Helmの向き先ブランチ）1件分。`branchToSync`・`chart`を省略すると
+ * そのキーごとYAMLに出さないので、片方だけ書いた設定エラーの検証にも使える
+ */
 export type ConfigHelmFixture = {
-  readonly branchToSync: string
+  readonly branchToSync?: string
   readonly chart?: readonly AnchorTargetFixture[]
 }
 
 /**
  * `config.yaml`のYAML文字列を組み立てる。`apps`を省略すると`apps: []`になる。
+ * `helm`は必須フィールドなので、省略時は`apps`の全`valuesPath`をカバーする既定値を組み立てる
+ * （向き先ブランチが主題でないテストが毎回同じブロックを書かずに済むようにするため）。
+ * `helm`が書かれていない状態そのものを検証したいテストは、YAML文字列を直接書く。
  */
 export function configYaml(
   apps: readonly ConfigAppFixture[] = [],
-  helm?: ConfigHelmFixture,
+  helm: ConfigHelmFixture = defaultHelm(apps),
 ): string {
-  const helmBlock = helm === undefined ? "" : helmField(helm)
-  return helmBlock + listField("apps", apps, (app) => configAppEntry(app))
+  return helmField(helm) + listField("apps", apps, (app) => configAppEntry(app))
+}
+
+/** `apps`が書き込む全`valuesPath`を1つのアンカー名でカバーする`helm`（appsが空なら1件だけ置く） */
+function defaultHelm(apps: readonly ConfigAppFixture[]): ConfigHelmFixture {
+  const valuesPaths = [...new Set(apps.flatMap((app) => app.chart.map((t) => t.valuesPath)))]
+  const covered = valuesPaths.length === 0 ? ["values.yaml"] : valuesPaths
+  return {
+    branchToSync: "release/2026-q1",
+    chart: covered.map((valuesPath) => ({ valuesPath, anchor: "defaultHelmTargetBranch" })),
+  }
 }
 
 function helmField(helm: ConfigHelmFixture): string {
-  const chartBlock = helm.chart === undefined ? "" : `  chart:\n${targetsBlock(helm.chart, "    ")}`
-  return `helm:\n  branchToSync: ${helm.branchToSync}\n${chartBlock}`
+  const branchBlock =
+    helm.branchToSync === undefined ? "" : `  branchToSync: ${helm.branchToSync}\n`
+  return `helm:\n${branchBlock}${helm.chart === undefined ? "" : helmChartBlock(helm.chart)}`
+}
+
+/** `helm.chart`は空配列も表現できるようにする（`chart: []`が設定エラーになることの検証で使う） */
+function helmChartBlock(chart: readonly AnchorTargetFixture[]): string {
+  return chart.length === 0 ? "  chart: []\n" : `  chart:\n${targetsBlock(chart, "    ")}`
 }
 
 function configAppEntry(app: ConfigAppFixture): string {

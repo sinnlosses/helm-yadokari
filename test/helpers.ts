@@ -89,7 +89,9 @@ export function makeChartAndApps(
       mrTargetBranch: toBranchName("develop"),
     },
     apps,
-    helmTargetBranch: undefined,
+    // 既定は書き込み先が空＝向き先ブランチの更新が1件も積まれない状態。向き先ブランチそのものを
+    // 検証するテストだけが`targets`を持つ値で上書きする
+    helmTargetBranch: { branchName: toBranchName("release/2026-q1"), targets: [] },
     ...overrides,
   }
 }

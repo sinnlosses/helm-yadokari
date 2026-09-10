@@ -126,7 +126,10 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   後者を指すブランチ名。タグではなくブランチ名そのもので指定する。1つの設定ユニット内のapps全体で
   共通の1つの値であり、`config.yaml`のトップレベルフィールド`helm`（`apps:`配列と同階層、
   `branchToSync`と`chart`を持つ1件のオブジェクト。配列表記は使わない）として人間が直接
-  書き換える。タグ形式のような自動生成・自動判定の仕組みは持たない。
+  書き換える。タグ形式のような自動生成・自動判定の仕組みは持たない。chartリポジトリが常に
+  上記2ブランチ構成である以上、設定ユニットごとに1件書くのが常態なので`helm`は**必須**
+  （省略は設定エラー）。更新したくない設定ユニットは現在の値と同じブランチ名を書けば差分が
+  出ないので更新されない。
 - **表記ゆれ**: config.yaml上のフィールド名は`helm.branchToSync`だが、これは`AppConfig.branchToSync`
   （追跡ブランチ、ソースリポジトリ側の別概念）とは無関係。同じフィールド名が異なる2つの意味で
   使われている点に注意。
@@ -142,12 +145,11 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   異なる。`apps[].chart[]`とは独立したリストで、app側に専用フィールドは持たせない。
   向き先ブランチは設定ユニット内のapps全体で共通なので、コード上もapp単位に振り分けず
   設定ユニット単位（`ChartAndApps`）で1つ持ち、書き込みもappのループの外で1回だけ行う。
-- **制約**: config.yamlに`helm.branchToSync`が指定されている場合、そのconfig.yaml配下の全アプリの全
-  `chart[].valuesPath`が同じ`config.yaml`の`helm.chart[]`でカバーされている必要がある
-  （Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提のため、1つでもvaluesPathが
-  漏れていると設定エラーになる）。`helm.branchToSync`と`helm.chart[]`は片方だけの指定も
-  設定エラー。過去には`apps[].chart[].helmBranchAnchor`というapp単位の任意フィールドだったが、
-  ユーザー指示によりトップレベルの独立リストへ再設計された。当初`helm`は`[{chart: [...]}]`という
+- **制約**: そのconfig.yaml配下の全アプリの全`chart[].valuesPath`が同じ`config.yaml`の
+  `helm.chart[]`でカバーされている必要がある（Helmの向き先ブランチは「1設定ユニット内のapps全体で
+  共通」という前提のため、1つでもvaluesPathが漏れていると設定エラーになる）。`helm`自体の省略も、
+  `helm.branchToSync`と`helm.chart[]`の片方だけの指定も設定エラー。過去には
+  `apps[].chart[].helmBranchAnchor`というapp単位の任意フィールドだったが、ユーザー指示によりトップレベルの独立リストへ再設計された。当初`helm`は`[{chart: [...]}]`という
   配列表記だったが、ユーザーが`{chart: [...]}`という単純なオブジェクトに直接修正した。
   さらにその後、`config.yaml`と別ファイル（`apps.yaml`→`anchors.yaml`）だった`helm.chart[]`は
   `config.yaml`の`helm`オブジェクトへ統合された（`registry.yaml`/`config.yaml`の項参照）。

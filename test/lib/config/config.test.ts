@@ -74,6 +74,15 @@ describe("loadConfig（正常系）", () => {
           ],
         },
       ],
+      helmTargetBranch: {
+        branchName: "release/2026-q1",
+        targets: [
+          {
+            valuesPath: "charts/my-app/values.yaml",
+            anchorName: "defaultHelmTargetBranch",
+          },
+        ],
+      },
     })
   })
 
@@ -548,7 +557,7 @@ describe("loadConfig（helmTargetBranch）", () => {
     })
   })
 
-  it("どちらにも無いとき、helmTargetBranchはundefinedになる", () => {
+  it("helm自体が無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -556,21 +565,14 @@ describe("loadConfig（helmTargetBranch）", () => {
         [{ projectId: 1, projectName: "app-1" }],
       ),
     )
+    // `configYaml()` は省略時に既定の helm を補うので、helm が無い状態はYAMLを直接書く
     dir.writeConfigYaml(
       "teamA-chart",
       "tenant1/client1",
-      configYaml([
-        {
-          projectId: 1,
-          projectName: "app-1",
-          branchToSync: "main",
-          chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
-        },
-      ]),
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.helmTargetBranch).toBeUndefined()
+    expect(() => loadConfig(dir.path)).toThrow("helm は必須です")
   })
 
   it("helm.branchToSyncはあるがhelm.chartが無いとき例外をスローする", () => {
@@ -618,7 +620,7 @@ describe("loadConfig（helmTargetBranch）", () => {
           branchToSync: "main",
           chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
-      ]) + "helm:\n  chart:\n    - valuesPath: a.yaml\n      anchor: targetBranch\n",
+      ], { chart: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] }),
     )
 
     expect(() => loadConfig(dir.path)).toThrow("helm.branchToSync")
@@ -635,15 +637,17 @@ describe("loadConfig（helmTargetBranch）", () => {
     dir.writeConfigYaml(
       "teamA-chart",
       "tenant1/client1",
-      "helm:\n  branchToSync: release/2026-q1\n  chart: []\n" +
-        configYaml([
+      configYaml(
+        [
           {
             projectId: 1,
             projectName: "app-1",
             branchToSync: "main",
             chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
-        ]),
+        ],
+        { branchToSync: "release/2026-q1", chart: [] },
+      ),
     )
 
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")

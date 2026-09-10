@@ -49,12 +49,18 @@ const QA_OLD_VALUE = "main-build-at-20251230-000000"
 /** DEV appの追跡ブランチHEADを指すタグ名 = values.yaml上の現在値（既に最新のため据え置き） */
 const DEV_TAG = "main-build-at-20251231-000000"
 
-/** `tenant2/client1/config.yaml` の `helm.branchToSync` */
+/** 3つの設定ユニットの `config.yaml` に書かれている `helm.branchToSync`（3つとも同じ値） */
 const NEW_HELM_BRANCH = "release/2026-q1"
 /** `charts/smoke-tenant2/client1/values.yaml` の `t2c1HelmTargetBranch` の現在値 */
 const OLD_HELM_BRANCH = "release/2025-q4"
 
-const VALUES_YAML_ANCHOR_APP = `variables:\n  - &tenantId1client1AppsVersion ${QA_OLD_VALUE}\n`
+// `anchor-app` と `tenant2/client2` の向き先ブランチの現在値は `helm.branchToSync` と同じにして
+// おり、この2ユニットはイメージタグだけが書き換わる（`scripts/smoke/smoke-fixture.ts` の
+// シード値と同じ考え方）。差分が出る側は `tenant2/client1` だけ。
+const VALUES_YAML_ANCHOR_APP =
+  `variables:\n` +
+  `  - &tenantId1client1AppsVersion ${QA_OLD_VALUE}\n` +
+  `  - &anchorAppHelmTargetBranch ${NEW_HELM_BRANCH}\n`
 const VALUES_YAML_TENANT2_CLIENT1 =
   `variables:\n` +
   `  - &t2c1QaSprintVersion ${QA_OLD_VALUE}\n` +
@@ -63,7 +69,8 @@ const VALUES_YAML_TENANT2_CLIENT1 =
 const VALUES_YAML_TENANT2_CLIENT2 =
   `variables:\n` +
   `  - &t2c2QaSprintVersion ${QA_OLD_VALUE}\n` +
-  `  - &t2c2DevelopClientVersion ${DEV_TAG}\n`
+  `  - &t2c2DevelopClientVersion ${DEV_TAG}\n` +
+  `  - &t2c2HelmTargetBranch ${NEW_HELM_BRANCH}\n`
 
 const env: EnvConfig = {
   gitlabUrl: toGitLabUrl("https://gitlab.test"),

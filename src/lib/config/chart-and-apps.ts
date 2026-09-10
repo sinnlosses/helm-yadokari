@@ -44,7 +44,7 @@ export function loadChartAndApps(
         label: `app "${app.projectName}" の chart[]`,
       })),
     ),
-    ...(helm?.chart ?? []).map((target) => ({
+    ...helm.chart.map((target) => ({
       target,
       label: "helm.chart[]",
     })),
@@ -71,18 +71,16 @@ export function loadChartAndApps(
  * config.yamlの`helm`（`branchToSync`＝書き込む値、`chart[]`＝書き込み先の`valuesPath`+
  * `anchor`一覧）から、設定ユニット単位の`HelmTargetBranchConfig`を作る。Helmの向き先ブランチは
  * 「1設定ユニット内のapps全体で共通」という前提なので、appごとに振り分けず設定ユニット単位で
- * 1つだけ持つ。`helm`が指定されている場合は、そのconfig.yaml配下の全アプリの全
- * `chart[].valuesPath`が`helm.chart[]`でカバーされている必要がある（1つでも漏れていれば、
- * そのvaluesPathだけ更新対象から漏れてしまう設定ミスとして例外をスローする）。
+ * 1つだけ持つ。そのconfig.yaml配下の全アプリの全`chart[].valuesPath`が`helm.chart[]`でカバー
+ * されている必要がある（1つでも漏れていれば、そのvaluesPathだけ更新対象から漏れてしまう
+ * 設定ミスとして例外をスローする）。
  * 逆にどのappも書き込まないvaluesPathを指す`helm.chart[]`の要素は`targets`に含めない。
  */
 function resolveHelmTargetBranch(
   configYamlPath: string,
-  helm: HelmConfig | undefined,
+  helm: HelmConfig,
   apps: readonly AppConfig[],
-): HelmTargetBranchConfig | undefined {
-  if (helm === undefined) return undefined
-
+): HelmTargetBranchConfig {
   for (const app of apps) {
     const appValuesPaths = [...new Set(app.imageTagTargets.map((target) => target.valuesPath))]
     const uncoveredValuesPaths = appValuesPaths.filter(
@@ -90,7 +88,7 @@ function resolveHelmTargetBranch(
     )
     if (uncoveredValuesPaths.length > 0) {
       throw new Error(
-        `${configYamlPath}: helm.branchToSync が指定されていますが、app "${app.projectName}" の valuesPath（${uncoveredValuesPaths.join(", ")}）が helm.chart[] に見つかりません（Helmの向き先ブランチは設定ユニット内の全appで共通のため、全appのvaluesPathを helm.chart[] に含めてください）`,
+        `${configYamlPath}: app "${app.projectName}" の valuesPath（${uncoveredValuesPaths.join(", ")}）が helm.chart[] に見つかりません（Helmの向き先ブランチは設定ユニット内の全appで共通のため、全appのvaluesPathを helm.chart[] に含めてください）`,
       )
     }
   }

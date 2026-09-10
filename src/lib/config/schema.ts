@@ -93,25 +93,34 @@ const AppSchema = z.object({
 export type ConfigApp = z.infer<typeof AppSchema>
 
 /**
- * `helm`オブジェクト自体は省略できるが、書き込む値（`branchToSync`）と書き込み先（`chart[]`）は
- * 両方揃って初めて意味を持つため中身は必須にする。片方だけの指定はここで設定エラーになる
- * （`docs/requirements.md` 4.4節）。
+ * chartリポジトリは「値を定義するブランチ」と「値を受け取ってk8sリソースを構築するブランチ」の
+ * 2ブランチ構成である、という前提のため`helm`自体を必須にする。書き込む値（`branchToSync`）と
+ * 書き込み先（`chart[]`）も両方揃って初めて意味を持つので、片方だけの指定はここで設定エラーに
+ * なる（`docs/requirements.md` 4.4節）。
  */
-const HelmSchema = z.object({
-  branchToSync: z
-    .string({ error: "helm.branchToSync は必須です（helm.chart とセットで指定してください）" })
-    .min(1, "helm.branchToSync は空にできません")
-    .transform(toBranchName),
-  chart: z
-    .array(AnchorTargetSchema, {
-      error: "helm.chart は必須です（helm.branchToSync とセットで指定してください）",
-    })
-    .min(1, "helm.chart は1件以上指定してください"),
-})
+const HelmSchema = z.object(
+  {
+    branchToSync: z
+      .string({ error: "helm.branchToSync は必須です（helm.chart とセットで指定してください）" })
+      .min(1, "helm.branchToSync は空にできません")
+      .transform(toBranchName),
+    chart: z
+      .array(AnchorTargetSchema, {
+        error: "helm.chart は必須です（helm.branchToSync とセットで指定してください）",
+      })
+      .min(1, "helm.chart は1件以上指定してください"),
+  },
+  {
+    error:
+      "helm は必須です。chartリポジトリは値を定義するブランチとk8sリソースを構築するブランチの " +
+      "2ブランチ構成のため、config.yaml に helm.branchToSync（向き先ブランチ名）と " +
+      "helm.chart[]（書き込み先の valuesPath + anchor）を書いてください",
+  },
+)
 
 export type HelmConfig = z.infer<typeof HelmSchema>
 
 export const ConfigYamlSchema = z.object({
-  helm: HelmSchema.optional(),
+  helm: HelmSchema,
   apps: z.array(AppSchema),
 })

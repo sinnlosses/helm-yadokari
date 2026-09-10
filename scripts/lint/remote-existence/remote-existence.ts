@@ -101,10 +101,9 @@ async function validateChartAndApps(
     ...acc,
     ...(await validateApp(context, app, baseBranchFound)),
   ])
-  const helmProblems =
-    baseBranchFound && helmTargetBranch !== undefined
-      ? await validateHelmTargetBranch(context, helmTargetBranch)
-      : []
+  const helmProblems = baseBranchFound
+    ? await validateHelmTargetBranch(context, helmTargetBranch)
+    : []
 
   return [...chartProblems, ...baseBranchProblems, ...appProblems, ...helmProblems]
 }
