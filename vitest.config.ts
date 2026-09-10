@@ -11,8 +11,8 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      // scripts/ で唯一テストを持つのが verify-config なので、そこだけ対象に加える
-      include: ["src/**/*.ts", "scripts/lint/verify-config/**/*.ts"],
+      // scripts/ で唯一テストを持つのが remote-existence なので、そこだけ対象に加える
+      include: ["src/**/*.ts", "scripts/lint/remote-existence/**/*.ts"],
     },
   },
 })

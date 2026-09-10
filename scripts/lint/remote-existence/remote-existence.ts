@@ -22,7 +22,7 @@ import { type RemoteCache, newRemoteCache } from "./remote-cache.js"
  * `where` は問題を報告するときの位置表示（`<chartDir>/<unitPath>`）、
  * `reportedPaths` は同じvalues.yamlの不在を何度も報告しないための記録。
  */
-type VerifyContext = {
+type ValidateContext = {
   readonly cache: RemoteCache
   readonly where: string
   readonly chart: ChartRepoConfig
@@ -40,7 +40,7 @@ type VerifyContext = {
  * 保った配列で返るため、報告の順序は`config/`の並び順と一致する。
  * アプリ単位はchartAndApps内で逐次のまま（キャッシュのヒット率を保つため）。
  */
-export async function verifyConfigExistence(
+export async function validateRemoteExistence(
   gitlab: GitlabClient,
   chartAndAppsList: readonly ChartAndApps[],
   concurrencyLimit: number,
@@ -51,7 +51,7 @@ export async function verifyConfigExistence(
     concurrencyLimit,
     async (chartAndApps) => {
       try {
-        return await verifyChartAndApps(cache, chartAndApps)
+        return await validateChartAndApps(cache, chartAndApps)
       } catch (err) {
         return [
           `${buildConfigUnitLocation(chartAndApps.chartDirName, chartAndApps.unitPath)}: 検証中にエラーが発生しました（${toErrorMessage(err)}）`,
@@ -67,12 +67,12 @@ export async function verifyConfigExistence(
  * 見つからない場合、そこに依存する検証（mrTargetBranch・values.yaml）は結果が自明なので
  * 行わず、原因となる1件だけを報告する。
  */
-async function verifyChartAndApps(
+async function validateChartAndApps(
   cache: RemoteCache,
   chartAndApps: ChartAndApps,
 ): Promise<string[]> {
   const { chart, apps, helmTargetBranch } = chartAndApps
-  const context: VerifyContext = {
+  const context: ValidateContext = {
     cache,
     where: buildConfigUnitLocation(chartAndApps.chartDirName, chartAndApps.unitPath),
     chart,
@@ -99,11 +99,11 @@ async function verifyChartAndApps(
   const initial: readonly string[] = []
   const appProblems = await reduceAsync(apps, initial, async (acc, app) => [
     ...acc,
-    ...(await verifyApp(context, app, baseBranchFound)),
+    ...(await validateApp(context, app, baseBranchFound)),
   ])
   const helmProblems =
     baseBranchFound && helmTargetBranch !== undefined
-      ? await verifyHelmTargetBranch(context, helmTargetBranch)
+      ? await validateHelmTargetBranch(context, helmTargetBranch)
       : []
 
   return [...chartProblems, ...baseBranchProblems, ...appProblems, ...helmProblems]
@@ -115,8 +115,8 @@ async function verifyChartAndApps(
  * values.yaml側（`chart[]`）の検証は、chartリポジトリとそのベースブランチが
  * 揃っているとき（`baseBranchFound`）だけ意味があるためスキップする。
  */
-async function verifyApp(
-  context: VerifyContext,
+async function validateApp(
+  context: ValidateContext,
   app: AppConfig,
   baseBranchFound: boolean,
 ): Promise<string[]> {
@@ -134,7 +134,7 @@ async function verifyApp(
       ]
   if (!baseBranchFound) return branchProblems
 
-  const imageTagProblems = await verifyTargets(
+  const imageTagProblems = await validateTargets(
     context,
     app.imageTagTargets,
     `app "${app.projectName}" の chart[]`,
@@ -146,8 +146,8 @@ async function verifyApp(
  * Helmの向き先ブランチ（`helm.branchToSync` と `helm.chart[]`）を検証する。設定ユニット単位で
  * 1つなので、アプリの数だけ同じ問題を報告しないようアプリのループの外で1回だけ呼ぶ。
  */
-async function verifyHelmTargetBranch(
-  context: VerifyContext,
+async function validateHelmTargetBranch(
+  context: ValidateContext,
   helmTargetBranch: HelmTargetBranchConfig,
 ): Promise<string[]> {
   const { cache, where, chart } = context
@@ -158,20 +158,20 @@ async function verifyHelmTargetBranch(
     : [
         `${where}: helm.branchToSync "${helmTargetBranch.branchName}" が ${chart.projectName} に見つかりません`,
       ]
-  const targetProblems = await verifyTargets(context, helmTargetBranch.targets, "helm.chart[]")
+  const targetProblems = await validateTargets(context, helmTargetBranch.targets, "helm.chart[]")
   return [...branchProblems, ...targetProblems]
 }
 
 /** 複数の書き込み先を同じラベルで検証する */
-function verifyTargets(
-  context: VerifyContext,
+function validateTargets(
+  context: ValidateContext,
   targets: readonly AnchorTarget[],
   label: string,
 ): Promise<readonly string[]> {
   const initial: readonly string[] = []
   return reduceAsync(targets, initial, async (acc, target) => [
     ...acc,
-    ...(await verifyTarget(context, target, label)),
+    ...(await validateTarget(context, target, label)),
   ])
 }
 
@@ -181,8 +181,8 @@ function verifyTargets(
  * スカラー以外に付いているのかは直せる手が違うので文言を分ける）。同じ`valuesPath`について
  * ファイル不在を何度も報告しないよう、報告済みのパスは`reportedPaths`で覚えておく。
  */
-async function verifyTarget(
-  { cache, where, chart, reportedPaths }: VerifyContext,
+async function validateTarget(
+  { cache, where, chart, reportedPaths }: ValidateContext,
   target: AnchorTarget,
   label: string,
 ): Promise<string[]> {

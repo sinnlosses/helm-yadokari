@@ -20,7 +20,7 @@ export type AnchorValueLookup =
  * YAML文字列から、指定したアンカー名を持つスカラー値を引く。値が取れない理由（アンカー自体が
  * 無い / スカラー以外に付いている）を呼び出し元が区別できるよう、値そのものではなく
  * `AnchorValueLookup`を返す。`config/`側の設定ミスを1件目で止めず、理由ごとに違う文言で
- * 全問題を集めたい `verify-config.ts` 向け。
+ * 全問題を集めたい `remote-existence.ts` 向け。
  */
 export function lookupValueAtAnchor(
   yamlContent: string,

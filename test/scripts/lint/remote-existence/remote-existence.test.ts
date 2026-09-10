@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../../src/lib/gitlab/gitlab.js")
 
-import { verifyConfigExistence } from "../../../../scripts/lint/verify-config/verify-config.js"
+import { validateRemoteExistence } from "../../../../scripts/lint/remote-existence/remote-existence.js"
 import { branchExists, getFileContent, projectExists } from "../../../../src/lib/gitlab/gitlab.js"
 import {
   toAnchorName,
@@ -16,7 +16,7 @@ import { makeApp, makeChartAndApps, mockGitlab } from "../../../helpers.js"
 
 const VALUES_YAML = `variables:\n  - &appVersion main-build-at-20260101-000000\n  - &targetBranch main\n`
 
-describe("verifyConfigExistence", () => {
+describe("validateRemoteExistence", () => {
   beforeEach(() => {
     vi.mocked(projectExists).mockResolvedValue(true)
     vi.mocked(branchExists).mockResolvedValue(true)
@@ -28,7 +28,7 @@ describe("verifyConfigExistence", () => {
   })
 
   it("すべて実在するとき問題を1件も返さない", async () => {
-    const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
 
     expect(problems).toEqual([])
   })
@@ -42,7 +42,7 @@ describe("verifyConfigExistence", () => {
       return true
     })
 
-    const problems = await verifyConfigExistence(
+    const problems = await validateRemoteExistence(
       mockGitlab,
       [failing, makeChartAndApps([makeApp()])],
       3,
@@ -56,7 +56,7 @@ describe("verifyConfigExistence", () => {
   it("chartリポジトリのprojectIdが存在しないとき問題として返す", async () => {
     vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== 100)
 
-    const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
 
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain("100")
@@ -65,7 +65,7 @@ describe("verifyConfigExistence", () => {
   it("アプリのprojectIdが存在しないとき問題として返す", async () => {
     vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== 1)
 
-    const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
 
     expect(problems.join("\n")).toContain("my-app")
   })
@@ -75,7 +75,7 @@ describe("verifyConfigExistence", () => {
       async (_gitlab, _projectId, branch) => branch !== "develop",
     )
 
-    const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
 
     expect(problems.join("\n")).toContain("mrTargetBranch")
   })
@@ -85,7 +85,7 @@ describe("verifyConfigExistence", () => {
       async (_gitlab, _projectId, branch) => branch !== "main",
     )
 
-    const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
 
     expect(problems.join("\n")).toContain("branchToSync")
   })
@@ -93,7 +93,7 @@ describe("verifyConfigExistence", () => {
   it("valuesPathのファイルが存在しないとき問題として返す", async () => {
     vi.mocked(getFileContent).mockResolvedValue(undefined)
 
-    const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
 
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain("values.yaml")
@@ -106,7 +106,7 @@ describe("verifyConfigExistence", () => {
       ],
     })
 
-    const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps([app])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([app])], 3)
 
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain("noSuchAnchor")
@@ -120,7 +120,7 @@ describe("verifyConfigExistence", () => {
       ],
     })
 
-    const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps([app])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([app])], 3)
 
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain("スカラー値に付いていません")
@@ -137,7 +137,7 @@ describe("verifyConfigExistence", () => {
       async (_gitlab, _projectId, branch) => branch !== "release/ghost",
     )
 
-    const problems = await verifyConfigExistence(
+    const problems = await validateRemoteExistence(
       mockGitlab,
       [makeChartAndApps([makeApp()], { helmTargetBranch })],
       3,
@@ -161,7 +161,7 @@ describe("verifyConfigExistence", () => {
       makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-2") }),
     ]
 
-    const problems = await verifyConfigExistence(
+    const problems = await validateRemoteExistence(
       mockGitlab,
       [makeChartAndApps(apps, { helmTargetBranch })],
       3,
@@ -181,7 +181,7 @@ describe("verifyConfigExistence", () => {
       }),
     ]
 
-    const problems = await verifyConfigExistence(mockGitlab, [makeChartAndApps(apps)], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps(apps)], 3)
 
     expect(problems).toHaveLength(2)
   })
@@ -194,7 +194,7 @@ describe("verifyConfigExistence", () => {
       ],
     })
 
-    await verifyConfigExistence(mockGitlab, [makeChartAndApps([app])], 3)
+    await validateRemoteExistence(mockGitlab, [makeChartAndApps([app])], 3)
 
     expect(vi.mocked(getFileContent)).toHaveBeenCalledTimes(1)
   })
@@ -208,7 +208,7 @@ describe("verifyConfigExistence", () => {
       makeApp({ projectId: toProjectId(3), projectName: toProjectName("app-second") }),
     ])
 
-    const problems = await verifyConfigExistence(mockGitlab, [first, second], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [first, second], 3)
 
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain("app-first")

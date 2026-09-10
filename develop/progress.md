@@ -5,7 +5,7 @@
 詳細は下の「完了したこと」を参照。2026-09-09以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手は3件**（T-173・T-179・T-180）。完了タスクは
+**未着手は2件**（T-179・T-180）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -51,17 +51,20 @@ stage名）は一切変えない**ので、承認のコストが要る範囲は�
 受け皿アンカーを足すことが先に必要**（外部書き込み・要承認）。経緯は
 `docs/history/direction.md`「2026-09-10（3回目・会話中の指示）」。
 
+**T-173 完了**（`sonnet`、委譲）。T-172 の対応表どおりに `verify` → `validate` を改名し、
+`scripts/lint/verify-config/` を `scripts/lint/remote-existence/` へ `git mv`（3件とも `R` で記録）。
+**外部インターフェースは差分ゼロ**（`package.json`・`.gitlab-ci.yml`・`README.md`・`CLAUDE.md`）。
+対応表に無かった追随が1件あり、`vitest.config.ts` の coverage の `include` パスを直した
+（放置すると `scripts/` のカバレッジ対象が黙って外れる）。残った `verify` は gitbeaker の
+エラー文言と正典の対応表本体だけ。
+
 ## 次にやること
 
-**未着手は3件**。T-173 と T-179 は **`/loop /next-task` で進められる**（T-173 は T-172 が決めた
-対応表どおりの改名、T-179 は既存ファイルへの索引付与）。**T-180 は `/loop` 不可** —
+**未着手は2件**。T-179 は **`/loop /next-task` で進められる**（既存ファイルへの索引付与）。
+**T-180 は `/loop` 不可** —
 GitLab側フィクスチャへの書き込み承認と、消えるスモークシナリオの組み直しを含む。
 T-176・T-177 は着手しない判断で閉じた（下の「未解決」）。
 
-- **T-173（決めた命名を実装・ドキュメントへ反映、`sonnet`、T-172依存）**。
-  `docs/architecture.md`「検証の動詞は`validate`に統一し、`verify`は使わない」の対応表10行
-  どおりに `git mv` と置換をするだけ。**外部インターフェース（`package.json`・`.gitlab-ci.yml`・
-  `README.md`・`CLAUDE.md`）は対象外**なので、タスク本文の「CI」への言及は読み飛ばしてよい。`/loop` 可。
 - **T-179（索引が無いドキュメントへの索引付与、`sonnet`、T-178依存）**。
   索引があるのは `architecture` / `coding-standards` / `glossary` / `requirements` の4つ。
   `workflow.md`・`smoke-test.md`・`README.md` などが対象候補で、**付けない判断も正当**。

@@ -2,7 +2,7 @@ import { DEFAULT_CONFIG_DIR_PATH, loadConfig } from "../../src/lib/config/config
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
 import type { Config } from "../../src/types/types.js"
-import { verifyConfigExistence } from "./verify-config/verify-config.js"
+import { validateRemoteExistence } from "./remote-existence/remote-existence.js"
 
 // config/ の検証スクリプト。2つのモードを持つ:
 //   （既定）  ローカルのYAMLだけを見る。認証情報が不要なので全パイプラインで実行できる
@@ -48,7 +48,7 @@ if (remote) {
     }
   })()
 
-  const problems = await verifyConfigExistence(
+  const problems = await validateRemoteExistence(
     createClient(env.gitlabUrl, env.accessToken),
     chartAndAppsList,
     env.concurrencyLimit,

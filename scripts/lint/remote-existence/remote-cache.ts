@@ -8,7 +8,7 @@ import type { BranchName, ProjectId, ValuesPath } from "../../../src/types/types
 import { cacheByArgs } from "../../../src/utils/cache.js"
 
 /**
- * 実在チェック（`verify-config.ts`）がGitLabへ投げる問い合わせのキャッシュ層。
+ * 実在チェック（`remote-existence.ts`）がGitLabへ投げる問い合わせのキャッシュ層。
  * 同じプロジェクト・ブランチ・values.yamlは複数の設定ユニット/appから参照されるため、
  * 1回の検証実行で共有する1つのインスタンスにまとめて問い合わせ回数を抑える。
  */

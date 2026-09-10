@@ -312,7 +312,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
   違う事象で、戻り値に混ぜると各stepに「fatalなら伝播させる」判断が戻り、いま消したいものが
   再び分散する。例外はスコープの広い事象、戻り値はchartAndApps単位の結果、で固定する
 - **対象外**: `lib/`の404/403フォールバックと`utils/retry.ts`（特定のHTTPステータスを正常系に
-  変換するだけでchartAndApps単位の結果とは無関係）、`scripts/lint/verify-config/`（問題を全件
+  変換するだけでchartAndApps単位の結果とは無関係）、`scripts/lint/remote-existence/`（問題を全件
   列挙して返すのが目的の別プログラムで、fatalで全体を落とす方針そのものを持たない）
 - **リクエストのタイムアウトもfatalに数える**。gitbeakerは`createClient()`に渡した
   `queryTimeout`を`AbortSignal.timeout()`として全リクエストに載せ、超過すると
@@ -527,7 +527,7 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
 - **`utils/`に`GitlabBatchCache`そのものを置く**: どの読み取りがバッチ中に変わらないかはGitLab
   固有の知識なので、原則2で`lib/`。`utils/cache.ts`にあるのは技術非依存のメモ化
   （`getOrFetchShared()`・引数からキーを組み立てて読み取り1つをキャッシュ付きにする
-  `cacheByArgs()`）だけで、`scripts/lint/verify-config/remote-cache.ts`も同じものを使っている
+  `cacheByArgs()`）だけで、`scripts/lint/remote-existence/remote-cache.ts`も同じものを使っている
 
 `getOrFetchShared()`は「未キャッシュ」の判定に`undefined`を使う（`V extends {}`）ため、
 `cacheByArgs()`は値を箱に入れてから載せる。これで`GitlabBatchCache`の`getFileContent`・
@@ -884,7 +884,7 @@ dotパスで辿る方式も実装していたが、実運用ではアンカー�
 以前は`AppConfig`がapp単位で持ち、`anchors.yaml`の`helm.chart[]`を`valuesPath`の一致で
 appへ振り分けていた。共通の値を複製することになるため、同じ書き込み先が複数appの計画に現れ、
 MR本文を組み立てる`collect-mr-entries.ts`が書き込み先単位で重複排除し直していた。
-`scripts/lint/verify-config/`も同じ問題をappの数だけ報告していた。設定ユニット単位にすると
+`scripts/lint/remote-existence/`も同じ問題をappの数だけ報告していた。設定ユニット単位にすると
 振り分けと重複排除の両方が不要になる。
 
 - **`plans`が空でも向き先ブランチに差分があればMRを作る**。app単位だった頃はイメージタグに
@@ -959,7 +959,7 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
   （`pnpm lint:validate-config`、認証不要なので`pnpm lint`に含まれる）、`--remote` を付けると
   GitLabへ問い合わせて projectId・ブランチ・valuesPath・アンカーの実在も検証する
   （`pnpm lint:validate-config:remote`、CIの`validate-config-remote`ジョブが実行）
-- `scripts/lint/verify-config/`: 上記`--remote`の実装本体。`verify-config.ts`が実在チェック、
+- `scripts/lint/remote-existence/`: 上記`--remote`の実装本体。`remote-existence.ts`が実在チェック、
   `remote-cache.ts`がその問い合わせ（project/branch/values.yaml）のキャッシュ層。
   ここだけは`scripts/`配下でテストを持つため、`vitest.config.ts`のcoverage対象に含めている
 - `scripts/smoke/smoke-fixture.ts`: `config/` を使った実機スモークテストの前準備・後片付け
