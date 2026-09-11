@@ -1,11 +1,10 @@
 # 現在の状態
 
-最終更新: 2026-09-10（`/plan-tasks` で T-175〜T-179 を登録し、**T-175・T-172・T-178 を完了**、
-**T-176・T-177 は着手しない判断で閉じた**。会話の中で出た指示から **T-180 を追加登録**した。
-詳細は下の「完了したこと」を参照。2026-09-09以前の記録は
-[`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
+最終更新: 2026-09-12（`/plan-tasks` で **T-198〜T-200 を登録**。`docs/glossary.md` の整理と
+ドメイン用語の命名見直し。未着手3件。2026-09-11のセッションの記録は下の「完了したこと」、
+2026-09-09以前の記録は [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは0件**。完了タスクは
+**未着手のタスクは3件**（T-198 → T-199 → T-200 の一直線）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -141,8 +140,17 @@
 
 ## 次にやること
 
-**未着手のタスクは0件**（T-172〜T-197 はすべて `done`）。
-T-172〜T-192 はすべて `done`（T-183〜T-192 は `docs/history/tasks-archive.md` へアーカイブ済みで、
+**未着手は T-198 → T-199 → T-200 の3件**（`docs/glossary.md` の整理、登録は 2026-09-12）:
+
+- **T-198**（`opus`、`/loop` 可）: 用語集から解消済みの経緯を切り離す。消す/`docs/architecture.md`
+  へ移すの基準はタスク本文の (a)(b)(c)。`docs/architecture.md` の「用語集は経緯を長く持つ」の文と
+  `CLAUDE.md` の「25KB超」も追随させる
+- **T-199**（`sonnet`、`/loop` 可）: `src/types/` と `schema.ts`・`env.ts` から用語を洗い出し、
+  不足を埋める。命名の良し悪しは判断せず evidence に列挙して T-200 へ渡す
+- **T-200**（`opus`、**委譲しない・`/loop` に載せない**）: 命名の見直し。ユーザーと採否を決め、
+  採用した改名だけを個別タスクとして登録する。このタスク自身はコードを変えない
+
+T-172〜T-197 はすべて `done`（T-183〜T-192 は `docs/history/tasks-archive.md` へアーカイブ済みで、
 `develop/tasks.json` からは消えている）。
 
 スモークテストの包括化は完了（T-193〜T-197）。GitLabのフィクスチャは初期状態に戻してある。
