@@ -93,8 +93,23 @@
 
 ## 次にやること
 
-**未着手のタスクは0件**（T-172〜T-192 はすべて `done`）。T-183〜T-192 の10件は
-`docs/history/tasks-archive.md` へアーカイブ済みで、`develop/tasks.json` は空。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
+**未着手のタスクは5件**（スモークテストの包括化。一直線の依存で順に実施する）:
+
+- **T-193**（`opus`、依存なし、**委譲しない**）: シナリオを確定し `docs/smoke-test.md` を
+  書き換える。**ユーザー承認が要る**。コードもGitLabも触らない
+- **T-194**（`sonnet`、T-193依存）: `scripts/smoke/smoke-fixture.ts` を拡張。dry-run確認まで
+- **T-195**（`opus`、T-194依存、**委譲しない・外部書き込み**）: GitLabへフィクスチャを実適用。
+  2つ目のchartプロジェクトの用意も含む
+- **T-196**（`sonnet`、T-195依存）: `config/` に新シナリオの設定を追加
+- **T-197**（`opus`、T-196依存、**委譲しない・外部書き込み**）: 実機スモーク実行と
+  期待結果の実測での確定
+
+T-172〜T-192 はすべて `done`（T-183〜T-192 は `docs/history/tasks-archive.md` へアーカイブ済みで、
+`develop/tasks.json` からは消えている）。
+
+**順序の制約**: GitLab側のフィクスチャが先、`config/` への追加が後。`config/` に設定ユニットを
+足すと `pnpm lint:validate-config:remote` とCIが実在を検証するため、GitLab上に無い状態で
+設定だけ先にコミットすると落ちる（T-180 と同じ）。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
 「未解決」にある。
 
 `src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から
