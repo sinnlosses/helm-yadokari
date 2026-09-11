@@ -9,6 +9,66 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-11（6回目）
+
+生成したタスク: **T-191**（案2: `resolveProjectLinkage` を `validate.ts` から
+`load-chart-and-apps.ts` へ移す、`sonnet`、依存なし）、**T-192**（案3: `buildChartAndApps()` の
+6引数をスコープ別の2オブジェクトにまとめる、`sonnet`、T-191依存）。どちらも
+`load-chart-and-apps.ts` を触るため、順に実施するよう依存を張った。
+
+タスク化にあたっての事実確認: **案3は当初の根拠が弱くなっていた。** 対象の関数は T-186 で
+`loadChartAndApps()` → `buildChartAndApps()` に改名され**非公開になった**ため、
+「隣接する同じ `LocalPath` を取り違えても型エラーにならない」の被害範囲は1ファイルに
+閉じている。代わりに「呼び出し側が `ChartUnits` を受け取っているのに、それをバラして
+6引数に並べ直している」という別の根拠が見つかったので、そちらを主たる理由として本文に書いた。
+案2の前提（呼び出し元が1箇所だけ）は変わらず成立していた。
+
+## `src/lib/config/` の積み残し2件（案2・案3）をやる
+
+`src/lib/config/` のリファクタリング相談（2026-09-11の1回目）で提案したが見送っていた2案を、
+ユーザー判断で着手する。**どちらも T-184〜T-186 より前の提案なので、現物と突き合わせて
+前提を確認した**結果は以下。
+
+### 案2: `resolveProjectLinkage` を `validate.ts` → `load-chart-and-apps.ts` へ移す
+
+**前提は生きている。** `resolveProjectLinkage()` と型 `LinkedApp` は `src/lib/config/validate.ts`
+にあり、呼び出し元は `src/lib/config/load-chart-and-apps.ts:67` の**1箇所だけ**。
+
+移す理由は、この関数が名前に反して**検証ではなく結合**だから（JSDocにも「検証だけして捨てるの
+ではなく組を返すのは、呼び出し元が同じ突き合わせをもう一度やらずに済ませるため」と書いてある）。
+`load-chart-and-apps.ts` はまさに「2つのYAMLを読んで `projectId` で結合する」担当なので、
+そこへ移せば `validate.ts` が「設定ミスの検知」だけになり、ファイル名と中身が一致する。
+`LinkedApp` の `export` も落とせる。
+
+### 案3: `buildChartAndApps()` の6引数をスコープ別の2オブジェクトにまとめる
+
+**前提が1つ弱くなっている。** 当初は公開関数 `loadChartAndApps()` の6引数を対象にしていたが、
+T-186 で **`buildChartAndApps()` へ改名され、非公開になった**（呼び出し元は同じファイル内の
+1箇所だけ）。当初の理由「`configYamlPath` と `registryYamlPath` が隣接する同じ `LocalPath` で、
+取り違えても型エラーにならない」は今も成り立つが、**被害範囲は1ファイル内に閉じている**。
+
+代わりに**新しい根拠**が見つかった。呼び出し側 `loadChartAndApps(chartUnits)` は構造体
+`ChartUnits` を受け取っているのに、それをバラして6つの引数に並べ直して渡している
+（`chartUnits.chartDirName` と `chartUnits.chartDirPath` を展開している）。
+まとめ直す理由としてはこちらのほうが強い。
+
+まとめ方は、このリポジトリの正典にある「値が何の単位で決まるかで分ける」軸に合わせる:
+
+```ts
+buildChartAndApps(
+  { chartDirName, chart, appSpecs, registryYamlPath }, // chartリポジトリ単位
+  { unitPath, configYamlPath }, // 設定ユニット単位
+)
+```
+
+### 制約（両案共通）
+
+- **振る舞いは一切変えない。エラーメッセージの文言も変えない**
+  （`test/lib/config/config.test.ts` に `toThrow` が23件ある）
+- `test/` からこの2ファイルへの直接の参照はゼロ（`loadConfig()` 経由のみ）なので、
+  テストの書き換えは発生しない見込み
+- 2案は独立しているが**どちらも `load-chart-and-apps.ts` を触る**ため、順に実施する
+
 ## 2026-09-11（5回目）
 
 生成したタスク: **T-187**（コメント規約の調査と正典の書き換え、`opus`、依存なし、**委譲しない**）、

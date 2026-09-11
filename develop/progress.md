@@ -78,7 +78,15 @@
 
 ## 次にやること
 
-**未着手のタスクは0件**（T-172〜T-190 はすべて `done`）。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
+**未着手のタスクは2件**（`src/lib/config/` の積み残し。順に実施する）:
+
+- **T-191**（`sonnet`、依存なし）: `resolveProjectLinkage()` と `LinkedApp` を `validate.ts` から
+  `load-chart-and-apps.ts` へ移す。検証ではなく結合だから。`validate.ts` が検証だけになる
+- **T-192**（`sonnet`、T-191依存）: `buildChartAndApps()` の6引数をスコープ別の2オブジェクトに
+  まとめる。**当初の根拠（同型の隣接引数）は T-186 の非公開化で弱まっており**、主たる理由は
+  「呼び出し側が `ChartUnits` をバラして6引数に並べ直している」ほう
+
+T-172〜T-190 はすべて `done`。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
 「未解決」にある。
 
 `src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から
