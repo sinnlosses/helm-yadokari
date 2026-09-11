@@ -208,9 +208,6 @@ export async function getLatestPipelineForRef(
   })
 }
 
-/**
- * fn() を実行し、404エラーのときだけ fallback を返す。404以外のエラーは再スローする。
- */
 async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await fn()

@@ -28,16 +28,14 @@ import {
  */
 export type GitlabBatchCache = {
   /**
-   * 指定プロジェクトに指定ブランチが存在するか。このツールが作り直すのは固定ブランチ
-   * （`feature/yadokari/...`）だけで、問い合わせ対象のchartの向き先ブランチはバッチ中に
-   * 変わらないため載せている。
+   * このツールが作り直すのは固定ブランチ（`feature/yadokari/...`）だけで、問い合わせ対象の
+   * chartの向き先ブランチはバッチ中に変わらないため載せている。
    */
   readonly branchExists: (projectId: ProjectId, branch: BranchName) => Promise<boolean>
 
   /**
-   * 指定したタグに紐づく最新のパイプライン（無ければ`undefined`）。このツールが作ったタグには
-   * 後からパイプラインが現れうるが、これはMR本文への参考情報でしかなく、同じタグについて
-   * 設定ユニットごとに違う答えを載せるほうが困る。1回に収束させる側を選んで載せている。
+   * このツールが作ったタグには後からパイプラインが現れうるが、これはMR本文への参考情報でしかなく、
+   * 同じタグについて設定ユニットごとに違う答えを載せるほうが困る。1回に収束させる側を選んで載せている。
    */
   readonly getLatestPipelineForRef: (
     projectId: ProjectId,
@@ -45,16 +43,15 @@ export type GitlabBatchCache = {
   ) => Promise<PipelineInfo | undefined>
 
   /**
-   * プロジェクトのweb URL。プロジェクトの移動・改名でしか変わらない値なので載せている。
-   * 同じappが複数の設定ユニットに登録されていても`Projects.show`はバッチ全体で1回に収束する。
+   * プロジェクトの移動・改名でしか変わらない値なので載せている。同じappが複数の設定ユニットに
+   * 登録されていても`Projects.show`はバッチ全体で1回に収束する。
    */
   readonly getProjectWebUrl: (projectId: ProjectId) => Promise<GitLabUrl>
 
   /**
-   * 指定した ref 時点の values.yaml の内容（無ければ`undefined`）。このツールが書き込むのは
-   * 固定ブランチだけで、読み先の`mrTargetBranch`はバッチ中に変わらないため載せている。
-   * 返すのは**常にGitLab上の内容**で、書き換え中の内容はchartAndApps単位の下書き
-   * （`ValuesYamlDraft`）にしか載らない。
+   * このツールが書き込むのは固定ブランチだけで、読み先の`mrTargetBranch`はバッチ中に変わらない
+   * ため載せている。返すのは**常にGitLab上の内容**で、書き換え中の内容はchartAndApps単位の
+   * 下書き（`ValuesYamlDraft`）にしか載らない。
    */
   readonly getFileContent: (
     projectId: ProjectId,

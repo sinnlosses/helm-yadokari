@@ -19,9 +19,8 @@ type UnitSegments = readonly string[]
 
 /**
  * 1つのchartディレクトリを走査し、`config.yaml`を持つディレクトリ（＝設定ユニット）の
- * `unitPath`一覧を集める（階層の検証込み。`findUnitPaths()`が深さ・入れ子の設定エラーを
- * 例外でスローする）。`registry.yaml`が無いディレクトリは配下ごと無視する（走査対象の
- * chartとみなさない）。
+ * `unitPath`一覧を集める（階層に問題があれば例外をスローする）。`registry.yaml`が無い
+ * ディレクトリは配下ごと無視する（走査対象のchartとみなさない）。
  */
 export function findConfigUnits(configDirPath: LocalPath, chartDir: string): readonly ChartUnits[] {
   const chartDirPath = toLocalPath(join(configDirPath, chartDir))

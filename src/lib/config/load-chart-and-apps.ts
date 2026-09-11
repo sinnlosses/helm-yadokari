@@ -49,10 +49,10 @@ export function loadChartAndApps(chartUnits: ChartUnits): readonly ChartAndApps[
 /**
  * 1つの設定ユニットのディレクトリ（`<chartDir>/<unitPath>/`）の`config.yaml`（運用値＋chart構造）を
  * 読み込み、`appSpecs`（`registry.yaml`の`appSpecs[]`、`projectId`をキーにしたタグ形式の台帳）と
- * `projectId`で結合して`ChartAndApps`（MRを作成する単位）1件にする。両者間の紐づけ矛盾の検証と
- * 結合そのものは`resolveProjectLinkage()`が一度に行う。`config.yaml`が実在するディレクトリだけが渡ってくる
- * 前提（どのディレクトリが設定ユニットかは`find-config-units.ts`の走査が決める）。
- * `unitPath`は識別子（ログ・`TARGET_UNITS`・固定ブランチ名に使う）、`*YamlPath`はローカルの実ファイルパス。
+ * `projectId`で結合して`ChartAndApps`（MRを作成する単位）1件にする。`config.yaml`が実在する
+ * ディレクトリだけが渡ってくる前提（どのディレクトリが設定ユニットかは`find-config-units.ts`の
+ * 走査が決める）。`unitPath`は識別子（ログ・`TARGET_UNITS`・固定ブランチ名に使う）、
+ * `*YamlPath`はローカルの実ファイルパス。
  */
 function buildChartAndApps(
   chartDirName: ChartDirName,

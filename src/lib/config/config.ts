@@ -12,16 +12,8 @@ export const DEFAULT_CONFIG_DIR_PATH: LocalPath = toLocalPath("config")
 
 /**
  * `config/<chartディレクトリ>/registry.yaml` + `config/<chartディレクトリ>/<unitPath>/config.yaml`
- * というディレクトリ構成を読み込む。設定ユニットごとに独立した`ChartAndApps`（MRを作成する単位）を
- * 返すため、1つのchartディレクトリに複数の設定ユニットがあれば`chartAndAppsList`には複数件が並ぶ。
- * 組み立てた`chartAndAppsList`全体に対しては、同じ`projectId`のappが複数のchartリポジトリの
- * `registry.yaml`にまたがって登録されているとき`tagFormat`が食い違っていないかも検証する
- * （`validateTagFormatConsistency()`。同じchartリポジトリ配下ではtagFormatの台帳が
- * `registry.yaml`1つに集約されるため、この検証が働くのはchartリポジトリをまたぐ場合だけ）。
- * `target`（`TARGET_CHART` / `TARGET_UNITS`）を明示的に指定したときに限り、指定した
- * ディレクトリ名・unitPathがtypo等でconfig/配下に見つからない場合、および絞り込み結果として
- * `chartAndAppsList`が1件も無い場合に例外をスローする（`target`未指定時は素通しで、0件でも
- * エラーにしない）。
+ * というディレクトリ構成を読み込む。`target`（`TARGET_CHART` / `TARGET_UNITS`）を明示的に
+ * 指定したときだけ、該当が無ければ例外をスローする（未指定時は0件でもエラーにしない）。
  */
 export function loadConfig(configDirPath: LocalPath, target: ConfigTarget = NO_TARGET): Config {
   assertSafePath(configDirPath, "CONFIG_PATH")
