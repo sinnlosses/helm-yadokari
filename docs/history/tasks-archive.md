@@ -6046,3 +6046,748 @@ const configYamlPath = join(unitDirPath, CONFIG_YAML_FILE_NAME) // 35行目。�
 **difficulty**: sonnet
 
 **evidence**: `LocalPath` / `toLocalPath()` を `src/types/brand.ts` に追加し、ローカルのパスを表す宣言（`env.ts` 2件・`config.ts` 6件・`chart-and-apps.ts` 3件・`validate.ts` 4件・`scripts/lint/validate-config.ts` 1件）を揃えた。**型の穴が塞がったことをメイン側でも独自に実証**: `loadConfig(toConfigUnitPath("tenant2/client1"))` を書くと `TS2345: Argument of type 'ConfigUnitPath' is not assignable to parameter of type 'LocalPath'.`（検証後にファイルは削除、`tsc --noEmit` は exit 0）。着手前はこれがコンパイルを通っていた。据え置きは論点どおり: `src/utils/fs.ts`・`yaml.ts` の引数は `string` のまま（原則2）、`scripts/smoke/` はGitLab側のパスなので `grep -rn LocalPath scripts/smoke/` が0件。`git diff --stat -- src/utils scripts/smoke` も0行。受け入れ時に**正典の追随漏れを1件修正**: `docs/architecture.md`「型の置き場所は`src/`全件と突き合わせて確かめてある」の件数が53件（`brand.ts` 12）のままだったので54件（13）に更新。`pnpm check` 通過（33ファイル385テスト、型だけの変更なので着手前と同数が正しい）。
+
+## T-183
+
+**タスク**:
+
+## 背景
+
+`src/lib/config/config.ts` は207行あり、`docs/architecture.md`「各ファイルの責務」の `src/lib/` の
+表でも責務が「公開API `loadConfig()`。`config/` の走査（設定ユニットの探索と階層の検証）と
+絞り込み」と**「〜と〜」の形**で書かれている。実際、非公開ヘルパーが2グループに割れている:
+
+- 走査側: `findUnitPaths()` / `collectUnitSegments()` / `findNestedPair()` / `isPrefixOf()` と型 `UnitSegments`
+- 入口・絞り込み側: `loadConfig()` / `formatChartDirs()` / `listUnitChartAndApps()` /
+  `isExplicitlyTargeted()` と `DEFAULT_CONFIG_DIR_PATH` / `ConfigTarget` / `NO_TARGET` / `ChartUnits`
+
+`docs/architecture.md`「1ファイルにまとめるか分けるか」の**分ける合図**のうち、①責務を「〜と〜」で
+しか説明できない ②変更理由が別（階層ルールの変更 vs `TARGET_CHART`/`TARGET_UNITS` の仕様変更）
+③非公開ヘルパーが2グループに割れている ⑤200行超 の**4つが該当する**。
+④「依存が違う」は**該当しない**（`loadConfig()` 自身も `listSubdirectories()` と `existsSync()` を
+使うため、fs依存は両側にある）。④が無くても①②③⑤で分割の根拠は足りている。
+
+## 解くべき論点
+
+- `unit-scan.ts` の公開は `findUnitPaths()` 1つで足りるか（階層検証のエラー生成まで含めて
+  非公開に保てるか）
+- `MAX_UNIT_DEPTH` / `UNIT_PATH_SEPARATOR`（`src/domain/config-unit.ts`）と
+  `CONFIG_YAML_FILE_NAME` / `REGISTRY_YAML_FILE_NAME`（`src/lib/config/schema.ts`）の import が
+  分割後にどちら側へ要るか（両方に要るものと片方だけのものがある）
+
+## やること
+
+1. `src/lib/config/unit-scan.ts` を新設し、`findUnitPaths()`（公開）と `collectUnitSegments()` /
+   `findNestedPair()` / `isPrefixOf()` / 型 `UnitSegments`（いずれも非公開のまま）を移す。
+   **ファイル名は `unit-scan.ts` で確定**（ユーザー確認済み。`helpers.ts` のような置き場所名を
+   避け、「設定ユニットの走査」という概念名にしたもの）
+2. `config.ts` は `unit-scan.js` から `findUnitPaths` を import して使う形にする。残るのは
+   `DEFAULT_CONFIG_DIR_PATH` / `ConfigTarget` / `NO_TARGET` / `ChartUnits` / `loadConfig()` /
+   `formatChartDirs()` / `listUnitChartAndApps()` / `isExplicitlyTargeted()`
+3. 関数の並び順は「外から使うもの → その内部で使うもの」を両ファイルで保つ。テストのためだけの
+   `export` はしない
+4. JSDocは移動先へそのまま持っていく。移動によって記述が実物とズレる箇所
+   （例: `chart-and-apps.ts` の「どのディレクトリが設定ユニットかは`config.ts`の走査が決める」）を
+   実物に合わせて直す
+5. `docs/architecture.md`「各ファイルの責務」の `src/lib/` の表に `config/unit-scan.ts` の行を足し、
+   `config/config.ts` の行から走査の記述を外す
+6. **調べた結果、分割するとテストの書き換えが必要になると分かった場合は分割の仕方を疑う。**
+   それでも避けられないなら、やらずに理由を `evidence` に書いて閉じる
+
+## 完了条件
+
+- `src/lib/config/unit-scan.ts` が存在し、`export` しているのは `findUnitPaths` だけ
+- `src/lib/config/config.ts` が200行以下
+- `test/` 配下に一切変更が無い（`git diff --stat test/` の出力が空）
+- `docs/architecture.md` の `src/lib/` の責務表に `config/unit-scan.ts` の行がある
+- `pnpm check` が通り、**テスト件数が変更前と同じ**
+
+## 注意
+
+- **振る舞いは一切変えない。エラーメッセージの文言も1文字も変えない**
+  （`test/lib/config/config.test.ts` に `toThrow` が23件あり、メッセージを検証している）
+- `listUnitChartAndApps()` は走査ではなく「絞り込み＋`registry.yaml` の読み込み」なので
+  `config.ts` に残す
+- 案2（`resolveProjectLinkage` を `validate.ts` から `chart-and-apps.ts` へ移す）と
+  案3（`loadChartAndApps()` の6引数をスコープ別の2オブジェクトにまとめる）は**今回のスコープ外**。
+  同じ `src/lib/config/` 配下だが手を出さない
+- push はしない
+
+**difficulty**: sonnet
+
+**evidence**: `src/lib/config/unit-scan.ts`（77行、`export` は `findUnitPaths` のみ）へ切り出し、`config.ts` は 207行→138行。`git diff --stat test/` は空（テスト無変更）。
+`pnpm check` 通過: 33 Test Files / 385 Tests（変更前と同数）。
+
+## T-184
+
+**タスク**:
+
+## 背景
+
+`src/lib/config/config.ts`（138行）は、公開API `loadConfig()` が全体の流れを語れていない。
+
+- `TARGET_CHART` / `TARGET_UNITS` の扱いが**4箇所に散っている**: chartディレクトリの絞り込み
+  （`config.ts:56-62`）、`TARGET_UNITS` の不一致検証（`:79-86`）、実際のunit絞り込み（`:122`。
+  しかも `listUnitChartAndApps()` の中に埋まっている）、絞り込み結果0件のエラー（`:92`）
+- 主役である「YAMLを読んで結合する」が `loadConfig()` → `listUnitChartAndApps()` →
+  `loadChartAndApps()` と**2段潜った先**にある
+- chartDir → unit → app の3重ループに、読み込みと検証が交互に挟まっている
+
+「走査 → 絞り込み → 読み込み・結合 → 横断検証」という塊は実在するのに、入れ子に溶けていて
+入口から見えない。**ファイル数は増やさず**（`src/lib/config/` は5ファイルのまま）、
+`loadConfig()` を「名前の付いた段を順に呼ぶだけ」の薄い入口にする。`src/main.ts` の
+`runProcess()` が `src/steps/` を順に呼ぶだけなのと同じ形にする。
+
+## 解くべき論点
+
+- 各段の関数名（下の目標の形の名前は仮。既存の命名規約に合わせて詰める）
+- `registry.yaml` が無いchartディレクトリを配下ごと無視する判定（`config.ts:71`）を
+  どの段に置くか（走査の一部か、chartディレクトリの選択の一部か）
+- 0件エラー（`isExplicitlyTargeted()` + `:92`）を独立した段にするか、絞り込みの段に含めるか
+
+## やること
+
+1. `loadConfig()` を次の形に組み替える（**関数名は仮。実装時に詰めてよい**）:
+
+```ts
+export function loadConfig(configDirPath: LocalPath, target: ConfigTarget = NO_TARGET): Config {
+  assertSafePath(configDirPath, "CONFIG_PATH")
+  const chartDirs = selectChartDirs(listSubdirectories(configDirPath), target) // TARGET_CHART
+  const chartUnitsList = chartDirs.flatMap((dir) => scanChartDir(configDirPath, dir)) // 走査＋階層検証
+  const selected = selectTargetUnits(chartUnitsList, target) // TARGET_UNITS
+  const chartAndAppsList = selected.flatMap(loadUnitChartAndApps) // 読み込み＋結合
+  validateTagFormatConsistency(chartAndAppsList) // 横断検証
+  assertTargetMatched(target, chartAndAppsList) // 0件エラー
+  return { chartAndAppsList }
+}
+```
+
+2. `listUnitChartAndApps()` を `config.ts` から `src/lib/config/chart-and-apps.ts` へ移す
+   （`registry.yaml` の読み込みと結合はそのファイルの責務のため）。移すのは読み込み・結合の
+   部分だけで、**その中に埋まっている `TARGET_UNITS` の絞り込み（`:122` の `.filter()`）は
+   絞り込みの段へ引き上げる**
+3. `unit-scan.ts`（T-183で切り出した走査）はパイプラインの1段目としてそのまま残す
+4. `ConfigTarget` 型・`NO_TARGET`・`DEFAULT_CONFIG_DIR_PATH` は `config.ts` に置いたままにする
+5. `loadConfig()` のJSDocは、段の並びが読めば分かるようになった分だけ削る。**残すのは
+   コードから読み取れないことだけ**（`docs/coding-standards.md`「コメント」）。
+   特に「`target` 未指定時は0件でもエラーにしない」「registry.yaml のないディレクトリは
+   配下ごと無視する」のような**分岐の意図**は残す
+6. `docs/architecture.md`「各ファイルの責務」の `src/lib/` の表で、`config/config.ts` と
+   `config/chart-and-apps.ts` の行が実物とズレたら直す
+
+## 完了条件
+
+- `loadConfig()` の本体（`{` から `}` まで）が**10行以内**で、各行が名前の付いた段の呼び出しに
+  なっている
+- `src/lib/config/` のファイル数が**5のまま**（`config.ts` / `unit-scan.ts` / `chart-and-apps.ts` /
+  `schema.ts` / `validate.ts`。新規ファイルを作らない）
+- `listUnitChartAndApps()` 相当が `chart-and-apps.ts` にあり、`config.ts` から消えている
+- `test/` 配下に一切変更が無い（`git diff --stat test/` の出力が空）
+- `pnpm check` が通り、**テスト件数が385件のまま**
+
+## 注意
+
+- **振る舞いは一切変えない。エラーメッセージの文言も1文字も変えない**
+  （`test/lib/config/config.test.ts` に `toThrow` が23件ある）
+- **最重要の落とし穴: 走査の順序を変えないこと。** いまは `TARGET_CHART` で絞り込んだ
+  chartディレクトリ**だけ**を走査する。「全chartディレクトリを走査してから絞り込む」形に
+  組み替えてはいけない。無関係なchartディレクトリの階層エラー（深さ違い・入れ子）で
+  `TARGET_CHART` による限定実行が落ちるようになり、`docs/architecture.md`
+  「設定ユニットの走査は深さで打ち切らず、絞り込みより先に階層を検証する」の意図に反する。
+  **この違反は既存テストでは検出できない**ので、自分で順序を確認すること
+- 逆に、**`TARGET_UNITS` の絞り込みより前に階層を検証する**現在の順序も変えない
+  （同じ節が根拠。対象外の設定ユニットも含めて階層を検証する）
+- `config.yaml` の読み込みは絞り込んだ**後**だけに行う現在の挙動も変えない
+- 案B（`select-units.ts` を新設して `TARGET_*` を別ファイルにする）は**採用しない**。
+  ファイルを増やさないことが今回の要件
+- push はしない
+
+**difficulty**: sonnet
+
+**evidence**: `loadConfig()` の本体が9行の段の並びになり、`listUnitChartAndApps()` は `chart-and-apps.ts` へ移設（`loadUnitChartAndApps()`）。ファイルは5のまま。
+`pnpm check` 通過: 33 Test Files / 385 Tests（変更前と同数）、`test/` は無変更。
+走査順序（TARGET_CHART で絞ってから走査）は、壊れた兄弟chartディレクトリを置いた使い捨てconfigで変更前後の挙動が一致することを実行して確認した。
+
+## T-185
+
+**タスク**:
+
+## 背景
+
+T-184 で `loadConfig()` の本体は9行の段の並びになったが、**`src/lib/config/config.ts` 自体は
+138行→140行と増えた**。中身を数えると3グループに割れている:
+
+- 公開APIの表面（`DEFAULT_CONFIG_DIR_PATH` / `ConfigTarget` / `NO_TARGET` / `loadConfig`）— 約40行
+- **`TARGET_*` の解釈**（`selectChartDirs` / `selectTargetUnits` / `assertTargetMatched` /
+  `isExplicitlyTargeted` / `formatChartDirs`）— **非公開ヘルパー6つ中5つ、約65行**
+- 走査の呼び出し（`scanChartDir`）— 約11行
+
+入口を名乗るファイルの約7割が `TARGET_*` の解釈になっている。T-184 のタスク化時に
+`select-units.ts` の新設（当時の「案B」）を「ファイルを増やしたくない」という理由で見送ったのが
+判断ミスで、`TARGET_*` の解釈は入口の都合ではなくそれ自体が1つの塊だった。
+
+根拠は `docs/architecture.md`「1ファイルにまとめるか分けるか」の**分ける合図**①（責務を
+「入口と `TARGET_*` の解釈と走査の呼び出し」でしか説明できない）と③（非公開ヘルパーが
+2グループに割れている）。**⑤（200行超）は該当しない**（140行）。行数は分ける理由ではない。
+
+## 解くべき論点
+
+- `unit-scan.ts` の公開が `findUnitPaths()` と `scanChartDir()` の2つになるか、`scanChartDir()`
+  だけにして `findUnitPaths()` を非公開に降格できるか（`findUnitPaths()` の他の呼び出し元を
+  確認して決める）
+- `select-units.ts` の3つの公開関数（`selectChartDirs` / `selectTargetUnits` /
+  `assertTargetMatched`）を、この粒度のまま公開するか
+
+## やること
+
+1. **`scanChartDir()` を `config.ts` から `src/lib/config/unit-scan.ts` へ移す。**
+   `registry.yaml` の有無を見て `findUnitPaths()` を呼び `ChartUnits` を作る、走査そのもの
+2. **`ChartUnits` 型を `chart-and-apps.ts` から `unit-scan.ts` へ移す。** T-184 では消費側に
+   置いたが、`scanChartDir()` が来るなら `unit-scan.ts` が生産側になる。`chart-and-apps.ts` は
+   `import type` で参照する
+3. **`src/lib/config/select-units.ts` を新設**し、`TARGET_*` の解釈を移す:
+   `selectChartDirs` / `selectTargetUnits` / `assertTargetMatched`（公開）と
+   `isExplicitlyTargeted` / `formatChartDirs`（非公開のまま）
+4. **`ConfigTarget` 型と `NO_TARGET` も `select-units.ts` へ移す**（`ConfigTarget` は `export`、
+   `NO_TARGET` も `config.ts` が既定値に使うので `export`）。`ConfigTarget` が表しているのは
+   `TARGET_*` そのものなので、型の置き場所も構成で決める（CLAUDE.md 原則5）。
+   `config.ts` は両方を `import` する
+5. `config.ts` に残るのは `DEFAULT_CONFIG_DIR_PATH` と `loadConfig()` だけにする
+6. `docs/architecture.md`「各ファイルの責務」の `src/lib/` の表に `config/select-units.ts` の行を
+   足し、`config/config.ts`・`config/unit-scan.ts`・`config/chart-and-apps.ts` の行を実物に合わせる
+
+## 完了条件
+
+- `src/lib/config/` が**6ファイル**（`config.ts` / `select-units.ts` / `unit-scan.ts` /
+  `chart-and-apps.ts` / `schema.ts` / `validate.ts`）
+- `src/lib/config/config.ts` が**50行以下**で、`loadConfig()` と `DEFAULT_CONFIG_DIR_PATH` 以外の
+  トップレベル定義を持たない
+- `test/` 配下に一切変更が無い（`git diff --stat test/` の出力が空）
+- `docs/architecture.md` の `src/lib/` の責務表に `config/select-units.ts` の行がある
+- `pnpm check` が通り、**テスト件数が385件のまま**
+
+## 注意
+
+- **振る舞いは一切変えない。エラーメッセージの文言も1文字も変えない**
+  （`test/lib/config/config.test.ts` に `toThrow` が23件ある）
+- **走査の順序を変えないこと。** `loadConfig()` は `selectChartDirs()` で絞り込んだ結果に対して
+  だけ `scanChartDir()` を呼ぶ。`scanChartDir()` が `unit-scan.ts` へ移っても、
+  **絞り込み前の全chartディレクトリを走査する形にしてはいけない**（無関係なchartの階層エラーで
+  `TARGET_CHART` の限定実行が落ちる）。`docs/architecture.md`「設定ユニットの走査は深さで
+  打ち切らず、絞り込みより先に階層を検証する」が根拠。**既存テストでは検出できない**
+- `loadConfig()` の本体（段の並び）そのものは T-184 の形を保つ。今回はトップレベル定義の
+  引っ越しだけで、パイプラインの構造は変えない
+- push はしない
+
+**difficulty**: sonnet
+
+**evidence**: `config.ts` は 140行→**36行**（`DEFAULT_CONFIG_DIR_PATH` と `loadConfig()` のみ）。`select-units.ts`(86行) を新設し、`scanChartDir()` と `ChartUnits` は `unit-scan.ts`(102行) へ。`findUnitPaths()` は非公開に降格。
+`pnpm check` 通過: 33 Test Files / 385 Tests（変更前と同数）、`test/` は無変更。
+走査順序は使い捨てconfigでの実行で変更前後の一致を確認（T-184と同じ手順）。
+
+## T-186
+
+**タスク**:
+
+## 背景
+
+`src/lib/config/` の3ファイルは、**名前が中身を説明できていない**（ユーザーが「ファイル名から
+何をするのか分かりづらい」と指摘）:
+
+- `unit-scan.ts` — 公開関数は `scanChartDir()`。**ファイル名は「unit」、関数名は「chartDir」**で
+  語が食い違い、名前から関数にたどり着けない。加えて「走査」は木を降りる**やり方**の話で、
+  欲しい結果（設定ユニットがどこにあるか）を言っていない
+- `select-units.ts` — 公開は `selectChartDirs` / `selectTargetUnits` / `assertTargetMatched` の3つ。
+  **名前は「units を select」だが、実際は chartDirs も select し、0件検出もする**
+- `chart-and-apps.ts` — **動詞がない**。名詞対でデータの入れ物のように読めるが、実際は
+  「2つのYAMLを読んで `projectId` で結合する」という動作
+
+改名の指針は**「機構ではなく、何が手に入るか」**。`src/steps/` が既に「ファイル名＝公開関数名の
+ケバブケースで動詞始まり」（`filter-targets.ts`→`filterTargets()`、`build-plans.ts`、
+`resolve-latest-tags.ts` 等）で統一されている前例に合わせる。
+
+## 解くべき論点
+
+- `unit-scan.ts` が持つ型 `ChartUnits` の名前を変えるかどうか（ファイル名が
+  `find-config-units.ts` になるため。変えないなら理由を `evidence` に一言残す）
+- `docs/architecture.md` の「`chart-and-apps.ts`（ファイル名）→ 変えない」の行を、
+  どう書き換えれば当時の判断と矛盾しない形になるか
+
+## やること
+
+1. **3ファイルを改名し、公開関数名も揃える**:
+   - `src/lib/config/unit-scan.ts` → `src/lib/config/find-config-units.ts`。
+     公開関数 `scanChartDir()` → `findConfigUnits()`
+   - `src/lib/config/select-units.ts` → `src/lib/config/limit-to-target.ts`。
+     **関数名はそのまま**（`selectChartDirs` / `selectTargetUnits` / `assertTargetMatched`）
+   - `src/lib/config/chart-and-apps.ts` → `src/lib/config/load-chart-and-apps.ts`。
+     公開 `loadUnitChartAndApps()` → `loadChartAndApps()`、
+     今その名前を持つ非公開関数 → `buildChartAndApps()`
+2. **`git mv` を使って改名する**（履歴を残すため。新規作成＋削除にしない）
+3. 参照元の import と、コード内のJSDoc・コメントに書かれた旧ファイル名を実物に合わせる。
+   旧名が残っている `src/lib/config/schema.ts` のJSDoc（「`config.ts`・`chart-and-apps.ts`から
+   参照する」）も対象
+4. **`docs/architecture.md` の「`lib/config/chart-and-apps.ts`（ファイル名）→ 変えない」の行を
+   書き換える**（812行目付近の表）。当時の理由は「YAMLのファイル名が `registry.yaml` に
+   変わってもコード側は追随しない」で、今回の「動詞が無くて何をするか読めない」とは**別の論点**。
+   矛盾を残さないよう、新しい理由で書き換える
+5. `docs/` 内の旧ファイル名の参照を実物に合わせる（`docs/history/` を除いて**8箇所**。
+   内訳は `architecture.md` 6・`coding-standards.md` 1 ほか。`grep -rn` で洗い直すこと）
+6. `docs/architecture.md`「各ファイルの責務」の `src/lib/` の表の3行を、新しい名前と
+   「何をするか」の説明に更新する
+
+## 完了条件
+
+- `src/lib/config/` が6ファイルで、名前が `config.ts` / `limit-to-target.ts` /
+  `find-config-units.ts` / `load-chart-and-apps.ts` / `schema.ts` / `validate.ts`
+- `grep -rn "unit-scan\|select-units\|chart-and-apps" src test scripts docs README.md CLAUDE.md`
+  の結果が **`docs/history/` 配下だけ**になる（`load-chart-and-apps` は別語なので誤検出に注意。
+  `grep -rn "\bchart-and-apps\b"` 等で確かめる）
+- `git log --follow --oneline src/lib/config/find-config-units.ts` が改名前の履歴をたどれる
+  （`git mv` を使ったことの確認）
+- `test/` 配下に一切変更が無い（`git diff --stat test/` の出力が空）
+- `pnpm check` が通り、**テスト件数が385件のまま**
+
+## 注意
+
+- **これは改名だけのタスク。振る舞いは一切変えない**（エラーメッセージの文言、関数の中身、
+  パイプラインの構造、走査の順序、すべて据え置き）
+- **`docs/history/` 配下は書き換えない**（旧ファイル名が48箇所あるが、当時の記述として残す。
+  `docs/workflow.md`・`docs/history/direction.md` 冒頭の運用）
+- `filter-targets` という名前は**使わない**。`src/steps/filter-targets/` が「GitLab上で更新対象の
+  chartを絞る」という別の意味で既に取っており、1つの語を2つの意味に使うことになる
+- `test/` と `scripts/` からこの3ファイルへの参照は**ゼロ**（`loadConfig()` 経由のみ）なので、
+  テストの書き換えは発生しない見込み。発生するなら改名の範囲を疑う
+- push はしない
+
+**difficulty**: sonnet
+
+**evidence**: `unit-scan.ts`→`find-config-units.ts` / `select-units.ts`→`limit-to-target.ts` / `chart-and-apps.ts`→`load-chart-and-apps.ts`。`git diff --cached -M` が3件とも rename として検出（内容差分は名前の置換のみ、計41行）。
+`pnpm check` 通過: 33 Test Files / 385 Tests、`test/` は無変更。旧名の残骸は `docs/history/` 以外ゼロ。
+受け入れで `schema.ts` のJSDocが実物とズレていたのを修正（下記 progress.md 参照）。
+
+## T-187
+
+**タスク**:
+
+## 背景
+
+`src/` のコメント量は実測で **824/3194行 = 26%**（`scripts/` は 20%、`test/` は 3% なので
+testは問題になっていない）。ルールが無いのではなく、`docs/coding-standards.md`「コメント」節が
+既に「コードから読み取れないことだけを書く」「型名・フィールド名・関数名の言い換えは書かない」
+「残すかどうかは長さではなく種類で決める」と定めている。**守られていないか、ルールが足りない**。
+
+具体例（ユーザーが挙げたもの）: `src/lib/config/config.ts` の `loadConfig()` は**本体9行に対し
+JSDoc 13行**。しかも T-184/T-185 で本体が名前の付いた段の並びになった結果、JSDocの一部が
+本体の写しになっている（「`validateTagFormatConsistency()` も検証する」と書いてあるが、
+本体にその呼び出し行がそのまま並んでいる）。
+
+腐った実例もある: T-186 の受け入れで見つかった `src/lib/config/schema.ts` の
+「`config.ts`・`chart-and-apps.ts`から参照する」は、T-185 で `config.ts` が `schema.ts` を
+import しなくなった時点で**既に事実と違っていた**（grepで分かることをコメントに書くと腐る）。
+
+ユーザーの要望は「**概要と Why / Why Not** は必要だが、実装の詳細を書きすぎでメンテコストが
+大きい。プロフェッショナルなコメントの書き方を調べて反映してほしい」。
+このタスクは**方針を決めて正典を書き換えるところまで**で、コードへの適用は T-188〜T-190 が行う。
+
+## 解くべき論点
+
+- 既存の正典は「今の挙動の制約・前提」「外部との対応関係」について**「必要なだけ長くてよい」**と
+  明示している。ユーザーの要望（概要と Why / Why Not に絞る）とこれをどう折り合わせるか。
+  **既存の判断を黙って上書きしない**。変えるなら理由を書き、変えないなら要望のどこが
+  既存ルールで既に満たされているかを示す
+- 長さの上限（行数）を置くか。正典は「数字を置くと、種類の基準の代わりにその数字が基準として
+  使われる」として**意図的に置いていない**。この判断を維持するか覆すか
+- JSDocの1行目（概要）をどこまで許すか。「型名・関数名の言い換えは書かない」と「概要を書く」は
+  衝突しうる。`loadConfig()` のような**本体が自己説明的になった関数**で、概要は何を足すべきか
+- 「Why Not（採らなかった案）」をコードに残すか `docs/architecture.md` へ送るか。正典は
+  「昔の話は正典へ」としているが、Why Not は昔の話とは限らない
+- 対象範囲。`test/`（3%）を外してよいか、`scripts/`（20%）を含めるか
+
+## やること
+
+1. **プロフェッショナルなコメント規約を一次情報で調べる**（`/research` スキルが使える）。
+   TSDoc/JSDocの公式ガイダンス、広く参照される規約（例: Google TypeScript Style Guide の
+   Comments/Documentation、Rust APIガイドラインのドキュメント章など）を当たり、
+   **このリポジトリの既存ルールと突き合わせて差分だけを抽出する**。調査結果は
+   `docs/research/` 配下にMarkdownで残す
+2. 調べた内容と上の論点への答えを**ユーザーに提示して承認を得る**（正典の書き換えのため）
+3. 承認後、`docs/coding-standards.md`「コメント」節を書き換える。**既存の3種類の表
+   （制約・前提／外部との対応関係／昔の話）を捨てる前に、それぞれが新しい規約のどこに
+   対応するかを確かめる**
+4. T-188〜T-190 が機械的に適用できるよう、**節の末尾に「1コメントに1問だけ問うチェック」の
+   形で判定手順を書く**（既存の節も「この段落はコードの今の挙動を説明しているか、昔の話か」と
+   いう1問の形を持っている。その形を踏襲する）
+5. 調べた結果、**既存ルールで既に十分だと分かった場合は正典を書き換えず**、その根拠を
+   `evidence` に書いて閉じる。その場合 T-188〜T-190 は「既存ルールの適用」として進める
+
+## 完了条件
+
+- `docs/research/` 配下に調査結果のMarkdownがあり、参照した一次情報のURLが載っている
+- `docs/coding-standards.md`「コメント」節に、T-188〜T-190 が機械的に適用できる判定手順がある
+  （または、書き換えないと判断した根拠が `evidence` にある）
+- 判定手順を `loadConfig()` のJSDoc（13行）に実際に当ててみて、**残る行と消える行が
+  一意に決まる**ことを確認し、その結果を `evidence` に書く
+- `pnpm check` が通る
+
+## 注意
+
+- **サブエージェントに委譲しない。** 正典の書き換えでユーザー承認が要り、`docs/workflow.md`
+  「委譲しないケース」に当たる。`/loop` の自動進行にも載せない
+- **このタスクではコードのコメントを1行も書き換えない**（適用は T-188〜T-190）
+- 既存の正典の判断を覆すときは、`docs/architecture.md` の同種の記述と矛盾しないか確かめる
+- push はしない
+
+**difficulty**: opus
+
+**evidence**: `docs/research/comment-conventions.md`（94行、一次情報3件のURL付き）と、書き換えた `docs/coding-standards.md`「コメント」節（30行→69行、小節4つ）。
+判定手順を `loadConfig()` のJSDoc13行に適用: 全5段落で残す/消すが一意に決まり判定不能0件、**13行→4行**（消える10行は本体の行・呼び先JSDoc・戻り値の型の写し）。
+`pnpm check` 通過: 385 Tests。`src/` は無変更（適用は T-188〜T-190）。
+
+## T-188
+
+**タスク**:
+
+## 背景
+
+`src/` のコメント量は実測で **824/3194行 = 26%**（`scripts/` は 20%、`test/` は 3% なので
+testは問題になっていない）。ルールが無いのではなく、`docs/coding-standards.md`「コメント」節が
+既に「コードから読み取れないことだけを書く」「型名・フィールド名・関数名の言い換えは書かない」
+「残すかどうかは長さではなく種類で決める」と定めている。**守られていないか、ルールが足りない**。
+
+具体例（ユーザーが挙げたもの）: `src/lib/config/config.ts` の `loadConfig()` は**本体9行に対し
+JSDoc 13行**。しかも T-184/T-185 で本体が名前の付いた段の並びになった結果、JSDocの一部が
+本体の写しになっている（「`validateTagFormatConsistency()` も検証する」と書いてあるが、
+本体にその呼び出し行がそのまま並んでいる）。
+
+腐った実例もある: T-186 の受け入れで見つかった `src/lib/config/schema.ts` の
+「`config.ts`・`chart-and-apps.ts`から参照する」は、T-185 で `config.ts` が `schema.ts` を
+import しなくなった時点で**既に事実と違っていた**（grepで分かることをコメントに書くと腐る）。
+
+T-187 で `docs/coding-standards.md`「コメント」節の規約と判定手順が決まっている。
+このタスクは**その判定手順を `src/lib/` に機械的に適用する**担当。
+（実測: コメント 349/1296行 = 27%。`src/` の中で最大）
+
+## 解くべき論点
+
+- 判定手順を当てても残すか消すか決められないコメントが出たら、**自分で決めずに残し**、
+  どのコメントで迷ったかを報告に列挙する（T-187 の判定手順の穴になるため）
+
+## やること
+
+1. **まず `docs/coding-standards.md`「コメント」節を読む**（T-187 が書き換えた後の版）。
+   `sed -n '/^## コメント/,/^## /p' docs/coding-standards.md` で節だけ読む
+2. `src/lib/` の各ファイルのコメントに判定手順を当て、消す・残す・正典へ移すを実行する
+3. **正典へ移すものがあれば、先に正典の該当箇所を確認する**（既に書かれていれば消すだけ、
+   無ければ `docs/architecture.md` 等に書いてから消す）。これは既存の正典の手順
+4. コメントを消した結果、**コードの意図が読めなくなった箇所があれば消さずに残す**。
+   判断に迷ったものは報告に列挙する
+5. `src/lib/config/config.ts` の `loadConfig()` は**ユーザーが名指しした例**なので、
+   ここが短くならないなら判定手順が効いていない。報告に改善後のJSDocを載せる
+
+## 完了条件
+
+- `src/lib/` のコメントが T-187 の判定手順に沿っている
+- **振る舞いを一切変えていない**（`git diff` の変更がコメント行と空行のみであることを
+  `git diff -U0 | grep '^[+-]' | grep -v '^[+-][+-]'` で確認し、コメント以外の行が
+  出ないことを報告に書く）
+- `test/` 配下に一切変更が無い（`git diff --stat test/` の出力が空）
+- `pnpm check` が通り、**テスト件数が385件のまま**
+- 削減した行数（変更前後のコメント行数）を報告に書く
+
+## 注意
+
+- **コードは1行も変えない。コメントの削除・短縮・正典への移動だけ**
+- **消す前に正典を確認する**。経緯をコードから消すときの既存手順
+- `docs/history/` 配下は書き換えない
+- 判断に迷ったコメントは**消さずに残して報告する**（勝手に決めない）
+- push はしない
+
+**dependencies**: T-187
+
+**difficulty**: sonnet
+
+**evidence**: `src/lib/` のコメント 349行→334行（-15行）。`loadConfig()` は13行→4行で T-187 の想定どおり。変更は5ファイル（config.ts / find-config-units.ts / load-chart-and-apps.ts / gitlab.ts / batch-cache.ts）。
+`git diff -U0 -- src/lib` の変更行がコメント行と空行のみであることを確認（コード行の変更0）。`pnpm check` 通過: 385 Tests、`test/` 無変更。
+判定不能で残したコメントは0件。昔の話の残存も0件（受け入れ側でも grep で再確認）。
+
+## T-189
+
+**タスク**:
+
+## 背景
+
+`src/` のコメント量は実測で **824/3194行 = 26%**（`scripts/` は 20%、`test/` は 3% なので
+testは問題になっていない）。ルールが無いのではなく、`docs/coding-standards.md`「コメント」節が
+既に「コードから読み取れないことだけを書く」「型名・フィールド名・関数名の言い換えは書かない」
+「残すかどうかは長さではなく種類で決める」と定めている。**守られていないか、ルールが足りない**。
+
+具体例（ユーザーが挙げたもの）: `src/lib/config/config.ts` の `loadConfig()` は**本体9行に対し
+JSDoc 13行**。しかも T-184/T-185 で本体が名前の付いた段の並びになった結果、JSDocの一部が
+本体の写しになっている（「`validateTagFormatConsistency()` も検証する」と書いてあるが、
+本体にその呼び出し行がそのまま並んでいる）。
+
+腐った実例もある: T-186 の受け入れで見つかった `src/lib/config/schema.ts` の
+「`config.ts`・`chart-and-apps.ts`から参照する」は、T-185 で `config.ts` が `schema.ts` を
+import しなくなった時点で**既に事実と違っていた**（grepで分かることをコメントに書くと腐る）。
+
+T-187 で `docs/coding-standards.md`「コメント」節の規約と判定手順が決まっている。
+このタスクは**その判定手順を `src/steps/` に機械的に適用する**担当。
+（実測: コメント 257/1057行 = 24%）
+
+## 解くべき論点
+
+- 判定手順を当てても残すか消すか決められないコメントが出たら、**自分で決めずに残し**、
+  どのコメントで迷ったかを報告に列挙する（T-187 の判定手順の穴になるため）
+
+## やること
+
+1. **まず `docs/coding-standards.md`「コメント」節を読む**（T-187 が書き換えた後の版）。
+   `sed -n '/^## コメント/,/^## /p' docs/coding-standards.md` で節だけ読む
+2. `src/steps/` の各ファイルのコメントに判定手順を当て、消す・残す・正典へ移すを実行する
+3. **正典へ移すものがあれば、先に正典の該当箇所を確認する**（既に書かれていれば消すだけ、
+   無ければ `docs/architecture.md` 等に書いてから消す）。これは既存の正典の手順
+4. コメントを消した結果、**コードの意図が読めなくなった箇所があれば消さずに残す**。
+   判断に迷ったものは報告に列挙する
+
+## 完了条件
+
+- `src/steps/` のコメントが T-187 の判定手順に沿っている
+- **振る舞いを一切変えていない**（`git diff` の変更がコメント行と空行のみであることを
+  `git diff -U0 | grep '^[+-]' | grep -v '^[+-][+-]'` で確認し、コメント以外の行が
+  出ないことを報告に書く）
+- `test/` 配下に一切変更が無い（`git diff --stat test/` の出力が空）
+- `pnpm check` が通り、**テスト件数が385件のまま**
+- 削減した行数（変更前後のコメント行数）を報告に書く
+
+## 注意
+
+- **コードは1行も変えない。コメントの削除・短縮・正典への移動だけ**
+- **消す前に正典を確認する**。経緯をコードから消すときの既存手順
+- `docs/history/` 配下は書き換えない
+- 判断に迷ったコメントは**消さずに残して報告する**（勝手に決めない）
+- push はしない
+
+**dependencies**: T-187
+
+**difficulty**: sonnet
+
+**evidence**: `src/steps/` のコメント 257行→228行（-29行）。変更は4ファイル（step-outcome.ts / values-yaml-draft.ts / build-plans.ts / resolve-latest-tags.ts）。
+`git diff -U0 -- src/steps` の変更行がコメント行のみであることを確認。`pnpm check` 通過: 385 Tests、`test/` 無変更。
+受け入れで、消した根拠として挙がった正典3箇所の実在と、書き換わった `withAppContext()` のJSDocが `rethrowWithAppContext()` の実装と一致することを確認した。
+
+## T-190
+
+**タスク**:
+
+## 背景
+
+`src/` のコメント量は実測で **824/3194行 = 26%**（`scripts/` は 20%、`test/` は 3% なので
+testは問題になっていない）。ルールが無いのではなく、`docs/coding-standards.md`「コメント」節が
+既に「コードから読み取れないことだけを書く」「型名・フィールド名・関数名の言い換えは書かない」
+「残すかどうかは長さではなく種類で決める」と定めている。**守られていないか、ルールが足りない**。
+
+具体例（ユーザーが挙げたもの）: `src/lib/config/config.ts` の `loadConfig()` は**本体9行に対し
+JSDoc 13行**。しかも T-184/T-185 で本体が名前の付いた段の並びになった結果、JSDocの一部が
+本体の写しになっている（「`validateTagFormatConsistency()` も検証する」と書いてあるが、
+本体にその呼び出し行がそのまま並んでいる）。
+
+腐った実例もある: T-186 の受け入れで見つかった `src/lib/config/schema.ts` の
+「`config.ts`・`chart-and-apps.ts`から参照する」は、T-185 で `config.ts` が `schema.ts` を
+import しなくなった時点で**既に事実と違っていた**（grepで分かることをコメントに書くと腐る）。
+
+T-187 で `docs/coding-standards.md`「コメント」節の規約と判定手順が決まっている。
+このタスクは**その判定手順を `src/domain/` `src/types/` `src/utils/` `scripts/` に機械的に適用する**担当。
+（実測: コメント 308行（domain 63 / types 62 / utils 83 / scripts 100））
+
+## 解くべき論点
+
+- 判定手順を当てても残すか消すか決められないコメントが出たら、**自分で決めずに残し**、
+  どのコメントで迷ったかを報告に列挙する（T-187 の判定手順の穴になるため）
+
+## やること
+
+1. **まず `docs/coding-standards.md`「コメント」節を読む**（T-187 が書き換えた後の版）。
+   `sed -n '/^## コメント/,/^## /p' docs/coding-standards.md` で節だけ読む
+2. `src/domain/` `src/types/` `src/utils/` `scripts/` の各ファイルのコメントに判定手順を当て、消す・残す・正典へ移すを実行する
+3. **正典へ移すものがあれば、先に正典の該当箇所を確認する**（既に書かれていれば消すだけ、
+   無ければ `docs/architecture.md` 等に書いてから消す）。これは既存の正典の手順
+4. コメントを消した結果、**コードの意図が読めなくなった箇所があれば消さずに残す**。
+   判断に迷ったものは報告に列挙する
+5. `test/` は実測3%で問題になっていないため**対象外**（T-187 が範囲を変えていれば従う）
+
+## 完了条件
+
+- `src/domain/` `src/types/` `src/utils/` `scripts/` のコメントが T-187 の判定手順に沿っている
+- **振る舞いを一切変えていない**（`git diff` の変更がコメント行と空行のみであることを
+  `git diff -U0 | grep '^[+-]' | grep -v '^[+-][+-]'` で確認し、コメント以外の行が
+  出ないことを報告に書く）
+- `test/` 配下に一切変更が無い（`git diff --stat test/` の出力が空）
+- `pnpm check` が通り、**テスト件数が385件のまま**
+- 削減した行数（変更前後のコメント行数）を報告に書く
+
+## 注意
+
+- **コードは1行も変えない。コメントの削除・短縮・正典への移動だけ**
+- **消す前に正典を確認する**。経緯をコードから消すときの既存手順
+- `docs/history/` 配下は書き換えない
+- 判断に迷ったコメントは**消さずに残して報告する**（勝手に決めない）
+- push はしない
+
+**dependencies**: T-187
+
+**difficulty**: sonnet
+
+**evidence**: `src/domain/`・`src/types/`・`src/utils/`・`scripts/` のコメント 308行→305行（-3行）。変更は4ファイル（feature-branch.ts / tag-format.ts / brand.ts / types.ts）。
+`git diff -U0` の変更行がコメント行のみであることを確認。`pnpm check` 通過: 385 Tests、`test/` 無変更。判定不能で残したコメントは0件。
+受け入れで `brand.ts` から消した根拠が `docs/architecture.md` に実在することと、`utils/cache.ts` に削る箇所が無いことを自分で確認した。
+
+## T-191
+
+**タスク**:
+
+## 背景
+
+`src/lib/config/validate.ts` にある `resolveProjectLinkage()` と型 `LinkedApp` は、
+**名前に反して検証ではなく「2ファイルの結合」**をしている。JSDocにも
+「検証だけして捨てるのではなく組を返すのは、呼び出し元が同じ突き合わせをもう一度やらずに
+済ませるため」と書いてある。呼び出し元は `src/lib/config/load-chart-and-apps.ts:67` の
+**1箇所だけ**（`grep -rn "resolveProjectLinkage" src test scripts` で確認済み）。
+
+`load-chart-and-apps.ts` はまさに「設定ユニットの `config.yaml` と chartディレクトリの
+`registry.yaml` の `appSpecs[]` を読み込み・結合する」担当（`docs/architecture.md`
+「各ファイルの責務」の `src/lib/` の表）。そこへ移せば `validate.ts` が
+「設定ミスの検知」だけになり、ファイル名と中身が一致する。
+
+`docs/architecture.md`「1ファイルにまとめるか分けるか」の**まとめる合図**③（対になっていて
+片方だけでは意味が分からない）④（呼び出し側がほぼ必ずセットでimportする）に当たる。
+
+## 解くべき論点
+
+- `LinkedApp` 型を `load-chart-and-apps.ts` の非公開型にできるか（`validate.ts` の他の関数が
+  使っていないことを確認する）
+- 移した後の `resolveProjectLinkage()` を `load-chart-and-apps.ts` 内で公開のままにするか
+  非公開にするか（呼び出し元が同じファイル内だけになるため）
+
+## やること
+
+1. `resolveProjectLinkage()` と型 `LinkedApp` を `src/lib/config/validate.ts` から
+   `src/lib/config/load-chart-and-apps.ts` へ移す
+2. 移した先で**非公開にできるなら非公開にする**（`export` を落とす）。
+   `grep -rn "resolveProjectLinkage\|LinkedApp" src test scripts` で外部参照がゼロであることを
+   先に確認する
+3. 関数の並び順は「外から使うもの → その内部で使うもの」を保つ
+   （`docs/coding-standards.md`「関数の並び順」）
+4. JSDocは移動先へそのまま持っていく。**T-187 で書き換わった `docs/coding-standards.md`
+   「コメント」節の判定手順を、移したJSDocにも当てる**（移した先では呼び先が同じファイル内に
+   なるため、写しになる段落が出るかもしれない）
+5. `docs/architecture.md`「各ファイルの責務」の `src/lib/` の表で、`config/validate.ts` と
+   `config/load-chart-and-apps.ts` の行が実物とズレたら直す
+
+## 完了条件
+
+- `src/lib/config/validate.ts` に `resolveProjectLinkage` と `LinkedApp` が存在しない
+- `grep -rn "resolveProjectLinkage\|LinkedApp" src test scripts` の結果が
+  `src/lib/config/load-chart-and-apps.ts` だけになる
+- `test/` 配下に一切変更が無い（`git diff --stat test/` の出力が空）
+- `pnpm check` が通り、**テスト件数が385件のまま**
+
+## 注意
+
+- **振る舞いは一切変えない。エラーメッセージの文言も1文字も変えない**
+  （`test/lib/config/config.test.ts` に `toThrow` が23件ある）
+- `validateNoDuplicateProjectIds` / `validateNoDuplicateTargets` / `validateTagFormatConsistency`
+  は `validate.ts` に**残す**（これらは本当に検証）
+- 引数の順序・名前は変えない（それは T-192 の担当）
+- push はしない
+
+**difficulty**: sonnet
+
+**evidence**: `resolveProjectLinkage()` と `LinkedApp` を `load-chart-and-apps.ts` へ移し、両方とも非公開にした。`validate.ts` 137行→87行、`load-chart-and-apps.ts` 129行→167行。
+受け入れで、移した関数本体が移動前と**完全一致**すること（`diff` で確認）と、外部参照が `load-chart-and-apps.ts` だけになったことを確認した。
+`pnpm check` 通過: 385 Tests、`test/` 無変更。移したJSDocは判定手順を当てて0件削除。
+
+## T-192
+
+**タスク**:
+
+## 背景
+
+`src/lib/config/load-chart-and-apps.ts` の `buildChartAndApps()` は**6つの位置引数**を取る:
+
+```ts
+function buildChartAndApps(
+  chartDirName: ChartDirName,
+  unitPath: ConfigUnitPath,
+  chart: ChartRepoConfig,
+  appSpecs: readonly AppSpec[],
+  configYamlPath: LocalPath,
+  registryYamlPath: LocalPath,
+): ChartAndApps
+```
+
+問題は2つある。
+
+1. **末尾2つが隣接する同じ `LocalPath` ブランド型**で、取り違えても型エラーにならない。
+   ただしこの関数は T-186 で非公開になり、呼び出し元は同じファイル内の1箇所だけなので、
+   **被害範囲は1ファイルに閉じている**（当初この案を提案した時点より弱い根拠）
+2. **呼び出し側が構造体をバラして渡している**（強い根拠）。`loadChartAndApps(chartUnits)` は
+   `ChartUnits` を受け取っているのに、`chartUnits.chartDirName`・`chartUnits.chartDirPath` を
+   展開して6つの引数に並べ直している
+
+このリポジトリには「値が何の単位で決まるかで分ける」という正典の軸がある
+（`docs/architecture.md`「`config/`は『スコープ』で2ファイルに分け、変更頻度では分けない」）。
+それを引数にも当てる。
+
+## 解くべき論点
+
+- 2つのオブジェクトの型に名前を付けるか、インラインの型注釈で済ませるか
+  （`docs/architecture.md`「型の置き場所」の表と突き合わせて決める。名前を付けるなら
+  `load-chart-and-apps.ts` 内の非公開型）
+- `ChartUnits`（`find-config-units.ts`）をそのまま chartリポジトリ単位の引数に使えないか。
+  `ChartUnits` は `chartDirName` / `chartDirPath` / `unitPaths` を持ち、必要なのは
+  `chartDirName` / `chart` / `appSpecs` / `registryYamlPath` なので**一致しない**。
+  無理に合わせず別の形にしてよい
+
+## やること
+
+1. `buildChartAndApps()` の引数を、値が決まる単位で2つのオブジェクトにまとめる:
+
+```ts
+buildChartAndApps(
+  { chartDirName, chart, appSpecs, registryYamlPath }, // chartリポジトリ単位
+  { unitPath, configYamlPath }, // 設定ユニット単位
+)
+```
+
+2. 呼び出し元（同じファイル内の `loadChartAndApps()`）を合わせる。**chartリポジトリ単位の
+   オブジェクトはループの外で1回だけ組み立てる**（今は `unitPaths.map()` の中で毎回
+   同じ4つを並べている）
+3. 関数本体の中身は変えない。引数の受け取り方だけを変える
+4. JSDocの引数の説明が実物とズレたら直す。**T-187 で書き換わった
+   `docs/coding-standards.md`「コメント」節の判定手順に沿う**（引数名の言い換えは書かない）
+
+## 完了条件
+
+- `buildChartAndApps()` の引数が2つで、それぞれがオブジェクト
+- 呼び出し元で chartリポジトリ単位のオブジェクトが `unitPaths.map()` の外側で1回だけ
+  組み立てられている
+- `test/` 配下に一切変更が無い（`git diff --stat test/` の出力が空）
+- `pnpm check` が通り、**テスト件数が385件のまま**
+
+## 注意
+
+- **振る舞いは一切変えない。エラーメッセージの文言も1文字も変えない**
+  （`test/lib/config/config.test.ts` に `toThrow` が23件ある）
+- `resolveHelmTargetBranch()` の引数は今回の対象外（3引数で、同型の隣接も無い）
+- **T-191 で `resolveProjectLinkage()` が同じファイルに移っている前提**で作業する
+  （`dependencies` に T-191 がある）
+- push はしない
+
+**dependencies**: T-191
+
+**difficulty**: sonnet
+
+**evidence**: `buildChartAndApps()` の6位置引数を `ChartRepoScope` / `ConfigUnitScope` の2オブジェクトに。chartリポジトリ単位の側は `unitPaths.map()` の外で1回だけ組み立てる形にした。
+受け入れで型名を `ChartRepoUnit`/`ConfigUnit` から改名（下記）。エラーメッセージが変更前と完全一致することを `diff` で確認。
+`pnpm check` 通過: 385 Tests、`test/` 無変更。

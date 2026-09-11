@@ -93,7 +93,8 @@
 
 ## 次にやること
 
-**未着手のタスクは0件**（T-172〜T-192 はすべて `done`）。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
+**未着手のタスクは0件**（T-172〜T-192 はすべて `done`）。T-183〜T-192 の10件は
+`docs/history/tasks-archive.md` へアーカイブ済みで、`develop/tasks.json` は空。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
 「未解決」にある。
 
 `src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から
