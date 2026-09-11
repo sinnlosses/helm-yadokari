@@ -1,17 +1,27 @@
 # 現在の状態
 
-最終更新: 2026-09-12（`/plan-tasks` で **T-198〜T-200 を登録**し、**T-198 を完了**。
-`docs/glossary.md` の整理とドメイン用語の命名見直し。未着手2件。2026-09-11のセッションの記録も
+最終更新: 2026-09-12（`/plan-tasks` で **T-198〜T-200 を登録**し、**T-198・T-199 を完了**。
+`docs/glossary.md` の整理とドメイン用語の命名見直し。未着手は T-200 の1件（**委譲しない**）。2026-09-11のセッションの記録も
 下の「完了したこと」、2026-09-09以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは2件**（T-199 → T-200 の一直線）。完了タスクは
+**未着手のタスクは1件**（T-200。ユーザーの採否が要るため委譲せず、`/loop` にも載せない）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 `docs/glossary.md` の整理
+
+- **T-199**: `src/types/types.ts`（10型）・`brand.ts`（13型）・`schema.ts` のYAMLキー・`env.ts` の
+  環境変数・`docs/requirements.md`「3. 用語」から候補を列挙し、用語集に7項を足した
+  （`chartToUpdate・appSpecs`・`AnchorTarget`・`ParsedTag`・`TagInfo`・`ImageTagUpdate`・
+  `HelmTargetBranchUpdate`・`TARGET_CHART・TARGET_UNITS`。283行→339行、24.6KB→29.9KB）。
+  値のラップと技術的な入れ物（`Config`・`FileUpdate`・`PipelineInfo`・`CommitSha` 等）は足さず、
+  理由は `evidence` にある。方針「識別子が無い用語は省略」は実態と食い違っていたので
+  「主要ドキュメントで使う業務用語は載せる」に改めた。**命名の気づき6件を `evidence` に残し
+  T-200 の入力にした**（`Name` 接尾辞の不揃い、`target` フィールドから `Anchor` が落ちる、
+  `ChartRepoConfig` と `chartToUpdate` の語幹違い等）。`pnpm check` 通過: 385 Tests
 
 - **T-198**: 用語集から経緯を切り離した（312行→283行、30.4KB→24.6KB）。旧称・撤回案・
   バグ修正の記録を7項から消し、「今の形の理由」に当たる3件（HEADを指すタグを直接探す／
@@ -152,10 +162,8 @@
 
 ## 次にやること
 
-**未着手は T-199 → T-200 の2件**（`docs/glossary.md` の整理、登録は 2026-09-12。T-198 は完了）:
+**未着手は T-200 の1件**（`docs/glossary.md` の整理、登録は 2026-09-12。T-198・T-199 は完了）:
 
-- **T-199**（`sonnet`、`/loop` 可）: `src/types/` と `schema.ts`・`env.ts` から用語を洗い出し、
-  不足を埋める。命名の良し悪しは判断せず evidence に列挙して T-200 へ渡す
 - **T-200**（`opus`、**委譲しない・`/loop` に載せない**）: 命名の見直し。ユーザーと採否を決め、
   採用した改名だけを個別タスクとして登録する。このタスク自身はコードを変えない
 
