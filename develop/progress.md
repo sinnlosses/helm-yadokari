@@ -13,6 +13,14 @@
 
 ### 2026-09-11 `src/lib/config/config.ts` の分割
 
+- **T-195**: GitLabにフィクスチャを実適用した（**このセッション唯一の外部書き込み**、承認済み）。
+  chartリポジトリ2 `sinnlosses-group/yadokari-smoke-test-chart2`（**id 86354445**）をAPIで作成し、
+  両chartに `reset --apply` / `setup --apply` を適用。前回の実行の残骸（MR !30〜!32 と
+  固定ブランチ3本）もここで片付いた。**適用結果は読み取りで確認**している（宣言だけで
+  合格にしない）。ソースリポジトリへの書き込みは発生していない（シードタグは2件とも既存）。
+  読み取り中に `release/2026-q1` が見えない瞬間があったが、GitLab側の反映待ちで、
+  再確認したら存在していた
+
 - **T-194**: `scripts/smoke/smoke-fixture.ts` を4パス構成に合わせて拡張（184行→257行）。
   chartリポジトリ2向けのシード（`SMOKE_CHART2_PROJECT_ID` 未設定なら既存シナリオを壊さず
   スキップ）、`values-extra.yaml`、`setup --broken-anchor`（`t2c2QaSprintVersion` を抜いた版）。
@@ -111,16 +119,17 @@
 
 ## 次にやること
 
-**未着手のタスクは3件**（スモークテストの包括化。T-193・T-194 は `done`）:
+**未着手のタスクは2件**（スモークテストの包括化。T-193〜T-195 は `done`）:
 
-- **T-195**（`opus`、T-194依存、**委譲しない・外部書き込み**）: GitLabへフィクスチャを実適用。
-  2つ目のchartプロジェクトの用意も含む
 - **T-196**（`sonnet`、T-195依存）: `config/` に新シナリオの設定を追加
 - **T-197**（`opus`、T-196依存、**委譲しない・外部書き込み**）: 実機スモーク実行と
   期待結果の実測での確定
 
 T-172〜T-192 はすべて `done`（T-183〜T-192 は `docs/history/tasks-archive.md` へアーカイブ済みで、
 `develop/tasks.json` からは消えている）。
+
+**GitLab側のフィクスチャは T-195 で適用済み**（chartリポジトリ2 = id 86354445）。
+残る T-196 で `config/` を追加し、T-197 で実機実行する。
 
 **順序の制約**: GitLab側のフィクスチャが先、`config/` への追加が後。`config/` に設定ユニットを
 足すと `pnpm lint:validate-config:remote` とCIが実在を検証するため、GitLab上に無い状態で

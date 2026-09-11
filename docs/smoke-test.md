@@ -20,17 +20,21 @@
 
 ## 使うGitLabリソース
 
-| 役割                      | プロジェクト                                 | 環境変数                          |
-| ------------------------- | -------------------------------------------- | --------------------------------- |
-| chartリポジトリ 1         | `sinnlosses-group/yadokari-smoke-test-chart` | `SMOKE_CHART_PROJECT_ID`          |
-| chartリポジトリ 2         | （新規。複数chart構成の確認用）              | `SMOKE_CHART2_PROJECT_ID`         |
-| ソースリポジトリ（app 1） | `sinnlosses-group/sample-qa-sprint`          | `SMOKE_QA_SPRINT_PROJECT_ID`      |
-| ソースリポジトリ（app 2） | `sinnlosses-group/sample-develop-client`     | `SMOKE_DEVELOP_CLIENT_PROJECT_ID` |
+| 役割                      | プロジェクト                                  | 環境変数                          |
+| ------------------------- | --------------------------------------------- | --------------------------------- |
+| chartリポジトリ 1         | `sinnlosses-group/yadokari-smoke-test-chart`  | `SMOKE_CHART_PROJECT_ID`          |
+| chartリポジトリ 2         | `sinnlosses-group/yadokari-smoke-test-chart2` | `SMOKE_CHART2_PROJECT_ID`         |
+| ソースリポジトリ（app 1） | `sinnlosses-group/sample-qa-sprint`           | `SMOKE_QA_SPRINT_PROJECT_ID`      |
+| ソースリポジトリ（app 2） | `sinnlosses-group/sample-develop-client`      | `SMOKE_DEVELOP_CLIENT_PROJECT_ID` |
 
 projectIdは別のGitLabインスタンス・別のフィクスチャで検証する場合に差し替えられるよう、
 `smoke-fixture.ts` はすべてこれらの環境変数から読み取る（ハードコードなし、未設定なら
-理由を出して終了する）。**chartリポジトリ2は手で作る**（`smoke-fixture.ts` にプロジェクト
-作成機能は足さない。事故時の影響を「既存プロジェクトへの書き込み」に留めるため）。
+理由を出して終了する）。**chartリポジトリ2は `smoke-fixture.ts` の外で作る**（プロジェクト
+作成機能はスクリプトに足さない。事故時の影響を「既存プロジェクトへの書き込み」に留めるため）。
+chartリポジトリ1と同じ設定にしてある（`sinnlosses-group` 配下・private・デフォルトブランチ `main`）。
+
+**`SMOKE_CHART2_PROJECT_ID` は省略できる。** 未設定ならchartリポジトリ2に関する処理をスキップ
+するので、chartリポジトリ1だけでパス1〜4を流すこともできる。
 
 ### chartリポジトリ 1 に必要なもの
 
@@ -109,7 +113,7 @@ chartリポジトリ2には `sample-qa-sprint` を登録する。**同じappが2
 ```bash
 # 0. 認証情報（.env に GITLAB_URL / ACCESS_TOKEN）と対象プロジェクトを用意
 export SMOKE_CHART_PROJECT_ID=86061211
-export SMOKE_CHART2_PROJECT_ID=<chartリポジトリ2のprojectId>
+export SMOKE_CHART2_PROJECT_ID=86354445
 export SMOKE_QA_SPRINT_PROJECT_ID=82861978
 export SMOKE_DEVELOP_CLIENT_PROJECT_ID=82861977
 ```
