@@ -169,7 +169,7 @@ importせず〜」の節を参照）。
 | `config/find-config-units.ts`   | 1つのchartディレクトリから設定ユニットを見つける（`findConfigUnits()`）。`registry.yaml`の有無を見て、階層の検証（深さ・入れ子）込みで`ChartUnits`にする                 |
 | `config/load-chart-and-apps.ts` | 走査で見つかった設定ユニットごとに `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を読み込み・結合し `ChartAndApps` にする                         |
 | `config/schema.ts`              | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                                        |
-| `config/validate.ts`            | 2ファイル間の紐づけ・projectId重複・書き込み先重複の検証                                                                                                                 |
+| `config/validate.ts`            | projectId重複・書き込み先重複・chartリポジトリをまたぐtagFormat食い違いの検証                                                                                            |
 | `helm.ts`                       | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                           |
 | `env.ts`                        | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                                                                                     |
 

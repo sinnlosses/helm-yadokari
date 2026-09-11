@@ -74,10 +74,10 @@
   {
     "id": "T-191",
     "task": "## 背景\n\n`src/lib/config/validate.ts` にある `resolveProjectLinkage()` と型 `LinkedApp` は、\n**名前に反して検証ではなく「2ファイルの結合」**をしている。JSDocにも\n「検証だけして捨てるのではなく組を返すのは、呼び出し元が同じ突き合わせをもう一度やらずに\n済ませるため」と書いてある。呼び出し元は `src/lib/config/load-chart-and-apps.ts:67` の\n**1箇所だけ**（`grep -rn \"resolveProjectLinkage\" src test scripts` で確認済み）。\n\n`load-chart-and-apps.ts` はまさに「設定ユニットの `config.yaml` と chartディレクトリの\n`registry.yaml` の `appSpecs[]` を読み込み・結合する」担当（`docs/architecture.md`\n「各ファイルの責務」の `src/lib/` の表）。そこへ移せば `validate.ts` が\n「設定ミスの検知」だけになり、ファイル名と中身が一致する。\n\n`docs/architecture.md`「1ファイルにまとめるか分けるか」の**まとめる合図**③（対になっていて\n片方だけでは意味が分からない）④（呼び出し側がほぼ必ずセットでimportする）に当たる。\n\n## 解くべき論点\n\n- `LinkedApp` 型を `load-chart-and-apps.ts` の非公開型にできるか（`validate.ts` の他の関数が\n  使っていないことを確認する）\n- 移した後の `resolveProjectLinkage()` を `load-chart-and-apps.ts` 内で公開のままにするか\n  非公開にするか（呼び出し元が同じファイル内だけになるため）\n\n## やること\n\n1. `resolveProjectLinkage()` と型 `LinkedApp` を `src/lib/config/validate.ts` から\n   `src/lib/config/load-chart-and-apps.ts` へ移す\n2. 移した先で**非公開にできるなら非公開にする**（`export` を落とす）。\n   `grep -rn \"resolveProjectLinkage\\|LinkedApp\" src test scripts` で外部参照がゼロであることを\n   先に確認する\n3. 関数の並び順は「外から使うもの → その内部で使うもの」を保つ\n   （`docs/coding-standards.md`「関数の並び順」）\n4. JSDocは移動先へそのまま持っていく。**T-187 で書き換わった `docs/coding-standards.md`\n   「コメント」節の判定手順を、移したJSDocにも当てる**（移した先では呼び先が同じファイル内に\n   なるため、写しになる段落が出るかもしれない）\n5. `docs/architecture.md`「各ファイルの責務」の `src/lib/` の表で、`config/validate.ts` と\n   `config/load-chart-and-apps.ts` の行が実物とズレたら直す\n\n## 完了条件\n\n- `src/lib/config/validate.ts` に `resolveProjectLinkage` と `LinkedApp` が存在しない\n- `grep -rn \"resolveProjectLinkage\\|LinkedApp\" src test scripts` の結果が\n  `src/lib/config/load-chart-and-apps.ts` だけになる\n- `test/` 配下に一切変更が無い（`git diff --stat test/` の出力が空）\n- `pnpm check` が通り、**テスト件数が385件のまま**\n\n## 注意\n\n- **振る舞いは一切変えない。エラーメッセージの文言も1文字も変えない**\n  （`test/lib/config/config.test.ts` に `toThrow` が23件ある）\n- `validateNoDuplicateProjectIds` / `validateNoDuplicateTargets` / `validateTagFormatConsistency`\n  は `validate.ts` に**残す**（これらは本当に検証）\n- 引数の順序・名前は変えない（それは T-192 の担当）\n- push はしない",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "`resolveProjectLinkage()` と `LinkedApp` を `load-chart-and-apps.ts` へ移し、両方とも非公開にした。`validate.ts` 137行→87行、`load-chart-and-apps.ts` 129行→167行。\n受け入れで、移した関数本体が移動前と**完全一致**すること（`diff` で確認）と、外部参照が `load-chart-and-apps.ts` だけになったことを確認した。\n`pnpm check` 通過: 385 Tests、`test/` 無変更。移したJSDocは判定手順を当てて0件削除。",
     "dependencies": []
   },
   {

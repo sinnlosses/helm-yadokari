@@ -1,61 +1,11 @@
 import { buildConfigUnitLocation } from "../../domain/config-unit.js"
-import type {
-  AnchorTarget,
-  ChartAndApps,
-  LocalPath,
-  ProjectId,
-  ProjectName,
-  TagFormat,
-} from "../../types/types.js"
-import type { AppSpec, ConfigApp } from "./schema.js"
+import type { AnchorTarget, ChartAndApps, LocalPath, ProjectId, ProjectName, TagFormat } from "../../types/types.js"
 
 /**
  * `registry.yaml` / `config.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス
  * （紐づけの矛盾・重複）を検証する。実体の有無（projectIdやブランチの実在）は
  * `scripts/lint/remote-existence/` の担当。
  */
-
-/** `config.yaml`のapp1件と、`projectId`で引き当てた`registry.yaml`の`appSpecs[]`1件の組 */
-export type LinkedApp = {
-  readonly app: ConfigApp
-  readonly appSpec: AppSpec
-}
-
-/**
- * `config.yaml`（運用値＋chart構造）の各appを、同じchartリポジトリの`registry.yaml`の`appSpecs[]`
- * （タグ形式の台帳）と`projectId`で突き合わせ、組にして返す。どちらのファイルも`projectId`を持つため、
- * 単純な存在チェックに加えて`projectName`の食い違い（コピペミス等）も検知できる
- * - config.yamlの各appに対応するprojectIdがregistry.yamlの`appSpecs[]`に無ければ、`tagFormat`が
- *   引けず最新タグを判定できない設定ミスとして例外をスローする
- * - 両方に存在するprojectIdについて、projectNameが一致しなければ例外をスローする
- * - `registry.yaml`の`appSpecs[]`にだけあってどの設定ユニットからも参照されないappは
- *   エラーにしない（そのchartリポジトリで一時的に更新対象から外している状態を許すため）
- *
- * 検証だけして捨てるのではなく組を返すのは、呼び出し元が同じ突き合わせをもう一度やらずに
- * 済ませるため。2回引くと、ここを通った時点で起こりえない「見つからない」を型と分岐に持つことになる。
- */
-export function resolveProjectLinkage(
-  configYamlPath: LocalPath,
-  registryYamlPath: LocalPath,
-  configApps: readonly ConfigApp[],
-  appSpecs: readonly AppSpec[],
-): readonly LinkedApp[] {
-  const appSpecByProjectId = new Map(appSpecs.map((appSpec) => [appSpec.projectId, appSpec]))
-  return configApps.map((app) => {
-    const appSpec = appSpecByProjectId.get(app.projectId)
-    if (appSpec === undefined) {
-      throw new Error(
-        `${configYamlPath}: app "${app.projectName}"（projectId: ${app.projectId}）に対応する設定が ${registryYamlPath} に見つかりません`,
-      )
-    }
-    if (appSpec.projectName !== app.projectName) {
-      throw new Error(
-        `${configYamlPath} と ${registryYamlPath} で projectId ${app.projectId} の projectName が一致しません（"${app.projectName}" / "${appSpec.projectName}"）`,
-      )
-    }
-    return { app, appSpec }
-  })
-}
 
 /**
  * 同じ`projectId`のappが複数の設定ユニットに登録されているとき、`tagFormat`が食い違って

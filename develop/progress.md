@@ -13,6 +13,12 @@
 
 ### 2026-09-11 `src/lib/config/config.ts` の分割
 
+- **T-191**: `resolveProjectLinkage()` と `LinkedApp` を `validate.ts` から
+  `load-chart-and-apps.ts` へ移し、**両方とも非公開にした**（呼び出し元が同じファイル内に
+  来たため）。名前に反して検証ではなく結合だったもので、`validate.ts` は 137行→**87行**に
+  なり名前どおり検証だけのファイルになった。受け入れでは移した関数本体が移動前と
+  完全一致することを `diff` で確認。`pnpm check` 通過: 385 Tests
+
 - **T-190**: 判定手順を `src/domain/`・`src/types/`・`src/utils/`・`scripts/` に適用。
   **308行→305行（-3行）**で、この範囲は元から規約に沿っていた。消えた4件のうち1件は
   `types.ts` の `FileUpdate` の「1ファイル分の更新内容」で、**正典が禁止例として名指ししていた
@@ -78,10 +84,8 @@
 
 ## 次にやること
 
-**未着手のタスクは2件**（`src/lib/config/` の積み残し。順に実施する）:
+**未着手のタスクは1件**（`src/lib/config/` の積み残し。T-191 は `done`）:
 
-- **T-191**（`sonnet`、依存なし）: `resolveProjectLinkage()` と `LinkedApp` を `validate.ts` から
-  `load-chart-and-apps.ts` へ移す。検証ではなく結合だから。`validate.ts` が検証だけになる
 - **T-192**（`sonnet`、T-191依存）: `buildChartAndApps()` の6引数をスコープ別の2オブジェクトに
   まとめる。**当初の根拠（同型の隣接引数）は T-186 の非公開化で弱まっており**、主たる理由は
   「呼び出し側が `ChartUnits` をバラして6引数に並べ直している」ほう

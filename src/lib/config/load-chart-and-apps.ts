@@ -11,7 +11,7 @@ import type {
 } from "../../types/types.js"
 import { toLocalPath } from "../../types/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
-import type { AppSpec, HelmConfig } from "./schema.js"
+import type { AppSpec, ConfigApp, HelmConfig } from "./schema.js"
 import {
   CONFIG_YAML_FILE_NAME,
   ConfigYamlSchema,
@@ -19,11 +19,7 @@ import {
   RegistryYamlSchema,
 } from "./schema.js"
 import type { ChartUnits } from "./find-config-units.js"
-import {
-  resolveProjectLinkage,
-  validateNoDuplicateProjectIds,
-  validateNoDuplicateTargets,
-} from "./validate.js"
+import { validateNoDuplicateProjectIds, validateNoDuplicateTargets } from "./validate.js"
 
 /**
  * 1つのchartディレクトリの`registry.yaml`を読み、`chartUnits.unitPaths`（走査＋`TARGET_UNITS`の
@@ -93,6 +89,48 @@ function buildChartAndApps(
     apps: appConfigs,
     helmTargetBranch: resolveHelmTargetBranch(configYamlPath, helm, appConfigs),
   }
+}
+
+/** `config.yaml`のapp1件と、`projectId`で引き当てた`registry.yaml`の`appSpecs[]`1件の組 */
+type LinkedApp = {
+  readonly app: ConfigApp
+  readonly appSpec: AppSpec
+}
+
+/**
+ * `config.yaml`（運用値＋chart構造）の各appを、同じchartリポジトリの`registry.yaml`の`appSpecs[]`
+ * （タグ形式の台帳）と`projectId`で突き合わせ、組にして返す。どちらのファイルも`projectId`を持つため、
+ * 単純な存在チェックに加えて`projectName`の食い違い（コピペミス等）も検知できる
+ * - config.yamlの各appに対応するprojectIdがregistry.yamlの`appSpecs[]`に無ければ、`tagFormat`が
+ *   引けず最新タグを判定できない設定ミスとして例外をスローする
+ * - 両方に存在するprojectIdについて、projectNameが一致しなければ例外をスローする
+ * - `registry.yaml`の`appSpecs[]`にだけあってどの設定ユニットからも参照されないappは
+ *   エラーにしない（そのchartリポジトリで一時的に更新対象から外している状態を許すため）
+ *
+ * 検証だけして捨てるのではなく組を返すのは、呼び出し元が同じ突き合わせをもう一度やらずに
+ * 済ませるため。2回引くと、ここを通った時点で起こりえない「見つからない」を型と分岐に持つことになる。
+ */
+function resolveProjectLinkage(
+  configYamlPath: LocalPath,
+  registryYamlPath: LocalPath,
+  configApps: readonly ConfigApp[],
+  appSpecs: readonly AppSpec[],
+): readonly LinkedApp[] {
+  const appSpecByProjectId = new Map(appSpecs.map((appSpec) => [appSpec.projectId, appSpec]))
+  return configApps.map((app) => {
+    const appSpec = appSpecByProjectId.get(app.projectId)
+    if (appSpec === undefined) {
+      throw new Error(
+        `${configYamlPath}: app "${app.projectName}"（projectId: ${app.projectId}）に対応する設定が ${registryYamlPath} に見つかりません`,
+      )
+    }
+    if (appSpec.projectName !== app.projectName) {
+      throw new Error(
+        `${configYamlPath} と ${registryYamlPath} で projectId ${app.projectId} の projectName が一致しません（"${app.projectName}" / "${appSpec.projectName}"）`,
+      )
+    }
+    return { app, appSpec }
+  })
 }
 
 /**
