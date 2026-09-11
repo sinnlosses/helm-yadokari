@@ -30,16 +30,32 @@ export function loadChartAndApps(chartUnits: ChartUnits): readonly ChartAndApps[
   const registryYamlPath = toLocalPath(join(chartUnits.chartDirPath, REGISTRY_YAML_FILE_NAME))
   const { chartToUpdate: chart, appSpecs } = parseYamlFile(registryYamlPath, RegistryYamlSchema)
   validateNoDuplicateProjectIds(registryYamlPath, appSpecs)
+  const chartRepoScope: ChartRepoScope = {
+    chartDirName: chartUnits.chartDirName,
+    chart,
+    appSpecs,
+    registryYamlPath,
+  }
   return chartUnits.unitPaths.map((unitPath) =>
-    buildChartAndApps(
-      chartUnits.chartDirName,
+    buildChartAndApps(chartRepoScope, {
       unitPath,
-      chart,
-      appSpecs,
-      toLocalPath(join(chartUnits.chartDirPath, unitPath, CONFIG_YAML_FILE_NAME)),
-      registryYamlPath,
-    ),
+      configYamlPath: toLocalPath(join(chartUnits.chartDirPath, unitPath, CONFIG_YAML_FILE_NAME)),
+    }),
   )
+}
+
+/** `buildChartAndApps()`の引数のうち、chartリポジトリ単位で1回だけ決まる値 */
+type ChartRepoScope = {
+  readonly chartDirName: ChartDirName
+  readonly chart: ChartRepoConfig
+  readonly appSpecs: readonly AppSpec[]
+  readonly registryYamlPath: LocalPath
+}
+
+/** `buildChartAndApps()`の引数のうち、設定ユニットごとに変わる値 */
+type ConfigUnitScope = {
+  readonly unitPath: ConfigUnitPath
+  readonly configYamlPath: LocalPath
 }
 
 /**
@@ -51,13 +67,11 @@ export function loadChartAndApps(chartUnits: ChartUnits): readonly ChartAndApps[
  * `*YamlPath`はローカルの実ファイルパス。
  */
 function buildChartAndApps(
-  chartDirName: ChartDirName,
-  unitPath: ConfigUnitPath,
-  chart: ChartRepoConfig,
-  appSpecs: readonly AppSpec[],
-  configYamlPath: LocalPath,
-  registryYamlPath: LocalPath,
+  chartRepoScope: ChartRepoScope,
+  configUnitScope: ConfigUnitScope,
 ): ChartAndApps {
+  const { chartDirName, chart, appSpecs, registryYamlPath } = chartRepoScope
+  const { unitPath, configYamlPath } = configUnitScope
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
   validateNoDuplicateProjectIds(configYamlPath, apps)
   const linkedApps = resolveProjectLinkage(configYamlPath, registryYamlPath, apps, appSpecs)

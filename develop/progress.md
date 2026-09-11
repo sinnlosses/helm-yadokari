@@ -13,6 +13,15 @@
 
 ### 2026-09-11 `src/lib/config/config.ts` の分割
 
+- **T-192**: `buildChartAndApps()` の6位置引数を、値が決まる単位で2オブジェクトにまとめた
+  （`ChartRepoScope` / `ConfigUnitScope`）。chartリポジトリ単位の側は `unitPaths.map()` の
+  外で1回だけ組み立てる形になった。**受け入れで型名を直した**: サブエージェントは
+  `ChartRepoUnit` / `ConfigUnit` と命名したが、`ConfigUnit` はドメイン用語「設定ユニット」
+  （集約は `ChartAndApps`）と衝突し、`ChartRepoUnit` は同じファイルで使う `ChartUnits` および
+  `ChartRepoConfig` と紛らわしかった。正典がこの軸を「スコープ」と呼んでいる
+  （`docs/architecture.md`「`config/`は『スコープ』で2ファイルに分け」）のに合わせて改名した。
+  `pnpm check` 通過: 385 Tests
+
 - **T-191**: `resolveProjectLinkage()` と `LinkedApp` を `validate.ts` から
   `load-chart-and-apps.ts` へ移し、**両方とも非公開にした**（呼び出し元が同じファイル内に
   来たため）。名前に反して検証ではなく結合だったもので、`validate.ts` は 137行→**87行**に
@@ -84,13 +93,7 @@
 
 ## 次にやること
 
-**未着手のタスクは1件**（`src/lib/config/` の積み残し。T-191 は `done`）:
-
-- **T-192**（`sonnet`、T-191依存）: `buildChartAndApps()` の6引数をスコープ別の2オブジェクトに
-  まとめる。**当初の根拠（同型の隣接引数）は T-186 の非公開化で弱まっており**、主たる理由は
-  「呼び出し側が `ChartUnits` をバラして6引数に並べ直している」ほう
-
-T-172〜T-190 はすべて `done`。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
+**未着手のタスクは0件**（T-172〜T-192 はすべて `done`）。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
 「未解決」にある。
 
 `src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から

@@ -83,10 +83,10 @@
   {
     "id": "T-192",
     "task": "## 背景\n\n`src/lib/config/load-chart-and-apps.ts` の `buildChartAndApps()` は**6つの位置引数**を取る:\n\n```ts\nfunction buildChartAndApps(\n  chartDirName: ChartDirName,\n  unitPath: ConfigUnitPath,\n  chart: ChartRepoConfig,\n  appSpecs: readonly AppSpec[],\n  configYamlPath: LocalPath,\n  registryYamlPath: LocalPath,\n): ChartAndApps\n```\n\n問題は2つある。\n\n1. **末尾2つが隣接する同じ `LocalPath` ブランド型**で、取り違えても型エラーにならない。\n   ただしこの関数は T-186 で非公開になり、呼び出し元は同じファイル内の1箇所だけなので、\n   **被害範囲は1ファイルに閉じている**（当初この案を提案した時点より弱い根拠）\n2. **呼び出し側が構造体をバラして渡している**（強い根拠）。`loadChartAndApps(chartUnits)` は\n   `ChartUnits` を受け取っているのに、`chartUnits.chartDirName`・`chartUnits.chartDirPath` を\n   展開して6つの引数に並べ直している\n\nこのリポジトリには「値が何の単位で決まるかで分ける」という正典の軸がある\n（`docs/architecture.md`「`config/`は『スコープ』で2ファイルに分け、変更頻度では分けない」）。\nそれを引数にも当てる。\n\n## 解くべき論点\n\n- 2つのオブジェクトの型に名前を付けるか、インラインの型注釈で済ませるか\n  （`docs/architecture.md`「型の置き場所」の表と突き合わせて決める。名前を付けるなら\n  `load-chart-and-apps.ts` 内の非公開型）\n- `ChartUnits`（`find-config-units.ts`）をそのまま chartリポジトリ単位の引数に使えないか。\n  `ChartUnits` は `chartDirName` / `chartDirPath` / `unitPaths` を持ち、必要なのは\n  `chartDirName` / `chart` / `appSpecs` / `registryYamlPath` なので**一致しない**。\n  無理に合わせず別の形にしてよい\n\n## やること\n\n1. `buildChartAndApps()` の引数を、値が決まる単位で2つのオブジェクトにまとめる:\n\n```ts\nbuildChartAndApps(\n  { chartDirName, chart, appSpecs, registryYamlPath },  // chartリポジトリ単位\n  { unitPath, configYamlPath },                          // 設定ユニット単位\n)\n```\n\n2. 呼び出し元（同じファイル内の `loadChartAndApps()`）を合わせる。**chartリポジトリ単位の\n   オブジェクトはループの外で1回だけ組み立てる**（今は `unitPaths.map()` の中で毎回\n   同じ4つを並べている）\n3. 関数本体の中身は変えない。引数の受け取り方だけを変える\n4. JSDocの引数の説明が実物とズレたら直す。**T-187 で書き換わった\n   `docs/coding-standards.md`「コメント」節の判定手順に沿う**（引数名の言い換えは書かない）\n\n## 完了条件\n\n- `buildChartAndApps()` の引数が2つで、それぞれがオブジェクト\n- 呼び出し元で chartリポジトリ単位のオブジェクトが `unitPaths.map()` の外側で1回だけ\n  組み立てられている\n- `test/` 配下に一切変更が無い（`git diff --stat test/` の出力が空）\n- `pnpm check` が通り、**テスト件数が385件のまま**\n\n## 注意\n\n- **振る舞いは一切変えない。エラーメッセージの文言も1文字も変えない**\n  （`test/lib/config/config.test.ts` に `toThrow` が23件ある）\n- `resolveHelmTargetBranch()` の引数は今回の対象外（3引数で、同型の隣接も無い）\n- **T-191 で `resolveProjectLinkage()` が同じファイルに移っている前提**で作業する\n  （`dependencies` に T-191 がある）\n- push はしない",
-    "status": "todo",
+    "status": "done",
     "difficulty": "sonnet",
-    "passes": false,
-    "evidence": "",
+    "passes": true,
+    "evidence": "`buildChartAndApps()` の6位置引数を `ChartRepoScope` / `ConfigUnitScope` の2オブジェクトに。chartリポジトリ単位の側は `unitPaths.map()` の外で1回だけ組み立てる形にした。\n受け入れで型名を `ChartRepoUnit`/`ConfigUnit` から改名（下記）。エラーメッセージが変更前と完全一致することを `diff` で確認。\n`pnpm check` 通過: 385 Tests、`test/` 無変更。",
     "dependencies": ["T-191"]
   }
 ]
