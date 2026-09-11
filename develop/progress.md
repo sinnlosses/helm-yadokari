@@ -13,6 +13,14 @@
 
 ### 2026-09-11 `src/lib/config/config.ts` の分割
 
+- **T-194**: `scripts/smoke/smoke-fixture.ts` を4パス構成に合わせて拡張（184行→257行）。
+  chartリポジトリ2向けのシード（`SMOKE_CHART2_PROJECT_ID` 未設定なら既存シナリオを壊さず
+  スキップ）、`values-extra.yaml`、`setup --broken-anchor`（`t2c2QaSprintVersion` を抜いた版）。
+  **GitLabへの書き込みは一切なし**（dry-runのみ、書き込みAPI5箇所が全て `if (apply)` の内側に
+  あることを受け入れ側で確認）。受け入れで、**dry-runの出力が通常setupと `--broken-anchor` で
+  区別できない穴**を塞いだ（「dry-runを見てから`--apply`」が安全設計なので、見分けが付かないと
+  取り違えて書き込みうる）。`pnpm check` 通過: 385 Tests
+
 - **T-193**: スモークテストを4パス構成に設計し直し、`docs/smoke-test.md` を書き換えた
   （141行→238行）。パス1=通常更新（複数chartリポジトリ・1appが複数ファイル・複数の追跡ブランチ）、
   パス2=再実行（`mr_exists`）、**パス3=部分失敗（`ERROR` 1件で他は継続、`PARTIAL_FAILURE`、
@@ -103,9 +111,8 @@
 
 ## 次にやること
 
-**未着手のタスクは4件**（スモークテストの包括化。T-193 は `done`）:
+**未着手のタスクは3件**（スモークテストの包括化。T-193・T-194 は `done`）:
 
-- **T-194**（`sonnet`、T-193依存）: `scripts/smoke/smoke-fixture.ts` を拡張。dry-run確認まで
 - **T-195**（`opus`、T-194依存、**委譲しない・外部書き込み**）: GitLabへフィクスチャを実適用。
   2つ目のchartプロジェクトの用意も含む
 - **T-196**（`sonnet`、T-195依存）: `config/` に新シナリオの設定を追加
