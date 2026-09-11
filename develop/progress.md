@@ -13,6 +13,15 @@
 
 ### 2026-09-11 `src/lib/config/config.ts` の分割
 
+- **T-196**: `config/` に新シナリオを追加。`config/yadokari-smoke-test-chart2/` を新設（**2つ目の
+  chartリポジトリ**。`sample-qa-sprint` を **`branchToSync: develop`** で追跡＝キャッシュキー
+  `projectId:branchToSync` が分岐する経路）と、`tenant2/client1` に `values-extra.yaml` への
+  2件目の書き込み先を追加（1appが複数valuesPathに書く）。3ユニット/5apps → **4ユニット/6apps**。
+  `validate-config:remote` 通過。`test/main.e2e.test.ts` は実 `config/` を読むため追随が必要で、
+  **別プロジェクト宛てMRと develop由来タグが選ばれることの検証**が新たに入った
+  （テスト件数は385のまま。サブエージェントの「383→385」という報告は誤りで、受け入れ側で
+  stash して実測し直した）
+
 - **T-195**: GitLabにフィクスチャを実適用した（**このセッション唯一の外部書き込み**、承認済み）。
   chartリポジトリ2 `sinnlosses-group/yadokari-smoke-test-chart2`（**id 86354445**）をAPIで作成し、
   両chartに `reset --apply` / `setup --apply` を適用。前回の実行の残骸（MR !30〜!32 と
@@ -119,9 +128,8 @@
 
 ## 次にやること
 
-**未着手のタスクは2件**（スモークテストの包括化。T-193〜T-195 は `done`）:
+**未着手のタスクは1件**（スモークテストの包括化。T-193〜T-196 は `done`）:
 
-- **T-196**（`sonnet`、T-195依存）: `config/` に新シナリオの設定を追加
 - **T-197**（`opus`、T-196依存、**委譲しない・外部書き込み**）: 実機スモーク実行と
   期待結果の実測での確定
 

@@ -1,0 +1,8 @@
+chartToUpdate:
+  projectId: 86354445
+  projectName: yadokari-smoke-test-chart2
+  mrTargetBranch: main
+appSpecs:
+  - projectId: 82861978
+    projectName: sample-qa-sprint
+    tagFormat: "{branch}-build-at-{date}-{time}"

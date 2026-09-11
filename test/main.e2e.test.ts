@@ -30,48 +30,69 @@ import { makeHttpError } from "./helpers.js"
 
 /** `config/yadokari-smoke-test-chart/registry.yaml` の projectId */
 const CHART_PROJECT_ID = 86061211
-/** `sample-qa-sprint`。3つの設定ユニット（`anchor-app`＋`tenant2/client1`＋`tenant2/client2`）
- * 共通で登録されているapp。追跡ブランチ`main`のHEADに現在値と異なる名前のタグが
- * 既にある状態にする（更新対象、タグ自動作成の経路には入らない）*/
+/** `config/yadokari-smoke-test-chart2/registry.yaml` の projectId */
+const CHART2_PROJECT_ID = 86354445
+/** `sample-qa-sprint`。4つの設定ユニット（`anchor-app`＋`tenant2/client1`＋`tenant2/client2`＋
+ * chartリポジトリ2の`shared-app`）共通で登録されているapp。追跡ブランチ`main`のHEADに現在値と
+ * 異なる名前のタグが既にある状態にする（更新対象、タグ自動作成の経路には入らない）。
+ * `shared-app`だけは`branchToSync`が`develop`で、キャッシュキー（`projectId:branchToSync`）が
+ * 他の3ユニットとは分岐する経路を通る */
 const QA_PROJECT_ID = 82861978
-/** `sample-develop-client`。tenant2の2ユニット共通で登録されているapp（`anchor-app`は
- * 登録していない）。追跡ブランチ`main`のHEADのタグ名がvalues.yamlの現在値と同じ状態にする
- * （already_up_to_dateで据え置き）*/
+/** `sample-develop-client`。tenant2の2ユニット共通で登録されているapp（`anchor-app`・
+ * `shared-app`は登録していない）。追跡ブランチ`main`のHEADのタグ名がvalues.yamlの現在値と
+ * 同じ状態にする（already_up_to_dateで据え置き）*/
 const DEV_PROJECT_ID = 82861977
 
 const HEAD_SHA_QA = "head-sha-qa"
 const HEAD_SHA_DEV = "head-sha-dev"
+/** QA appの`develop`ブランチのHEAD（`main`とは別コミット） */
+const HEAD_SHA_QA_DEVELOP = "head-sha-qa-develop"
 
-/** QA appの追跡ブランチHEADを指すタグ名（＝更新後にvalues.yamlへ書き込まれる新タグ） */
+/** QA appの追跡ブランチ`main`のHEADを指すタグ名（＝更新後にvalues.yamlへ書き込まれる新タグ） */
 const QA_NEW_TAG = "main-build-at-20260101-030000"
 /** QA appのvalues.yaml上の現在値（新タグと異なるため更新対象になる） */
 const QA_OLD_VALUE = "main-build-at-20251230-000000"
 /** DEV appの追跡ブランチHEADを指すタグ名 = values.yaml上の現在値（既に最新のため据え置き） */
 const DEV_TAG = "main-build-at-20251231-000000"
+/** QA appの追跡ブランチ`develop`のHEADを指すタグ名（`shared-app`が書き込む新タグ） */
+const QA_NEW_TAG_DEVELOP = "develop-build-at-20260102-030000"
 
-/** 3つの設定ユニットの `config.yaml` に書かれている `helm.branchToSync`（3つとも同じ値） */
+/** 4つの設定ユニットの `config.yaml` に書かれている `helm.branchToSync`（4つとも同じ値） */
 const NEW_HELM_BRANCH = "release/2026-q1"
 /** `charts/smoke-tenant2/client1/values.yaml` の `t2c1HelmTargetBranch` の現在値 */
 const OLD_HELM_BRANCH = "release/2025-q4"
 
-// `anchor-app` と `tenant2/client2` の向き先ブランチの現在値は `helm.branchToSync` と同じにして
-// おり、この2ユニットはイメージタグだけが書き換わる（`scripts/smoke/smoke-fixture.ts` の
-// シード値と同じ考え方）。差分が出る側は `tenant2/client1` だけ。
+// `anchor-app`・`tenant2/client2`・`shared-app` の向き先ブランチの現在値は `helm.branchToSync`
+// と同じにしており、この3ユニットはイメージタグだけが書き換わる（`scripts/smoke/smoke-fixture.ts`
+// のシード値と同じ考え方）。差分が出る側は `tenant2/client1` だけ。
 const VALUES_YAML_ANCHOR_APP =
   `variables:\n` +
   `  - &helmVersion develop\n` +
   `  - &tenantId1client1AppsVersion ${QA_OLD_VALUE}\n` +
   `  - &smokeTestTargetBranch ${NEW_HELM_BRANCH}\n`
+// `tenant2/client1` は `sample-qa-sprint` が `values.yaml` と `values-extra.yaml` の
+// 2つの `valuesPath` へ書き込む（1appが複数箇所に書き込むシナリオ）。Helmの向き先ブランチも
+// 両ファイルで書き換わるよう、どちらも古い値でシードする。
 const VALUES_YAML_TENANT2_CLIENT1 =
   `variables:\n` +
   `  - &t2c1QaSprintVersion ${QA_OLD_VALUE}\n` +
   `  - &t2c1DevelopClientVersion ${DEV_TAG}\n` +
   `  - &t2c1HelmTargetBranch ${OLD_HELM_BRANCH}\n`
+const VALUES_YAML_TENANT2_CLIENT1_EXTRA =
+  `variables:\n` +
+  `  - &t2c1QaSprintVersionExtra ${QA_OLD_VALUE}\n` +
+  `  - &t2c1HelmTargetBranchExtra ${OLD_HELM_BRANCH}\n`
 const VALUES_YAML_TENANT2_CLIENT2 =
   `variables:\n` +
   `  - &t2c2QaSprintVersion ${QA_OLD_VALUE}\n` +
   `  - &t2c2DevelopClientVersion ${DEV_TAG}\n` +
   `  - &t2c2HelmTargetBranch ${NEW_HELM_BRANCH}\n`
+// chartリポジトリ2（`yadokari-smoke-test-chart2`）配下の唯一の設定ユニット。`sample-qa-sprint`を
+// `branchToSync: develop` で追跡する（複数chartリポジトリ・複数追跡ブランチのシナリオ）。
+const VALUES_YAML_SHARED_APP =
+  `variables:\n` +
+  `  - &sharedQaSprintVersion ${QA_OLD_VALUE}\n` +
+  `  - &sharedHelmTargetBranch ${NEW_HELM_BRANCH}\n`
 
 const env: EnvConfig = {
   gitlabUrl: toGitLabUrl("https://gitlab.test"),
@@ -90,12 +111,19 @@ const env: EnvConfig = {
  */
 function makeFakeGitlab() {
   const tagsByProject = new Map<number, { name: string; commit: { id: string } }[]>([
-    [QA_PROJECT_ID, [{ name: QA_NEW_TAG, commit: { id: HEAD_SHA_QA } }]],
+    [
+      QA_PROJECT_ID,
+      [
+        { name: QA_NEW_TAG, commit: { id: HEAD_SHA_QA } },
+        { name: QA_NEW_TAG_DEVELOP, commit: { id: HEAD_SHA_QA_DEVELOP } },
+      ],
+    ],
     [DEV_PROJECT_ID, [{ name: DEV_TAG, commit: { id: HEAD_SHA_DEV } }]],
   ])
 
   const branchHeadShaByKey = new Map<string, string>([
     [`${QA_PROJECT_ID}\0main`, HEAD_SHA_QA],
+    [`${QA_PROJECT_ID}\0develop`, HEAD_SHA_QA_DEVELOP],
     [`${DEV_PROJECT_ID}\0main`, HEAD_SHA_DEV],
     [`${CHART_PROJECT_ID}\0${NEW_HELM_BRANCH}`, "chart-branch-sha"],
   ])
@@ -103,7 +131,9 @@ function makeFakeGitlab() {
   const valuesYamlByPath = new Map<string, string>([
     ["charts/anchor-app/values.yaml", VALUES_YAML_ANCHOR_APP],
     ["charts/smoke-tenant2/client1/values.yaml", VALUES_YAML_TENANT2_CLIENT1],
+    ["charts/smoke-tenant2/client1/values-extra.yaml", VALUES_YAML_TENANT2_CLIENT1_EXTRA],
     ["charts/smoke-tenant2/client2/values.yaml", VALUES_YAML_TENANT2_CLIENT2],
+    ["charts/shared-app/values.yaml", VALUES_YAML_SHARED_APP],
   ])
 
   return {
@@ -167,34 +197,51 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
     } as never)
   })
 
-  it("config/ 全件で、設定ユニット単位に1つずつMRが作られる（深さ1・深さ2が混在）", async () => {
+  it("config/ 全件で、設定ユニット単位に1つずつMRが作られる（深さ1・深さ2・複数chartリポジトリが混在）", async () => {
     await expect(run(env)).resolves.toBe("SUCCESS")
 
-    expect(gitlab.MergeRequests.create).toHaveBeenCalledTimes(3)
+    expect(gitlab.MergeRequests.create).toHaveBeenCalledTimes(4)
 
-    // `anchor-app` は深さ1、`tenant2/client1` `tenant2/client2` は深さ2の設定ユニット。
-    // 3件とも呼ばれていることが、深さ1・深さ2の混在が実ファイルから最後まで動くことの確認になる
+    // `anchor-app`・`shared-app` は深さ1、`tenant2/client1` `tenant2/client2` は深さ2の設定
+    // ユニット。4件とも呼ばれていることが、深さ1・深さ2の混在・複数chartリポジトリへの分岐が
+    // 実ファイルから最後まで動くことの確認になる
     const anchorApp = findMrCreateCall(gitlab, "feature/yadokari/anchor-app")
     const tenant2Client1 = findMrCreateCall(gitlab, "feature/yadokari/tenant2/client1")
     const tenant2Client2 = findMrCreateCall(gitlab, "feature/yadokari/tenant2/client2")
+    const sharedApp = findMrCreateCall(gitlab, "feature/yadokari/shared-app")
 
     for (const call of [anchorApp, tenant2Client1, tenant2Client2]) {
       // (projectId, sourceBranch, targetBranch, title, { description })
       expect(call[0]).toBe(CHART_PROJECT_ID)
       expect(call[2]).toBe("main") // registry.yaml の mrTargetBranch
     }
+    // `shared-app` はchartリポジトリ2（別projectId）宛てのMR
+    expect(sharedApp[0]).toBe(CHART2_PROJECT_ID)
+    expect(sharedApp[2]).toBe("main") // yadokari-smoke-test-chart2/registry.yaml の mrTargetBranch
 
     expect(anchorApp[3]).toContain("anchor-app")
     expect(tenant2Client1[3]).toContain("tenant2/client1")
     expect(tenant2Client2[3]).toContain("tenant2/client2")
+    expect(sharedApp[3]).toContain("shared-app")
     // MRタイトルには書き換え箇所数（image tag件数）も入る
     expect(anchorApp[3]).toContain("image tag 1")
-    expect(tenant2Client1[3]).toContain("image tag 1")
+    // tenant2/client1 は sample-qa-sprint が values.yaml と values-extra.yaml の2箇所に
+    // 書き込むため image tag は2件、Helmの向き先ブランチも両ファイルで書き換わるため2件
+    expect(tenant2Client1[3]).toContain("image tag 2")
+    expect(tenant2Client1[3]).toContain("helm branch 2")
+    expect(sharedApp[3]).toContain("image tag 1")
 
     const tenant2Client1Description = (tenant2Client1[4] as { readonly description: string })
       .description
     expect(tenant2Client1Description).toContain("charts/smoke-tenant2/client1/values.yaml")
     expect(tenant2Client1Description).toContain("t2c1QaSprintVersion")
+    expect(tenant2Client1Description).toContain("charts/smoke-tenant2/client1/values-extra.yaml")
+    expect(tenant2Client1Description).toContain("t2c1QaSprintVersionExtra")
+
+    // shared-app は branchToSync: develop で追跡するため、main由来のタグではなくdevelop由来の
+    // タグが新タグとして選ばれる（キャッシュキーが projectId:branchToSync で分岐する確認）
+    const sharedAppDescription = (sharedApp[4] as { readonly description: string }).description
+    expect(sharedAppDescription).toContain(QA_NEW_TAG_DEVELOP)
   })
 
   it("コミットされる values.yaml の中身が、実ファイルの設定どおりに書き換わる", async () => {
@@ -217,6 +264,14 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
     expect(values.content).toContain(`&t2c1HelmTargetBranch ${NEW_HELM_BRANCH}`)
     // HEAD一致で据え置きになるアプリは元の値のまま
     expect(values.content).toContain(`&t2c1DevelopClientVersion ${DEV_TAG}`)
+
+    // 同じappが複数valuesPathに書き込む2件目のファイルも、同じコミットで一緒に書き換わる
+    const valuesExtra = actions.find(
+      (action) => action.filePath === "charts/smoke-tenant2/client1/values-extra.yaml",
+    )
+    if (valuesExtra === undefined) throw new Error("values-extra.yaml へのcommit actionが無い")
+    expect(valuesExtra.content).toContain(`&t2c1QaSprintVersionExtra ${QA_NEW_TAG}`)
+    expect(valuesExtra.content).toContain(`&t2c1HelmTargetBranchExtra ${NEW_HELM_BRANCH}`)
   })
 
   it("TARGET_UNITS 相当の絞り込みで、作られるMRが実際に減る", async () => {
