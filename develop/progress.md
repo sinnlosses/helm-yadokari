@@ -13,6 +13,15 @@
 
 ### 2026-09-11 `src/lib/config/config.ts` の分割
 
+- **T-197**: 4パスを実機実行し、`docs/smoke-test.md` の「期待する結果」を**実測値で確定**した。
+  パス1 `{CREATED:4}`／パス2 `{SKIPPED:4}` mr_exists／**パス3 `{CREATED:3,ERROR:1}` 終了コード1**／
+  パス4 `anchor-app`=no_diff・他3件=mr_exists。今回の主目的だった**部分失敗と終了コード1が
+  実機で通った**（ERRORは `tenant2/client2` のみで、残り3ユニットにはMRができた＝処理継続）。
+  **パス4の当初手順が誤りだと判明**: `reset` だけして `setup` を省く方法では `no_diff` にならない。
+  このツールは `main` に書かず固定ブランチにコミットするため、`reset` すると `main` はシードに
+  戻るため。**実装のバグではなくドキュメントの誤り**（T-193より前から書かれていた）で、
+  MRを1件マージしてから再実行する手順に差し替えた。後片付け済み（両chartともオープンMR0件）
+
 - **T-196**: `config/` に新シナリオを追加。`config/yadokari-smoke-test-chart2/` を新設（**2つ目の
   chartリポジトリ**。`sample-qa-sprint` を **`branchToSync: develop`** で追跡＝キャッシュキー
   `projectId:branchToSync` が分岐する経路）と、`tenant2/client1` に `values-extra.yaml` への
@@ -128,20 +137,16 @@
 
 ## 次にやること
 
-**未着手のタスクは1件**（スモークテストの包括化。T-193〜T-196 は `done`）:
-
-- **T-197**（`opus`、T-196依存、**委譲しない・外部書き込み**）: 実機スモーク実行と
-  期待結果の実測での確定
-
+**未着手のタスクは0件**（T-172〜T-197 はすべて `done`）。
 T-172〜T-192 はすべて `done`（T-183〜T-192 は `docs/history/tasks-archive.md` へアーカイブ済みで、
 `develop/tasks.json` からは消えている）。
 
-**GitLab側のフィクスチャは T-195 で適用済み**（chartリポジトリ2 = id 86354445）。
-残る T-196 で `config/` を追加し、T-197 で実機実行する。
+スモークテストの包括化は完了（T-193〜T-197）。GitLabのフィクスチャは初期状態に戻してある。
+次に実機スモークを回すときは `docs/smoke-test.md` の手順どおりでよい。
 
-**順序の制約**: GitLab側のフィクスチャが先、`config/` への追加が後。`config/` に設定ユニットを
-足すと `pnpm lint:validate-config:remote` とCIが実在を検証するため、GitLab上に無い状態で
-設定だけ先にコミットすると落ちる（T-180 と同じ）。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
+**順序の制約**（次に `config/` を触るとき用）: GitLab側のフィクスチャが先、`config/` への追加が後。
+`config/` に設定ユニットを足すと `pnpm lint:validate-config:remote` とCIが実在を検証するため、
+GitLab上に無い状態で設定だけ先にコミットすると落ちる。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
 「未解決」にある。
 
 `src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から

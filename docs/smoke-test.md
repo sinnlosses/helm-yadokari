@@ -148,16 +148,19 @@ pnpm dev; echo "exit=$?"
 
 ### パス4: 差分なし（`no_diff`）
 
-パス1をやり直したうえで、`reset`（MRクローズ＋ブランチ削除）だけして `setup` を省く。
-`values.yaml` がパス1の実行結果のままなので差分が出ない。
+**`reset` だけして `setup` を省く方法では `no_diff` にならない。** このツールは `main` に書かず、
+固定ブランチ `feature/yadokari/<unitPath>` を `mrTargetBranch` から作ってそこにコミットするため、
+`reset` で固定ブランチを消すと `main` の `values.yaml` はシードのままに戻る。
+現実に `no_diff` が起きるのは **MRがマージされた後の次回実行**だけ。
+
+パス1の直後に、MRを1件だけマージして再実行する。
 
 ```bash
-npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply
-npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
-pnpm dev                                                               # パス1と同じ（MRができる）
-npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply   # setup は省く
+# パス1で作られた anchor-app のMRをGitLab上でマージする（他の3件は開いたままにする）
 pnpm dev
 ```
+
+マージしたユニットが `no_diff`、残りが `mr_exists` という**混在した SKIPPED** になる。
 
 ### 後片付け
 
@@ -168,55 +171,69 @@ npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
 
 ## 期待する結果
 
-> 以下はシナリオ設計時点の**期待値**。実測による確定は T-197 で行い、食い違ったら
-> 「文書の誤りか実装のバグか」を切り分けてからこの節を更新する。
+**以下は 2026-09-11 に実機で測った値**（設計時の推測ではない）。4設定ユニット
+（`anchor-app` / `tenant2/client1` / `tenant2/client2` / `shared-app`）構成での実測。
 
 ### パス1: 通常更新
 
-- 終了コード **0**、`summary` の `ERROR` が 0
-- chartリポジトリ**1と2の両方**にブランチ `feature/yadokari/<unitPath>` とMRができる
-- `tenant2/client1` のMRには**2つのファイル**（`values.yaml` と `values-extra.yaml`）の
-  書き換えが載る
-- `sample-develop-client` はシードタグと最新タグが同じコミットを指すため、
-  「反映済みタグが追跡ブランチのHEADを指すなら更新しない」のルールで更新対象から外れる
-- MRタイトルは種別ごとの件数つき
-  （例: `Auto MR by yadokari: update tenant2/client1 (image tag 2, helm branch 2)`）
+- 終了コード **0**、`summary` が `{"CREATED":4,"SKIPPED":0,"ERROR":0}`
+- **ソースリポジトリにタグが1件自動作成される**。`shared-app` が `sample-qa-sprint` の
+  `develop` を追跡するが develop 由来のタグが無いため:
+  `{"event":"create_tag","projectName":"sample-qa-sprint","branch":"develop",`
+  `"tag":"develop-build-at-<日付>-<時刻>","reason":"no_tag_at_branch_head"}`。
+  2回目以降は作られたタグが再利用される
+- MRは4件。**chartリポジトリ1に3件、chartリポジトリ2に1件**と、プロジェクトをまたいで分かれる:
+
+| chart | MRタイトル                                                                 |
+| ----- | -------------------------------------------------------------------------- |
+| 1     | `Auto MR by yadokari: update anchor-app (image tag 1)`                     |
+| 1     | `Auto MR by yadokari: update tenant2/client1 (image tag 2, helm branch 2)` |
+| 1     | `Auto MR by yadokari: update tenant2/client2 (image tag 1)`                |
+| 2     | `Auto MR by yadokari: update shared-app (image tag 1)`                     |
+
+`tenant2/client1` だけ `image tag 2, helm branch 2` になるのが、**1つのappが複数の
+`valuesPath` に書き込む**シナリオが効いている証拠（`values.yaml` と `values-extra.yaml`）
+
+- `sample-develop-client` は `already_up_to_date` で更新対象から外れる
 - MR本文は2セクションのテーブル。「## イメージタグ」は
   `リポジトリ / 追跡ブランチ / ファイル / アンカー / 旧タグ / 新タグ / 比較 / パイプライン` の8列、
-  「## Helmの向き先ブランチ」は `旧ブランチ / 新ブランチ / ファイル / アンカー` の4列。
-  リンク先はすべて実在するタグ・パイプラインで、値が無いセルは `-`
+  「## Helmの向き先ブランチ」は `旧ブランチ / 新ブランチ / ファイル / アンカー` の4列
 
 ### パス2: 再実行
 
-- 終了コード **0**
-- `summary` が `{"CREATED":0,"SKIPPED":<全ユニット数>,"ERROR":0}`
-- 各ユニットのログの `reason` が `mr_exists`
-- **新しいMRもコミットも増えていない**
+- 終了コード **0**、`summary` が `{"CREATED":0,"SKIPPED":4,"ERROR":0}`
+- 4ユニットとも `reason` が `mr_exists`。新しいMRもコミットも増えない
 
 ### パス3: 部分失敗
 
-- 終了コード **1**
-- `summary` の `ERROR` が **1**、`CREATED` が残りのユニット数
-- ERRORになるのは `tenant2/client2` のみ。ログにアンカーが見つからない旨のメッセージが出る
-- **ERROR以外のユニットにはMRができている**（＝1件の失敗で全体が止まっていない）
+- 終了コード **1**、`summary` が `{"CREATED":3,"SKIPPED":0,"ERROR":1}`
+- `ERROR` は `tenant2/client2` のみ。メッセージは
+  `[アプリ: sample-qa-sprint] values.yaml にアンカー "t2c2QaSprintVersion" が見つかりません`
+  `(valuesPath: charts/smoke-tenant2/client2/values.yaml)`
+- **残り3ユニットにはMRができている**（1件の失敗で全体が止まっていない）。
+  これが「該当chartリポジトリだけERRORで処理継続」を実機で確かめられる唯一の経路
 
 ### パス4: 差分なし
 
-- 終了コード **0**
-- `summary` が `{"CREATED":0,"SKIPPED":<全ユニット数>,"ERROR":0}`
-- 各ユニットのログの `reason` が `no_diff`
+- 終了コード **0**、`summary` が `{"CREATED":0,"SKIPPED":4,"ERROR":0}`
+- マージしたユニット（`anchor-app`）だけ `reason` が **`no_diff`**、残り3件は `mr_exists`
 
 ## 繰り返し実行するときの注意
 
 - 固定ブランチにオープン中のMRが残っていると、その設定ユニットは `SKIPPED (mr_exists)` になる。
   パス1をやり直すときは必ず `reset` する
-- `setup` を省くと `values.yaml` が前回の実行結果のままなので `SKIPPED (no_diff)` になる
-  （パス4はこれを意図的に使う）
+- **`setup` を省いても `no_diff` にはならない。** このツールは `main` に書かず固定ブランチに
+  コミットするため、`reset` で固定ブランチを消すと `main` はシードのままに戻る。
+  `no_diff` を踏むにはMRをマージする（パス4）
 - `setup --broken-anchor` の後は**必ず `setup`（オプションなし）で戻す**。壊れた状態を
   残すと次の検証が成立しない
 - ソースリポジトリの追跡ブランチのHEADに一致するタグが無い場合、CLIがタグを新規作成する
-  （＝ソースリポジトリへの書き込みが発生する）。現在のスモークテスト用リポジトリは
-  HEADに一致するタグがあるため、通常は既存タグが再利用される
+  （＝ソースリポジトリへの書き込みが発生する）。`main` を追跡するappはHEADに一致するタグが
+  あるため既存タグが再利用されるが、**`shared-app` が追跡する `develop` にはタグが無いので
+  初回実行時に1件作られる**（2回目以降は再利用）
+- **`--apply` の直後にGitLabを読むと、まだ反映されていない古い結果が返ることがある。**
+  ブランチの作成・削除で実際に2回遭遇した。「消えていない」「作られていない」と判断する前に
+  数秒おいて引き直す
 - `smoke-fixture.ts` は事故防止のため projectId の明示を必須にしており、`--apply` を
   付けない限り何も変更しない。`reset` はchartリポジトリしか触らないので
   `SMOKE_CHART_PROJECT_ID`（と `SMOKE_CHART2_PROJECT_ID`）だけで実行できる
