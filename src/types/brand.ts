@@ -72,8 +72,6 @@ declare const localPathBrand: unique symbol
  * `config.yaml`など）。`readFileSync`・`existsSync`・`readdirSync`に渡る値が対象。
  * `ValuesPath`（GitLab上のchart内での相対パス）・`ConfigUnitPath`（識別子）とは別概念で、
  * これらが`join()`で同じ式に並ぶため取り違え防止でブランド型にしている。
- * `src/utils/`（`fs.ts`・`yaml.ts`）は技術・ファイル形式に特化した汎用ユーティリティで
- * ドメインの型を持たないため、そちらの引数は素の`string`のまま据え置く。
  */
 export type LocalPath = string & { readonly [localPathBrand]: never }
 export function toLocalPath(s: string): LocalPath {

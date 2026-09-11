@@ -108,7 +108,6 @@ export type ChartUpdateResult = "CREATED" | "SKIPPED" | "ERROR"
 
 export type RunResult = "SUCCESS" | "PARTIAL_FAILURE"
 
-/** GitLabへコミットする1ファイル分の更新内容 */
 export type FileUpdate = {
   readonly valuesPath: ValuesPath
   readonly content: string

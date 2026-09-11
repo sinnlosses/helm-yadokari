@@ -14,7 +14,7 @@ export function buildFeatureBranch(unitPath: ConfigUnitPath): BranchName {
 
 /**
  * このツールが作った固定ブランチかどうか。GitLab上のブランチ・MRの一覧から自分が作った
- * ものだけを選ぶ用途（`scripts/smoke/`の後片付け）で使う。
+ * ものだけを選び出す用途で使う。
  */
 export function isFeatureBranch(branchName: string): boolean {
   return branchName.startsWith(FEATURE_BRANCH_PREFIX)
