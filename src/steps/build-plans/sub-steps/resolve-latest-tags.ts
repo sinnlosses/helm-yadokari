@@ -57,10 +57,8 @@ export function createResolveLatestTags(gitlab: GitlabClient, dryRun: boolean): 
 }
 
 /**
- * 1アプリ分の、追跡ブランチ由来の最新タグを判定する。追跡ブランチの現在のHEADコミットを指すタグが
- * 1件も無い場合は、このツール自身がHEADコミットに新しいタグを作成し、それを最新タグとして
- * 扱う（dryRun のときは実際の作成はスキップし、作成予定のタグ名だけを使う）。タグ形式は
- * `app.tagFormat`（`registry.yaml`の`appSpecs[].tagFormat`由来）に従う。
+ * 1アプリ分の、追跡ブランチ由来の最新タグを判定する。タグ形式は`app.tagFormat`
+ * （`registry.yaml`の`appSpecs[].tagFormat`由来）に従う。
  *
  * このツールの目的は「追跡ブランチの最新コミットの中身をデプロイさせること」なので、
  * 「タグ名が最も新しいものを選んでからHEADと比較する」のではなく、**HEADを指すタグを
@@ -72,10 +70,7 @@ export function createResolveLatestTags(gitlab: GitlabClient, dryRun: boolean): 
  * 追跡先が変わったことは名前から読み取れる。「切り替えを明示するため」だけに新しいタグを
  * 作る必要はない。
  *
- * あわせて`trackedHeadTagNames`（values.yamlの現在値が追跡ブランチのHEADを指すタグかどうかの
- * 判定に使う集合）を返す。現在値がこの集合に含まれるなら、より新しい名前のタグがあっても
- * 更新しないため。切り替え前のタグ名は現在の`branch`ではパースできずこの集合に入らないので、
- * 切り替え時は同じコミットを指していても更新される（判定は`stage-image-tag-updates.ts`側）。
+ * あわせて`trackedHeadTagNames`を返す（意味は`LatestTagResolution`のJSDoc参照）。
  */
 async function resolveLatestTag(
   gitlab: GitlabClient,

@@ -26,12 +26,6 @@ export type ValuesYamlSource = {
  * values.yamlの現在値を下書き優先で取り出す。下書きに無いときだけGitLabから読むため、
  * 同じchartAndApps内の別アプリが既に書き換えた内容がそのまま次のアプリへ引き継がれる。
  * 渡した下書きは変更せず、読み込み結果を載せた新しい下書きを返す。
- *
- * GitLabからの読み込みはバッチ全体で共有するキャッシュ（`GitlabBatchCache`）を通す。同じchart
- * ディレクトリ配下の複数の設定ユニットが同じ`valuesPath`を指す構成（`docs/requirements.md` 4.2節の
- * 既知の制限）でも、読み込みは1回で済む。**共有されるのはGitLab上の元の内容だけ**で、
- * 書き換え後の内容は`writeValuesYamlDraft()`がchartAndApps単位の下書きにしか積まないため、
- * 別の設定ユニットへ漏れることはない。
  */
 export async function readValuesYamlDraft(
   source: ValuesYamlSource,
@@ -75,10 +69,7 @@ export function toFileUpdates(draft: ValuesYamlDraft): readonly FileUpdate[] {
     .map(([valuesPath, entry]) => ({ valuesPath, content: entry.content }))
 }
 
-/**
- * GitLabから読んだ内容を書き換え扱いせずに積んだ新しい下書きを返す。`modified`なエントリが
- * `writeValuesYamlDraft()`経由でしか生まれないことを、読み込み用の入口を分けることで保っている。
- */
+/** GitLabから読んだ内容を書き換え扱いせずに積んだ新しい下書きを返す */
 function cacheValuesYamlDraft(
   draft: ValuesYamlDraft,
   valuesPath: ValuesPath,

@@ -52,14 +52,9 @@ export async function buildPlans(
 
 /**
  * 1つのchartAndAppsの更新計画を組み立て、結果を振り分ける（このstepの並列処理1件分）。
- * アプリ・書き込み先のループはいずれもサブステップの内側にあるため、ここはサブステップを
- * 順に呼んで下書き（`ValuesYamlDraft`）を受け渡すだけになっている。
  *
  * 向き先ブランチは設定ユニット内のapps全体で共通なので、全アプリのイメージタグを積んだ後の
  * 下書きに重ねる。こうすることで同じvalues.yamlへの書き換えが失われない。
- *
- * 差分があったアプリが1件も無ければSKIPPED、dryRunならMRを作らないのでこれもSKIPPEDとして
- * 振り分ける。
  */
 async function buildPlan(
   gitlabCache: GitlabBatchCache,

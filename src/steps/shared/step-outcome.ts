@@ -10,15 +10,9 @@ import type {
 import { FatalError, toErrorMessage } from "../../utils/errors.js"
 import { logger } from "../../utils/logger.js"
 
-// 3つのstep（filter-targets / build-plans / apply-updates）が共通で使う、
-// 「chartAndApps 1件の処理結果をどう記録し、失敗をどう扱うか」を置く。
-
 /**
  * chartAndApps 1件分の処理結果ログに共通で載せる識別情報。3つのstepが`withHandling()`から
  * 受け取り、自分の`result`/`reason`を足してログに出す。
- *
- * `types/types.ts`ではなくここに置くのは、これがドメイン語彙ではなく「3つのstepが共有する
- * ログの形」だから（`docs/architecture.md`「型の置き場所」の表4行目）。
  */
 export type ChartUpdateLogContext = {
   readonly event: "update_chart"
@@ -41,21 +35,17 @@ export function settle<T>(result: ChartUpdateResult): StepOutcome<T> {
 }
 
 /**
- * アプリ単位の処理を実行し、投げられた例外に「どのアプリで起きたか」を付けて投げ直す。
- * chartAndAppsの中でアプリ1件ぶんの処理を切り出している箇所（`build-plans`のアプリのループ、
- * `apply-updates`のplanごとのURL・パイプライン解決）を包む。
- * fatalかどうかの判断は`rethrowWithAppContext()`（延いては`settleAsError()`）に委ねるため、
- * ここは失敗を拾って渡すだけでよい。
+ * アプリ単位の処理を実行し、非fatalな例外に「どのアプリで起きたか」を付けて投げ直す。
+ * 致命的エラーはそのまま投げる（アプリ名を付けない）。
  */
 export function withAppContext<T>(projectName: ProjectName, fn: () => Promise<T>): Promise<T> {
   return fn().catch((err: unknown) => rethrowWithAppContext(err, projectName))
 }
 
 /**
- * chartAndApps単位の並列処理1件分を実行する高階関数。`buildLogContext()`の呼び出しと
- * 失敗の捕捉をここ1箇所に閉じ込め、3つのstepのcatch節を無くす。捕捉した例外は
- * `settleAsError()`に渡すため、fatalなら`FatalError`として投げ直され（実行全体が
- * 止まる）、それ以外は`ERROR`のsettled outcomeになる。
+ * chartAndApps単位の並列処理1件分を実行する高階関数。捕捉した例外はこのツールのエラー方針に
+ * 従って処理され、fatalなら`FatalError`として投げ直され（実行全体が止まる）、それ以外は
+ * `ERROR`のsettled outcomeになる。
  *
  * 各stepでは`mapWithConcurrency()`の直下で呼び、「並列に実行する」ことと「1件ずつ失敗を
  * 封じ込める」ことがstepの入口に並んで見えるようにしている。
@@ -103,8 +93,7 @@ function settleAsError(err: unknown, logContext: ChartUpdateLogContext): "ERROR"
 }
 
 /**
- * chartAndApps 1件分の処理結果ログに共通で載せる識別情報。3つのstepすべてが
- * 同じキー・同じ値で出力するよう、ここ1箇所で組み立てる。
+ * 3つのstepすべてが同じキー・同じ値で出力するよう、ここ1箇所で組み立てる。
  */
 function buildLogContext(chartAndApps: ChartAndApps): ChartUpdateLogContext {
   return {
