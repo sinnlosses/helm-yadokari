@@ -814,10 +814,11 @@ projectIdが本番実行時にはじめて`ERROR`になっていた。
 
 **正典を先に更新し、実装・テスト・実 `config/`・`README.md` は後から追随させる**
 （`tagFormat` の置き場所を変えたときと同じ順序）。正典の書き換えでは旧名を残さず現在の名前に
-統一する。`docs/glossary.md` の「`registry.yaml` / `config.yaml`」の項は経緯を長く持つが、
-経緯側も現在の名前で書く（今も存在するファイルなので、読者がリポジトリと突き合わせられる
-ほうを優先する）。`apps.yaml`・`anchors.yaml`・`chart-targets.yaml` のように既に廃止されて
-対応物が無い名前だけ、当時の名前のまま残す。`docs/requirements-grilling.md` は書き換えない
+統一する。経緯を書く場所はこのファイルと `docs/history/` で、`docs/glossary.md` は今の姿だけを
+載せる（用語集は経緯を持たない）。このファイルで経緯を書くときも、今も存在するファイルは
+現在の名前で書く（読者がリポジトリと突き合わせられるほうを優先する）。`apps.yaml`・
+`anchors.yaml`・`chart-targets.yaml` のように既に廃止されて対応物が無い名前だけ、当時の
+名前のまま残す。`docs/requirements-grilling.md` は書き換えない
 （要件検討時のQ&Aログで、`docs/history/` と同じく当時の記述をそのまま残す扱い。
 `/maintain-docs` の対象からも外してある）。
 

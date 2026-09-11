@@ -1,14 +1,26 @@
 # 現在の状態
 
-最終更新: 2026-09-12（`/plan-tasks` で **T-198〜T-200 を登録**。`docs/glossary.md` の整理と
-ドメイン用語の命名見直し。未着手3件。2026-09-11のセッションの記録は下の「完了したこと」、
-2026-09-09以前の記録は [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
+最終更新: 2026-09-12（`/plan-tasks` で **T-198〜T-200 を登録**し、**T-198 を完了**。
+`docs/glossary.md` の整理とドメイン用語の命名見直し。未着手2件。2026-09-11のセッションの記録も
+下の「完了したこと」、2026-09-09以前の記録は
+[`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは3件**（T-198 → T-199 → T-200 の一直線）。完了タスクは
+**未着手のタスクは2件**（T-199 → T-200 の一直線）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-12 `docs/glossary.md` の整理
+
+- **T-198**: 用語集から経緯を切り離した（312行→283行、30.4KB→24.6KB）。旧称・撤回案・
+  バグ修正の記録を7項から消し、「今の形の理由」に当たる3件（HEADを指すタグを直接探す／
+  切り替え時に新タグを作らない／固定ブランチを削除して作り直す）は `docs/requirements.md`
+  4.1・4.2節に既にあったため `docs/architecture.md` への移設は0件。用語集冒頭に
+  「各エントリは今の姿だけを書く」の方針を足し、`docs/architecture.md` の「用語集は経緯を
+  長く持つ」の文を「用語集は経緯を持たない」に改めた。20KB以上のままなので通読ガードは維持
+  （`CLAUDE.md` と冒頭の「25KB超」を「20KB超」に）。maintain-docs の検査1〜7は増減なし。
+  `pnpm check` 通過: 385 Tests。**受け入れで見つかった範囲外の指摘**を「未解決」に残した
 
 ### 2026-09-11 `src/lib/config/config.ts` の分割
 
@@ -140,11 +152,8 @@
 
 ## 次にやること
 
-**未着手は T-198 → T-199 → T-200 の3件**（`docs/glossary.md` の整理、登録は 2026-09-12）:
+**未着手は T-199 → T-200 の2件**（`docs/glossary.md` の整理、登録は 2026-09-12。T-198 は完了）:
 
-- **T-198**（`opus`、`/loop` 可）: 用語集から解消済みの経緯を切り離す。消す/`docs/architecture.md`
-  へ移すの基準はタスク本文の (a)(b)(c)。`docs/architecture.md` の「用語集は経緯を長く持つ」の文と
-  `CLAUDE.md` の「25KB超」も追随させる
 - **T-199**（`sonnet`、`/loop` 可）: `src/types/` と `schema.ts`・`env.ts` から用語を洗い出し、
   不足を埋める。命名の良し悪しは判断せず evidence に列挙して T-200 へ渡す
 - **T-200**（`opus`、**委譲しない・`/loop` に載せない**）: 命名の見直し。ユーザーと採否を決め、
@@ -173,6 +182,12 @@ GitLab上に無い状態で設定だけ先にコミットすると落ちる。T-
 - 新しい指示は `develop/direction.md` に書き、`/plan-tasks` でタスク化する
 
 ## 未解決
+
+- **`docs/architecture.md` の `src/steps/` 責務表（`resolve-latest-tags.ts` の行）が
+  「追跡ブランチを切り替えた場合はタグを自動作成」と書いている**が、現在のコードと
+  `docs/requirements.md` 4.1節は「切り替え先のHEADを指すタグがあれば再利用し、新しいタグは
+  作らない」。T-198 の受け入れで見つかった範囲外の食い違い（2026-09-12）。`/maintain-docs` か
+  次にその表を触るタスクで直す
 
 - **T-176（`outcome` を `result` に改名する件）は着手しない判断**（ユーザー判断、2026-09-10）。
   `tasks.json` では `status: done` / `passes: false` で閉じてあり、**正典（`docs/architecture.md`）は
