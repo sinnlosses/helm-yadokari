@@ -1,17 +1,29 @@
 # 現在の状態
 
-最終更新: 2026-09-12（`/plan-tasks` で **T-198〜T-200 を登録**し、**T-198・T-199 を完了**。
-`docs/glossary.md` の整理とドメイン用語の命名見直し。未着手は T-200 の1件（**委譲しない**）。
+最終更新: 2026-09-12（**T-198〜T-200 を完了**し、命名の見直しで決まった改名1件を
+**T-201 として登録**。`docs/glossary.md` の整理はこれで一段落。未着手は T-201 の1件。
 2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは1件**（T-200。ユーザーの採否が要るため委譲せず、`/loop` にも載せない）。完了タスクは
+**未着手のタスクは1件**（T-201。`AnchorTarget` の改名、`haiku`、`/loop` 可）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 `docs/glossary.md` の整理
+
+- **T-200**: 命名の論点6件にユーザー判断で結論を出した。**改名は `AnchorTarget`→`AnchorLocation`
+  の1件だけ**（T-201 として登録）。`target` が既に「MRのベース」「向き先」「処理対象」の3義で
+  使われており、「書き込み位置」が4つ目の意味になっていたため。**据え置き5件**は
+  `branchToSync` の同名別義・`target` の多義5種・`previousBranch` の `Name` 無し・
+  `ChartRepoConfig` と `chartToUpdate` の語幹違い・`TagInfo` と `ParsedTag` の非対称で、
+  **いずれも `docs/architecture.md`「型と命名」の既存規約が既に答えを持っていた**
+  （`previousBranch` は規約が名指しで除外例に挙げている）。理由は用語集の該当項に書いた。
+  「反映」「適用」「更新」は `values.yaml` 側に一本化し、クラスタ側は「デプロイ」と書くと決めて
+  `CLAUDE.md`・`docs/requirements.md` の2箇所を直した（2.2節が元から「デプロイ」で前例があった）。
+  用語集冒頭の方針「表記ゆれは注記するだけ」も「改名か据え置きかを決めて理由を書く」に改めた。
+  `pnpm check` 通過: 385 Tests
 
 - **T-199**: `src/types/types.ts`（10型）・`brand.ts`（13型）・`schema.ts` のYAMLキー・`env.ts` の
   環境変数・`docs/requirements.md`「3. 用語」から候補を列挙し、用語集に7項を足した
@@ -34,10 +46,12 @@
 
 ## 次にやること
 
-**未着手は T-200 の1件**（`docs/glossary.md` の整理、登録は 2026-09-12。T-198・T-199 は完了）:
+**未着手は T-201 の1件**（T-198〜T-200 は完了）:
 
-- **T-200**（`opus`、**委譲しない・`/loop` に載せない**）: 命名の見直し。ユーザーと採否を決め、
-  採用した改名だけを個別タスクとして登録する。このタスク自身はコードを変えない
+- **T-201**（`haiku`、`/loop` 可）: `AnchorTarget` → `AnchorLocation` の改名。
+  正典（`docs/glossary.md`）は T-200 で新名に書き換え済みで、コードと `docs/architecture.md` を
+  それに追随させる。フィールド名 `target`/`targets`/`imageTagTargets` は据え置きなので変えない。
+  波及は26件/8ファイル（src 14・docs 9・test 0）
 
 T-172〜T-197 はすべて `done`（T-183〜T-192 は `docs/history/tasks-archive.md` へアーカイブ済みで、
 `develop/tasks.json` からは消えている）。

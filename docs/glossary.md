@@ -6,7 +6,7 @@
 
 - ここに載っているのは*業務ドメイン用語*のみ。`lib/`/`steps/`/`utils/`の配置基準や`settled`/`toApply`のようなパイプライン内部の制御語彙は対象外（`docs/architecture.md`を参照）
 - **各エントリは今の姿だけを書く。** もう使っていない名前・採らなかった案・直したあとの不具合といった経緯は載せない（設計判断の経緯は`docs/architecture.md`、当時の記録は`docs/history/`が正典）。今の挙動の制約・前提は経緯ではないのでここに書く
-- 表記ゆれが見つかったものは、統一・修正はせず「現状こう呼ばれている」という事実だけを各エントリに注記する
+- 表記ゆれが見つかったものは、**改名するか据え置くかを決めて結論を書く**。据え置いたものは「現状こう呼ばれている」という事実に加えて、据え置いた理由も各エントリに残す（理由が無いと、読むたびに同じ検討をやり直すことになる）
 - 対応する英語識別子が無い用語も、`docs/requirements.md`・`README.md`・`docs/architecture.md`で使われている日本語の業務用語であれば載せる（その場合は英語識別子欄を省略する）
 
 ## このファイルの読み方
@@ -25,14 +25,14 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### 用語の索引
 
-| 節                          | 収録している用語                                                                                                                                                                                                                                                                                                    |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ## 設定・登録関連           | アプリ / ソースリポジトリ / chartリポジトリ・chartAndApps / 設定ユニット（ConfigUnitPath） / registry.yaml・config.yaml / chartToUpdate・appSpecs / valuesPath / anchor（chart[].anchor）・AnchorName / AnchorTarget / Helmの向き先ブランチ / helm.chart[].anchor / chartDirName / セルフサービス方式・自己申告方式 |
-| ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / ParsedTag（TagName） / TagInfo / 打刻日時・ビルド日時 / 最新タグ / 反映済みタグ / タグ自動作成                                                                                                                                                                              |
-| ## MR・GitLab操作関連       | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング / Group Access Token                                                                                                                                                                                                                     |
-| ## 実行結果・処理単位関連   | 更新計画 / ImageTagUpdate / HelmTargetBranchUpdate / chartAndApps更新対象 / chartAndApps処理結果 / 実行結果                                                                                                                                                                                                         |
-| ## 実行環境・運用関連       | Dry-runモード / TARGET_CHART・TARGET_UNITS / GitLab CI pipeline schedules・スケジュールパイプライン / renovateジョブ                                                                                                                                                                                                |
-| ## その他の注記             | 「反映」「適用」「更新」の使い分け / gitlab-watari-dori                                                                                                                                                                                                                                                             |
+| 節                          | 収録している用語                                                                                                                                                                                                                                                                                                      |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ## 設定・登録関連           | アプリ / ソースリポジトリ / chartリポジトリ・chartAndApps / 設定ユニット（ConfigUnitPath） / registry.yaml・config.yaml / chartToUpdate・appSpecs / valuesPath / anchor（chart[].anchor）・AnchorName / AnchorLocation / Helmの向き先ブランチ / helm.chart[].anchor / chartDirName / セルフサービス方式・自己申告方式 |
+| ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / ParsedTag（TagName） / TagInfo / 打刻日時・ビルド日時 / 最新タグ / 反映済みタグ / タグ自動作成                                                                                                                                                                                |
+| ## MR・GitLab操作関連       | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング / Group Access Token                                                                                                                                                                                                                       |
+| ## 実行結果・処理単位関連   | 更新計画 / ImageTagUpdate / HelmTargetBranchUpdate / chartAndApps更新対象 / chartAndApps処理結果 / 実行結果                                                                                                                                                                                                           |
+| ## 実行環境・運用関連       | Dry-runモード / TARGET_CHART・TARGET_UNITS / GitLab CI pipeline schedules・スケジュールパイプライン / renovateジョブ                                                                                                                                                                                                  |
+| ## その他の注記             | 「target」の意味は文脈で決まる / 「反映」「適用」「更新」の使い分け / gitlab-watari-dori                                                                                                                                                                                                                              |
 
 ## 設定・登録関連
 
@@ -83,21 +83,26 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   - `chartToUpdate`: `projectId`・`projectName`・`mrTargetBranch`の3フィールドを持つ、chartリポジトリ共通の設定（`ChartAndApps.chart`フィールドの値になる）。
   - `appSpecs`: `projectId`・`projectName`・`tagFormat`の3フィールドを持つ配列要素。ソースリポジトリごとのタグ形式の台帳で、`projectId`をキーに`config.yaml`側の`apps[]`と結合する。
 - **`registry.yaml`との関係**: 両ファイルの紐づけの検証（`resolveProjectLinkage()`）や、`appSpecs[]`にだけあってどの設定ユニットからも参照されないappを許容する挙動は「registry.yaml / config.yaml」の項を参照。
+- **YAMLキー`chartToUpdate`と型名`ChartRepoConfig`で語幹が違う理由**: `docs/architecture.md`
+  「`config/`は「スコープ」で2ファイルに分け、変更頻度では分けない」が、型名のうちドメイン語彙に
+  当たるものはYAMLのキー名に追随させないと決めている。キーが`chartToUpdate`になっても、型が
+  表すものは「chartリポジトリの設定」のままなので`ChartRepoConfig`を据え置く。
 
 ### valuesPath
 
 - **英語識別子**: `valuesPath`
 - **定義**: `config.yaml`内で、対象アプリが参照する`values.yaml`ファイルのパスを指すフィールド。
 
-### AnchorTarget
+### AnchorLocation
 
-- **英語識別子**: `AnchorTarget`（`valuesPath`・`anchorName`の2フィールドを持つ型）
-- **定義**: `values.yaml`内の書き込み位置1箇所分を表す型。`apps[].chart[]`（イメージタグの書き込み先）と`helm.chart[]`（Helmの向き先ブランチの書き込み先）の両方がこの型を共有する（スキーマ側も`AnchorTargetSchema`を共有している）。各フィールドの意味は「valuesPath」「anchor（chart[].anchor）」の各項を参照。
+- **英語識別子**: `AnchorLocation`（`valuesPath`・`anchorName`の2フィールドを持つ型）
+- **定義**: `values.yaml`内の書き込み位置1箇所分を表す型。`apps[].chart[]`（イメージタグの書き込み先）と`helm.chart[]`（Helmの向き先ブランチの書き込み先）の両方がこの型を共有する（スキーマ側も`AnchorLocationSchema`を共有している）。各フィールドの意味は「valuesPath」「anchor（chart[].anchor）」の各項を参照。
+- **`Anchor`と`Location`の両方を名前に持つ理由**: `Location`が「1箇所分の位置」という役割を、`Anchor`が「その位置をYAMLアンカーで指す」という手段を担う。手段を落とすと`src/lib/helm.ts`の`lookupValueAtAnchor()`/`setValueAtAnchor()`と語が繋がらなくなる。
 
 ### anchor（chart[].anchor）
 
-- **英語識別子**: `anchorName`（型は`AnchorName`ブランド型、`AnchorTarget`のフィールド）。ただし
-  `config.yaml`上のYAMLキー名は`anchor`のままで、`AnchorTargetSchema`（`src/lib/config/schema.ts`）
+- **英語識別子**: `anchorName`（型は`AnchorName`ブランド型、`AnchorLocation`のフィールド）。ただし
+  `config.yaml`上のYAMLキー名は`anchor`のままで、`AnchorLocationSchema`（`src/lib/config/schema.ts`）
   の`.transform()`がキー`anchor`をフィールド`anchorName`に詰め替える
 - **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`config.yaml`の
   `apps[].chart`配列の1要素が持つフィールド名。`variables: [&myAppVersion main, ...]`
@@ -122,9 +127,12 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   上記2ブランチ構成である以上、設定ユニットごとに1件書くのが常態なので`helm`は**必須**
   （省略は設定エラー）。更新したくない設定ユニットは現在の値と同じブランチ名を書けば差分が
   出ないので更新されない。
-- **表記ゆれ**: config.yaml上のフィールド名は`helm.branchToSync`だが、これは`AppConfig.branchToSync`
+- **表記ゆれ（据え置き）**: config.yaml上のフィールド名は`helm.branchToSync`だが、これは`AppConfig.branchToSync`
   （追跡ブランチ、ソースリポジトリ側の別概念）とは無関係。同じフィールド名が異なる2つの意味で
-  使われている点に注意。
+  使われている点に注意。**改名せず据え置くと決めている**（ユーザー判断）。コード側は
+  `HelmTargetBranchConfig.branchName`と`AppConfig.branchToSync`で既に名前が分かれており、
+  同名なのはYAMLキーだけ。YAMLキーは各チームが書く外部インターフェースなので、読み違いが
+  実際に起きるまでは動かさない。
 - **HelmTargetBranchConfig**: `branchName`（向き先ブランチ名。`helm.branchToSync`由来）と
   `targets`（書き込み先の`valuesPath`＋`anchorName`の一覧。`helm.chart[]`のうち、設定ユニット内の
   いずれかのappが実際に書き込む`valuesPath`を指す要素だけになる。空もありうる）の2フィールドを
@@ -132,8 +140,8 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### helm.chart\[\].anchor
 
-- **英語識別子**: `anchorName`（型は`AnchorName`ブランド型、`AnchorTarget`のフィールド）。YAMLキー名は
-  `anchor`のままで、`apps[].chart[].anchor`と同じ`AnchorTargetSchema`がキー`anchor`から
+- **英語識別子**: `anchorName`（型は`AnchorName`ブランド型、`AnchorLocation`のフィールド）。YAMLキー名は
+  `anchor`のままで、`apps[].chart[].anchor`と同じ`AnchorLocationSchema`がキー`anchor`から
   フィールド`anchorName`への詰め替えを担う
 - **定義**: 「Helmの向き先ブランチ」の値を`valuesPath`のどこに書き込むかを指す、
   `config.yaml`トップレベル`helm.chart`配列の各要素が持つフィールド。`apps[].chart[].anchor`と
@@ -186,6 +194,10 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 - **英語識別子**: `TagInfo`（`name: TagName`・`commitSha: CommitSha`の2フィールド）
 - **定義**: GitLab上のタグ1件分の情報。名前とそのタグが指すコミットのSHAを持つ。`listTags()`が返す。
+- **`ParsedTag`と型名の付け方が非対称な理由**: `TagInfo`はGitLab APIが返した生のタグ情報、
+  `ParsedTag`はそれを`tagFormat`で解釈した結果で、持っている情報も出どころも別物。
+  接尾辞（`〜Info`）と接頭辞（`Parsed〜`）が揃っていないこと自体が、この2つを取り違えないための
+  情報になっているため据え置く。
 
 ### 打刻日時 / ビルド日時
 
@@ -207,7 +219,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### 反映済みタグ
 
 - **英語識別子**: `previousTagName`（型は`TagName`ブランド型、`ImageTagUpdate`のフィールド）
-- **定義**: `values.yaml`に現在書かれているタグ。`AppConfig.imageTagTargets`の書き換え箇所（`AnchorTarget`）ごとに
+- **定義**: `values.yaml`に現在書かれているタグ。`AppConfig.imageTagTargets`の書き換え箇所（`AnchorLocation`）ごとに
   独立して読み取るため、1つのソースリポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を
   管理している場合、同一アプリ内でも箇所によって異なりうる（`AppUpdatePlan.updates[].previousTagName`）。
 - **更新しない例外**: 反映済みタグが現在の追跡ブランチのHEADコミットを指している場合は、
@@ -265,17 +277,26 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### ImageTagUpdate
 
-- **英語識別子**: `ImageTagUpdate`（`target: AnchorTarget`・`previousTagName: TagName`の2フィールド）
+- **英語識別子**: `ImageTagUpdate`（`target: AnchorLocation`・`previousTagName: TagName`の2フィールド）
 - **定義**: `AppConfig.imageTagTargets`のうち1箇所分の更新内容。`previousTagName`（反映済みタグ。
   詳細は「反映済みタグ」の項）は書き換え箇所（`target`）ごとに独立して読み取る。`AppUpdatePlan.updates`
   の要素になる。
+- **`target`という短いフィールド名を据え置く理由**: `docs/architecture.md`「1つの語を2つの意味に
+  使わない」が「包含する型名が用途を与えている場合は短い名前のままでよい」としている。
+  `ImageTagUpdate.target`は型名が「イメージタグの更新」という用途を与えているため、
+  `AnchorLocation`という型の語を繰り返さない。`HelmTargetBranchUpdate.target`も同じ。
 
 ### HelmTargetBranchUpdate
 
-- **英語識別子**: `HelmTargetBranchUpdate`（`target: AnchorTarget`・`previousBranch: BranchName`・
+- **英語識別子**: `HelmTargetBranchUpdate`（`target: AnchorLocation`・`previousBranch: BranchName`・
   `newBranch: BranchName`の3フィールド）
 - **定義**: Helmの向き先ブランチのうち1箇所分の更新内容。`previousBranch`は`values.yaml`側の現在値、
   `newBranch`は`config.yaml`の設定値。`ChartUpdateTarget.helmTargetBranchUpdates`の要素になる。
+- **`BranchName`型なのに`Name`が付かない理由**: `docs/architecture.md`「型定義のフィールド名は、
+  ブランド型が表している語（`Name`など）を落とさない」が、修飾語が「どれか」を担っている
+  フィールドを除外例として`previousBranch`を名指ししている。`previous`/`new`が既に
+  「どちらのブランチか」を語っているため、`Name`を足しても名前が伸びるだけになる。
+  `ImageTagUpdate.previousTagName`に`Name`が付いているのとの不揃いは、この基準による。
 
 ### chartAndApps更新対象
 
@@ -325,14 +346,31 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ## その他の注記
 
+### 「target」の意味は文脈で決まる
+
+`target`という語は次の5つの意味で使われている。**いずれも改名せず据え置くと決めている**
+（ユーザー判断）。1語を1意味に絞るより、包含する型名・キー名が用途を与えているほうを優先する。
+
+| 使われ方                        | 意味                   | 据え置く理由                                                              |
+| ------------------------------- | ---------------------- | ------------------------------------------------------------------------- |
+| `mrTargetBranch`                | MRのベースブランチ     | GitLabがMRのベースブランチを指して使う語そのもの。独自の言い換えはしない  |
+| `helmTargetBranch`              | Helmの向き先ブランチ   | 「向き先」を表す語で、包含する`helm`が主語を与えている                    |
+| `ChartUpdateTarget`             | 更新対象のchartAndApps | 「対象」の意味。`TARGET_CHART`・`filterTargets`と同じ使い方で一貫している |
+| `TARGET_CHART` / `TARGET_UNITS` | 処理対象の絞り込み     | 同上                                                                      |
+| `filterTargets()`               | 処理対象の絞り込み     | 同上                                                                      |
+
+**書き込み位置1箇所分を表す型だけは`target`を使わず`AnchorLocation`と呼ぶ。** 上の
+「ベースブランチ」「向き先」「対象」のどれとも違う意味になるため。
+
 ### 「反映」「適用」「更新」の使い分け
 
-これら3つの動詞はドキュメント内で厳密に使い分けられておらず、混在している。特に「反映」は次の2つの異なる意味で使われている:
+**これら3つの動詞はいずれも、`values.yaml`への書き込み（このツールのスコープ内）を指す。**
+3語の間に厳密な使い分けは無く、混在していてよい。コード上は`applyUpdates()`/`apply-updates.ts`/
+`toApply`のように「適用」に対応する英語`apply`が使われている。
 
-- クラスタへの`helm upgrade`実行（このツールのスコープ**外**）
-- `values.yaml`への書き込み（このツールのスコープ**内**）
-
-コード上は`applyUpdates()`/`apply-updates.ts`/`toApply`のように「適用」に対応する英語`apply`が使われている。読む際は、その「反映」がクラスタ反映を指すのか`values.yaml`反映を指すのか、文脈で判断する必要がある。
+**クラスタ側は「デプロイ」と書き、「反映」とは書かない。** `helm upgrade`の実行はこのツールの
+スコープ**外**で（`docs/requirements.md` 2.2節）、同じ語を内外に使うと読者がどちらの話か
+判断できなくなるため。
 
 ### gitlab-watari-dori
 

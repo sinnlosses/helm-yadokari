@@ -8,7 +8,7 @@
 
 Helm chart でバージョン管理されているアプリケーションのイメージタグを、GitLab のタグから
 自動で最新に更新・メンテナンスするCLIツール。GitLab CI の pipeline schedules から定期実行し、
-chart リポジトリ単位で1つの Merge Request を作成する。クラスタへの直接反映（`helm upgrade`）は
+chart リポジトリ単位で1つの Merge Request を作成する。クラスタへの直接デプロイ（`helm upgrade`）は
 行わない。詳細な要件・検討経緯は [`docs/requirements.md`](./docs/requirements.md) と
 [`docs/requirements-grilling.md`](./docs/requirements-grilling.md) を参照。
 
