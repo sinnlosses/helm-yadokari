@@ -1,3 +1,5 @@
+import { parseArgs } from "node:util"
+
 import { isFeatureBranch } from "../../src/domain/feature-branch.js"
 import { findLatestParsedTag, parseTag, validateTagFormat } from "../../src/domain/tag-format.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
@@ -65,14 +67,40 @@ function optionalProjectId(envVarName: string): number | undefined {
   return projectId
 }
 
-const [command] = process.argv.slice(2)
-const apply = process.argv.includes("--apply")
-const brokenAnchor = process.argv.includes("--broken-anchor")
+const USAGE = "usage: tsx scripts/smoke/smoke-fixture.ts <setup|reset> [--apply] [--broken-anchor]"
+
+/**
+ * typoしたフラグ（例: `--brokn-anchor`）を黙って無視せず即終了させるため`strict: true`にする。
+ * `parseArgs`のエラーはどのフラグが不正かを伝える唯一の情報なので、このファイルの
+ * `smoke-fixture ERROR:`書式に載せたうえでusageを添える。
+ */
+function parseCliArgs(argv: readonly string[]): {
+  readonly command: string | undefined
+  readonly apply: boolean
+  readonly brokenAnchor: boolean
+} {
+  try {
+    const { values, positionals } = parseArgs({
+      args: [...argv],
+      options: {
+        apply: { type: "boolean", default: false },
+        "broken-anchor": { type: "boolean", default: false },
+      },
+      allowPositionals: true,
+      strict: true,
+    })
+    return { command: positionals[0], apply: values.apply, brokenAnchor: values["broken-anchor"] }
+  } catch (err) {
+    console.error(`smoke-fixture ERROR: 引数が不正です（${toErrorMessage(err)}）`)
+    console.error(USAGE)
+    process.exit(1)
+  }
+}
+
+const { command, apply, brokenAnchor } = parseCliArgs(process.argv.slice(2))
 
 if (command !== "setup" && command !== "reset") {
-  console.error(
-    "usage: tsx scripts/smoke/smoke-fixture.ts <setup|reset> [--apply] [--broken-anchor]",
-  )
+  console.error(USAGE)
   process.exit(1)
 }
 if (brokenAnchor && command !== "setup") {

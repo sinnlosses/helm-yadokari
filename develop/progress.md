@@ -7,11 +7,25 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
 2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは1件**（T-213）。完了タスクは
+**未着手のタスクは0件**（登録済みのタスクはすべて `done`）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-12 scripts/ の引数パース
+
+- **T-213**: `scripts/smoke/smoke-fixture.ts`・`scripts/lint/validate-config.ts` の引数パースを
+  `node:util` の `parseArgs`（`strict: true` + `allowPositionals: true`）に置き換えた。
+  **外部依存は1つも増やしていない**（Node 22.13+ の標準）。動機は
+  `--brokn-anchor` のようなtypoが黙って無視され、`docs/smoke-test.md:145` のシナリオ2が
+  **何も壊さないまま「期待どおり」に見える**こと。`configRootPath` は位置引数のまま維持し、
+  `README.md`・`.gitlab-ci.yml`・`docs/smoke-test.md` の呼び出しは無変更。
+  受け入れで2点直した: **戻り値のインライン型に `readonly` が抜けていた**
+  （`src/utils/partition.ts`・`src/lib/config/find-config-units.ts` が前例）のと、
+  smoke-fixture 側が英語エラーを握りつぶして usage だけ出しており**どのフラグを間違えたか
+  分からなかった**ので、同ファイルの `smoke-fixture ERROR:` 書式（336行目と同じ）に揃えた。
+  `pnpm check` 通過: 386 Tests
 
 ### 2026-09-12 README.md の精査
 
@@ -185,15 +199,14 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
 
 ## 次にやること
 
-**`todo` は T-213 の1件**（`scripts/` 2ファイルの引数パースを `node:util` の `parseArgs` に
-置き換える。`sonnet` / `loopable: "Y"` / 依存なし）。**「導入して良くなるライブラリはあるか」の
-問いから出たタスク**で、結論は「外部パッケージは増やさない」——本体3,784行に対し実行時依存は
+**登録済みのタスクは全件 `done`。** T-213（`parseArgs` 化）は
+**「導入して良くなるライブラリはあるか」の問いから出たタスク**で、結論は「外部パッケージは増やさない」——本体3,784行に対し実行時依存は
 4つ（`@gitbeaker/rest`・`p-limit`・`yaml`・`zod`）で、手作りの `logger.ts` 35行・`retry.ts` 36行は
 どれも置き換える利が無い（pino はログ形式が `README.md` の外部インターフェースとして固定されて
 いるため、p-retry は `isRetryable` を注入する今の形が原則2に沿っているため、却下）。
-**唯一の実益が Node 標準の `parseArgs`** で、依存を増やさずに引数のtypoを弾ける。
+**唯一の実益が Node 標準の `parseArgs`** だった（依存を増やさずに引数のtypoを弾ける）。
 
-あわせて、下の「未解決」に置いた **T-212 の提案17件の採否**がユーザー判断待ち。採ると決まった
+次にやることは、下の「未解決」に置いた **T-212 の提案17件の採否**がユーザー判断待ち。採ると決まった
 ものを反映タスクとして登録する（指示メモは
 [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（3回目）」）。
 
