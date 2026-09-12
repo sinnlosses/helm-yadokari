@@ -267,14 +267,14 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 **利用箇所の数では決めない。** 型の性質だけで決める。
 
-| 型の性質                                                                             | 置き場所                                         | 例                                                                              |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------- |
-| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                           | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ConfigUnit`・`AppUpdatePlan`・`ConfigUnitUpdateResult`・`ParsedTag`            |
-| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                   | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`LoadedConfig`・`AppSpec`・`EnvConfig`          |
-| ドメイン知識を持たない汎用処理の型                                                   | その`utils/`ファイル                             | `Sorted`                                                                        |
-| 複数のstepが共有する、ドメイン型にだけ依存する型                                     | `steps/shared/`                                  | `StepOutcome<T>`・`ConfigUnitLogContext`                                        |
-| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlansResult`・`FilterTargetsResult`・`ValuesYamlDraft`・`LabeledLocation` |
-| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                            | `steps/<step名>/sub-steps/shared/types.ts`       | `LatestTagResolution`・`AppWithLatestTag`・`StageUpdatesAcc<U>`                 |
+| 型の性質                                                                           | 置き場所                                         | 例                                                                         |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------- |
+| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                         | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ConfigUnit`・`AppUpdatePlan`・`ConfigUnitUpdateResult`・`ParsedTag`       |
+| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                 | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`LoadedConfig`・`AppSpec`・`EnvConfig`     |
+| ドメイン知識を持たない汎用処理の型                                                 | その`utils/`ファイル                             | `Sorted`                                                                   |
+| 複数のstepが共有する、ドメイン型にだけ依存する型                                   | `steps/shared/`                                  | `StepOutcome<T>`・`ConfigUnitLogContext`                                   |
+| 関数の内部の作業用の型（アキュムレータ・処理中の文脈・その関数の戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlansResult`・`ValuesYamlDraft`・`LabeledLocation`・`ChartRepoScope` |
+| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                          | `steps/<step名>/sub-steps/shared/types.ts`       | `LatestTagResolution`・`AppWithLatestTag`・`StageUpdatesAcc<U>`            |
 
 - 「型は`types/`にまとめる」という運用にしないのは、`types/`が「ドメイン語彙の一覧」ではなく
   「型の物置」になると、どの型がこのツールの語彙でどの型が実装の都合かが読み分けられなくなるため。
@@ -283,9 +283,18 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - `sub-steps/shared/types.ts`のような型だけのファイルは、**特定の1ファイルに帰属しない型**
   （複数のサブステップが共有する関数型インターフェースや共通のアキュムレータ基底）だけに使う。
   1ファイルからしか使われない型はそのファイルへ戻す
-- **上表の5行目と6行目は競合しうる**（`LatestTagResolution` は `resolve-latest-tags.ts` が生み出す型
-  だが `stage-image-tag-updates.ts` も使う）。そのときは **`shared/` 側を優先する** —
+- **上表の5行目と6行目は競合しうる**（`AppWithLatestTag` は `resolve-latest-tags.ts` が生み出す型
+  だが `stage-image-tag-updates.ts` も import する）。そのときは **`shared/` 側を優先する** —
   サブステップ同士が互いをimportしないという原則の方が、型と生成関数の同居より優先度が高い
+- **5行目は`steps/`だけの話ではない。** `lib/`のファイルの中にも、そのファイルの関数のためだけに
+  ある作業用の型がある（`lib/config/load-config-unit.ts` の `ChartRepoScope`・`ConfigUnitScope`・
+  `LinkedApp`、`lib/helm.ts` の `AnchorLookup`、`lib/gitlab/gitlab.ts` の `CommitAction`）。
+  **2行目と5行目の境目は「そのアダプタを外から呼ぶ人が見る形かどうか」**で、置き場所は
+  どちらも同じファイルなので実務上の差は出ない。効くのは「`types/`へ上げるべきか」を考えるときだけで、
+  5行目のものは上げない
+- **`steps/shared/` にあるからといって4行目とは限らない。** 4行目は複数のstepが型として共有するもの
+  （`step-outcome.ts`）で、`describe-plan.ts` の `PlanLogSummary`・`HelmBranchRefLogSummary` は
+  `describePlan()` の戻り値の形でしかないので5行目に当たる。共有されているのは関数であって型ではない
 - **1行目と5行目も競合しうる**。`ParsedTag` は `domain/tag-format.ts` の関数が生み出す型だが、
   タグから読み取れる情報そのものというドメイン語彙なので `types/types.ts` に置く。
   **語彙かどうかが先**で、どの関数が作るかは後。現に `src/domain/` には型定義が1つも無い
@@ -624,13 +633,51 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 
 #### 型の置き場所は`src/`全件と突き合わせて確かめてある
 
-「型の置き場所」の表は、`src/`の型定義55件（`types/types.ts` 15・`brand.ts` 14・残り26）を
-全件突き合わせたうえでの形（2026-09-08に53件で実施し、`LocalPath`・`ConfigRootPath`の追加で2件増えた）。**表から外れているものは1件も無い**。
-表に足りなかったのは基準の側で、`ParsedTag`（1行目と5行目の競合）・`LabeledLocation`（引数の形）・
-`AppSpec`（`z.infer`由来）・`EnvConfig`（2行目の例）を補って埋めた。
+「型の置き場所」の表は、`src/`の型定義67件を1件ずつ**表のどの行に当たるかまで**割り当てた
+うえでの形（2026-09-12に実施）。**表の行のどれにも当たらない型は1件も無い。**
+
+**数え方**（これを書いておかないと次に数え直したとき同じ数にならない）: `src/`配下の`.ts`で、
+**行頭から**始まる`type`／`interface`の宣言を1件と数える。`export`の有無は問わない
+（ファイル内ローカルの型も実装の都合を表す型として表の対象）。インデントされた`type X,`は
+`import { type X }` の一部なので入らない。`brand.ts`の`declare const xxxBrand: unique symbol`は
+型ではなく目印の値宣言なので数えない（対になる`export type`の側で1件と数える）。
+`utils/errors.ts`の`class FatalError`も値なので数えない。
+
+```bash
+grep -rhE '^(export )?(type|interface) ' --include='*.ts' src | wc -l   # 67
+```
+
+**表の行ごとの内訳**（件数の裏付けになるのはこちら。合計67）:
+
+| 表の行                            | 件数 | 実体                                             |
+| --------------------------------- | ---- | ------------------------------------------------ |
+| 1行目 ドメイン語彙                | 29   | `types/types.ts` 15・`types/brand.ts` 14         |
+| 2行目 `lib/`のインターフェース    | 10   | `env.ts`・`gitlab/`2・`config/`6・`helm.ts`1     |
+| 3行目 `utils/`                    | 2    | `partition.ts`・`cache.ts`                       |
+| 4行目 `steps/shared/`             | 2    | `step-outcome.ts`                                |
+| 5行目 関数と同じファイル          | 18   | `steps/`11（`describe-plan.ts`2を含む）・`lib/`7 |
+| 6行目 `sub-steps/shared/types.ts` | 6    | `build-plans/`3・`apply-updates/`3               |
+
+1・3・4・6行目は置き場所そのものが行の定義なので機械的に確かめられる:
+
+```bash
+grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/types | wc -l                 # 29（1行目）
+grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/utils | wc -l                 # 2（3行目）
+grep -hE  '^(export )?(type|interface) ' src/steps/shared/step-outcome.ts | wc -l           # 2（4行目）
+grep -rhE '^(export )?(type|interface) ' src/steps/*/sub-steps/shared/types.ts | wc -l      # 6（6行目）
+```
+
+残り28件が2行目と5行目で、この2つは同じファイルに同居するため境目は人が読んで決める
+（判断基準は表の下の箇条書き）。内訳は`lib/`17件（2行目10・5行目7）と`steps/`11件（すべて5行目）。
+
+今回の突き合わせで表から外れていたのは9件で、いずれも**基準の側**が足りていなかった。5行目が
+「ステップ内部の作業用の型」と`steps/`限定の書き方になっていたため、`lib/`の中の作業用の型7件と
+`steps/shared/describe-plan.ts`の2件が行に当たらなかった。5行目の文言を「関数の内部の」に広げ、
+2行目との境目と`steps/shared/`の但し書きを箇条書きに足して埋めた。**型は1件も動かしていない。**
 
 **型を動かすときは表を先に読む。** 表に当てはまらない型が出てきたら、その型を動かす前に
-表の側が足りていないことを疑う。
+表の側が足りていないことを疑う。件数がこの節と合わなくなっていたら、それだけでは表が
+壊れた証拠にはならない（型が増えただけのこともある）ので、上の内訳を数え直してから直す。
 
 #### ブランド型のフィールド名は、修飾語があれば型の語を落とし、無ければ持つ
 
