@@ -6791,3 +6791,871 @@ buildChartAndApps(
 **evidence**: `buildChartAndApps()` の6位置引数を `ChartRepoScope` / `ConfigUnitScope` の2オブジェクトに。chartリポジトリ単位の側は `unitPaths.map()` の外で1回だけ組み立てる形にした。
 受け入れで型名を `ChartRepoUnit`/`ConfigUnit` から改名（下記）。エラーメッセージが変更前と完全一致することを `diff` で確認。
 `pnpm check` 通過: 385 Tests、`test/` 無変更。
+
+## T-193
+
+**タスク**: ### 背景
+
+`docs/smoke-test.md` の現在のシナリオは**正常系だけ**で、期待する `summary` も
+`{"CREATED":2,"SKIPPED":0,"ERROR":0}` しかない。「よくあるパターンを網羅したい」という指示。
+
+**既にカバーされているもの**（二重投資しない）: 深さ1・深さ2の設定ユニット混在（1chartに3ユニット）、
+1ユニットに複数app、更新不要なappがMRから外れる、image tag＋Helm向き先ブランチ／image tagのみ、
+同じappが3ユニット全部に登録された状態でのキャッシュ収束、`TARGET_UNITS` 絞り込み、dry-run。
+
+**抜けているもの**（優先度順）:
+
+1. **ERROR / PARTIAL_FAILURE**。「該当chartリポジトリだけERRORで処理継続」「`RunResult` が
+   `PARTIAL_FAILURE`」「**終了コード1**」（`src/index.ts:8`）が実機で一度も通っていない
+2. **複数chartリポジトリ**。`tagFormat` の食い違い検証は**chartリポジトリをまたぐときしか
+   働かない**（同一chart配下では `registry.yaml` 1つに集約されるため）ので未実行
+3. **設定の幅**: 1appが複数 `valuesPath` に書き込む／`branchToSync` が複数種類
+   （キャッシュキーが `projectId:branchToSync` なので分岐する）／`tagFormat` がappごとに違う
+4. **SKIPPED を明示的に踏む**（`no_diff` / `mr_exists`。今は「注意」に書いてあるだけ）
+5. **タグ自動作成**（HEADに一致するタグが無いときCLIが作る＝ソースリポジトリへの書き込み）
+
+**制約1: ERRORシナリオは `config/` を壊して作れない。** 存在しない projectId やアンカーを
+`config/` に置くと CIの `validate-config-remote` が MR時点で落ちる（`.gitlab-ci.yml:132`）。
+代わりに**GitLab側を壊す**（`values.yaml` からアンカーを1つ抜いた状態をシードする）。
+
+**制約2: GitLab側のフィクスチャが先、`config/` への追加が後。** `config/` に設定ユニットを
+足すと `pnpm lint:validate-config:remote` とCIが実在を検証するため、GitLab上に無い状態で
+設定だけ先にコミットすると落ちる（T-180 と同じ制約）。
+
+このタスクは**シナリオを確定して `docs/smoke-test.md` を書き換えるところまで**。
+コードの変更もGitLabへの書き込みも行わない（T-194以降の担当）。
+
+### 解くべき論点
+
+- 上の1〜5のうち、どこまでを1回のスモーク実行に載せるか。**1回で全部を確かめようとすると
+  「期待する結果」が読めなくなる**ので、実行を複数パスに分ける（例: 正常系パス／ERRORパス）か、
+  1パスに詰め込むかを決める
+- ERRORを起こす手段をどれにするか（`values.yaml` からアンカーを抜く／向き先ブランチを消す／
+  他）。**他のシナリオを巻き込まない**壊し方を選ぶ
+- 「複数chartリポジトリ」を2つ目のプロジェクトで実現するとして、そこに何を置くか。
+  `tagFormat` 食い違い検証を**実際に発火させる**なら設定エラーで即時終了するので、
+  他のシナリオと同じ実行には載せられない。別パスにするか、発火させずに
+  「またいでも一致していれば通る」ことだけ見るかを決める
+- 5（タグ自動作成）を入れるか。ソースリポジトリへの書き込みが増えるので、
+  費用対効果で落としてよい
+
+### やること
+
+1. 上の論点を踏まえてシナリオ一覧を確定し、**ユーザーに提示して承認を得る**
+2. `docs/smoke-test.md` を書き換える。少なくとも次を更新する:
+   - 「使うGitLabリソース」: 2つ目のchartプロジェクト（`SMOKE_CHART2_PROJECT_ID`）と、
+     追加で必要になるブランチ・アンカー・タグ
+   - 「検証シナリオ」: パスごとに分けて、各パスの目的と期待する `summary`・終了コード
+   - 「手順」: パスごとのコマンド列
+   - 「期待する結果」: パスごと
+3. **2つ目のchartプロジェクトは手で作る前提で書く**（`smoke-fixture.ts` にプロジェクト作成
+   機能は足さない）。既存の「projectIdは環境変数から読む、ハードコードなし」方針に揃える
+4. 調べた結果、あるシナリオが**実機でしか確認できない理由が無い**（既存の
+   `test/main.e2e.test.ts` で十分）と分かったら、載せずに理由を `evidence` に書く
+
+### 完了条件
+
+- `docs/smoke-test.md` にパスごとのシナリオ・手順・期待する結果があり、
+  **各パスの期待する `summary` と終了コードが明記**されている
+- 2つ目のchartプロジェクトに必要なもの（ブランチ・ファイル・アンカー・タグ）が
+  「使うGitLabリソース」に列挙されている
+- T-194 が `smoke-fixture.ts` に何を足せばよいかを、この文書だけから決められる
+- `pnpm check` が通る
+
+### 注意
+
+- **サブエージェントに委譲しない。** シナリオの取捨選択にユーザー承認が要り、
+  `docs/workflow.md`「委譲しないケース」に当たる。`/loop` に載せない
+- **GitLabへの書き込みは一切しない。** このタスクは文書だけ
+- `config/` も変更しない（T-196 の担当）
+- push はしない
+
+**difficulty**: opus
+
+**evidence**: `docs/smoke-test.md` を4パス構成に書き換え（141行→238行）。各パスの `summary` と終了コードを明記（パス3が `ERROR 1` / `PARTIAL_FAILURE` / 終了コード1）。
+**3件を載せないと判断**し、理由を「載せていないシナリオ」節に残した: tagFormat食い違い（`config/`にコミットできず単体テスト済み）、tagFormatのapp別差異、タグ自動作成、FatalError即時終了。
+`pnpm check` 通過: 385 Tests。コードとGitLabは未変更（T-194以降の担当）。
+
+## T-194
+
+**タスク**: ### 背景
+
+`docs/smoke-test.md` の現在のシナリオは**正常系だけ**で、期待する `summary` も
+`{"CREATED":2,"SKIPPED":0,"ERROR":0}` しかない。「よくあるパターンを網羅したい」という指示。
+
+**既にカバーされているもの**（二重投資しない）: 深さ1・深さ2の設定ユニット混在（1chartに3ユニット）、
+1ユニットに複数app、更新不要なappがMRから外れる、image tag＋Helm向き先ブランチ／image tagのみ、
+同じappが3ユニット全部に登録された状態でのキャッシュ収束、`TARGET_UNITS` 絞り込み、dry-run。
+
+**抜けているもの**（優先度順）:
+
+1. **ERROR / PARTIAL_FAILURE**。「該当chartリポジトリだけERRORで処理継続」「`RunResult` が
+   `PARTIAL_FAILURE`」「**終了コード1**」（`src/index.ts:8`）が実機で一度も通っていない
+2. **複数chartリポジトリ**。`tagFormat` の食い違い検証は**chartリポジトリをまたぐときしか
+   働かない**（同一chart配下では `registry.yaml` 1つに集約されるため）ので未実行
+3. **設定の幅**: 1appが複数 `valuesPath` に書き込む／`branchToSync` が複数種類
+   （キャッシュキーが `projectId:branchToSync` なので分岐する）／`tagFormat` がappごとに違う
+4. **SKIPPED を明示的に踏む**（`no_diff` / `mr_exists`。今は「注意」に書いてあるだけ）
+5. **タグ自動作成**（HEADに一致するタグが無いときCLIが作る＝ソースリポジトリへの書き込み）
+
+**制約1: ERRORシナリオは `config/` を壊して作れない。** 存在しない projectId やアンカーを
+`config/` に置くと CIの `validate-config-remote` が MR時点で落ちる（`.gitlab-ci.yml:132`）。
+代わりに**GitLab側を壊す**（`values.yaml` からアンカーを1つ抜いた状態をシードする）。
+
+**制約2: GitLab側のフィクスチャが先、`config/` への追加が後。** `config/` に設定ユニットを
+足すと `pnpm lint:validate-config:remote` とCIが実在を検証するため、GitLab上に無い状態で
+設定だけ先にコミットすると落ちる（T-180 と同じ制約）。
+
+T-193 で `docs/smoke-test.md` にシナリオ・必要なGitLabリソースが確定している。
+このタスクは **`scripts/smoke/smoke-fixture.ts` をそれに合わせて拡張する**担当。
+
+現在のスクリプト（184行）は次の形:
+
+- `setup` … シードタグ・向き先ブランチ・各設定ユニットの `values.yaml` を初期状態で `main` に用意
+- `reset` … 固定ブランチのオープン中MRをクローズし、ブランチを削除
+- 既定はdry-run。`--apply` を付けたときだけ反映
+- 対象プロジェクトは環境変数（`SMOKE_CHART_PROJECT_ID` 等）で必須指定。ハードコードなし
+
+### 解くべき論点
+
+- ERRORを起こすためのシード（アンカーを抜いた `values.yaml` 等）を、既存の `setup` の
+  オプションにするか別コマンドにするか。**既定の `setup` が壊れた状態を作らない**ことは必須
+- 2つ目のchartプロジェクト（`SMOKE_CHART2_PROJECT_ID`）を、既存の必須チェックに
+  どう組み込むか。**未設定のときに既存のシナリオが動かなくなってはいけない**
+  （`reset` は `SMOKE_CHART_PROJECT_ID` だけで動く、という既存の性質を壊さない）
+
+### やること
+
+1. `docs/smoke-test.md`（T-193 が書き換えた版）の「使うGitLabリソース」を読み、
+   そこに列挙されたものを用意できるよう `scripts/smoke/smoke-fixture.ts` を拡張する
+2. ERRORシナリオ用のシードを足す。**`config/` は正しいまま、GitLab側だけが期待と違う**状態を
+   作る（`values.yaml` からアンカーを1つ抜く等、T-193 が決めた手段）
+3. 2つ目のchartプロジェクト向けのシードを足す
+4. **既定はdry-runのまま、`--apply` を付けたときだけ反映する**という既存の性質を保つ
+5. 環境変数が未設定のときは理由を出して終了する既存の作法を保つ
+
+### 完了条件
+
+- `docs/smoke-test.md` に列挙されたGitLabリソースを、すべて `smoke-fixture.ts` が用意できる
+- **dry-run（`--apply` なし）で全コマンドを実行し、出力が期待どおりであることを確認**して
+  報告に貼る。`--apply` は付けない
+- 既定の `setup`（オプションなし）が壊れた状態を作らない
+- `pnpm check` が通り、テスト件数が変わっていない（またはテストを足したなら増分を報告）
+
+### 注意
+
+- **GitLabへの書き込みは一切しない。`--apply` を付けて実行しない**（実適用は T-195）
+- `config/` は変更しない（T-196 の担当）
+- `scripts/` はCI・開発用スクリプトの置き場（CLAUDE.md 原則3）。`src/` に移さない
+- push はしない
+
+**dependencies**: T-193
+
+**difficulty**: sonnet
+
+**evidence**: `scripts/smoke/smoke-fixture.ts` 184行→257行。chart2向けシード（`SMOKE_CHART2_PROJECT_ID` 未設定ならスキップ）、`values-extra.yaml`、`setup --broken-anchor` を追加。
+書き込みAPI5箇所すべてが `if (apply)` の内側にあることを受け入れ側で確認。dry-run のみ実行し `--apply` は一度も付けていない。`pnpm check` 通過: 385 Tests、`config/`・`test/` 無変更。
+受け入れで、dry-run の出力が通常setupと `--broken-anchor` で見分けられない穴を塞いだ。
+
+## T-195
+
+**タスク**: ### 背景
+
+`docs/smoke-test.md` の現在のシナリオは**正常系だけ**で、期待する `summary` も
+`{"CREATED":2,"SKIPPED":0,"ERROR":0}` しかない。「よくあるパターンを網羅したい」という指示。
+
+**既にカバーされているもの**（二重投資しない）: 深さ1・深さ2の設定ユニット混在（1chartに3ユニット）、
+1ユニットに複数app、更新不要なappがMRから外れる、image tag＋Helm向き先ブランチ／image tagのみ、
+同じappが3ユニット全部に登録された状態でのキャッシュ収束、`TARGET_UNITS` 絞り込み、dry-run。
+
+**抜けているもの**（優先度順）:
+
+1. **ERROR / PARTIAL_FAILURE**。「該当chartリポジトリだけERRORで処理継続」「`RunResult` が
+   `PARTIAL_FAILURE`」「**終了コード1**」（`src/index.ts:8`）が実機で一度も通っていない
+2. **複数chartリポジトリ**。`tagFormat` の食い違い検証は**chartリポジトリをまたぐときしか
+   働かない**（同一chart配下では `registry.yaml` 1つに集約されるため）ので未実行
+3. **設定の幅**: 1appが複数 `valuesPath` に書き込む／`branchToSync` が複数種類
+   （キャッシュキーが `projectId:branchToSync` なので分岐する）／`tagFormat` がappごとに違う
+4. **SKIPPED を明示的に踏む**（`no_diff` / `mr_exists`。今は「注意」に書いてあるだけ）
+5. **タグ自動作成**（HEADに一致するタグが無いときCLIが作る＝ソースリポジトリへの書き込み）
+
+**制約1: ERRORシナリオは `config/` を壊して作れない。** 存在しない projectId やアンカーを
+`config/` に置くと CIの `validate-config-remote` が MR時点で落ちる（`.gitlab-ci.yml:132`）。
+代わりに**GitLab側を壊す**（`values.yaml` からアンカーを1つ抜いた状態をシードする）。
+
+**制約2: GitLab側のフィクスチャが先、`config/` への追加が後。** `config/` に設定ユニットを
+足すと `pnpm lint:validate-config:remote` とCIが実在を検証するため、GitLab上に無い状態で
+設定だけ先にコミットすると落ちる（T-180 と同じ制約）。
+
+T-193 でシナリオが、T-194 で `smoke-fixture.ts` の拡張が完了している。
+このタスクは **GitLabへ実際にフィクスチャを反映する**担当。**外部への書き込みを伴う。**
+
+### 解くべき論点
+
+- 2つ目のchartプロジェクトを誰がどう作るか（ユーザーがGitLab UIで作る／別の手段）。
+  作成後、その projectId を `SMOKE_CHART2_PROJECT_ID` として受け取る
+- 既存のスモークテスト用プロジェクトの現在の状態（前回の実行結果が残っていないか）
+
+### やること
+
+1. **着手前にユーザーへ、これから行う外部書き込みの内容を列挙して承認を得る**
+   （どのプロジェクトに、どのブランチ・ファイル・タグを作る/書き換えるか）
+2. 2つ目のchartプロジェクトを用意し、projectId を `SMOKE_CHART2_PROJECT_ID` に設定する
+3. `smoke-fixture.ts` を **まずdry-runで**実行して差分を確認し、内容をユーザーに見せる
+4. 承認後に `--apply` を付けて反映する
+5. 反映後の状態（ブランチ・ファイル・タグが揃っていること）を読み取りで確認する
+
+### 完了条件
+
+- `docs/smoke-test.md` の「使うGitLabリソース」に列挙されたものが、すべてGitLab上に実在する
+- 確認は**読み取りで行い**、その結果（プロジェクト名・ブランチ名・ファイルパス・アンカー名）を
+  `evidence` に書く
+- この時点では `config/` を変更していない（T-196 の担当）
+
+### 注意
+
+- **サブエージェントに委譲しない。** 外部への書き込みでユーザー承認が要る
+  （CLAUDE.md「IMPORTANT: 以下は必ず人間の承認を得てから行う — 外部への公開・送信…」）。
+  `/loop` に載せない
+- **`--apply` は承認を得てから。** dry-runの出力を見せるまで実行しない
+- ソースリポジトリ（`sample-qa-sprint` / `sample-develop-client`）への書き込みが
+  必要になる場合は、それも個別に承認を得る
+- push はしない
+
+**dependencies**: T-194
+
+**difficulty**: opus
+
+**evidence**: chartリポジトリ2 `sinnlosses-group/yadokari-smoke-test-chart2`（id **86354445**、private、デフォルトブランチ main）をAPIで作成。両chartに `smoke-fixture.ts reset --apply` と `setup --apply` を適用。
+読み取りで確認済み: chart1 = main + release/2026-q1、values.yaml 4ファイル（`values-extra.yaml` 含む）、オープンMR 0件。chart2 = main + release/2026-q1、`charts/shared-app/values.yaml`（アンカー sharedQaSprintVersion / sharedHelmTargetBranch）。
+ソースリポジトリへの書き込みは無し（シードタグは2件とも既存）。
+
+## T-196
+
+**タスク**: ### 背景
+
+`docs/smoke-test.md` の現在のシナリオは**正常系だけ**で、期待する `summary` も
+`{"CREATED":2,"SKIPPED":0,"ERROR":0}` しかない。「よくあるパターンを網羅したい」という指示。
+
+**既にカバーされているもの**（二重投資しない）: 深さ1・深さ2の設定ユニット混在（1chartに3ユニット）、
+1ユニットに複数app、更新不要なappがMRから外れる、image tag＋Helm向き先ブランチ／image tagのみ、
+同じappが3ユニット全部に登録された状態でのキャッシュ収束、`TARGET_UNITS` 絞り込み、dry-run。
+
+**抜けているもの**（優先度順）:
+
+1. **ERROR / PARTIAL_FAILURE**。「該当chartリポジトリだけERRORで処理継続」「`RunResult` が
+   `PARTIAL_FAILURE`」「**終了コード1**」（`src/index.ts:8`）が実機で一度も通っていない
+2. **複数chartリポジトリ**。`tagFormat` の食い違い検証は**chartリポジトリをまたぐときしか
+   働かない**（同一chart配下では `registry.yaml` 1つに集約されるため）ので未実行
+3. **設定の幅**: 1appが複数 `valuesPath` に書き込む／`branchToSync` が複数種類
+   （キャッシュキーが `projectId:branchToSync` なので分岐する）／`tagFormat` がappごとに違う
+4. **SKIPPED を明示的に踏む**（`no_diff` / `mr_exists`。今は「注意」に書いてあるだけ）
+5. **タグ自動作成**（HEADに一致するタグが無いときCLIが作る＝ソースリポジトリへの書き込み）
+
+**制約1: ERRORシナリオは `config/` を壊して作れない。** 存在しない projectId やアンカーを
+`config/` に置くと CIの `validate-config-remote` が MR時点で落ちる（`.gitlab-ci.yml:132`）。
+代わりに**GitLab側を壊す**（`values.yaml` からアンカーを1つ抜いた状態をシードする）。
+
+**制約2: GitLab側のフィクスチャが先、`config/` への追加が後。** `config/` に設定ユニットを
+足すと `pnpm lint:validate-config:remote` とCIが実在を検証するため、GitLab上に無い状態で
+設定だけ先にコミットすると落ちる（T-180 と同じ制約）。
+
+T-195 でGitLab側のフィクスチャが揃っている。このタスクは **`config/` に新しいシナリオ用の
+設定を追加する**担当。**GitLab側が先に揃っている必要がある**（`pnpm lint:validate-config:remote`
+と CI が実在を検証するため）。
+
+現在の `config/` は `yadokari-smoke-test-chart/` 1つで、その配下に
+`anchor-app/`（深さ1）・`tenant2/client1/`・`tenant2/client2/`（深さ2）の3設定ユニット。
+
+### 解くべき論点
+
+- 新しい設定を既存の設定ユニットに足すか、新しい設定ユニットを作るか。
+  **既存の3ユニットの期待する結果を壊さない**こと（`docs/smoke-test.md` の現行シナリオが
+  T-193 で変わっていれば、そちらに従う）
+
+### やること
+
+1. `docs/smoke-test.md`（T-193 が書き換えた版）のシナリオに合わせて `config/` を更新する。
+   T-193 が決めたぶんだけを足す（1appが複数 `valuesPath` に書き込む／`branchToSync` が
+   複数種類／`tagFormat` がappごとに違う／2つ目のchartディレクトリ、など）
+2. `pnpm lint:validate-config` を通す（ローカル検証）
+3. `pnpm lint:validate-config:remote` を通す（GitLab上の実在検証。読み取りのみ、要 `.env`）
+4. 追加した設定ユニットの意図が読めるよう、各 `config.yaml` の先頭コメントに
+   **何を検証するためのユニットか**を1行で書く（既存の3ファイルがその形）
+
+### 完了条件
+
+- `pnpm lint:validate-config` と `pnpm lint:validate-config:remote` が両方通り、
+  その出力（設定ユニット数・app数）を報告に書く
+- `pnpm check` が通り、テスト件数が変わっていない（`test/main.e2e.test.ts` が `config/` の
+  実ファイルを読むため、件数が変わるなら理由を報告する）
+- 追加した各 `config.yaml` の先頭に、検証意図の1行コメントがある
+
+### 注意
+
+- **GitLabへの書き込みはしない**（`validate-config:remote` は読み取りのみ）
+- `pnpm dev` を実行しない（MRが作られる。実機実行は T-197）
+- push はしない
+
+**dependencies**: T-195
+
+**difficulty**: sonnet
+
+**evidence**: `config/yadokari-smoke-test-chart2/`（registry.yaml + shared-app/config.yaml）を新設し、`tenant2/client1/config.yaml` に `values-extra.yaml` への2件目の書き込み先を追加。3設定ユニット/5apps → **4設定ユニット/6apps**。
+`pnpm lint:validate-config:remote` 通過（projectId・ブランチ・valuesPath・アンカーの実在確認）。`pnpm check` 通過: 385 Tests（**HEADと同数**。受け入れ側で stash して実測）。
+`test/main.e2e.test.ts` は実 `config/` を読むため追随が必要で、別プロジェクト宛てMRと develop由来タグの検証が新たに入った。`pnpm dev` は未実行。
+
+## T-197
+
+**タスク**: ### 背景
+
+`docs/smoke-test.md` の現在のシナリオは**正常系だけ**で、期待する `summary` も
+`{"CREATED":2,"SKIPPED":0,"ERROR":0}` しかない。「よくあるパターンを網羅したい」という指示。
+
+**既にカバーされているもの**（二重投資しない）: 深さ1・深さ2の設定ユニット混在（1chartに3ユニット）、
+1ユニットに複数app、更新不要なappがMRから外れる、image tag＋Helm向き先ブランチ／image tagのみ、
+同じappが3ユニット全部に登録された状態でのキャッシュ収束、`TARGET_UNITS` 絞り込み、dry-run。
+
+**抜けているもの**（優先度順）:
+
+1. **ERROR / PARTIAL_FAILURE**。「該当chartリポジトリだけERRORで処理継続」「`RunResult` が
+   `PARTIAL_FAILURE`」「**終了コード1**」（`src/index.ts:8`）が実機で一度も通っていない
+2. **複数chartリポジトリ**。`tagFormat` の食い違い検証は**chartリポジトリをまたぐときしか
+   働かない**（同一chart配下では `registry.yaml` 1つに集約されるため）ので未実行
+3. **設定の幅**: 1appが複数 `valuesPath` に書き込む／`branchToSync` が複数種類
+   （キャッシュキーが `projectId:branchToSync` なので分岐する）／`tagFormat` がappごとに違う
+4. **SKIPPED を明示的に踏む**（`no_diff` / `mr_exists`。今は「注意」に書いてあるだけ）
+5. **タグ自動作成**（HEADに一致するタグが無いときCLIが作る＝ソースリポジトリへの書き込み）
+
+**制約1: ERRORシナリオは `config/` を壊して作れない。** 存在しない projectId やアンカーを
+`config/` に置くと CIの `validate-config-remote` が MR時点で落ちる（`.gitlab-ci.yml:132`）。
+代わりに**GitLab側を壊す**（`values.yaml` からアンカーを1つ抜いた状態をシードする）。
+
+**制約2: GitLab側のフィクスチャが先、`config/` への追加が後。** `config/` に設定ユニットを
+足すと `pnpm lint:validate-config:remote` とCIが実在を検証するため、GitLab上に無い状態で
+設定だけ先にコミットすると落ちる（T-180 と同じ制約）。
+
+T-193〜T-196 でシナリオ・フィクスチャ・`config/` が揃っている。このタスクは
+**実機スモークテストを実行し、期待する結果を実測で確定する**担当。
+**MR作成を伴う外部への書き込み。**
+
+### 解くべき論点
+
+- 実行順（パスが複数ある場合、どの順で流すか。前のパスの結果が次に影響しないか）
+- 実測値が `docs/smoke-test.md` の「期待する結果」と食い違ったとき、
+  **文書が間違っているのか実装にバグがあるのか**の切り分け
+
+### やること
+
+1. **着手前にユーザーへ、これから行う外部書き込み（MR作成・ブランチ作成）の内容を
+   列挙して承認を得る**
+2. `docs/smoke-test.md` の手順どおりに実行する。各パスで **dry-run を先に流し**、
+   出力をユーザーに見せてから本番実行する
+3. 実測した `summary`・終了コード・作られたMRのタイトル・本文の形を記録する
+4. `docs/smoke-test.md` の「期待する結果」を**実測値で確定**する（推測で書かない）
+5. 文書と実測が食い違ったら、**実装のバグかどうかを先に切り分ける**。バグなら
+   このタスクでは直さず、内容を `evidence` に書いて別タスクとして起こす
+6. 最後に `smoke-fixture.ts reset --apply` で後片付けをする（これも承認を得てから）
+
+### 完了条件
+
+- `docs/smoke-test.md` の「期待する結果」が**実測値で書かれている**（各パスの `summary`・
+  終了コード・MRタイトル・MR本文の列構成）
+- 実行ログの要点（`summary` と終了コード）を `evidence` に書く
+- 食い違いが見つかった場合、それが文書の誤りか実装のバグかの判定と、バグなら別タスクのIDを
+  `evidence` に書く
+- `pnpm check` が通る
+
+### 注意
+
+- **サブエージェントに委譲しない。** 外部への書き込み（MR作成）でユーザー承認が要る。
+  `/loop` に載せない
+- **dry-runを先に流し、出力を見せてから本番実行する**
+- 実行後は必ず後片付け（`reset --apply`）まで行う。固定ブランチとMRを残さない
+- push はしない
+
+**dependencies**: T-196
+
+**difficulty**: opus
+
+**evidence**: 4パスを実機実行し実測値を確定。パス1 `{CREATED:4}` 終了コード0（MRはchart1に3件・chart2に1件、`tenant2/client1` が `image tag 2, helm branch 2`）／パス2 `{SKIPPED:4}` mr_exists／**パス3 `{CREATED:3,ERROR:1}` 終了コード1**／パス4 anchor-app=no_diff・他3件=mr_exists。
+`sample-qa-sprint` の develop に `develop-build-at-20260911-232726` が自動作成された（承認済み）。後片付け済みで両chartともオープンMR0件・固定ブランチ0本。
+**パス4の当初手順は誤りと判明**（reset だけでは main が戻るので no_diff にならない）。ドキュメントの誤りで実装のバグではない。MRを1件マージする手順に差し替えた。
+MRの差分と本文も読み取りで確認済み: 書き換え先のアンカーだけが変わり、`helmVersion`（管理外）・HEAD一致のapp・差分なしの向き先ブランチは無傷。`shared-app` の新タグは `develop-` 由来でキャッシュキーの分岐が効いている。
+
+## T-198
+
+**タスク**: `docs/glossary.md` から解消済みの経緯を切り離し、今の状態だけを載せるファイルにする
+
+### 背景
+
+- `docs/glossary.md` は312行・約29KBで、34見出しの多くに**もう存在しない名前の変遷**が書かれている。`registry.yaml / config.yaml` の項の「経緯」（約20行。`apps.yaml`→`chart-targets.yaml`→`anchors.yaml` の変遷）、`設定ユニット`・`chartリポジトリ / chartAndApps` の「表記ゆれ（解消済み）」（`TenantId`/`ClientId`・`ChartGroup`・「chartグループ」）、`anchor`・`helm.chart[].anchor` の旧フィールド名（`imageTagKey`・`imageTagAnchor`・`helmBranchAnchor`）、`固定ブランチ` の「補足」「バグ修正」、`タグ自動作成` の「補足」がそれに当たる
+- 既に事実と違う記述もある。`反映済みタグ` の表記ゆれが挙げる `previousTagRaw` は `src/`・`test/` に存在しない（grep 0件）。`gitlab-watari-dori` の項は「`CLAUDE.md` で言及されている」とするが、現在の `CLAUDE.md` に言及は無く `docs/architecture.md` にだけある。`chartAndApps` の「旧 `ChartGroup`」は `src/` に無い
+- 正典の分担は `docs/coding-standards.md`「コメント」節の表で「設計判断・経緯 → `docs/architecture.md`、ドメイン用語 → `docs/glossary.md`」と決まっている。用語集が経緯を持つのはこの分担に反する。旧称の記録は `docs/history/tasks-archive.md`・`docs/history/progress-archive.md`・`docs/requirements-grilling.md` に当時の記述として残っている
+- `docs/architecture.md` の「`config/`は「スコープ」で2ファイルに分け、変更頻度では分けない」節に「`docs/glossary.md` の「`registry.yaml` / `config.yaml`」の項は経緯を長く持つが、経緯側も現在の名前で書く」という文があり、経緯を消すとこの文が嘘になる
+- `CLAUDE.md`「関連リンク」と `docs/glossary.md` 冒頭は「25KB超あるため通読しない」と書いている。`.claude/skills/maintain-docs/SKILL.md` の検査1は20KB以上の `docs/*.md` に通読ガードと索引の両方を要求する
+
+### 解くべき論点
+
+- エントリごとの経緯を「消す」か「`docs/architecture.md` へ移す」かの線引き。基準は次の3つ:
+  - (a) 旧称・撤回した案・バグ修正の記録（今の形を説明するのに要らないもの）は消す。`docs/history/` に当時の記録がある
+  - (b) 「今の形がなぜこうなのか」の理由で、`docs/architecture.md` に該当する `####` 節が無いものだけ、そこへ移してから消す（候補: 最新タグを「HEADを指すタグを直接探す」方式にした理由、固定ブランチをマージ後に削除して作り直す理由、追跡ブランチ切り替え時に新タグを作らない理由）
+  - (c) 今の挙動の制約・前提（設定ユニットの入れ子禁止、反映済みタグの「更新しない例外」、`helm` 必須 等）は用語集に残す
+- 「表記ゆれ」注記のうち今も成り立つもの（`helm.branchToSync` と `AppConfig.branchToSync` の同名別義、`DRY_RUN`/`dryRun`、「pipeline schedules」/「スケジュールパイプライン」の併用）は残し、解消済み・事実と違うものは消す。表記ゆれの是正そのものは T-200 の範囲なのでここでは手を付けない
+
+### やること
+
+1. 34見出しを1つずつ読み、上の基準で「残す / 消す / `docs/architecture.md` へ移す」を決める。移すものは `docs/architecture.md` の「設計判断」配下の適切な `###` グループに `####` 節として書き、「節の索引」にも足す
+2. 消す前に、その経緯が `docs/architecture.md` か `docs/history/` に既にあることを `grep` で確認する。どこにも無く (b) に当たるものは移す。(a) で history にも無いものは、それでも消す（当時の記録が無いものを今から再構成しない）
+3. 冒頭の「方針」3行と「このファイルの読み方」を実態に合わせる。トリム後が20KB未満なら通読ガード（「このファイルは通読しない」の小節）を外してよいが、「用語の索引」は残す。`CLAUDE.md`「関連リンク」の「25KB超」の記述も同時に直す（20KB以上のままなら数字だけ直す）
+4. `docs/architecture.md` の「経緯側も現在の名前で書く」の文を、用語集に経緯が無くなった状態に合わせて書き換える
+5. `.claude/skills/maintain-docs/SKILL.md` の検査コマンドを実行し、検査1〜7の指摘が実行前より増えていないことを確認する
+
+### 完了条件
+
+- `grep -nE '旧|当初|以前は|撤回|解消済み|バグ修正' docs/glossary.md` が0件。今の挙動の制約を説明する文脈で必要な語だけは、evidence に行番号と理由を書いた上で残してよい
+- `previousTagRaw`・`ChartGroup`・`imageTagKey`・`imageTagAnchor`・`helmBranchAnchor`・`TenantId`・`chart-targets.yaml` が `docs/glossary.md` に現れない
+- `gitlab-watari-dori` の項は削除するか、言及元を `docs/architecture.md` に正している
+- 移した経緯は `docs/architecture.md` の「節の索引」から辿れる
+- `docs/architecture.md` に「`glossary.md` が経緯を持つ」と書いた文が残っていない
+- maintain-docs の検査1〜7の指摘件数が実行前以下
+- `pnpm check` を通す
+
+### 注意
+
+- 用語の追加・削除・改名はしない（T-199・T-200 の範囲）。`###` 見出しの名前は変えない
+- `docs/history/` と `docs/requirements-grilling.md` は書き換えない
+- `/loop` に載せてよい
+
+**difficulty**: opus
+
+**evidence**: `docs/glossary.md` 312行/30,454B→283行/24,563B。経緯を持つ7項から旧称・撤回案・バグ修正の記録を消し、(b)候補3件は `docs/requirements.md` 4.1/4.2節と `docs/history/` に既にあることをgrepで確認して移設なし（`docs/architecture.md` への新設節0）。
+完了条件のgrep（`旧|当初|以前は|撤回|解消済み|バグ修正` と旧識別子7種）は0件。`gitlab-watari-dori` は言及元を `docs/architecture.md`「FatalErrorは後続ステップも止める」に正した。`docs/architecture.md` の「用語集は経緯を長く持つ」の文は「用語集は経緯を持たない」に書き換え、`CLAUDE.md`・用語集冒頭の「25KB超」は「20KB超」に（20KB以上のため通読ガードは維持）。
+maintain-docs 検査1〜7: 0/3/0/0/2/12/7 → 同数（増加なし）。受け入れ側で参照先の `####` 見出し4件の実在と requirements 4.1/4.2 の該当行を確認。`pnpm check` 通過: 33 Test Files / 385 Tests
+
+## T-199
+
+**タスク**: ドメイン用語を `src/types/` と設定スキーマから洗い出し、`docs/glossary.md` の不足を埋める
+
+### 背景
+
+- `docs/architecture.md`「型の置き場所」の表は「ドメイン語彙（`docs/glossary.md` に載る概念かどうかが目安）→ `src/types/types.ts`（ブランド型は `brand.ts`）」と定めている。逆向きに見ると `types.ts`・`brand.ts` の型は用語集に載っているべきだが、次には独立の項が無い:
+  - `types.ts`: `AnchorTarget`、`HelmTargetBranchConfig`、`ChartRepoConfig`（`mrTargetBranch` の項に名前だけ出る）、`Config`、`ParsedTag`、`TagInfo`、`PipelineInfo`、`ImageTagUpdate`、`HelmTargetBranchUpdate`、`FileUpdate`
+  - `brand.ts`: `ProjectId`、`ProjectName`、`BranchName`（追跡ブランチの項に併記のみ）、`TagName`、`CommitSha`、`GitLabUrl`、`LocalPath`、`AccessToken`、`AnchorName`（anchor の項に併記のみ）、`ConfigUnitPath`（設定ユニットの項に併記のみ）
+- 設定ファイルのキーでは `registry.yaml` の `chartToUpdate` / `appSpecs[]`（`src/lib/config/schema.ts` の `RegistryYamlSchema`）と `projectName`、環境変数 `TARGET_CHART` / `TARGET_UNITS`（`src/lib/env.ts`。解釈は `src/lib/config/limit-to-target.ts` の `ConfigTarget`）に項が無い
+- 用語集冒頭の方針は「対応する英語識別子がない用語は省略する」と言うが、実際には `ソースリポジトリ`・`MR`・`オールオアナッシング`・`タグ自動作成`・`セルフサービス方式`・`renovateジョブ` など識別子の無い項が載っており、方針と実態が食い違っている
+- `docs/requirements.md`「3. 用語」は主要5語の表で、全体は `docs/glossary.md` が正典と書いている
+
+### やること
+
+1. 次の4つの出所から用語の候補を機械的に列挙する: `src/types/types.ts`・`src/types/brand.ts` の `export type`、`src/lib/config/schema.ts` の YAML トップレベルキーと配列要素のキー、`src/lib/env.ts` の `EnvConfig` のフィールドと環境変数名、`docs/requirements.md`「3. 用語」の表
+2. 各候補を `docs/glossary.md` の `###` 見出しと「英語識別子」欄と突き合わせ、独立の項が無いものを一覧にする
+3. 一覧のうち用語集に足すものを次の基準で決める。ドメインの概念を表すもの（`ParsedTag`・`TagInfo`・`AnchorTarget`・`ImageTagUpdate`・`HelmTargetBranchUpdate`・`ChartRepoConfig`・`chartToUpdate`/`appSpecs`・`TARGET_CHART`/`TARGET_UNITS` 等）は足す。技術的な入れ物（`Config`・`FileUpdate`・`PipelineInfo`・`LocalPath`・`AccessToken`・`GitLabUrl`）は足さず、evidence に「足さない理由」を1行ずつ書く。迷うものは足す側に倒す
+4. 足す項は既存の書式（`- **英語識別子**:` / `- **定義**:`、必要なら `- **表記ゆれ**:`）で、今の挙動だけを書く。経緯は書かない。既存の項に併記されているだけの識別子（`BranchName`・`ConfigUnitPath`・`AnchorName`）は独立の項にせず、「用語の索引」の「収録している用語」列で引けるようにする
+5. 冒頭の方針「対応する英語識別子がない用語は省略する」を実態に合わせて書き換える（`docs/requirements.md`・`README.md`・`docs/architecture.md` で使われている日本語の業務用語は識別子が無くても載せる、とする）
+6. 「用語の索引」の表を、追加した項がすべて引けるように更新する
+7. 命名の良し悪しは判断しない。気づいた点（同じ語が別の意味で使われている、日本語と英語識別子の対応が崩れている、`Name` の有無が揃っていない等）は evidence に列挙して T-200 に渡す
+
+### 完了条件
+
+- `src/types/types.ts`・`src/types/brand.ts` の `export type` 全件について、用語集に項があるか、「足さない理由」が evidence にあるかのどちらかになっている
+- `chartToUpdate`・`appSpecs`・`TARGET_CHART`/`TARGET_UNITS` の項がある
+- `.claude/skills/maintain-docs/SKILL.md` の検査4・5（索引→本文、本文→索引）が `docs/glossary.md` について0件
+- `docs/glossary.md` が20KB以上なら通読ガードと索引が両方ある（検査1）
+- `pnpm check` を通す
+
+### 注意
+
+- 識別子の改名・既存の `###` 見出し名の変更はしない（T-200）。コードは触らない
+- `/loop` に載せてよい
+
+**dependencies**: T-198
+
+**difficulty**: sonnet
+
+**evidence**: `docs/glossary.md` 283行/24.6KB→339行/29.9KB。`types.ts`10件+`brand.ts`13件を全件判定。足した項7件: `chartToUpdate・appSpecs`（`ChartRepoConfig`/`AppSpec`）・`AnchorTarget`・`ParsedTag`・`TagInfo`・`ImageTagUpdate`・`HelmTargetBranchUpdate`・`TARGET_CHART・TARGET_UNITS`。`HelmTargetBranchConfig` は既存「Helmの向き先ブランチ」に追記。`BranchName`/`ConfigUnitPath`/`AnchorName`/`TagName` は索引の併記で引けるようにした。方針「識別子が無い用語は省略」を「主要ドキュメントで使う業務用語は載せる」に書き換え。
+足さない: `Config`（chartAndAppsListを束ねるだけ）・`FileUpdate`（書き込みペイロード）・`PipelineInfo`（webUrlのみ）・`ProjectId`/`ProjectName`/`CommitSha`/`GitLabUrl`/`LocalPath`/`AccessToken`（値のラップ。AccessTokenの概念は「Group Access Token」項）・環境変数 `GITLAB_URL`/`CONFIG_PATH`/`CONCURRENCY_LIMIT`（実行パラメータ）。受け入れ側で requirements 4.5節・`env.ts`・`schema.ts` と突き合わせて記述の事実を確認。maintain-docs 検査1〜7は増減なし。`pnpm check` 通過: 33 Test Files / 385 Tests。
+T-200 への引き継ぎ（命名の気づき、判断せず事実のみ）: ①`ImageTagUpdate.previousTagName` は `Name` 付き、`HelmTargetBranchUpdate.previousBranch`/`newBranch` は `BranchName` 型なのに `Name` 無し ②`ImageTagUpdate.target`/`HelmTargetBranchUpdate.target` は `AnchorTarget` 型なのに `Anchor` が落ちる ③`HelmTargetBranchConfig`（設定）と `HelmTargetBranchUpdate`（差分）の対応が接尾辞だけでは読めない ④`ChartRepoConfig` とYAMLキー `chartToUpdate` で語幹が違う ⑤`TagInfo`（〜Info）と `ParsedTag`（Parsed〜）で型名の付け方が非対称 ⑥`helm.branchToSync` と `AppConfig.branchToSync` の同名別義（既知）
+
+## T-200
+
+**タスク**: ドメイン用語の命名を見直し、改名の要否をユーザーと確定する（実装はしない）
+
+### 背景
+
+- T-199 で用語の一覧が揃う。その一覧に対して「本当にその命名でいいか」を判断するのがこのタスク。判断はコード全体に波及するため、`docs/architecture.md`「型と命名」配下の既存規約（「1つの語を2つの意味に使わない」「型定義のフィールド名は、ブランド型が表している語（`Name`など）を落とさない」「検証の動詞は `validate` に統一」）に照らして決める
+- タスク化時の調査で見えている論点（T-199 の evidence で増えうる）:
+  - `target` が5つの意味で使われている。`mrTargetBranch`（MRのベースブランチ）、`helmTargetBranch`（Helmの向き先ブランチ）、`AnchorTarget`（`values.yaml` の書き込み位置）、`ChartUpdateTarget`（更新対象のchartAndApps）、`TARGET_CHART`/`TARGET_UNITS`・`filterTargets`（処理対象の絞り込み）
+  - `branchToSync` が `config.yaml` の `apps[].branchToSync`（追跡ブランチ）と `helm.branchToSync`（向き先ブランチ）の2義。コード側は `AppConfig.branchToSync` と `HelmTargetBranchConfig.branchName` で名前が変わる
+  - 日本語「向き先ブランチ」と `helmTargetBranch`、「反映済みタグ」と `previousTagName`、「更新計画」と `AppUpdatePlan` のように、日本語と識別子が語として対応していないものがある
+  - `ImageTagUpdate.previousTagName` は `Name` を付け、`HelmTargetBranchUpdate.previousBranch`/`newBranch` は `BranchName` 型なのに `Name` を落としている
+  - 「反映」「適用」「更新」の3語が混在している（用語集「その他の注記」に現状が書かれている）
+  - `chart` が `chartDirName`・`ChartAndApps.chart`・YAML の `apps[].chart[]`/`helm.chart[]`・「chartリポジトリ」で意味が揺れる。`docs/architecture.md` は `ChartAndApps.chart` を「包含する型名が用途を与えている」として据え置いている
+- 用語集冒頭の方針「表記ゆれが見つかったものは、統一・修正はせず注記するだけ」は、この見直しと矛盾する
+
+### 解くべき論点
+
+- 上の論点ごとに「改名する / 据え置く」を決める。据え置くものは理由を用語集の該当項に1〜2行で書き、改名するものは新旧の対応と波及範囲（`src`・`test`・`scripts`・`config/`・`README.md`・`docs/`）を出す
+- 改名は外部インターフェースに及ぶかで重さが変わる。YAMLキー（`config/` の実物と各チームのMRに影響）、環境変数名、ログのフィールド名（`README.md`「実行ログの例」）は変更コストが高く、コード内部の型名・フィールド名は低い。この2群を分けて提案する
+- 「反映」「適用」「更新」はコードの `apply` に合わせて日本語を統一するか、意味ごとに語を割り当てるか
+
+### やること
+
+1. T-199 後の `docs/glossary.md` の全項と、T-199 の evidence に残された気づきを読む
+2. 論点ごとに案を作り、**ユーザーに提示して採否をその場で決める**。提案は必ず「据え置き案」を含め、改名する場合の波及範囲を `grep -rl` の件数で示す
+3. 決まったことを書く。据え置きは用語集の該当項に理由を書く。改名は用語集を新名に更新したうえで、改名の実施を1件ずつ `develop/tasks.json` に登録する（`sonnet` または `haiku`、このタスクへの依存）。「反映」「適用」「更新」の結論は用語集「その他の注記」に書き、規約にするなら `docs/coding-standards.md` に1行足す
+4. 用語集冒頭の「表記ゆれは注記するだけ」の方針を、決めた運用に書き換える
+5. ユーザーが「全て据え置き」と判断した場合は改名タスクを登録せず、その判断を evidence と用語集に書いて閉じる
+
+### 完了条件
+
+- 上の論点6件すべてに「改名 / 据え置き」と理由が `docs/glossary.md` か evidence にある
+- 改名するものは `develop/tasks.json` に実施タスクが登録され、`dependencies` にこのタスクが入っている。このタスク自身ではコードを変えない
+- `docs/glossary.md` 冒頭の方針が、決めた運用と一致している
+- `pnpm check` を通す
+
+### 注意
+
+- **委譲しない・`/loop` に載せない**（ユーザーの採否が要る）
+- コード・`config/`・`README.md` はこのタスクでは変えない
+- `docs/requirements.md`「3. 用語」の5語に改名が及ぶ場合は、要件定義の書き換えとして別途ユーザー承認を得る
+
+**dependencies**: T-199
+
+**difficulty**: opus
+
+**evidence**: **この結論は 2026-09-12 の `/grilling`（33問・10ラウンド）で大きく覆った。** 当時は「改名1件・据え置き5件」としたが、規約そのものを検証し直した結果、`docs/architecture.md`「型と命名」の規約4件すべてを書き換えることになり、改名は31件になった。据え置きの根拠に使った規約②は**実態と逆**（`BranchName` 型フィールド6件が「修飾語があれば `Name` を落とす」で例外ゼロ）で、規約が一般則を見つけ損ねて `previousBranch` を個別例外として書き込んでいた跡だった。
+当時このタスクで書いた `docs/glossary.md` の「### 「target」の意味は文脈で決まる」（いずれも据え置き）と「Helmの向き先ブランチ」の表記ゆれ欄（`helm.branchToSync` 据え置き）は、いずれも結論が逆になっている。**T-201・T-202 が正典を書き換えるまで、用語集は古い決定のまま残る。**
+当時の成果で生き残ったもの: 「反映」「適用」「更新」を values.yaml 側に一本化しクラスタ側を「デプロイ」と書く決定（`CLAUDE.md`・`docs/requirements.md` の2箇所、変更済み）と、用語集冒頭の方針「表記ゆれは改名か据え置きかを決めて理由を書く」。`AnchorTarget`→`AnchorLocation` の改名も維持されたが、**理由は差し替わった**（「`target` が多義だから」ではなく「`Anchor` が識別の手段であって用途を言っていないため但し書きが効かない」）
+
+## T-201
+
+**タスク**: `docs/architecture.md`「型と命名」の規約4件を、実態に合わせて書き換える
+
+### 背景
+
+- 2026-09-12 の命名の総点検（`/grilling`、33問）で、`docs/architecture.md`「型と命名」グループの4つの規約が**実態と食い違っている**ことが分かった。これはその結論を正典に反映する最初のタスクで、以降のタスク（用語集・コードの改名）はすべてこの規約に従う
+- **規約①「1つの語を2つの意味に使わない」**: 見出しは絶対命令だが、本文は但し書き（包含する型名が用途を与えているなら短い名前のままでよい）で運用されている。実際 `target` は `mrTargetBranch`（MRのベース）・`helmTargetBranch`（向き先）・`AnchorTarget`（書き込み位置）・`ChartUpdateTarget`（更新対象）・`TARGET_CHART`/`filterTargets`（処理対象）の5つの意味で使われている
+- **規約②「型定義のフィールド名は、ブランド型が表している語（`Name`など）を落とさない」は実態と逆**。`BranchName` 型のフィールド6件を調べると、修飾語が無いもの（`HelmTargetBranchConfig.branchName`・`ParsedTag.branchName`）は語を持ち、修飾語があるもの（`AppConfig.branchToSync`・`ChartRepoConfig.mrTargetBranch`・`HelmTargetBranchUpdate.previousBranch`・`newBranch`）は4件すべて落としている。例外ゼロ。規約が `previousBranch` を名指しで除外例に挙げているのは、一般則を見つけ損ねて個別例外を規約本文に書き込んだ跡
+- 逆則をブランド型フィールド21件に当てると、違反は `ImageTagUpdate.previousTagName`（修飾語 `previous` があるのに `Name` を持つ）の1件だけになる
+- **規約④**は「型と命名」ではなく `docs/architecture.md`「`config/`は「スコープ」で2ファイルに分け、変更頻度では分けない」節にある
+
+### やること
+
+1. **規約①**の見出しと本文を「多義は許す。ただし包含する型名・キー名が**用途**を与えられる場合に限る」に書き換える。判定基準として「修飾語が用途（何のためのものか）を言っているか。識別の**手段**を言っているだけでは但し書きは効かない」を明記する
+2. **規約②**を逆則に書き換える。「ブランド型のフィールド名は、修飾語があれば型の語（`Name` など）を落とし、無ければ持つ」。`previousBranch` の名指し除外を**削る**。包含する型が主語を与える `name`（`ParsedTag.name`・`TagInfo.name`）だけを除外として残す
+3. **規約③**（用途別の型エイリアスを作らない）は維持する。ただし最後の一文「用途の区別は型名ではなく、利用側の変数名・フィールド名・JSDocで表す」と規約①の但し書きの関係を1行で整理する（包含する型が用途を与えているなら、フィールド名で繰り返さなくてよい）
+4. **規約④**に禁止を2つ足す。「同じキー名を2つの意味に使わない（同名別義）」と「YAMLキーと型フィールドで語幹を違えない」。**日本語とYAML/型の語が違うのは翻訳であって違反ではない**ことも明記する
+5. 合格例として名指ししている箇所を書き直す。659行付近の「（`helmTargetBranch.targets`・`ChartAndApps.chart`）」と811行付近の表の「`ChartAndApps` とそのフィールド `chart`」は、どちらも後続タスクで改名される（`ChartAndApps`→`ConfigUnit`、`.chart`→`.chartRepo`、`targets`→`locations`）。**正典先行なので、このタスクで改名後の名前に書き換える**
+
+### 完了条件
+
+- 規約①②④の本文が上の決定どおりに書き換わっている
+- 規約②から `previousBranch` の名指し除外が消えている
+- `grep -n 'AnchorTarget\|ChartAndApps' docs/architecture.md` が0件（改名後の名前になっている）
+- `.claude/skills/maintain-docs/SKILL.md` の検査1〜7を実行し、指摘件数が実行前以下
+- `pnpm check` を通す
+
+### 注意
+
+- **コード（`src/`・`test/`・`scripts/`）と `config/` は触らない。** このタスクは `docs/architecture.md` だけ
+- `docs/glossary.md` も触らない（T-202 が担当する）。**この時点では用語集と正典が一時的に食い違う**が、それは想定どおり
+- `docs/history/` と `docs/requirements-grilling.md` は書き換えない
+- `/loop` に載せてよい
+
+**difficulty**: sonnet
+
+**evidence**: `docs/architecture.md` の規約4件を書き換えた（70 insertions / 38 deletions）。①「1つの語を2つの意味に使わない」→「使ってよいのは包含する型名・キー名が用途を与える場合だけ」で多義を明示的に許可し、判定基準「修飾語が用途を言っているか、識別の手段を言っているだけか」を追加。②を逆則「修飾語があれば型の語を落とし、無ければ持つ」に反転させ `previousBranch` の名指し除外を削除（例外は包含型が主語を与える `ParsedTag.name`・`TagInfo.name` のみ）。③は維持し①の但し書きとの関係を1行追加。④に「同名別義の禁止（同一ファイル内も含む）」と「YAMLキーと型フィールドで語幹を違えない」を追加し、日本語と識別子の不一致は翻訳であって違反でないことを明記。「節の索引」も①②の新見出しに更新。
+**受け入れで3点を直した**: (1) 同名別義の禁止が「2ファイル間」に狭められていたので、実例の `helm.branchToSync` と `apps[].branchToSync` が同一ファイル内であることを明記 (2) 規約②の例に T-206 で削除予定の `newBranch` が使われていたので `currentBranch`・`currentTag` に差し替え、陳腐化する「6件」という件数表記も外した (3) 判定基準の例が `chartRepo` だけで、基準の由来である `AnchorLocation`（アンカーは識別の手段であって用途ではない）が抜けていたので追加。
+`grep 'AnchorTarget' docs/architecture.md` は0件。`ChartAndApps` は `validateChartAndApps()`（`scripts/lint/remote-existence/` に実在）の改名史テーブル1行だけ残し、T-203 の注意にその追随を追記した。maintain-docs 検査1〜7は増減なし（検査5の2件は `docs/requirements.md` の既存分）。`pnpm check` 通過: 33 Test Files / 385 Tests
+
+## T-202
+
+**タスク**: `docs/glossary.md` を、新しい規約と命名の決定に合わせて全面更新する
+
+### 背景
+
+- T-201 で `docs/architecture.md` の命名規約4件が書き換わった。用語集はまだ古い決定（2026-09-12 の T-200 で書いた「据え置き」）のままで、**正典と食い違っている**
+- 特に次の2箇所は内容が逆になっている。「### 「target」の意味は文脈で決まる」は「いずれも改名せず据え置く」と書いているが `AnchorTarget` は `AnchorLocation` への改名が決まった。「### Helmの向き先ブランチ」の表記ゆれ欄は `helm.branchToSync` の据え置きを宣言しているが `helm.branchName` への改名が決まった
+- 用語集の見出しは38項のうち26項が日本語、12項が識別子。**内部の型は日本語見出しに、外部インターフェース（YAMLキー・環境変数・ファイル名）は識別子のまま**、という方針が決まった。用語集を引く動機が「今この文字列を書いていて意味が分からない」である以上、`config.yaml` に打ち込む語はその文字で引けるほうがよいため
+- リポジトリの順序は「正典を先に更新し、実装は後から追随させる」。**このタスクは用語集を改名後の名前で書き、コードは T-203 以降が追随する**
+
+### やること
+
+1. **見出しの日本語化**（内部の型のみ6件）: `AnchorLocation`→「書き込み位置」、`ParsedTag`→「タグの読み取り結果」、`TagInfo`→「GitLab上のタグ」、`chartDirName`→「chartディレクトリ名」、`ImageTagUpdate`→「イメージタグの更新」、`HelmTargetBranchUpdate`→「向き先ブランチの更新」。識別子は各項の「英語識別子」欄へ移す
+2. **外部インターフェースの見出しは識別子のまま残す**（`registry.yaml / config.yaml`・`chartToUpdate・appSpecs`・`valuesPath`・`anchor（chart[].anchor）`・`helm.chart[].anchor`・`mrTargetBranch`・`TARGET_CHART・TARGET_UNITS`）
+3. **削除**: 「セルフサービス方式 / 自己申告方式」の項から**不採用案である「自己申告方式」を落とす**（T-198 で決めた「採らなかった案は載せない」に反していた見落とし）。「gitlab-watari-dori」の項を丸ごと削除（他プロジェクト名でドメイン用語ではなく、`docs/architecture.md` に記述がある）
+4. **移動**: 「renovateジョブ」の項を `README.md` へ移す（用語の定義ではなく「本体と紛らわしいので注意」という運用上の注記のため）
+5. **表記の一本化**: 「打刻日時 / ビルド日時」→「打刻日時」（`docs/requirements.md` は元から「打刻日時」のみ3箇所使用。「ビルド日時」は用語集の見出しにしか存在しない）。「GitLab CI pipeline schedules / スケジュールパイプライン」→ `pipeline schedules`（GitLab の機能名という固有名詞。「スケジュールパイプライン」は語順が逆でGitLabに存在しない語。`README.md` の6箇所も直す）。「更新計画」→「アプリ更新計画」（`AppUpdatePlan` で1アプリ分のため）
+6. **改名の反映**（コードはまだ古いが、正典先行で新しい名前を書く）: `chartAndApps`→「設定ユニット」/`ConfigUnit`、`ChartUpdateTarget`→`ConfigUnitUpdateTarget`、`ChartUpdateResult`→`ConfigUnitUpdateResult`、`AnchorTarget`→`AnchorLocation`、`.chart`→`.chartRepo`、`imageTagTargets`→`imageTagLocations`、`targets`→`locations`、`previousTagName`→`currentTag`、`previousBranch`→`currentBranch`、`builtAt`→`taggedAt`、YAMLキー `apps[].chart[]`/`helm.chart[]`→`locations[]`、`helm.branchToSync`→`helm.branchName`。**`HelmTargetBranchUpdate` から `newBranch` が消える**ことも反映する
+7. **「chartリポジトリ / chartAndApps」と「設定ユニット」の2項を整理する。** `ChartAndApps` が `ConfigUnit` になることで、用語集が6行かけて説明していた「設定ユニットとchartAndAppsの範囲の違い」は不要になる。「設定ユニット」1項に `ConfigUnit`（集約）と `ConfigUnitPath`/`unitPath`（場所）の両方を載せ、「chartリポジトリ」は別項として残す
+8. **据え置きの理由を書き直す**（改名しないと決めたもの）: `apps[].branchToSync`（YAMLと型が一致していて違反ではない）、`mrTargetBranch`（GitLabのMR用語そのもの）、`latestTag`（`currentTag` との前後の対ではなく、追跡ブランチのHEADを指すという独立したドメイン概念）、「固定ブランチ」と `featureBranch`（日本語は「名前が一意に決まる」という性質、英語はブランチ名の接頭辞 `feature/` を言っていて、**別のことを言っているので無理に揃えない**）、「反映済みタグ」（T-200 で「反映」を values.yaml 側の意味に一本化したので既に正確）、`ConfigUnitScope`（`Scope` 接尾辞が役割を言えている）、`TARGET_UNITS`（環境変数で人が打ち込む文字列）
+9. **「### 「target」の意味は文脈で決まる」の節を書き直す。** 5つの用法（`mrTargetBranch`・`helmTargetBranch`・`ConfigUnitUpdateTarget`・`TARGET_CHART`/`TARGET_UNITS`・`filterTargets()`）は据え置きだが、書き込み位置だけは `AnchorLocation` に改名済みであることを現在形で書く（**旧名 `AnchorTarget` は書かない**。T-198 で決めた「もう使っていない名前は載せない」に従う）
+10. 「用語の索引」を、上のすべての変更に合わせて更新する
+
+### 完了条件
+
+- `grep -nE 'AnchorTarget|ChartAndApps|chartAndApps|previousTagName|previousBranch|newBranch|builtAt|imageTagTargets|branchToSync' docs/glossary.md` の結果が、`apps[].branchToSync`（据え置きと決めたもの）以外0件
+- 「自己申告方式」「gitlab-watari-dori」「ビルド日時」「スケジュールパイプライン」が `docs/glossary.md` に現れない
+- `grep -nE '旧|当初|以前は|撤回|解消済み|バグ修正' docs/glossary.md` が0件（T-198 の完了条件を維持する）
+- `README.md` に renovate ジョブの注記が移っている
+- `.claude/skills/maintain-docs/SKILL.md` の検査1〜7を実行し、指摘件数が実行前以下（特に検査4・5が `docs/glossary.md` について0件）
+- `pnpm check` を通す
+
+### 注意
+
+- **コード（`src/`・`test/`・`scripts/`）と `config/` は触らない。** ドキュメントだけ。コードとの食い違いは T-203 以降が解消する
+- `docs/history/` と `docs/requirements-grilling.md` は書き換えない
+- `docs/requirements.md`「3. 用語」の5語（アプリ・ソースリポジトリ・chartリポジトリ・設定ユニット・追跡ブランチ）は**改名の対象外**なので触らない
+- `/loop` に載せてよい
+
+**dependencies**: T-201
+
+**difficulty**: sonnet
+
+**evidence**: `docs/glossary.md` を38項→36項に整理（377行/34.4KB→380行/34.5KB）。内部の型6件を日本語見出しに（書き込み位置・タグの読み取り結果・GitLab上のタグ・chartディレクトリ名・イメージタグの更新・向き先ブランチの更新）、外部インターフェース7件は識別子のまま維持。`chartリポジトリ / chartAndApps` の結合見出しを解体し、`ConfigUnit` の集約説明を「設定ユニット」に統合して**範囲の違いを説明していた6行を削除**。`gitlab-watari-dori` を削除、`自己申告方式`（不採用案）を落とし、`renovateジョブ` は `README.md`「CI/CD」へ移した。表記は「打刻日時」「pipeline schedules」「アプリ更新計画」に一本化。
+**受け入れで2点を直した**: (1) `ConfigUnitScope` の据え置き理由を用語集に足していたが、**サブエージェント自身が「パイプライン内部の制御語彙なので本来この用語集の対象外」と書きながら載せていた**（冒頭の方針が明確に除外している語彙）。項を削除し、決定は T-203 の本文に残した。この項が旧ファイル名 `load-chart-and-apps.ts` を参照していた唯一の取りこぼしでもあった (2) `README.md` の mermaid が「pipeline schedules起動」と繋がって読みにくかったので「pipeline schedules で起動」に。
+完了条件のgrepは `AnchorTarget|ChartAndApps|previousTagName|previousBranch|newBranch|builtAt|imageTagTargets|自己申告|gitlab-watari-dori|ビルド日時|スケジュールパイプライン` が用語集0件。`README.md` に残る `update_chart`/`previousTagName` は**実行ログの例**で、T-203・T-205 がコードと同時に直す（先に直すとツールが出さない出力を載せることになるため）。maintain-docs 検査1〜7は増減なし。`pnpm check` 通過: 33 Test Files / 385 Tests
+
+## T-203
+
+**タスク**: `ChartAndApps` を `ConfigUnit` に改名し、`Chart*` 型ファミリを整理する
+
+### 背景
+
+- `ChartAndApps` は概念名ではなく**内容物の列挙**（chart と apps）で、しかもブランド型 `ConfigUnitPath` が既に `ConfigUnit` を語幹に持っているのに、肝心の `ConfigUnit` という型が存在しない状態だった
+- `Chart` で始まる型は8つあり、**3つの違う単位**を指していた。設定ユニットを指すもの（`ChartAndApps`・`ChartUpdateTarget`・`ChartUpdateResult`・`ChartUpdateLogContext`）、chartリポジトリを指すもの（`ChartRepoConfig`・`ChartRepoScope`）、chartディレクトリを指すもの（`ChartDirName`・`ChartUnits`）
+- コードには既に使い分けの慣習がある。**型と関数は完全形**（`ConfigUnitPath` 36件・`findConfigUnits`・`parseConfigUnitPath`・`buildConfigUnitLocation`）、**フィールドと変数は素の `unit`**（`unitPath` 112件・`unitPaths`）。`MAX_UNIT_DEPTH`・`UNIT_PATH_SEPARATOR`・`selectTargetUnits` はこの慣習の例外になっている
+- 正典（`docs/architecture.md`・`docs/glossary.md`）は T-201・T-202 で**既に新しい名前に書き換わっている**。このタスクはコードをそれに追随させる
+
+### やること
+
+1. **型の改名**: `ChartAndApps`→`ConfigUnit`、`ChartUpdateTarget`→`ConfigUnitUpdateTarget`、`ChartUpdateResult`→`ConfigUnitUpdateResult`、`ChartUpdateLogContext`→`ConfigUnitLogContext`、`ChartUnits`→`ChartDirUnits`
+2. **フィールドの改名**: `ChartAndApps.chart`→`ConfigUnit.chartRepo`（型 `ChartRepoConfig` と語幹を揃える）、`Config.chartAndAppsList`→`configUnits`
+3. **定数・関数の改名**（慣習の例外3件を完全形へ）: `MAX_UNIT_DEPTH`→`MAX_CONFIG_UNIT_DEPTH`、`UNIT_PATH_SEPARATOR`→`CONFIG_UNIT_PATH_SEPARATOR`、`selectTargetUnits`→`selectTargetConfigUnits`
+4. **関数とファイルの改名**: `loadChartAndApps()`→`loadConfigUnits()`、内部の `buildChartAndApps()`→`buildConfigUnit()`、ファイル `src/lib/config/load-chart-and-apps.ts`→`load-config-unit.ts`（import 元もすべて更新）
+5. **ログイベント名**: `"update_chart"`→`"update_unit"`。`README.md` の「実行ログの例」にも出るので同時に直す
+6. ローカル変数・引数名の `chartAndApps` は `configUnit` に、`chartAndAppsList` は `configUnits` にする
+
+### 据え置くもの（変えない）
+
+- **`ChartRepoConfig`・`ChartRepoScope`・`ChartDirName`**（chartリポジトリ／chartディレクトリを正しく指しているため）
+- **`ConfigUnitScope`**（`load-config-unit.ts` の private 型。`Scope` 接尾辞が「組み立てに要る値の束」という役割を言えていて、`ConfigUnit` と取り違えない）
+- **環境変数 `TARGET_UNITS`**（人が打ち込む文字列なので完全形にしない）
+- `unitPath`・`unitPaths`（フィールドと変数は素の `unit` が慣習）
+
+### 完了条件
+
+- `grep -rn 'ChartAndApps\|chartAndApps\|ChartUpdateTarget\|ChartUpdateResult\|ChartUpdateLogContext\|ChartUnits\|MAX_UNIT_DEPTH\|UNIT_PATH_SEPARATOR\|selectTargetUnits' src test scripts README.md` が0件
+- `src/lib/config/load-chart-and-apps.ts` が存在せず `load-config-unit.ts` がある
+- `grep -rn '"update_chart"' src README.md` が0件
+- `TARGET_UNITS`・`ConfigUnitScope`・`ChartRepoConfig`・`ChartDirName` は改名前と同じ（`git diff` で確認）
+- **振る舞いは無変更**。テスト件数が変更前と同じ（385件）
+- `pnpm check` を通す
+
+### 注意
+
+- `docs/` は T-201・T-202 で更新済みなので**原則触らない**。もし食い違いを見つけたらそれを報告する（勝手に直さない）
+- **例外が1箇所ある。** `docs/architecture.md`「検証の動詞は`validate`に統一し、`verify`は使わない」節の改名史テーブルに `` `verifyChartAndApps()` | `validateChartAndApps()` `` という行がある。これは `scripts/lint/remote-existence/remote-existence.ts` に**実在する関数名**なので T-201 では手を付けなかった。このタスクでその関数を `validateConfigUnit()` に改名するなら、**このテーブル行も同じコミットで直す**（直さないと `maintain-docs` の検査6「実在しない識別子」が出る）
+- `config/` の YAML キーはこのタスクでは変えない（T-204 が担当）
+- `docs/history/` と `docs/requirements-grilling.md` は書き換えない
+- 改名だけで**振る舞いを変えない**。ロジックの整理を同時にやらない
+- `/loop` に載せてよい
+
+**dependencies**: T-202
+
+**difficulty**: sonnet
+
+**evidence**: 35ファイル / 357 insertions・360 deletions（リネーム検出あり）で**純粋な改名**。型5件（`ChartAndApps`→`ConfigUnit`、`ChartUpdateTarget`/`ChartUpdateResult`/`ChartUpdateLogContext`→`ConfigUnit*`、`ChartUnits`→`ChartDirUnits`）、フィールド2件（`.chart`→`.chartRepo`、`chartAndAppsList`→`configUnits`）、定数・関数5件、ファイル1件（`load-chart-and-apps.ts`→`load-config-unit.ts`、`git mv`）、ログイベント `update_chart`→`update_unit`。据え置き（`ChartRepoConfig`・`ChartRepoScope`・`ChartDirName`・`ConfigUnitScope`・`TARGET_UNITS`・`unitPath`）は `git diff` で無変更を確認。
+**受け入れで17件の取りこぼしを直した。** `docs/architecture.md` 14件・`docs/coding-standards.md` 3件に旧名が残っていた（`chartAndApps` 小文字・`ChartUpdateResult`・`ChartUpdateLogContext`・`ChartUnits`・`selectTargetUnits`・`load-chart-and-apps.ts`・`makeChartAndApps()`）。**原因は T-201 の完了条件を `grep 'AnchorTarget\|ChartAndApps'` としか書かなかったこと**で、小文字表記と `ChartUpdate*` 系を拾えていなかった。コードが改名された今これらは実在しない識別子になるため受け入れ側で直した。`docs/research/comment-conventions.md` の1件は調査記録（当時の記録として残す扱い）なので触っていない。
+サブエージェント側でも `remote-existence.ts` の `chart`→`chartRepo` 改名時に4箇所の更新漏れ（コンパイルエラー相当）を自分で見つけて直している。maintain-docs 検査3は0件、検査6は12件で変更前と同数（すべて `verify*` の改名史テーブルと既存のテストパス）。`pnpm check` 通過: 33 Test Files / 385 Tests（変更前と同数）
+
+## T-204
+
+**タスク**: `AnchorTarget` を `AnchorLocation` に改名し、書き込み位置まわりの名前を揃える
+
+### 背景
+
+- `AnchorTarget`（`valuesPath` と `anchorName` の2フィールドで `values.yaml` の書き込み位置1箇所分を表す型）を `AnchorLocation` に改名する
+- 理由は「`target` が多義だから」では**ない**。新しい規約①は多義を許す（包含する型名・キー名が用途を与えられる場合）。`target` の他の4用法は修飾語が**用途**を言っている（`mr`＝MRのベース、`helm`＝向き先、`ConfigUnitUpdate`＝更新の対象、`TARGET_CHART`＝処理対象）のに対し、`Anchor` は**識別の手段**を言っていて「何のための target か」を答えていない。だから但し書きが効かず、多義でない `Location` に替える
+- 書き込み位置のリストは、YAMLキーが `apps[].chart[]` と `helm.chart[]` で、型フィールドが `imageTagTargets` と `targets`。**共通語幹がゼロ**で、新しい規約④の「YAMLキーと型フィールドで語幹を違えない」に反する唯一の箇所
+- 正典（`docs/architecture.md`・`docs/glossary.md`）は T-201・T-202 で既に新しい名前に書き換わっている
+
+### やること
+
+1. **型の改名**: `AnchorTarget`→`AnchorLocation`（`src/types/types.ts`）、`AnchorTargetSchema`→`AnchorLocationSchema`（`src/lib/config/schema.ts`）
+2. **フィールドの改名**: `AppConfig.imageTagTargets`→`imageTagLocations`、`HelmTargetBranchConfig.targets`→`locations`、`ImageTagUpdate.target`→`location`、`HelmTargetBranchUpdate.target`→`location`
+3. **YAMLキーの改名**: `apps[].chart[]`→`apps[].locations[]`、`helm.chart[]`→`helm.locations[]`。`src/lib/config/schema.ts` のスキーマと**エラーメッセージ**、`config/` の6ファイル、`README.md`、`docs/requirements.md` 4.4節の記述例を同時に直す
+4. `apps` 側だけ `imageTag` を残す理由は、`AppConfig` が「アプリの設定」としか言っておらず何の位置か与えられないため。`helm` 側は包含する型 `HelmTargetBranchConfig` が用途を言えているので `locations` で足りる（新しい規約①の但し書き）
+
+### 変更後の `config.yaml` の形
+
+```yaml
+helm:
+  branchToSync: release/2026-q1
+  locations:
+    - valuesPath: charts/x/values.yaml
+      anchor: xHelmTargetBranch
+apps:
+  - projectId: 82861978
+    projectName: sample-app
+    branchToSync: main
+    locations:
+      - valuesPath: charts/x/values.yaml
+        anchor: xVersion
+```
+
+（`helm.branchToSync` → `helm.branchName` の改名は T-205 が担当するので、このタスクでは `branchToSync` のまま）
+
+### 完了条件
+
+- `grep -rn 'AnchorTarget\|imageTagTargets' src test scripts config docs README.md CLAUDE.md`（`docs/history/` と `requirements-grilling` を除く）が0件
+- `config/` の6ファイルに `chart:` というキーが無く、`locations:` になっている
+- `mrTargetBranch`・`helmTargetBranch`・`ConfigUnitUpdateTarget`・`TARGET_CHART`・`filterTargets` は**改名されていない**（`git diff` で確認）
+- **振る舞いは無変更**。テスト件数が変更前と同じ
+- `pnpm check` を通す（`pnpm lint` に `config/` のスキーマ検証が含まれる）
+
+### 注意
+
+- **`config/` のキー名を変えるので、スキーマと `config/` を必ず同じコミットに入れる。** 片方だけだと `pnpm lint` が落ちる
+- `pnpm lint:validate-config:remote` は `.env` が要るローカル専用の検証で、**GitLab上の値の実在**を見る。キー名の変更では実在は変わらないので影響しないが、実行するなら読み取りのみ
+- `docs/` は T-201・T-202 で更新済み。ただし `docs/requirements.md` 4.4節の**YAMLの記述例**は正典の一部なので、このタスクで直す
+- `docs/history/` と `docs/requirements-grilling.md` は書き換えない
+- `/loop` に載せてよい
+
+**dependencies**: T-203
+
+**difficulty**: sonnet
+
+**evidence**: `AnchorTarget`→`AnchorLocation`、`AnchorTargetSchema`→`AnchorLocationSchema`、フィールド4件（`imageTagTargets`→`imageTagLocations`、`targets`→`locations`、`target`×2→`location`）、YAMLキー `apps[].chart[]`/`helm.chart[]`→`locations[]` を改名。`config/` は `config.yaml` 4ファイルで計10箇所（`registry.yaml` 2件は `chart:` を持たず0箇所）。`docs/requirements.md` 4.4節のYAML実例と `docs/architecture.md` の「`config.yaml` 側は据え置く」の記述も追随させた（後者は「この論点では変えなかったが、のちに別の理由で `locations[]` へ改めた」という追記）。据え置き（`mrTargetBranch`・`helmTargetBranch`・`ConfigUnitUpdateTarget`・`TARGET_CHART`・`TARGET_UNITS`・`filterTargets`・`FilterTargetsResult`）は全件健在。
+**受け入れで2つ直した。(1) T-203 の取りこぼし19件**: 日本語プロース中の `chartAndApps`（`docs/architecture.md` 17・`docs/requirements.md` 1・`docs/coding-standards.md` 1）を「設定ユニット」に。**原因は私が受け入れで使った `grep -E '\bchartAndApps\b'` が、日本語に挟まれた識別子を単語境界として認識しなかったこと。** 以後この種の確認は境界なしで grep する。`docs/coding-standards.md` のテスト名参照 `chartAndAppsListがないとき` も実物（`configUnitsがないとき`）に合わせた。
+**(2) 書き込み位置まわりの改名が中途半端だった**: サブエージェントは `LabeledTarget.target`→`location` とフィールドだけ変え、型名 `LabeledTarget` と関数 `validateNoDuplicateTargets`・`validateTargets`・`validateTarget` は「`docs/architecture.md` が変わらないと明記している」として据え置いていたが、**それは型の置き場所の記述で命名とは無関係な誤読**。`LabeledLocation`・`validateNoDuplicateLocations`・`validateLocations`・`validateLocation` に揃え、改名史テーブルの右列も更新した。maintain-docs 検査6は12件→8件（増えていない）。`pnpm check` 通過: 33 Test Files / 385 Tests
+
+## T-205
+
+**タスク**: 「前」側の値を `current` に統一し、`helm.branchToSync` を `helm.branchName` にする
+
+### 背景
+
+- `ImageTagUpdate.previousTagName` と `HelmTargetBranchUpdate.previousBranch` は、**読み取った時点では現在値**で、`previous` になるのは書き換えたあと。読む人に時間を1つずらさせている。日本語の用語「反映済みタグ」も現在の状態を言っており、`current` のほうが対応が取れる
+- 新しい規約②（修飾語があれば型の語を落とす）を当てると、ブランド型フィールド21件で違反は `previousTagName`（修飾語 `previous` があるのに `Name` を持つ）の1件だけ。`current` への改名と同時に `Name` も落ちて `currentTag` になる
+- `config.yaml` では `helm.branchToSync`（values.yaml へ書き込む向き先ブランチ）と `apps[].branchToSync`（タグを探す追跡ブランチ）が**同じファイルの数行違いで同名別義**になっている。層ごとに見ると違反しているのは helm 側だけで、helm 側は YAML `branchToSync` と型 `HelmTargetBranchConfig.branchName` で語幹が違う。apps 側は YAML も型も `branchToSync` で一致していて違反していない
+- `config.yaml` の兄弟キー（`valuesPath`・`projectName`・`tagFormat`・`mrTargetBranch`）は接尾辞を落としていないので、`branch` ではなく `branchName` が揃う
+
+### やること
+
+1. `ImageTagUpdate.previousTagName`→`currentTag`（`TagName` 型のまま）
+2. `HelmTargetBranchUpdate.previousBranch`→`currentBranch`（`BranchName` 型のまま）
+3. **ログの項目名も揃える**: `PlanLogSummary.updates[].previousTagName`→`currentTag`、`HelmTargetBranchLogSummary.previousBranch`→`currentBranch`（`src/steps/shared/describe-plan.ts`）。`README.md`「実行ログの例」の JSON も直す
+4. YAMLキー `helm.branchToSync`→`helm.branchName`。`src/lib/config/schema.ts` のスキーマと**エラーメッセージ**（「helm.branchToSync は必須です」等）、`config/` の4ファイル、`README.md`、`docs/requirements.md` 4.4節の記述例を同時に直す
+5. `apps[].branchToSync` は**据え置き**（YAMLと型が一致していて違反ではない）
+
+### ログ項目名を変える判断の根拠（覆さないこと）
+
+`.gitlab-ci.yml` にログを機械で読む先は無く（`artifacts:reports:` はテスト用）、読むのはCI出力を見る人だけ。しかも現状のログは `previousTagName`（`Name` あり）と `previousBranch`（`Name` なし）が同居していて不揃い。型だけ変えてログ側を詰め替えると「1概念に2つの名前」を新たに作ることになるため、揃える。
+
+### 完了条件
+
+- `grep -rn 'previousTagName\|previousBranch' src test scripts docs README.md`（`docs/history/` と `requirements-grilling` を除く）が0件
+- `config/` の4ファイルで `helm:` 直下のキーが `branchName` になっており、`apps[]` 配下は `branchToSync` のまま
+- `grep -rn 'branchToSync' config` が apps 配下の6件だけ
+- **振る舞いは無変更**。テスト件数が変更前と同じ
+- `pnpm check` を通す
+
+### 注意
+
+- **`newBranch` はこのタスクでは触らない**（T-206 が削除を担当する）
+- `config/` のキー名を変えるので、スキーマと `config/` を必ず同じコミットに入れる
+- `docs/history/` と `docs/requirements-grilling.md` は書き換えない
+- `/loop` に載せてよい
+
+**dependencies**: T-204
+
+**difficulty**: sonnet
+
+**evidence**: 27ファイル / 78 insertions・78 deletions で**完全に釣り合った純粋な改名**。`ImageTagUpdate.previousTagName`→`currentTag`、`HelmTargetBranchUpdate.previousBranch`→`currentBranch`、ログ項目2件（`PlanLogSummary`・`HelmTargetBranchLogSummary` と `README.md` の実行ログの例）、YAMLキー `helm.branchToSync`→`helm.branchName`（`config/` 4ファイル・スキーマ・エラーメッセージ・`docs/requirements.md` 4.4節・`docs/architecture.md`・`docs/smoke-test.md`）。`apps[].branchToSync` は据え置きで、`config/` に残る `branchToSync` は apps 配下6件とコメント1件（apps側を指すもの）のみ。
+**`newBranch` は無変更**（`git diff` で確認。触れたのは `previousBranch`→`currentBranch` に伴う JSDoc 1行のみ）。T-206 の担当範囲を侵していない。サブエージェントはタスク本文に挙げていなかった `docs/smoke-test.md` と `test/lib/config/fixture.ts` への波及も自分で見つけて追随させた。
+受け入れでの修正は**なし**（初めて）。前タスクの教訓を注意に書いた「確認の grep に単語境界 `\b` を使わない」が効いて、取りこぼしが0件だった。`docs/architecture.md` に1件残る `helm.branchToSync` は規約④の**違反の実例**として旧名を挙げている箇所で、「helm側を `helm.branchName` に改名して解消した」と結末も添えられているため正当。maintain-docs 検査1〜7は前後で完全一致。`pnpm check` 通過: 33 Test Files / 385 Tests
+
+## T-206
+
+**タスク**: `HelmTargetBranchUpdate` から `newBranch` を削り、2つの Update 型を対称にする
+
+### 背景
+
+- `HelmTargetBranchUpdate` は `{ location, currentBranch, newBranch }` の3フィールドだが、`newBranch` は `src/steps/build-plans/sub-steps/stage-helm-target-branch-updates.ts` で `helmTargetBranch.branchName` を**そのまま各書き込み位置にコピーしている複製**。位置ごとに違う値は絶対に入らないのに、型はそれを許している
+- `docs/architecture.md`「Helmの向き先ブランチはapp単位に振り分けず設定ユニット単位で持つ」が**同じ複製を `AppConfig` から剥がした前例**で、これはその複製が `Update` 側に残っていたもの
+- 削ると `HelmTargetBranchUpdate` が `{ location, currentBranch }`、`ImageTagUpdate` が `{ location, currentTag }` になり、**どちらも「1箇所分の現在値」だけを持つ対称な形**になる
+- イメージタグ側の「新しい値」は `AppUpdatePlan.latestTag` として app 単位に1つある。向き先ブランチ側も `ConfigUnit.helmTargetBranch.branchName` として設定ユニット単位に1つある。どちらも「後」側は上の階層に1つ、というのがドメインの事実
+
+### 解くべき論点
+
+- **消費側2つへの値の渡し方**。`describeHelmTargetBranchUpdates()`（`src/steps/shared/describe-plan.ts`）と `collectMrEntries()`（`src/steps/apply-updates/sub-steps/collect-mr-entries.ts`）が `newBranch` を読んでいる。どちらも呼び出し元が `ConfigUnitUpdateTarget` を持っており、そこから `configUnit.helmTargetBranch.branchName` に手が届くので、引数を1つ足せば済む。引数名・引数の位置をどうするか
+- **ログに新しい値を出し続けるか**。`HelmTargetBranchLogSummary` が `newBranch` を持っている。MR本文には「前→後」を並べるので新しい値が必要だが、ログにも要るかは別の判断。出すなら引数から受け取ってログ組み立て時に入れる
+- `src/steps/` 配下は `runProcess()` からしか呼ばれず、`steps/` 同士・`sub-steps/` 直下のファイル同士は互いに import しない（`CLAUDE.md` 原則1）。引数を足すときにこの制約を壊さないこと
+
+### やること
+
+1. `HelmTargetBranchUpdate` から `newBranch` を削る
+2. `stage-helm-target-branch-updates.ts` で `newBranch` を詰めている箇所を削る
+3. 消費側2つに、新しい値（`configUnit.helmTargetBranch.branchName`）を引数で渡す。呼び出し元から手が届くことを確認したうえで、シグネチャを変える
+4. ログの `newBranch` をどう扱うかを決めて、決めた理由を `evidence` に書く
+5. **調べた結果、消費側が `ConfigUnit` に手を届かせるのに原則1を壊す必要があると分かった場合は、やらずに理由を `evidence` に書いて閉じる**
+
+### 完了条件
+
+- `grep -rn 'newBranch' src test` が0件、またはログ用に残す判断をした場合はその1箇所だけで、理由が `evidence` にある
+- `HelmTargetBranchUpdate` と `ImageTagUpdate` がどちらも「`location` と現在値」の2フィールドになっている
+- MR本文に「前→後」が変更前と同じ形で出る（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts` が通る、または期待値の変更が意図どおりであることを説明できる）
+- `src/steps/` 配下に新しい `try`/`catch` を書いていない（`CLAUDE.md` の規約）
+- `pnpm check` を通す
+
+### 注意
+
+- **これは命名ではなく設計変更**。振る舞い（MR本文・ログの内容）が変わらないことをテストで守る
+- 型名 `HelmTargetBranchUpdate` / `ImageTagUpdate` は**変えない**。フィールド名が `updates` と言っている以上、要素の型は `Update` であるべき、という判断が済んでいる
+- `docs/glossary.md` は T-202 で `newBranch` が消えた前提に更新済み。食い違いを見つけたら報告する
+- `/loop` に載せてよい
+
+**dependencies**: T-205
+
+**difficulty**: opus
+
+**evidence**: `HelmTargetBranchUpdate` から `newBranch` を削り、`{ location, currentBranch }` に。`ImageTagUpdate` の `{ location, currentTag }` と**完全に対称**になった。消費側2つは引数を1つ足して解決（`describeHelmTargetBranchUpdates(updates, branchName)`・`collectMrEntries(gitlabCache, plans, helmBranches, helmBranchName)`）。呼び出し元3箇所はいずれも `configUnit` を持っていたため `configUnit.helmTargetBranch.branchName` を渡すだけで届き、**原則1（steps同士・sub-steps兄弟の import 禁止）を壊す必要は無かった**。追加された import 2件は両方 `types/types.js` 宛て。`src/steps/` の `try {` は0件。12ファイル / 58 insertions・24 deletions。
+**ログには新しい値を出し続ける判断**（`HelmTargetBranchLogSummary.newBranch` を残し、引数の `branchName` から詰める）。理由は、dry-run のログが「何をどう書き換えるつもりか」を人が読む唯一の出力で、行き先ブランチは他のどのフィールドにも出ていないため `currentBranch` だけでは1行で前→後が読めなくなること。そして削った複製の問題は「ドメイン型が位置ごとに違う値を持ててしまう」という**不正な状態を許すこと**であって、1つの引数から組み立てるログサマリは構造上そうならないこと。`newBranch` の残存は `describe-plan.ts` の2行のみ。
+**MR本文のテスト期待値は1行も変えていない**（`build-mr-content.test.ts` の差分はフィクスチャの組み替えだけで、`| 旧ブランチ | 新ブランチ |` の assert はそのまま）。`MrEntries` に足した `helmBranchName` は `helm` が必須設定なので常に存在し、セクション描画は `helmBranches.length > 0` のときだけなので空配列でも無害。受け入れでの修正はなし。`pnpm check` 通過: 33 Test Files / 385 Tests
+
+## T-207
+
+**タスク**: `ParsedTag.builtAt` を `taggedAt` に改名する
+
+### 背景
+
+- `builtAt` は「タグ名の `{date}`/`{time}` 部分が表す日時」だが、**このツールがタグを自動作成するときに渡しているのは `now`（実行時刻）で、何もビルドしていない**
+- `{branch}-build-at-{date}-{time}` の `build-at` は `tagFormat` の中のただの区切り文字で、ユーザーが自由に決められるためツールの語彙ではない
+- 日本語の用語は「打刻日時」で、`docs/requirements.md` が3箇所で使っている。「ビルド日時」は用語集の見出しにしか存在しなかった（T-202 で削除済み）
+- 「タグが打たれた日時」が実態で、`taggedAt` がその直訳
+
+### やること
+
+1. `ParsedTag.builtAt`→`taggedAt`（`src/types/types.ts`）
+2. 参照箇所をすべて追随させる（`src/domain/tag-format.ts`・`scripts/smoke/smoke-fixture.ts`・`test/` ほか）
+
+### 完了条件
+
+- `grep -rn 'builtAt' src test scripts docs README.md`（`docs/history/` と `requirements-grilling` を除く）が0件
+- `docs/glossary.md`「打刻日時」の英語識別子が `taggedAt` になっている（T-202 で更新済みのはず。なっていなければ報告する）
+- **振る舞いは無変更**。テスト件数が変更前と同じ
+- `pnpm check` を通す
+
+### 注意
+
+- `tagFormat` の `{date}`/`{time}` の扱いは変えない。フィールド名だけの改名
+- `docs/history/` と `docs/requirements-grilling.md` は書き換えない
+- `/loop` に載せてよい
+
+**dependencies**: T-206
+
+**difficulty**: haiku
+
+**evidence**: `ParsedTag.builtAt`→`taggedAt`。6ファイル / 19 insertions・19 deletions で完全に釣り合った機械的な改名（`src/types/types.ts` 1・`src/domain/tag-format.ts` 4・`scripts/smoke/smoke-fixture.ts` 2・`test/` 12）。境界なしの grep で `builtAt` は0件。`docs/glossary.md`「打刻日時」の英語識別子が `taggedAt` になっていることも確認。受け入れでの修正はなし。`pnpm check` 通過: 33 Test Files / 385 Tests

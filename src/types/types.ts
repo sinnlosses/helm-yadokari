@@ -67,7 +67,7 @@ export type Config = {
 export type ParsedTag = {
   readonly name: TagName
   readonly branchName: BranchName
-  readonly builtAt: Date
+  readonly taggedAt: Date
 }
 
 /** GitLab上のタグ1件分。名前とそのタグが指すコミットのSHA */

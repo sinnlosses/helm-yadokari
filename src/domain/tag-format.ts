@@ -61,13 +61,13 @@ export function parseTag(
   return {
     name: tagName,
     branchName: branch,
-    builtAt: new Date(Date.UTC(year, month - 1, day, hour, minute, second) - JST_OFFSET_MS),
+    taggedAt: new Date(Date.UTC(year, month - 1, day, hour, minute, second) - JST_OFFSET_MS),
   }
 }
 
 /**
  * 渡されたタグ名のうち、指定ブランチ由来（＝`branch`と`format`でパースできる）のものの中から、
- * 最も新しい builtAt を持つものを返す。該当するタグがひとつもない場合は undefined を返す。
+ * 最も新しい taggedAt を持つものを返す。該当するタグがひとつもない場合は undefined を返す。
  * 呼び出し元は「タグ一覧全体」だけでなく、「HEADを指すタグの集合」のような絞り込み済みの
  * タグ名リストを渡すこともある。
  */
@@ -81,7 +81,7 @@ export function findLatestParsedTag(
     .filter((tag): tag is ParsedTag => tag !== undefined)
     .reduce<ParsedTag | undefined>((latest, current) => {
       if (!latest) return current
-      return current.builtAt > latest.builtAt ? current : latest
+      return current.taggedAt > latest.taggedAt ? current : latest
     }, undefined)
 }
 
@@ -98,7 +98,7 @@ export function buildNewTag(branch: BranchName, now: Date, format: TagFormat): P
     branchName: branch,
     // タグ名は秒精度なので、打刻日時もミリ秒を切り捨てる（同じタグ名をparseTagした
     // 結果と一致させるため）
-    builtAt: new Date(Math.floor(now.getTime() / 1000) * 1000),
+    taggedAt: new Date(Math.floor(now.getTime() / 1000) * 1000),
   }
 }
 

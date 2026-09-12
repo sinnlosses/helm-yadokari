@@ -61,7 +61,7 @@ describe("parseTag", () => {
     expect(parsed?.name).toBe("main-build-at-20260902-123456")
     expect(parsed?.branchName).toBe("main")
     // タグ名の 12:34:56 はJST。UTCでは9時間引いた 03:34:56 になる
-    expect(parsed?.builtAt).toEqual(new Date(Date.UTC(2026, 8, 2, 3, 34, 56)))
+    expect(parsed?.taggedAt).toEqual(new Date(Date.UTC(2026, 8, 2, 3, 34, 56)))
   })
 
   it("スラッシュを含むブランチ由来のタグをパースする", () => {
@@ -72,7 +72,7 @@ describe("parseTag", () => {
     )
     expect(parsed).toBeDefined()
     // タグ名の 2026-01-01 00:00:00 はJST。UTCでは9時間引いて前日（2025-12-31 15:00:00）になる
-    expect(parsed?.builtAt).toEqual(new Date(Date.UTC(2025, 11, 31, 15, 0, 0)))
+    expect(parsed?.taggedAt).toEqual(new Date(Date.UTC(2025, 11, 31, 15, 0, 0)))
   })
 
   it("別ブランチのタグは undefined を返す", () => {
@@ -122,7 +122,7 @@ describe("parseTag", () => {
   it("フォーマットを変えると、その形式でパースする", () => {
     const format = validateTagFormat("{date}-{time}-{branch}")
     const parsed = parseTag(toTagName("20260902-123456-main"), toBranchName("main"), format)
-    expect(parsed?.builtAt).toEqual(new Date(Date.UTC(2026, 8, 2, 3, 34, 56)))
+    expect(parsed?.taggedAt).toEqual(new Date(Date.UTC(2026, 8, 2, 3, 34, 56)))
   })
 
   it("フォーマットのリテラル部分が異なれば、別形式のタグはパースできない", () => {
@@ -200,21 +200,21 @@ describe("buildNewTag", () => {
     const branch = toBranchName("main")
     const tag = buildNewTag(branch, now, BUILD_AT_FORMAT)
     const reparsed = parseTag(tag.name, branch, BUILD_AT_FORMAT)
-    expect(reparsed?.builtAt).toEqual(now)
+    expect(reparsed?.taggedAt).toEqual(now)
   })
 
   it("branch と打刻日時をそのまま保持する", () => {
     const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56))
     const tag = buildNewTag(toBranchName("main"), now, BUILD_AT_FORMAT)
     expect(tag.branchName).toBe("main")
-    expect(tag.builtAt).toEqual(now)
+    expect(tag.taggedAt).toEqual(now)
   })
 
   it("ミリ秒を含む now でも、タグ名から読み直した打刻日時と一致する", () => {
     const now = new Date(Date.UTC(2026, 8, 2, 12, 34, 56, 789))
     const branch = toBranchName("main")
     const tag = buildNewTag(branch, now, BUILD_AT_FORMAT)
-    expect(parseTag(tag.name, branch, BUILD_AT_FORMAT)?.builtAt).toEqual(tag.builtAt)
+    expect(parseTag(tag.name, branch, BUILD_AT_FORMAT)?.taggedAt).toEqual(tag.taggedAt)
   })
 
   it("月・日・時・分・秒を2桁ゼロパディングする（UTC 3:07:09 → JST 12:07:09）", () => {
@@ -234,7 +234,7 @@ describe("プレースホルダの並び順・区切り文字は任意（回帰�
     expect(tag.name).toBe("20260902-213456-main")
 
     const reparsed = parseTag(tag.name, branch, format)
-    expect(reparsed?.builtAt).toEqual(now)
+    expect(reparsed?.taggedAt).toEqual(now)
 
     const older = buildNewTag(branch, new Date(Date.UTC(2026, 0, 1, 0, 0, 0)), format)
     const latest = findLatestParsedTag([older.name, tag.name], branch, format)
@@ -250,7 +250,7 @@ describe("プレースホルダの並び順・区切り文字は任意（回帰�
     expect(tag.name).toBe("v213456_release-2026-q2__20260902")
 
     const reparsed = parseTag(tag.name, branch, format)
-    expect(reparsed?.builtAt).toEqual(now)
+    expect(reparsed?.taggedAt).toEqual(now)
 
     const older = buildNewTag(branch, new Date(Date.UTC(2026, 0, 1, 0, 0, 0)), format)
     const latest = findLatestParsedTag([tag.name, older.name], branch, format)
@@ -272,7 +272,7 @@ describe("compileTagPattern（正規表現特殊文字のエスケープ）", ()
     const format = validateTagFormat("{branch}.{date}.{time}")
     const parsed = parseTag(toTagName("main.20260101.000000"), toBranchName("main"), format)
     // 2026-01-01 00:00:00（JST）はUTCで前日15:00:00
-    expect(parsed?.builtAt).toEqual(new Date(Date.UTC(2025, 11, 31, 15, 0, 0)))
+    expect(parsed?.taggedAt).toEqual(new Date(Date.UTC(2025, 11, 31, 15, 0, 0)))
   })
 
   it("フォーマット末尾のリテラルに . があるとき、末尾の文字が異なるタグ名を誤ってマッチさせない", () => {
@@ -285,7 +285,7 @@ describe("compileTagPattern（正規表現特殊文字のエスケープ）", ()
   it("フォーマット末尾のリテラルに . があるフォーマットでも、正しいタグ名は従来どおりパースできる", () => {
     const format = validateTagFormat("{branch}-{date}-{time}.")
     const parsed = parseTag(toTagName("main-20260101-000000."), toBranchName("main"), format)
-    expect(parsed?.builtAt).toEqual(new Date(Date.UTC(2025, 11, 31, 15, 0, 0)))
+    expect(parsed?.taggedAt).toEqual(new Date(Date.UTC(2025, 11, 31, 15, 0, 0)))
   })
 
   it("ブランチ名に . を含むとき、別の文字に置き換わったタグ名を誤ってマッチさせない", () => {
@@ -302,6 +302,6 @@ describe("compileTagPattern（正規表現特殊文字のエスケープ）", ()
       toBranchName("release/1.0"),
       format,
     )
-    expect(parsed?.builtAt).toEqual(new Date(Date.UTC(2025, 11, 31, 15, 0, 0)))
+    expect(parsed?.taggedAt).toEqual(new Date(Date.UTC(2025, 11, 31, 15, 0, 0)))
   })
 })

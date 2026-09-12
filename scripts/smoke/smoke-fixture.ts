@@ -186,7 +186,7 @@ async function ensureSeedTags(): Promise<void> {
     const seedTag = parseTag(toTagName(tag), branchName, SEED_TAG_FORMAT)
     const latestTag = findLatestParsedTag(names.map(toTagName), branchName, SEED_TAG_FORMAT)
     const hasNewerTag =
-      seedTag !== undefined && latestTag !== undefined && latestTag.builtAt > seedTag.builtAt
+      seedTag !== undefined && latestTag !== undefined && latestTag.taggedAt > seedTag.taggedAt
     if (!hasNewerTag) {
       console.log(
         `  ⚠ project ${sourceProjectId} に ${tag} より新しいタグがありません。` +
