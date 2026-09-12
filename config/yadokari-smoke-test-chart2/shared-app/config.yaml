@@ -5,7 +5,7 @@ helm:
     - valuesPath: charts/shared-app/values.yaml
       anchor: sharedHelmTargetBranch
 apps:
-  - projectId: 82861978
+  - projectId: "82861978"
     projectName: sample-qa-sprint
     branchToSync: develop
     locations:

@@ -7,7 +7,7 @@ helm:
     - valuesPath: charts/smoke-tenant2/client1/values-extra.yaml
       anchor: t2c1HelmTargetBranchExtra
 apps:
-  - projectId: 82861978
+  - projectId: "82861978"
     projectName: sample-qa-sprint
     branchToSync: main
     locations:
@@ -15,7 +15,7 @@ apps:
         anchor: t2c1QaSprintVersion
       - valuesPath: charts/smoke-tenant2/client1/values-extra.yaml
         anchor: t2c1QaSprintVersionExtra
-  - projectId: 82861977
+  - projectId: "82861977"
     projectName: sample-develop-client
     branchToSync: main
     locations:
