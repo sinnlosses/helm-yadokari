@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@gitbeaker/rest": "^43.8.0",
+    "@octokit/rest": "^22.0.1",
     "p-limit": "^7.3.0",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"

@@ -8,13 +8,27 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは T-223〜T-227 の5件**（T-220〜T-222・T-228 は完了。下の「次にやること」）。完了タスクは
+**未着手のタスクは T-224〜T-227 の4件**（T-220〜T-223・T-228 は完了。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
+
+- **T-223**: `lib/github/`（`github.ts` 286行・`platform.ts`・`web-url.ts`・`errors.ts`）を追加し、
+  `createGithubPlatform()` が `Platform` 型を満たすようにした。依存は **`@octokit/rest`**
+  （全部入りの `octokit` は GitHub App・リトライ・throttling を抱き込むが、PATのみ・リトライは
+  `utils/retry.ts` 自前という決定と噛み合わないため）。**`createTag` と
+  `getLatestPipelineForRef` だけが2呼び出し**になる（GitHubの `git.createRef` はコミットSHA必須、
+  workflow run は `head_sha` 起点のため。シグネチャは変えずこのファイルに閉じ込めた）。
+  `getFileContent` は**1MB超を明示エラー**にして後回し。`commitFileUpdates` は例外を投げる
+  スタブ（T-224 で埋める）。`pnpm check` 通過: 38 Test Files / 427 Tests
+
+- **HEADの `format:check` 崩れを修正**（タスクIDなし）。`d16b2a8` で `develop/tasks.json` を
+  `pnpm format` 前にコミットしてしまい、クリーンな HEAD で `pnpm check` が落ちる状態だった。
+  T-223 の作業中に検出して同じコミットで直した。**`develop/` のファイルを書き換えたあとも
+  `pnpm format` を通してからコミットする**
 
 - **T-228**: `lib/platform/platform.ts` に `Platform` 型（API 11本＋URL組み立て2本）を定義し、
   `lib/gitlab/platform.ts` の `createGitlabPlatform()` がクライアントを閉じ込めて組み立てる形にした。
@@ -295,8 +309,8 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**T-220〜T-222・T-228 が完了し、残りは T-223〜T-227 の5件。全件 `loopable: "Y"` なので
-`/loop /next-task` で流せる。** 次は T-223（`lib/github/` の実装）。以降は
+**T-220〜T-223・T-228 が完了し、残りは T-224〜T-227 の4件。全件 `loopable: "Y"` なので
+`/loop /next-task` で流せる。** 次は T-224（`commitFileUpdates` を Git Data API で実装）。以降は
 T-228（`Platform` 型の導入と `steps/` の付け替え）→ T-223〜T-225（`lib/github/` の実装）
 → T-226（配線）→ T-227（ドキュメント追随）の順。
 
