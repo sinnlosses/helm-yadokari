@@ -5,14 +5,14 @@ import type {
   BranchName,
   CommitSha,
   FileUpdate,
-  GitLabUrl,
+  PlatformUrl,
   PipelineInfo,
   ProjectId,
   TagInfo,
   TagName,
   ValuesPath,
 } from "../../types/types.js"
-import { toCommitSha, toGitLabUrl, toTagName } from "../../types/types.js"
+import { toCommitSha, toPlatformUrl, toTagName } from "../../types/types.js"
 import { withRetry } from "../../utils/retry.js"
 import { extractHttpStatus, isNotFoundError, isRetryableError } from "./errors.js"
 
@@ -28,7 +28,7 @@ export type GitlabClient = InstanceType<typeof Gitlab>
  */
 const QUERY_TIMEOUT_MS = 300_000
 
-export function createClient(host: GitLabUrl, token: AccessToken): GitlabClient {
+export function createClient(host: PlatformUrl, token: AccessToken): GitlabClient {
   return new Gitlab({ host, token, queryTimeout: QUERY_TIMEOUT_MS })
 }
 
@@ -178,9 +178,9 @@ export async function createTag(
 export async function getProjectWebUrl(
   gitlab: GitlabClient,
   projectId: ProjectId,
-): Promise<GitLabUrl> {
+): Promise<PlatformUrl> {
   const project = await withGitlabRetry(() => gitlab.Projects.show(projectId))
-  return toGitLabUrl(String(project.web_url), "GitLab APIが返したプロジェクトの web_url")
+  return toPlatformUrl(String(project.web_url), "GitLab APIが返したプロジェクトの web_url")
 }
 
 /**
@@ -198,7 +198,7 @@ export async function getLatestPipelineForRef(
     try {
       const pipeline = await gitlab.Pipelines.showLatest(projectId, { ref })
       return {
-        webUrl: toGitLabUrl(String(pipeline.web_url), "GitLab APIが返したパイプラインの web_url"),
+        webUrl: toPlatformUrl(String(pipeline.web_url), "GitLab APIが返したパイプラインの web_url"),
       }
     } catch (error) {
       const status = extractHttpStatus(error)

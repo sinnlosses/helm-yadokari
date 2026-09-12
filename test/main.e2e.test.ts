@@ -28,7 +28,7 @@ import { run } from "../src/main.js"
 import {
   toAccessToken,
   toConfigUnitPath,
-  toGitLabUrl,
+  toPlatformUrl,
   toConfigRootPath,
 } from "../src/types/types.js"
 import { makeHttpError } from "./helpers.js"
@@ -100,7 +100,7 @@ const VALUES_YAML_SHARED_APP =
   `  - &sharedHelmTargetBranch ${NEW_HELM_BRANCH}\n`
 
 const env: EnvConfig = {
-  gitlabUrl: toGitLabUrl("https://gitlab.test"),
+  platformUrl: toPlatformUrl("https://gitlab.test"),
   accessToken: toAccessToken("test-token"),
   configRootPath: toConfigRootPath("config"),
   concurrencyLimit: 3,

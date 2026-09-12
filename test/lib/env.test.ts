@@ -194,7 +194,7 @@ describe("loadEnvConfig", () => {
     vi.stubEnv("TARGET_UNITS", undefined)
 
     expect(loadEnvConfig()).toEqual({
-      gitlabUrl: "https://gitlab.example.com",
+      platformUrl: "https://gitlab.example.com",
       accessToken: "token",
       configRootPath: "config",
       concurrencyLimit: 3,

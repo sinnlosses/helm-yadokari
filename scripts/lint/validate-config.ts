@@ -74,7 +74,7 @@ if (remote) {
   })()
 
   const problems = await validateRemoteExistence(
-    createClient(env.gitlabUrl, env.accessToken),
+    createClient(env.platformUrl, env.accessToken),
     configUnits,
     env.concurrencyLimit,
   )
@@ -84,6 +84,6 @@ if (remote) {
     process.exit(1)
   }
   console.log(
-    `config OK（実在チェック）: projectId・ブランチ・valuesPath・アンカーをすべて確認 (${env.gitlabUrl})`,
+    `config OK（実在チェック）: projectId・ブランチ・valuesPath・アンカーをすべて確認 (${env.platformUrl})`,
   )
 }

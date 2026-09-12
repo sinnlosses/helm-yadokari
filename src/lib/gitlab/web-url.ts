@@ -1,5 +1,5 @@
-import type { GitLabUrl, TagName } from "../../types/types.js"
-import { toGitLabUrl } from "../../types/types.js"
+import type { PlatformUrl, TagName } from "../../types/types.js"
+import { toPlatformUrl } from "../../types/types.js"
 
 /**
  * プロジェクトのweb URL配下のページURLを組み立てる。`webUrl`はオリジンではなく
@@ -8,11 +8,13 @@ import { toGitLabUrl } from "../../types/types.js"
  * （前者はベースのパスを捨ててしまう）。タグ名のエスケープもここに閉じ込め、
  * 呼び出し側が`encodeURIComponent`を書かなくて済むようにする。
  */
-export function buildTagUrl(webUrl: GitLabUrl, tagName: TagName): GitLabUrl {
-  return toGitLabUrl(`${webUrl}/-/tags/${encodeURIComponent(tagName)}`)
+export function buildTagUrl(webUrl: PlatformUrl, tagName: TagName): PlatformUrl {
+  return toPlatformUrl(`${webUrl}/-/tags/${encodeURIComponent(tagName)}`)
 }
 
 /** 2つのタグ間の比較ページURL（`buildTagUrl()`と同じ組み立て方） */
-export function buildCompareUrl(webUrl: GitLabUrl, from: TagName, to: TagName): GitLabUrl {
-  return toGitLabUrl(`${webUrl}/-/compare/${encodeURIComponent(from)}...${encodeURIComponent(to)}`)
+export function buildCompareUrl(webUrl: PlatformUrl, from: TagName, to: TagName): PlatformUrl {
+  return toPlatformUrl(
+    `${webUrl}/-/compare/${encodeURIComponent(from)}...${encodeURIComponent(to)}`,
+  )
 }

@@ -6,9 +6,9 @@ import type {
   ChartDirName,
   ConfigRootPath,
   ConfigUnitPath,
-  GitLabUrl,
+  PlatformUrl,
 } from "../types/types.js"
-import { toAccessToken, toChartDirName, toConfigRootPath, toGitLabUrl } from "../types/types.js"
+import { toAccessToken, toChartDirName, toConfigRootPath, toPlatformUrl } from "../types/types.js"
 import { DEFAULT_CONFIG_ROOT_PATH } from "./config/config.js"
 
 export function loadEnv(key: string): string {
@@ -22,9 +22,9 @@ export function loadOptionalEnv(key: string): string | undefined {
   return value?.trim() ? value : undefined
 }
 
-/** URLとしての検証は`toGitLabUrl()`が行う。ここは環境変数名をメッセージに載せるだけ */
-export function validateGitlabUrl(raw: string): GitLabUrl {
-  return toGitLabUrl(raw, "GITLAB_URL")
+/** URLとしての検証は`toPlatformUrl()`が行う。ここは環境変数名をメッセージに載せるだけ */
+export function validateGitlabUrl(raw: string): PlatformUrl {
+  return toPlatformUrl(raw, "GITLAB_URL")
 }
 
 /**
@@ -68,9 +68,13 @@ export function parseTargetUnits(raw: string | undefined): readonly ConfigUnitPa
   return raw.split(",").map((entry) => parseTargetUnitEntry(entry.trim()))
 }
 
-/** 環境変数から読み取った実行時設定。`loadEnvConfig()`だけが生成する */
+/**
+ * 環境変数から読み取った実行時設定。`loadEnvConfig()`だけが生成する。`platformUrl`と
+ * 名付けているのは、対応プラットフォームの選択（`PLATFORM`）に応じて`GITLAB_URL`/
+ * `GITHUB_URL`のどちらかを読む配線を見込んでいるため（現時点では`GITLAB_URL`のみ読む）
+ */
 export type EnvConfig = {
-  readonly gitlabUrl: GitLabUrl
+  readonly platformUrl: PlatformUrl
   readonly accessToken: AccessToken
   readonly configRootPath: ConfigRootPath
   readonly concurrencyLimit: number
@@ -90,7 +94,7 @@ export type EnvConfig = {
  */
 export function loadEnvConfig(): EnvConfig {
   return {
-    gitlabUrl: validateGitlabUrl(loadEnv("GITLAB_URL")),
+    platformUrl: validateGitlabUrl(loadEnv("GITLAB_URL")),
     accessToken: toAccessToken(loadEnv("ACCESS_TOKEN")),
     configRootPath: parseConfigRootPath(loadOptionalEnv("CONFIG_ROOT_PATH")),
     concurrencyLimit: parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT")),

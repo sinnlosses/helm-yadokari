@@ -21,12 +21,12 @@ import {
   openMergeRequestExists,
 } from "../src/lib/gitlab/gitlab.js"
 import { run } from "../src/main.js"
-import { toAccessToken, toCommitSha, toGitLabUrl, toTagName } from "../src/types/types.js"
+import { toAccessToken, toCommitSha, toPlatformUrl, toTagName } from "../src/types/types.js"
 import { FatalError } from "../src/utils/errors.js"
 import { makeApp, makeConfigUnit, makeHttpError, mockGitlab } from "./helpers.js"
 
 const env: EnvConfig = {
-  gitlabUrl: toGitLabUrl("https://gitlab.test"),
+  platformUrl: toPlatformUrl("https://gitlab.test"),
   accessToken: toAccessToken("test-token"),
   configRootPath: DEFAULT_CONFIG_ROOT_PATH,
   concurrencyLimit: 3,
@@ -48,7 +48,7 @@ describe("run", () => {
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
     vi.mocked(openMergeRequestExists).mockResolvedValue(false)
     vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
-    vi.mocked(getProjectWebUrl).mockResolvedValue(toGitLabUrl("https://gitlab.test/group/my-app"))
+    vi.mocked(getProjectWebUrl).mockResolvedValue(toPlatformUrl("https://gitlab.test/group/my-app"))
     vi.mocked(commitFileUpdates).mockResolvedValue(undefined)
     vi.mocked(createMergeRequest).mockResolvedValue(undefined)
   })

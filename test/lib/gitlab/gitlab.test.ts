@@ -20,7 +20,7 @@ import {
 import {
   toAccessToken,
   toBranchName,
-  toGitLabUrl,
+  toPlatformUrl,
   toProjectId,
   toTagName,
   toValuesPath,
@@ -52,7 +52,7 @@ function makeClient(
 describe("createClient", () => {
   it("Gitlab インスタンスを返す", () => {
     const client = createClient(
-      toGitLabUrl("https://gitlab.example.com"),
+      toPlatformUrl("https://gitlab.example.com"),
       toAccessToken("test-token"),
     )
     expect(client).toBeInstanceOf(Gitlab)
@@ -62,7 +62,7 @@ describe("createClient", () => {
     // gitbeaker はこの値を AbortSignal.timeout() として全リクエストに載せる。
     // 既定値と同値だが、バージョンアップで黙って変わらないようここで固定する
     const client = createClient(
-      toGitLabUrl("https://gitlab.example.com"),
+      toPlatformUrl("https://gitlab.example.com"),
       toAccessToken("test-token"),
     )
     expect(client.Projects.queryTimeout).toBe(300_000)
@@ -385,7 +385,7 @@ describe("getProjectWebUrl", () => {
     })
 
     expect(await getProjectWebUrl(client, toProjectId("1"))).toBe(
-      toGitLabUrl("https://gitlab.example.com/group/app"),
+      toPlatformUrl("https://gitlab.example.com/group/app"),
     )
   })
 

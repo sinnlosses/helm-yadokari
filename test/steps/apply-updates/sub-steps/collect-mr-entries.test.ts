@@ -7,13 +7,13 @@ import { collectMrEntries } from "../../../../src/steps/apply-updates/sub-steps/
 import {
   toAnchorName,
   toBranchName,
-  toGitLabUrl,
+  toPlatformUrl,
   toTagName,
   toValuesPath,
 } from "../../../../src/types/types.js"
 import { makePlan, newBatchCache } from "../../../helpers.js"
 
-const webUrl = toGitLabUrl("https://gitlab.example.com/g/my-app")
+const webUrl = toPlatformUrl("https://gitlab.example.com/g/my-app")
 
 const helmBranchRef = toBranchName("release/2026-q1")
 

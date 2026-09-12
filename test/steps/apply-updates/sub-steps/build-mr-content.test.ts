@@ -4,7 +4,7 @@ import { buildMrContent } from "../../../../src/steps/apply-updates/sub-steps/bu
 import type { MrEntries } from "../../../../src/steps/apply-updates/sub-steps/shared/types.js"
 import type {
   AppUpdatePlan,
-  GitLabUrl,
+  PlatformUrl,
   HelmBranchRefUpdate,
   PipelineInfo,
 } from "../../../../src/types/types.js"
@@ -12,13 +12,13 @@ import {
   toAnchorName,
   toBranchName,
   toConfigUnitPath,
-  toGitLabUrl,
+  toPlatformUrl,
   toTagName,
   toValuesPath,
 } from "../../../../src/types/types.js"
 import { makePlan } from "../../../helpers.js"
 
-const defaultWebUrl = toGitLabUrl("https://gitlab.example.com/g/my-app")
+const defaultWebUrl = toPlatformUrl("https://gitlab.example.com/g/my-app")
 
 const helmBranchRef = toBranchName("release/2026-q1")
 
@@ -31,7 +31,7 @@ const helmUpdate = {
 function entriesOf(
   plans: readonly AppUpdatePlan[],
   helmBranches: readonly HelmBranchRefUpdate[] = [],
-  webUrl: GitLabUrl = defaultWebUrl,
+  webUrl: PlatformUrl = defaultWebUrl,
   pipeline: PipelineInfo | undefined = undefined,
 ): MrEntries {
   return {
@@ -175,7 +175,7 @@ describe("buildMrContent（本文）", () => {
   it("パイプラインは状態を出さず、URLをそのまま表示する", () => {
     const description = buildDescription(
       entriesOf([makePlan()], [], defaultWebUrl, {
-        webUrl: toGitLabUrl("https://gitlab.example.com/p/1"),
+        webUrl: toPlatformUrl("https://gitlab.example.com/p/1"),
       }),
     )
 

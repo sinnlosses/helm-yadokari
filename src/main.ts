@@ -12,7 +12,7 @@ import { timed } from "./utils/timer.js"
 export async function run(env: EnvConfig): Promise<RunResult> {
   logger.info({
     event: "run_start",
-    gitlabUrl: env.gitlabUrl,
+    gitlabUrl: env.platformUrl,
     dryRun: env.dryRun,
     concurrencyLimit: env.concurrencyLimit,
     configRootPath: env.configRootPath,
@@ -36,7 +36,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
  * 3. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
  */
 async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult, number>> {
-  const gitlab = createClient(env.gitlabUrl, env.accessToken)
+  const gitlab = createClient(env.platformUrl, env.accessToken)
   const gitlabCache = createGitlabBatchCache(gitlab)
   const { configUnits } = loadConfig(env.configRootPath, {
     chartDirName: env.targetChart,

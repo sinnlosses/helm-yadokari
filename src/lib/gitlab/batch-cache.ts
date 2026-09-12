@@ -1,6 +1,6 @@
 import type {
   BranchName,
-  GitLabUrl,
+  PlatformUrl,
   PipelineInfo,
   ProjectId,
   TagName,
@@ -46,7 +46,7 @@ export type GitlabBatchCache = {
    * プロジェクトの移動・改名でしか変わらない値なので載せている。同じappが複数の設定ユニットに
    * 登録されていても`Projects.show`はバッチ全体で1回に収束する。
    */
-  readonly getProjectWebUrl: (projectId: ProjectId) => Promise<GitLabUrl>
+  readonly getProjectWebUrl: (projectId: ProjectId) => Promise<PlatformUrl>
 
   /**
    * このツールが書き込むのは固定ブランチだけで、読み先の`mrTargetBranch`はバッチ中に変わらない

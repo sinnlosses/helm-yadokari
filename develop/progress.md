@@ -8,13 +8,20 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは T-222〜T-228 の7件**（T-220・T-221 は完了。下の「次にやること」）。完了タスクは
+**未着手のタスクは T-223〜T-228 の6件**（T-220〜T-222 は完了。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
+
+- **T-222**: `GitLabUrl` → `PlatformUrl`、`toGitLabUrl()` → `toPlatformUrl()` に改名し、18ファイルを
+  追随させた。`EnvConfig.gitlabUrl` も `platformUrl` に寄せている（読む環境変数は `GITLAB_URL` の
+  まま）。**`PipelineInfo` は無変更**（漏れていたのはフィールドの型だった）。`src/main.ts` の
+  **ログのフィールド名 `gitlabUrl` は据え置き**（`README.md`「実行ログの例」に出る外部
+  インターフェースのため）。据え置いた3つのGitLab名は T-226 の本文に引き継いである。
+  `pnpm check` 通過: 388 Tests
 
 - **T-221**: `ProjectId` を `string` のブランド型にし、`schema.ts` に共有の `ProjectIdSchema`
   （`z.union([z.number().int(), z.string().min(1)])` で受けて `String()` で寄せる）を追加した。
@@ -280,9 +287,8 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**T-220（設計）と T-221（`ProjectId` の中立化）が完了し、残りは T-222〜T-228 の7件。
-全件 `loopable: "Y"` なので `/loop /next-task` で流せる。** 次は依存の無い T-222
-（`GitLabUrl` → `PlatformUrl`）。以降は
+**T-220〜T-222 が完了し、残りは T-223〜T-228 の6件。全件 `loopable: "Y"` なので
+`/loop /next-task` で流せる。** 次は T-228（`Platform` 型の導入と `steps/` の付け替え）。以降は
 T-228（`Platform` 型の導入と `steps/` の付け替え）→ T-223〜T-225（`lib/github/` の実装）
 → T-226（配線）→ T-227（ドキュメント追随）の順。
 

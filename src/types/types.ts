@@ -5,7 +5,7 @@ import type {
   CommitSha,
   ChartDirName,
   ConfigUnitPath,
-  GitLabUrl,
+  PlatformUrl,
   ProjectId,
   ProjectName,
   TagFormat,
@@ -74,7 +74,7 @@ export type TagInfo = {
 
 /** タグに紐づく最新パイプラインの情報 */
 export type PipelineInfo = {
-  readonly webUrl: GitLabUrl
+  readonly webUrl: PlatformUrl
 }
 
 /** `AppConfig.imageTagLocations`のうち1箇所分の更新内容。`currentTag`は書き換え箇所ごとに独立して読み取る */

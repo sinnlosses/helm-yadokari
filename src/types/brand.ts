@@ -47,14 +47,14 @@ export function toTagFormat(s: string): TagFormat {
   return s as TagFormat
 }
 
-declare const gitLabUrlBrand: unique symbol
-/** GitLab上のURL（インスタンスのホスト・プロジェクトのweb URL・パイプラインのURL等） */
-export type GitLabUrl = string & { readonly [gitLabUrlBrand]: never }
+declare const platformUrlBrand: unique symbol
+/** GitLab/GitHub上のURL（インスタンスのホスト・プロジェクトのweb URL・パイプラインのURL等） */
+export type PlatformUrl = string & { readonly [platformUrlBrand]: never }
 /**
- * `GitLabUrl`の唯一の生成経路。http(s)のURLであることをここで検証するので、未検証の
- * 文字列が`GitLabUrl`になることはない
+ * `PlatformUrl`の唯一の生成経路。http(s)のURLであることをここで検証するので、未検証の
+ * 文字列が`PlatformUrl`になることはない
  */
-export function toGitLabUrl(s: string, label = "URL"): GitLabUrl {
+export function toPlatformUrl(s: string, label = "URL"): PlatformUrl {
   if (!URL.canParse(s)) {
     throw new Error(`${label} が有効な URL ではありません: "${s}"`)
   }
@@ -62,7 +62,7 @@ export function toGitLabUrl(s: string, label = "URL"): GitLabUrl {
   if (protocol !== "https:" && protocol !== "http:") {
     throw new Error(`${label} は http:// または https:// で始まる必要があります: "${s}"`)
   }
-  return s as GitLabUrl
+  return s as PlatformUrl
 }
 
 declare const valuesPathBrand: unique symbol
@@ -127,7 +127,7 @@ export function toAnchorName(s: string): AnchorName {
 
 declare const accessTokenBrand: unique symbol
 /**
- * GitLabのアクセストークン（`createClient`の認証情報）。`GitLabUrl`と同じ関数呼び出しに
+ * GitLabのアクセストークン（`createClient`の認証情報）。`PlatformUrl`と同じ関数呼び出しに
  * 並ぶため、取り違え防止でブランド型にしている。空でないことは`loadEnv()`が既に保証している。
  * 接頭辞や長さでの形式検証はしない（Personal Access Tokenの`glpat-`は慣習であり、
  * Group Access TokenやCI変数経由の値では前提にできないため）

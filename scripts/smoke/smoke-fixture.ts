@@ -175,7 +175,7 @@ const CHART2_SEED_FILES: Record<string, string> = {
 }
 
 const env = loadEnvConfig()
-const gitlab = createClient(env.gitlabUrl, env.accessToken)
+const gitlab = createClient(env.platformUrl, env.accessToken)
 
 /**
  * シード値に使うタグがソースリポジトリに実在することを保証する。無い場合は追跡ブランチの
@@ -311,10 +311,10 @@ async function reset(): Promise<void> {
  */
 async function main(): Promise<void> {
   const project = await gitlab.Projects.show(projectId)
-  console.log(`対象(chart1): ${String(project.path_with_namespace)} (${env.gitlabUrl})`)
+  console.log(`対象(chart1): ${String(project.path_with_namespace)} (${env.platformUrl})`)
   if (chart2ProjectId !== undefined) {
     const project2 = await gitlab.Projects.show(chart2ProjectId)
-    console.log(`対象(chart2): ${String(project2.path_with_namespace)} (${env.gitlabUrl})`)
+    console.log(`対象(chart2): ${String(project2.path_with_namespace)} (${env.platformUrl})`)
   } else {
     console.log("対象(chart2): SMOKE_CHART2_PROJECT_ID 未設定のためスキップ")
   }

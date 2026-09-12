@@ -1,7 +1,7 @@
 import type {
   AppUpdatePlan,
   BranchName,
-  GitLabUrl,
+  PlatformUrl,
   HelmBranchRefUpdate,
   ImageTagUpdate,
   PipelineInfo,
@@ -15,7 +15,7 @@ import type {
 export type ImageTagEntry = {
   readonly plan: AppUpdatePlan
   readonly update: ImageTagUpdate
-  readonly webUrl: GitLabUrl
+  readonly webUrl: PlatformUrl
   readonly pipeline: PipelineInfo | undefined
 }
 
