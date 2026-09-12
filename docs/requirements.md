@@ -411,8 +411,8 @@ apps:
 
 - **実行形態**: CLIツール。GitLab CI の pipeline schedules から定期実行する
 - **実装言語**: TypeScript
-- **配布方法**: 公開npmレジストリ（npmjs.com）にパッケージを公開し、CI job上で
-  `npm install` する（Dockerイメージ配布は採用しない）
+- **配布方法**: パッケージレジストリへの公開は行わない。このリポジトリを直接 clone し、
+  CI job上で `pnpm install` から `pnpm start` を実行する（Dockerイメージ配布も採用しない）
 - **Node.jsバージョン**: `package.json` の `engines` でNode.js LTSバージョンを明示し、
   CI側のベースイメージで揃える
 - **GitLab認証**: `CI_JOB_TOKEN` ではなく、スコープを絞った Group Access Token を

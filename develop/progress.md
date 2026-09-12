@@ -13,6 +13,24 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
 
 ## 完了したこと（このセッション）
 
+### 2026-09-12 README.md の提案の反映
+
+- **T-218**: `docs/requirements.md` 5章の配布方法を実態に合わせた。「公開npmレジストリ
+  （npmjs.com）に公開し `npm install`」→「レジストリ公開はせず、このリポジトリを clone して
+  CI 上で `pnpm install` → `pnpm start`」（`.gitlab-ci.yml:149-155` と一致）。**正典が実装から
+  取り残されていた**ケースで、ユーザーが「npmでは配布しない」と判断した（2026-09-12）。
+  完了条件に書いた「`npmjs` の grep が docs/ 全体で0件」は**達成していない** ——
+  `docs/requirements-grilling.md:54` と `docs/history/progress-archive.md:336` は
+  **当時の決定の記録なので書き換えない**のが正しく、条件の書き方のほうが間違っていた。
+  代わりに grilling の既存慣習（`:96` の「実装後の訂正:」節）に倣って訂正節を足した。
+  `pnpm check` 通過: 386 Tests
+
+- **T-214**: `README.md` の実装と食い違う記述3件を訂正（D-1・D-2・D-3）。最大のものは
+  503/504 のリトライで、「1秒→2秒→**4秒**で最大3回リトライ」は `src/utils/retry.ts:11,29` の
+  既定（`maxAttempts: 3`・`baseDelayMs: 1000`、`attempt === maxAttempts` で打ち切り）と違い、
+  **実際は試行3回＝リトライ2回・待ちは1秒→2秒**。受け入れで `src/` の区分の書き方を
+  `docs/architecture.md` と同じ「4区分」の語に整えた。`pnpm check` 通過: 386 Tests
+
 ### 2026-09-12 scripts/ の引数パース
 
 - **T-213**: `scripts/smoke/smoke-fixture.ts`・`scripts/lint/validate-config.ts` の引数パースを

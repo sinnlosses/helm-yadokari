@@ -180,6 +180,16 @@
   変更は既にmrTargetBranchに取り込まれているため削除は無害、クローズ済みなら人間が明示的に
   却下した変更なので復元する必要がない
 
+### 実装後の訂正: 配布方法（npm公開を取りやめ）
+
+- 4ラウンド目の「実行環境」で決めた「公開npmレジストリ（npmjs.com）に公開し、CI job上で
+  `npm install` する」は**実装されなかった**。`package.json` に `version`・`bin`・`files`・
+  `publishConfig` がいずれも無く、`.gitlab-ci.yml` の `update-app-versions` は
+  `pnpm install --frozen-lockfile` → `pnpm start`（このリポジトリを clone してそのまま実行）
+- `README.md` の精査で正典と実装のズレとして検出され、ユーザーが**「npmでは配布しない」**と判断
+  （2026-09-12）。`docs/requirements.md` 5章の「配布方法」を実態に合わせて書き換えた
+- 上の「実行環境」節の記述は当時の決定なのでそのまま残す（この節が訂正の正典）
+
 ## セッションの状態: 完了
 
 全ての既知の分岐（タグ命名規則、設定ファイルスキーマ、MRの粒度・失敗時の挙動）が

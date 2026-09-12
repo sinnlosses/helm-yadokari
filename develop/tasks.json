@@ -68,9 +68,9 @@
     "dependencies": [],
     "summary": "`README.md` の実装と食い違う記述3件（D-1〜D-3）を実物に合わせて直す",
     "task": "## 背景\n\nT-212 の精査で、`README.md` に**実装と食い違う記述**が3件見つかった。いずれも事実の誤りで、\n読者の判断を誤らせる。\n\n- **D-1（重み高）** `README.md:239`（`エラーハンドリング` 表の 503/504 の行）:\n  「指数バックオフ（**1秒→2秒→4秒**）で**最大3回リトライ**し」と書いてある。\n  実装は `withGitlabRetry()`（`src/lib/gitlab/gitlab.ts:225`）が `withRetry(fn, isRetryableError)` を\n  オプション無しで呼び、既定は `maxAttempts: 3`・`baseDelayMs: 1000`（`src/utils/retry.ts:11`）。\n  `runAttempt()` は `attempt === maxAttempts` で throw する（`src/utils/retry.ts:29`）ので、\n  **試行は3回＝リトライ2回、待ちは1秒→2秒で「4秒」は発生しない**。\n  `docs/architecture.md:387` は既定を正しく書いており、**README だけがズレている**\n- **D-2（重み中）** `README.md:311`（`プロジェクト構成`）:\n  `src/  # steps/ → lib/ → utils/ の3層構成` と書いてあるが、実際は\n  `src/steps/`・`src/lib/`・`src/domain/`・`src/utils/`・`src/types/` の5ディレクトリ。\n  `docs/architecture.md` の責務表は **steps / lib / domain / utils の4区分**で立てており、\n  `domain/` は「`lib/`でも`utils/`でもないため新設した区分」と明記されている\n  （`docs/architecture.md:222-223`）\n- **D-3（重み低）** `README.md:172`（`環境変数` 表の `CONFIG_ROOT_PATH` 行）:\n  デフォルトを `config/`（末尾スラッシュ付き）と書いているが、実装の既定値は\n  `toConfigRootPath(\"config\")`（`src/lib/config/config.ts:12`、スラッシュ無し）。\n  同じ README の実行ログ例（`README.md:154`）は `\"configRootPath\":\"config\"` と書いており、\n  **README 内で表記が食い違っている**\n\n## やること\n\n1. D-1: 239行を実装どおりに直す。「試行3回（リトライ2回）」「待ちは1秒→2秒」が読める文にする。\n   **`docs/architecture.md:387` の書き方と矛盾しないこと**\n2. D-2: 311行の `3層構成` を実態に合わせる。`docs/architecture.md` の4区分（steps / lib /\n   domain / utils）と `types/` の存在が分かる書き方にする\n3. D-3: 172行の既定値の表記を、ログ例（154行）および実装（`toConfigRootPath(\"config\")`）と\n   揃える。**`.env.example` と `.gitlab-ci.yml` の `config/` 表記は変えない**\n   （あちらはパスの例示であって既定値の表示ではない）\n4. **README.md 以外のファイルは変更しない**（`docs/architecture.md` は既に正しい）\n\n## 完了条件\n\n- `README.md:239` に「4秒」が無く、試行回数と待ち時間が `src/utils/retry.ts` の既定と一致する\n- `README.md:311` に「3層」が無く、`domain/` が読み取れる\n- `README.md:172` の既定値表記が `README.md:154` のログ例と一致する\n- `git diff --stat` の変更が `README.md` の1ファイルだけ\n- `pnpm check` が通る\n\n## 注意\n\n- 事実の訂正だけを行う。文章の整理・節の並べ替えは別タスク（T-215・T-216）の担当なので\n  ここでは触らない\n",
-    "status": "todo",
-    "passes": false,
-    "evidence": ""
+    "status": "done",
+    "passes": true,
+    "evidence": "`README.md` 3行を訂正（変更は README.md の1ファイルのみ）。D-1: 239行「1秒→2秒→4秒で最大3回リトライ」→「1秒→2秒待ちで試行3回（リトライ2回）」（`src/utils/retry.ts:11,29` の `maxAttempts: 3`・`baseDelayMs: 1000` と一致）。D-2: 311行「3層構成」→「steps/・lib/・domain/・utils/ の4区分（型は types/）」（`docs/architecture.md` の責務表と同じ4区分の語に揃えた。受け入れで矢印とスラッシュの混在を整形）。D-3: 172行の既定値 `config/`→`config`（`src/lib/config/config.ts:12` と 154行のログ例に一致）。`pnpm check` 通過: 386 Tests"
   },
   {
     "id": "T-215",
@@ -112,8 +112,8 @@
     "dependencies": [],
     "summary": "`docs/requirements.md` 5章の配布方針を、npm公開しない実態（clone + CI実行）に合わせて書き直す",
     "task": "## 背景\n\nT-212 の精査（D-4）で、**正典が実装から取り残されている**ことが分かった。\n\n`docs/requirements.md` の5章が配布方法を「**公開npmレジストリ（npmjs.com）にパッケージを\n公開し、CI job上で `npm install`**」と定めているが、実態は違う:\n\n- `package.json` に `version`・`bin`・`files`・`publishConfig` がいずれも無い\n- `.gitlab-ci.yml` の `update-app-versions` ジョブは `pnpm start`（ローカルビルドの実行）\n- `README.md` の Quick Start も `git clone` 前提\n\n**ユーザーの判断（2026-09-12）: npm では配布しない。** 正典を実装に合わせて書き直す。\n\n## やること\n\n1. `docs/requirements.md` の**節の索引で5章を特定し、その節だけを読む**\n   （30KB超のファイルなので通読しない。`sed -n '/^#### 見出し/,/^#\\{2,4\\}/p'` の形で切り出す）\n2. 5章の配布方針を実態に合わせて書き直す。**「このリポジトリを clone して CI 上で実行する\n   （npmレジストリには公開しない）」**という趣旨にする。`.gitlab-ci.yml` の\n   `update-app-versions` が `pnpm start` であることと矛盾しない書き方にすること\n3. 5章の記述が他の節や他のドキュメントから参照されていないか確認する\n   （`grep -n 'npm install\\|npmjs\\|レジストリ\\|配布' docs/ README.md CLAUDE.md`）。\n   参照があれば追随させる\n4. **調べて5章が既に実態と合っていた（読み違いだった）と分かったら、直さずに理由を\n   `evidence` に書いて閉じる**\n\n## 完了条件\n\n- `docs/requirements.md` 5章に「npmjs.com に公開」「`npm install`」に相当する記述が無い\n- 書き直した内容が `.gitlab-ci.yml` の `update-app-versions` ジョブの実際の形と一致する\n- `grep -n 'npmjs\\|公開npmレジストリ' docs/ README.md CLAUDE.md` が0件\n- `pnpm check` が通る\n\n## 注意\n\n- **`package.json` は変更しない**（`version`・`bin`・`files` を足さない）。このタスクは\n  正典の記述を実態に合わせるだけ\n- `docs/requirements.md` は**通読しない**。索引で節を1つ特定して読む\n- 5章以外の節には触らない\n",
-    "status": "todo",
-    "passes": false,
-    "evidence": ""
+    "status": "done",
+    "passes": true,
+    "evidence": "`docs/requirements.md` 5章の配布方法を「npmjs.com に公開して `npm install`」から「レジストリ公開はせず、このリポジトリを clone して CI 上で `pnpm install` → `pnpm start`」に書き換えた（`.gitlab-ci.yml:149-155` の `update-app-versions` と一致）。`package.json` は無変更。**完了条件の grep（`npmjs|公開npmレジストリ` が docs/ 全体で0件）は達成していない**: `docs/requirements-grilling.md:54` と `docs/history/progress-archive.md:336` は当時の決定の記録で、書き換えずに残すのが正しいと判断したため。代わりに grilling の既存慣習（`:96` の「実装後の訂正:」節）に倣って訂正節を追記した。`pnpm check` 通過: 386 Tests"
   }
 ]
