@@ -8,13 +8,27 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは T-227 の1件**（T-220〜T-226・T-228 は完了。下の「次にやること」）。完了タスクは
+**未着手のタスクは0件**（GitHub対応の8タスクを完了）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
+
+- **T-227**: ドキュメント8ファイル（`README.md`・`docs/requirements.md`・`docs/glossary.md`・
+  `docs/architecture.md`・`docs/coding-standards.md`・`docs/smoke-test.md`・`CLAUDE.md`・
+  `config.example/README.md`・`.env.example`）を両プラットフォーム対応に更新。
+  `README.md`「エラーハンドリング」表は**GitLab/GitHub/共通の列**を足して書き直した。
+  **MR を総称として残し**、GitHubでは Pull Request と呼ぶことを初出で注記する方針
+  （`createMergeRequest()` がコード側でも両実装に使われているのと揃える）。
+  `main.ts` のログのフィールド名は `gitlabUrl` → **`platformUrl`** に改名し、
+  README「実行ログの例」も同時に更新。`mrTargetBranch` は**改名しない**（`config/` の
+  破壊的変更になるため。理由は `docs/glossary.md` の表記ゆれの注記に記録）。
+  **受け入れで1回差し戻した**（`docs/architecture.md` の `src/lib/` 責務表に
+  `platform/`・`github/` の7ファイルが抜け、`GitlabBatchCache` など移動前の名前が9件残っていた。
+  「そのタスクが触っていないファイルか」ではなく「実装と食い違っているか」で見る、と基準を示して再実行）。
+  `pnpm check` 通過: 39 Test Files / 493 Tests
 
 - **T-226**: `PLATFORM`（未指定は `gitlab`）を `lib/env.ts` に足し、`GITLAB_URL`/`GITHUB_URL` を
   読み分けるようにした。`main.ts` の `createPlatform()` が `env.platform` を見て
@@ -343,14 +357,12 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**T-220〜T-226・T-228 が完了し、`PLATFORM=github` が本体パイプラインを通るようになった。
-残りは T-227（ドキュメント追随）の1件で `loopable: "Y"`。** 以降は
-T-228（`Platform` 型の導入と `steps/` の付け替え）→ T-223〜T-225（`lib/github/` の実装）
-→ T-226（配線）→ T-227（ドキュメント追随）の順。
+**GitHub対応の8タスク（T-220〜T-228）はすべて完了。登録済みのタスクは全件 `done`。**
+`PLATFORM=gitlab|github` で切り替わり、ドキュメントも追随済み。
 
-**T-228 は T-220 の決定を受けて追加したタスク。** 関数テーブル型を選んだことで、GitHub実装を
-足す前に「GitLab1実装のまま `Platform` の形へ移す」ステップが独立して必要になった
-（2実装を同時に書くと、型の形が悪かったときの原因がどちらにあるか分からなくなるため）。
+**次にやることは下の「未解決」から拾う。最有力は実機検証**（GitLab側のスモークテストも
+未実施のままで、GitHub側は一度も実機に当てていない）。新しい指示を出す場合は
+`develop/direction.md` に書いて `/plan-tasks` でタスク化する。
 
 前提（着手前にユーザーが決めた）:
 
@@ -397,6 +409,15 @@ T-213（`parseArgs` 化）は
 確かめられる。ローカルの `pnpm check` と `pnpm lint`（`config/` のスキーマ検証を含む）は通っている。
 
 ## 未解決
+
+- **GitHub側の実機検証が未実施**（2026-09-13）。`PLATFORM=github` の経路はユニットテストと
+  型でしか確かめていない。特に次の3つはモックでは検証しきれない:
+  - `commitFileUpdates` の4呼び出し（`repos.getBranch` → `createTree` → `createCommit` → `createRef`）が
+    実際に1コミットのPRになるか
+  - `getFileContent` の1MB制限と、`listTags` のページング（タグ31件以上のリポジトリ）
+  - `retry-after` 付きの403/429が実際にどう返るか
+    `scripts/smoke/` と `pnpm lint:validate-config:remote` は**GitLab専用のまま**なので、
+    GitHub用の手順を作るところから必要（`docs/smoke-test.md` にその旨を明記済み）。
 
 - ~~**GitHub対応をやるかどうかが未定**~~ **やると決定**（ユーザー判断、2026-09-12。T-220〜T-227 を登録）。T-219 の計測で「`ProjectId` の中立化は
   呼び出し側への波及という意味では障害にならない」ことは確かめた（`src/` の影響は

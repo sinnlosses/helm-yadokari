@@ -6,7 +6,7 @@
 
 <p align="center">
   ヤドカリが定期的に新しい殻へ引っ越すように、Helm chart が参照するアプリケーションの<br>
-  バージョン（イメージタグ）を GitLab のタグから自動判定し、必要なときだけ更新の Merge Request を作成します。
+  バージョン（イメージタグ）を GitLab または GitHub のタグから自動判定し、必要なときだけ更新の MR（GitHubでは Pull Request）を作成します。
 </p>
 
 <p align="center">
@@ -22,7 +22,9 @@
 複数チーム・複数アプリを Helm chart で運用していると、アプリの新バージョンが出るたびに
 `values.yaml` のイメージタグを手で書き換えて MR を作るのが手間になりがちです。
 **helm-yadokari** は GitLab CI の pipeline schedules から定期実行することで、
-chart リポジトリ単位に更新をまとめた MR 作成を自動化します。
+chart リポジトリ単位に更新をまとめた MR 作成を自動化します（このCLI自体は常に GitLab CI
+から実行しますが、`PLATFORM` の設定次第で GitLab・GitHub どちらの chart/ソースリポジトリも
+対象にできます。詳細は「[環境変数](#環境変数)」参照）。
 
 要件・設計の詳細は [`docs/requirements.md`](./docs/requirements.md) を参照してください。
 
@@ -48,21 +50,23 @@ chart リポジトリ単位に更新をまとめた MR 作成を自動化しま�
 
 ## Features
 
-- **複数チーム・複数chart・複数GitLabプロジェクトに対応** — `config/` 配下にディレクトリで登録
+- **複数チーム・複数chart・複数プロジェクトに対応** — `config/` 配下にディレクトリで登録
+- **GitLab・GitHubの両対応** — `PLATFORM=gitlab|github`（既定は `gitlab`）で切り替え。1回の実行での混在はしない
 - **設定ユニット単位でMRを1つに集約** — 同じ設定ユニット内の複数アプリの更新をまとめて1MR（1つのchartリポジトリに複数の設定ユニットがあれば、それぞれ独立したMRになる）
 - **オールオアナッシングな更新** — 設定ユニット内の1アプリでも処理に失敗したら、その更新を見送り次回に再試行（他の設定ユニットには影響しない）
 - **タグ自動作成** — 追跡ブランチのHEADコミットを指すタグが1件も無い場合は、最新コミットにタグ形式通りの新しいタグを作成してから更新する
 - **追跡ブランチの切り替えを検知** — `branchToSync` を変更したら、変更後のブランチのHEADを指すタグを反映する（変更前後のブランチが同じコミットを指していても更新する）
 - **重複作成を防ぐチェック** — 未マージMRがある間は、その設定ユニットの更新をスキップ
 - **並列実行による高速処理** — `CONCURRENCY_LIMIT`（`p-limit`）で同時処理数を制御
-- **パイプラインへの導線** — MR本文にタグへのリンクと、そのタグに紐づく最新パイプラインのURLを記載（状態は表示せずリンクのみ。マージ判断はレビュアーに委ねる）
-- **差分をワンクリックで確認** — MR本文に旧タグ→新タグ間のGitLab比較URLを記載
+- **パイプラインへの導線** — MR本文にタグへのリンクと、そのタグに紐づく最新パイプライン（GitHubではワークフロー実行）のURLを記載（状態は表示せずリンクのみ。マージ判断はレビュアーに委ねる）
+- **差分をワンクリックで確認** — MR本文に旧タグ→新タグ間の比較URLを記載
 - **ドライランモード** — `DRY_RUN=true` でタグ作成・ブランチ作成・MR作成をスキップし、更新予定の内容だけログ出力
 - **設定バリデーション** — 起動時に Zod でスキーマを検証し、設定ミスを早期に検出
 
 ## タグ形式
 
-GitLab のタグのうち、追跡ブランチの現在のHEADコミットを指しているものから最新タグを決めます。
+ソースリポジトリ（GitLab または GitHub）のタグのうち、追跡ブランチの現在のHEADコミットを
+指しているものから最新タグを決めます。
 タグ形式はアプリ（ソースリポジトリ）単位に `registry.yaml` の `appSpecs[].tagFormat` で指定します
 （**必須**。既定値はありません）。
 
@@ -98,7 +102,9 @@ appSpecs:
 
 - Node.js 22.x 以上
 - pnpm 11.x 以上
-- GitLab Group/Project Access Token（スコープ: `read_api` + `write_repository` + MR作成権限。最小権限で発行してください）
+- アクセストークン（管理対象のchart/ソースリポジトリが置かれているプラットフォームに合わせる）
+  - GitLab（既定）: Group/Project Access Token（スコープ: `read_api` + `write_repository` + MR作成権限。最小権限で発行してください）
+  - GitHub: Personal Access Token（fine-grained推奨。対象リポジトリの内容の読み書き・pull request作成権限）
 
 ```bash
 # 1. インストール
@@ -106,9 +112,11 @@ git clone https://github.com/sinnlosses/helm-yadokari.git
 cd helm-yadokari
 pnpm install
 
-# 2. .env を作成（GITLAB_URL / ACCESS_TOKEN を書き込む。他のキーは .env.example 参照）
+# 2. .env を作成
 cp .env.example .env
-# → GITLAB_URL / ACCESS_TOKEN を編集する（未設定だと `pnpm dev` が起動前に落ちる）
+# → GitLabを使う場合（既定）: GITLAB_URL / ACCESS_TOKEN を編集する
+#   GitHubを使う場合: PLATFORM=github と GITHUB_URL / ACCESS_TOKEN を編集する（.env.example参照）
+#   （未設定だと `pnpm dev` が起動前に落ちる）
 
 # 3. 設定ファイルを作成（config/ 配下の構成は下記「設定」を参照）
 cp -r config.example/my-team-chart config/my-team-chart   # 深さ1・深さ2の両方を含むサンプル
@@ -158,14 +166,14 @@ flowchart TD
 ### 実行ログの例
 
 ```json
-{"level":"info","timestamp":"2026-09-02T00:00:00.000Z","event":"run_start","gitlabUrl":"https://gitlab.example.com","dryRun":false,"concurrencyLimit":3,"configRootPath":"config"}
+{"level":"info","timestamp":"2026-09-02T00:00:00.000Z","event":"run_start","platformUrl":"https://gitlab.example.com","dryRun":false,"concurrencyLimit":3,"configRootPath":"config"}
 {"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_unit","chartDirName":"teamA-chart","unitPath":"my-group/my-unit","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","latestTag":"main-build-at-20260902-090000","updates":[{"valuesPath":"charts/my-app/values.yaml","currentTag":"main-build-at-20260901-090000"}]}],"helmBranchRefUpdates":[]}
 {"level":"info","timestamp":"2026-09-02T00:00:00.456Z","event":"update_unit","chartDirName":"teamB-chart","unitPath":"my-unit","chartProjectId":999,"chartProjectName":"teamB-chart","result":"SKIPPED","reason":"no_diff"}
 {"level":"info","timestamp":"2026-09-02T00:00:00.500Z","event":"summary","CREATED":1,"SKIPPED":1,"ERROR":0}
 {"level":"info","timestamp":"2026-09-02T00:00:00.520Z","event":"run_end","durationMs":520}
 ```
 
-上は絞り込み無しの実行例です。`TARGET_CHART` / `TARGET_UNITS` を指定すると、`run_start` に `targetChart` / `targetUnits` が載ります。
+上は絞り込み無しの実行例です。`TARGET_CHART` / `TARGET_UNITS` を指定すると、`run_start` に `targetChart` / `targetUnits` が載ります。`platformUrl` は `PLATFORM` に応じて `GITLAB_URL` / `GITHUB_URL` のどちらかの値になります。
 
 ## 設定
 
@@ -173,13 +181,18 @@ flowchart TD
 
 | 変数名              | 必須 | デフォルト | 説明                                                                                                                                                                                                                                   |
 | ------------------- | :--: | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GITLAB_URL`        |  ✓   | —          | GitLab インスタンスの URL（`http://` または `https://` で始まる形式）                                                                                                                                                                  |
-| `ACCESS_TOKEN`      |  ✓   | —          | `read_api` + `write_repository` + MR作成権限を持つ Group/Project Access Token（最小権限で発行してください）                                                                                                                            |
+| `PLATFORM`          |      | `gitlab`   | 管理対象のchart/ソースリポジトリが置かれているプラットフォーム。`gitlab` または `github`（1回の実行で混在はしません）                                                                                                                  |
+| `GITLAB_URL`        | ✓\*  | —          | GitLab インスタンスの URL（`http://` または `https://` で始まる形式）。`PLATFORM=gitlab`（既定）のとき必須                                                                                                                             |
+| `GITHUB_URL`        | ✓\*  | —          | GitHub REST APIのエンドポイントURL（github.comなら `https://api.github.com`、GHESなら `https://<host>/api/v3`）。`PLATFORM=github` のとき必須                                                                                          |
+| `ACCESS_TOKEN`      |  ✓   | —          | 両プラットフォーム共通。`PLATFORM=gitlab`なら `read_api` + `write_repository` + MR作成権限を持つ Group/Project Access Token、`PLATFORM=github`なら Personal Access Token（fine-grained推奨）のみサポート。最小権限で発行してください   |
 | `CONFIG_ROOT_PATH`  |      | `config`   | 設定ディレクトリの最上位のパス（作業ディレクトリ外を指すパスは拒否され、実在しないディレクトリを指定した場合もエラー終了します）                                                                                                       |
 | `CONCURRENCY_LIMIT` |      | `3`        | `(chartリポジトリ, 設定ユニット)`単位の同時処理数（1〜20の整数）                                                                                                                                                                       |
 | `DRY_RUN`           |      | `false`    | `"true"` のときタグ作成・ブランチ作成・MR作成をスキップし、更新予定の内容のみログ出力します                                                                                                                                            |
 | `TARGET_CHART`      |      | —          | 指定すると `config/` 配下の特定のchartディレクトリのみ処理対象にします（省略時は全chart）。存在しないディレクトリ名を指定した場合、または絞り込み結果が0件の場合はエラー終了します                                                     |
 | `TARGET_UNITS`      |      | —          | 指定すると特定の設定ユニットのみ処理対象にします。`unitPath`（`config/<chartディレクトリ>/` からの深さ1〜2の相対パス）を、カンマ区切りで複数指定可（省略時は全設定ユニット）。該当する設定ユニットが見つからない場合はエラー終了します |
+
+`*` `GITLAB_URL` / `GITHUB_URL` は択一必須です。`PLATFORM` が選んだ側のURLだけを読むため、
+使わない側は未設定のままで構いません。
 
 ### config/
 
@@ -202,6 +215,9 @@ config/
 「[タグ形式](#タグ形式)」参照）の台帳を持ちます。`config.yaml` は設定ユニット単位で、
 どのプロジェクトのどのブランチを追跡し `values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
 書き込むかを持ちます。両者は `projectId` で対応付けます。
+
+`projectId` は `PLATFORM=gitlab`（既定）なら GitLab のプロジェクトID（数値）、
+`PLATFORM=github` なら GitHub の `"owner/repo"` 形式の文字列で指定します。
 
 Helmの向き先ブランチとは、values.yaml のパラメータを受け取ってk8sリソースを実際に構築する
 ブランチのことです。`mrTargetBranch`（値定義ブランチ。MRの作成先）とは別物で、このブランチへの
@@ -256,11 +272,11 @@ apps:
 ### 設定ファイルの検証
 
 ```bash
-# 文法・整合性のチェック（GitLabへの接続不要。pnpm check にも含まれる）
+# 文法・整合性のチェック（GitLab/GitHubへの接続不要。pnpm check にも含まれる）
 pnpm lint:validate-config
 
-# 上記に加えて、projectId・ブランチ・valuesPath・アンカーが GitLab 上に実在するかを検証
-# （読み取りのみ。タグ・ブランチ・MR は作りません。GITLAB_URL / ACCESS_TOKEN が必要）
+# 上記に加えて、projectId・ブランチ・valuesPath・アンカーが実在するかを検証
+# （読み取りのみ。タグ・ブランチ・MR は作りません。GitLab専用。GITLAB_URL / ACCESS_TOKEN が必要）
 pnpm lint:validate-config:remote
 
 # config.example/ のサンプルを同じ文法・整合性チェックにかける（pnpm check にも含まれる）
@@ -277,20 +293,28 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
 
 ## エラーハンドリング
 
-| ケース                                                 | 挙動                                                                                                                                                                   |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 401 認証エラー / 5xx サーバーエラー / ネットワーク障害 | 即時 `exit(1)` でパイプライン失敗                                                                                                                                      |
-| 1リクエストが5分（`queryTimeout`）を超えた             | 即時 `exit(1)` でパイプライン失敗                                                                                                                                      |
-| 503 / 504                                              | 指数バックオフ（1秒→2秒待ち）で試行3回（リトライ2回）し、なお失敗したら5xxとして即時 `exit(1)`                                                                         |
-| 429 / 502                                              | gitbeakerが内部で最大10回リトライ（合計0.3秒弱でこのツールのリトライは介在しない）。その後502は5xxとして即時 `exit(1)`、429は該当設定ユニットを `ERROR` として処理継続 |
-| values.yaml不在                                        | その設定ユニットの更新全体を `ERROR` としてログ記録し次に持ち越す                                                                                                      |
-| 差分なし / 未マージMR既存                              | `SKIPPED` としてログ記録                                                                                                                                               |
-| その他のAPIエラー（タグ作成失敗を含む）                | 該当設定ユニットを `ERROR` としてログ記録し処理継続                                                                                                                    |
+| ケース                                                 | 対象   | 挙動                                                                                                                                                                   |
+| ------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 401 認証エラー / 5xx サーバーエラー / ネットワーク障害 | 共通   | 即時 `exit(1)` でパイプライン失敗                                                                                                                                      |
+| 1リクエストが5分（`queryTimeout`）を超えた             | GitLab | 即時 `exit(1)` でパイプライン失敗（GitHub側にこの設定は無く、Node組み込みfetchの既定タイムアウトに委ねる）                                                             |
+| 503 / 504                                              | 共通   | 指数バックオフ（1秒→2秒待ち）で試行3回（リトライ2回）し、なお失敗したら5xxとして即時 `exit(1)`                                                                         |
+| 429 / 502                                              | GitLab | gitbeakerが内部で最大10回リトライ（合計0.3秒弱でこのツールのリトライは介在しない）。その後502は5xxとして即時 `exit(1)`、429は該当設定ユニットを `ERROR` として処理継続 |
+| 429                                                    | GitHub | `retry-after`ヘッダが無くても指数バックオフで再試行（レート制限以外では返らないステータスのため）                                                                      |
+| 403                                                    | GitLab | fatal扱いしない（トークンが特定プロジェクトの権限を持たないだけの場合があるため）。例外的にパイプライン取得は「パイプライン無し」として読み替える                      |
+| 403                                                    | GitHub | 一次・二次のレート制限でも返るため`retry-after`ヘッダで判定する。付いていて60秒以内に待てるなら再試行し、無ければ権限不足として該当設定ユニットを `ERROR`              |
+| 404                                                    | GitLab | 既定値（無し）として読み替える（プロジェクト・ブランチ・ファイルなど）                                                                                                 |
+| 404                                                    | GitHub | 権限の無いリソースも404で返すため「存在しない」と断定できない。既定値に読み替えた後の書き込みが403/404で失敗すると、該当設定ユニットがメッセージ付きで `ERROR` になる  |
+| values.yaml不在                                        | 共通   | その設定ユニットの更新全体を `ERROR` としてログ記録し次に持ち越す                                                                                                      |
+| 差分なし / 未マージMR（GitHubではPull Request）既存    | 共通   | `SKIPPED` としてログ記録                                                                                                                                               |
+| その他のAPIエラー（タグ作成失敗を含む）                | 共通   | 該当設定ユニットを `ERROR` としてログ記録し処理継続                                                                                                                    |
 
 追跡ブランチのHEADを指すタグが無い場合・追跡ブランチを切り替えた場合はエラーではありません
 （[タグの自動作成](#タグの自動作成)参照）。
 
 1件以上の `ERROR` があった場合は `exit(1)` でパイプライン失敗として終了します（致命的エラーを除く）。
+
+判定を担う関数とその経路（`isFatalError()`・`isRetryableError()`などがどの順で呼ばれるか）は
+[`docs/architecture.md`](./docs/architecture.md)「HTTPエラーの経路」が正典です。
 
 ## CI/CD
 
@@ -300,17 +324,23 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
 
 ### セットアップ手順
 
-1. **Settings > CI/CD > Variables** に以下を登録する
+1. **Settings > CI/CD > Variables** に以下を登録する（管理対象がGitLabの場合。`.gitlab-ci.yml`
+   自体は常にGitLab CI上で動きますが、`PLATFORM=github`にするとGitHub上のchart/ソース
+   リポジトリを管理できます。その場合は `GITLAB_URL` の代わりに `PLATFORM`（値`github`）と
+   `GITHUB_URL` を登録してください。`.gitlab-ci.yml` の`variables:`ブロックには載っていない
+   任意のCI/CD変数ですが、Settings側に登録すれば読み込まれます）
 
-   | 変数名         | Masked | Protected | 説明                                                                       |
-   | -------------- | :----: | :-------: | -------------------------------------------------------------------------- |
-   | `GITLAB_URL`   |        |     —     | GitLab インスタンスの URL                                                  |
-   | `ACCESS_TOKEN` |   ✓    |     —     | Group/Project Access Token（`read_api` + `write_repository` + MR作成権限） |
+   | 変数名         | Masked | Protected | 説明                                                                                                                  |
+   | -------------- | :----: | :-------: | --------------------------------------------------------------------------------------------------------------------- |
+   | `GITLAB_URL`   |        |     —     | GitLab インスタンスの URL（`PLATFORM=gitlab`のとき。既定なので`PLATFORM`自体は省略可）                                |
+   | `ACCESS_TOKEN` |   ✓    |     —     | GitLabならGroup/Project Access Token（`read_api` + `write_repository` + MR作成権限）、GitHubならPersonal Access Token |
 
    **Protected は OFF にしてください。** ON にすると保護ブランチ以外のパイプラインで変数が
    空になり、MR時に設定の実在チェック（`validate-config-remote` ジョブ）が実行できずに
    失敗します。設定ミスをMRで確実に止める運用を優先しているため、このジョブは変数が
-   無いときにスキップせずエラーで停止します。
+   無いときにスキップせずエラーで停止します。**この実在チェックは現時点でGitLab専用**なので、
+   `PLATFORM=github`のときは`validate-config-remote`ジョブが即終了します
+   （詳細は「[設定ファイルの検証](#設定ファイルの検証)」）。
 
 2. **CI/CD > Schedules** でスケジュールを作成する
 

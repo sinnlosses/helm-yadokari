@@ -6,10 +6,12 @@
 
 ## プロジェクト概要
 
-Helm chart でバージョン管理されているアプリケーションのイメージタグを、GitLab のタグから
-自動で最新に更新・メンテナンスするCLIツール。GitLab CI の pipeline schedules から定期実行し、
-chart リポジトリ単位で1つの Merge Request を作成する。クラスタへの直接デプロイ（`helm upgrade`）は
-行わない。詳細な要件・検討経緯は [`docs/requirements.md`](./docs/requirements.md) と
+Helm chart でバージョン管理されているアプリケーションのイメージタグを、GitLab または GitHub の
+タグから自動で最新に更新・メンテナンスするCLIツール（`PLATFORM=gitlab|github`、既定は
+`gitlab`。1回の実行での混在はしない）。このCLI自体は常に GitLab CI の pipeline schedules から
+定期実行し、chart リポジトリ単位で1つの MR（GitHubでは Pull Request）を作成する。クラスタへの
+直接デプロイ（`helm upgrade`）は行わない。詳細な要件・検討経緯は
+[`docs/requirements.md`](./docs/requirements.md) と
 [`docs/requirements-grilling.md`](./docs/requirements-grilling.md) を参照。
 
 対象ユーザーはチーム内限定。スコープ外のことは `docs/requirements.md` の「2.2 対象外とすること」参照。
@@ -19,6 +21,7 @@ chart リポジトリ単位で1つの Merge Request を作成する。クラス�
 - Node.js 22.x, pnpm 11.x
 - `pnpm install` で依存関係をインストール
 - ローカル実行には `.env`（`.env.example` を参照）に `GITLAB_URL` / `ACCESS_TOKEN` を設定
+  （`PLATFORM=github` にする場合は `GITLAB_URL` の代わりに `GITHUB_URL` を設定する）
 - タスク運用スキル（`/next-task` など）は別リポジトリ
   <https://github.com/sinnlosses/claude-skills> を clone し、その `skills/<名前>` を
   `~/.claude/skills/<名前>` へスキルごとに symlink して導入する。未導入でもCLI自体の
@@ -32,7 +35,7 @@ pnpm check                            # tsc --noEmit + lint + format:check + tes
 pnpm test                             # テスト全体
 npx vitest run test/domain/tag-format.test.ts # 単体テストファイルのみ実行
 pnpm lint                             # oxlint + config/ と config.example/ のバリデーション（ローカルのみ）
-pnpm lint:validate-config:remote      # config/ の値がGitLab上に実在するか検証（要 .env、読み取りのみ）
+pnpm lint:validate-config:remote      # config/ の値が実在するか検証（要 .env、読み取りのみ。GitLab専用でPLATFORM=githubでは未対応）
 pnpm format                           # oxfmt で自動整形
 pnpm dev                              # tsx でローカル実行（.env を読み込む）
 pnpm build && pnpm start              # ビルドしてから実行
@@ -78,9 +81,9 @@ pnpm build && pnpm start              # ビルドしてから実行
 
 `.gitlab-ci.yml` 参照。`check`（型チェック・lint・test・build）→ `update-app-versions`
 （pipeline schedule / 手動実行時のみ本体を実行）という構成。`validate-config-remote` は
-`config/` の値がGitLab上に実在するかをMR時点で検証するジョブ（読み取りのみ。MR/push/手動実行で
-必ず走る）。`renovate` ジョブはこのCLI自体の依存パッケージ更新用（別スケジュールで
-`RENOVATE=true` を指定）。
+`config/` の値が実在するかをMR時点で検証するジョブ（読み取りのみ。MR/push/手動実行で
+必ず走る。現時点ではGitLab専用で、`PLATFORM=github`では未対応）。`renovate` ジョブは
+このCLI自体の依存パッケージ更新用（別スケジュールで `RENOVATE=true` を指定）。
 
 CI/CD Variables に `ACCESS_TOKEN` を **Protected: OFF** で登録する（理由と手順は
 [`README.md`](./README.md)「CI/CD」が正典）。

@@ -7,6 +7,10 @@
 > **書き込みが発生する**（タグ・ブランチ・コミット・MRの作成）。必ず検証用の
 > スモークテスト用プロジェクトに対して実行すること。本番のchartリポジトリには向けない。
 
+**この手順はGitLab専用**（`scripts/smoke/smoke-fixture.ts` がGitLab APIしか呼ばない）。
+**GitHub（`PLATFORM=github`）での実機検証はまだ実施していない。** 単体テスト
+（`test/lib/github/`）だけがGitHub側の挙動を検証している状態。
+
 ## 目次
 
 | 節                            | 中身                                                  |

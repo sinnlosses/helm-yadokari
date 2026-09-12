@@ -318,7 +318,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
   壊れているかを示すのはこれだけ（`schema.test.ts` はパスまでは固定していない）
 - `test/domain/config-unit.test.ts`「空白を含んでも受け入れる」: 文字種を検証しないという
   `docs/requirements.md` 4.2節の決定を固定する唯一のテスト
-- `test/lib/gitlab/batch-cache.test.ts` 全5件・`test/lib/gitlab/web-url.test.ts` 全4件・
+- `test/lib/platform/batch-cache.test.ts` 全5件・`test/lib/gitlab/web-url.test.ts` 全4件・
   `test/steps/apply-updates/sub-steps/collect-mr-entries.test.ts` 全5件・
   `submit-merge-request.test.ts` 全4件: いずれも丸ごと外してもカバレッジは減らないが、
   falsy値のキャッシュ・サブパス設置のURL組み立て・問い合わせの1回収束・固定ブランチの

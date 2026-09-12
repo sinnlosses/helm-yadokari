@@ -16,10 +16,8 @@ import { timed } from "./utils/timer.js"
 export async function run(env: EnvConfig): Promise<RunResult> {
   logger.info({
     event: "run_start",
-    // フィールド名`gitlabUrl`はREADME.md「実行ログの例」が示す外部インターフェースなので、
-    // PLATFORM=github時に実態と食い違うと分かっていてもここでは改名しない
-    // （ログ形式の変更はdocsの追随を伴うため別タスク）
-    gitlabUrl: env.platformUrl,
+    // フィールド名はEnvConfig.platformUrlに揃える。README.md「実行ログの例」もこの名前で示す
+    platformUrl: env.platformUrl,
     dryRun: env.dryRun,
     concurrencyLimit: env.concurrencyLimit,
     configRootPath: env.configRootPath,

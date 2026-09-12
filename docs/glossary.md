@@ -28,10 +28,10 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 | 節                          | 収録している用語                                                                                                                                                                                                                                                                                         |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ## 設定・登録関連           | アプリ / ソースリポジトリ / chartリポジトリ / 設定ユニット（ConfigUnit） / registry.yaml・config.yaml / chartToUpdate・appSpecs / valuesPath / 書き込み位置（AnchorLocation） / anchor（locations[].anchor） / Helmの向き先ブランチ / helm.locations[].anchor / chartディレクトリ名 / セルフサービス方式 |
-| ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / タグの読み取り結果（ParsedTag） / GitLab上のタグ（TagInfo） / 打刻日時 / 最新タグ / 反映済みタグ / タグ自動作成                                                                                                                                                  |
-| ## MR・GitLab操作関連       | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング / Group Access Token                                                                                                                                                                                                          |
+| ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / タグの読み取り結果（ParsedTag） / タグ情報（TagInfo） / 打刻日時 / 最新タグ / 反映済みタグ / タグ自動作成                                                                                                                                                        |
+| ## MR・リポジトリ操作関連   | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング                                                                                                                                                                                                                               |
 | ## 実行結果・処理単位関連   | アプリ更新計画 / イメージタグの更新 / 向き先ブランチの更新 / 設定ユニット更新対象 / 設定ユニット処理結果 / 実行結果                                                                                                                                                                                      |
-| ## 実行環境・運用関連       | Dry-runモード / TARGET_CHART・TARGET_UNITS / pipeline schedules                                                                                                                                                                                                                                          |
+| ## 実行環境・運用関連       | Dry-runモード / TARGET_CHART・TARGET_UNITS / pipeline schedules / Platform / ACCESS_TOKEN                                                                                                                                                                                                                |
 | ## その他の注記             | 「target」の意味は文脈で決まる / 「反映」「適用」「更新」の使い分け                                                                                                                                                                                                                                      |
 
 ## 設定・登録関連
@@ -43,12 +43,12 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### ソースリポジトリ
 
-- **定義**: アプリのソースコードが置かれ、タグが打たれるGitLabプロジェクト。chartリポジトリ（後述）とは別のプロジェクトを指す。
+- **定義**: アプリのソースコードが置かれ、タグが打たれるGitLab/GitHubのプロジェクト。chartリポジトリ（後述）とは別のプロジェクトを指す。
 - **表記ゆれ**: コード上は「ソースリポジトリ」に対応する専用の識別子がなく、chart側の`chartToUpdate.projectId`と同じ`projectId`という汎用フィールド名（`app.projectId`）が使われている。
 
 ### chartリポジトリ
 
-- **定義**: Helm chartを管理するGitLabプロジェクトそのもの。1つの`registry.yaml`が対応する。1つのchartリポジトリ配下に複数の設定ユニット（`ConfigUnit`）がぶら下がりうる。並列処理やエラーハンドリングは`(chartリポジトリ, 設定ユニット)`の組単位で行う。
+- **定義**: Helm chartを管理するGitLab/GitHubのプロジェクトそのもの。1つの`registry.yaml`が対応する。1つのchartリポジトリ配下に複数の設定ユニット（`ConfigUnit`）がぶら下がりうる。並列処理やエラーハンドリングは`(chartリポジトリ, 設定ユニット)`の組単位で行う。
 
 ### 設定ユニット
 
@@ -194,12 +194,14 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   読み取った追跡ブランチ名（`branchName`）、打刻日時（`taggedAt`。詳細は「打刻日時」の
   項）をまとめた型。`parseTag()`/`findLatestParsedTag()`/`buildNewTag()`が返す。
 
-### GitLab上のタグ
+### タグ情報（TagInfo）
 
 - **英語識別子**: `TagInfo`（`name: TagName`・`commitSha: CommitSha`の2フィールド）
-- **定義**: GitLab上のタグ1件分の情報。名前とそのタグが指すコミットのSHAを持つ。`listTags()`が返す。
-- **`ParsedTag`と型名の付け方が非対称な理由**: `TagInfo`はGitLab APIが返した生のタグ情報、
-  `ParsedTag`はそれを`tagFormat`で解釈した結果で、持っている情報も出どころも別物。
+- **定義**: リポジトリ上のタグ1件分の情報。名前とそのタグが指すコミットのSHAを持つ。
+  GitLab・GitHubで共通の形で、`Platform.listTags()`（`lib/gitlab/`・`lib/github/`それぞれの
+  実装）が返す。
+- **`ParsedTag`と型名の付け方が非対称な理由**: `TagInfo`はプラットフォームのAPIが返した生の
+  タグ情報、`ParsedTag`はそれを`tagFormat`で解釈した結果で、持っている情報も出どころも別物。
   接尾辞（`〜Info`）と接頭辞（`Parsed〜`）が揃っていないこと自体が、この2つを取り違えないための
   情報になっているため据え置く。
 
@@ -248,11 +250,15 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   `values.yaml`に書けば追跡先が変わったことは名前から読み取れる。仕様は
   `docs/requirements.md` 4.1節が正典。
 
-## MR・GitLab操作関連
+## MR・リポジトリ操作関連
 
 ### MR（Merge Request）
 
-- **定義**: GitLab上のプルリクエストに相当する概念。1つの設定ユニットにつき1つのMRを作成する。
+- **定義**: GitLabのMerge Request、GitHubのPull Requestを指す。1つの設定ユニットにつき1つ作成する。
+- **語彙は「MR」に統一し、GitHubでも「Pull Request」に言い換えない**（ユーザー判断）。
+  `createMergeRequest()`・`openMergeRequestExists()`（`lib/platform/platform.ts`の
+  `Platform`型の関数名）はGitLab・GitHub両実装で共通の名前を使っており、ドキュメント側の
+  語彙もそれに揃える。`mrTargetBranch`を改名しない判断（後述）と同じ理由付け。
 
 ### 固定ブランチ
 
@@ -271,15 +277,14 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 - **英語識別子**: `mrTargetBranch`（`ChartRepoConfig`のフィールド）
 - **定義**: MRの作成先（ベースブランチ）を指定する`registry.yaml`の`chartToUpdate`のフィールド。
 - **改名しない理由**: GitLabがMRのベースブランチを指して使う語そのものなので、独自の言い換えはしない。
+- **GitHub対応後も改名しない**（ユーザー判断）: GitHubではPull Requestのベースブランチに
+  当たるが、`registry.yaml`のフィールド名なので改名すると`config/`の破壊的変更になる。
+  `projectId`をGitLabの数値ID・GitHubの`"owner/repo"`の両方を受ける後方互換な形にした判断
+  （「Platform」項）と揃え、既存の`config/`を書き換えずに済ませることを優先する。
 
 ### オールオアナッシング
 
 - **定義**: 同一設定ユニット内で1アプリでも処理が失敗した場合、成功した他アプリの分も含めてその設定ユニット全体の更新を見送る方針。
-
-### Group Access Token
-
-- **英語識別子**: `ACCESS_TOKEN`
-- **定義**: GitLab認証に使う、スコープを絞ったトークン。`read_api` + `write_repository` + MR作成権限の最小権限で運用する。
 
 ## 実行結果・処理単位関連
 
@@ -356,6 +361,33 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### pipeline schedules
 
 - **定義**: このCLIの実行トリガー。GitLab CIのスケジュール実行機能を指す、GitLabの機能名そのもの。GitLabに存在しない語順の日本語訳は作らず、英語表記のまま使う。
+- **`Platform`（後述）とは独立**: このCLI自身は常にGitLab CIの pipeline schedules から起動する。
+  `PLATFORM`は起動後に管理対象のchart/ソースリポジトリ側で使うプラットフォームを選ぶだけで、
+  起動方法そのものには影響しない。
+
+### Platform
+
+- **英語識別子**: `Platform`（`lib/platform/platform.ts`の関数テーブル型）・`PlatformKind`
+  （環境変数`PLATFORM`の値の型。`"gitlab" | "github"`）・`PlatformUrl`（ブランド型。
+  旧`GitLabUrl`から改名）
+- **定義**: GitLab・GitHubのどちらで管理対象のchart/ソースリポジトリを管理していても
+  `steps/`が同じ形で呼べるようにする抽象。`lib/gitlab/`・`lib/github/`がそれぞれ
+  `Platform`型の値を組み立てて渡す。環境変数`PLATFORM`（未指定は`"gitlab"`）で選び、
+  **1回の実行でGitLab・GitHubを混在させることはない**。
+- **API呼び出しだけでなくエラー分類も持つ**: `isFatalError`・`extractHttpStatus`など、
+  プラットフォームごとに形が違うエラー判定もこの表に含める。詳細は
+  `docs/architecture.md`「GitLab/GitHubの2実装は関数テーブル型`Platform`で受け渡す」
+  「HTTPエラーの経路」節。
+
+### ACCESS_TOKEN
+
+- **英語識別子**: 環境変数`ACCESS_TOKEN`（型は`AccessToken`ブランド型）
+- **定義**: GitLab・GitHub共通のアクセストークン用環境変数。`PLATFORM=gitlab`（既定）なら
+  `read_api` + `write_repository` + MR作成権限を持つGitLabのGroup/Project Access Token、
+  `PLATFORM=github`ならGitHubのPersonal Access Token（fine-grained推奨）を渡す。
+  **GitHub側はPersonal Access Tokenのみサポートする**（GitHub Appは短命なinstallation
+  access tokenの再発行が必要になるため採らなかった。理由は`docs/architecture.md`
+  「プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/`GITHUB_URL`のまま」節）。
 
 ## その他の注記
 

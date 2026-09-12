@@ -6,16 +6,19 @@
 （`pnpm lint:validate-config:example`）。
 
 架空のプロジェクトIDを含むため `config/` には置けない。`config/` の中身は
-CIの `validate-config-remote` がGitLab上の実在チェックにかけるので、架空の設定を混ぜると
+CIの `validate-config-remote` が実在チェックにかけるので、架空の設定を混ぜると
 全MRが必ず落ちる（[`../config/README.md`](../config/README.md)）。
+
+`projectId` は `PLATFORM=gitlab`（既定）なら数値、`PLATFORM=github` なら `"owner/repo"` 形式の
+文字列で指定する（詳細は[`../README.md`](../README.md)「設定 > config/」章）。
 
 ## 使い方
 
 ```bash
 cp -r config.example/my-team-chart config/<あなたのchartリポジトリ名>
 # projectId / projectName / ブランチ名 / valuesPath / anchor を実物に書き換える
-pnpm lint:validate-config          # 文法・整合性チェック（GitLab接続なし）
-pnpm lint:validate-config:remote   # GitLab上の実在チェック（要 .env、読み取りのみ）
+pnpm lint:validate-config          # 文法・整合性チェック（GitLab/GitHubへの接続なし）
+pnpm lint:validate-config:remote   # 実在チェック（要 .env、読み取りのみ。GitLab専用。PLATFORM=github では未対応）
 ```
 
 不要な設定ユニットのディレクトリはそのまま削除してよい。深さ1だけで足りるなら

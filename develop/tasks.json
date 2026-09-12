@@ -105,8 +105,8 @@
     "dependencies": ["T-226"],
     "summary": "README・requirements・glossary などを両forge対応の記述に追随させる",
     "task": "## 背景\n\n実装が両プラットフォーム対応になっても、ドキュメントはGitLab専用のまま残る。着手前の実測で\nGitLab・MR関連の言及は `docs/architecture.md` 119行・`docs/requirements.md` 51行・\n`README.md` 46行・`docs/glossary.md` 30行・`docs/smoke-test.md` 37行・`CLAUDE.md` 8行。\n識別子側は `MergeRequest` 78・`mrTargetBranch` 71（`mrTargetBranch` は**設定フィールド名**）。\n\n## 引き継ぎ（前のタスクで残したもの）\n\n- **`README.md`「エラーハンドリング」表がGitLab前提のまま。** ステータス別挙動の正典だが、\n  GitHub側は403の意味が違う（レート制限で返りうる。`retry-after` があり60秒以内ならリトライ、\n  無ければ権限不足として `ERROR`）。404も「存在しない」と断定できない。\n  `docs/architecture.md`「HTTPエラーの経路」節は既に両プラットフォームを説明する記述に\n  なっているので、それに合わせる\n- `src/main.ts` のログのフィールド名まわりは配線のタスクで扱う想定だが、\n  **`README.md`「実行ログの例」との整合**は最終的にこのタスクで確かめる\n\n## 解くべき論点\n\n- **`mrTargetBranch` は改名しないことで確定**（2026-09-13）。`registry.yaml` のフィールド名で\n  変えると `config/` の破壊的変更になり、T-221 で `projectId` の書式を後方互換にした判断と\n  揃わないため。**この理由を `docs/glossary.md` に「表記ゆれの注記」として残すこと**\n- MR / PR の語をドキュメントでどう扱うか（両方併記か、中立な語を1つ決めるか）。\n  `docs/glossary.md` が用語の正典\n\n## やること\n\n1. `README.md`（設定・環境変数・CI/CD・タグ形式・エラーハンドリング・実行ログの例）を\n   両プラットフォーム対応の記述にする\n2. `docs/requirements.md` の該当節（2.2・4.4・4.5）と `docs/architecture.md` を追随させる\n3. `docs/glossary.md` に「Platform」とプラットフォーム関連の用語を足す（「用語の索引」にも行を足す）\n4. `config.example/README.md` と `CLAUDE.md` の該当箇所を追随させる\n5. `docs/smoke-test.md` に「GitHub での実機検証は未実施」と明記する\n6. **`.claude/skills/maintain-docs` の7つの検査を通す**\n\n## 完了条件\n\n- `pnpm check` が通る（基準: T-226 完了時点の件数）\n- `/maintain-docs` の検査で未対応の指摘が残っていない\n- `docs/` と `README.md` を読んで、GitHubで使う手順が追える状態になっている\n- `docs/research/github-support.md` は**書き換えない**（調査記録は当時のまま残す）\n\n## 注意\n\n- `docs/history/` 配下は触らない\n- **`mrTargetBranch` を改名しない**（上記のとおり確定済み）。`config/` のフィールド名を\n  変える提案が必要だと判断した場合は、実装せず理由とともに報告して止まること\n- `src/` のコードは変えない。**例外は `main.ts` のログのフィールド名だけ**で、\n  変えるなら `README.md`「実行ログの例」と同じコミットで揃えること",
-    "status": "todo",
-    "passes": false,
-    "evidence": ""
+    "status": "done",
+    "passes": true,
+    "evidence": "README・requirements・glossary・smoke-test・CLAUDE.md・config.example/README.md・.env.example を両プラットフォーム対応に更新し、main.ts のログのフィールド名を platformUrl に揃えた。受け入れで差し戻し1回（architecture.md の lib/ 責務表に platform/・github/ の7ファイルが抜けていた件。修正済み）。pnpm check 通過: 39 Test Files / 493 Tests"
   }
 ]
