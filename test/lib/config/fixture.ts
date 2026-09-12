@@ -58,8 +58,8 @@ export type AppSpecFixture = {
   readonly tagFormat?: string
 }
 
-/** `apps[].chart[]`・`helm.chart[]`共通の書き込み先1件分 */
-export type AnchorTargetFixture = {
+/** `apps[].locations[]`・`helm.locations[]`共通の書き込み先1件分 */
+export type AnchorLocationFixture = {
   readonly valuesPath: string
   readonly anchor: string
 }
@@ -89,21 +89,21 @@ function appSpecEntry(app: AppSpecFixture): string {
   )
 }
 
-/** `config.yaml`の`apps[]`1件分（運用値＋chart構造） */
+/** `config.yaml`の`apps[]`1件分（運用値＋書き込み位置） */
 export type ConfigAppFixture = {
   readonly projectId: number
   readonly projectName: string
   readonly branchToSync: string
-  readonly chart: readonly AnchorTargetFixture[]
+  readonly locations: readonly AnchorLocationFixture[]
 }
 
 /**
- * `config.yaml`の`helm`（Helmの向き先ブランチ）1件分。`branchToSync`・`chart`を省略すると
+ * `config.yaml`の`helm`（Helmの向き先ブランチ）1件分。`branchToSync`・`locations`を省略すると
  * そのキーごとYAMLに出さないので、片方だけ書いた設定エラーの検証にも使える
  */
 export type ConfigHelmFixture = {
   readonly branchToSync?: string
-  readonly chart?: readonly AnchorTargetFixture[]
+  readonly locations?: readonly AnchorLocationFixture[]
 }
 
 /**
@@ -121,35 +121,40 @@ export function configYaml(
 
 /** `apps`が書き込む全`valuesPath`を1つのアンカー名でカバーする`helm`（appsが空なら1件だけ置く） */
 function defaultHelm(apps: readonly ConfigAppFixture[]): ConfigHelmFixture {
-  const valuesPaths = [...new Set(apps.flatMap((app) => app.chart.map((t) => t.valuesPath)))]
+  const valuesPaths = [...new Set(apps.flatMap((app) => app.locations.map((l) => l.valuesPath)))]
   const covered = valuesPaths.length === 0 ? ["values.yaml"] : valuesPaths
   return {
     branchToSync: "release/2026-q1",
-    chart: covered.map((valuesPath) => ({ valuesPath, anchor: "defaultHelmTargetBranch" })),
+    locations: covered.map((valuesPath) => ({ valuesPath, anchor: "defaultHelmTargetBranch" })),
   }
 }
 
 function helmField(helm: ConfigHelmFixture): string {
   const branchBlock =
     helm.branchToSync === undefined ? "" : `  branchToSync: ${helm.branchToSync}\n`
-  return `helm:\n${branchBlock}${helm.chart === undefined ? "" : helmChartBlock(helm.chart)}`
+  return `helm:\n${branchBlock}${helm.locations === undefined ? "" : helmLocationsBlock(helm.locations)}`
 }
 
-/** `helm.chart`は空配列も表現できるようにする（`chart: []`が設定エラーになることの検証で使う） */
-function helmChartBlock(chart: readonly AnchorTargetFixture[]): string {
-  return chart.length === 0 ? "  chart: []\n" : `  chart:\n${targetsBlock(chart, "    ")}`
+/** `helm.locations`は空配列も表現できるようにする（`locations: []`が設定エラーになることの検証で使う） */
+function helmLocationsBlock(locations: readonly AnchorLocationFixture[]): string {
+  return locations.length === 0
+    ? "  locations: []\n"
+    : `  locations:\n${locationsBlock(locations, "    ")}`
 }
 
 function configAppEntry(app: ConfigAppFixture): string {
   return (
     `  - projectId: ${app.projectId}\n    projectName: ${app.projectName}\n` +
-    `    branchToSync: ${app.branchToSync}\n    chart:\n${targetsBlock(app.chart, "      ")}`
+    `    branchToSync: ${app.branchToSync}\n    locations:\n${locationsBlock(app.locations, "      ")}`
   )
 }
 
-function targetsBlock(targets: readonly AnchorTargetFixture[], indent: string): string {
-  return targets
-    .map((target) => `${indent}- valuesPath: ${target.valuesPath}\n${indent}  anchor: ${target.anchor}\n`)
+function locationsBlock(locations: readonly AnchorLocationFixture[], indent: string): string {
+  return locations
+    .map(
+      (location) =>
+        `${indent}- valuesPath: ${location.valuesPath}\n${indent}  anchor: ${location.anchor}\n`,
+    )
     .join("")
 }
 

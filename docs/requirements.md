@@ -267,26 +267,26 @@ apps:
   - projectId: 1 # registry.yaml の appSpecs[] と一致させる
     projectName: my-app # registry.yaml の appSpecs[] と一致させる
     branchToSync: main # 追跡するブランチ（設定ユニットごとに違ってよい）
-    chart:
+    locations:
       - valuesPath: charts/my-app/values.yaml
         anchor: myAppVersion # values.yaml内のYAMLアンカー名
   - projectId: 2
     projectName: another-app
     branchToSync: main
-    chart:
+    locations:
       - valuesPath: charts/another-app/values.yaml
         anchor: anotherAppVersion
 ```
 
-- `apps[].chart[].anchor` は、`values.yaml`内のイメージタグの位置をYAMLアンカー名で
+- `apps[].locations[].anchor` は、`values.yaml`内のイメージタグの位置をYAMLアンカー名で
   指定するフィールド。`values.yaml`はオブジェクトのネストではなく、配列要素にYAMLアンカーで
   名前を付けた構成（例: `variables: [&myAppVersion main, ...]`）を前提とし、指定したアンカー名を
   持つYAML上のスカラー値を、ネストの深さ・キー名に関わらず直接書き換える
 
-- `chart` は1件以上の配列で、`valuesPath`（書き換え対象の`values.yaml`のパス）＋
+- `locations` は1件以上の配列で、`valuesPath`（書き換え対象の`values.yaml`のパス）＋
   `anchor`（書き換え位置）ごとに1要素を指定する。1つのソースリポジトリ（1つの
   `projectId`・タグ）に対してWebAPI/バッチ/デーモンなど複数のデプロイ単位を管理している
-  ケースでは、`chart`に複数要素を指定することで、同じ最新タグを複数箇所へまとめて反映できる
+  ケースでは、`locations`に複数要素を指定することで、同じ最新タグを複数箇所へまとめて反映できる
 
   ```yaml
   # config.yaml
@@ -294,7 +294,7 @@ apps:
     - projectId: 890
       branchToSync: main
       projectName: multi-service-app
-      chart:
+      locations:
         - valuesPath: charts/multi-service-app/values.yaml
           anchor: multiServiceAppWebapiVersion
         - valuesPath: charts/multi-service-app/values.yaml
@@ -323,8 +323,8 @@ apps:
   をまたぐ場合だけになった（`branchToSync` は設定ユニットごとに違ってよい。こちらは
   「どのブランチを追うか」という設定ユニット側の判断のため）
 - 1つの設定ユニット内で、同じ`valuesPath`+`anchor`の組（＝values.yamlの同じ1箇所）が複数の
-  書き込み先として指定されている場合も設定エラーになる。`apps[].chart[]`同士の重複、
-  `apps[].chart[]`と`helm.chart[]`の衝突（イメージタグと向き先ブランチが同じ箇所を奪い合う）が対象
+  書き込み先として指定されている場合も設定エラーになる。`apps[].locations[]`同士の重複、
+  `apps[].locations[]`と`helm.locations[]`の衝突（イメージタグと向き先ブランチが同じ箇所を奪い合う）が対象
 - 設定ユニットのディレクトリ階層（`unitPath` の深さ）は `config/<chartリポジトリ>/` から
   数えて**1〜2**とする。深さ1（`<chartリポジトリ>/<ユニット名>/config.yaml`）と深さ2
   （`<chartリポジトリ>/<第1セグメント>/<第2セグメント>/config.yaml`）のどちらでもよく、**同じchart
@@ -353,10 +353,10 @@ apps:
 
 ```yaml
 # config.yaml トップレベル。apps:配列と同階層、設定ユニット単位に1件のオブジェクト。
-# helm は必須で、branchToSync と chart[] の両方が必要
+# helm は必須で、branchToSync と locations[] の両方が必要
 helm:
   branchToSync: release/2026-q1
-  chart:
+  locations:
     # helm.branchToSyncの値をこのvaluesPath内のこのアンカーに書き込む
     - valuesPath: charts/my-app/values.yaml
       anchor: myAppTargetBranch
@@ -369,21 +369,21 @@ apps:
 - `helm`は**必須**とする。chartリポジトリは「`values.yaml`等のパラメータを定義するブランチ」と
   「そのパラメータを受け取ってk8sリソースを構築するブランチ」の2ブランチ構成である、というのが
   この運用の前提だからで、設定ユニットごとに向き先ブランチを1件書くのが常態になる。
-  `helm`自体の省略も、`helm.branchToSync`と`helm.chart[]`の片方だけの指定も設定エラー。
+  `helm`自体の省略も、`helm.branchToSync`と`helm.locations[]`の片方だけの指定も設定エラー。
   向き先ブランチを更新したくない設定ユニットは、`helm.branchToSync`に現在の値と同じブランチ名を
   書けば差分が出ないので更新されない
 - `config.yaml`の`helm.branchToSync`はchartリポジトリ内の別ブランチ（`registry.yaml`の`chartToUpdate.projectId`と
   同一プロジェクト）を指す、設定ユニット単位に1件の値。人間が自己申告方式で直接書き換える
   運用とし、タグ形式のような自動生成・自動判定の仕組みは持たない
-- `helm.chart[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、
-  `apps[].chart[]`とは独立したリスト。どのappに紐づくかは`valuesPath`の一致だけで決まる
+- `helm.locations[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、
+  `apps[].locations[]`とは独立したリスト。どのappに紐づくかは`valuesPath`の一致だけで決まる
   （app側に専用フィールドは持たせない）。1つのappが複数の`valuesPath`を持つ場合、それぞれに
-  対応する`helm.chart[]`の要素があれば複数箇所へまとめて反映できる
+  対応する`helm.locations[]`の要素があれば複数箇所へまとめて反映できる
 - Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提のため、そのconfig.yaml
-  配下の**全アプリ**の**全`chart[].valuesPath`**が`helm.chart[]`でカバーされている必要がある
+  配下の**全アプリ**の**全`locations[].valuesPath`**が`helm.locations[]`でカバーされている必要がある
   （1つでも漏れていると設定エラー）
 - 書き込み前に、指定されたブランチ名がchartリポジトリ上に実在するか検証する。存在しなければ
-  そのchartAndApps全体を`ERROR`として扱う（他のアプリの更新も含めオールオアナッシングで見送る）
+  その設定ユニット全体を`ERROR`として扱う（他のアプリの更新も含めオールオアナッシングで見送る）
 - 同じ`unitPath`が複数のchartディレクトリにまたがる場合、各`config.yaml`が独立して
   値を持つため、片方だけ更新し忘れて値がズレる可能性がある。これは許容し、追加の
   整合性チェックは行わない

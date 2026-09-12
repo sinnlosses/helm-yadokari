@@ -1,13 +1,13 @@
 # 深さ1の設定ユニット（docs/smoke-test.md 参照）
 helm:
   branchToSync: release/2026-q1
-  chart:
+  locations:
     - valuesPath: charts/anchor-app/values.yaml
       anchor: smokeTestTargetBranch
 apps:
   - projectId: 82861978
     projectName: sample-qa-sprint
     branchToSync: main
-    chart:
+    locations:
       - valuesPath: charts/anchor-app/values.yaml
         anchor: tenantId1client1AppsVersion

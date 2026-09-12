@@ -27,9 +27,9 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     vi.clearAllMocks()
   })
 
-  it("chart.anchorで指定したアンカーの値だけを取得・書き換える", async () => {
+  it("locations.anchorで指定したアンカーの値だけを取得・書き換える", async () => {
     const app = makeApp({
-      imageTagTargets: [
+      imageTagLocations: [
         {
           valuesPath: toValuesPath("values.yaml"),
           anchorName: toAnchorName("tenant1client1AppsVersion"),
@@ -50,9 +50,9 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     expect(toApply[0]?.files[0]?.content).toContain("&helmVersion develop")
   })
 
-  it("1アプリに複数のchartを指定すると、同じ最新タグを複数箇所へ反映する", async () => {
+  it("1アプリに複数のlocationsを指定すると、同じ最新タグを複数箇所へ反映する", async () => {
     const app = makeApp({
-      imageTagTargets: [
+      imageTagLocations: [
         {
           valuesPath: toValuesPath("webapi.yaml"),
           anchorName: toAnchorName("webapiVersion"),
@@ -83,9 +83,9 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     expect(batchFile?.content).toContain(`&batchVersion ${NEW_TAG}`)
   })
 
-  it("複数のchartのうち一部だけ差分があるとき、差分がある箇所だけをupdatesに含める", async () => {
+  it("複数のlocationsのうち一部だけ差分があるとき、差分がある箇所だけをupdatesに含める", async () => {
     const app = makeApp({
-      imageTagTargets: [
+      imageTagLocations: [
         {
           valuesPath: toValuesPath("webapi.yaml"),
           anchorName: toAnchorName("webapiVersion"),
@@ -109,19 +109,19 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       false,
     )
     expect(toApply[0]?.plans[0]?.updates).toHaveLength(1)
-    expect(toApply[0]?.plans[0]?.updates[0]?.target.valuesPath).toBe("webapi.yaml")
+    expect(toApply[0]?.plans[0]?.updates[0]?.location.valuesPath).toBe("webapi.yaml")
     expect(toApply[0]?.files).toHaveLength(1)
     expect(toApply[0]?.files[0]?.valuesPath).toBe("webapi.yaml")
   })
 
   it(
-    "同じvaluesPath+anchorが1アプリのchartに2回現れても、2箇所目は下書きの現在値" +
+    "同じvaluesPath+anchorが1アプリのlocationsに2回現れても、2箇所目は下書きの現在値" +
       "（＝1箇所目の書き換え後の値）を読むためupdatesは1件だけになる" +
-      "（本来この設定は loadConfig() の validateNoDuplicateTargets() で例外になり、" +
+      "（本来この設定は loadConfig() の validateNoDuplicateLocations() で例外になり、" +
       "buildPlans() まで到達しない）",
     async () => {
       const app = makeApp({
-        imageTagTargets: [
+        imageTagLocations: [
           { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
           { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
         ],

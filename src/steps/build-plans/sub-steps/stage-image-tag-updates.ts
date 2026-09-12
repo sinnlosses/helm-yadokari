@@ -1,6 +1,6 @@
 import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
 import type {
-  AnchorTarget,
+  AnchorLocation,
   AppUpdatePlan,
   ImageTagUpdate,
   ParsedTag,
@@ -41,7 +41,7 @@ export async function stageImageTagUpdates(
 }
 
 /**
- * 1アプリの`app.imageTagTargets`（1件以上）を先頭から順に`stageImageTagUpdate()`へ渡し、
+ * 1アプリの`app.imageTagLocations`（1件以上）を先頭から順に`stageImageTagUpdate()`へ渡し、
  * 差分が1件でもあれば`AppUpdatePlan`を1件積む。差分が無ければ理由をログに出し、下書きだけを
  * 引き継ぐ（読み込んだvalues.yamlは次のアプリで使い回せる）。
  */
@@ -52,8 +52,8 @@ async function stageAppImageTagUpdates(
 ): Promise<StageImageTagUpdatesResult> {
   const tag = latestTag.tag
   const initialAcc: StageAppImageTagUpdatesAcc = { draft: result.draft, updates: [] }
-  const { draft, updates } = await reduceAsync(app.imageTagTargets, initialAcc, (acc, target) =>
-    stageImageTagUpdate(source, tag, latestTag.trackedHeadTagNames, acc, target),
+  const { draft, updates } = await reduceAsync(app.imageTagLocations, initialAcc, (acc, location) =>
+    stageImageTagUpdate(source, tag, latestTag.trackedHeadTagNames, acc, location),
   )
 
   if (updates.length === 0) {
@@ -72,7 +72,7 @@ async function stageAppImageTagUpdates(
 }
 
 /**
- * `app.imageTagTargets`のうち1箇所分について、下書き上の現在値（反映済みタグ）と最新タグを比較する。
+ * `app.imageTagLocations`のうち1箇所分について、下書き上の現在値（反映済みタグ）と最新タグを比較する。
  * 差分があれば書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ読み込んだ
  * values.yamlを下書きに残すだけで`updates`には含めない）。
  *
@@ -84,16 +84,16 @@ async function stageImageTagUpdate(
   latestTag: ParsedTag,
   trackedHeadTagNames: ReadonlySet<TagName>,
   acc: StageAppImageTagUpdatesAcc,
-  target: AnchorTarget,
+  location: AnchorLocation,
 ): Promise<StageAppImageTagUpdatesAcc> {
   const latestTagName = latestTag.name
   const { valuesYamlContent, draft } = await readValuesYamlDraft(
     source,
     acc.draft,
-    target.valuesPath,
+    location.valuesPath,
   )
   const previousTagName = toTagName(
-    getRequiredValueAtAnchor(valuesYamlContent, target.anchorName, target.valuesPath),
+    getRequiredValueAtAnchor(valuesYamlContent, location.anchorName, location.valuesPath),
   )
 
   // タグ名が同じ、またはタグ名は違っても追跡ブランチのHEADを指す（＝デプロイされる中身が同じ）ならスキップする
@@ -104,9 +104,9 @@ async function stageImageTagUpdate(
   return {
     draft: writeValuesYamlDraft(
       draft,
-      target.valuesPath,
-      setValueAtAnchor(valuesYamlContent, target.anchorName, latestTagName),
+      location.valuesPath,
+      setValueAtAnchor(valuesYamlContent, location.anchorName, latestTagName),
     ),
-    updates: [...acc.updates, { target, previousTagName }],
+    updates: [...acc.updates, { location, previousTagName }],
   }
 }

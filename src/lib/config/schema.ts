@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 import { validateTagFormat } from "../../domain/tag-format.js"
-import type { AnchorTarget } from "../../types/types.js"
+import type { AnchorLocation } from "../../types/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -22,16 +22,16 @@ export const REGISTRY_YAML_FILE_NAME = "registry.yaml"
 export const CONFIG_YAML_FILE_NAME = "config.yaml"
 
 /**
- * `apps[].chart[]`（イメージタグの書き込み先）と`helm.chart[]`（Helm向き先ブランチの
+ * `apps[].locations[]`（イメージタグの書き込み先）と`helm.locations[]`（Helm向き先ブランチの
  * 書き込み先）はどちらも`valuesPath`+`anchor`という同じ形なので、スキーマも共有する
- * （型側も`AnchorTarget`を共有している）
+ * （型側も`AnchorLocation`を共有している）
  */
-const AnchorTargetSchema = z
+const AnchorLocationSchema = z
   .object({
     valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
     anchor: z.string().min(1, "anchor は空にできません").transform(toAnchorName),
   })
-  .transform((v): AnchorTarget => ({ valuesPath: v.valuesPath, anchorName: v.anchor }))
+  .transform((v): AnchorLocation => ({ valuesPath: v.valuesPath, anchorName: v.anchor }))
 
 /**
  * `registry.yaml`の`appSpecs[].tagFormat`のZodスキーマ。既定値は持たせず必須にしているのは、
@@ -80,14 +80,14 @@ export const RegistryYamlSchema = z.object({
 })
 
 /**
- * config.yaml側の1app分。運用値（`branchToSync`）とchart構造（`chart[]`）の両方を持つ。
+ * config.yaml側の1app分。運用値（`branchToSync`）と書き込み位置（`locations[]`）の両方を持つ。
  * `tagFormat`は持たず、`registry.yaml`の`appSpecs[]`から`projectId`で引く
  */
 const AppSchema = z.object({
   projectId: z.number().int().transform(toProjectId),
   projectName: z.string().min(1).transform(toProjectName),
   branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
-  chart: z.array(AnchorTargetSchema).min(1, "chart は1件以上指定してください"),
+  locations: z.array(AnchorLocationSchema).min(1, "locations は1件以上指定してください"),
 })
 
 export type ConfigApp = z.infer<typeof AppSchema>
@@ -95,26 +95,28 @@ export type ConfigApp = z.infer<typeof AppSchema>
 /**
  * chartリポジトリは「値を定義するブランチ」と「値を受け取ってk8sリソースを構築するブランチ」の
  * 2ブランチ構成である、という前提のため`helm`自体を必須にする。書き込む値（`branchToSync`）と
- * 書き込み先（`chart[]`）も両方揃って初めて意味を持つので、片方だけの指定はここで設定エラーに
+ * 書き込み先（`locations[]`）も両方揃って初めて意味を持つので、片方だけの指定はここで設定エラーに
  * なる（`docs/requirements.md` 4.4節）。
  */
 const HelmSchema = z.object(
   {
     branchToSync: z
-      .string({ error: "helm.branchToSync は必須です（helm.chart とセットで指定してください）" })
+      .string({
+        error: "helm.branchToSync は必須です（helm.locations とセットで指定してください）",
+      })
       .min(1, "helm.branchToSync は空にできません")
       .transform(toBranchName),
-    chart: z
-      .array(AnchorTargetSchema, {
-        error: "helm.chart は必須です（helm.branchToSync とセットで指定してください）",
+    locations: z
+      .array(AnchorLocationSchema, {
+        error: "helm.locations は必須です（helm.branchToSync とセットで指定してください）",
       })
-      .min(1, "helm.chart は1件以上指定してください"),
+      .min(1, "helm.locations は1件以上指定してください"),
   },
   {
     error:
       "helm は必須です。chartリポジトリは値を定義するブランチとk8sリソースを構築するブランチの " +
       "2ブランチ構成のため、config.yaml に helm.branchToSync（向き先ブランチ名）と " +
-      "helm.chart[]（書き込み先の valuesPath + anchor）を書いてください",
+      "helm.locations[]（書き込み先の valuesPath + anchor）を書いてください",
   },
 )
 

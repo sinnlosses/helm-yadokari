@@ -108,7 +108,7 @@ const SEED_TAGS = {
 
 /**
  * chartリポジトリ1の各設定ユニットのvalues.yamlの初期状態。アンカー名は
- * `config/yadokari-smoke-test-chart/`の`apps[].chart[].anchor`・`helm.chart[].anchor`と
+ * `config/yadokari-smoke-test-chart/`の`apps[].locations[].anchor`・`helm.locations[].anchor`と
  * 一致させる（食い違うと書き込み先が見つからずその設定ユニットが`ERROR`になる）。
  * `anchor-app`の`helmVersion`はこのツールが読み書きしないアンカーだが、chartリポジトリ側の
  * 実物にあるものなので、上書きで消さないようここにも書く。

@@ -101,7 +101,7 @@ describe("validateRemoteExistence", () => {
 
   it("アンカーがvalues.yamlに存在しないとき問題として返す", async () => {
     const app = makeApp({
-      imageTagTargets: [
+      imageTagLocations: [
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("noSuchAnchor") },
       ],
     })
@@ -115,7 +115,7 @@ describe("validateRemoteExistence", () => {
   it("アンカーがスカラー以外に付いているとき、アンカー不在とは違う文言で問題として返す", async () => {
     vi.mocked(getFileContent).mockResolvedValue("group: &appVersion\n  a: 1\n")
     const app = makeApp({
-      imageTagTargets: [
+      imageTagLocations: [
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
       ],
     })
@@ -129,7 +129,7 @@ describe("validateRemoteExistence", () => {
   it("Helmの向き先ブランチが存在しないとき問題として返す", async () => {
     const helmTargetBranch = {
       branchName: toBranchName("release/ghost"),
-      targets: [
+      locations: [
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
       ],
     }
@@ -149,7 +149,7 @@ describe("validateRemoteExistence", () => {
   it("Helmの向き先ブランチの問題は、アプリの数だけ重複して報告しない", async () => {
     const helmTargetBranch = {
       branchName: toBranchName("release/ghost"),
-      targets: [
+      locations: [
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
       ],
     }
@@ -174,10 +174,10 @@ describe("validateRemoteExistence", () => {
     vi.mocked(getFileContent).mockResolvedValue(undefined)
     const apps = [
       makeApp({
-        imageTagTargets: [{ valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") }],
+        imageTagLocations: [{ valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") }],
       }),
       makeApp({
-        imageTagTargets: [{ valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") }],
+        imageTagLocations: [{ valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") }],
       }),
     ]
 
@@ -188,7 +188,7 @@ describe("validateRemoteExistence", () => {
 
   it("同じvalues.yamlは1回だけ取得する（複数箇所でキャッシュを共有する）", async () => {
     const app = makeApp({
-      imageTagTargets: [
+      imageTagLocations: [
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
       ],

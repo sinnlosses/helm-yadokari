@@ -19,7 +19,7 @@ describe("loadConfig（config.yaml と registry.yaml の appSpecs[] の紐づけ
           projectId: 1,
           projectName: "app-1",
           branchToSync: "main",
-          chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+          locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
       ]),
     )
@@ -46,7 +46,7 @@ describe("loadConfig（config.yaml と registry.yaml の appSpecs[] の紐づけ
           projectId: 1,
           projectName: "app-1",
           branchToSync: "main",
-          chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+          locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
       ]),
     )
@@ -71,7 +71,7 @@ describe("loadConfig（config.yaml と registry.yaml の appSpecs[] の紐づけ
           projectId: 1,
           projectName: "app-1",
           branchToSync: "main",
-          chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+          locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
       ]),
     )
@@ -99,13 +99,13 @@ describe("loadConfig（重複指定の検証）", () => {
           projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
-          chart: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
+          locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
         },
         {
           projectId: 1,
           projectName: "my-app",
           branchToSync: "develop",
-          chart: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
+          locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
         },
       ]),
     )
@@ -132,7 +132,7 @@ describe("loadConfig（重複指定の検証）", () => {
           projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
-          chart: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
+          locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
         },
       ]),
     )
@@ -150,13 +150,13 @@ describe("loadConfig（重複指定の検証）", () => {
           projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
-          chart: [{ valuesPath: "charts/shared/values.yaml", anchor: "sharedAnchor" }],
+          locations: [{ valuesPath: "charts/shared/values.yaml", anchor: "sharedAnchor" }],
         },
         {
           projectId: 2,
           projectName: "app-two",
           branchToSync: "main",
-          chart: [{ valuesPath: "charts/shared/values.yaml", anchor: "sharedAnchor" }],
+          locations: [{ valuesPath: "charts/shared/values.yaml", anchor: "sharedAnchor" }],
         },
       ]),
     )
@@ -174,7 +174,7 @@ describe("loadConfig（重複指定の検証）", () => {
           projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
-          chart: [
+          locations: [
             { valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" },
             { valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" },
           ],
@@ -196,12 +196,12 @@ describe("loadConfig（重複指定の検証）", () => {
             projectId: 1,
             projectName: "my-app",
             branchToSync: "main",
-            chart: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
+            locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
           },
         ],
         {
           branchToSync: "release/2026-q1",
-          chart: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
+          locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
         },
       ),
     )
@@ -219,13 +219,13 @@ describe("loadConfig（重複指定の検証）", () => {
           projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
-          chart: [{ valuesPath: "charts/shared/values.yaml", anchor: "appOneVersion" }],
+          locations: [{ valuesPath: "charts/shared/values.yaml", anchor: "appOneVersion" }],
         },
         {
           projectId: 2,
           projectName: "app-two",
           branchToSync: "main",
-          chart: [{ valuesPath: "charts/shared/values.yaml", anchor: "appTwoVersion" }],
+          locations: [{ valuesPath: "charts/shared/values.yaml", anchor: "appTwoVersion" }],
         },
       ]),
     )
@@ -243,7 +243,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるtagFormatの�
         projectId: 1,
         projectName: "my-app",
         branchToSync,
-        chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+        locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
       },
     ])
 

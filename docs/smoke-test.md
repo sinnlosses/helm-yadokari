@@ -49,8 +49,8 @@ chartリポジトリ1と同じ設定にしてある（`sinnlosses-group` 配下�
   （`t2c1QaSprintVersion` / `t2c1DevelopClientVersion` / `t2c1HelmTargetBranch`）
 - `charts/smoke-tenant2/client1/values-extra.yaml` … アンカー2つ
   （`t2c1QaSprintVersionExtra` / `t2c1HelmTargetBranchExtra`）。**1つのappが複数の
-  `valuesPath` に書き込む**シナリオ用。`apps[].chart[]` に2件目を足すと、その `valuesPath` は
-  `helm.chart[]` にも必要になる（全appのvaluesPathがカバーされていないと設定エラー）ため、
+  `valuesPath` に書き込む**シナリオ用。`apps[].locations[]` に2件目を足すと、その `valuesPath` は
+  `helm.locations[]` にも必要になる（全appのvaluesPathがカバーされていないと設定エラー）ため、
   向き先ブランチのアンカーも同じファイルに置く
 - `charts/smoke-tenant2/client2/values.yaml` … アンカー3つ
   （`t2c2QaSprintVersion` / `t2c2DevelopClientVersion` / `t2c2HelmTargetBranch`）

@@ -30,7 +30,7 @@ export function describePlan(plan: AppUpdatePlan): PlanLogSummary {
     projectName: plan.app.projectName,
     latestTag: plan.latestTag.name,
     updates: plan.updates.map((update) => ({
-      valuesPath: update.target.valuesPath,
+      valuesPath: update.location.valuesPath,
       previousTagName: update.previousTagName,
     })),
   }
@@ -41,7 +41,7 @@ export function describeHelmTargetBranchUpdates(
   updates: readonly HelmTargetBranchUpdate[],
 ): readonly HelmTargetBranchLogSummary[] {
   return updates.map((update) => ({
-    valuesPath: update.target.valuesPath,
+    valuesPath: update.location.valuesPath,
     previousBranch: update.previousBranch,
     newBranch: update.newBranch,
   }))

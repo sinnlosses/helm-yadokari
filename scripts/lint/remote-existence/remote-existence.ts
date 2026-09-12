@@ -2,7 +2,7 @@ import { buildConfigUnitLocation } from "../../../src/domain/config-unit.js"
 import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
 import { lookupValueAtAnchor } from "../../../src/lib/helm.js"
 import type {
-  AnchorTarget,
+  AnchorLocation,
   AppConfig,
   ChartRepoConfig,
   ConfigUnit,
@@ -108,7 +108,7 @@ async function validateConfigUnit(cache: RemoteCache, configUnit: ConfigUnit): P
 /**
  * 1アプリ分を検証する。ソースプロジェクト自体が見つからない場合、そこに依存する検証
  * （branchToSync）は結果が自明なので行わず、原因となる1件だけを報告する。
- * values.yaml側（`chart[]`）の検証は、chartリポジトリとそのベースブランチが
+ * values.yaml側（`locations[]`）の検証は、chartリポジトリとそのベースブランチが
  * 揃っているとき（`baseBranchFound`）だけ意味があるためスキップする。
  */
 async function validateApp(
@@ -130,16 +130,16 @@ async function validateApp(
       ]
   if (!baseBranchFound) return branchProblems
 
-  const imageTagProblems = await validateTargets(
+  const imageTagProblems = await validateLocations(
     context,
-    app.imageTagTargets,
-    `app "${app.projectName}" の chart[]`,
+    app.imageTagLocations,
+    `app "${app.projectName}" の locations[]`,
   )
   return [...branchProblems, ...imageTagProblems]
 }
 
 /**
- * Helmの向き先ブランチ（`helm.branchToSync` と `helm.chart[]`）を検証する。設定ユニット単位で
+ * Helmの向き先ブランチ（`helm.branchToSync` と `helm.locations[]`）を検証する。設定ユニット単位で
  * 1つなので、アプリの数だけ同じ問題を報告しないようアプリのループの外で1回だけ呼ぶ。
  */
 async function validateHelmTargetBranch(
@@ -154,20 +154,24 @@ async function validateHelmTargetBranch(
     : [
         `${where}: helm.branchToSync "${helmTargetBranch.branchName}" が ${chart.projectName} に見つかりません`,
       ]
-  const targetProblems = await validateTargets(context, helmTargetBranch.targets, "helm.chart[]")
+  const targetProblems = await validateLocations(
+    context,
+    helmTargetBranch.locations,
+    "helm.locations[]",
+  )
   return [...branchProblems, ...targetProblems]
 }
 
 /** 複数の書き込み先を同じラベルで検証する */
-function validateTargets(
+function validateLocations(
   context: ValidateContext,
-  targets: readonly AnchorTarget[],
+  locations: readonly AnchorLocation[],
   label: string,
 ): Promise<readonly string[]> {
   const initial: readonly string[] = []
-  return reduceAsync(targets, initial, async (acc, target) => [
+  return reduceAsync(locations, initial, async (acc, location) => [
     ...acc,
-    ...(await validateTarget(context, target, label)),
+    ...(await validateLocation(context, location, label)),
   ])
 }
 
@@ -177,33 +181,33 @@ function validateTargets(
  * スカラー以外に付いているのかは直せる手が違うので文言を分ける）。同じ`valuesPath`について
  * ファイル不在を何度も報告しないよう、報告済みのパスは`reportedPaths`で覚えておく。
  */
-async function validateTarget(
+async function validateLocation(
   { cache, where, chart, reportedPaths }: ValidateContext,
-  target: AnchorTarget,
+  location: AnchorLocation,
   label: string,
 ): Promise<string[]> {
   const content = await cache.loadValuesYaml(
     chart.projectId,
     chart.mrTargetBranch,
-    target.valuesPath,
+    location.valuesPath,
   )
   if (content === undefined) {
-    const key = `${chart.projectId}#${chart.mrTargetBranch}#${target.valuesPath}`
+    const key = `${chart.projectId}#${chart.mrTargetBranch}#${location.valuesPath}`
     if (reportedPaths.has(key)) return []
     reportedPaths.add(key)
     return [
-      `${where}: ${label} の values.yaml が見つかりません（${target.valuesPath} @ ${chart.mrTargetBranch}）`,
+      `${where}: ${label} の values.yaml が見つかりません（${location.valuesPath} @ ${chart.mrTargetBranch}）`,
     ]
   }
-  const lookup = lookupValueAtAnchor(content, target.anchorName)
+  const lookup = lookupValueAtAnchor(content, location.anchorName)
   if (lookup.kind === "not_found") {
     return [
-      `${where}: ${label} のアンカー "${target.anchorName}" が ${target.valuesPath} に見つかりません`,
+      `${where}: ${label} のアンカー "${location.anchorName}" が ${location.valuesPath} に見つかりません`,
     ]
   }
   if (lookup.kind === "non_scalar") {
     return [
-      `${where}: ${label} のアンカー "${target.anchorName}" が ${target.valuesPath} でスカラー値に付いていません（マッピングまたはシーケンスに付いています）`,
+      `${where}: ${label} のアンカー "${location.anchorName}" が ${location.valuesPath} でスカラー値に付いていません（マッピングまたはシーケンスに付いています）`,
     ]
   }
   return []

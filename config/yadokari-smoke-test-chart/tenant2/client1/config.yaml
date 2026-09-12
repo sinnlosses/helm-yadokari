@@ -1,7 +1,7 @@
 # 複数app + Helm向き先ブランチの更新に加え、1appが複数valuesPathに書き込むことを検証するclient（docs/smoke-test.md 参照）
 helm:
   branchToSync: release/2026-q1
-  chart:
+  locations:
     - valuesPath: charts/smoke-tenant2/client1/values.yaml
       anchor: t2c1HelmTargetBranch
     - valuesPath: charts/smoke-tenant2/client1/values-extra.yaml
@@ -10,7 +10,7 @@ apps:
   - projectId: 82861978
     projectName: sample-qa-sprint
     branchToSync: main
-    chart:
+    locations:
       - valuesPath: charts/smoke-tenant2/client1/values.yaml
         anchor: t2c1QaSprintVersion
       - valuesPath: charts/smoke-tenant2/client1/values-extra.yaml
@@ -18,6 +18,6 @@ apps:
   - projectId: 82861977
     projectName: sample-develop-client
     branchToSync: main
-    chart:
+    locations:
       - valuesPath: charts/smoke-tenant2/client1/values.yaml
         anchor: t2c1DevelopClientVersion

@@ -19,7 +19,7 @@ import {
   RegistryYamlSchema,
 } from "./schema.js"
 import type { ChartDirUnits } from "./find-config-units.js"
-import { validateNoDuplicateProjectIds, validateNoDuplicateTargets } from "./validate.js"
+import { validateNoDuplicateProjectIds, validateNoDuplicateLocations } from "./validate.js"
 
 /**
  * 1つのchartディレクトリの`registry.yaml`を読み、`chartUnits.unitPaths`（走査＋`TARGET_UNITS`の
@@ -75,16 +75,16 @@ function buildConfigUnit(
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
   validateNoDuplicateProjectIds(configYamlPath, apps)
   const linkedApps = resolveProjectLinkage(configYamlPath, registryYamlPath, apps, appSpecs)
-  validateNoDuplicateTargets(configYamlPath, [
+  validateNoDuplicateLocations(configYamlPath, [
     ...apps.flatMap((app) =>
-      app.chart.map((target) => ({
-        target,
-        label: `app "${app.projectName}" の chart[]`,
+      app.locations.map((location) => ({
+        location,
+        label: `app "${app.projectName}" の locations[]`,
       })),
     ),
-    ...helm.chart.map((target) => ({
-      target,
-      label: "helm.chart[]",
+    ...helm.locations.map((location) => ({
+      location,
+      label: "helm.locations[]",
     })),
   ])
 
@@ -93,7 +93,7 @@ function buildConfigUnit(
     projectName: app.projectName,
     branchToSync: app.branchToSync,
     tagFormat: appSpec.tagFormat,
-    imageTagTargets: app.chart,
+    imageTagLocations: app.locations,
   }))
 
   return {
@@ -148,13 +148,13 @@ function resolveProjectLinkage(
 }
 
 /**
- * config.yamlの`helm`（`branchToSync`＝書き込む値、`chart[]`＝書き込み先の`valuesPath`+
+ * config.yamlの`helm`（`branchToSync`＝書き込む値、`locations[]`＝書き込み先の`valuesPath`+
  * `anchor`一覧）から、設定ユニット単位の`HelmTargetBranchConfig`を作る。Helmの向き先ブランチは
  * 「1設定ユニット内のapps全体で共通」という前提なので、appごとに振り分けず設定ユニット単位で
- * 1つだけ持つ。そのconfig.yaml配下の全アプリの全`chart[].valuesPath`が`helm.chart[]`でカバー
- * されている必要がある（1つでも漏れていれば、そのvaluesPathだけ更新対象から漏れてしまう
+ * 1つだけ持つ。そのconfig.yaml配下の全アプリの全`locations[].valuesPath`が`helm.locations[]`で
+ * カバーされている必要がある（1つでも漏れていれば、そのvaluesPathだけ更新対象から漏れてしまう
  * 設定ミスとして例外をスローする）。
- * 逆にどのappも書き込まないvaluesPathを指す`helm.chart[]`の要素は`targets`に含めない。
+ * 逆にどのappも書き込まないvaluesPathを指す`helm.locations[]`の要素は`locations`に含めない。
  */
 function resolveHelmTargetBranch(
   configYamlPath: LocalPath,
@@ -162,20 +162,22 @@ function resolveHelmTargetBranch(
   apps: readonly AppConfig[],
 ): HelmTargetBranchConfig {
   for (const app of apps) {
-    const appValuesPaths = [...new Set(app.imageTagTargets.map((target) => target.valuesPath))]
+    const appValuesPaths = [
+      ...new Set(app.imageTagLocations.map((location) => location.valuesPath)),
+    ]
     const uncoveredValuesPaths = appValuesPaths.filter(
-      (valuesPath) => !helm.chart.some((target) => target.valuesPath === valuesPath),
+      (valuesPath) => !helm.locations.some((location) => location.valuesPath === valuesPath),
     )
     if (uncoveredValuesPaths.length > 0) {
       throw new Error(
-        `${configYamlPath}: app "${app.projectName}" の valuesPath（${uncoveredValuesPaths.join(", ")}）が helm.chart[] に見つかりません（Helmの向き先ブランチは設定ユニット内の全appで共通のため、全appのvaluesPathを helm.chart[] に含めてください）`,
+        `${configYamlPath}: app "${app.projectName}" の valuesPath（${uncoveredValuesPaths.join(", ")}）が helm.locations[] に見つかりません（Helmの向き先ブランチは設定ユニット内の全appで共通のため、全appのvaluesPathを helm.locations[] に含めてください）`,
       )
     }
   }
 
   const allValuesPaths = new Set(
-    apps.flatMap((app) => app.imageTagTargets.map((target) => target.valuesPath)),
+    apps.flatMap((app) => app.imageTagLocations.map((location) => location.valuesPath)),
   )
-  const targets = helm.chart.filter((target) => allValuesPaths.has(target.valuesPath))
-  return { branchName: helm.branchToSync, targets }
+  const locations = helm.locations.filter((location) => allValuesPaths.has(location.valuesPath))
+  return { branchName: helm.branchToSync, locations }
 }

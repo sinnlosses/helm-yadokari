@@ -14,23 +14,23 @@ import type {
 } from "./brand.js"
 
 /** values.yaml内の書き込み位置1箇所分 */
-export type AnchorTarget = {
+export type AnchorLocation = {
   readonly valuesPath: ValuesPath
   readonly anchorName: AnchorName
 }
 
 /**
  * Helmの向き先ブランチを扱うための設定。`branchName`はconfig.yamlの`helm.branchToSync`由来、
- * `targets`は同じconfig.yamlの`helm.chart[]`のうち、設定ユニット内のいずれかのappが書き込む
+ * `locations`は同じconfig.yamlの`helm.locations[]`のうち、設定ユニット内のいずれかのappが書き込む
  * valuesPathを指すもの。向き先ブランチは設定ユニット内のapps全体で共通なので設定ユニット単位で持つ
  */
 export type HelmTargetBranchConfig = {
   readonly branchName: BranchName
-  readonly targets: readonly AnchorTarget[]
+  readonly locations: readonly AnchorLocation[]
 }
 
 /**
- * `projectId`/`projectName`/`branchToSync`/`imageTagTargets`はconfig.yamlの運用値、
+ * `projectId`/`projectName`/`branchToSync`/`imageTagLocations`はconfig.yamlの運用値、
  * `tagFormat`は同じchartリポジトリの`registry.yaml`の`appSpecs[]`から`projectId`で引いた値
  */
 export type AppConfig = {
@@ -38,8 +38,8 @@ export type AppConfig = {
   readonly projectName: ProjectName
   readonly branchToSync: BranchName
   readonly tagFormat: TagFormat
-  /** 同じ最新タグを複数箇所へ反映するため配列。config.yamlの`apps[].chart[]`由来 */
-  readonly imageTagTargets: readonly AnchorTarget[]
+  /** 同じ最新タグを複数箇所へ反映するため配列。config.yamlの`apps[].locations[]`由来 */
+  readonly imageTagLocations: readonly AnchorLocation[]
 }
 
 /** chartリポジトリ共通の設定。registry.yamlに対応する */
@@ -55,7 +55,7 @@ export type ConfigUnit = {
   readonly unitPath: ConfigUnitPath
   readonly chartRepo: ChartRepoConfig
   readonly apps: readonly AppConfig[]
-  /** `targets`は`helm.chart[]`のうちapps側が実際に書き込むvaluesPathを指す要素だけになる（空もありうる） */
+  /** `locations`は`helm.locations[]`のうちapps側が実際に書き込むvaluesPathを指す要素だけになる（空もありうる） */
   readonly helmTargetBranch: HelmTargetBranchConfig
 }
 
@@ -81,15 +81,15 @@ export type PipelineInfo = {
   readonly webUrl: GitLabUrl
 }
 
-/** `AppConfig.imageTagTargets`のうち1箇所分の更新内容。`previousTagName`は書き換え箇所ごとに独立して読み取る */
+/** `AppConfig.imageTagLocations`のうち1箇所分の更新内容。`previousTagName`は書き換え箇所ごとに独立して読み取る */
 export type ImageTagUpdate = {
-  readonly target: AnchorTarget
+  readonly location: AnchorLocation
   readonly previousTagName: TagName
 }
 
 /** `previousBranch`はvalues.yaml側の現在値、`newBranch`はconfig.yaml設定値 */
 export type HelmTargetBranchUpdate = {
-  readonly target: AnchorTarget
+  readonly location: AnchorLocation
   readonly previousBranch: BranchName
   readonly newBranch: BranchName
 }

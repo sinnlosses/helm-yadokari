@@ -16,7 +16,7 @@ import { makePlan, newBatchCache } from "../../../helpers.js"
 const webUrl = toGitLabUrl("https://gitlab.example.com/g/my-app")
 
 const helmUpdate = {
-  target: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
+  location: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
   previousBranch: toBranchName("release/2025-q4"),
   newBranch: toBranchName("release/2026-q1"),
 }
@@ -35,11 +35,11 @@ describe("collectMrEntries", () => {
     const plan = makePlan({
       updates: [
         {
-          target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
+          location: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
           previousTagName: toTagName("prev"),
         },
         {
-          target: { valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") },
+          location: { valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") },
           previousTagName: toTagName("prev"),
         },
       ],
@@ -48,7 +48,7 @@ describe("collectMrEntries", () => {
     const entries = await collectMrEntries(newBatchCache(), [plan], [])
 
     expect(entries.imageTags).toHaveLength(2)
-    expect(entries.imageTags.map((entry) => entry.update.target.anchorName)).toEqual(["x", "y"])
+    expect(entries.imageTags.map((entry) => entry.update.location.anchorName)).toEqual(["x", "y"])
     expect(entries.imageTags.every((entry) => entry.webUrl === webUrl)).toBe(true)
     expect(entries.imageTags[0]?.plan).toBe(plan)
   })
@@ -66,7 +66,10 @@ describe("collectMrEntries", () => {
     mockWebUrl()
     const other = {
       ...helmUpdate,
-      target: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("otherBranch") },
+      location: {
+        valuesPath: toValuesPath("values.yaml"),
+        anchorName: toAnchorName("otherBranch"),
+      },
     }
 
     const entries = await collectMrEntries(newBatchCache(), [], [helmUpdate, other])

@@ -21,7 +21,7 @@ import { makePlan } from "../../../helpers.js"
 const defaultWebUrl = toGitLabUrl("https://gitlab.example.com/g/my-app")
 
 const helmUpdate = {
-  target: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
+  location: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
   previousBranch: toBranchName("release/2025-q4"),
   newBranch: toBranchName("release/2026-q1"),
 }
@@ -59,15 +59,15 @@ describe("buildMrContent（タイトル）", () => {
     const plan = makePlan({
       updates: [
         {
-          target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
+          location: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
           previousTagName: toTagName("prev"),
         },
         {
-          target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("y") },
+          location: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("y") },
           previousTagName: toTagName("prev"),
         },
         {
-          target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("z") },
+          location: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("z") },
           previousTagName: toTagName("prev"),
         },
       ],
@@ -131,11 +131,11 @@ describe("buildMrContent（本文）", () => {
         makePlan({
           updates: [
             {
-              target: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
+              location: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
               previousTagName: toTagName("prev"),
             },
             {
-              target: { valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") },
+              location: { valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") },
               previousTagName: toTagName("prev"),
             },
           ],

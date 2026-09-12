@@ -45,7 +45,7 @@ describe("loadConfig（正常系）", () => {
           projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
-          chart: [{ valuesPath: "charts/my-app/values.yaml", anchor: "appVersion" }],
+          locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "appVersion" }],
         },
       ]),
     )
@@ -66,7 +66,7 @@ describe("loadConfig（正常系）", () => {
           projectName: "my-app",
           branchToSync: "main",
           tagFormat: "{branch}-build-at-{date}-{time}",
-          imageTagTargets: [
+          imageTagLocations: [
             {
               valuesPath: "charts/my-app/values.yaml",
               anchorName: "appVersion",
@@ -76,7 +76,7 @@ describe("loadConfig（正常系）", () => {
       ],
       helmTargetBranch: {
         branchName: "release/2026-q1",
-        targets: [
+        locations: [
           {
             valuesPath: "charts/my-app/values.yaml",
             anchorName: "defaultHelmTargetBranch",
@@ -122,7 +122,7 @@ describe("loadConfig（正常系）", () => {
           projectId: 1,
           projectName: "app-1",
           branchToSync: "main",
-          chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+          locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
       ]),
     )
@@ -134,7 +134,7 @@ describe("loadConfig（正常系）", () => {
           projectId: 2,
           projectName: "app-2",
           branchToSync: "main",
-          chart: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
+          locations: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
         },
       ]),
     )
@@ -146,7 +146,7 @@ describe("loadConfig（正常系）", () => {
           projectId: 3,
           projectName: "app-3",
           branchToSync: "main",
-          chart: [{ valuesPath: "c.yaml", anchor: "appVersion" }],
+          locations: [{ valuesPath: "c.yaml", anchor: "appVersion" }],
         },
       ]),
     )
@@ -261,8 +261,8 @@ describe("loadConfig（設定ユニットの階層）", () => {
   })
 })
 
-describe("loadConfig（chartの複数指定）", () => {
-  it("1アプリにつきchartを複数指定できる（同一タグを複数箇所へ反映する用途）", () => {
+describe("loadConfig（locationsの複数指定）", () => {
+  it("1アプリにつきlocationsを複数指定できる（同一タグを複数箇所へ反映する用途）", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -278,7 +278,7 @@ describe("loadConfig（chartの複数指定）", () => {
           projectId: 1,
           projectName: "my-service",
           branchToSync: "main",
-          chart: [
+          locations: [
             { valuesPath: "charts/webapi/values.yaml", anchor: "appVersion" },
             { valuesPath: "charts/batch/values.yaml", anchor: "batchAppsVersion" },
           ],
@@ -287,7 +287,7 @@ describe("loadConfig（chartの複数指定）", () => {
     )
 
     const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.apps[0]?.imageTagTargets).toEqual([
+    expect(configUnits[0]?.apps[0]?.imageTagLocations).toEqual([
       { valuesPath: "charts/webapi/values.yaml", anchorName: "appVersion" },
       { valuesPath: "charts/batch/values.yaml", anchorName: "batchAppsVersion" },
     ])
@@ -320,7 +320,7 @@ describe("loadConfig（target絞り込み）", () => {
           projectId: 1,
           projectName: "app-1",
           branchToSync: "main",
-          chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+          locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
       ]),
     )
@@ -332,7 +332,7 @@ describe("loadConfig（target絞り込み）", () => {
           projectId: 2,
           projectName: "app-2",
           branchToSync: "main",
-          chart: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
+          locations: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
         },
       ]),
     )
@@ -351,7 +351,7 @@ describe("loadConfig（target絞り込み）", () => {
           projectId: 3,
           projectName: "app-3",
           branchToSync: "main",
-          chart: [{ valuesPath: "c.yaml", anchor: "appVersion" }],
+          locations: [{ valuesPath: "c.yaml", anchor: "appVersion" }],
         },
       ]),
     )
@@ -526,7 +526,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
 })
 
 describe("loadConfig（helmTargetBranch）", () => {
-  it("config.yamlのhelm.chart[].valuesPathがappのchart[].valuesPathと一致すると、appのhelmTargetBranchにマージされる", () => {
+  it("config.yamlのhelm.locations[].valuesPathがappのlocations[].valuesPathと一致すると、appのhelmTargetBranchにマージされる", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -543,17 +543,17 @@ describe("loadConfig（helmTargetBranch）", () => {
             projectId: 1,
             projectName: "app-1",
             branchToSync: "main",
-            chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+            locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
         ],
-        { branchToSync: "release/2026-q1", chart: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] },
+        { branchToSync: "release/2026-q1", locations: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] },
       ),
     )
 
     const { configUnits } = loadConfig(dir.path)
     expect(configUnits[0]?.helmTargetBranch).toEqual({
       branchName: "release/2026-q1",
-      targets: [{ valuesPath: "a.yaml", anchorName: "targetBranch" }],
+      locations: [{ valuesPath: "a.yaml", anchorName: "targetBranch" }],
     })
   })
 
@@ -569,13 +569,13 @@ describe("loadConfig（helmTargetBranch）", () => {
     dir.writeConfigYaml(
       "teamA-chart",
       "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    locations:\n      - valuesPath: a.yaml\n        anchor: appVersion\n",
     )
 
     expect(() => loadConfig(dir.path)).toThrow("helm は必須です")
   })
 
-  it("helm.branchToSyncはあるがhelm.chartが無いとき例外をスローする", () => {
+  it("helm.branchToSyncはあるがhelm.locationsが無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -592,17 +592,17 @@ describe("loadConfig（helmTargetBranch）", () => {
             projectId: 1,
             projectName: "app-1",
             branchToSync: "main",
-            chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+            locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
         ],
         { branchToSync: "release/2026-q1" },
       ),
     )
 
-    expect(() => loadConfig(dir.path)).toThrow("helm.chart")
+    expect(() => loadConfig(dir.path)).toThrow("helm.locations")
   })
 
-  it("helm.chartはあるがhelm.branchToSyncが無いとき例外をスローする", () => {
+  it("helm.locationsはあるがhelm.branchToSyncが無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -618,15 +618,15 @@ describe("loadConfig（helmTargetBranch）", () => {
           projectId: 1,
           projectName: "app-1",
           branchToSync: "main",
-          chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+          locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
-      ], { chart: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] }),
+      ], { locations: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] }),
     )
 
     expect(() => loadConfig(dir.path)).toThrow("helm.branchToSync")
   })
 
-  it("helm.chartが空配列のとき例外をスローする", () => {
+  it("helm.locationsが空配列のとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -643,17 +643,17 @@ describe("loadConfig（helmTargetBranch）", () => {
             projectId: 1,
             projectName: "app-1",
             branchToSync: "main",
-            chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+            locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
         ],
-        { branchToSync: "release/2026-q1", chart: [] },
+        { branchToSync: "release/2026-q1", locations: [] },
       ),
     )
 
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("helmが指定されているのに、一部のappのvaluesPathがhelm.chart[]に無いとき例外をスローする", () => {
+  it("helmが指定されているのに、一部のappのvaluesPathがhelm.locations[]に無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -673,23 +673,23 @@ describe("loadConfig（helmTargetBranch）", () => {
             projectId: 1,
             projectName: "app-1",
             branchToSync: "main",
-            chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+            locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
           {
             projectId: 2,
             projectName: "app-2",
             branchToSync: "main",
-            chart: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
+            locations: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
           },
         ],
-        { branchToSync: "release/2026-q1", chart: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] },
+        { branchToSync: "release/2026-q1", locations: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] },
       ),
     )
 
     expect(() => loadConfig(dir.path)).toThrow("app-2")
   })
 
-  it("helmが指定されているとき、全appのvaluesPathがhelm.chart[]でカバーされていれば読み込める", () => {
+  it("helmが指定されているとき、全appのvaluesPathがhelm.locations[]でカバーされていれば読み込める", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -709,18 +709,18 @@ describe("loadConfig（helmTargetBranch）", () => {
             projectId: 1,
             projectName: "app-1",
             branchToSync: "main",
-            chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+            locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
           {
             projectId: 2,
             projectName: "app-2",
             branchToSync: "main",
-            chart: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
+            locations: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
           },
         ],
         {
           branchToSync: "release/2026-q1",
-          chart: [
+          locations: [
             { valuesPath: "a.yaml", anchor: "targetBranchA" },
             { valuesPath: "b.yaml", anchor: "targetBranchB" },
           ],
@@ -729,13 +729,13 @@ describe("loadConfig（helmTargetBranch）", () => {
     )
 
     const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.helmTargetBranch?.targets).toEqual([
+    expect(configUnits[0]?.helmTargetBranch?.locations).toEqual([
       { valuesPath: "a.yaml", anchorName: "targetBranchA" },
       { valuesPath: "b.yaml", anchorName: "targetBranchB" },
     ])
   })
 
-  it("1アプリのchart内で複数のvaluesPathがそれぞれhelm.chart[]と一致すると、helmTargetBranch.targetsに複数含める", () => {
+  it("1アプリのlocations内で複数のvaluesPathがそれぞれhelm.locations[]と一致すると、helmTargetBranch.locationsに複数含める", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -752,7 +752,7 @@ describe("loadConfig（helmTargetBranch）", () => {
             projectId: 1,
             projectName: "app-1",
             branchToSync: "main",
-            chart: [
+            locations: [
               { valuesPath: "webapi.yaml", anchor: "webapiVersion" },
               { valuesPath: "batch.yaml", anchor: "batchVersion" },
             ],
@@ -760,7 +760,7 @@ describe("loadConfig（helmTargetBranch）", () => {
         ],
         {
           branchToSync: "release/2026-q1",
-          chart: [
+          locations: [
             { valuesPath: "webapi.yaml", anchor: "webapiTargetBranch" },
             { valuesPath: "batch.yaml", anchor: "batchTargetBranch" },
           ],
@@ -771,7 +771,7 @@ describe("loadConfig（helmTargetBranch）", () => {
     const { configUnits } = loadConfig(dir.path)
     expect(configUnits[0]?.helmTargetBranch).toEqual({
       branchName: "release/2026-q1",
-      targets: [
+      locations: [
         { valuesPath: "webapi.yaml", anchorName: "webapiTargetBranch" },
         { valuesPath: "batch.yaml", anchorName: "batchTargetBranch" },
       ],

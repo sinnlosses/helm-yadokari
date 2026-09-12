@@ -41,12 +41,12 @@ describe("loadConfig（スキーマ検証エラー）", () => {
     dir.writeConfigYaml(
       "teamA-chart",
       "tenant1/client1",
-      'apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: ""\n    chart:\n      - valuesPath: a.yaml\n        anchor: appVersion\n',
+      'apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: ""\n    locations:\n      - valuesPath: a.yaml\n        anchor: appVersion\n',
     )
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("config.yaml の apps[].chart が空配列のとき例外をスローする", () => {
+  it("config.yaml の apps[].locations が空配列のとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -57,13 +57,13 @@ describe("loadConfig（スキーマ検証エラー）", () => {
     dir.writeConfigYaml(
       "teamA-chart",
       "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart: []\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    locations: []\n",
     )
 
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("config.yaml の apps[].chart[].valuesPath が無いとき例外をスローする", () => {
+  it("config.yaml の apps[].locations[].valuesPath が無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -74,13 +74,13 @@ describe("loadConfig（スキーマ検証エラー）", () => {
     dir.writeConfigYaml(
       "teamA-chart",
       "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - anchor: appVersion\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    locations:\n      - anchor: appVersion\n",
     )
 
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("config.yaml の apps[].chart[].anchor が無いとき例外をスローする", () => {
+  it("config.yaml の apps[].locations[].anchor が無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -91,7 +91,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
     dir.writeConfigYaml(
       "teamA-chart",
       "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    chart:\n      - valuesPath: a.yaml\n",
+      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    locations:\n      - valuesPath: a.yaml\n",
     )
 
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
@@ -104,7 +104,7 @@ describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
       projectId: 1,
       projectName: "app-1",
       branchToSync: "main",
-      chart: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+      locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
     },
   ])
 

@@ -110,7 +110,7 @@ describe("buildPlans", () => {
     const appA = makeApp({
       projectId: toProjectId(1),
       projectName: toProjectName("app-a"),
-      imageTagTargets: [
+      imageTagLocations: [
         {
           valuesPath: toValuesPath("shared.yaml"),
           anchorName: toAnchorName("appAVersion"),
@@ -120,7 +120,7 @@ describe("buildPlans", () => {
     const appB = makeApp({
       projectId: toProjectId(2),
       projectName: toProjectName("app-b"),
-      imageTagTargets: [
+      imageTagLocations: [
         {
           valuesPath: toValuesPath("shared.yaml"),
           anchorName: toAnchorName("appBVersion"),
@@ -201,7 +201,7 @@ describe("buildPlans", () => {
       makeConfigUnit(
         [
           makeApp({
-            imageTagTargets: [
+            imageTagLocations: [
               {
                 valuesPath: toValuesPath("values.yaml"),
                 anchorName: toAnchorName(anchorName),

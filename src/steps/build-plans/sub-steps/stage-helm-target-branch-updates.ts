@@ -1,6 +1,6 @@
 import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
 import type {
-  AnchorTarget,
+  AnchorLocation,
   HelmTargetBranchConfig,
   HelmTargetBranchUpdate,
 } from "../../../types/types.js"
@@ -13,7 +13,7 @@ import { readValuesYamlDraft, writeValuesYamlDraft } from "./shared/values-yaml-
 export type StageHelmTargetBranchUpdatesAcc = StageUpdatesAcc<HelmTargetBranchUpdate>
 
 /**
- * 1設定ユニットの`helmTargetBranch.targets`（1件以上）を先頭から順に`stageHelmTargetBranchUpdate()`へ
+ * 1設定ユニットの`helmTargetBranch.locations`（1件以上）を先頭から順に`stageHelmTargetBranchUpdate()`へ
  * 渡す。複数箇所を扱うのはこの関数の責務で、呼び出し元（`build-plans.ts`）は
  * 「Helmの向き先ブランチを適用する」という1つの操作として呼ぶだけでよい。
  */
@@ -23,13 +23,13 @@ export async function stageHelmTargetBranchUpdates(
   draft: ValuesYamlDraft,
 ): Promise<StageHelmTargetBranchUpdatesAcc> {
   const initialAcc: StageHelmTargetBranchUpdatesAcc = { draft, updates: [] }
-  return reduceAsync(helmTargetBranch.targets, initialAcc, (current, target) =>
-    stageHelmTargetBranchUpdate(source, helmTargetBranch, current, target),
+  return reduceAsync(helmTargetBranch.locations, initialAcc, (current, location) =>
+    stageHelmTargetBranchUpdate(source, helmTargetBranch, current, location),
   )
 }
 
 /**
- * `helmTargetBranch.targets`のうち1箇所分について、現在の値を読み取り設定値（`branchName`）と
+ * `helmTargetBranch.locations`のうち1箇所分について、現在の値を読み取り設定値（`branchName`）と
  * 比較する。差分があれば、書き込み前にそのブランチがchartリポジトリ上に実在するか検証した
  * うえで書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ`updates`に含めない）。
  *
@@ -40,38 +40,38 @@ async function stageHelmTargetBranchUpdate(
   source: ValuesYamlSource,
   helmTargetBranch: HelmTargetBranchConfig,
   acc: StageHelmTargetBranchUpdatesAcc,
-  target: AnchorTarget,
+  location: AnchorLocation,
 ): Promise<StageHelmTargetBranchUpdatesAcc> {
   const { branchName } = helmTargetBranch
   const { valuesYamlContent, draft } = await readValuesYamlDraft(
     source,
     acc.draft,
-    target.valuesPath,
+    location.valuesPath,
   )
   const previousBranchRaw = getRequiredValueAtAnchor(
     valuesYamlContent,
-    target.anchorName,
-    target.valuesPath,
+    location.anchorName,
+    location.valuesPath,
   )
   if (previousBranchRaw === branchName) return { ...acc, draft }
 
   const { gitlabCache, chart } = source
   if (!(await gitlabCache.branchExists(chart.projectId, branchName))) {
     throw new Error(
-      `向き先ブランチ "${branchName}" がchartリポジトリに見つかりません (valuesPath: ${target.valuesPath}, anchor: ${target.anchorName})`,
+      `向き先ブランチ "${branchName}" がchartリポジトリに見つかりません (valuesPath: ${location.valuesPath}, anchor: ${location.anchorName})`,
     )
   }
 
   return {
     draft: writeValuesYamlDraft(
       draft,
-      target.valuesPath,
-      setValueAtAnchor(valuesYamlContent, target.anchorName, branchName),
+      location.valuesPath,
+      setValueAtAnchor(valuesYamlContent, location.anchorName, branchName),
     ),
     updates: [
       ...acc.updates,
       {
-        target,
+        location,
         previousBranch: toBranchName(previousBranchRaw),
         newBranch: branchName,
       },

@@ -41,7 +41,7 @@ function makeTarget(): ConfigUnitUpdateTarget {
         latestTag: NEW_TAG,
         updates: [
           {
-            target: {
+            location: {
               valuesPath: toValuesPath("values.yaml"),
               anchorName: toAnchorName("appVersion"),
             },

@@ -119,15 +119,15 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 
 | ファイル                           | 責務                                                                    |
 | ---------------------------------- | ----------------------------------------------------------------------- |
-| `filter-targets/filter-targets.ts` | 登録アプリ0件・固定ブランチにオープン中のMRがあるchartAndAppsを除外する |
-| `build-plans/build-plans.ts`       | 残ったchartAndAppsごとに更新計画（差分）を並列に構築する                |
-| `apply-updates/apply-updates.ts`   | 差分があるchartAndAppsにコミット・MR作成を並列実行する                  |
+| `filter-targets/filter-targets.ts` | 登録アプリ0件・固定ブランチにオープン中のMRがある設定ユニットを除外する |
+| `build-plans/build-plans.ts`       | 残った設定ユニットごとに更新計画（差分）を並列に構築する                |
+| `apply-updates/apply-updates.ts`   | 差分がある設定ユニットにコミット・MR作成を並列実行する                  |
 | `shared/step-outcome.ts`           | 3つのstepが共有する処理結果の型・結果ログの識別情報・エラー方針         |
 | `shared/describe-plan.ts`          | 更新計画1件をログ用のサマリに整形する（dryRun時とMR作成時で共有）       |
 
 #### `build-plans/sub-steps/`
 
-親stepが持つ階層は「全chartAndApps → 1つのchartAndApps」の2段までに絞り、それより下の
+親stepが持つ階層は「全設定ユニット → 1つの設定ユニット」の2段までに絞り、それより下の
 「1アプリ」「1箇所（target）」のループは各サブステップの内側に置く。**サブステップは自分の
 関心事について全スコープを引き受ける**ため、`buildPlan()`はサブステップを順に呼んで下書きを
 受け渡すだけになる（アプリのループを親stepに持たせない理由は「サブステップ同士は互いを
@@ -136,9 +136,9 @@ importせず〜」の節を参照）。
 | ファイル                              | 責務                                                                                                                                                                                                                                    |
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `resolve-latest-tags.ts`              | 追跡ブランチ由来の最新タグの判定と、設定ユニット配下の全アプリのループ。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成。同じappが複数の設定ユニットに登録されうるため、解決結果をバッチ全体でキャッシュする |
-| `stage-image-tag-updates.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagTargets`全箇所＋設定ユニット配下の全アプリのループ                                                                                                                            |
+| `stage-image-tag-updates.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagLocations`全箇所＋設定ユニット配下の全アプリのループ                                                                                                                          |
 | `stage-helm-target-branch-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）。設定ユニット単位なので全アプリのイメージタグを積んだ後に1回だけ呼ぶ                                                                                         |
-| `shared/values-yaml-draft.ts`         | 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）の読み込み（下書き優先・無ければバッチキャッシュ経由でGitLab）・書き換え・`FileUpdate[]`化                                                               |
+| `shared/values-yaml-draft.ts`         | 1つの設定ユニットを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）の読み込み（下書き優先・無ければバッチキャッシュ経由でGitLab）・書き換え・`FileUpdate[]`化                                                               |
 | `shared/types.ts`                     | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                                                                                                                                |
 
 #### `apply-updates/sub-steps/`
@@ -267,14 +267,14 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 **利用箇所の数では決めない。** 型の性質だけで決める。
 
-| 型の性質                                                                             | 置き場所                                         | 例                                                                             |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------ |
-| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                           | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ConfigUnit`・`AppUpdatePlan`・`ConfigUnitUpdateResult`・`Config`・`ParsedTag` |
-| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                   | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`AppSpec`・`EnvConfig`                         |
-| ドメイン知識を持たない汎用処理の型                                                   | その`utils/`ファイル                             | `Sorted`                                                                       |
-| 複数のstepが共有する、ドメイン型にだけ依存する型                                     | `steps/shared/`                                  | `StepOutcome<T>`・`ConfigUnitLogContext`                                       |
-| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlansResult`・`FilterTargetsResult`・`ValuesYamlDraft`・`LabeledTarget`  |
-| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                            | `steps/<step名>/sub-steps/shared/types.ts`       | `LatestTagResolution`・`AppWithLatestTag`・`StageUpdatesAcc<U>`                |
+| 型の性質                                                                             | 置き場所                                         | 例                                                                              |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                           | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ConfigUnit`・`AppUpdatePlan`・`ConfigUnitUpdateResult`・`Config`・`ParsedTag`  |
+| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                   | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`AppSpec`・`EnvConfig`                          |
+| ドメイン知識を持たない汎用処理の型                                                   | その`utils/`ファイル                             | `Sorted`                                                                        |
+| 複数のstepが共有する、ドメイン型にだけ依存する型                                     | `steps/shared/`                                  | `StepOutcome<T>`・`ConfigUnitLogContext`                                        |
+| ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlansResult`・`FilterTargetsResult`・`ValuesYamlDraft`・`LabeledLocation` |
+| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                            | `steps/<step名>/sub-steps/shared/types.ts`       | `LatestTagResolution`・`AppWithLatestTag`・`StageUpdatesAcc<U>`                 |
 
 - 「型は`types/`にまとめる」という運用にしないのは、`types/`が「ドメイン語彙の一覧」ではなく
   「型の物置」になると、どの型がこのツールの語彙でどの型が実装の都合かが読み分けられなくなるため。
@@ -289,7 +289,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - **1行目と5行目も競合しうる**。`ParsedTag` は `domain/tag-format.ts` の関数が生み出す型だが、
   タグから読み取れる情報そのものというドメイン語彙なので `types/types.ts` に置く。
   **語彙かどうかが先**で、どの関数が作るかは後。現に `src/domain/` には型定義が1つも無い
-- **関数が引数として受け取る形も5行目**（`LabeledTarget` は `validateNoDuplicateTargets()` の
+- **関数が引数として受け取る形も5行目**（`LabeledLocation` は `validateNoDuplicateLocations()` の
   引数で、呼び出し側の `load-config-unit.ts` が組み立てる）。「生み出す」だけでなく
   「その関数のためだけに存在する」かで判断する
 - **Zodスキーマから `z.infer` で導出した型はスキーマと同じファイル**（`AppSpec` は
@@ -305,23 +305,23 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 #### エラーは「fatalは例外・それ以外は戻り値」の2チャネル。`steps/`に`try`/`catch`を書かない
 
-「401/5xx/ネットワーク障害なら実行全体を落とし、それ以外は該当chartAndAppsだけをERRORにして
+「401/5xx/ネットワーク障害なら実行全体を落とし、それ以外は該当する設定ユニットだけをERRORにして
 続行する」という判断を、`steps/shared/step-outcome.ts` の1箇所だけが持つ。stepがcatchすると
 「fatalもERRORとして計上して続行する」ように読めてしまうため、catch節は高階関数に吸収した。
 **`grep -rn "try {" src/steps/` が0件であること**が「stepはエラー方針を持たない」の機械的な確認。
 
 - **2チャネルを1つの`Result`型に寄せる案は採らない**。fatalは「実行全体の中止」というスコープの
   違う事象で、戻り値に混ぜると各stepに「fatalなら伝播させる」判断が戻り、いま消したいものが
-  再び分散する。例外はスコープの広い事象、戻り値はchartAndApps単位の結果、で固定する
+  再び分散する。例外はスコープの広い事象、戻り値は設定ユニット単位の結果、で固定する
 - **対象外**: `lib/`の404/403フォールバックと`utils/retry.ts`（特定のHTTPステータスを正常系に
-  変換するだけでchartAndApps単位の結果とは無関係）、`scripts/lint/remote-existence/`（問題を全件
+  変換するだけで設定ユニット単位の結果とは無関係）、`scripts/lint/remote-existence/`（問題を全件
   列挙して返すのが目的の別プログラムで、fatalで全体を落とす方針そのものを持たない）
 - **リクエストのタイムアウトもfatalに数える**。gitbeakerは`createClient()`に渡した
   `queryTimeout`を`AbortSignal.timeout()`として全リクエストに載せ、超過すると
   `GitbeakerTimeoutError`を投げる。このエラーはHTTPステータスも`code`も持たないため、
   `isFatalError()`は**エラーの名前**で判定する（クラスの`instanceof`にしないのは、
   パッケージの実体が二重に解決されると偽になるため）。1リクエストに5分かかる状態は
-  特定プロジェクトの問題ではなくGitLab側の異常とみなし、全chartAndAppsを1件ずつ
+  特定プロジェクトの問題ではなくGitLab側の異常とみなし、全設定ユニットを1件ずつ
   5分待たせるより即時終了を選んでいる
 - **リトライは2層あり、429と502では下の層しか動かない**。gitbeakerの`defaultRequestHandler`は
   429と502を内部で最大10回リトライするが、バックオフが`delay(2 ** i * 0.25)`（ミリ秒）で
@@ -330,7 +330,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
   この2つでは**こちらの指数バックオフ（1s/2s/4s）が一度も動かない**。503と504はgitbeakerの
   リトライ対象外なので、こちらのリトライが設計どおり効く（実測で3回・3.0秒）。
 - **`GitbeakerRetryError`からはメッセージ経由でステータスを読み、`isFatalError()`の判定にだけ使う**。
-  読まないと**502が5xxとして扱われず**、ゲートウェイ障害でも各chartAndAppsを1件ずつ`ERROR`にして
+  読まないと**502が5xxとして扱われず**、ゲートウェイ障害でも各設定ユニットを1件ずつ`ERROR`にして
   進んでしまう（正典が約束する「5xxは即時終了」を満たせない）。一方でこの値を
   `isRetryableError()`には渡さない。gitbeakerが既に10回試したあとで、こちらから追加で叩く相手では
   ないため（429で30リクエストになるのを避ける）。メッセージが読めないときは`undefined`を返し、
@@ -380,7 +380,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 **404と403の読み替えは`lib/gitlab/`の内側で完結する**。`withNotFoundFallback()`が既定値に変えるのは
 404だけで、403は変換せずそのまま上がる（`isFatalError()`も403をfatalにしない。トークンが特定の
-プロジェクトの権限を持たないだけで、他のchartAndAppsは処理できるため）。例外は
+プロジェクトの権限を持たないだけで、他の設定ユニットは処理できるため）。例外は
 `getLatestPipelineForRef()`で、ここだけ`withNotFoundFallback()`を使わず**403も「パイプライン無し」
 として`undefined`に読み替える**。`pipelines/latest`はパイプラインが1件も無いプロジェクトに対して
 404ではなく403を返すことが実機で確認されており、パイプラインのURLはMR本文の参考情報にすぎず更新処理の
@@ -417,7 +417,7 @@ web URL・パイプライン解決。
 #### アプリ単位は逐次のまま（並列化しない）
 
 同じ`values.yaml`への複数アプリ・複数箇所の書き換えを1つの下書きに積み上げる必要があるため。
-並列実行制御（`p-limit`）はchartAndApps単位にのみ適用している。
+並列実行制御（`p-limit`）は設定ユニット単位にのみ適用している。
 **読み取りだけを先に並列化する案も検討したうえで採らなかった**:
 
 - 技術的には可能（1アプリの読み取りは他アプリの書き換え結果に依存しない）
@@ -536,7 +536,7 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
 `getLatestPipelineForRef`のように`undefined`を返す読み取りも、メンバーごとに独自の箱を
 作らずそのまま載せられる。
 
-**キャッシュと下書きは別の層として重ねる。** values.yamlはchartAndApps単位の下書き
+**キャッシュと下書きは別の層として重ねる。** values.yamlは設定ユニット単位の下書き
 （`ValuesYamlDraft`）で書き換えを持ち回るが、下書きに無いときの読み込みだけはこのキャッシュを
 通す。キャッシュが返すのは常にGitLab上の元の内容で、書き換え後の内容は`writeValuesYamlDraft()`が
 下書きにしか積まないため、同じ`valuesPath`を指す別の設定ユニットへ書き換えが漏れることはない
@@ -616,7 +616,7 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 
 「型の置き場所」の表は、`src/`の型定義54件（`types/types.ts` 16・`brand.ts` 13・残り25）を
 全件突き合わせたうえでの形（2026-09-08に53件で実施し、`LocalPath`の追加で1件増えた）。**表から外れているものは1件も無い**。
-表に足りなかったのは基準の側で、`ParsedTag`（1行目と5行目の競合）・`LabeledTarget`（引数の形）・
+表に足りなかったのは基準の側で、`ParsedTag`（1行目と5行目の競合）・`LabeledLocation`（引数の形）・
 `AppSpec`（`z.infer`由来）・`EnvConfig`（2行目の例）を補って埋めた。
 
 **型を動かすときは表を先に読む。** 表に当てはまらない型が出てきたら、その型を動かす前に
@@ -707,8 +707,8 @@ values.yamlの書き込み位置は用途を問わず`AnchorLocation`1つ。Type
 | `verifyChartAndApps()`                        | `validateConfigUnit()`                              |
 | `verifyApp()`                                 | `validateApp()`                                     |
 | `verifyHelmTargetBranch()`                    | `validateHelmTargetBranch()`                        |
-| `verifyTargets()`                             | `validateTargets()`                                 |
-| `verifyTarget()`                              | `validateTarget()`                                  |
+| `verifyTargets()`                             | `validateLocations()`                               |
+| `verifyTarget()`                              | `validateLocation()`                                |
 | `test/scripts/lint/verify-config/`            | `test/scripts/lint/remote-existence/`               |
 
 `remote-cache.ts`はファイル名を変えず、`verify-config/`から`remote-existence/`へ移すだけ。
@@ -831,10 +831,13 @@ projectIdが本番実行時にはじめて`ERROR`になっていた。
 の2つの意味を持っており、「1つの語を2つの意味に使わない」に反していた。`chartToUpdate` の
 語形は `branchToSync` に揃えたもの。
 
-**`config.yaml` 側（ファイル名・`apps[]`・`apps[].chart[]`・`helm.chart[]`）は据え置く。**
+**`config.yaml` 側（ファイル名・`apps[]`）は、このファイル分割の論点では据え置く。**
 鏡写しに見える原因は同じ2語が両方のファイルに現れることなので、片側の名前が変われば解消する。
 `config.yaml` は設定ユニットの数だけ存在するので、改名の手数はその数に比例して増える。
-解消に要らない改名はしない（必要になった時点で改める）。
+解消に要らない改名はしない（必要になった時点で改める）。`apps[].chart[]`・`helm.chart[]`は
+この論点では変えなかったが、のちに「1つの語を2つの意味に使ってよいのは、包含する型名・キー名が
+用途を与える場合だけ」（`target`が識別の手段でしかなく用途を語れない、という別の理由）で
+`apps[].locations[]`・`helm.locations[]`へ改名した。
 
 **コード側の識別子は「外部ファイル形式の写しかどうか」で追随を決める。** 「型の置き場所」の表の
 2行目（特定の外部ファイル形式のインターフェースの一部）に当たる名前だけがYAMLのファイル名・
@@ -958,13 +961,13 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
 
 ### `CONCURRENCY_LIMIT`はGitLab APIへの同時接続数の上限ではない
 
-これはchartAndApps単位の同時処理数であって、その内側に要素数ぶんの`Promise.all`が2箇所ある
+これは設定ユニット単位の同時処理数であって、その内側に要素数ぶんの`Promise.all`が2箇所ある
 （web URLの解決とファイルのコミット）。実効の同時接続数は`CONCURRENCY_LIMIT` × それらの件数。
 **現状は絞らない判断**:
 
 - 絞ると`lib/gitlab/`に並列度を引き回すことになるが、この層はこのツールの並列度の方針を持たない
   （持たせると原則2の責務からはみ出す）
-- レート制限に当たっても429は指数バックオフで再試行され、それでも駄目なら該当chartAndAppsが
+- レート制限に当たっても429は指数バックオフで再試行され、それでも駄目なら該当する設定ユニットが
   `ERROR`になって次回に持ち越されるだけで、実行全体は壊れない（429はfatal扱いではない）
 - 既定値は3で、1設定ユニットあたりのアプリ数も現状は数件。最悪ケースは意図的に上限まで上げたうえで
   巨大な設定ユニットを作らないと起きない
@@ -974,7 +977,7 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
 ### FatalErrorは後続ステップも止める
 
 `FatalError`（401/5xx等）を検知すると、`utils/parallel.ts`がその時点で並列実行のキューを
-クリアし、同じステップ内の他chartAndAppsの未着手タスクを実行させずに reject する。
+クリアし、同じステップ内の他の設定ユニットの未着手タスクを実行させずに reject する。
 `runProcess()` はステップを順番に await しているため、あるステップでFatalErrorが起きると
 **後続のステップは一切開始されない**。`docs/requirements.md` 4.3節の
 「chartリポジトリ間は失敗しても他は継続する」という記述は一般的なエラーを指しており、GitLab側の

@@ -305,7 +305,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 | `test/utils/partition.test.ts` 全4件                    | `filter-targets`・`apply-updates` の振り分けと入力順のテスト。「入力配列を変更しない」は `readonly` 型が保証 |
 | `test/utils/fs.test.ts` 全10件                          | `config.test.ts` のパストラバーサル3件・実ディレクトリ走査、`env.test.ts` の `CONFIG_PATH` 検証              |
 | `test/utils/timer.test.ts` 全1件                        | `main.test.ts`（`run_end` の `durationMs` ログ）                                                             |
-| `test/utils/sequential.test.ts` 2件（引き継ぎ・空配列） | 引き継ぎは `build-plans.test.ts`。空配列は `imageTagTargets` が1件以上とスキーマで保証され実行時に来ない     |
+| `test/utils/sequential.test.ts` 2件（引き継ぎ・空配列） | 引き継ぎは `build-plans.test.ts`。空配列は `imageTagLocations` が1件以上とスキーマで保証され実行時に来ない   |
 | `test/utils/yaml.test.ts` 3件                           | `schema.test.ts` 全6件が「形式が不正です」を固定                                                             |
 | `test/domain/config-unit.test.ts` 6件                   | `env.test.ts` の `parseTargetUnits` 8件（唯一の呼び出し元が `parseTargetUnitEntry`）                         |
 
@@ -336,7 +336,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `tag-format`「組み立てたタグ名は parseTag でパースし直せる」         | 「ミリ秒を含む now でも一致する」が同じラウンドトリップの上位互換             |
 | `tag-format`「フォーマットを変えると、その形式でタグ名を組み立てる」 | 回帰テスト`{date}-{time}-{branch}`の1行目が同一のアサーション                 |
-| `parallel`「空配列のとき空配列を返す」                               | `main.test.ts`「chartAndAppsListがないとき」                                  |
+| `parallel`「空配列のとき空配列を返す」                               | `main.test.ts`「configUnitsがないとき」                                       |
 | `parallel`「入力順を保った配列で返す」                               | `filter-targets`「判定順に振り分ける」・`apply-updates`「入力順を保った配列」 |
 | `parallel`「FatalErrorが発生したとき reject する」                   | 3stepと`main`の「401エラーのとき FatalError」計4件                            |
 | `helm`「getRequiredValueAtAnchor がアンカーの値を返す」              | `lookupValueAtAnchor` の同一入力のテストと `stage-image-tag-updates` 全件     |

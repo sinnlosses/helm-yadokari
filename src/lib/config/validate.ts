@@ -1,5 +1,5 @@
 import { buildConfigUnitLocation } from "../../domain/config-unit.js"
-import type { AnchorTarget, ConfigUnit, LocalPath, ProjectId, ProjectName, TagFormat } from "../../types/types.js"
+import type { AnchorLocation, ConfigUnit, LocalPath, ProjectId, ProjectName, TagFormat } from "../../types/types.js"
 
 /**
  * `registry.yaml` / `config.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス
@@ -61,25 +61,25 @@ export function validateNoDuplicateProjectIds(
 }
 
 /** `valuesPath`+`anchorName`の組を、エラーメッセージ用のラベル付きで表す */
-export type LabeledTarget = { readonly target: AnchorTarget; readonly label: string }
+export type LabeledLocation = { readonly location: AnchorLocation; readonly label: string }
 
 /**
  * 1つの設定ユニット内で、同じ`valuesPath`+`anchorName`（＝values.yamlの同じ1箇所）を複数の設定が
  * 書き込み先にしていないか検証する。重複していると後から処理した側の値だけが残り、
  * MRには両方を更新したように表示されるため、静かに誤った結果になる。
- * イメージタグ用（`apps[].chart[]`）と向き先ブランチ用（`helm.chart[]`）の衝突も対象にする。
+ * イメージタグ用（`apps[].locations[]`）と向き先ブランチ用（`helm.locations[]`）の衝突も対象にする。
  */
-export function validateNoDuplicateTargets(
+export function validateNoDuplicateLocations(
   filePath: LocalPath,
-  targets: readonly LabeledTarget[],
+  locations: readonly LabeledLocation[],
 ): void {
   const seen = new Map<string, string>()
-  for (const { target, label } of targets) {
-    const key = `${target.valuesPath}#${target.anchorName}`
+  for (const { location, label } of locations) {
+    const key = `${location.valuesPath}#${location.anchorName}`
     const previousLabel = seen.get(key)
     if (previousLabel !== undefined) {
       throw new Error(
-        `${filePath}: 同じ書き込み先（${target.valuesPath} のアンカー "${target.anchorName}"）が複数指定されています（${previousLabel} / ${label}）`,
+        `${filePath}: 同じ書き込み先（${location.valuesPath} のアンカー "${location.anchorName}"）が複数指定されています（${previousLabel} / ${label}）`,
       )
     }
     seen.set(key, label)
