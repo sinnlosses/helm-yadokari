@@ -1,14 +1,18 @@
-import { buildCompareUrl, buildTagUrl } from "../../../lib/gitlab/web-url.js"
+import type { Platform } from "../../../lib/platform/platform.js"
 import type { BranchName, ConfigUnitPath, HelmBranchRefUpdate } from "../../../types/types.js"
 import type { ImageTagEntry, MrContent, MrEntries } from "./shared/types.js"
 
 /**
  * 1つの`(chartリポジトリ, 設定ユニット)`分のMRのタイトルと本文を組み立てる
  */
-export function buildMrContent(unitPath: ConfigUnitPath, entries: MrEntries): MrContent {
+export function buildMrContent(
+  platform: Platform,
+  unitPath: ConfigUnitPath,
+  entries: MrEntries,
+): MrContent {
   return {
     title: buildMrTitle(unitPath, entries),
-    description: buildMrDescription(entries),
+    description: buildMrDescription(platform, entries),
   }
 }
 
@@ -25,9 +29,9 @@ function buildMrTitle(unitPath: ConfigUnitPath, entries: MrEntries): string {
   return `Auto MR by yadokari: update ${unitPath}${summary}`
 }
 
-function buildMrDescription(entries: MrEntries): string {
+function buildMrDescription(platform: Platform, entries: MrEntries): string {
   return [
-    ...(entries.imageTags.length > 0 ? [buildImageTagSection(entries.imageTags)] : []),
+    ...(entries.imageTags.length > 0 ? [buildImageTagSection(platform, entries.imageTags)] : []),
     ...(entries.helmBranches.length > 0
       ? [buildHelmBranchRefSection(entries.helmBranches, entries.helmBranchRef)]
       : []),
@@ -39,7 +43,7 @@ function buildMrDescription(entries: MrEntries): string {
  * 行が箇所の数だけ並ぶため、ファイル・アンカーの列で区別する。比較・パイプラインは
  * リンクテキストを付けずURLをそのまま載せ（GitLabが自動リンクする）、値が無いセルは `-` で埋める。
  */
-function buildImageTagSection(entries: readonly ImageTagEntry[]): string {
+function buildImageTagSection(platform: Platform, entries: readonly ImageTagEntry[]): string {
   return [
     "## イメージタグ",
     "",
@@ -51,9 +55,9 @@ function buildImageTagSection(entries: readonly ImageTagEntry[]): string {
         `\`${plan.app.branchToSync}\``,
         `\`${update.location.valuesPath}\``,
         `\`${update.location.anchorName}\``,
-        `[${update.currentTag}](${buildTagUrl(webUrl, update.currentTag)})`,
-        `[${plan.latestTag.name}](${buildTagUrl(webUrl, plan.latestTag.name)})`,
-        buildCompareUrl(webUrl, update.currentTag, plan.latestTag.name),
+        `[${update.currentTag}](${platform.buildTagUrl(webUrl, update.currentTag)})`,
+        `[${plan.latestTag.name}](${platform.buildTagUrl(webUrl, plan.latestTag.name)})`,
+        platform.buildCompareUrl(webUrl, update.currentTag, plan.latestTag.name),
         pipeline ? pipeline.webUrl : "-",
       ]
       return `| ${cells.join(" | ")} |`

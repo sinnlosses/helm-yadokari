@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../../src/lib/gitlab/gitlab.js")
 vi.mock("../../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-import { branchExists, getFileContent } from "../../../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import {
   toAnchorName,
@@ -18,14 +16,16 @@ import {
   NEW_TAG,
   makeApp,
   makeConfigUnit,
-  mockBuildPlansGitlab,
-  mockGitlab,
-  newBatchCache,
+  makePlatform,
+  mockBuildPlansPlatform,
+  newPlatformCache,
 } from "../../../helpers.js"
+
+const platform = makePlatform()
 
 describe("buildPlans（Helmの向き先ブランチ）", () => {
   beforeEach(() => {
-    mockBuildPlansGitlab()
+    mockBuildPlansPlatform(platform)
   })
 
   afterEach(() => {
@@ -43,12 +43,12 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(getFileContent).mockResolvedValue(
+    vi.mocked(platform.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const { toApply } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([app], { helm })],
       3,
       false,
@@ -73,12 +73,12 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(getFileContent).mockResolvedValue(
+    vi.mocked(platform.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2026-q1\n`,
     )
     const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([app], { helm })],
       3,
       false,
@@ -98,12 +98,12 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(getFileContent).mockResolvedValue(
+    vi.mocked(platform.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const { toApply } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([app], { helm })],
       3,
       false,
@@ -124,13 +124,13 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(getFileContent).mockResolvedValue(
+    vi.mocked(platform.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
-    vi.mocked(branchExists).mockResolvedValue(false)
+    vi.mocked(platform.branchExists).mockResolvedValue(false)
     const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([app], { helm })],
       3,
       false,
@@ -150,16 +150,12 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(getFileContent).mockResolvedValue(
+    vi.mocked(platform.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const group = makeConfigUnit([app], { helm })
-    await buildPlans(mockGitlab, newBatchCache(), [group], 3, false)
-    expect(branchExists).toHaveBeenCalledWith(
-      mockGitlab,
-      group.chartRepo.projectId,
-      "release/2026-q1",
-    )
+    await buildPlans(platform, newPlatformCache(platform), [group], 3, false)
+    expect(platform.branchExists).toHaveBeenCalledWith(group.chartRepo.projectId, "release/2026-q1")
   })
 
   it("向き先ブランチが見つからないときのエラーメッセージにブランチ名、valuesPath、anchorが含まれる", async () => {
@@ -172,11 +168,17 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(getFileContent).mockResolvedValue(
+    vi.mocked(platform.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
-    vi.mocked(branchExists).mockResolvedValue(false)
-    await buildPlans(mockGitlab, newBatchCache(), [makeConfigUnit([makeApp()], { helm })], 3, false)
+    vi.mocked(platform.branchExists).mockResolvedValue(false)
+    await buildPlans(
+      platform,
+      newPlatformCache(platform),
+      [makeConfigUnit([makeApp()], { helm })],
+      3,
+      false,
+    )
     expect(vi.mocked(logger.error)).toHaveBeenCalled()
     const errorCall = vi.mocked(logger.error).mock.calls[0]?.[0]
     expect(errorCall?.reason).toContain("release/2026-q1")
@@ -194,7 +196,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(getFileContent).mockResolvedValue(
+    vi.mocked(platform.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     // 同じchartディレクトリ配下の別tenant/client（chart.projectIdは既定値で共通）
@@ -206,7 +208,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       unitPath: toConfigUnitPath("tenant1/clientB"),
       helm,
     })
-    await buildPlans(mockGitlab, newBatchCache(), [groupA, groupB], 3, false)
-    expect(branchExists).toHaveBeenCalledTimes(1)
+    await buildPlans(platform, newPlatformCache(platform), [groupA, groupB], 3, false)
+    expect(platform.branchExists).toHaveBeenCalledTimes(1)
   })
 })

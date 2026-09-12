@@ -1,17 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../../src/lib/gitlab/gitlab.js")
 vi.mock("../../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
 import { validateTagFormat } from "../../../../src/domain/tag-format.js"
-import {
-  createTag,
-  getBranchHeadSha,
-  getFileContent,
-  listTags,
-} from "../../../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import { createResolveLatestTags } from "../../../../src/steps/build-plans/sub-steps/resolve-latest-tags.js"
 import {
@@ -30,14 +23,16 @@ import {
   makeApp,
   makeConfigUnit,
   makeHttpError,
-  mockBuildPlansGitlab,
-  mockGitlab,
-  newBatchCache,
+  makePlatform,
+  mockBuildPlansPlatform,
+  newPlatformCache,
 } from "../../../helpers.js"
+
+const platform = makePlatform()
 
 describe("buildPlans（タグの解決・自動作成）", () => {
   beforeEach(() => {
-    mockBuildPlansGitlab()
+    mockBuildPlansPlatform(platform)
   })
 
   afterEach(() => {
@@ -46,33 +41,33 @@ describe("buildPlans（タグの解決・自動作成）", () => {
 
   it("appのtagFormatに別の形式を渡すと、その形式で新しいタグを作成する", async () => {
     const app = makeApp({ tagFormat: validateTagFormat("{date}-{time}-{branch}") })
-    vi.mocked(listTags).mockResolvedValue([
+    vi.mocked(platform.listTags).mockResolvedValue([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
     const { toApply } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([app])],
       3,
       false,
     )
-    expect(vi.mocked(createTag).mock.calls[0]?.[2]).toMatch(/^\d{8}-\d{6}-main$/)
+    expect(vi.mocked(platform.createTag).mock.calls[0]?.[1]).toMatch(/^\d{8}-\d{6}-main$/)
     expect(toApply[0]?.plans[0]?.latestTag.name).toMatch(/^\d{8}-\d{6}-main$/)
   })
 
   it("追跡ブランチ由来のタグが見つからないとき、新しいタグを作成してtoApplyに含める", async () => {
-    vi.mocked(listTags).mockResolvedValue([
+    vi.mocked(platform.listTags).mockResolvedValue([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
     const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([makeApp()])],
       3,
       false,
     )
-    expect(createTag).toHaveBeenCalledOnce()
-    expect(vi.mocked(createTag).mock.calls[0]?.[3]).toBe("main")
+    expect(platform.createTag).toHaveBeenCalledOnce()
+    expect(vi.mocked(platform.createTag).mock.calls[0]?.[2]).toBe("main")
     expect(toApply).toHaveLength(1)
     expect(settled).toEqual([])
   })
@@ -80,29 +75,31 @@ describe("buildPlans（タグの解決・自動作成）", () => {
   it("追跡ブランチ由来の最新タグが追跡ブランチの現在のHEADコミットにビハインドしているとき、新しいタグを作成する", async () => {
     // タグ名は一致するが、コミットSHAが現在のブランチHEADと異なる
     // （＝タグ作成後に追跡ブランチへ新しいコミットが積まれた）ケース
-    vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: toCommitSha("old-sha") }])
-    vi.mocked(getBranchHeadSha).mockResolvedValue(toCommitSha("new-sha"))
+    vi.mocked(platform.listTags).mockResolvedValue([
+      { name: NEW_TAG, commitSha: toCommitSha("old-sha") },
+    ])
+    vi.mocked(platform.getBranchHeadSha).mockResolvedValue(toCommitSha("new-sha"))
     const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([makeApp()])],
       3,
       false,
     )
-    expect(createTag).toHaveBeenCalledOnce()
+    expect(platform.createTag).toHaveBeenCalledOnce()
     expect(toApply).toHaveLength(1)
     expect(settled).toEqual([])
   })
 
   it("反映済みタグが追跡ブランチ由来のとき、HEADと一致する既存タグを再利用して新しいタグは作らない", async () => {
     const { toApply } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([makeApp()])],
       3,
       false,
     )
-    expect(createTag).not.toHaveBeenCalled()
+    expect(platform.createTag).not.toHaveBeenCalled()
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(NEW_TAG)
   })
 
@@ -112,16 +109,16 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     // それを再利用すれば十分（タグ名に切り替え後のブランチ名が入るため、values.yaml から
     // 追跡先が変わったことは読み取れる）。切り替えを明示するためだけの新規タグは作らない
     const existingTag = toTagName("release-2026-q2-build-at-20260101-000000")
-    vi.mocked(listTags).mockResolvedValue([{ name: existingTag, commitSha: HEAD_SHA }])
+    vi.mocked(platform.listTags).mockResolvedValue([{ name: existingTag, commitSha: HEAD_SHA }])
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
     const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([app])],
       3,
       false,
     )
-    expect(createTag).not.toHaveBeenCalled()
+    expect(platform.createTag).not.toHaveBeenCalled()
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(existingTag)
     // 再利用した場合でも values.yaml は更新される（反映済みタグは main 由来で、
     // 現在の追跡ブランチ由来のHEADタグ集合には含まれないためスキップされない）
@@ -134,16 +131,18 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     // 切り替え前後のブランチが同じコミットを指しているケース。反映済みタグ（main由来）は
     // release/2026-q2 のHEADを指すので通常なら更新しないが、追跡先が変わったことを
     // values.yamlに反映するため更新する
-    vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
+    vi.mocked(platform.listTags).mockResolvedValue([
+      { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
+    ])
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
     const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([app])],
       3,
       false,
     )
-    expect(createTag).toHaveBeenCalledOnce()
+    expect(platform.createTag).toHaveBeenCalledOnce()
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.plans[0]?.updates[0]?.currentTag).toBe(OLD_TAG)
     expect(toApply[0]?.files[0]?.content).toMatch(/&appVersion release-2026-q2-build-at-/)
@@ -153,42 +152,46 @@ describe("buildPlans（タグの解決・自動作成）", () => {
   it("dryRun=true のとき、追跡ブランチを変更し変更後ブランチのHEADにタグが無くても実際のタグ作成はしない", async () => {
     // 変更後ブランチ由来のタグが1件も無いので本来なら新規作成する経路。dryRunなので
     // 実際には作らず、作成予定の名前だけを使って以降の判定を続ける
-    vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
+    vi.mocked(platform.listTags).mockResolvedValue([
+      { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
+    ])
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
-    await buildPlans(mockGitlab, newBatchCache(), [makeConfigUnit([app])], 3, true)
-    expect(createTag).not.toHaveBeenCalled()
+    await buildPlans(platform, newPlatformCache(platform), [makeConfigUnit([app])], 3, true)
+    expect(platform.createTag).not.toHaveBeenCalled()
   })
 
   it("反映済みタグが読めない（アンカーが無い）ときは、タグを作らずERRORにする", async () => {
-    vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &otherVersion ${OLD_TAG}\n`)
+    vi.mocked(platform.getFileContent).mockResolvedValue(
+      `variables:\n  - &otherVersion ${OLD_TAG}\n`,
+    )
     const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([makeApp()])],
       3,
       false,
     )
-    expect(createTag).not.toHaveBeenCalled()
+    expect(platform.createTag).not.toHaveBeenCalled()
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
   })
 
   it("dryRun=true のとき、タグが見つからなくても実際のタグ作成はしない", async () => {
-    vi.mocked(listTags).mockResolvedValue([
+    vi.mocked(platform.listTags).mockResolvedValue([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
-    await buildPlans(mockGitlab, newBatchCache(), [makeConfigUnit([makeApp()])], 3, true)
-    expect(createTag).not.toHaveBeenCalled()
+    await buildPlans(platform, newPlatformCache(platform), [makeConfigUnit([makeApp()])], 3, true)
+    expect(platform.createTag).not.toHaveBeenCalled()
   })
 
   it("タグ作成APIが403エラーを投げたときsettledにERRORとして入る", async () => {
-    vi.mocked(listTags).mockResolvedValue([
+    vi.mocked(platform.listTags).mockResolvedValue([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
-    vi.mocked(createTag).mockRejectedValue(makeHttpError(403))
+    vi.mocked(platform.createTag).mockRejectedValue(makeHttpError(403))
     const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -199,14 +202,14 @@ describe("buildPlans（タグの解決・自動作成）", () => {
 
   it("旧タグが追跡ブランチのHEADと同じコミットを指すとき、より新しいタグがあっても更新しない", async () => {
     // 同じコミットに古いタグと新しいタグの両方が付いている状態
-    vi.mocked(listTags).mockResolvedValue([
+    vi.mocked(platform.listTags).mockResolvedValue([
       { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
       { name: NEW_TAG, commitSha: HEAD_SHA },
     ])
 
     const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -220,34 +223,34 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     // OLD_TAG は現在のHEADを指しているが、タグ名の日時としては古い。NEW_TAG はタグ名の
     // 日時としては新しいが、HEADではない別コミットを指している（例: HEADへのタグ付け後、
     // 別ブランチや過去のコミットに対して後からタグが打たれたケース）。
-    vi.mocked(listTags).mockResolvedValue([
+    vi.mocked(platform.listTags).mockResolvedValue([
       { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
       { name: NEW_TAG, commitSha: toCommitSha("other-commit-sha") },
     ])
-    vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
+    vi.mocked(platform.getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
 
     const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([makeApp()])],
       3,
       false,
     )
 
-    expect(createTag).not.toHaveBeenCalled()
+    expect(platform.createTag).not.toHaveBeenCalled()
     expect(toApply).toEqual([])
     expect(settled).toEqual(["SKIPPED"])
   })
 
   it("旧タグが古いコミットを指すときは従来どおり更新する", async () => {
-    vi.mocked(listTags).mockResolvedValue([
+    vi.mocked(platform.listTags).mockResolvedValue([
       { name: toTagName(OLD_TAG), commitSha: toCommitSha("older-sha") },
       { name: NEW_TAG, commitSha: HEAD_SHA },
     ])
 
     const { toApply } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -258,12 +261,14 @@ describe("buildPlans（タグの解決・自動作成）", () => {
   })
 
   it("values.yamlの値がタグ名でないとき（初期値など）は更新する", async () => {
-    vi.mocked(getFileContent).mockResolvedValue("variables:\n  - &appVersion placeholder\n")
-    vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
+    vi.mocked(platform.getFileContent).mockResolvedValue(
+      "variables:\n  - &appVersion placeholder\n",
+    )
+    vi.mocked(platform.listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
 
     const { toApply } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -273,15 +278,15 @@ describe("buildPlans（タグの解決・自動作成）", () => {
   })
 
   it("追跡ブランチがchartリポジトリに存在しないとき、タグを作成せずその設定ユニットをERRORにする", async () => {
-    vi.mocked(getBranchHeadSha).mockResolvedValue(undefined)
+    vi.mocked(platform.getBranchHeadSha).mockResolvedValue(undefined)
     const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([makeApp()])],
       3,
       false,
     )
-    expect(createTag).not.toHaveBeenCalled()
+    expect(platform.createTag).not.toHaveBeenCalled()
     expect(toApply).toEqual([])
     expect(settled).toEqual(["ERROR"])
   })
@@ -297,17 +302,17 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       chartDirName: toChartDirName("missing"),
     }
     const ok = { ...makeConfigUnit([appOk]), chartDirName: toChartDirName("ok") }
-    vi.mocked(getBranchHeadSha).mockImplementation(async (_client, projectId) =>
+    vi.mocked(platform.getBranchHeadSha).mockImplementation(async (projectId) =>
       projectId === "1" ? undefined : HEAD_SHA,
     )
     const { toApply, settled } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [missing, ok],
       3,
       false,
     )
-    expect(createTag).not.toHaveBeenCalled()
+    expect(platform.createTag).not.toHaveBeenCalled()
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.configUnit).toBe(ok)
     expect(settled).toEqual(["ERROR"])
@@ -322,14 +327,14 @@ describe("createResolveLatestTags（trackedHeadTagNamesの中身）", () => {
   it("追跡ブランチ由来かつHEADと同じコミットを指すタグ名だけを含む", async () => {
     // 同じコミット(HEAD_SHA)を指すタグが2件あるが、他ブランチ由来のものはパースできないため
     // 集合には含まれない。コミットが違うタグ（OLD_TAG）も含まれない
-    vi.mocked(listTags).mockResolvedValue([
+    vi.mocked(platform.listTags).mockResolvedValue([
       { name: NEW_TAG, commitSha: HEAD_SHA },
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
       { name: toTagName(OLD_TAG), commitSha: toCommitSha("older-sha") },
     ])
-    vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
+    vi.mocked(platform.getBranchHeadSha).mockResolvedValue(HEAD_SHA)
 
-    const [result] = await createResolveLatestTags(mockGitlab, false)([makeApp()])
+    const [result] = await createResolveLatestTags(platform, false)([makeApp()])
 
     expect([...(result?.latestTag.trackedHeadTagNames ?? [])]).toEqual([NEW_TAG])
   })
@@ -338,11 +343,13 @@ describe("createResolveLatestTags（trackedHeadTagNamesの中身）", () => {
     // release/2026-q2 に切り替えた直後、切り替え前(main)のタグがrelease/2026-q2のHEADと
     // たまたま同じコミットを指しているケース。tagFormatではrelease/2026-q2由来として
     // パースできないため、trackedHeadTagNamesは空になる
-    vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
-    vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
+    vi.mocked(platform.listTags).mockResolvedValue([
+      { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
+    ])
+    vi.mocked(platform.getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
 
-    const [result] = await createResolveLatestTags(mockGitlab, false)([app])
+    const [result] = await createResolveLatestTags(platform, false)([app])
 
     expect(result?.latestTag.trackedHeadTagNames.size).toBe(0)
   })
@@ -350,24 +357,24 @@ describe("createResolveLatestTags（trackedHeadTagNamesの中身）", () => {
   it("HEADを指すタグが複数あるとき、タグ名の日時が最も新しいものを返す（決定性のための規則）", async () => {
     // いずれもHEADと同じコミットを指すため中身は同じだが、どれを返すかは決定性のために
     // タグ名の日時で決める。新規タグ作成は発生しない。
-    vi.mocked(listTags).mockResolvedValue([
+    vi.mocked(platform.listTags).mockResolvedValue([
       { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
       { name: NEW_TAG, commitSha: HEAD_SHA },
     ])
-    vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
+    vi.mocked(platform.getBranchHeadSha).mockResolvedValue(HEAD_SHA)
 
-    const [result] = await createResolveLatestTags(mockGitlab, false)([makeApp()])
+    const [result] = await createResolveLatestTags(platform, false)([makeApp()])
 
     expect(result?.latestTag.tag.name).toBe(NEW_TAG)
-    expect(createTag).not.toHaveBeenCalled()
+    expect(platform.createTag).not.toHaveBeenCalled()
   })
 })
 
 describe("createResolveLatestTags（同じappが複数clientに登録されているとき）", () => {
   beforeEach(() => {
-    mockBuildPlansGitlab()
+    mockBuildPlansPlatform(platform)
     // HEADを指すタグが1件も無い状態にして、タグの自動作成を走らせる
-    vi.mocked(listTags).mockResolvedValue([
+    vi.mocked(platform.listTags).mockResolvedValue([
       { name: toTagName(OLD_TAG), commitSha: toCommitSha("older-sha") },
     ])
   })
@@ -386,11 +393,11 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
       makeConfigUnit([app], { unitPath: toConfigUnitPath("tenant1/clientC") }),
     ]
 
-    await buildPlans(mockGitlab, newBatchCache(), targets, 3, false)
+    await buildPlans(platform, newPlatformCache(platform), targets, 3, false)
 
-    expect(listTags).toHaveBeenCalledTimes(1)
-    expect(getBranchHeadSha).toHaveBeenCalledTimes(1)
-    expect(createTag).toHaveBeenCalledTimes(1)
+    expect(platform.listTags).toHaveBeenCalledTimes(1)
+    expect(platform.getBranchHeadSha).toHaveBeenCalledTimes(1)
+    expect(platform.createTag).toHaveBeenCalledTimes(1)
   })
 
   it("追跡ブランチが違えば別々に解決する", async () => {
@@ -401,9 +408,9 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
       }),
     ]
 
-    await buildPlans(mockGitlab, newBatchCache(), targets, 3, false)
+    await buildPlans(platform, newPlatformCache(platform), targets, 3, false)
 
-    expect(listTags).toHaveBeenCalledTimes(2)
-    expect(createTag).toHaveBeenCalledTimes(2)
+    expect(platform.listTags).toHaveBeenCalledTimes(2)
+    expect(platform.createTag).toHaveBeenCalledTimes(2)
   })
 })

@@ -1,10 +1,4 @@
-import {
-  type GitlabClient,
-  branchExists,
-  commitFileUpdates,
-  createMergeRequest,
-  deleteBranch,
-} from "../../../lib/gitlab/gitlab.js"
+import type { Platform } from "../../../lib/platform/platform.js"
 import type { BranchName, ChartRepoConfig, FileUpdate } from "../../../types/types.js"
 import type { MrContent } from "./shared/types.js"
 
@@ -18,25 +12,23 @@ import type { MrContent } from "./shared/types.js"
  * コミットメッセージにはMRのタイトルをそのまま使う。
  */
 export async function submitMergeRequest(
-  gitlab: GitlabClient,
+  platform: Platform,
   chart: ChartRepoConfig,
   featureBranch: BranchName,
   content: MrContent,
   files: readonly FileUpdate[],
 ): Promise<void> {
-  if (await branchExists(gitlab, chart.projectId, featureBranch)) {
-    await deleteBranch(gitlab, chart.projectId, featureBranch)
+  if (await platform.branchExists(chart.projectId, featureBranch)) {
+    await platform.deleteBranch(chart.projectId, featureBranch)
   }
-  await commitFileUpdates(
-    gitlab,
+  await platform.commitFileUpdates(
     chart.projectId,
     featureBranch,
     chart.mrTargetBranch,
     content.title,
     files,
   )
-  await createMergeRequest(
-    gitlab,
+  await platform.createMergeRequest(
     chart.projectId,
     featureBranch,
     chart.mrTargetBranch,

@@ -1,10 +1,5 @@
 import { buildNewTag, findLatestParsedTag, parseTag } from "../../../domain/tag-format.js"
-import {
-  type GitlabClient,
-  createTag,
-  getBranchHeadSha,
-  listTags,
-} from "../../../lib/gitlab/gitlab.js"
+import type { Platform } from "../../../lib/platform/platform.js"
 import type {
   AppConfig,
   BranchName,
@@ -38,7 +33,7 @@ export type ResolveLatestTags = (apps: readonly AppConfig[]) => Promise<readonly
  *
  * キャッシュの寿命はこの関数が返すクロージャと同じで、バッチごとに`buildPlans()`が1つ作る。
  */
-export function createResolveLatestTags(gitlab: GitlabClient, dryRun: boolean): ResolveLatestTags {
+export function createResolveLatestTags(platform: Platform, dryRun: boolean): ResolveLatestTags {
   const cache = new Map<string, Promise<LatestTagResolution>>()
   return (apps) => {
     const initial: readonly AppWithLatestTag[] = []
@@ -48,7 +43,7 @@ export function createResolveLatestTags(gitlab: GitlabClient, dryRun: boolean): 
         app,
         latestTag: await withAppContext(app.projectName, () =>
           getOrFetchShared(cache, `${app.projectId}:${app.branchToSync}`, () =>
-            resolveLatestTag(gitlab, app, dryRun),
+            resolveLatestTag(platform, app, dryRun),
           ),
         ),
       },
@@ -73,13 +68,13 @@ export function createResolveLatestTags(gitlab: GitlabClient, dryRun: boolean): 
  * あわせて`trackedHeadTagNames`を返す（意味は`LatestTagResolution`のJSDoc参照）。
  */
 async function resolveLatestTag(
-  gitlab: GitlabClient,
+  platform: Platform,
   app: AppConfig,
   dryRun: boolean,
 ): Promise<LatestTagResolution> {
   const [tags, headSha] = await Promise.all([
-    listTags(gitlab, app.projectId),
-    getBranchHeadSha(gitlab, app.projectId, app.branchToSync),
+    platform.listTags(app.projectId),
+    platform.getBranchHeadSha(app.projectId, app.branchToSync),
   ])
   if (headSha === undefined) {
     throw new Error(
@@ -106,7 +101,7 @@ async function resolveLatestTag(
 
   const newTag = buildNewTag(app.branchToSync, new Date(), app.tagFormat)
   if (!dryRun) {
-    await createTag(gitlab, app.projectId, newTag.name, app.branchToSync)
+    await platform.createTag(app.projectId, newTag.name, app.branchToSync)
   }
   logger.info({
     event: "create_tag",

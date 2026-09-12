@@ -1,13 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../../src/lib/gitlab/gitlab.js")
-
-import {
-  branchExists,
-  commitFileUpdates,
-  createMergeRequest,
-  deleteBranch,
-} from "../../../../src/lib/gitlab/gitlab.js"
 import type { MrContent } from "../../../../src/steps/apply-updates/sub-steps/shared/types.js"
 import { submitMergeRequest } from "../../../../src/steps/apply-updates/sub-steps/submit-merge-request.js"
 import type { ChartRepoConfig, FileUpdate } from "../../../../src/types/types.js"
@@ -17,7 +9,9 @@ import {
   toProjectName,
   toValuesPath,
 } from "../../../../src/types/types.js"
-import { mockGitlab } from "../../../helpers.js"
+import { makePlatform } from "../../../helpers.js"
+
+const platform = makePlatform()
 
 const CHART: ChartRepoConfig = {
   projectId: toProjectId("100"),
@@ -35,9 +29,9 @@ const FILES: readonly FileUpdate[] = [
 
 describe("submitMergeRequest", () => {
   beforeEach(() => {
-    vi.mocked(deleteBranch).mockResolvedValue(undefined)
-    vi.mocked(commitFileUpdates).mockResolvedValue(undefined)
-    vi.mocked(createMergeRequest).mockResolvedValue(undefined)
+    vi.mocked(platform.deleteBranch).mockResolvedValue(undefined)
+    vi.mocked(platform.commitFileUpdates).mockResolvedValue(undefined)
+    vi.mocked(platform.createMergeRequest).mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -45,29 +39,28 @@ describe("submitMergeRequest", () => {
   })
 
   it("固定ブランチが残っているとき、削除してからコミットする", async () => {
-    vi.mocked(branchExists).mockResolvedValue(true)
-    await submitMergeRequest(mockGitlab, CHART, FEATURE_BRANCH, CONTENT, FILES)
+    vi.mocked(platform.branchExists).mockResolvedValue(true)
+    await submitMergeRequest(platform, CHART, FEATURE_BRANCH, CONTENT, FILES)
 
-    expect(deleteBranch).toHaveBeenCalledWith(mockGitlab, CHART.projectId, FEATURE_BRANCH)
-    expect(vi.mocked(deleteBranch).mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(commitFileUpdates).mock.invocationCallOrder[0] ?? 0,
+    expect(platform.deleteBranch).toHaveBeenCalledWith(CHART.projectId, FEATURE_BRANCH)
+    expect(vi.mocked(platform.deleteBranch).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(platform.commitFileUpdates).mock.invocationCallOrder[0] ?? 0,
     )
   })
 
   it("固定ブランチが無いとき、削除せずコミットする", async () => {
-    vi.mocked(branchExists).mockResolvedValue(false)
-    await submitMergeRequest(mockGitlab, CHART, FEATURE_BRANCH, CONTENT, FILES)
+    vi.mocked(platform.branchExists).mockResolvedValue(false)
+    await submitMergeRequest(platform, CHART, FEATURE_BRANCH, CONTENT, FILES)
 
-    expect(deleteBranch).not.toHaveBeenCalled()
-    expect(commitFileUpdates).toHaveBeenCalledOnce()
+    expect(platform.deleteBranch).not.toHaveBeenCalled()
+    expect(platform.commitFileUpdates).toHaveBeenCalledOnce()
   })
 
   it("mrTargetBranch を起点に、MRタイトルと同じコミットメッセージでコミットする", async () => {
-    vi.mocked(branchExists).mockResolvedValue(false)
-    await submitMergeRequest(mockGitlab, CHART, FEATURE_BRANCH, CONTENT, FILES)
+    vi.mocked(platform.branchExists).mockResolvedValue(false)
+    await submitMergeRequest(platform, CHART, FEATURE_BRANCH, CONTENT, FILES)
 
-    expect(commitFileUpdates).toHaveBeenCalledWith(
-      mockGitlab,
+    expect(platform.commitFileUpdates).toHaveBeenCalledWith(
       CHART.projectId,
       FEATURE_BRANCH,
       CHART.mrTargetBranch,
@@ -77,11 +70,10 @@ describe("submitMergeRequest", () => {
   })
 
   it("固定ブランチから mrTargetBranch 宛てのMRを作る", async () => {
-    vi.mocked(branchExists).mockResolvedValue(false)
-    await submitMergeRequest(mockGitlab, CHART, FEATURE_BRANCH, CONTENT, FILES)
+    vi.mocked(platform.branchExists).mockResolvedValue(false)
+    await submitMergeRequest(platform, CHART, FEATURE_BRANCH, CONTENT, FILES)
 
-    expect(createMergeRequest).toHaveBeenCalledWith(
-      mockGitlab,
+    expect(platform.createMergeRequest).toHaveBeenCalledWith(
       CHART.projectId,
       FEATURE_BRANCH,
       CHART.mrTargetBranch,

@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../../src/lib/gitlab/gitlab.js")
 vi.mock("../../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-import { getFileContent } from "../../../../src/lib/gitlab/gitlab.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import { toAnchorName, toValuesPath } from "../../../../src/types/types.js"
 import {
@@ -13,14 +11,16 @@ import {
   OLD_TAG,
   makeApp,
   makeConfigUnit,
-  mockBuildPlansGitlab,
-  mockGitlab,
-  newBatchCache,
+  makePlatform,
+  mockBuildPlansPlatform,
+  newPlatformCache,
 } from "../../../helpers.js"
+
+const platform = makePlatform()
 
 describe("buildPlans（イメージタグの書き込み先）", () => {
   beforeEach(() => {
-    mockBuildPlansGitlab()
+    mockBuildPlansPlatform(platform)
   })
 
   afterEach(() => {
@@ -36,12 +36,12 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
         },
       ],
     })
-    vi.mocked(getFileContent).mockResolvedValue(
+    vi.mocked(platform.getFileContent).mockResolvedValue(
       `variables:\n  - &helmVersion develop\n  - &tenant1client1AppsVersion ${OLD_TAG}\n`,
     )
     const { toApply } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([app])],
       3,
       false,
@@ -63,14 +63,14 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
         },
       ],
     })
-    vi.mocked(getFileContent).mockImplementation(async (_client, _projectId, filePath) => {
+    vi.mocked(platform.getFileContent).mockImplementation(async (_projectId, filePath) => {
       if (filePath === "webapi.yaml") return `variables:\n  - &webapiVersion ${OLD_TAG}\n`
       if (filePath === "batch.yaml") return `variables:\n  - &batchVersion ${OLD_TAG}\n`
       return undefined
     })
     const { toApply } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([app])],
       3,
       false,
@@ -96,14 +96,14 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
         },
       ],
     })
-    vi.mocked(getFileContent).mockImplementation(async (_client, _projectId, filePath) => {
+    vi.mocked(platform.getFileContent).mockImplementation(async (_projectId, filePath) => {
       if (filePath === "webapi.yaml") return `variables:\n  - &webapiVersion ${OLD_TAG}\n`
       if (filePath === "batch.yaml") return `variables:\n  - &batchVersion ${NEW_TAG}\n`
       return undefined
     })
     const { toApply } = await buildPlans(
-      mockGitlab,
-      newBatchCache(),
+      platform,
+      newPlatformCache(platform),
       [makeConfigUnit([app])],
       3,
       false,
@@ -126,10 +126,12 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
           { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
         ],
       })
-      vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
+      vi.mocked(platform.getFileContent).mockResolvedValue(
+        `variables:\n  - &appVersion ${OLD_TAG}\n`,
+      )
       const { toApply } = await buildPlans(
-        mockGitlab,
-        newBatchCache(),
+        platform,
+        newPlatformCache(platform),
         [makeConfigUnit([app])],
         3,
         false,

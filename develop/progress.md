@@ -8,13 +8,21 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは T-223〜T-228 の6件**（T-220〜T-222 は完了。下の「次にやること」）。完了タスクは
+**未着手のタスクは T-223〜T-227 の5件**（T-220〜T-222・T-228 は完了。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
+
+- **T-228**: `lib/platform/platform.ts` に `Platform` 型（API 11本＋URL組み立て2本）を定義し、
+  `lib/gitlab/platform.ts` の `createGitlabPlatform()` がクライアントを閉じ込めて組み立てる形にした。
+  `batch-cache.ts` は `lib/platform/` へ移設。**`steps/` から `GitlabClient` 型は完全に消えた**。
+  `projectExists` は `Platform` に載せていない（`steps/` から呼ばれず `scripts/lint/remote-existence/`
+  専用のため）。**`steps/shared/step-outcome.ts` だけが `lib/gitlab/errors.js` を直接 import したまま**
+  残っている（エラー分類は `Platform` に載っていないため。T-225 へ引き継ぎ済み）。
+  `pnpm check` 通過: 35 Test Files / 390 Tests
 
 - **T-222**: `GitLabUrl` → `PlatformUrl`、`toGitLabUrl()` → `toPlatformUrl()` に改名し、18ファイルを
   追随させた。`EnvConfig.gitlabUrl` も `platformUrl` に寄せている（読む環境変数は `GITLAB_URL` の
@@ -287,8 +295,8 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**T-220〜T-222 が完了し、残りは T-223〜T-228 の6件。全件 `loopable: "Y"` なので
-`/loop /next-task` で流せる。** 次は T-228（`Platform` 型の導入と `steps/` の付け替え）。以降は
+**T-220〜T-222・T-228 が完了し、残りは T-223〜T-227 の5件。全件 `loopable: "Y"` なので
+`/loop /next-task` で流せる。** 次は T-223（`lib/github/` の実装）。以降は
 T-228（`Platform` 型の導入と `steps/` の付け替え）→ T-223〜T-225（`lib/github/` の実装）
 → T-226（配線）→ T-227（ドキュメント追随）の順。
 

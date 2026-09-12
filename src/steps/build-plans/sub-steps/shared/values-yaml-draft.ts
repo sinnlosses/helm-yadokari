@@ -1,4 +1,4 @@
-import type { GitlabBatchCache } from "../../../../lib/gitlab/batch-cache.js"
+import type { PlatformBatchCache } from "../../../../lib/platform/batch-cache.js"
 import type { ChartRepoConfig, FileUpdate, ValuesPath } from "../../../../types/types.js"
 
 /**
@@ -18,7 +18,7 @@ export type ValuesYamlDraft = ReadonlyMap<ValuesPath, ValuesYamlEntry>
 
 /** 下書きに無いvalues.yamlの取得元。chartリポジトリ1つ分の読み込み先を束ねただけの値 */
 export type ValuesYamlSource = {
-  readonly gitlabCache: GitlabBatchCache
+  readonly platformCache: PlatformBatchCache
   readonly chart: ChartRepoConfig
 }
 
@@ -35,8 +35,8 @@ export async function readValuesYamlDraft(
   const cached = draft.get(valuesPath)
   if (cached !== undefined) return { valuesYamlContent: cached.content, draft }
 
-  const { gitlabCache, chart } = source
-  const valuesYamlContent = await gitlabCache.getFileContent(
+  const { platformCache, chart } = source
+  const valuesYamlContent = await platformCache.getFileContent(
     chart.projectId,
     valuesPath,
     chart.mrTargetBranch,

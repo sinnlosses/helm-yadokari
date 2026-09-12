@@ -17,7 +17,15 @@ import { submitMergeRequest } from "../../../src/steps/apply-updates/sub-steps/s
 import type { ConfigUnitUpdateTarget } from "../../../src/types/types.js"
 import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"
-import { makeApp, makeConfigUnit, makeHttpError, mockGitlab, newBatchCache } from "../../helpers.js"
+import {
+  makeApp,
+  makeConfigUnit,
+  makeHttpError,
+  makePlatform,
+  newPlatformCache,
+} from "../../helpers.js"
+
+const platform = makePlatform()
 
 const MR_ENTRIES: MrEntries = {
   imageTags: [],
@@ -72,25 +80,27 @@ describe("applyUpdates", () => {
   })
 
   it("成功したとき 'CREATED' を返す", async () => {
-    expect(await applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)).toEqual(["CREATED"])
+    expect(await applyUpdates(platform, newPlatformCache(platform), [makeTarget()], 3)).toEqual([
+      "CREATED",
+    ])
     expect(submitMergeRequest).toHaveBeenCalledOnce()
   })
 
   it("collectMrEntriesの結果からbuildMrContentを呼び、その結果をMR送信に渡す", async () => {
     const target = makeTarget()
-    await applyUpdates(mockGitlab, newBatchCache(), [target], 3)
+    await applyUpdates(platform, newPlatformCache(platform), [target], 3)
     expect(collectMrEntries).toHaveBeenCalledWith(
       expect.anything(),
       target.plans,
       target.helmBranchRefUpdates,
       target.configUnit.helm.branchRef,
     )
-    expect(buildMrContent).toHaveBeenCalledWith(target.configUnit.unitPath, MR_ENTRIES)
+    expect(buildMrContent).toHaveBeenCalledWith(platform, target.configUnit.unitPath, MR_ENTRIES)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[3]).toBe(MR_CONTENT)
   })
 
   it("unitPathを含む固定ブランチ名でMRを送る", async () => {
-    await applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)
+    await applyUpdates(platform, newPlatformCache(platform), [makeTarget()], 3)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[2]).toBe(
       "feature/yadokari/tenant1/client1",
     )
@@ -98,21 +108,23 @@ describe("applyUpdates", () => {
 
   it("設定ユニットのchartRepo設定と書き換え済みファイルをそのまま渡す", async () => {
     const target = makeTarget()
-    await applyUpdates(mockGitlab, newBatchCache(), [target], 3)
+    await applyUpdates(platform, newPlatformCache(platform), [target], 3)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[1]).toBe(target.configUnit.chartRepo)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[4]).toBe(target.files)
   })
 
   it("401エラーのとき FatalError をスローする", async () => {
     vi.mocked(submitMergeRequest).mockRejectedValue(makeHttpError(401))
-    await expect(applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)).rejects.toThrow(
-      FatalError,
-    )
+    await expect(
+      applyUpdates(platform, newPlatformCache(platform), [makeTarget()], 3),
+    ).rejects.toThrow(FatalError)
   })
 
   it("非fatalなエラーのとき 'ERROR' を返す", async () => {
     vi.mocked(submitMergeRequest).mockRejectedValue(makeHttpError(403))
-    expect(await applyUpdates(mockGitlab, newBatchCache(), [makeTarget()], 3)).toEqual(["ERROR"])
+    expect(await applyUpdates(platform, newPlatformCache(platform), [makeTarget()], 3)).toEqual([
+      "ERROR",
+    ])
   })
 
   it("複数targetの結果を入力順を保った配列で返す", async () => {
@@ -120,7 +132,7 @@ describe("applyUpdates", () => {
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(makeHttpError(403))
     expect(
-      await applyUpdates(mockGitlab, newBatchCache(), [makeTarget(), makeTarget()], 3),
+      await applyUpdates(platform, newPlatformCache(platform), [makeTarget(), makeTarget()], 3),
     ).toEqual(["CREATED", "ERROR"])
   })
 })

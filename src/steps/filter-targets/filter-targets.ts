@@ -1,5 +1,5 @@
 import { buildFeatureBranch } from "../../domain/feature-branch.js"
-import { type GitlabClient, openMergeRequestExists } from "../../lib/gitlab/gitlab.js"
+import type { Platform } from "../../lib/platform/platform.js"
 import type { ConfigUnit, ConfigUnitUpdateResult } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
@@ -22,12 +22,12 @@ export type FilterTargetsResult = {
  * 除外された設定ユニットの判定結果（SKIPPED/ERROR）は settled にまとめて返す。
  */
 export async function filterTargets(
-  gitlab: GitlabClient,
+  platform: Platform,
   configUnits: readonly ConfigUnit[],
   concurrencyLimit: number,
 ): Promise<FilterTargetsResult> {
   const outcomes = await mapWithConcurrency(configUnits, concurrencyLimit, (configUnit) =>
-    withHandling(configUnit, (logContext) => evaluateTarget(gitlab, configUnit, logContext)),
+    withHandling(configUnit, (logContext) => evaluateTarget(platform, configUnit, logContext)),
   )
 
   const { left: settled, right: targets } = partitionMap(outcomes, (outcome) =>
@@ -41,7 +41,7 @@ export async function filterTargets(
  * または固定ブランチにオープン中のMRがある場合はSKIPPED。
  */
 async function evaluateTarget(
-  gitlab: GitlabClient,
+  platform: Platform,
   configUnit: ConfigUnit,
   logContext: ConfigUnitLogContext,
 ): Promise<StepOutcome<ConfigUnit>> {
@@ -51,7 +51,7 @@ async function evaluateTarget(
   }
 
   const branch = buildFeatureBranch(configUnit.unitPath)
-  if (await openMergeRequestExists(gitlab, configUnit.chartRepo.projectId, branch)) {
+  if (await platform.openMergeRequestExists(configUnit.chartRepo.projectId, branch)) {
     logger.info({ ...logContext, result: "SKIPPED", reason: "mr_exists" })
     return settle("SKIPPED")
   }

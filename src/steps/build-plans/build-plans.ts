@@ -1,5 +1,5 @@
-import type { GitlabBatchCache } from "../../lib/gitlab/batch-cache.js"
-import type { GitlabClient } from "../../lib/gitlab/gitlab.js"
+import type { PlatformBatchCache } from "../../lib/platform/batch-cache.js"
+import type { Platform } from "../../lib/platform/platform.js"
 import type {
   ConfigUnit,
   ConfigUnitUpdateResult,
@@ -34,17 +34,17 @@ export type BuildPlansResult = {
  * settled（ERROR）に含める（`buildPlan()` 参照）。
  */
 export async function buildPlans(
-  gitlab: GitlabClient,
-  gitlabCache: GitlabBatchCache,
+  platform: Platform,
+  platformCache: PlatformBatchCache,
   targets: readonly ConfigUnit[],
   concurrencyLimit: number,
   dryRun: boolean,
 ): Promise<BuildPlansResult> {
-  const resolveLatestTags = createResolveLatestTags(gitlab, dryRun)
+  const resolveLatestTags = createResolveLatestTags(platform, dryRun)
 
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (configUnit) =>
     withHandling(configUnit, (logContext) =>
-      buildPlan(gitlabCache, resolveLatestTags, configUnit, dryRun, logContext),
+      buildPlan(platformCache, resolveLatestTags, configUnit, dryRun, logContext),
     ),
   )
 
@@ -61,13 +61,13 @@ export async function buildPlans(
  * 下書きに重ねる。こうすることで同じvalues.yamlへの書き換えが失われない。
  */
 async function buildPlan(
-  gitlabCache: GitlabBatchCache,
+  platformCache: PlatformBatchCache,
   resolveLatestTags: ResolveLatestTags,
   configUnit: ConfigUnit,
   dryRun: boolean,
   logContext: ConfigUnitLogContext,
 ): Promise<StepOutcome<ConfigUnitUpdateTarget>> {
-  const valuesYamlSource: ValuesYamlSource = { gitlabCache, chart: configUnit.chartRepo }
+  const valuesYamlSource: ValuesYamlSource = { platformCache, chart: configUnit.chartRepo }
 
   const appsWithLatestTag = await resolveLatestTags(configUnit.apps)
   const { plans, draft: draftAfterApps } = await stageImageTagUpdates(

@@ -1,8 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../../src/lib/gitlab/gitlab.js")
-
-import { getLatestPipelineForRef, getProjectWebUrl } from "../../../../src/lib/gitlab/gitlab.js"
 import { collectMrEntries } from "../../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js"
 import {
   toAnchorName,
@@ -11,7 +8,7 @@ import {
   toTagName,
   toValuesPath,
 } from "../../../../src/types/types.js"
-import { makePlan, newBatchCache } from "../../../helpers.js"
+import { makePlan, makePlatform, newPlatformCache } from "../../../helpers.js"
 
 const webUrl = toPlatformUrl("https://gitlab.example.com/g/my-app")
 
@@ -22,8 +19,10 @@ const helmUpdate = {
   currentBranch: toBranchName("release/2025-q4"),
 }
 
+const platform = makePlatform()
+
 function mockWebUrl() {
-  vi.mocked(getProjectWebUrl).mockResolvedValue(webUrl)
+  vi.mocked(platform.getProjectWebUrl).mockResolvedValue(webUrl)
 }
 
 afterEach(() => {
@@ -46,7 +45,7 @@ describe("collectMrEntries", () => {
       ],
     })
 
-    const entries = await collectMrEntries(newBatchCache(), [plan], [], helmBranchRef)
+    const entries = await collectMrEntries(newPlatformCache(platform), [plan], [], helmBranchRef)
 
     expect(entries.imageTags).toHaveLength(2)
     expect(entries.imageTags.map((entry) => entry.update.location.anchorName)).toEqual(["x", "y"])
@@ -57,10 +56,15 @@ describe("collectMrEntries", () => {
   it("plansが空のとき、imageTagsは空でweb URLも要求しない（helm向き先ブランチだけのMR）", async () => {
     mockWebUrl()
 
-    const entries = await collectMrEntries(newBatchCache(), [], [helmUpdate], helmBranchRef)
+    const entries = await collectMrEntries(
+      newPlatformCache(platform),
+      [],
+      [helmUpdate],
+      helmBranchRef,
+    )
 
     expect(entries.imageTags).toEqual([])
-    expect(getProjectWebUrl).not.toHaveBeenCalled()
+    expect(platform.getProjectWebUrl).not.toHaveBeenCalled()
   })
 
   it("向き先ブランチの更新はclient単位で確定済みなので、そのまま並べる", async () => {
@@ -73,7 +77,12 @@ describe("collectMrEntries", () => {
       },
     }
 
-    const entries = await collectMrEntries(newBatchCache(), [], [helmUpdate, other], helmBranchRef)
+    const entries = await collectMrEntries(
+      newPlatformCache(platform),
+      [],
+      [helmUpdate, other],
+      helmBranchRef,
+    )
 
     expect(entries.helmBranches).toEqual([helmUpdate, other])
     expect(entries.helmBranchRef).toBe(helmBranchRef)
@@ -81,23 +90,30 @@ describe("collectMrEntries", () => {
 
   it("plan単位の解決で失敗したとき、エラーにどのアプリかを付ける", async () => {
     mockWebUrl()
-    vi.mocked(getLatestPipelineForRef).mockRejectedValue(new Error("パイプラインの取得に失敗"))
+    vi.mocked(platform.getLatestPipelineForRef).mockRejectedValue(
+      new Error("パイプラインの取得に失敗"),
+    )
 
     await expect(
-      collectMrEntries(newBatchCache(), [makePlan({ projectName: "my-app" })], [], helmBranchRef),
+      collectMrEntries(
+        newPlatformCache(platform),
+        [makePlan({ projectName: "my-app" })],
+        [],
+        helmBranchRef,
+      ),
     ).rejects.toThrow("[アプリ: my-app] パイプラインの取得に失敗")
   })
 
   it("同じappが複数clientに登録されていても、web URLとパイプラインの問い合わせは1回に収束する", async () => {
     mockWebUrl()
-    vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
+    vi.mocked(platform.getLatestPipelineForRef).mockResolvedValue(undefined)
     // バッチ1回ぶんのキャッシュを共有したまま、clientの数だけ collectMrEntries が呼ばれる形
-    const gitlabCache = newBatchCache()
+    const platformCache = newPlatformCache(platform)
 
-    await collectMrEntries(gitlabCache, [makePlan()], [], helmBranchRef)
-    await collectMrEntries(gitlabCache, [makePlan()], [], helmBranchRef)
+    await collectMrEntries(platformCache, [makePlan()], [], helmBranchRef)
+    await collectMrEntries(platformCache, [makePlan()], [], helmBranchRef)
 
-    expect(getProjectWebUrl).toHaveBeenCalledOnce()
-    expect(getLatestPipelineForRef).toHaveBeenCalledOnce()
+    expect(platform.getProjectWebUrl).toHaveBeenCalledOnce()
+    expect(platform.getLatestPipelineForRef).toHaveBeenCalledOnce()
   })
 })

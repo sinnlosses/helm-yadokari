@@ -51,8 +51,8 @@ async function stageHelmBranchRefUpdate(
   )
   if (currentBranchRaw === branchRef) return { ...acc, draft }
 
-  const { gitlabCache, chart } = source
-  if (!(await gitlabCache.branchExists(chart.projectId, branchRef))) {
+  const { platformCache, chart } = source
+  if (!(await platformCache.branchExists(chart.projectId, branchRef))) {
     throw new Error(
       `向き先ブランチ "${branchRef}" がchartリポジトリに見つかりません (valuesPath: ${location.valuesPath}, anchor: ${location.anchorName})`,
     )

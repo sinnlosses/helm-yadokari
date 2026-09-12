@@ -1,17 +1,10 @@
 import { vi } from "vitest"
 
 import { validateTagFormat } from "../src/domain/tag-format.js"
-import type { GitlabBatchCache } from "../src/lib/gitlab/batch-cache.js"
-import { createGitlabBatchCache } from "../src/lib/gitlab/batch-cache.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
-import {
-  branchExists,
-  createTag,
-  getBranchHeadSha,
-  getFileContent,
-  getLatestPipelineForRef,
-  listTags,
-} from "../src/lib/gitlab/gitlab.js"
+import type { PlatformBatchCache } from "../src/lib/platform/batch-cache.js"
+import { createPlatformBatchCache } from "../src/lib/platform/batch-cache.js"
+import type { Platform } from "../src/lib/platform/platform.js"
 import type { AppConfig, AppUpdatePlan, ConfigUnit, TagName } from "../src/types/types.js"
 import {
   toAnchorName,
@@ -31,14 +24,42 @@ export const makeHttpError = (status: number): Error =>
 /**
  * `vi.mock()`でモックしたGitLabクライアントの置き換え先。実体は使われないため空オブジェクトで
  * 足りる。`as`を使う箇所をここ1つに閉じ込めるためテスト側では組み立てない。
+ * `main.test.ts`のように`lib/gitlab/gitlab.js`ごとモックする層のテストでのみ使う
+ * （`createClient`の戻り値の置き換え先）。`steps/`のテストは`Platform`を直接偽装する
+ * `makePlatform()`を使うため、`GitlabClient`を組み立てる必要が無い。
  */
 export const mockGitlab = {} as unknown as GitlabClient
 
 /**
- * `buildPlans()`に渡すバッチキャッシュ。中身は本物で、包む対象の`gitlab.js`だけがモックに
- * なる。呼び出しごとに作り直すのは、キャッシュした結果が別のテストへ持ち越されないようにするため。
+ * `steps/`のテストが受け取る`Platform`の偽物。13関数すべてを`vi.fn()`にした状態で返すため、
+ * 各テストは`vi.mocked(platform.X)`でその場ごとに返り値・実装を差し替えられる。
+ * `overrides`は個別の関数を丸ごと差し替えたいとき（稀）に使う。
  */
-export const newBatchCache = (): GitlabBatchCache => createGitlabBatchCache(mockGitlab)
+export function makePlatform(overrides: Partial<Platform> = {}): Platform {
+  return {
+    listTags: vi.fn(),
+    branchExists: vi.fn(),
+    deleteBranch: vi.fn(),
+    getBranchHeadSha: vi.fn(),
+    getFileContent: vi.fn(),
+    openMergeRequestExists: vi.fn(),
+    commitFileUpdates: vi.fn(),
+    createMergeRequest: vi.fn(),
+    createTag: vi.fn(),
+    getProjectWebUrl: vi.fn(),
+    getLatestPipelineForRef: vi.fn(),
+    buildTagUrl: vi.fn(),
+    buildCompareUrl: vi.fn(),
+    ...overrides,
+  }
+}
+
+/**
+ * `buildPlans()`等に渡すバッチキャッシュ。中身は本物で、包む対象の`platform`だけが偽物になる。
+ * 呼び出しごとに作り直すのは、キャッシュした結果が別のテストへ持ち越されないようにするため。
+ */
+export const newPlatformCache = (platform: Platform): PlatformBatchCache =>
+  createPlatformBatchCache(platform)
 
 /** テストのapp（`makeApp()`）のタグ形式。実際に使われている2形式のうちの1つ */
 const BUILD_AT_FORMAT = validateTagFormat("{branch}-build-at-{date}-{time}")
@@ -51,13 +72,13 @@ export const HEAD_SHA = toCommitSha("head-sha")
  * `buildPlans()`を通すテストの既定のモック。追跡ブランチのHEADに`NEW_TAG`があり、values.yamlの
  * 現在値が`OLD_TAG`（＝差分1件が出る）状態にする。個別のテストは必要なものだけ上書きする。
  */
-export function mockBuildPlansGitlab(): void {
-  vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
-  vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
-  vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
-  vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
-  vi.mocked(createTag).mockResolvedValue(undefined)
-  vi.mocked(branchExists).mockResolvedValue(true)
+export function mockBuildPlansPlatform(platform: Platform): void {
+  vi.mocked(platform.listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
+  vi.mocked(platform.getBranchHeadSha).mockResolvedValue(HEAD_SHA)
+  vi.mocked(platform.getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
+  vi.mocked(platform.getLatestPipelineForRef).mockResolvedValue(undefined)
+  vi.mocked(platform.createTag).mockResolvedValue(undefined)
+  vi.mocked(platform.branchExists).mockResolvedValue(true)
 }
 
 export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
