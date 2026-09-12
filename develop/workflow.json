@@ -1,0 +1,4 @@
+{
+  "checkCommand": "pnpm check",
+  "formatCommand": "pnpm format"
+}

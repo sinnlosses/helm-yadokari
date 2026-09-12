@@ -160,6 +160,15 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
   （`CLAUDE.md` と冒頭の「25KB超」を「20KB超」に）。maintain-docs の検査1〜7は増減なし。
   `pnpm check` 通過: 385 Tests。**受け入れで見つかった範囲外の指摘**を「未解決」に残した
 
+### 2026-09-12 スキルをユーザー単位へ移設
+
+- `.claude/skills/` の13スキルのうち `maintain-docs` 以外の12件を `~/.claude/skills/`
+  （ソース: `~/ghq/github.com/sinnlosses/claude-skills`、symlink）へ移した。タスク運用の
+  ルール本体は新設の参照専用スキル `task-workflow` の `WORKFLOW.md` に移し、`docs/workflow.md`
+  はこのプロジェクト固有の値と経緯だけに薄くした。プロジェクト固有の値（`pnpm check` /
+  `pnpm format`）は `develop/workflow.json` に置き、3スキルが読み込み時に `` !`cat` `` で注入する
+- 検証: `pnpm check` 34ファイル・386テスト通過。`maintain-docs` の確定群（検査1〜4）0件
+
 ## 次にやること
 
 **登録済みのタスクは全件 `done`。** 設定まわりの命名（T-208・T-209・T-210）と、その過程で

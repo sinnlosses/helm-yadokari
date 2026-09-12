@@ -111,21 +111,28 @@ Spec軸（`docs/requirements.md`）を参照。
 
 ## 導入済みスキル
 
-[mattpocock/skills](https://github.com/mattpocock/skills) 由来のコア開発スキルを日本語化して
-`.claude/skills/` に導入済み（一覧は毎セッションのスキル案内を参照）。`code-review` のみ、
-issueトラッカー連携を前提とする元の記述を未設定でも動くよう汎用化してある。
+スキルは**ユーザー単位**（`~/.claude/skills/`）に置いてあり、このリポジトリには含まれない
+（ソースは `~/ghq/github.com/sinnlosses/claude-skills`。一覧は毎セッションのスキル案内を参照）。
+ユーザー単位スキルはプロジェクト単位の同名スキルより優先されるので、このリポジトリ側で
+同名スキルを置いて上書きすることはできない。プロジェクト差分は `develop/workflow.json` で表す。
 
-このプロジェクト独自のスキルとして次の4つもある。
+- [mattpocock/skills](https://github.com/mattpocock/skills) 由来のコア開発スキル（日本語化済み）。
+  `code-review` のみ、issueトラッカー連携を前提とする元の記述を未設定でも動くよう汎用化してある
+- タスク運用の4スキル。ルール本体は `task-workflow`（参照専用）の `WORKFLOW.md` が正典
+  - `next-task`: `develop/tasks.json` の未着手タスクを1件実行する。`/loop /next-task` で
+    全件`done`になるまでの自動進行に使う
+  - `plan-tasks`: `develop/direction.md` の指示をタスクに分解して `develop/tasks.json` に登録し、
+    指示メモを `docs/history/direction.md` へ移す。**分解は方針決めを含むので委譲せず、
+    `/loop` にも載せない**
+  - `list-tasks`: `develop/tasks.json` の一覧をテーブル1つに要約して表示するだけ（読み取り専用）。
+    タスク本文をコンテキストに読み込まずに済ませるのが役目
 
-- `next-task`: `develop/tasks.json` の未着手タスクを1件実行する。`/loop /next-task` で
-  全件`done`になるまでの自動進行に使う
-- `plan-tasks`: `develop/direction.md` の指示をタスクに分解して `develop/tasks.json` に登録し、
-  指示メモを `docs/history/direction.md` へ移す。**分解は方針決めを含むので委譲せず、
-  `/loop` にも載せない**
+このリポジトリ専用のスキルは `.claude/skills/` に1つだけある。
+
 - `maintain-docs`: `docs/`（`history/` 以外）・`README.md`・`CLAUDE.md` を7つの検査にかけ、
-  実物とのズレ・重複・読みにくい構造を直す。正典を書き換えたあとの追随漏れを洗うのにも使う
-- `list-tasks`: `develop/tasks.json` の一覧をテーブル1つに要約して表示するだけ（読み取り専用）。
-  タスク本文をコンテキストに読み込まずに済ませるのが役目
+  実物とのズレ・重複・読みにくい構造を直す。正典を書き換えたあとの追随漏れを洗うのにも使う。
+  検査がこのリポジトリのドキュメント規約（「通読しない」宣言・節の索引）に合わせてあるため、
+  汎用化せずここに置く
 
 ## Git運用
 
@@ -137,11 +144,13 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 
 会話やセッションが切れても再開できるよう、状態はチャットではなく `develop/` 配下の
 `tasks.json` / `progress.md` に記録する。ユーザーからの指示も同様に `direction.md` に書く。**各手順の詳細（フィールド定義・difficultyの基準と
-委譲の書き方・evidenceの粒度・アーカイブのトリガーと手順）は
-[`docs/workflow.md`](./docs/workflow.md) が正典。**
+委譲の書き方・evidenceの粒度・アーカイブのトリガーと手順）は、ユーザー単位スキル
+`task-workflow` の `WORKFLOW.md` が正典。** このプロジェクト固有の値（検証コマンドなど）は
+`develop/workflow.json` に置き、その説明と経緯は [`docs/workflow.md`](./docs/workflow.md) に書く。
 
 1. セッション開始時に `develop/progress.md` と `develop/tasks.json` を読み、アーカイブすべき
-   タイミングなら作業前にアーカイブする（**両方が判定の対象**。基準は `docs/workflow.md`）。`develop/direction.md` に見出し以外の中身があれば
+   タイミングなら作業前にアーカイブする（**両方が判定の対象**。基準は `task-workflow` の
+   `WORKFLOW.md`「いつ移すか（トリガー）」）。`develop/direction.md` に見出し以外の中身があれば
    未タスク化の指示が残っているので、他の作業より先に `/plan-tasks` でタスク化する
 2. `tasks.json` から依存が完了済みの `todo` タスクを1つ選ぶ
 3. 作業する。タスクは **`difficulty` と同じモデルを指定したサブエージェントに委譲**する
@@ -157,7 +166,8 @@ issueトラッカー連携を前提とする元の記述を未設定でも動く
 
 - アーキテクチャ詳細（各ファイルの責務、ディレクトリ構成の勘所、既知の制約）: `docs/architecture.md`
 - コーディング規約の詳細（各ルールの理由・例外）: `docs/coding-standards.md`
-- 進捗管理の詳細（`develop/` の tasks.json・progress.md・direction.md のフィールド定義・evidenceの粒度・アーカイブ運用）: `docs/workflow.md`
+- 進捗管理の詳細（`develop/` の tasks.json・progress.md・direction.md のフィールド定義・evidenceの粒度・アーカイブ運用）:
+  ユーザー単位スキル `task-workflow` の `WORKFLOW.md`。このプロジェクト固有の値と経緯は `docs/workflow.md`
 - 完了タスク・過去セッションの詳細な記録: `docs/history/tasks-archive.md` / `docs/history/progress-archive.md`
   （セッション開始時に読む必要はない。過去の判断の経緯をたどりたいときだけ、`grep`で
   該当する `## T-XXX` を見つけてその節だけ参照する。どちらも100KB超あるため通読しない）
