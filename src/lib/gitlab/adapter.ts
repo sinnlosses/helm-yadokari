@@ -1,4 +1,4 @@
-import type { Platform } from "../platform/platform.js"
+import type { PlatformAdapter } from "../platform/adapter.js"
 import { extractHttpStatus, isFatalError } from "./errors.js"
 import {
   type GitlabClient,
@@ -17,15 +17,15 @@ import {
 import { buildCompareUrl, buildTagUrl } from "./web-url.js"
 
 /**
- * GitLabクライアントを`Platform`の形に組み立てる。`gitlab.ts`の各関数は第1引数に
- * クライアントを取るが、ここで束ねることでクライアントは閉じ込められ、`Platform`の
+ * GitLabクライアントを`PlatformAdapter`の形に組み立てる。`gitlab.ts`の各関数は第1引数に
+ * クライアントを取るが、ここで束ねることでクライアントは閉じ込められ、`PlatformAdapter`の
  * 呼び出し側（`steps/`）には見えなくなる。
  *
  * `projectExists`はここに含めない。`steps/`のどのファイルからも呼ばれておらず
  * （`scripts/lint/remote-existence/`だけが使う、本体パイプライン外の読み取り専用チェック）、
- * `Platform`は`steps/`が必要とする関数だけを並べる。
+ * `PlatformAdapter`は`steps/`が必要とする関数だけを並べる。
  */
-export function createGitlabPlatform(gitlab: GitlabClient): Platform {
+export function createGitlabAdapter(gitlab: GitlabClient): PlatformAdapter {
   return {
     listTags: (projectId) => listTags(gitlab, projectId),
     branchExists: (projectId, branch) => branchExists(gitlab, projectId, branch),

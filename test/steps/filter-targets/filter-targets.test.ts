@@ -7,13 +7,13 @@ vi.mock("../../../src/utils/logger.js", () => ({
 import { filterTargets } from "../../../src/steps/filter-targets/filter-targets.js"
 import { toChartDirName, toConfigUnitPath } from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"
-import { makeApp, makeConfigUnit, makeHttpError, makePlatform } from "../../helpers.js"
+import { makeApp, makeConfigUnit, makeHttpError, makeAdapter } from "../../helpers.js"
 
-const platform = makePlatform()
+const adapter = makeAdapter()
 
 describe("filterTargets", () => {
   beforeEach(() => {
-    vi.mocked(platform.openMergeRequestExists).mockResolvedValue(false)
+    vi.mocked(adapter.openMergeRequestExists).mockResolvedValue(false)
   })
 
   afterEach(() => {
@@ -22,22 +22,22 @@ describe("filterTargets", () => {
 
   it("アプリが0件の設定ユニットはsettledにSKIPPEDとして入り、targetsには含まれない", async () => {
     const group = makeConfigUnit([])
-    const { targets, settled } = await filterTargets(platform, [group], 3)
+    const { targets, settled } = await filterTargets(adapter, [group], 3)
     expect(targets).toEqual([])
     expect(settled).toEqual(["SKIPPED"])
   })
 
   it("既にオープン中のMRがある設定ユニットはsettledにSKIPPEDとして入り、targetsには含まれない", async () => {
-    vi.mocked(platform.openMergeRequestExists).mockResolvedValue(true)
+    vi.mocked(adapter.openMergeRequestExists).mockResolvedValue(true)
     const group = makeConfigUnit([makeApp()])
-    const { targets, settled } = await filterTargets(platform, [group], 3)
+    const { targets, settled } = await filterTargets(adapter, [group], 3)
     expect(targets).toEqual([])
     expect(settled).toEqual(["SKIPPED"])
   })
 
   it("対象の設定ユニットはtargetsに含まれ、settledは空", async () => {
     const group = makeConfigUnit([makeApp()])
-    const { targets, settled } = await filterTargets(platform, [group], 3)
+    const { targets, settled } = await filterTargets(adapter, [group], 3)
     expect(targets).toEqual([group])
     expect(settled).toEqual([])
   })
@@ -45,7 +45,7 @@ describe("filterTargets", () => {
   it("複数の設定ユニットを判定順に振り分ける", async () => {
     const noApps = { ...makeConfigUnit([]), chartDirName: toChartDirName("no-apps") }
     const target = { ...makeConfigUnit([makeApp()]), chartDirName: toChartDirName("target") }
-    const { targets, settled } = await filterTargets(platform, [noApps, target], 3)
+    const { targets, settled } = await filterTargets(adapter, [noApps, target], 3)
     expect(targets).toEqual([target])
     expect(settled).toEqual(["SKIPPED"])
   })
@@ -54,8 +54,8 @@ describe("filterTargets", () => {
     const group = makeConfigUnit([makeApp()], {
       unitPath: toConfigUnitPath("tenant1/client1"),
     })
-    await filterTargets(platform, [group], 3)
-    expect(platform.openMergeRequestExists).toHaveBeenCalledWith(
+    await filterTargets(adapter, [group], 3)
+    expect(adapter.openMergeRequestExists).toHaveBeenCalledWith(
       group.chartRepo.projectId,
       "feature/yadokari/tenant1/client1",
     )
@@ -68,24 +68,24 @@ describe("filterTargets", () => {
     const clientB = makeConfigUnit([makeApp()], {
       unitPath: toConfigUnitPath("tenantB/clientB"),
     })
-    vi.mocked(platform.openMergeRequestExists).mockImplementation(
+    vi.mocked(adapter.openMergeRequestExists).mockImplementation(
       async (_projectId, branch) => branch === "feature/yadokari/tenantA/clientA",
     )
-    const { targets, settled } = await filterTargets(platform, [clientA, clientB], 3)
+    const { targets, settled } = await filterTargets(adapter, [clientA, clientB], 3)
     expect(targets).toEqual([clientB])
     expect(settled).toEqual(["SKIPPED"])
   })
 
   it("401エラーのとき FatalError をスローする", async () => {
-    vi.mocked(platform.openMergeRequestExists).mockRejectedValue(makeHttpError(401))
-    await expect(filterTargets(platform, [makeConfigUnit([makeApp()])], 3)).rejects.toThrow(
+    vi.mocked(adapter.openMergeRequestExists).mockRejectedValue(makeHttpError(401))
+    await expect(filterTargets(adapter, [makeConfigUnit([makeApp()])], 3)).rejects.toThrow(
       FatalError,
     )
   })
 
   it("非fatalなAPIエラーのときsettledにERRORとして入る", async () => {
-    vi.mocked(platform.openMergeRequestExists).mockRejectedValue(makeHttpError(403))
-    const { targets, settled } = await filterTargets(platform, [makeConfigUnit([makeApp()])], 3)
+    vi.mocked(adapter.openMergeRequestExists).mockRejectedValue(makeHttpError(403))
+    const { targets, settled } = await filterTargets(adapter, [makeConfigUnit([makeApp()])], 3)
     expect(targets).toEqual([])
     expect(settled).toEqual(["ERROR"])
   })
@@ -97,11 +97,11 @@ describe("filterTargets", () => {
     const ok = makeConfigUnit([makeApp()], {
       unitPath: toConfigUnitPath("tenantOk/clientOk"),
     })
-    vi.mocked(platform.openMergeRequestExists).mockImplementation(async (_projectId, branch) => {
+    vi.mocked(adapter.openMergeRequestExists).mockImplementation(async (_projectId, branch) => {
       if (branch === "feature/yadokari/tenantFail/clientFail") throw makeHttpError(403)
       return false
     })
-    const { targets, settled } = await filterTargets(platform, [failing, ok], 3)
+    const { targets, settled } = await filterTargets(adapter, [failing, ok], 3)
     expect(targets).toEqual([ok])
     expect(settled).toEqual(["ERROR"])
   })

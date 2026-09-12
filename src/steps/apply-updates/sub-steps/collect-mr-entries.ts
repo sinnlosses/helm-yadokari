@@ -1,5 +1,5 @@
+import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
 import type { PlatformBatchCache } from "../../../lib/platform/batch-cache.js"
-import type { Platform } from "../../../lib/platform/platform.js"
 import type { AppUpdatePlan, BranchName, HelmBranchRefUpdate } from "../../../types/types.js"
 import { withAppContext } from "../../shared/step-outcome.js"
 import type { MrEntries } from "./shared/types.js"
@@ -10,7 +10,7 @@ import type { MrEntries } from "./shared/types.js"
  * `helmBranchRef`は`ConfigUnit.helm.branchRef`（全箇所で共通の書き込み後の値）。
  */
 export async function collectMrEntries(
-  platform: Platform,
+  adapter: PlatformAdapter,
   platformCache: PlatformBatchCache,
   plans: readonly AppUpdatePlan[],
   helmBranches: readonly HelmBranchRefUpdate[],
@@ -18,7 +18,7 @@ export async function collectMrEntries(
 ): Promise<MrEntries> {
   const imageTagsPerPlan = await Promise.all(
     plans.map(async (plan) =>
-      withAppContext(platform, plan.app.projectName, async () => {
+      withAppContext(adapter, plan.app.projectName, async () => {
         const [webUrl, pipeline] = await Promise.all([
           platformCache.getProjectWebUrl(plan.app.projectId),
           platformCache.getLatestPipelineForRef(plan.app.projectId, plan.latestTag.name),

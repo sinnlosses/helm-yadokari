@@ -16,16 +16,16 @@ import {
   NEW_TAG,
   makeApp,
   makeConfigUnit,
-  makePlatform,
-  mockBuildPlansPlatform,
+  makeAdapter,
+  mockBuildPlansAdapter,
   newPlatformCache,
 } from "../../../helpers.js"
 
-const platform = makePlatform()
+const adapter = makeAdapter()
 
 describe("buildPlans（Helmの向き先ブランチ）", () => {
   beforeEach(() => {
-    mockBuildPlansPlatform(platform)
+    mockBuildPlansAdapter(adapter)
   })
 
   afterEach(() => {
@@ -43,12 +43,12 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(platform.getFileContent).mockResolvedValue(
+    vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const { toApply } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([app], { helm })],
       3,
       false,
@@ -73,12 +73,12 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(platform.getFileContent).mockResolvedValue(
+    vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2026-q1\n`,
     )
     const { toApply, settled } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([app], { helm })],
       3,
       false,
@@ -98,12 +98,12 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(platform.getFileContent).mockResolvedValue(
+    vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const { toApply } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([app], { helm })],
       3,
       false,
@@ -124,13 +124,13 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(platform.getFileContent).mockResolvedValue(
+    vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
-    vi.mocked(platform.branchExists).mockResolvedValue(false)
+    vi.mocked(adapter.branchExists).mockResolvedValue(false)
     const { toApply, settled } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([app], { helm })],
       3,
       false,
@@ -150,12 +150,12 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(platform.getFileContent).mockResolvedValue(
+    vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const group = makeConfigUnit([app], { helm })
-    await buildPlans(platform, newPlatformCache(platform), [group], 3, false)
-    expect(platform.branchExists).toHaveBeenCalledWith(group.chartRepo.projectId, "release/2026-q1")
+    await buildPlans(adapter, newPlatformCache(adapter), [group], 3, false)
+    expect(adapter.branchExists).toHaveBeenCalledWith(group.chartRepo.projectId, "release/2026-q1")
   })
 
   it("向き先ブランチが見つからないときのエラーメッセージにブランチ名、valuesPath、anchorが含まれる", async () => {
@@ -168,13 +168,13 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(platform.getFileContent).mockResolvedValue(
+    vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
-    vi.mocked(platform.branchExists).mockResolvedValue(false)
+    vi.mocked(adapter.branchExists).mockResolvedValue(false)
     await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([makeApp()], { helm })],
       3,
       false,
@@ -196,7 +196,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
         },
       ],
     }
-    vi.mocked(platform.getFileContent).mockResolvedValue(
+    vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     // 同じchartディレクトリ配下の別tenant/client（chart.projectIdは既定値で共通）
@@ -208,7 +208,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       unitPath: toConfigUnitPath("tenant1/clientB"),
       helm,
     })
-    await buildPlans(platform, newPlatformCache(platform), [groupA, groupB], 3, false)
-    expect(platform.branchExists).toHaveBeenCalledTimes(1)
+    await buildPlans(adapter, newPlatformCache(adapter), [groupA, groupB], 3, false)
+    expect(adapter.branchExists).toHaveBeenCalledTimes(1)
   })
 })

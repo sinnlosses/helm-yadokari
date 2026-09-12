@@ -22,16 +22,16 @@ import {
   makeApp,
   makeConfigUnit,
   makeHttpError,
-  makePlatform,
-  mockBuildPlansPlatform,
+  makeAdapter,
+  mockBuildPlansAdapter,
   newPlatformCache,
 } from "../../helpers.js"
 
-const platform = makePlatform()
+const adapter = makeAdapter()
 
 describe("buildPlans", () => {
   beforeEach(() => {
-    mockBuildPlansPlatform(platform)
+    mockBuildPlansAdapter(adapter)
   })
 
   afterEach(() => {
@@ -41,8 +41,8 @@ describe("buildPlans", () => {
   it("差分がある設定ユニットはtoApplyに含まれる", async () => {
     const group = makeConfigUnit([makeApp()])
     const { toApply, settled } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [group],
       3,
       false,
@@ -57,10 +57,10 @@ describe("buildPlans", () => {
   })
 
   it("差分がない設定ユニットはsettledにSKIPPEDとして入る", async () => {
-    vi.mocked(platform.getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${NEW_TAG}\n`)
+    vi.mocked(adapter.getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${NEW_TAG}\n`)
     const { toApply, settled } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -71,8 +71,8 @@ describe("buildPlans", () => {
 
   it("差分があってもdryRunのときはsettledにSKIPPEDとして入り、toApplyには含まれない", async () => {
     const { toApply, settled } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       true,
@@ -82,10 +82,10 @@ describe("buildPlans", () => {
   })
 
   it("values.yaml が見つからないときsettledにERRORとして入る", async () => {
-    vi.mocked(platform.getFileContent).mockResolvedValue(undefined)
+    vi.mocked(adapter.getFileContent).mockResolvedValue(undefined)
     const { toApply, settled } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -97,13 +97,13 @@ describe("buildPlans", () => {
   it("複数アプリのうち1件が失敗したとき、成功分も反映せず全体をERRORにする（オールオアナッシング）", async () => {
     const appOk = makeApp({ projectId: toProjectId("1"), projectName: toProjectName("app-ok") })
     const appFail = makeApp({ projectId: toProjectId("2"), projectName: toProjectName("app-fail") })
-    vi.mocked(platform.listTags).mockImplementation(async (projectId) => {
+    vi.mocked(adapter.listTags).mockImplementation(async (projectId) => {
       if (projectId === "2") throw makeHttpError(403)
       return [{ name: NEW_TAG, commitSha: HEAD_SHA }]
     })
     const { toApply, settled } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([appOk, appFail])],
       3,
       false,
@@ -133,12 +133,12 @@ describe("buildPlans", () => {
         },
       ],
     })
-    vi.mocked(platform.getFileContent).mockResolvedValue(
+    vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &appAVersion ${OLD_TAG}\n  - &appBVersion ${OLD_TAG}\n`,
     )
     const { toApply } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([appA, appB])],
       3,
       false,
@@ -149,17 +149,17 @@ describe("buildPlans", () => {
   })
 
   it("401エラーのとき FatalError をスローする", async () => {
-    vi.mocked(platform.listTags).mockRejectedValue(makeHttpError(401))
+    vi.mocked(adapter.listTags).mockRejectedValue(makeHttpError(401))
     await expect(
-      buildPlans(platform, newPlatformCache(platform), [makeConfigUnit([makeApp()])], 3, false),
+      buildPlans(adapter, newPlatformCache(adapter), [makeConfigUnit([makeApp()])], 3, false),
     ).rejects.toThrow(FatalError)
   })
 
   it("非fatalなAPIエラーのときsettledにERRORとして入る", async () => {
-    vi.mocked(platform.listTags).mockRejectedValue(makeHttpError(403))
+    vi.mocked(adapter.listTags).mockRejectedValue(makeHttpError(403))
     const { toApply, settled } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -173,13 +173,13 @@ describe("buildPlans", () => {
     const appOk = makeApp({ projectId: toProjectId("2"), projectName: toProjectName("app-ok") })
     const failing = { ...makeConfigUnit([appFail]), chartDirName: toChartDirName("failing") }
     const ok = { ...makeConfigUnit([appOk]), chartDirName: toChartDirName("ok") }
-    vi.mocked(platform.listTags).mockImplementation(async (projectId) => {
+    vi.mocked(adapter.listTags).mockImplementation(async (projectId) => {
       if (projectId === "1") throw makeHttpError(403)
       return [{ name: NEW_TAG, commitSha: HEAD_SHA }]
     })
     const { toApply, settled } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [failing, ok],
       3,
       false,
@@ -190,9 +190,9 @@ describe("buildPlans", () => {
   })
 
   it("values.yaml が見つからないときのエラーメッセージにアプリ名が含まれる", async () => {
-    vi.mocked(platform.getFileContent).mockResolvedValue(undefined)
+    vi.mocked(adapter.getFileContent).mockResolvedValue(undefined)
     const app = makeApp({ projectName: toProjectName("test-app-name") })
-    await buildPlans(platform, newPlatformCache(platform), [makeConfigUnit([app])], 3, false)
+    await buildPlans(adapter, newPlatformCache(adapter), [makeConfigUnit([app])], 3, false)
     expect(vi.mocked(logger.error)).toHaveBeenCalled()
     const errorCall = vi.mocked(logger.error).mock.calls[0]?.[0]
     expect(errorCall?.reason).toContain("test-app-name")
@@ -200,7 +200,7 @@ describe("buildPlans", () => {
 
   it("同じvalues.yamlを指す複数の設定ユニットでは読み込みを1回にまとめ、片方の書き換えを他方に見せない", async () => {
     const original = `variables:\n  - &appVersion ${OLD_TAG}\n  - &otherVersion ${OLD_TAG}\n`
-    vi.mocked(platform.getFileContent).mockResolvedValue(original)
+    vi.mocked(adapter.getFileContent).mockResolvedValue(original)
     // 同じchartディレクトリ配下の別tenant/client（chart.projectIdは既定値で共通）が
     // 同じvalues.yamlの別アンカーを書き換える構成(docs/requirements.md 4.2節の既知の制限)
     const makeGroup = (unit: string, anchorName: string) =>
@@ -219,14 +219,14 @@ describe("buildPlans", () => {
       )
 
     const { toApply } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeGroup("clientA", "appVersion"), makeGroup("clientB", "otherVersion")],
       3,
       false,
     )
 
-    expect(platform.getFileContent).toHaveBeenCalledOnce()
+    expect(adapter.getFileContent).toHaveBeenCalledOnce()
     expect(toApply[0]?.files).toEqual([
       {
         valuesPath: "values.yaml",

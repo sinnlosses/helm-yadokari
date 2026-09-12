@@ -1,5 +1,5 @@
 import { buildNewTag, findLatestParsedTag, parseTag } from "../../../domain/tag-format.js"
-import type { Platform } from "../../../lib/platform/platform.js"
+import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
 import type {
   AppConfig,
   BranchName,
@@ -33,7 +33,10 @@ export type ResolveLatestTags = (apps: readonly AppConfig[]) => Promise<readonly
  *
  * キャッシュの寿命はこの関数が返すクロージャと同じで、バッチごとに`buildPlans()`が1つ作る。
  */
-export function createResolveLatestTags(platform: Platform, dryRun: boolean): ResolveLatestTags {
+export function createResolveLatestTags(
+  adapter: PlatformAdapter,
+  dryRun: boolean,
+): ResolveLatestTags {
   const cache = new Map<string, Promise<LatestTagResolution>>()
   return (apps) => {
     const initial: readonly AppWithLatestTag[] = []
@@ -41,9 +44,9 @@ export function createResolveLatestTags(platform: Platform, dryRun: boolean): Re
       ...acc,
       {
         app,
-        latestTag: await withAppContext(platform, app.projectName, () =>
+        latestTag: await withAppContext(adapter, app.projectName, () =>
           getOrFetchShared(cache, `${app.projectId}:${app.branchToSync}`, () =>
-            resolveLatestTag(platform, app, dryRun),
+            resolveLatestTag(adapter, app, dryRun),
           ),
         ),
       },
@@ -68,13 +71,13 @@ export function createResolveLatestTags(platform: Platform, dryRun: boolean): Re
  * あわせて`trackedHeadTagNames`を返す（意味は`LatestTagResolution`のJSDoc参照）。
  */
 async function resolveLatestTag(
-  platform: Platform,
+  adapter: PlatformAdapter,
   app: AppConfig,
   dryRun: boolean,
 ): Promise<LatestTagResolution> {
   const [tags, headSha] = await Promise.all([
-    platform.listTags(app.projectId),
-    platform.getBranchHeadSha(app.projectId, app.branchToSync),
+    adapter.listTags(app.projectId),
+    adapter.getBranchHeadSha(app.projectId, app.branchToSync),
   ])
   if (headSha === undefined) {
     throw new Error(
@@ -101,7 +104,7 @@ async function resolveLatestTag(
 
   const newTag = buildNewTag(app.branchToSync, new Date(), app.tagFormat)
   if (!dryRun) {
-    await platform.createTag(app.projectId, newTag.name, app.branchToSync)
+    await adapter.createTag(app.projectId, newTag.name, app.branchToSync)
   }
   logger.info({
     event: "create_tag",

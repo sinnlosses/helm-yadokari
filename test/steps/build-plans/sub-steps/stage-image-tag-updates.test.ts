@@ -11,16 +11,16 @@ import {
   OLD_TAG,
   makeApp,
   makeConfigUnit,
-  makePlatform,
-  mockBuildPlansPlatform,
+  makeAdapter,
+  mockBuildPlansAdapter,
   newPlatformCache,
 } from "../../../helpers.js"
 
-const platform = makePlatform()
+const adapter = makeAdapter()
 
 describe("buildPlans（イメージタグの書き込み先）", () => {
   beforeEach(() => {
-    mockBuildPlansPlatform(platform)
+    mockBuildPlansAdapter(adapter)
   })
 
   afterEach(() => {
@@ -36,12 +36,12 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
         },
       ],
     })
-    vi.mocked(platform.getFileContent).mockResolvedValue(
+    vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &helmVersion develop\n  - &tenant1client1AppsVersion ${OLD_TAG}\n`,
     )
     const { toApply } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([app])],
       3,
       false,
@@ -63,14 +63,14 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
         },
       ],
     })
-    vi.mocked(platform.getFileContent).mockImplementation(async (_projectId, filePath) => {
+    vi.mocked(adapter.getFileContent).mockImplementation(async (_projectId, filePath) => {
       if (filePath === "webapi.yaml") return `variables:\n  - &webapiVersion ${OLD_TAG}\n`
       if (filePath === "batch.yaml") return `variables:\n  - &batchVersion ${OLD_TAG}\n`
       return undefined
     })
     const { toApply } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([app])],
       3,
       false,
@@ -96,14 +96,14 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
         },
       ],
     })
-    vi.mocked(platform.getFileContent).mockImplementation(async (_projectId, filePath) => {
+    vi.mocked(adapter.getFileContent).mockImplementation(async (_projectId, filePath) => {
       if (filePath === "webapi.yaml") return `variables:\n  - &webapiVersion ${OLD_TAG}\n`
       if (filePath === "batch.yaml") return `variables:\n  - &batchVersion ${NEW_TAG}\n`
       return undefined
     })
     const { toApply } = await buildPlans(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [makeConfigUnit([app])],
       3,
       false,
@@ -126,12 +126,12 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
           { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
         ],
       })
-      vi.mocked(platform.getFileContent).mockResolvedValue(
+      vi.mocked(adapter.getFileContent).mockResolvedValue(
         `variables:\n  - &appVersion ${OLD_TAG}\n`,
       )
       const { toApply } = await buildPlans(
-        platform,
-        newPlatformCache(platform),
+        adapter,
+        newPlatformCache(adapter),
         [makeConfigUnit([app])],
         3,
         false,

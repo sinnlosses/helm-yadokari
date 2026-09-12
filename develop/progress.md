@@ -18,6 +18,24 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
 
+- **`config/` の `projectId` を文字列表記に統一**（タスクIDなし、2026-09-13。`commit 79022f5`）。
+  GitHubは `owner/repo` でリポジトリを指し、レスポンスの数値 `id` でAPIを叩く経路が公式には無い
+  （`GET /repos/{owner}/{repo}` が唯一のアドレッシング）。スキーマは数値も受け続けるため、
+  **変換の前後で `loadConfig("config")` の出力を diff して完全一致を確認済み**。
+  `config.example/` は数値のまま残してある（数値表記も動くことを示す役目）
+
+- **`Platform` → `PlatformAdapter` に改名**（タスクIDなし、2026-09-13）。変数・引数は `adapter`、
+  工場関数は `createGitlabAdapter()` / `createGithubAdapter()`、ファイルは各 `lib/*/adapter.ts`。
+  **`ApiClient` 系の名前は採らなかった**: 15エントリのうち4つ（`buildTagUrl`・`buildCompareUrl`・
+  `isFatalError`・`extractHttpStatus`）はネットワークI/Oを持たない純粋関数で、名前が実態より
+  狭くなるため。`Adapter` は `docs/architecture.md` が `src/lib/` を説明するのに既に使っている語。
+  **据え置いたもの**: `PLATFORM` 環境変数・`PlatformKind`・`PlatformUrl`・`lib/platform/`
+  ディレクトリ・`PlatformBatchCache`/`platformCache`・`main.ts` の `createPlatform()`
+  （いずれも「どちらのプラットフォームか」を指す語で、アダプタそのものではない）。
+  受け入れ時に `makePlatform()` → `makeAdapter()`、`mockBuildPlansPlatform()` →
+  `mockBuildPlansAdapter()` の改名漏れを直した（`newPlatformCache()` は `PlatformBatchCache` を
+  返すので据え置きが正しい）。`pnpm check` 通過: 39 Test Files / 493 Tests
+
 - **T-227**: ドキュメント8ファイル（`README.md`・`docs/requirements.md`・`docs/glossary.md`・
   `docs/architecture.md`・`docs/coding-standards.md`・`docs/smoke-test.md`・`CLAUDE.md`・
   `config.example/README.md`・`.env.example`）を両プラットフォーム対応に更新。

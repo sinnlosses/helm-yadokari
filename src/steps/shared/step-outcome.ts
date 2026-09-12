@@ -1,4 +1,4 @@
-import type { Platform } from "../../lib/platform/platform.js"
+import type { PlatformAdapter } from "../../lib/platform/adapter.js"
 import type {
   ChartDirName,
   ConfigUnit,
@@ -39,11 +39,11 @@ export function settle<T>(result: ConfigUnitUpdateResult): StepOutcome<T> {
  * 致命的エラーはそのまま投げる（アプリ名を付けない）。
  */
 export function withAppContext<T>(
-  platform: Platform,
+  adapter: PlatformAdapter,
   projectName: ProjectName,
   fn: () => Promise<T>,
 ): Promise<T> {
-  return fn().catch((err: unknown) => rethrowWithAppContext(platform, err, projectName))
+  return fn().catch((err: unknown) => rethrowWithAppContext(adapter, err, projectName))
 }
 
 /**
@@ -54,17 +54,17 @@ export function withAppContext<T>(
  * 各stepでは`mapWithConcurrency()`の直下で呼び、「並列に実行する」ことと「1件ずつ失敗を
  * 封じ込める」ことがstepの入口に並んで見えるようにしている。
  *
- * `platform`を受け取るのはエラーの分類（`isFatalError`・`extractHttpStatus`）のためだけで、
+ * `adapter`を受け取るのはエラーの分類（`isFatalError`・`extractHttpStatus`）のためだけで、
  * API呼び出しはしない。gitbeakerとOctokitでは例外の形が違うので、どちらで動いているかを
- * 知っている`Platform`に尋ねる。
+ * 知っている`PlatformAdapter`に尋ねる。
  */
 export function withHandling<T>(
-  platform: Platform,
+  adapter: PlatformAdapter,
   configUnit: ConfigUnit,
   fn: (logContext: ConfigUnitLogContext) => Promise<StepOutcome<T>>,
 ): Promise<StepOutcome<T>> {
   const logContext = buildLogContext(configUnit)
-  return fn(logContext).catch((err: unknown) => settle<T>(settleAsError(platform, err, logContext)))
+  return fn(logContext).catch((err: unknown) => settle<T>(settleAsError(adapter, err, logContext)))
 }
 
 /**
@@ -75,33 +75,37 @@ export function withHandling<T>(
  * 致命的エラー（401 / 5xx / ネットワーク障害）は**包まずにそのまま投げる**。判定は元の例外の構造
  * （gitbeakerなら`cause.response.status`、Octokitなら`status`）を読むため、
  * `new Error(..., { cause })`で包むとその構造が1段深くなり、`FatalError`に昇格できなくなるため
- * である。この関数と`settleAsError()`が同じ`platform.isFatalError()`に尋ねることで、
+ * である。この関数と`settleAsError()`が同じ`adapter.isFatalError()`に尋ねることで、
  * 包む・包まないの境目と昇格の境目がずれないようにしている。
  */
-function rethrowWithAppContext(platform: Platform, err: unknown, projectName: ProjectName): never {
-  if (platform.isFatalError(err) || !(err instanceof Error)) throw err
+function rethrowWithAppContext(
+  adapter: PlatformAdapter,
+  err: unknown,
+  projectName: ProjectName,
+): never {
+  if (adapter.isFatalError(err) || !(err instanceof Error)) throw err
   throw new Error(`[アプリ: ${projectName}] ${err.message}`, { cause: err })
 }
 
 /**
  * step内で捕捉した例外を、このツールのエラー方針に従って処理する。
  *
- * - 401 / 5xx / ネットワーク障害（`platform.isFatalError()`）は全設定ユニット共通の致命的エラーなので
+ * - 401 / 5xx / ネットワーク障害（`adapter.isFatalError()`）は全設定ユニット共通の致命的エラーなので
  *   `FatalError`として投げ直し、実行全体を即時終了させる（この関数は値を返さない）
  * - それ以外は該当設定ユニットのみ`ERROR`として記録し、他の設定ユニットの処理は続行する
  *
  * 方針そのものを1箇所に置くための関数。3つのstepからは直接ではなく`withHandling()`経由で呼ぶ。
  */
 function settleAsError(
-  platform: Platform,
+  adapter: PlatformAdapter,
   err: unknown,
   logContext: ConfigUnitLogContext,
 ): "ERROR" {
-  if (platform.isFatalError(err)) throw new FatalError(platform.extractHttpStatus(err), err)
+  if (adapter.isFatalError(err)) throw new FatalError(adapter.extractHttpStatus(err), err)
   logger.error({
     ...logContext,
     result: "ERROR",
-    reason: `httpStatus: ${platform.extractHttpStatus(err)}, message: ${toErrorMessage(err)}`,
+    reason: `httpStatus: ${adapter.extractHttpStatus(err)}, message: ${toErrorMessage(err)}`,
   })
   return "ERROR"
 }

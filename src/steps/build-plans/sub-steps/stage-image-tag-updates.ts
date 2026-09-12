@@ -1,5 +1,5 @@
 import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
-import type { Platform } from "../../../lib/platform/platform.js"
+import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
 import type {
   AnchorLocation,
   AppUpdatePlan,
@@ -30,13 +30,13 @@ type StageAppImageTagUpdatesAcc = StageUpdatesAcc<ImageTagUpdate>
  * アプリは並列化せず1つずつ処理する。
  */
 export async function stageImageTagUpdates(
-  platform: Platform,
+  adapter: PlatformAdapter,
   source: ValuesYamlSource,
   appsWithLatestTag: readonly AppWithLatestTag[],
 ): Promise<StageImageTagUpdatesResult> {
   const initialResult: StageImageTagUpdatesResult = { plans: [], draft: new Map() }
   return reduceAsync(appsWithLatestTag, initialResult, (result, appWithLatestTag) =>
-    withAppContext(platform, appWithLatestTag.app.projectName, () =>
+    withAppContext(adapter, appWithLatestTag.app.projectName, () =>
       stageAppImageTagUpdates(source, result, appWithLatestTag),
     ),
   )

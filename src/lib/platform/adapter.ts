@@ -13,7 +13,7 @@ import type {
 /**
  * GitLab・GitHubのどちらでチャートリポジトリを管理していても`steps/`が同じ形で呼べるようにする
  * 関数テーブル。`lib/gitlab/`・`lib/github/`がそれぞれこの形の値を組み立てて渡す
- * （`lib/gitlab/platform.ts`の`createGitlabPlatform()`）。1回の実行でGitLab・GitHubの混在は
+ * （`lib/gitlab/adapter.ts`の`createGitlabAdapter()`）。1回の実行でGitLab・GitHubの混在は
  * させないため、`steps/`はどちらの実装が渡ってきたかを気にしない。
  *
  * 各関数はプロジェクトやアクセストークンを結びつけたクライアントを内側に閉じ込めた状態で渡る
@@ -23,7 +23,7 @@ import type {
  * （`isFatalError`）も、プラットフォームごとに違って`steps/`が必要とするものなのでここに並べる。
  * 表を1つに保つことで、API呼び出しはGitHub・エラー分類はGitLab、という取り違えが起こらない。
  */
-export type Platform = {
+export type PlatformAdapter = {
   /** タグ名とそれが指すコミットSHAの一覧を返す */
   readonly listTags: (projectId: ProjectId) => Promise<TagInfo[]>
 

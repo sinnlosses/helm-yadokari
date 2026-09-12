@@ -256,8 +256,8 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 - **定義**: GitLabのMerge Request、GitHubのPull Requestを指す。1つの設定ユニットにつき1つ作成する。
 - **語彙は「MR」に統一し、GitHubでも「Pull Request」に言い換えない**（ユーザー判断）。
-  `createMergeRequest()`・`openMergeRequestExists()`（`lib/platform/platform.ts`の
-  `Platform`型の関数名）はGitLab・GitHub両実装で共通の名前を使っており、ドキュメント側の
+  `createMergeRequest()`・`openMergeRequestExists()`（`lib/platform/adapter.ts`の
+  `PlatformAdapter`型の関数名）はGitLab・GitHub両実装で共通の名前を使っており、ドキュメント側の
   語彙もそれに揃える。`mrTargetBranch`を改名しない判断（後述）と同じ理由付け。
 
 ### 固定ブランチ
@@ -367,16 +367,16 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### Platform
 
-- **英語識別子**: `Platform`（`lib/platform/platform.ts`の関数テーブル型）・`PlatformKind`
+- **英語識別子**: `PlatformAdapter`（`lib/platform/adapter.ts`の関数テーブル型）・`PlatformKind`
   （環境変数`PLATFORM`の値の型。`"gitlab" | "github"`）・`PlatformUrl`（ブランド型。
   旧`GitLabUrl`から改名）
 - **定義**: GitLab・GitHubのどちらで管理対象のchart/ソースリポジトリを管理していても
   `steps/`が同じ形で呼べるようにする抽象。`lib/gitlab/`・`lib/github/`がそれぞれ
-  `Platform`型の値を組み立てて渡す。環境変数`PLATFORM`（未指定は`"gitlab"`）で選び、
+  `PlatformAdapter`型の値を組み立てて渡す。環境変数`PLATFORM`（未指定は`"gitlab"`）で選び、
   **1回の実行でGitLab・GitHubを混在させることはない**。
 - **API呼び出しだけでなくエラー分類も持つ**: `isFatalError`・`extractHttpStatus`など、
   プラットフォームごとに形が違うエラー判定もこの表に含める。詳細は
-  `docs/architecture.md`「GitLab/GitHubの2実装は関数テーブル型`Platform`で受け渡す」
+  `docs/architecture.md`「GitLab/GitHubの2実装は関数テーブル型`PlatformAdapter`で受け渡す」
   「HTTPエラーの経路」節。
 
 ### ACCESS_TOKEN

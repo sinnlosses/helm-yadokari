@@ -58,12 +58,12 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 
 `### データの受け渡し` の中:
 
-| 節                                                                                        | 中身                                         |
-| ----------------------------------------------------------------------------------------- | -------------------------------------------- |
-| #### 引数として渡した入れ物が呼び出し先で書き変わる契約にしない                           | データの受け渡しの契約                       |
-| #### Platformへの問い合わせのキャッシュは`lib/platform/`に列挙し、バッチ単位で1つ持ち回る | 何をキャッシュしてよいかの判断               |
-| #### サブステップに関数型を注入しない。キャッシュを持つ側が工場関数を公開する             | DIを置かない理由と、唯一の例外               |
-| #### ブランチの作り直しはサブステップに置き、`lib/gitlab/`は薄いラッパーに保つ            | コミット周りの分担と、以前の判断を覆した理由 |
+| 節                                                                                               | 中身                                         |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| #### 引数として渡した入れ物が呼び出し先で書き変わる契約にしない                                  | データの受け渡しの契約                       |
+| #### PlatformAdapterへの問い合わせのキャッシュは`lib/platform/`に列挙し、バッチ単位で1つ持ち回る | 何をキャッシュしてよいかの判断               |
+| #### サブステップに関数型を注入しない。キャッシュを持つ側が工場関数を公開する                    | DIを置かない理由と、唯一の例外               |
+| #### ブランチの作り直しはサブステップに置き、`lib/gitlab/`は薄いラッパーに保つ                   | コミット周りの分担と、以前の判断を覆した理由 |
 
 `### 型と命名` の中:
 
@@ -86,7 +86,7 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 | #### URLは`URL`オブジェクトではなく文字列のブランド型で扱う                | `URL`を使わない理由                         |
 | #### サブステップ同士は互いをimportせず、共有物は`sub-steps/shared/`に置く | 原則1のサブステップ版                       |
 | #### 実在チェックは`src/lib/`ではなく`scripts/lint/`に置く                 | 原則3が原則2に優先する例                    |
-| #### GitLab/GitHub の2実装は関数テーブル型`Platform`で受け渡す             | 2実装の並べ方、語彙、`batch-cache.ts`の移動 |
+| #### GitLab/GitHub の2実装は関数テーブル型`PlatformAdapter`で受け渡す      | 2実装の並べ方、語彙、`batch-cache.ts`の移動 |
 
 `### 設定・環境変数・外部形式` の中:
 
@@ -160,26 +160,26 @@ importせず〜」の節を参照）。
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
-| ファイル                      | 責務                                                                                                                                                                           |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `platform/platform.ts`        | `Platform`型（GitLab/GitHubの15エントリを並べた関数テーブル。`steps/`はこれだけを受け取り、クライアントの型を知らない）。API呼び出しに加えエラー分類（`isFatalError`等）も持つ |
-| `platform/batch-cache.ts`     | `PlatformBatchCache`。バッチ1回を通して使い回す`Platform`読み取りのキャッシュ。キャッシュしてよい読み取りの一覧                                                                |
-| `gitlab/gitlab.ts`            | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitLab専用**                                                                                    |
-| `gitlab/platform.ts`          | `createGitlabPlatform()`。`gitlab.ts`の各関数をクライアントごと束ねて`Platform`の形に組み立てる                                                                                |
-| `gitlab/web-url.ts`           | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                                                               |
-| `gitlab/errors.ts`            | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所**                                 |
-| `github/github.ts`            | `@octokit/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitHub専用**                                                                                      |
-| `github/platform.ts`          | `createGithubPlatform()`。`github.ts`の各関数をクライアントごと束ねて`Platform`の形に組み立てる                                                                                |
-| `github/web-url.ts`           | GitHubのページURL（タグ→リリースページ・比較）のパス組み立て。外部I/Oを持たない                                                                                                |
-| `github/errors.ts`            | Octokitのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否・`retry-after`の読み取り）。**Octokit固有のエラー構造を知ってよい唯一の場所**            |
-| `config/config.ts`            | 公開API `loadConfig()`。絞り込み（`limit-to-target.ts`）→設定ユニットの発見（`find-config-units.ts`）→読み込み・結合（`load-config-unit.ts`）の段を順に呼ぶだけの入口          |
-| `config/limit-to-target.ts`   | `TARGET_CHART`/`TARGET_UNITS`（`ConfigTarget`）の解釈。絞り込み（`selectChartDirs`/`selectTargetConfigUnits`）と絞り込み結果0件の検出（`assertTargetMatched`）                 |
-| `config/find-config-units.ts` | 1つのchartディレクトリから設定ユニットを見つける（`findConfigUnits()`）。`registry.yaml`の有無を見て、階層の検証（深さ・入れ子）込みで`ChartDirUnits`にする                    |
-| `config/load-config-unit.ts`  | 走査で見つかった設定ユニットごとに `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を読み込み・結合し `ConfigUnit` にする                                 |
-| `config/schema.ts`            | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                                              |
-| `config/validate.ts`          | projectId重複・書き込み先重複・chartリポジトリをまたぐtagFormat食い違いの検証                                                                                                  |
-| `helm.ts`                     | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                                 |
-| `env.ts`                      | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                                                                                           |
+| ファイル                      | 責務                                                                                                                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform/adapter.ts`         | `PlatformAdapter`型（GitLab/GitHubの15エントリを並べた関数テーブル。`steps/`はこれだけを受け取り、クライアントの型を知らない）。API呼び出しに加えエラー分類（`isFatalError`等）も持つ |
+| `platform/batch-cache.ts`     | `PlatformBatchCache`。バッチ1回を通して使い回す`PlatformAdapter`読み取りのキャッシュ。キャッシュしてよい読み取りの一覧                                                                |
+| `gitlab/gitlab.ts`            | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitLab専用**                                                                                           |
+| `gitlab/adapter.ts`           | `createGitlabAdapter()`。`gitlab.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                 |
+| `gitlab/web-url.ts`           | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                                                                      |
+| `gitlab/errors.ts`            | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所**                                        |
+| `github/github.ts`            | `@octokit/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitHub専用**                                                                                             |
+| `github/adapter.ts`           | `createGithubAdapter()`。`github.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                 |
+| `github/web-url.ts`           | GitHubのページURL（タグ→リリースページ・比較）のパス組み立て。外部I/Oを持たない                                                                                                       |
+| `github/errors.ts`            | Octokitのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否・`retry-after`の読み取り）。**Octokit固有のエラー構造を知ってよい唯一の場所**                   |
+| `config/config.ts`            | 公開API `loadConfig()`。絞り込み（`limit-to-target.ts`）→設定ユニットの発見（`find-config-units.ts`）→読み込み・結合（`load-config-unit.ts`）の段を順に呼ぶだけの入口                 |
+| `config/limit-to-target.ts`   | `TARGET_CHART`/`TARGET_UNITS`（`ConfigTarget`）の解釈。絞り込み（`selectChartDirs`/`selectTargetConfigUnits`）と絞り込み結果0件の検出（`assertTargetMatched`）                        |
+| `config/find-config-units.ts` | 1つのchartディレクトリから設定ユニットを見つける（`findConfigUnits()`）。`registry.yaml`の有無を見て、階層の検証（深さ・入れ子）込みで`ChartDirUnits`にする                           |
+| `config/load-config-unit.ts`  | 走査で見つかった設定ユニットごとに `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を読み込み・結合し `ConfigUnit` にする                                        |
+| `config/schema.ts`            | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                                                     |
+| `config/validate.ts`          | projectId重複・書き込み先重複・chartリポジトリをまたぐtagFormat食い違いの検証                                                                                                         |
+| `helm.ts`                     | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                                        |
+| `env.ts`                      | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                                                                                                  |
 
 ### `src/domain/` — このツールの取り決めを tech非依存で表す
 
@@ -370,7 +370,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 **GitLabとGitHubで同じ形・同じ順序**で、違うのは`lib/<プラットフォーム>/`側の中身だけ。以下の表の
 `errors.ts`・`gitlab.ts`は、GitHubで動かすときは`lib/github/errors.ts`・`lib/github/github.ts`に
-読み替える（`withGitlabRetry()`↔`withGithubRetry()`、`createGitlabPlatform()`↔`createGithubPlatform()`）。
+読み替える（`withGitlabRetry()`↔`withGithubRetry()`、`createGitlabAdapter()`↔`createGithubAdapter()`）。
 
 **登場人物**（`*` はファイル内からのみ呼ぶ非公開の関数）
 
@@ -390,12 +390,12 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 `errors.ts`には、`isFatalError()`の中からしか呼ばない`isFatalStatus()`・`extractErrorCode()`もある
 （GitLab版はさらに`extractExhaustedRetryStatus()`）。
 
-**`steps/`は`isFatalError()`・`extractHttpStatus()`を直接importしない。** どちらも`Platform`
-（`lib/platform/platform.ts`）の関数として渡り、`step-outcome.ts`は`platform.isFatalError(err)`と
-尋ねる。`Platform`はAPI呼び出しだけの表ではなく「プラットフォームごとに違って`steps/`が必要とする
+**`steps/`は`isFatalError()`・`extractHttpStatus()`を直接importしない。** どちらも`PlatformAdapter`
+（`lib/platform/adapter.ts`）の関数として渡り、`step-outcome.ts`は`adapter.isFatalError(err)`と
+尋ねる。`PlatformAdapter`はAPI呼び出しだけの表ではなく「プラットフォームごとに違って`steps/`が必要とする
 もの」の表で、URLの組み立て（`buildTagUrl`）と並んでエラー分類が載る。1つの表にまとめてあるので、
 **API呼び出しはGitHub・エラー分類はGitLab、という取り違えが起こらない**。そのために
-`withHandling()`と`withAppContext()`は第1引数に`platform`を取る（この2つはAPIを呼ばない）。
+`withHandling()`と`withAppContext()`は第1引数に`adapter`を取る（この2つはAPIを呼ばない）。
 
 **判定の順序**（`lib/<プラットフォーム>/`の関数1回ぶんの失敗が落ち着くまで）
 
@@ -543,7 +543,7 @@ web URL・パイプライン解決。
   手作業で詰め替えていた。「印は付いているのに内容が無い」組み合わせを型で防げず、
   実行時のinternal errorで検査していた
 
-#### Platformへの問い合わせのキャッシュは`lib/platform/`に列挙し、バッチ単位で1つ持ち回る
+#### PlatformAdapterへの問い合わせのキャッシュは`lib/platform/`に列挙し、バッチ単位で1つ持ち回る
 
 実行1回（バッチ）を通して使い回す読み取りは`lib/platform/batch-cache.ts`の`PlatformBatchCache`に
 **列挙したものだけ**がキャッシュされる（明示的なオプトイン）。`runProcess()`が1つ作り、必要な
@@ -551,10 +551,10 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
 問い合わせを足す人がキャッシュの要否を毎回自分で気づく必要があり、素の関数を呼ぶほうが常に
 書きやすいぶん抜けるほうへ倒れていた。
 
-**新しい`Platform`への問い合わせを足すときの判断**:
+**新しい`PlatformAdapter`への問い合わせを足すときの判断**:
 
 1. その読み取りの値が、バッチ中に**このツール自身の書き込み**（`createTag`・`commitFileUpdates`・
-   `createMergeRequest`・ブランチ削除）で変わるか。変わるなら載せず、`Platform`の生の関数を
+   `createMergeRequest`・ブランチ削除）で変わるか。変わるなら載せず、`PlatformAdapter`の生の関数を
    直接呼ぶ。`listTags`（`createTag`で変わる）・`openMergeRequestExists`（`createMergeRequest`で
    変わる）・固定ブランチを作り直すときの存在確認（`submitMergeRequest()`。削除と再作成をまたぐ）がこれに当たる
 2. 変わらないなら`PlatformBatchCache`にメンバーを1つ足す。キーは引数から機械的に組み立てられる
@@ -608,7 +608,7 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
 #### サブステップに関数型を注入しない。キャッシュを持つ側が工場関数を公開する
 
 **親stepがクロージャを組み立ててサブステップに渡す形は採らない。** サブステップは
-`Platform`や`PlatformBatchCache`（`ValuesYamlSource`に束ねた形を含む）をそのまま受け取り、
+`PlatformAdapter`や`PlatformBatchCache`（`ValuesYamlSource`に束ねた形を含む）をそのまま受け取り、
 必要な問い合わせを自分で呼ぶ。読み込み先はそれ自体がただのデータなので、関数型で包んでも
 間接層が増えるだけになる。
 
@@ -627,7 +627,7 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
 **唯一の例外は、サブステップ自身がバッチ単位のキャッシュを持つ場合**で、工場関数を公開して
 親stepに寿命だけを持たせる（`createResolveLatestTags()`）。親stepにキャッシュ付きの関数を
 組み立てさせるとサブステップの内部関数を並べて公開することになり、「1ファイル＝1公開関数」に
-反するため。上の2つとの違いは、包む対象が`Platform`の関数か、そのサブステップ自身の処理か。
+反するため。上の2つとの違いは、包む対象が`PlatformAdapter`の関数か、そのサブステップ自身の処理か。
 
 #### ブランチの作り直しはサブステップに置き、`lib/gitlab/`は薄いラッパーに保つ
 
@@ -883,15 +883,20 @@ GitLab APIと`config/`形式に依存するので`lib/`の条件（原則2）は
 置くか否か」を決めない。本体パイプラインからの参照は0なので、`src/`に置くと`dist/`に本体が
 使わないコードが混ざり、「本体から呼ばれない」という一番効く事実が構成に現れない。
 
-#### GitLab/GitHub の2実装は関数テーブル型`Platform`で受け渡す
+#### GitLab/GitHub の2実装は関数テーブル型`PlatformAdapter`で受け渡す
 
 GitLabとGitHubの**両方に対応する。ただし1回の実行で混在はさせない**（ユーザー判断、2026-09-12）。
 
-**語彙は`Platform`。** `lib/platform/platform.ts` に`steps/`が必要とするものを並べた `Platform` 型を1つ置き、
-`lib/gitlab/` と `lib/github/` がそれぞれその形の値を組み立てる。`steps/` は `Platform` を
+**語彙は`PlatformAdapter`。** `lib/platform/adapter.ts` に`steps/`が必要とするものを並べた `PlatformAdapter` 型を1つ置き、
+`lib/gitlab/` と `lib/github/` がそれぞれその形の値を組み立てる。`steps/` は `PlatformAdapter` を
 引数で受け取り、`lib/`配下への直接のimport（現在7ファイル）は無くなる。あわせて
 `GitLabUrl` は `PlatformUrl` に改名する（`PipelineInfo` は名前自体が特定サービスに
 寄っていないため据え置き。漏れているのは `webUrl` の型のほうだった）。
+
+型名は当初`Platform`だったが、`buildTagUrl`・`buildCompareUrl`・`isFatalError`・
+`extractHttpStatus`の4エントリがネットワークI/Oを持たない純粋関数で「APIクライアント」と
+呼ぶには実態が狭すぎたため、後日`PlatformAdapter`に改名した（`ApiClient`系の名前は採らない）。
+`src/lib/`を「外部システム・ファイル形式に依存するアダプタの責務表」と呼ぶ既存の語彙に合わせた形。
 
 - **`forge`を採らなかった**。FOSS界隈では定着した語だが（Forgejo・ForgeFed）、GitHubとGitLab
   自身がその語で自称していない。`platform`は**このリポジトリのCIが既に動かしているRenovate**が
@@ -900,7 +905,7 @@ GitLabとGitHubの**両方に対応する。ただし1回の実行で混在は�
   `GitlabBatchCache`（現在は`lib/platform/batch-cache.ts`の`PlatformBatchCache`。
   `readonly branchExists: (...) => Promise<boolean>` を4本並べたオブジェクト型）と
   `resolve-latest-tags.ts` の `ResolveLatestTags`（関数型を1つ定義して工場関数が返す）が既にあり、
-  `Platform` はその席に座るだけ
+  `PlatformAdapter` はその席に座るだけ
 - **`lib/platform/`は「置き場所を名前にしたファイル」ではない**（原則4）。`platform`はこのツールの
   ドメイン語彙（`docs/glossary.md`に載せる語）であって、`helpers`・`common`のような容れ物の名前ではない
 - **`batch-cache.ts`は`lib/gitlab/`から`lib/platform/`へ移す。** どの読み取りをキャッシュしてよいかの

@@ -17,13 +17,13 @@ import {
   toTagName,
   toValuesPath,
 } from "../../../../src/types/types.js"
-import { makePlan, makePlatform } from "../../../helpers.js"
+import { makePlan, makeAdapter } from "../../../helpers.js"
 
 /**
  * URLの組み立て（`buildTagUrl`/`buildCompareUrl`）はGitLab実装の本物を使う。ここで確かめたいのは
  * MR本文の組み立てそのもので、URL形式はGitLab固有の別テスト（`web-url.test.ts`）の役割。
  */
-const platform = makePlatform({ buildTagUrl, buildCompareUrl })
+const adapter = makeAdapter({ buildTagUrl, buildCompareUrl })
 
 const defaultWebUrl = toPlatformUrl("https://gitlab.example.com/g/my-app")
 
@@ -52,11 +52,10 @@ function entriesOf(
 
 const UNIT_PATH = toConfigUnitPath("tenant1/client1")
 
-const buildTitle = (entries: MrEntries): string =>
-  buildMrContent(platform, UNIT_PATH, entries).title
+const buildTitle = (entries: MrEntries): string => buildMrContent(adapter, UNIT_PATH, entries).title
 
 const buildDescription = (entries: MrEntries): string =>
-  buildMrContent(platform, UNIT_PATH, entries).description
+  buildMrContent(adapter, UNIT_PATH, entries).description
 
 describe("buildMrContent（タイトル）", () => {
   it("イメージタグの書き換え箇所数を種別つきで含む", () => {
@@ -104,7 +103,7 @@ describe("buildMrContent（タイトル）", () => {
 
   it("件数は本文のテーブルの行数と同じ配列から数える", () => {
     const entries = entriesOf([makePlan()], [helmUpdate])
-    const { title, description } = buildMrContent(platform, UNIT_PATH, entries)
+    const { title, description } = buildMrContent(adapter, UNIT_PATH, entries)
 
     expect(title).toContain("image tag 1")
     expect(description.split("\n").filter((line) => line.includes("my-app"))).toHaveLength(1)

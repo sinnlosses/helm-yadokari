@@ -3,9 +3,9 @@ import { vi } from "vitest"
 import { validateTagFormat } from "../src/domain/tag-format.js"
 import { extractHttpStatus, isFatalError } from "../src/lib/gitlab/errors.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
+import type { PlatformAdapter } from "../src/lib/platform/adapter.js"
 import type { PlatformBatchCache } from "../src/lib/platform/batch-cache.js"
 import { createPlatformBatchCache } from "../src/lib/platform/batch-cache.js"
-import type { Platform } from "../src/lib/platform/platform.js"
 import type { AppConfig, AppUpdatePlan, ConfigUnit, TagName } from "../src/types/types.js"
 import {
   toAnchorName,
@@ -26,21 +26,21 @@ export const makeHttpError = (status: number): Error =>
  * `vi.mock()`でモックしたGitLabクライアントの置き換え先。実体は使われないため空オブジェクトで
  * 足りる。`as`を使う箇所をここ1つに閉じ込めるためテスト側では組み立てない。
  * `main.test.ts`のように`lib/gitlab/gitlab.js`ごとモックする層のテストでのみ使う
- * （`createClient`の戻り値の置き換え先）。`steps/`のテストは`Platform`を直接偽装する
- * `makePlatform()`を使うため、`GitlabClient`を組み立てる必要が無い。
+ * （`createClient`の戻り値の置き換え先）。`steps/`のテストは`PlatformAdapter`を直接偽装する
+ * `makeAdapter()`を使うため、`GitlabClient`を組み立てる必要が無い。
  */
 export const mockGitlab = {} as unknown as GitlabClient
 
 /**
- * `steps/`のテストが受け取る`Platform`の偽物。API呼び出しの13関数を`vi.fn()`にした状態で返すため、
- * 各テストは`vi.mocked(platform.X)`でその場ごとに返り値・実装を差し替えられる。
+ * `steps/`のテストが受け取る`PlatformAdapter`の偽物。API呼び出しの13関数を`vi.fn()`にした状態で返すため、
+ * 各テストは`vi.mocked(adapter.X)`でその場ごとに返り値・実装を差し替えられる。
  * `overrides`は個別の関数を丸ごと差し替えたいとき（稀）に使う。
  *
  * エラー分類の2関数だけは`vi.fn()`にせずGitLab版の実物を入れる。`makeHttpError()`が組み立てるのが
  * gitbeaker形のエラーで、`steps/`のテストが確かめたいのは「401はFatalError、403はERROR」という
  * 振り分けそのものだからである。
  */
-export function makePlatform(overrides: Partial<Platform> = {}): Platform {
+export function makeAdapter(overrides: Partial<PlatformAdapter> = {}): PlatformAdapter {
   return {
     listTags: vi.fn(),
     branchExists: vi.fn(),
@@ -62,11 +62,11 @@ export function makePlatform(overrides: Partial<Platform> = {}): Platform {
 }
 
 /**
- * `buildPlans()`等に渡すバッチキャッシュ。中身は本物で、包む対象の`platform`だけが偽物になる。
+ * `buildPlans()`等に渡すバッチキャッシュ。中身は本物で、包む対象の`adapter`だけが偽物になる。
  * 呼び出しごとに作り直すのは、キャッシュした結果が別のテストへ持ち越されないようにするため。
  */
-export const newPlatformCache = (platform: Platform): PlatformBatchCache =>
-  createPlatformBatchCache(platform)
+export const newPlatformCache = (adapter: PlatformAdapter): PlatformBatchCache =>
+  createPlatformBatchCache(adapter)
 
 /** テストのapp（`makeApp()`）のタグ形式。実際に使われている2形式のうちの1つ */
 const BUILD_AT_FORMAT = validateTagFormat("{branch}-build-at-{date}-{time}")
@@ -79,13 +79,13 @@ export const HEAD_SHA = toCommitSha("head-sha")
  * `buildPlans()`を通すテストの既定のモック。追跡ブランチのHEADに`NEW_TAG`があり、values.yamlの
  * 現在値が`OLD_TAG`（＝差分1件が出る）状態にする。個別のテストは必要なものだけ上書きする。
  */
-export function mockBuildPlansPlatform(platform: Platform): void {
-  vi.mocked(platform.listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
-  vi.mocked(platform.getBranchHeadSha).mockResolvedValue(HEAD_SHA)
-  vi.mocked(platform.getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
-  vi.mocked(platform.getLatestPipelineForRef).mockResolvedValue(undefined)
-  vi.mocked(platform.createTag).mockResolvedValue(undefined)
-  vi.mocked(platform.branchExists).mockResolvedValue(true)
+export function mockBuildPlansAdapter(adapter: PlatformAdapter): void {
+  vi.mocked(adapter.listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
+  vi.mocked(adapter.getBranchHeadSha).mockResolvedValue(HEAD_SHA)
+  vi.mocked(adapter.getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
+  vi.mocked(adapter.getLatestPipelineForRef).mockResolvedValue(undefined)
+  vi.mocked(adapter.createTag).mockResolvedValue(undefined)
+  vi.mocked(adapter.branchExists).mockResolvedValue(true)
 }
 
 export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {

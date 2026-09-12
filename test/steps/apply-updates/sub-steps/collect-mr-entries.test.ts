@@ -8,7 +8,7 @@ import {
   toTagName,
   toValuesPath,
 } from "../../../../src/types/types.js"
-import { makePlan, makePlatform, newPlatformCache } from "../../../helpers.js"
+import { makePlan, makeAdapter, newPlatformCache } from "../../../helpers.js"
 
 const webUrl = toPlatformUrl("https://gitlab.example.com/g/my-app")
 
@@ -19,10 +19,10 @@ const helmUpdate = {
   currentBranch: toBranchName("release/2025-q4"),
 }
 
-const platform = makePlatform()
+const adapter = makeAdapter()
 
 function mockWebUrl() {
-  vi.mocked(platform.getProjectWebUrl).mockResolvedValue(webUrl)
+  vi.mocked(adapter.getProjectWebUrl).mockResolvedValue(webUrl)
 }
 
 afterEach(() => {
@@ -46,8 +46,8 @@ describe("collectMrEntries", () => {
     })
 
     const entries = await collectMrEntries(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [plan],
       [],
       helmBranchRef,
@@ -63,15 +63,15 @@ describe("collectMrEntries", () => {
     mockWebUrl()
 
     const entries = await collectMrEntries(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [],
       [helmUpdate],
       helmBranchRef,
     )
 
     expect(entries.imageTags).toEqual([])
-    expect(platform.getProjectWebUrl).not.toHaveBeenCalled()
+    expect(adapter.getProjectWebUrl).not.toHaveBeenCalled()
   })
 
   it("向き先ブランチの更新はclient単位で確定済みなので、そのまま並べる", async () => {
@@ -85,8 +85,8 @@ describe("collectMrEntries", () => {
     }
 
     const entries = await collectMrEntries(
-      platform,
-      newPlatformCache(platform),
+      adapter,
+      newPlatformCache(adapter),
       [],
       [helmUpdate, other],
       helmBranchRef,
@@ -98,14 +98,14 @@ describe("collectMrEntries", () => {
 
   it("plan単位の解決で失敗したとき、エラーにどのアプリかを付ける", async () => {
     mockWebUrl()
-    vi.mocked(platform.getLatestPipelineForRef).mockRejectedValue(
+    vi.mocked(adapter.getLatestPipelineForRef).mockRejectedValue(
       new Error("パイプラインの取得に失敗"),
     )
 
     await expect(
       collectMrEntries(
-        platform,
-        newPlatformCache(platform),
+        adapter,
+        newPlatformCache(adapter),
         [makePlan({ projectName: "my-app" })],
         [],
         helmBranchRef,
@@ -115,14 +115,14 @@ describe("collectMrEntries", () => {
 
   it("同じappが複数clientに登録されていても、web URLとパイプラインの問い合わせは1回に収束する", async () => {
     mockWebUrl()
-    vi.mocked(platform.getLatestPipelineForRef).mockResolvedValue(undefined)
+    vi.mocked(adapter.getLatestPipelineForRef).mockResolvedValue(undefined)
     // バッチ1回ぶんのキャッシュを共有したまま、clientの数だけ collectMrEntries が呼ばれる形
-    const platformCache = newPlatformCache(platform)
+    const platformCache = newPlatformCache(adapter)
 
-    await collectMrEntries(platform, platformCache, [makePlan()], [], helmBranchRef)
-    await collectMrEntries(platform, platformCache, [makePlan()], [], helmBranchRef)
+    await collectMrEntries(adapter, platformCache, [makePlan()], [], helmBranchRef)
+    await collectMrEntries(adapter, platformCache, [makePlan()], [], helmBranchRef)
 
-    expect(platform.getProjectWebUrl).toHaveBeenCalledOnce()
-    expect(platform.getLatestPipelineForRef).toHaveBeenCalledOnce()
+    expect(adapter.getProjectWebUrl).toHaveBeenCalledOnce()
+    expect(adapter.getLatestPipelineForRef).toHaveBeenCalledOnce()
   })
 })

@@ -1,4 +1,4 @@
-import type { Platform } from "../../../lib/platform/platform.js"
+import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
 import type { BranchName, ChartRepoConfig, FileUpdate } from "../../../types/types.js"
 import type { MrContent } from "./shared/types.js"
 
@@ -12,23 +12,23 @@ import type { MrContent } from "./shared/types.js"
  * コミットメッセージにはMRのタイトルをそのまま使う。
  */
 export async function submitMergeRequest(
-  platform: Platform,
+  adapter: PlatformAdapter,
   chart: ChartRepoConfig,
   featureBranch: BranchName,
   content: MrContent,
   files: readonly FileUpdate[],
 ): Promise<void> {
-  if (await platform.branchExists(chart.projectId, featureBranch)) {
-    await platform.deleteBranch(chart.projectId, featureBranch)
+  if (await adapter.branchExists(chart.projectId, featureBranch)) {
+    await adapter.deleteBranch(chart.projectId, featureBranch)
   }
-  await platform.commitFileUpdates(
+  await adapter.commitFileUpdates(
     chart.projectId,
     featureBranch,
     chart.mrTargetBranch,
     content.title,
     files,
   )
-  await platform.createMergeRequest(
+  await adapter.createMergeRequest(
     chart.projectId,
     featureBranch,
     chart.mrTargetBranch,

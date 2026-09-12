@@ -1,4 +1,4 @@
-import type { Platform } from "../../../lib/platform/platform.js"
+import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
 import type { BranchName, ConfigUnitPath, HelmBranchRefUpdate } from "../../../types/types.js"
 import type { ImageTagEntry, MrContent, MrEntries } from "./shared/types.js"
 
@@ -6,13 +6,13 @@ import type { ImageTagEntry, MrContent, MrEntries } from "./shared/types.js"
  * 1つの`(chartリポジトリ, 設定ユニット)`分のMRのタイトルと本文を組み立てる
  */
 export function buildMrContent(
-  platform: Platform,
+  adapter: PlatformAdapter,
   unitPath: ConfigUnitPath,
   entries: MrEntries,
 ): MrContent {
   return {
     title: buildMrTitle(unitPath, entries),
-    description: buildMrDescription(platform, entries),
+    description: buildMrDescription(adapter, entries),
   }
 }
 
@@ -29,9 +29,9 @@ function buildMrTitle(unitPath: ConfigUnitPath, entries: MrEntries): string {
   return `Auto MR by yadokari: update ${unitPath}${summary}`
 }
 
-function buildMrDescription(platform: Platform, entries: MrEntries): string {
+function buildMrDescription(adapter: PlatformAdapter, entries: MrEntries): string {
   return [
-    ...(entries.imageTags.length > 0 ? [buildImageTagSection(platform, entries.imageTags)] : []),
+    ...(entries.imageTags.length > 0 ? [buildImageTagSection(adapter, entries.imageTags)] : []),
     ...(entries.helmBranches.length > 0
       ? [buildHelmBranchRefSection(entries.helmBranches, entries.helmBranchRef)]
       : []),
@@ -43,7 +43,7 @@ function buildMrDescription(platform: Platform, entries: MrEntries): string {
  * 行が箇所の数だけ並ぶため、ファイル・アンカーの列で区別する。比較・パイプラインは
  * リンクテキストを付けずURLをそのまま載せ（GitLabが自動リンクする）、値が無いセルは `-` で埋める。
  */
-function buildImageTagSection(platform: Platform, entries: readonly ImageTagEntry[]): string {
+function buildImageTagSection(adapter: PlatformAdapter, entries: readonly ImageTagEntry[]): string {
   return [
     "## イメージタグ",
     "",
@@ -55,9 +55,9 @@ function buildImageTagSection(platform: Platform, entries: readonly ImageTagEntr
         `\`${plan.app.branchToSync}\``,
         `\`${update.location.valuesPath}\``,
         `\`${update.location.anchorName}\``,
-        `[${update.currentTag}](${platform.buildTagUrl(webUrl, update.currentTag)})`,
-        `[${plan.latestTag.name}](${platform.buildTagUrl(webUrl, plan.latestTag.name)})`,
-        platform.buildCompareUrl(webUrl, update.currentTag, plan.latestTag.name),
+        `[${update.currentTag}](${adapter.buildTagUrl(webUrl, update.currentTag)})`,
+        `[${plan.latestTag.name}](${adapter.buildTagUrl(webUrl, plan.latestTag.name)})`,
+        adapter.buildCompareUrl(webUrl, update.currentTag, plan.latestTag.name),
         pipeline ? pipeline.webUrl : "-",
       ]
       return `| ${cells.join(" | ")} |`

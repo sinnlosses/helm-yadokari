@@ -7,17 +7,17 @@ import type {
   ValuesPath,
 } from "../../types/types.js"
 import { cacheByArgs } from "../../utils/cache.js"
-import type { Platform } from "./platform.js"
+import type { PlatformAdapter } from "./adapter.js"
 
 /**
- * 実行1回（バッチ）を通して使い回す、`Platform`への読み取りのキャッシュ。`runProcess()`が
+ * 実行1回（バッチ）を通して使い回す、`PlatformAdapter`への読み取りのキャッシュ。`runProcess()`が
  * 1つだけ作り、必要なstepへ引数で渡す（寿命＝バッチ1回ぶん）。
  *
  * **ここに並べた読み取りだけがキャッシュされる。** 載せてよいのは「このツール自身の書き込み
  * （タグ作成・コミット・MR作成・ブランチ削除）ではバッチ中に値が変わらない読み取り」だけで、
  * `listTags`（`createTag`で変わる）・`openMergeRequestExists`（`createMergeRequest`で
  * 変わる）・固定ブランチを作り直すときの存在確認（`submitMergeRequest()`。削除と再作成をまたぐ）
- * は載せられない。それらは`Platform`の生の関数を直接呼ぶ。判断の経緯は`docs/architecture.md`
+ * は載せられない。それらは`PlatformAdapter`の生の関数を直接呼ぶ。判断の経緯は`docs/architecture.md`
  * 「GitLabへの問い合わせのキャッシュは〜」節。
  */
 export type PlatformBatchCache = {
@@ -54,17 +54,17 @@ export type PlatformBatchCache = {
   ) => Promise<string | undefined>
 }
 
-export function createPlatformBatchCache(platform: Platform): PlatformBatchCache {
+export function createPlatformBatchCache(adapter: PlatformAdapter): PlatformBatchCache {
   return {
     branchExists: cacheByArgs((projectId: ProjectId, branch: BranchName) =>
-      platform.branchExists(projectId, branch),
+      adapter.branchExists(projectId, branch),
     ),
     getLatestPipelineForRef: cacheByArgs((projectId: ProjectId, ref: TagName) =>
-      platform.getLatestPipelineForRef(projectId, ref),
+      adapter.getLatestPipelineForRef(projectId, ref),
     ),
-    getProjectWebUrl: cacheByArgs((projectId: ProjectId) => platform.getProjectWebUrl(projectId)),
+    getProjectWebUrl: cacheByArgs((projectId: ProjectId) => adapter.getProjectWebUrl(projectId)),
     getFileContent: cacheByArgs((projectId: ProjectId, filePath: ValuesPath, ref: BranchName) =>
-      platform.getFileContent(projectId, filePath, ref),
+      adapter.getFileContent(projectId, filePath, ref),
     ),
   }
 }
