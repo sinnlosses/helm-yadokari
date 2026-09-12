@@ -9,5 +9,93 @@
     "status": "done",
     "passes": true,
     "evidence": "docs/research/github-support.md に「ProjectId 中立化の計測（2026-09-12）」節を追記。string ブランド型に差し替えた実測で型エラー55件、うち src/ は schema.ts の3件のみ（残り52件は test/ の機械的置換で消えることを実測で確認）。pnpm check 通過: 386 Tests"
+  },
+  {
+    "id": "T-220",
+    "difficulty": "opus",
+    "loopable": "N",
+    "dependencies": [],
+    "summary": "forge（GitLab/GitHub）の切り替え方と中立化後の型名・環境変数を決めて docs/architecture.md に書く",
+    "task": "## 背景\n\nGitLab と GitHub の**両方に対応する**（ただし1回の実行で混在はさせない）とユーザーが決めた\n（2026-09-12）。現状は `src/lib/gitlab/` の13関数がGitLab専用で、`GitlabClient` 型を\n`steps/` 5ファイル（`filter-targets.ts`・`build-plans.ts`・`resolve-latest-tags.ts`・\n`apply-updates.ts`・`submit-merge-request.ts`）と `lib/gitlab/batch-cache.ts` が引数で受けている。\n`scripts/lint/remote-existence/` も同じ型を使う。\n\n調査記録は `docs/research/github-support.md`。分界面（13関数）は機能しているが、**このタスクで\n決めるのは「2つ目の実装をどう並べるか」**で、後続タスク（T-221〜T-227）がすべてこの決定に依存する。\n\n## 解くべき論点\n\n- **`steps/` が受け取るクライアントの型**。案は (a) `GitlabClient | GithubClient` のユニオン、\n  (b) 13関数を束ねた関数テーブルのオブジェクト型を1つ定義して注入、(c) 共通のインターフェース。\n  **`src/` 全体の既存の規約を洗ってから決める**（このリポジトリは `interface` で多態を作った\n  前例が無く、関数を引数で渡す形は `createResolveLatestTags()` の前例がある）\n- **`lib/` の配置**。`lib/gitlab/` と `lib/github/` を並べるとして、共通の型と選択ロジックを\n  どこに置くか（CLAUDE.md 原則2・原則4。`lib/forge/` のような箱が「置き場所を名前にした\n  ファイル」にならないか）\n- **`lib/gitlab/batch-cache.ts` の置き場所**。キャッシュ対象の選定はforge非依存だが、\n  現在は `lib/gitlab/` にある\n- **中立化後の型名**（後続 T-222 が機械的作業になるよう、ここで決めきる）。`GitLabUrl` と\n  `PipelineInfo` の新しい名前。`docs/architecture.md`「ブランド型のフィールド名は、修飾語が\n  あれば型の語を落とし、無ければ持つ」節と整合させる\n- **環境変数の形**（README に載る外部インターフェースなので、ここで決めきる）。forge の選択を\n  どう渡すか、`GITLAB_URL` をどうするか、未指定時の既定をGitLabにするか\n\n## やること\n\n1. `src/` の関数シグネチャと型の置き場所を全件洗い、既存の規約を先に言語化する\n2. 上の論点それぞれに案を出し、**ユーザーに提案して承認を得る**（このタスクは `loopable: \"N\"`）\n3. 決まった内容を `docs/architecture.md` の「設計判断（なぜ今の形なのか）」に節として追記し、\n   冒頭の「節の索引」にも行を足す。**採らなかった案とその理由も書く**（このドキュメントの作法）\n4. 後続タスク（T-221〜T-227）の本文のうち、決定と食い違う記述があれば `develop/tasks.json` を更新する\n\n## 完了条件\n\n- `docs/architecture.md` に設計判断の節が追加され、冒頭の「節の索引」にも載っている\n- 決めた内容が5つの論点すべてをカバーしている（`steps/` の型・`lib/` の配置・`batch-cache.ts`・\n  中立化後の型名・環境変数の形）\n- **`src/` `test/` `scripts/` にコードの差分が無い**（このタスクは決めて書くだけ）\n- `pnpm check` が通る（基準: 386 Tests）\n\n## 注意\n\n- 実装は後続タスク。ここでコードを書かない\n- `loopable: \"N\"` なのは、5つの論点すべてがユーザーの承認を要する設計判断だから",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "T-221",
+    "difficulty": "sonnet",
+    "loopable": "Y",
+    "dependencies": [],
+    "summary": "ProjectId を string のブランド型にし、config スキーマで数値と文字列の両方を受ける",
+    "task": "## 背景\n\n`src/types/brand.ts` の `ProjectId` は `number` のブランド型で、GitHubの `owner/repo` を\n表せない。T-219 で `string` のブランド型に差し替えて実測した結果、\n**`src/` で壊れるのは `src/lib/config/schema.ts` の3箇所だけ**で、`steps/`・`lib/gitlab/`・\n`domain/`・`utils/` はゼロ件だった（`docs/research/github-support.md`「ProjectId 中立化の計測」）。\n\n`test/` の52件は `toProjectId(<数値>)` → `toProjectId(\"<数値>\")` と\n`projectId === <数値>` → `projectId === \"<数値>\"` の機械的置換で消えることも実測済み。\n\n設定ファイルの書式は**スキーマで数値と文字列の両方を受ける**方針（ユーザー判断、2026-09-12）。\n既存の `config/` の YAML を書き換えずに済ませるため。\n\n## 解くべき論点\n\n- `z.union([z.number().int(), z.string().min(1)]).transform((v) => toProjectId(String(v)))` の形で\n  よいか。エラーメッセージが読めるものになるか（`z.union` は失敗時に両方の枝のエラーを出す）\n- `toProjectId()` に形式の検証を付けるか。`docs/architecture.md`「ブランド型にするのは〜」節は\n  「形式の検証を付けるかは値ごとに決めてよい」としている\n\n## やること\n\n1. `src/types/brand.ts` の `ProjectId` を `string` のブランド型に、`toProjectId` を\n   `(s: string) => ProjectId` に変える\n2. `src/lib/config/schema.ts` の3箇所（`AppSpecSchema`・`RegistryYamlSchema.chartToUpdate`・\n   `AppSchema`）を、数値と文字列の両方を受けて文字列へ寄せる形にする\n3. `test/` の機械的置換を当てる（上記2パターン）\n4. **既存の数値の `projectId` がそのまま読めること**と、**文字列の `projectId` も読めること**を\n   確かめる回帰テストを `test/lib/config/schema.test.ts` に足す\n\n## 完了条件\n\n- `pnpm check` が通る（基準: 386 Tests。上の回帰テストのぶん増える）\n- **`config/` と `config.example/` の YAML に差分が無い**（`git status` で確認）\n- `projectId: 100`（数値）と `projectId: \"owner/repo\"`（文字列）の両方を読めるテストがある\n\n## 注意\n\n- `config/` と `config.example/` の YAML を書き換えない。既存の数値表記が動き続けることが\n  このタスクの主眼\n- `ProjectName` は触らない（別の型）",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "T-222",
+    "difficulty": "sonnet",
+    "loopable": "Y",
+    "dependencies": ["T-220"],
+    "summary": "GitLabUrl と PipelineInfo を T-220 で決めた forge 中立な名前に改名する",
+    "task": "## 背景\n\n`docs/research/github-support.md`「分界面の外に漏れているもの」の2点目と3点目。\n\n- `GitLabUrl`（`src/types/brand.ts`）は `types/types.ts` の `PipelineInfo.webUrl`、\n  `lib/env.ts` の `gitlabUrl`、`steps/apply-updates/sub-steps/build-mr-content.ts` が使う\n- `PipelineInfo`（`src/types/types.ts`）はGitLabのpipelineを表すが、GitHubではActionsの\n  workflow run にあたる\n\n**新しい名前は T-220 で決まっている。** このタスクはそれを当てる機械的な作業。\n\n## 解くべき論点\n\n- `PipelineInfo` の問い合わせキー（現在はタグ名。GitHubでは `head_sha`）を**このタスクで\n  変えるかどうか**。GitLab側の挙動を変えずに名前だけ中立化して、キーの変更は\n  `lib/github/` 実装時（T-223）に持ち越すほうが差分が読みやすい\n\n## やること\n\n1. T-220 が `docs/architecture.md` に書いた新しい型名を確認する\n2. `GitLabUrl` と `PipelineInfo` を改名し、参照元すべてを追随させる\n3. `lib/env.ts` の `gitlabUrl` フィールドは T-220 で決めた環境変数の形に合わせる\n4. **GitLab側の挙動は変えない。** `lib/gitlab/web-url.ts` が持つGitLab固有のURLパス形式\n   （`/-/tags/`・`/-/compare/`）はそのまま残す（`lib/gitlab/` の中にあるべき知識）\n\n## 完了条件\n\n- `pnpm check` が通る（基準: 386 Tests）\n- `grep -rn \"GitLabUrl\\|PipelineInfo\" src scripts test` が0件\n- `lib/gitlab/` の外に「GitLab」という語を含む識別子が残っていない\n\n## 注意\n\n- 名前を自分で決め直さない。T-220 の決定に従う（食い違いを見つけたらユーザーに報告する）\n- 挙動の変更を混ぜない。このタスクは改名だけ",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "T-223",
+    "difficulty": "opus",
+    "loopable": "Y",
+    "dependencies": ["T-220", "T-221", "T-222"],
+    "summary": "lib/github/ に commitFileUpdates 以外の12関数と web-url 相当を実装する",
+    "task": "## 背景\n\n`src/lib/gitlab/gitlab.ts` の13関数のうち、**12関数はGitHub APIと1:1で置き換えられる**\n（`docs/research/github-support.md`「13関数の移植難度」）。残る `commitFileUpdates` は\n等価APIが無く T-224 で扱う。\n\n1:1で置けるのは `createClient`・`projectExists`・`branchExists`・`deleteBranch`・\n`getBranchHeadSha`・`getProjectWebUrl`・`createMergeRequest`・`openMergeRequestExists` の8本。\n手当てが要るのは次の4本:\n\n| 関数 | GitHub側 |\n| --- | --- |\n| `listTags` | gitbeakerの `.all()` にあたる自動ページングが無い。`octokit.paginate` を明示する |\n| `getFileContent` | 1MB超は `content` が空文字・`encoding: \"none\"` で返る。raw media type かGit Blobs APIへの切り替えが要る |\n| `createTag` | `git.createRef` はコミットSHA必須。ブランチ名を ref に渡せない |\n| `getLatestPipelineForRef` | `GET /repos/{o}/{r}/actions/runs?head_sha=` 起点。タグ名では引けない |\n\n`lib/gitlab/web-url.ts` の2本（`buildTagUrl`・`buildCompareUrl`）に対応するものも要る\n（`/-/tags/X` → `/releases/tag/X`、`/-/compare/a...b` → `/compare/a...b`）。\n\n配置とシグネチャの形は T-220 の決定に従う。\n\n## 解くべき論点\n\n- **octokit のどのパッケージを使うか**（`@octokit/rest` か `octokit` か）。現在の実行時依存は\n  4つ（`@gitbeaker/rest`・`p-limit`・`yaml`・`zod`）で、T-213 で「外部パッケージは増やさない」\n  という判断をしている。**forge SDK は例外として足す**が、どれを足すかは比較して決める\n- GHES（self-hosted）の `baseUrl` をどう受けるか（T-220 の環境変数の決定と整合させる）\n- `createTag` にコミットSHAが要る件を、`lib/github/` の中で解決するか\n  （呼び出し元の `resolve-latest-tags.ts` は既に `headSha` を持っている）。\n  **`lib/` の関数はGitHub APIの1呼び出しに対応する薄いラッパーに保つ**\n  （`docs/architecture.md`「ブランチの作り直しはサブステップに置き〜」）方針との整合を見る\n- `getFileContent` の1MB超をこのタスクで扱うか、上限を超えたら例外にして後回しにするか\n\n## やること\n\n1. octokit のパッケージを選び `package.json` に足す\n2. `lib/github/` に12関数とURL組み立ての2関数を実装する。**シグネチャは `lib/gitlab/` と揃える**\n3. `test/lib/github/` にテストを書く。`test/lib/gitlab/gitlab.test.ts` と同じ作法でモックする\n4. この時点では `main.ts` から呼ばない（配線は T-226）\n\n## 完了条件\n\n- `pnpm check` が通る（基準: 386 Tests + 追加分）\n- 12関数と web-url 相当2本が実装され、それぞれにテストがある\n- `lib/gitlab/` の同名関数とシグネチャが一致している（T-220 が決めた形で）\n- `commitFileUpdates` は未実装のまま（T-224 の範囲）\n\n## 注意\n\n- `lib/gitlab/` の既存実装を変えない（T-222 で済んだ改名以外）\n- 依存パッケージを足すので、`pnpm install` の結果（lockfile）もコミットに含める",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "T-224",
+    "difficulty": "opus",
+    "loopable": "Y",
+    "dependencies": ["T-223"],
+    "summary": "lib/github/ の commitFileUpdates を Git Data API の4呼び出しで実装する",
+    "task": "## 背景\n\nこのタスクがGitHub対応で**最大の実装差**（`docs/research/github-support.md`）。\n\nGitLabは `POST /projects/:id/repository/commits` の1呼び出しで、`actions[]` による複数ファイルの\n更新と `start_branch` によるブランチ作成をまとめて行える。GitHubに等価のエンドポイントは無く、\nGit Data API で4呼び出しに分解する:\n\n`git.getRef`（baseBranch のSHA）→ `git.createTree`（`base_tree` ＋ 複数ファイルをインラインの\n`content` で）→ `git.createCommit` → `git.createRef`（featureBranch）\n\n代替の `PUT /repos/{owner}/{repo}/contents/{path}` は**1ファイル＝1コミット**になるため使えない。\n`docs/architecture.md`「MRの単位は `(chartリポジトリ, 設定ユニット)`」が前提にしている\n「1MRは1コミット」が崩れる。\n\n呼び出し元は `steps/apply-updates/sub-steps/submit-merge-request.ts` で、\n「固定ブランチが残っていれば削除して作り直す」手順はそちらが持っている（`lib/` には置かない）。\n\n## 解くべき論点\n\n- **tree にインラインの `content` を載せるか、先に `git.createBlob` してSHAで参照するか。**\n  values.yaml のサイズなら前者で足りるはずだが、根拠を確かめる\n- `tree[].mode` は `100644` 固定でよいか（既存ファイルの更新しか来ない。この前提は\n  `lib/gitlab/commitFileUpdates()` のJSDocにある不変条件と同じ）\n- 4呼び出しのうち途中で失敗したときの扱い。GitLabは1呼び出しなので原子的だが、**GitHubでは\n  中途半端なオブジェクトが残りうる**。ref を作る最後の1歩まで到達しなければブランチは\n  生えないので実害が無いか確かめ、結論を実装のコメントに残す\n- リトライとの相互作用。`withRetry()` が4呼び出しのどの単位に掛かるか\n\n## やること\n\n1. `lib/github/` に `commitFileUpdates` を実装する。シグネチャは `lib/gitlab/` と揃える\n2. **複数ファイルが1コミットにまとまることを検証するテスト**を書く\n   （`git.createTree` に全ファイルが1回で渡ること、`git.createCommit` が1回だけ呼ばれること）\n3. 上の論点のうち「途中で失敗したときの扱い」の結論を、実装のコメントか\n   `docs/architecture.md` に残す（どちらにするかは内容の性質で決める）\n\n## 完了条件\n\n- `pnpm check` が通る（基準: T-223 完了時点の件数 + 追加分）\n- 2ファイル以上を渡したとき `createTree` 1回・`createCommit` 1回・`createRef` 1回になることを\n  検証するテストがある\n- `lib/github/` の13関数がすべて揃っている\n\n## 注意\n\n- 「固定ブランチを削除して作り直す」手順を `lib/github/` に持ち込まない\n  （`submit-merge-request.ts` の責務。`docs/architecture.md`「ブランチの作り直しは\n  サブステップに置き、`lib/gitlab/` は薄いラッパーに保つ」）",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "T-225",
+    "difficulty": "sonnet",
+    "loopable": "Y",
+    "dependencies": ["T-223"],
+    "summary": "lib/github/ のエラー判定（403のレート制限・404の曖昧さ）を実装する",
+    "task": "## 背景\n\n`src/lib/gitlab/errors.ts`（112行）は gitbeaker のエラー構造\n（`cause.response.status`・`GitbeakerTimeoutError`・`GitbeakerRetryError` とそのメッセージ書式）に\n依存しており、GitHub版は全面的に書き直しになる。Octokit は `RequestError.status` を持つ。\n\n**単なる移植ではなく、ステータスの意味が2箇所で変わる**\n（`docs/research/github-support.md`「レート制限とエラーの意味」）:\n\n- **403**: 現在は「トークンが特定プロジェクトへのアクセス権を持たない場合」として\n  非fatal・非リトライに倒している。GitHubでは**一次・二次のレート制限が403または429で返り**、\n  `retry-after` ヘッダが付くことがある\n- **404**: GitHubは権限の無いリソースを404で返しうるため、`projectExists()`（404のときだけ\n  false）が「権限が無い」を「存在しない」と報告する\n\n現在の方針は `docs/architecture.md`「HTTPエラーの経路」と「エラーは『fatalは例外・それ以外は\n戻り値』の2チャネル」が正典で、**401 / 5xx / ネットワーク障害は `FatalError`、それ以外は\n該当chartリポジトリを `ERROR` として処理継続**。この2チャネルの方針自体は変えない。\n\n## 解くべき論点\n\n- **403をどう振り分けるか。** `retry-after` があればリトライ、無ければ権限エラーとして\n  `ERROR`、という形で足りるか。`x-ratelimit-remaining: 0` も見るか\n- **404の曖昧さを実装で吸収するか、ログで伝えるか。** `projectExists()` が false を返したとき\n  「存在しないか、権限が無い」と読めるログにする案がある\n- リトライしてよいステータスの集合（GitLab版は429/502/503/504）をGitHub向けにどう変えるか\n- `utils/retry.ts`（バックオフの仕組み）は forge 非依存なのでそのまま使う。\n  `retry-after` の秒数を尊重する必要があるなら、`withRetry()` の形を変えずに済むか確かめる\n\n## やること\n\n1. `lib/github/` に `isFatalError` / `isRetryableError` / `isNotFoundError` / `extractHttpStatus`\n   相当を実装する\n2. 上の論点の結論を、判断の根拠がコードから読めない部分だけコメントに残す\n   （`docs/coding-standards.md`「コメント」節の作法）\n3. `test/lib/github/errors.test.ts` を書く。`test/lib/gitlab/errors.test.ts`（184行）が手本\n\n## 完了条件\n\n- `pnpm check` が通る（基準: T-224 完了時点の件数 + 追加分）\n- 403（`retry-after` あり／なし）・404・401・5xx・ネットワーク障害のそれぞれについて、\n  fatal / retryable / notFound の判定を検証するテストがある\n- `docs/architecture.md`「HTTPエラーの経路」節が両forgeを説明する記述になっている\n\n## 注意\n\n- 「fatalは例外・それ以外は戻り値」の2チャネル方針を変えない。変える必要が出たら\n  ユーザー承認を取る\n- `utils/retry.ts` を forge 専用にしない（`docs/architecture.md`「`lib/gitlab/` には〜」節の\n  「再試行の仕組みと、再試行してよいかの判断は分ける」）",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "T-226",
+    "difficulty": "sonnet",
+    "loopable": "Y",
+    "dependencies": ["T-220", "T-224", "T-225"],
+    "summary": "forge の選択を env.ts・main.ts・scripts に配線して GitHub 実行を通す",
+    "task": "## 背景\n\nT-223〜T-225 で `lib/github/` が揃うが、この時点では本体パイプラインから呼ばれていない。\n`src/main.ts` の `runProcess()` が `createClient()` を呼んでクライアントを作り、\n`steps/` へ引数で渡している。環境変数は `src/lib/env.ts` の `loadEnvConfig()` が一括で読む。\n\n**1回の実行で GitLab と GitHub を混在させない**（ユーザー判断、2026-09-12）ので、\nforge の選択は環境変数1つで全体に効く。具体的な変数名と既定値は T-220 の決定に従う。\n\n`scripts/` 側も追随が要る:\n\n- `scripts/lint/remote-existence/remote-existence.ts`（`pnpm lint:validate-config:remote` の実体）\n- `scripts/smoke/smoke-fixture.ts`（実機スモークテスト用のフィクスチャ）\n\n## 解くべき論点\n\n- `loadEnvConfig()` が返す `EnvConfig` に forge をどう載せるか。未知の値が来たときのエラー文\n- クライアント生成をどこでするか。現在は `main.ts` が `createClient()` を1回呼んでいる\n- `lib/gitlab/batch-cache.ts` の置き場所（T-220 の決定に従う）\n- `scripts/` 2本を両forge対応にするか、GitLab専用のまま残して「GitHubでは未対応」と\n  明示するか。**後者なら `README.md` に書く**\n\n## やること\n\n1. T-220 の決定に従って `lib/env.ts` に forge の選択を足す\n2. `main.ts` が forge に応じたクライアントと関数群を選ぶようにする\n3. `scripts/` 2本を追随させる（または未対応として明示する）\n4. `test/main.test.ts`・`test/main.dry-run.test.ts`・`test/main.e2e.test.ts` に、\n   **forge を切り替えたときに対応する実装が呼ばれることを検証するテスト**を足す\n\n## 完了条件\n\n- `pnpm check` が通る（基準: T-225 完了時点の件数 + 追加分）\n- forge を GitHub に指定したときに `lib/github/` の関数が呼ばれることを検証するテストがある\n- forge の指定が無いとき・未知の値のときの挙動がテストで固定されている\n- `scripts/` 2本が動く（両forge対応にしたか、未対応を明示したかのどちらか）\n\n## 注意\n\n- **実機のGitHubリポジトリを使った検証はこのタスクに含めない**（ユーザー判断、2026-09-12）。\n  GitLab側の実機スモークも未実施のままなので揃える\n- `src/steps/` に `try`/`catch` を書かない（`docs/architecture.md` の既存方針）",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "T-227",
+    "difficulty": "sonnet",
+    "loopable": "Y",
+    "dependencies": ["T-226"],
+    "summary": "README・requirements・glossary などを両forge対応の記述に追随させる",
+    "task": "## 背景\n\n実装が両forge対応になっても、ドキュメントはGitLab専用のまま残る。着手前の実測で\nGitLab・MR関連の言及は `docs/architecture.md` 119行・`docs/requirements.md` 51行・\n`README.md` 46行・`docs/glossary.md` 30行・`docs/smoke-test.md` 37行・`CLAUDE.md` 8行。\n識別子側は `MergeRequest` 78・`mrTargetBranch` 71（`mrTargetBranch` は**設定フィールド名**）。\n\n## 解くべき論点\n\n- **`mrTargetBranch` を改名するか。** `registry.yaml` のフィールド名なので、変えると\n  `config/` の破壊的変更になる。T-221 で `projectId` の書式は後方互換にしたので、\n  **ここも据え置くのが一貫する**という見方と、用語を揃えるべきという見方がある。\n  据え置くなら、その理由を `docs/glossary.md` に「表記ゆれの注記」として残す\n- MR / PR の語をドキュメントでどう扱うか（両方併記か、中立な語を1つ決めるか）。\n  `docs/glossary.md` が用語の正典\n\n## やること\n\n1. `README.md`（設定・環境変数・CI/CD・タグ形式）を両forge対応の記述にする\n2. `docs/requirements.md` の該当節（2.2・4.4・4.5）と `docs/architecture.md` を追随させる\n3. `docs/glossary.md` に forge 関連の用語を足す（「用語の索引」にも行を足す）\n4. `config.example/README.md` と `CLAUDE.md` の該当箇所を追随させる\n5. `docs/smoke-test.md` に「GitHub での実機検証は未実施」と明記する\n6. **`.claude/skills/maintain-docs` の7つの検査を通す**\n\n## 完了条件\n\n- `pnpm check` が通る（基準: T-226 完了時点の件数）\n- `/maintain-docs` の検査で未対応の指摘が残っていない\n- `docs/` と `README.md` を読んで、GitHubで使う手順が追える状態になっている\n- `docs/research/github-support.md` は**書き換えない**（調査記録は当時のまま残す）\n\n## 注意\n\n- `docs/history/` 配下は触らない\n- `mrTargetBranch` を改名する場合は破壊的変更なので、**着手前にユーザー承認を取る**",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
   }
 ]

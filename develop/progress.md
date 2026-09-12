@@ -8,7 +8,7 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは0件**（T-219 まで完了）。完了タスクは
+**未着手のタスクは T-220〜T-227 の8件**（起点は T-220。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -264,10 +264,24 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**登録済みのタスクは全件 `done`（T-219 完了）。** 次にやることは下の「未解決」の
-**GitHub対応の採否**から拾うか、`develop/direction.md` に新しい指示を書いて `/plan-tasks` で
-タスク化する。調査記録は [`docs/research/github-support.md`](../docs/research/github-support.md)、
-指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（4回目）」。
+**GitHub対応を進めることが決まり（ユーザー判断、2026-09-12）、T-220〜T-227 の8件を登録した。**
+まず **T-220（設計、`opus`、`loopable: "N"`、依存なし）** から。5つの論点をまとめて決めるタスクで、
+**ユーザーがいるセッションで `/next-task` を直接呼ぶ必要がある**（`/loop` では拾われない）。
+T-221（`ProjectId` の中立化）は依存なしなので T-220 と並行して進められる。
+
+残る6件（T-222〜T-227）は `dependencies` で後ろに置いてあり、すべて `loopable: "Y"`。
+T-220 が終われば `/loop /next-task` で流せる。
+
+前提（着手前にユーザーが決めた）:
+
+- **GitLab と GitHub の両方に対応するが、1回の実行で混在はさせない。** forge の選択は
+  環境変数1つで全体に効く（chartリポジトリ単位の指定にはしない）
+- `config` の `projectId` はスキーマで**数値と文字列の両方を受ける**（既存の `config/` を
+  書き換えない）
+- 検証範囲は **`pnpm check` まで**。GitHub実機のスモークは別途
+
+調査記録は [`docs/research/github-support.md`](../docs/research/github-support.md)、指示メモは
+[`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（4回目・5回目）」。
 
 T-212 の提案17件はすべて反映し終えた（T-214〜T-218。ユーザーが採否を決め、L-5はMIT・
 D-4は「npm配布しないので正典を実装に合わせる」で確定。残り15件は全件採用）。
@@ -304,7 +318,7 @@ T-213（`parseArgs` 化）は
 
 ## 未解決
 
-- **GitHub対応をやるかどうかが未定**（2026-09-12）。T-219 の計測で「`ProjectId` の中立化は
+- ~~**GitHub対応をやるかどうかが未定**~~ **やると決定**（ユーザー判断、2026-09-12。T-220〜T-227 を登録）。T-219 の計測で「`ProjectId` の中立化は
   呼び出し側への波及という意味では障害にならない」ことは確かめた（`src/` の影響は
   `lib/config/schema.ts` の3箇所）。**残る判断は2つ**:
   - YAMLの `projectId: 100` を文字列に寄せるか（`config/` の破壊的変更）、スキーマで両方受けるか
