@@ -8,7 +8,7 @@ import {
   loadEnvConfig,
   loadOptionalEnv,
   parseConcurrencyLimit,
-  parseConfigDirPath,
+  parseConfigRootPath,
   parseTargetChart,
   parseTargetUnits,
   validateGitlabUrl,
@@ -70,7 +70,7 @@ describe("validateGitlabUrl", () => {
   })
 })
 
-describe("parseConfigDirPath", () => {
+describe("parseConfigRootPath", () => {
   let tmpDir = ""
 
   afterEach(() => {
@@ -79,23 +79,23 @@ describe("parseConfigDirPath", () => {
   })
 
   it("未指定のとき デフォルトの config ディレクトリを返す", () => {
-    expect(parseConfigDirPath(undefined)).toBe("config")
+    expect(parseConfigRootPath(undefined)).toBe("config")
   })
 
   it("実在するディレクトリを指定したときそのまま返す", () => {
     tmpDir = mkdtempSync(join(process.cwd(), "test-tmp-"))
     const relativePath = tmpDir.slice(process.cwd().length + 1)
-    expect(parseConfigDirPath(relativePath)).toBe(relativePath)
+    expect(parseConfigRootPath(relativePath)).toBe(relativePath)
   })
 
   it("パストラバーサルのとき例外をスローし、メッセージに CONFIG_PATH と指定値を含む", () => {
-    expect(() => parseConfigDirPath("../../etc/passwd")).toThrow("CONFIG_PATH")
-    expect(() => parseConfigDirPath("../../etc/passwd")).toThrow("../../etc/passwd")
+    expect(() => parseConfigRootPath("../../etc/passwd")).toThrow("CONFIG_PATH")
+    expect(() => parseConfigRootPath("../../etc/passwd")).toThrow("../../etc/passwd")
   })
 
   it("存在しないディレクトリのとき例外をスローし、メッセージに CONFIG_PATH と指定値を含む", () => {
-    expect(() => parseConfigDirPath("config-does-not-exist-xyz")).toThrow("CONFIG_PATH")
-    expect(() => parseConfigDirPath("config-does-not-exist-xyz")).toThrow(
+    expect(() => parseConfigRootPath("config-does-not-exist-xyz")).toThrow("CONFIG_PATH")
+    expect(() => parseConfigRootPath("config-does-not-exist-xyz")).toThrow(
       "config-does-not-exist-xyz",
     )
   })
@@ -196,7 +196,7 @@ describe("loadEnvConfig", () => {
     expect(loadEnvConfig()).toEqual({
       gitlabUrl: "https://gitlab.example.com",
       accessToken: "token",
-      configDirPath: "config",
+      configRootPath: "config",
       concurrencyLimit: 3,
       dryRun: false,
       targetChart: undefined,

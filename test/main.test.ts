@@ -7,7 +7,7 @@ vi.mock("../src/utils/logger.js", () => ({
 }))
 
 import { loadConfig } from "../src/lib/config/config.js"
-import { DEFAULT_CONFIG_DIR_PATH } from "../src/lib/config/config.js"
+import { DEFAULT_CONFIG_ROOT_PATH } from "../src/lib/config/config.js"
 import type { EnvConfig } from "../src/lib/env.js"
 import {
   commitFileUpdates,
@@ -28,7 +28,7 @@ import { makeApp, makeConfigUnit, makeHttpError, mockGitlab } from "./helpers.js
 const env: EnvConfig = {
   gitlabUrl: toGitLabUrl("https://gitlab.test"),
   accessToken: toAccessToken("test-token"),
-  configDirPath: DEFAULT_CONFIG_DIR_PATH,
+  configRootPath: DEFAULT_CONFIG_ROOT_PATH,
   concurrencyLimit: 3,
   dryRun: false,
   targetChart: undefined,
@@ -99,7 +99,7 @@ describe("run", () => {
 
   it("loadConfig に CONFIG_PATH と TARGET_CHART/TARGET_UNITS由来のtargetを渡す", async () => {
     await run(env)
-    expect(loadConfig).toHaveBeenCalledWith(DEFAULT_CONFIG_DIR_PATH, {
+    expect(loadConfig).toHaveBeenCalledWith(DEFAULT_CONFIG_ROOT_PATH, {
       chartDirName: undefined,
       units: undefined,
     })

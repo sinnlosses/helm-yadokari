@@ -29,7 +29,7 @@ import {
   toAccessToken,
   toConfigUnitPath,
   toGitLabUrl,
-  toConfigDirPath,
+  toConfigRootPath,
 } from "../src/types/types.js"
 import { makeHttpError } from "./helpers.js"
 
@@ -102,7 +102,7 @@ const VALUES_YAML_SHARED_APP =
 const env: EnvConfig = {
   gitlabUrl: toGitLabUrl("https://gitlab.test"),
   accessToken: toAccessToken("test-token"),
-  configDirPath: toConfigDirPath("config"),
+  configRootPath: toConfigRootPath("config"),
   concurrencyLimit: 3,
   dryRun: false,
   targetChart: undefined,

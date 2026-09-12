@@ -22,8 +22,8 @@ type UnitSegments = readonly string[]
  * `unitPath`一覧を集める（階層に問題があれば例外をスローする）。`registry.yaml`が無い
  * ディレクトリは配下ごと無視する（走査対象のchartとみなさない）。
  */
-export function findConfigUnits(configDirPath: LocalPath, chartDir: string): readonly ChartDirUnits[] {
-  const chartDirPath = toLocalPath(join(configDirPath, chartDir))
+export function findConfigUnits(configRootPath: LocalPath, chartDir: string): readonly ChartDirUnits[] {
+  const chartDirPath = toLocalPath(join(configRootPath, chartDir))
   if (!existsSync(join(chartDirPath, REGISTRY_YAML_FILE_NAME))) return []
   return [
     {

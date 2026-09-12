@@ -4,12 +4,12 @@ import { parseConfigUnitPath } from "../domain/config-unit.js"
 import type {
   AccessToken,
   ChartDirName,
-  ConfigDirPath,
+  ConfigRootPath,
   ConfigUnitPath,
   GitLabUrl,
 } from "../types/types.js"
-import { toAccessToken, toChartDirName, toConfigDirPath, toGitLabUrl } from "../types/types.js"
-import { DEFAULT_CONFIG_DIR_PATH } from "./config/config.js"
+import { toAccessToken, toChartDirName, toConfigRootPath, toGitLabUrl } from "../types/types.js"
+import { DEFAULT_CONFIG_ROOT_PATH } from "./config/config.js"
 
 export function loadEnv(key: string): string {
   const value = process.env[key]
@@ -29,21 +29,21 @@ export function validateGitlabUrl(raw: string): GitLabUrl {
 
 /**
  * CONFIG_PATH は `loadConfig()`（`lib/config/config.ts`）が読む設定ディレクトリの
- * ルートパス（`<configDirPath>/<chartディレクトリ>/registry.yaml` という2階層固定の構成を
- * 走査する起点）。単一ファイルではなくディレクトリを指すため、フィールド名・変数名は
- * 常に「ディレクトリ」であることが分かる `configDirPath` を使う（`CONFIG_PATH`という
+ * ルートパス（`<configRootPath>/<chartディレクトリ>/registry.yaml` という2階層固定の構成を
+ * 走査する起点）。`config.yaml` があるディレクトリ（設定ユニットのディレクトリ）と紛れないよう、
+ * フィールド名・変数名は `config/` の最上位だと分かる `configRootPath` を使う（`CONFIG_PATH`という
  * 環境変数名自体は外部インターフェースのため変えない）。
  *
- * パストラバーサル検証は`toConfigDirPath()`が行う。ディレクトリとして実在することは
+ * パストラバーサル検証は`toConfigRootPath()`が行う。ディレクトリとして実在することは
  * そちらでは見ないのでここで検証する。無いままだと後段の`listSubdirectories()`が
  * 生の`ENOENT`を投げるだけで、どの環境変数が原因か分からないため。
  */
-export function parseConfigDirPath(raw: string | undefined): ConfigDirPath {
-  const configDirPath = toConfigDirPath(raw ?? DEFAULT_CONFIG_DIR_PATH)
-  if (!existsSync(configDirPath) || !statSync(configDirPath).isDirectory()) {
-    throw new Error(`CONFIG_PATH で指定されたディレクトリが存在しません: "${configDirPath}"`)
+export function parseConfigRootPath(raw: string | undefined): ConfigRootPath {
+  const configRootPath = toConfigRootPath(raw ?? DEFAULT_CONFIG_ROOT_PATH)
+  if (!existsSync(configRootPath) || !statSync(configRootPath).isDirectory()) {
+    throw new Error(`CONFIG_PATH で指定されたディレクトリが存在しません: "${configRootPath}"`)
   }
-  return configDirPath
+  return configRootPath
 }
 
 export function parseConcurrencyLimit(raw: string | undefined): number {
@@ -73,7 +73,7 @@ export function parseTargetUnits(raw: string | undefined): readonly ConfigUnitPa
 export type EnvConfig = {
   readonly gitlabUrl: GitLabUrl
   readonly accessToken: AccessToken
-  readonly configDirPath: ConfigDirPath
+  readonly configRootPath: ConfigRootPath
   readonly concurrencyLimit: number
   readonly dryRun: boolean
   readonly targetChart: ChartDirName | undefined
@@ -86,14 +86,14 @@ export type EnvConfig = {
  * モジュールのトップレベルではなく関数にしてあるのは、`process.env`に触れるのを
  * 呼び出した瞬間だけに限定するため。トップレベルの定数にすると、このファイルを
  * import しただけで（＝環境変数を必要としない`pnpm lint:validate-config`や、
- * 各テストからも）検証が走ってしまう。`parseConfigDirPath()`のディレクトリ存在チェック
+ * 各テストからも）検証が走ってしまう。`parseConfigRootPath()`のディレクトリ存在チェック
  * （ファイルシステムへのアクセス）も同じ理由でここでしか走らせない。
  */
 export function loadEnvConfig(): EnvConfig {
   return {
     gitlabUrl: validateGitlabUrl(loadEnv("GITLAB_URL")),
     accessToken: toAccessToken(loadEnv("ACCESS_TOKEN")),
-    configDirPath: parseConfigDirPath(loadOptionalEnv("CONFIG_PATH")),
+    configRootPath: parseConfigRootPath(loadOptionalEnv("CONFIG_PATH")),
     concurrencyLimit: parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT")),
     dryRun: loadOptionalEnv("DRY_RUN") === "true",
     targetChart: parseTargetChart(loadOptionalEnv("TARGET_CHART")),

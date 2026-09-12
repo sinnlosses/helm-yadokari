@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 
 import { loadConfig } from "../../../src/lib/config/config.js"
 import type { ConfigUnitPath } from "../../../src/types/types.js"
-import { toChartDirName, toConfigDirPath, toConfigUnitPath } from "../../../src/types/types.js"
+import { toChartDirName, toConfigRootPath, toConfigUnitPath } from "../../../src/types/types.js"
 import { configYaml, registryYaml, useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
@@ -282,7 +282,7 @@ describe("loadConfig（locationsの複数指定）", () => {
 
 describe("loadConfig（存在しないパス）", () => {
   it("ディレクトリが存在しないとき例外をスローする", () => {
-    expect(() => loadConfig(toConfigDirPath(join(dir.path, "nonexistent")))).toThrow()
+    expect(() => loadConfig(toConfigRootPath(join(dir.path, "nonexistent")))).toThrow()
   })
 })
 

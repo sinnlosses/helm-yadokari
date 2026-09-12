@@ -12,7 +12,7 @@ vi.mock("../src/utils/logger.js", () => ({
 
 import { Gitlab } from "@gitbeaker/rest"
 
-import { DEFAULT_CONFIG_DIR_PATH, loadConfig } from "../src/lib/config/config.js"
+import { DEFAULT_CONFIG_ROOT_PATH, loadConfig } from "../src/lib/config/config.js"
 import type { EnvConfig } from "../src/lib/env.js"
 import { run } from "../src/main.js"
 import { toAccessToken, toGitLabUrl } from "../src/types/types.js"
@@ -23,7 +23,7 @@ const OLD_TAG = "main-build-at-20251231-000000"
 const env: EnvConfig = {
   gitlabUrl: toGitLabUrl("https://gitlab.test"),
   accessToken: toAccessToken("test-token"),
-  configDirPath: DEFAULT_CONFIG_DIR_PATH,
+  configRootPath: DEFAULT_CONFIG_ROOT_PATH,
   concurrencyLimit: 3,
   dryRun: true,
   targetChart: undefined,

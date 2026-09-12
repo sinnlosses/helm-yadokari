@@ -1,8 +1,8 @@
-import { DEFAULT_CONFIG_DIR_PATH, loadConfig } from "../../src/lib/config/config.js"
+import { DEFAULT_CONFIG_ROOT_PATH, loadConfig } from "../../src/lib/config/config.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
 import type { Config } from "../../src/types/types.js"
-import { toConfigDirPath } from "../../src/types/types.js"
+import { toConfigRootPath } from "../../src/types/types.js"
 import { validateRemoteExistence } from "./remote-existence/remote-existence.js"
 
 // config/ の検証スクリプト。2つのモードを持つ:
@@ -12,8 +12,8 @@ import { validateRemoteExistence } from "./remote-existence/remote-existence.js"
 
 const args = process.argv.slice(2)
 const remote = args.includes("--remote")
-const configDirPath = toConfigDirPath(
-  args.find((arg) => !arg.startsWith("--")) ?? DEFAULT_CONFIG_DIR_PATH,
+const configRootPath = toConfigRootPath(
+  args.find((arg) => !arg.startsWith("--")) ?? DEFAULT_CONFIG_ROOT_PATH,
 )
 
 function fail(message: string): never {
@@ -23,7 +23,7 @@ function fail(message: string): never {
 
 function loadLocally(): Config {
   try {
-    return loadConfig(configDirPath)
+    return loadConfig(configRootPath)
   } catch (err) {
     fail(err instanceof Error ? err.message : String(err))
   }
@@ -31,7 +31,7 @@ function loadLocally(): Config {
 
 const { configUnits } = loadLocally()
 const appCount = configUnits.reduce((sum, configUnit) => sum + configUnit.apps.length, 0)
-console.log(`config OK: ${configUnits.length} 設定ユニット, ${appCount} apps (${configDirPath})`)
+console.log(`config OK: ${configUnits.length} 設定ユニット, ${appCount} apps (${configRootPath})`)
 
 if (remote) {
   // 環境変数（GITLAB_URL/ACCESS_TOKEN）を要求するのは --remote のときだけなので、

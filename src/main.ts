@@ -15,7 +15,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
     gitlabUrl: env.gitlabUrl,
     dryRun: env.dryRun,
     concurrencyLimit: env.concurrencyLimit,
-    configDirPath: env.configDirPath,
+    configRootPath: env.configRootPath,
     targetChart: env.targetChart,
     targetUnits: env.targetUnits,
   })
@@ -38,7 +38,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
 async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult, number>> {
   const gitlab = createClient(env.gitlabUrl, env.accessToken)
   const gitlabCache = createGitlabBatchCache(gitlab)
-  const { configUnits } = loadConfig(env.configDirPath, {
+  const { configUnits } = loadConfig(env.configRootPath, {
     chartDirName: env.targetChart,
     units: env.targetUnits,
   })

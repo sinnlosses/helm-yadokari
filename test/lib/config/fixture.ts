@@ -3,8 +3,8 @@ import { join } from "node:path"
 
 import { afterEach, beforeEach } from "vitest"
 
-import type { ConfigDirPath } from "../../../src/types/types.js"
-import { toConfigDirPath } from "../../../src/types/types.js"
+import type { ConfigRootPath } from "../../../src/types/types.js"
+import { toConfigRootPath } from "../../../src/types/types.js"
 
 /**
  * `loadConfig()` のテスト用に、テストごとの使い捨て `config/` ディレクトリを用意する。
@@ -13,7 +13,7 @@ import { toConfigDirPath } from "../../../src/types/types.js"
  */
 export type ConfigDir = {
   /** 現在のテスト用ディレクトリの絶対パス */
-  readonly path: ConfigDirPath
+  readonly path: ConfigRootPath
   readonly writeFile: (relativePath: string, content: string) => void
   readonly writeRegistryYaml: (chartDir: string, registry: string) => void
   readonly writeConfigYaml: (chartDir: string, unitPath: string, config: string) => void
@@ -39,7 +39,7 @@ export function useConfigDir(): ConfigDir {
 
   return {
     get path() {
-      return toConfigDirPath(tmpDir)
+      return toConfigRootPath(tmpDir)
     },
     writeFile,
     writeRegistryYaml: (chartDir, registry) => writeFile(`${chartDir}/registry.yaml`, registry),

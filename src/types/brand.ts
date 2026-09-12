@@ -80,20 +80,20 @@ export function toLocalPath(s: string): LocalPath {
   return s as LocalPath
 }
 
-declare const configDirPathBrand: unique symbol
+declare const configRootPathBrand: unique symbol
 /**
  * `loadConfig()`が読む設定ディレクトリのルート（`CONFIG_PATH`・コマンドライン引数由来）。
  * `LocalPath`の部分型なので`join()`や`listSubdirectories()`にはそのまま渡せる。
  */
-export type ConfigDirPath = LocalPath & { readonly [configDirPathBrand]: never }
+export type ConfigRootPath = LocalPath & { readonly [configRootPathBrand]: never }
 /**
- * `ConfigDirPath`の唯一の生成経路。cwd()配下に収まっていることをここで検証するので、
- * パストラバーサルを含むパスが`ConfigDirPath`になることはない。label はエラーメッセージ内で
+ * `ConfigRootPath`の唯一の生成経路。cwd()配下に収まっていることをここで検証するので、
+ * パストラバーサルを含むパスが`ConfigRootPath`になることはない。label はエラーメッセージ内で
  * そのパスを何と呼ぶか（既定は環境変数名の`CONFIG_PATH`）。
  */
-export function toConfigDirPath(s: string, label = "CONFIG_PATH"): ConfigDirPath {
+export function toConfigRootPath(s: string, label = "CONFIG_PATH"): ConfigRootPath {
   assertSafePath(s, label)
-  return s as ConfigDirPath
+  return s as ConfigRootPath
 }
 
 declare const chartDirNameBrand: unique symbol

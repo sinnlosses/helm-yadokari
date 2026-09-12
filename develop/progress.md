@@ -1,16 +1,27 @@
 # 現在の状態
 
-最終更新: 2026-09-12（**T-198〜T-207 をすべて完了**し、**T-208・T-209 を新規登録**。`/grilling` で命名を33問・10ラウンド
+最終更新: 2026-09-12（**T-198〜T-207 をすべて完了**し、**T-208・T-209 を新規登録して T-208 を完了**。`/grilling` で命名を33問・10ラウンド
 かけて洗い直し、`docs/architecture.md` の命名規約4件を書き換えたうえで、正典・コード・
 `config/`・ログ・`README.md` まで改名31件を反映し終えた。**`done` 15件をアーカイブ済み**。
 2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは2件**（T-208・T-209。設定まわりの命名。下の「次にやること」）。完了タスクは
+**未着手のタスクは1件**（T-209。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-12 設定まわりの命名
+
+- **T-208**: `ConfigDirPath`→`ConfigRootPath` 系5件を15ファイル・71/71行で改名（純粋な改名）。
+  `configDirPath` が「`config/` の最上位」か「`config.yaml` があるディレクトリ」か読めない、
+  というユーザーの指摘が発端。**T-122 で `configPath`→`configDirPath` にした判断を一部覆した**形で、
+  当時の論点2には `configRootPath` が候補として挙がっていたが落とした理由が記録されておらず、
+  T-122 の背景自身が実体を「設定ディレクトリの**ルートパス**」と書いていた。`run_start` ログの
+  項目名も追随（承認済み）。`CONFIG_PATH` 環境変数は据え置き。受け入れで `README.md` の
+  `CONFIG_PATH` の説明2行も直した——**識別子だけ直してもユーザーが読む側に同じ曖昧さが残る**
+  ため。`pnpm check` 通過: 386 Tests
 
 ### 2026-09-12 `docs/glossary.md` の整理
 
@@ -110,20 +121,16 @@
 
 ## 次にやること
 
-**設定まわりの命名を直す2件**（2026-09-12のチャットで合意。指示メモは
+**設定まわりの命名を直す残り1件**（2026-09-12のチャットで合意。指示メモは
 [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（2回目）」）。
-**T-208 → T-209 の順**で、両方が `src/lib/config/config.ts` と `docs/architecture.md:624` を触る。
+**T-208 は完了済み**（上の「完了したこと」）。残るは T-209 の1件。
 
-- **T-208**（`sonnet`、依存なし）: `ConfigDirPath` → `ConfigRootPath` 系5件の改名。
-  `configDirPath` が「`config/` の最上位」か「`config.yaml` があるディレクトリ」か読めない、
-  というユーザーの指摘。`run_start` ログのフィールド名も追随させる（**承認済み**）。
-  環境変数 `CONFIG_PATH` は据え置き
-- **T-209**（`opus`、T-208依存）: ルートの `Config` → `LoadedConfig` と型の置き場所の見直し。
+- **T-209**（`opus`、T-208依存＝解決済み）: ルートの `Config` → `LoadedConfig` と型の置き場所の見直し。
   `docs/architecture.md` が `Config` を「ドメイン語彙の例」に挙げているのに T-199 は
   glossaryに足さないと判断済みという**矛盾の解消**を含む
 
 **`ConfigUnit` の `unit` を外す案は検討して却下した**（ユーザー判断、2026-09-12）。`Config` が
-ルートの型で埋まっている・`ConfigUnitPath` が `ConfigDirPath` と同語になる・`unit` が
+ルートの型で埋まっている・`ConfigUnitPath` が `ConfigRootPath` と同語になる・`unit` が
 「並列処理とMR発行の粒度」を表していて外すと `chartリポジトリ = config` と誤読される、の3点。
 識別子は約831箇所/62ファイルで T-203 の一括改名の直後でもある。**`ConfigUnit` 系は現状維持。**
 

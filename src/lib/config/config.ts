@@ -1,5 +1,5 @@
-import type { Config, ConfigDirPath, LocalPath } from "../../types/types.js"
-import { toConfigDirPath } from "../../types/types.js"
+import type { Config, ConfigRootPath, LocalPath } from "../../types/types.js"
+import { toConfigRootPath } from "../../types/types.js"
 import { listSubdirectories } from "../../utils/fs.js"
 import type { ChartDirUnits } from "./find-config-units.js"
 import { findConfigUnits } from "./find-config-units.js"
@@ -9,17 +9,17 @@ import { NO_TARGET, assertTargetMatched, selectChartDirs, selectTargetConfigUnit
 import { validateTagFormatConsistency } from "./validate.js"
 
 /** `CONFIG_PATH`・コマンドライン引数のどちらも省略されたときに読む設定ディレクトリ */
-export const DEFAULT_CONFIG_DIR_PATH: ConfigDirPath = toConfigDirPath("config")
+export const DEFAULT_CONFIG_ROOT_PATH: ConfigRootPath = toConfigRootPath("config")
 
 /**
  * `config/<chartディレクトリ>/registry.yaml` + `config/<chartディレクトリ>/<unitPath>/config.yaml`
  * というディレクトリ構成を読み込む。`target`（`TARGET_CHART` / `TARGET_UNITS`）を明示的に
  * 指定したときだけ、該当が無ければ例外をスローする（未指定時は0件でもエラーにしない）。
  */
-export function loadConfig(configDirPath: ConfigDirPath, target: ConfigTarget = NO_TARGET): Config {
-  const allChartDirs = listSubdirectories(configDirPath)
+export function loadConfig(configRootPath: ConfigRootPath, target: ConfigTarget = NO_TARGET): Config {
+  const allChartDirs = listSubdirectories(configRootPath)
 
-  const targetUnits = selectTargetUnits(configDirPath, allChartDirs, target)
+  const targetUnits = selectTargetUnits(configRootPath, allChartDirs, target)
   const configUnits = targetUnits.flatMap(loadConfigUnits)
   validateTagFormatConsistency(configUnits)
   assertTargetMatched(target, allChartDirs, configUnits)
@@ -33,11 +33,11 @@ export function loadConfig(configDirPath: ConfigDirPath, target: ConfigTarget = 
  * エラーメッセージにも要るため。
  */
 function selectTargetUnits(
-  configDirPath: LocalPath,
+  configRootPath: LocalPath,
   allChartDirs: readonly string[],
   target: ConfigTarget,
 ): readonly ChartDirUnits[] {
   const chartDirs = selectChartDirs(allChartDirs, target)
-  const chartUnitsList = chartDirs.flatMap((dir) => findConfigUnits(configDirPath, dir))
+  const chartUnitsList = chartDirs.flatMap((dir) => findConfigUnits(configRootPath, dir))
   return selectTargetConfigUnits(chartUnitsList, target)
 }
