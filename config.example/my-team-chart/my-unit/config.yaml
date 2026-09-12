@@ -1,0 +1,14 @@
+# 深さ1の設定ユニット（最小構成）。unitPath は `my-unit` になり、
+# 固定ブランチ `feature/yadokari/my-unit` で MR が作られる。
+helm:
+  branchRef: release/2026-q1 # Helmの向き先ブランチ。mrTargetBranch とは別物
+  locations:
+    - valuesPath: charts/my-app/values.yaml
+      anchor: myAppTargetBranch
+apps:
+  - projectId: 1001 # registry.yaml の appSpecs[] と projectId・projectName を一致させる
+    projectName: my-app
+    branchToSync: main # このappで追跡するブランチ
+    locations:
+      - valuesPath: charts/my-app/values.yaml
+        anchor: myAppVersion

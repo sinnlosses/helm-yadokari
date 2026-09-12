@@ -1,0 +1,17 @@
+# chartリポジトリ単位の設定。このディレクトリ配下の全設定ユニットで共有する。
+chartToUpdate:
+  projectId: 1000 # values.yaml を更新する chartリポジトリの GitLab プロジェクトID
+  projectName: my-team-chart
+  mrTargetBranch: main # 値定義ブランチ。MRはこのブランチ宛てに作られる
+
+# 配下の設定ユニットが追跡するソースリポジトリの台帳。
+# tagFormat は必須で、{branch} / {date} / {time} を1回ずつ含める必要がある。
+# ここに書いただけでどの設定ユニットからも参照されていないappはエラーにならない
+# （一時的に更新対象から外している状態を許すため）。
+appSpecs:
+  - projectId: 1001
+    projectName: my-app
+    tagFormat: "{branch}-build-at-{date}-{time}"
+  - projectId: 1002
+    projectName: another-app
+    tagFormat: "{date}-{time}-{branch}"

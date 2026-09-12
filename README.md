@@ -111,8 +111,9 @@ cp .env.example .env
 # → GITLAB_URL / ACCESS_TOKEN を編集する（未設定だと `pnpm dev` が起動前に落ちる）
 
 # 3. 設定ファイルを作成（config/ 配下の構成は下記「設定」を参照）
-mkdir -p config/my-team-chart/my-unit   # 深さ2も可（例: config/my-team-chart/my-group/my-unit）
-# → registry.yaml / config.yaml を作成する（最小サンプルは下記「config/」参照。
+cp -r config.example/my-team-chart config/my-team-chart   # 深さ1・深さ2の両方を含むサンプル
+# → projectId / ブランチ名 / valuesPath / anchor を実物に書き換える
+#   （各ファイルが何を例示しているかは config.example/README.md、
 #   完全な記述例は docs/requirements.md 4.4節）
 # 同梱の config/yadokari-smoke-test-chart* は作者の検証用configなので、
 # 消すか TARGET_CHART=my-team-chart のように絞り込みを指定してから実行する
@@ -219,7 +220,8 @@ Helmの向き先ブランチとは、values.yaml のパラメータを受け取�
 
 各ファイルの記述例・フィールドの完全な仕様・制約（`config.yaml`/`registry.yaml` 間の対応チェック、
 重複禁止など、設定ミスは実行前に例外で停止します）は [`docs/requirements.md`](./docs/requirements.md)
-の「4.4 アプリの登録・設定」が正典です（`config/yadokari-smoke-test-chart/` にも実物の記述例があります）。
+の「4.4 アプリの登録・設定」が正典です（コピー用のサンプルは
+[`config.example/`](./config.example/README.md)、実物の記述例は `config/yadokari-smoke-test-chart/`）。
 
 最小構成の例（必須フィールドのみ）:
 
@@ -260,6 +262,10 @@ pnpm lint:validate-config
 # 上記に加えて、projectId・ブランチ・valuesPath・アンカーが GitLab 上に実在するかを検証
 # （読み取りのみ。タグ・ブランチ・MR は作りません。GITLAB_URL / ACCESS_TOKEN が必要）
 pnpm lint:validate-config:remote
+
+# config.example/ のサンプルを同じ文法・整合性チェックにかける（pnpm check にも含まれる）
+# スキーマを変えたときにサンプルが古いままになるのを防ぐのが目的
+pnpm lint:validate-config:example
 ```
 
 存在しないアンカーやブランチを指定した設定は、実行時に該当する設定ユニットが `ERROR` になるまで
@@ -355,6 +361,7 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 ├── test/                   # テスト（src/ と同じディレクトリ構成）
 ├── scripts/                # config/ の検証・スモークテスト用スクリプト
 ├── config/                 # 対象アプリ設定（定期実行の登録 ＋ 手動スモークテスト用の設定を同居）
+├── config.example/         # config/ のコピー用サンプル（実行対象ではない）
 ├── docs/                   # 要件定義・アーキテクチャ・用語集など
 ├── develop/                # 進捗管理（tasks.json・progress.md・direction.md）。機能には関係しない作業用
 ├── .gitlab-ci.yml          # CI ジョブ定義

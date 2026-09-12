@@ -1,0 +1,26 @@
+# 深さ2の設定ユニット。unitPath は `my-tenant/client-a`。
+# 同じchartリポジトリ配下に深さ1と深さ2を混在させてよい（入れ子でなければ衝突しない）。
+helm:
+  branchRef: release/2026-q1
+  # apps[].locations[] に出てくる valuesPath は、1つ残らずここでカバーする必要がある
+  locations:
+    - valuesPath: charts/my-tenant/client-a/values.yaml
+      anchor: clientATargetBranch
+    - valuesPath: charts/my-tenant/client-a/values-extra.yaml
+      anchor: clientATargetBranchExtra
+apps:
+  # 1つのappの最新タグを複数の valuesPath へまとめて反映する例
+  - projectId: 1001
+    projectName: my-app
+    branchToSync: develop # 追跡ブランチは設定ユニットごとに変えてよい
+    locations:
+      - valuesPath: charts/my-tenant/client-a/values.yaml
+        anchor: myAppVersion
+      - valuesPath: charts/my-tenant/client-a/values-extra.yaml
+        anchor: myAppVersionExtra
+  - projectId: 1002
+    projectName: another-app
+    branchToSync: main
+    locations:
+      - valuesPath: charts/my-tenant/client-a/values.yaml
+        anchor: anotherAppVersion
