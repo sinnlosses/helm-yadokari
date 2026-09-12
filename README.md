@@ -21,7 +21,7 @@
 
 複数チーム・複数アプリを Helm chart で運用していると、アプリの新バージョンが出るたびに
 `values.yaml` のイメージタグを手で書き換えて MR を作るのが手間になりがちです。
-**helm-yadokari** は GitLab CI のスケジュールパイプラインから定期実行することで、
+**helm-yadokari** は GitLab CI の pipeline schedules から定期実行することで、
 chart リポジトリ単位に更新をまとめた MR 作成を自動化します。
 
 要件・設計の詳細は [`docs/requirements.md`](./docs/requirements.md) を参照してください。
@@ -131,7 +131,7 @@ pnpm dev
 
 ```mermaid
 flowchart TD
-    A[⏰ スケジュールパイプライン起動] --> B[config/ を再帰的に読み込む]
+    A[⏰ pipeline schedules で起動] --> B[config/ を再帰的に読み込む]
     B --> C[["(chart, 設定ユニット)単位で並列処理"]]
     C --> D{オープン中のMRあり?}
     D -->|あり| E1["⏭ SKIPPED（mr_exists）"]
@@ -247,7 +247,9 @@ OFF にしてください（詳細は下記「CI/CD」章と `.gitlab-ci.yml` �
 
 ## CI/CD
 
-`.gitlab-ci.yml` にジョブが定義されています。GitLab の **スケジュールパイプライン** として設定することで定期実行できます。
+`.gitlab-ci.yml` にジョブが定義されています。GitLab の **pipeline schedules** として設定することで定期実行できます。
+
+`renovate` ジョブは`RENOVATE=true`のときのみ実行される、このCLI自体の依存パッケージ更新用ジョブです。本体の更新処理を実行する`update-app-versions`ジョブとは無関係な別機能ですが、名前が似ており紛らわしいので注意してください。
 
 ### セットアップ手順
 

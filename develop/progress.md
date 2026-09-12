@@ -5,13 +5,21 @@
 **T-201〜T-207 の7タスクとして登録**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは6件**（T-202 → T-207 の一直線。T-206 のみ `opus`）。完了タスクは
+**未着手のタスクは5件**（T-203 → T-207 の一直線。T-206 のみ `opus`）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 `docs/glossary.md` の整理
+
+- **T-202**: 用語集を新しい規約に合わせて全面更新（38項→36項）。内部の型6件を日本語見出しにし、
+  `config.yaml` に打ち込む語（YAMLキー・環境変数・ファイル名）は識別子見出しのまま残した。
+  **`chartリポジトリ / chartAndApps` の結合見出しを解体**し、`ConfigUnit` の集約説明を
+  「設定ユニット」へ統合したことで、範囲の違いを説明していた6行がまるごと不要になった。
+  受け入れで、サブエージェントが「本来この用語集の対象外」と自分で書きながら載せていた
+  `ConfigUnitScope` の項を削除している（冒頭の方針が明確に除外している語彙）。
+  `pnpm check` 通過: 385 Tests
 
 - **T-201**: `docs/architecture.md` の命名規約4件を書き換えた。規約②は「落とさない」から
   **「修飾語があれば落とす」へ反転**し、`previousBranch` の名指し除外を削除。規約①は多義を
@@ -66,15 +74,14 @@
 
 ## 次にやること
 
-**未着手は T-202 → T-207 の6件**（命名の洗い直しの実施、登録は 2026-09-12）。
+**未着手は T-203 → T-207 の5件**（命名の洗い直しの実施、登録は 2026-09-12）。
 **順序に意味がある**（正典が先、コードが後）ので、依存を飛ばさないこと:
 
-1. **T-202**（`sonnet`）: `docs/glossary.md` を新しい規約と決定に合わせて全面更新
-2. **T-203**（`sonnet`）: `ChartAndApps`→`ConfigUnit` と `Chart*` 型ファミリの整理（波及106件超）
-3. **T-204**（`sonnet`）: `AnchorTarget`→`AnchorLocation` と YAMLキー `chart[]`→`locations[]`
-4. **T-205**（`sonnet`）: `previous*`→`current*` とログ項目、`helm.branchToSync`→`helm.branchName`
-5. **T-206**（`opus`）: `HelmTargetBranchUpdate.newBranch` の削除。**これだけ設計変更**
-6. **T-207**（`haiku`）: `ParsedTag.builtAt`→`taggedAt`
+1. **T-203**（`sonnet`）: `ChartAndApps`→`ConfigUnit` と `Chart*` 型ファミリの整理（波及106件超）
+2. **T-204**（`sonnet`）: `AnchorTarget`→`AnchorLocation` と YAMLキー `chart[]`→`locations[]`
+3. **T-205**（`sonnet`）: `previous*`→`current*` とログ項目、`helm.branchToSync`→`helm.branchName`
+4. **T-206**（`opus`）: `HelmTargetBranchUpdate.newBranch` の削除。**これだけ設計変更**
+5. **T-207**（`haiku`）: `ParsedTag.builtAt`→`taggedAt`
 
 T-204・T-205 は `config/` のYAMLキーを変えるので、**スキーマと `config/` を同じコミットに
 入れる**こと（片方だけだと `pnpm lint` が落ちる）。7件とも `/loop` に載せてよい
@@ -152,12 +159,14 @@ GitLab上に無い状態で設定だけ先にコミットすると落ちる。T-
 
 ## 注意
 
-- **いま `docs/glossary.md` と `docs/architecture.md` は、2026-09-12 の `/grilling` で覆った
-  古い決定を載せたままになっている。** 具体的には用語集の「### 「target」の意味は文脈で決まる」
-  （「いずれも改名せず据え置く」と書いてあるが `AnchorTarget` は改名が決まった）と、
-  「Helmの向き先ブランチ」の表記ゆれ欄（`helm.branchToSync` の据え置きを宣言しているが
-  `helm.branchName` への改名が決まった）。**T-201・T-202 が直すまでの一時的な状態**なので、
-  この2箇所を読んで判断しないこと。決定の正典は `develop/tasks.json` の T-201〜T-207 の本文
+- **正典（`docs/architecture.md`・`docs/glossary.md`・`README.md` の一部）は T-201・T-202 で
+  既に改名後の名前に書き換わっているが、コードはまだ旧名のまま。** これは
+  「正典を先に更新し、実装は後から追随させる」という意図どおりの状態で、T-203〜T-207 が
+  解消する。**この期間はドキュメントとコードの識別子が食い違って見える**ので、コードを
+  読んで正典が間違っていると判断しないこと
+- `README.md`「実行ログの例」にはまだ `update_chart` と `previousTagName` が残っている。
+  これは**わざと**で、ツールが実際に出す出力を載せる場所なので T-203・T-205 がコードと
+  同時に直す
 
 - **コミット手順は「記録を書く → `pnpm format` → `pnpm check` → `git add` → `git commit`」の順に固定する。**
   `develop/tasks.json` は `oxfmt` の対象（`.prettierignore` の除外は `.claude/` と `config/` だけ）で、
