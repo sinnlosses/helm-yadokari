@@ -15,6 +15,14 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
 
 ### 2026-09-12 README.md の提案の反映
 
+- **T-215**: `README.md` の重複6件（R-1〜R-6）を整理（+32/-33行）。効いたのは
+  **同文の表2つ**（Pipeline inputs 表の説明列を `環境変数` 表への参照に寄せた）と
+  **Protected OFF の理由の二重展開**（`セットアップ手順` に一本化）。`config/` 節の
+  9行1段落は3段落に割り、エラー表からは正常系の1行（タグ自動作成）を外して表の下のリンクにした。
+  受け入れでR-6を直した——ログ注記を1行に縮めた結果**「絞り込むと `run_start` に値が載る」まで
+  消えていた**ので、`undefined` がJSONから落ちる内部挙動だけを落として残した。
+  `pnpm check` 通過: 386 Tests
+
 - **T-218**: `docs/requirements.md` 5章の配布方法を実態に合わせた。「公開npmレジストリ
   （npmjs.com）に公開し `npm install`」→「レジストリ公開はせず、このリポジトリを clone して
   CI 上で `pnpm install` → `pnpm start`」（`.gitlab-ci.yml:149-155` と一致）。**正典が実装から
