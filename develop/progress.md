@@ -1,12 +1,12 @@
 # 現在の状態
 
-最終更新: 2026-09-12（**T-198〜T-207 をすべて完了**。`/grilling` で命名を33問・10ラウンド
+最終更新: 2026-09-12（**T-198〜T-207 をすべて完了**し、**T-208・T-209 を新規登録**。`/grilling` で命名を33問・10ラウンド
 かけて洗い直し、`docs/architecture.md` の命名規約4件を書き換えたうえで、正典・コード・
 `config/`・ログ・`README.md` まで改名31件を反映し終えた。**`done` 15件をアーカイブ済み**。
 2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは0件。** 完了タスクは
+**未着手のタスクは2件**（T-208・T-209。設定まわりの命名。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -110,8 +110,22 @@
 
 ## 次にやること
 
-**未着手のタスクは0件。** 命名の洗い直し（T-198〜T-207）はこれで完了した。
-次に何かを始めるときは `develop/direction.md` に指示を書き、`/plan-tasks` でタスク化する。
+**設定まわりの命名を直す2件**（2026-09-12のチャットで合意。指示メモは
+[`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（2回目）」）。
+**T-208 → T-209 の順**で、両方が `src/lib/config/config.ts` と `docs/architecture.md:624` を触る。
+
+- **T-208**（`sonnet`、依存なし）: `ConfigDirPath` → `ConfigRootPath` 系5件の改名。
+  `configDirPath` が「`config/` の最上位」か「`config.yaml` があるディレクトリ」か読めない、
+  というユーザーの指摘。`run_start` ログのフィールド名も追随させる（**承認済み**）。
+  環境変数 `CONFIG_PATH` は据え置き
+- **T-209**（`opus`、T-208依存）: ルートの `Config` → `LoadedConfig` と型の置き場所の見直し。
+  `docs/architecture.md` が `Config` を「ドメイン語彙の例」に挙げているのに T-199 は
+  glossaryに足さないと判断済みという**矛盾の解消**を含む
+
+**`ConfigUnit` の `unit` を外す案は検討して却下した**（ユーザー判断、2026-09-12）。`Config` が
+ルートの型で埋まっている・`ConfigUnitPath` が `ConfigDirPath` と同語になる・`unit` が
+「並列処理とMR発行の粒度」を表していて外すと `chartリポジトリ = config` と誤読される、の3点。
+識別子は約831箇所/62ファイルで T-203 の一括改名の直後でもある。**`ConfigUnit` 系は現状維持。**
 
 **実機スモークテストは未実施。** `config.yaml` のキーが2つ変わっている
 （`chart[]`→`locations[]`、`helm.branchToSync`→`helm.branchRef`）ので、一度

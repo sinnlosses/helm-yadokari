@@ -9,6 +9,91 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-12（2回目）
+
+生成したタスク: **T-208**（`ConfigDirPath` → `ConfigRootPath` 系5件の改名、`sonnet`、依存なし）、
+**T-209**（ルートの `Config` → `LoadedConfig` と型の置き場所の見直し、`opus`、T-208依存）。
+
+「1. `ConfigDirPath` → `ConfigRootPath`」を T-208、「2. ルートの `Config` → `LoadedConfig`」を
+T-209 に、指示の項目どおり1対1で割った。両方が `src/lib/config/config.ts` と
+`docs/architecture.md:624`（型の件数の行）を触るため、統合はせず `dependencies` で直列にした。
+**冒頭の「`ConfigUnit` は現状維持」はタスクにしていない** — 検討の結論（やらない判断）であって
+作業ではないため。判断を覆したくなったときの根拠として指示メモ本文に残す。
+
+タスク化にあたっての事実確認:
+
+- **`configRootPath` は T-122 の論点2で候補に挙がり、落とされていた**
+  （`docs/history/tasks-archive.md:2162`）。ただし **`configDirPath` を選んだ理由は
+  `evidence` に記録されていない**。むしろ T-122 の背景自身が実体を「設定ディレクトリの
+  **ルートパス**」と書いており、今回の指摘（`config.yaml` があるディレクトリと読める）は
+  T-122 が検討していない論点。据え置きの根拠として効く記録は無いと確認した
+- **`docs/architecture.md` の `Config` の扱いは実際に矛盾していた**。272行目は型の置き場所の
+  1行目「ドメイン語彙（glossaryに載るかが目安）」の例に挙げ、281行目も意図的に1行目だと
+  書いているのに、T-199（`tasks-archive.md:7277`）は技術的な入れ物として
+  glossaryに足さないと判断済み。T-209 の論点2に落とした
+- **`ConfigDirPath` は `docs/architecture.md` のブランド型の節（613-615行目）で「不変条件を
+  型で表す唯一の例外」として名指しされている**。改名は名前の差し替えだけでは済まず、
+  この節の記述の確認が要る。T-208 の論点2に落とした
+- **改名の規模を実測**: `ConfigDirPath` 系は `src/` 32行・`test/`+`scripts/` 34行・
+  `docs/`+`README.md`（history除く）4行。ルートの `Config` は3箇所
+- `ConfigUnit` 系の識別子は約831箇所/62ファイルで、直前の T-203 で一括改名した直後。
+  現状維持の判断はこの規模も根拠にしている
+
+## 設定まわりの命名を直す（2026-09-12のチャットで合意）
+
+発端: 「`ConfigUnit` の `unit` を外して単に `Config` にできないか」を検討した。結論は
+**やらない**。`Config` はルートの型で既に埋まっており、`ConfigUnitPath` → `ConfigPath` は
+既存の `ConfigDirPath` とほぼ同語になる。さらに `unit` は「並列処理・MR発行・エラー
+ハンドリングの粒度」を表していて、外すと `chartリポジトリ = config` と誤読される。
+識別子の出現は約831箇所/62ファイルで、直前のT-203で `ChartAndApps` → `ConfigUnit` に
+一括改名したばかりでもある。**`ConfigUnit` は現状維持。**
+
+代わりに、検討の過程で見つかった2件を直す。
+
+### 1. `ConfigDirPath` → `ConfigRootPath`（こちらが本題）
+
+`configDirPath` は「`config/` の最上位」を指しているが、`config.yaml` は設定ユニットの
+ディレクトリの中にあるため、**「`config.yaml` があるディレクトリ」とも読めてしまう**。
+`ConfigUnit` という語彙に馴染みのない人には区別がつかない。T-122 で `configPath` →
+`configDirPath` に改名済みだが、あれは「ファイルかディレクトリか」を解決しただけで、
+**「どの階層のディレクトリか」は解決していない**。
+
+| 現在                                                       | 案                         |
+| ---------------------------------------------------------- | -------------------------- |
+| `ConfigDirPath`（`src/types/brand.ts:88`）                 | `ConfigRootPath`           |
+| `toConfigDirPath()`                                        | `toConfigRootPath()`       |
+| `configDirPath`（変数・フィールド）                        | `configRootPath`           |
+| `DEFAULT_CONFIG_DIR_PATH`（`src/lib/config/config.ts:12`） | `DEFAULT_CONFIG_ROOT_PATH` |
+| `parseConfigDirPath()`（`src/lib/env.ts:41`）              | `parseConfigRootPath()`    |
+
+- `Root` はファイルシステムの文脈では階層の頂点＝ディレクトリと読めるので、T-122 が守りたかった
+  「ファイルじゃない」も保てる。`Path` 接尾辞は `LocalPath`・`ValuesPath`・`ConfigUnitPath` に揃う
+- 環境変数 `CONFIG_PATH` は外部インターフェースなので**変えない**（`src/lib/env.ts` の既存方針どおり）
+- **`run_start` のJSONログのフィールド名も `configRootPath` に変える**（`src/main.ts:18`、
+  `README.md:154` のサンプル）。ユーザー承認済み
+- `src/lib/env.ts:29-35` のJSDocは**理由が変わるので書き直す**。「ディレクトリだと分かる名前」
+  ではなく「`config/` の最上位だと分かる名前」が今の理由。T-122 の経緯は `docs/architecture.md` へ
+- 規模: `src/` 32行、`test/`+`scripts/` 34行、`docs/`+`README.md`（history除く）4行。
+  ドキュメント側は `docs/architecture.md:613,615,624` と `README.md:154`
+
+### 2. ルートの `Config` → `LoadedConfig`
+
+`src/types/types.ts:62` の `Config`（`{ configUnits }` を束ねるだけの型）は名前が漠然としすぎ。
+`AppConfig`・`HelmConfig`・`ChartRepoConfig` と並ぶと、総称なのか同列の1つなのか読めない。
+
+- `ConfigRoot` は**採らない**。「ルート」の語はデータ型よりパス側（上記1）が必要としており、
+  同じツリーの根を2つの型が名乗ると「パスのほう？データのほう？」が毎回発生する
+- `LoadedConfig` なら `loadConfig()` の戻り値だと名前で確定する
+- 改名は実質3箇所（`src/types/types.ts:62` の定義、`scripts/lint/validate-config.ts` の
+  import と `loadLocally()` の戻り値）。呼び出し側は `src/main.ts:41` も含めて全部その場で
+  `{ configUnits }` に分解しているので伝播しない
+- **置き場所も見直す**。`docs/architecture.md:272` は型の置き場所の1行目「ドメイン語彙
+  （glossaryに載る概念かどうかが目安）」の例に `Config` を挙げているが、
+  `docs/history/tasks-archive.md:7277` では「`chartAndAppsList`を束ねるだけ」の技術的な
+  入れ物としてglossaryに**足さないと判断済み**。矛盾しているので、`src/types/types.ts` から
+  `src/lib/config/config.ts`（`loadConfig()` と同居）へ移し、`docs/architecture.md` の
+  272行目・281行目も直す
+
 ## 2026-09-12
 
 生成したタスク: **T-198**（用語集から解消済みの経緯を切り離す、`opus`、依存なし）、
