@@ -100,7 +100,7 @@ function readCode(value: unknown): string | undefined {
  * 読めなければ`undefined`を返す（fatalに昇格させない安全側に倒す）。
  *
  * gitbeakerが内部リトライするのは429と502だけなので、ここで拾えるのは実質その2つ。
- * 502は5xxとして即時終了になり、429は該当chartAndAppsの`ERROR`のままになる。
+ * 502は5xxとして即時終了になり、429は該当設定ユニットの`ERROR`のままになる。
  *
  * **この値は`isFatalError()`の判定にだけ使い、`isRetryableError()`には渡さない。**
  * gitbeakerが既に10回試したあとなので、こちらから追加で叩く相手ではない。

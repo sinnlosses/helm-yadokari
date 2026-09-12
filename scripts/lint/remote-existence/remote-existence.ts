@@ -4,8 +4,8 @@ import { lookupValueAtAnchor } from "../../../src/lib/helm.js"
 import type {
   AnchorTarget,
   AppConfig,
-  ChartAndApps,
   ChartRepoConfig,
+  ConfigUnit,
   HelmTargetBranchConfig,
 } from "../../../src/types/types.js"
 import { toErrorMessage } from "../../../src/utils/errors.js"
@@ -18,7 +18,7 @@ import { type RemoteCache, newRemoteCache } from "./remote-cache.js"
 // あるか」を見る。CIから `pnpm lint:validate-config:remote` 経由で呼ぶ。
 
 /**
- * 1つのchartAndApps（＝1つの設定ユニット）を検証する間ずっと変わらない値をまとめたもの。
+ * 1つの設定ユニットを検証する間ずっと変わらない値をまとめたもの。
  * `where` は問題を報告するときの位置表示（`<chartDir>/<unitPath>`）、
  * `reportedPaths` は同じvalues.yamlの不在を何度も報告しないための記録。
  */
@@ -35,65 +35,62 @@ type ValidateContext = {
  * 問題が無ければ空配列を返す。GitLabへの問い合わせは読み取りのみで、タグ・ブランチ・MRは
  * 一切作らない。
  *
- * 同じプロジェクト・ブランチ・values.yamlへの問い合わせは全chartAndAppsで共有したキャッシュで
- * 1回に抑える。chartAndApps単位は`concurrencyLimit`件ずつ並列に検証するが、結果は入力順を
+ * 同じプロジェクト・ブランチ・values.yamlへの問い合わせは全設定ユニットで共有したキャッシュで
+ * 1回に抑える。設定ユニット単位は`concurrencyLimit`件ずつ並列に検証するが、結果は入力順を
  * 保った配列で返るため、報告の順序は`config/`の並び順と一致する。
- * アプリ単位はchartAndApps内で逐次のまま（キャッシュのヒット率を保つため）。
+ * アプリ単位は設定ユニット内で逐次のまま（キャッシュのヒット率を保つため）。
  */
 export async function validateRemoteExistence(
   gitlab: GitlabClient,
-  chartAndAppsList: readonly ChartAndApps[],
+  configUnits: readonly ConfigUnit[],
   concurrencyLimit: number,
 ): Promise<string[]> {
   const cache = newRemoteCache(gitlab)
-  const problemsPerChartAndApps = await mapWithConcurrency(
-    chartAndAppsList,
+  const problemsPerConfigUnit = await mapWithConcurrency(
+    configUnits,
     concurrencyLimit,
-    async (chartAndApps) => {
+    async (configUnit) => {
       try {
-        return await validateChartAndApps(cache, chartAndApps)
+        return await validateConfigUnit(cache, configUnit)
       } catch (err) {
         return [
-          `${buildConfigUnitLocation(chartAndApps.chartDirName, chartAndApps.unitPath)}: 検証中にエラーが発生しました（${toErrorMessage(err)}）`,
+          `${buildConfigUnitLocation(configUnit.chartDirName, configUnit.unitPath)}: 検証中にエラーが発生しました（${toErrorMessage(err)}）`,
         ]
       }
     },
   )
-  return problemsPerChartAndApps.flat()
+  return problemsPerConfigUnit.flat()
 }
 
 /**
- * 1つのchartAndApps（＝1つの設定ユニット）分を検証する。chartリポジトリ自体が
+ * 1つの設定ユニット分を検証する。chartリポジトリ自体が
  * 見つからない場合、そこに依存する検証（mrTargetBranch・values.yaml）は結果が自明なので
  * 行わず、原因となる1件だけを報告する。
  */
-async function validateChartAndApps(
-  cache: RemoteCache,
-  chartAndApps: ChartAndApps,
-): Promise<string[]> {
-  const { chart, apps, helmTargetBranch } = chartAndApps
+async function validateConfigUnit(cache: RemoteCache, configUnit: ConfigUnit): Promise<string[]> {
+  const { chartRepo, apps, helmTargetBranch } = configUnit
   const context: ValidateContext = {
     cache,
-    where: buildConfigUnitLocation(chartAndApps.chartDirName, chartAndApps.unitPath),
-    chart,
+    where: buildConfigUnitLocation(configUnit.chartDirName, configUnit.unitPath),
+    chart: chartRepo,
     reportedPaths: new Set<string>(),
   }
   const { where } = context
 
-  const chartProjectFound = await cache.hasProject(chart.projectId)
+  const chartProjectFound = await cache.hasProject(chartRepo.projectId)
   const chartProblems = chartProjectFound
     ? []
     : [
-        `${where}: registry.yaml の projectId ${chart.projectId}（${chart.projectName}）が見つかりません`,
+        `${where}: registry.yaml の projectId ${chartRepo.projectId}（${chartRepo.projectName}）が見つかりません`,
       ]
 
   const baseBranchFound =
-    chartProjectFound && (await cache.hasBranch(chart.projectId, chart.mrTargetBranch))
+    chartProjectFound && (await cache.hasBranch(chartRepo.projectId, chartRepo.mrTargetBranch))
   const baseBranchProblems =
     !chartProjectFound || baseBranchFound
       ? []
       : [
-          `${where}: registry.yaml の mrTargetBranch "${chart.mrTargetBranch}" が ${chart.projectName} に見つかりません`,
+          `${where}: registry.yaml の mrTargetBranch "${chartRepo.mrTargetBranch}" が ${chartRepo.projectName} に見つかりません`,
         ]
 
   const initial: readonly string[] = []

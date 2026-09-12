@@ -2,9 +2,9 @@ import { join } from "node:path"
 
 import type {
   AppConfig,
-  ChartAndApps,
   ChartDirName,
   ChartRepoConfig,
+  ConfigUnit,
   ConfigUnitPath,
   HelmTargetBranchConfig,
   LocalPath,
@@ -18,15 +18,15 @@ import {
   REGISTRY_YAML_FILE_NAME,
   RegistryYamlSchema,
 } from "./schema.js"
-import type { ChartUnits } from "./find-config-units.js"
+import type { ChartDirUnits } from "./find-config-units.js"
 import { validateNoDuplicateProjectIds, validateNoDuplicateTargets } from "./validate.js"
 
 /**
  * 1つのchartディレクトリの`registry.yaml`を読み、`chartUnits.unitPaths`（走査＋`TARGET_UNITS`の
- * 絞り込み済み）それぞれを設定ユニット単位の`ChartAndApps`にする。`registry.yaml`の`appSpecs[]`
+ * 絞り込み済み）それぞれを設定ユニット単位の`ConfigUnit`にする。`registry.yaml`の`appSpecs[]`
  * （タグ形式の台帳）は1つのchartディレクトリで共有されるため、重複チェックもここで1回だけ行う。
  */
-export function loadChartAndApps(chartUnits: ChartUnits): readonly ChartAndApps[] {
+export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[] {
   const registryYamlPath = toLocalPath(join(chartUnits.chartDirPath, REGISTRY_YAML_FILE_NAME))
   const { chartToUpdate: chart, appSpecs } = parseYamlFile(registryYamlPath, RegistryYamlSchema)
   validateNoDuplicateProjectIds(registryYamlPath, appSpecs)
@@ -37,14 +37,14 @@ export function loadChartAndApps(chartUnits: ChartUnits): readonly ChartAndApps[
     registryYamlPath,
   }
   return chartUnits.unitPaths.map((unitPath) =>
-    buildChartAndApps(chartRepoScope, {
+    buildConfigUnit(chartRepoScope, {
       unitPath,
       configYamlPath: toLocalPath(join(chartUnits.chartDirPath, unitPath, CONFIG_YAML_FILE_NAME)),
     }),
   )
 }
 
-/** `buildChartAndApps()`の引数のうち、chartリポジトリ単位で1回だけ決まる値 */
+/** `buildConfigUnit()`の引数のうち、chartリポジトリ単位で1回だけ決まる値 */
 type ChartRepoScope = {
   readonly chartDirName: ChartDirName
   readonly chart: ChartRepoConfig
@@ -52,7 +52,7 @@ type ChartRepoScope = {
   readonly registryYamlPath: LocalPath
 }
 
-/** `buildChartAndApps()`の引数のうち、設定ユニットごとに変わる値 */
+/** `buildConfigUnit()`の引数のうち、設定ユニットごとに変わる値 */
 type ConfigUnitScope = {
   readonly unitPath: ConfigUnitPath
   readonly configYamlPath: LocalPath
@@ -61,15 +61,15 @@ type ConfigUnitScope = {
 /**
  * 1つの設定ユニットのディレクトリ（`<chartDir>/<unitPath>/`）の`config.yaml`（運用値＋chart構造）を
  * 読み込み、`appSpecs`（`registry.yaml`の`appSpecs[]`、`projectId`をキーにしたタグ形式の台帳）と
- * `projectId`で結合して`ChartAndApps`（MRを作成する単位）1件にする。`config.yaml`が実在する
+ * `projectId`で結合して`ConfigUnit`（MRを作成する単位）1件にする。`config.yaml`が実在する
  * ディレクトリだけが渡ってくる前提（どのディレクトリが設定ユニットかは`find-config-units.ts`の
  * 走査が決める）。`unitPath`は識別子（ログ・`TARGET_UNITS`・固定ブランチ名に使う）、
  * `*YamlPath`はローカルの実ファイルパス。
  */
-function buildChartAndApps(
+function buildConfigUnit(
   chartRepoScope: ChartRepoScope,
   configUnitScope: ConfigUnitScope,
-): ChartAndApps {
+): ConfigUnit {
   const { chartDirName, chart, appSpecs, registryYamlPath } = chartRepoScope
   const { unitPath, configYamlPath } = configUnitScope
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
@@ -99,7 +99,7 @@ function buildChartAndApps(
   return {
     chartDirName,
     unitPath,
-    chart,
+    chartRepo: chart,
     apps: appConfigs,
     helmTargetBranch: resolveHelmTargetBranch(configYamlPath, helm, appConfigs),
   }

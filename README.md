@@ -152,8 +152,8 @@ flowchart TD
 
 ```json
 {"level":"info","timestamp":"2026-09-02T00:00:00.000Z","event":"run_start","gitlabUrl":"https://gitlab.example.com","dryRun":false,"concurrencyLimit":3,"configDirPath":"config"}
-{"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_chart","chartDirName":"teamA-chart","unitPath":"my-group/my-unit","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","latestTag":"main-build-at-20260902-090000","updates":[{"valuesPath":"charts/my-app/values.yaml","previousTagName":"main-build-at-20260901-090000"}]}],"helmTargetBranchUpdates":[]}
-{"level":"info","timestamp":"2026-09-02T00:00:00.456Z","event":"update_chart","chartDirName":"teamB-chart","unitPath":"my-unit","chartProjectId":999,"chartProjectName":"teamB-chart","result":"SKIPPED","reason":"no_diff"}
+{"level":"info","timestamp":"2026-09-02T00:00:00.123Z","event":"update_unit","chartDirName":"teamA-chart","unitPath":"my-group/my-unit","chartProjectId":888,"chartProjectName":"teamA-chart","result":"CREATED","apps":[{"projectName":"my-app","latestTag":"main-build-at-20260902-090000","updates":[{"valuesPath":"charts/my-app/values.yaml","previousTagName":"main-build-at-20260901-090000"}]}],"helmTargetBranchUpdates":[]}
+{"level":"info","timestamp":"2026-09-02T00:00:00.456Z","event":"update_unit","chartDirName":"teamB-chart","unitPath":"my-unit","chartProjectId":999,"chartProjectName":"teamB-chart","result":"SKIPPED","reason":"no_diff"}
 {"level":"info","timestamp":"2026-09-02T00:00:00.500Z","event":"summary","CREATED":1,"SKIPPED":1,"ERROR":0}
 {"level":"info","timestamp":"2026-09-02T00:00:00.520Z","event":"run_end","durationMs":520}
 ```

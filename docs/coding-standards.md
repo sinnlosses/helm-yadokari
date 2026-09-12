@@ -386,7 +386,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 （同種の分岐が2件、テストではなくコード側の問題として解消済み。どちらも上の「避ける`undefined`」
 節の1つ目のパターン「実行時には到達しないのに型に残っている`undefined`」の実例。
 `src/lib/gitlab/errors.ts` の `isFatalStatus` は引数の型を `number` に狭めて分岐ごと削除。
-`src/lib/config/load-chart-and-apps.ts` の `internal error:` は、紐づけの検証が結果を捨てていたため
+`src/lib/config/load-config-unit.ts` の `internal error:` は、紐づけの検証が結果を捨てていたため
 同じ突き合わせを2回していたのが原因で、`resolveProjectLinkage()` が組を返すようにして削除）
 
 ### 通し（e2e）で守るのは「実ファイル → MRの中身」の連結だけ
@@ -402,8 +402,8 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 > コミットされる `values.yaml` の中身・MRのタイトル・MR本文
 
 `loadConfig()` が実ファイルを読むところまでは `test/lib/config/` が一時ディレクトリの実YAMLで
-確かめ、パイプラインは `ChartAndApps` を受け取った後を `test/main.test.ts` などが確かめているが、
-両者は `test/helpers.ts` の `makeChartAndApps()` で手組みした値でつながっている。
+確かめ、パイプラインは `ConfigUnit` を受け取った後を `test/main.test.ts` などが確かめているが、
+両者は `test/helpers.ts` の `makeConfigUnit()` で手組みした値でつながっている。
 **この連結を通すテストだけを足す**。ここが食い違っても落ちるテストが1つも無く、気づけるのは
 実機スモークテスト（`docs/smoke-test.md`、手動・要GitLab）だけだったため。
 

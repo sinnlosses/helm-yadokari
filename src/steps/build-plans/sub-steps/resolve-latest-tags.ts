@@ -19,11 +19,11 @@ import { reduceAsync } from "../../../utils/sequential.js"
 import { withAppContext } from "../../shared/step-outcome.js"
 import type { AppWithLatestTag, LatestTagResolution } from "./shared/types.js"
 
-/** 1つのchartAndApps配下の全アプリぶんの最新タグを解決する関数。バッチ全体で使い回す */
+/** 1つの設定ユニット配下の全アプリぶんの最新タグを解決する関数。バッチ全体で使い回す */
 export type ResolveLatestTags = (apps: readonly AppConfig[]) => Promise<readonly AppWithLatestTag[]>
 
 /**
- * 最新タグの解決を組み立てる。返す関数は、1つのchartAndApps配下の全アプリについて追跡ブランチ
+ * 最新タグの解決を組み立てる。返す関数は、1つの設定ユニット配下の全アプリについて追跡ブランチ
  * 由来の最新タグを解決する。アプリを1つずつ順に処理するのはこの関数の責務で、呼び出し元
  * （`build-plans.ts`）は「この設定ユニットの全アプリの最新タグを決める」という1つの操作として
  * 呼ぶだけでよい。解決結果はアプリと対（`AppWithLatestTag`）にして返すため、後段の差分判定
@@ -33,7 +33,7 @@ export type ResolveLatestTags = (apps: readonly AppConfig[]) => Promise<readonly
  * 複数の設定ユニットに登録されうる**ため。キャッシュが無いと同じappの解決が設定ユニットの数だけ走り、
  * HEADを指すタグが無いときはタグ作成もその回数だけ実行される（タグ名は秒精度なので、同名に
  * なれば2件目以降が失敗し、秒をまたげば同じコミットに冗長なタグが並んで設定ユニットごとに違う
- * タグ名がvalues.yamlに書かれる）。`mapWithConcurrency`によりchartAndAppsは並列実行される
+ * タグ名がvalues.yamlに書かれる）。`mapWithConcurrency`により設定ユニットは並列実行される
  * ため、同時に来た同じキーの問い合わせも1回にまとめる`getOrFetchShared`を使う。
  *
  * キャッシュの寿命はこの関数が返すクロージャと同じで、バッチごとに`buildPlans()`が1つ作る。

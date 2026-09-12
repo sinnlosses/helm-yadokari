@@ -1,14 +1,14 @@
 import { existsSync } from "node:fs"
 import { join } from "node:path"
 
-import { MAX_UNIT_DEPTH, UNIT_PATH_SEPARATOR } from "../../domain/config-unit.js"
+import { CONFIG_UNIT_PATH_SEPARATOR, MAX_CONFIG_UNIT_DEPTH } from "../../domain/config-unit.js"
 import type { ChartDirName, ConfigUnitPath, LocalPath } from "../../types/types.js"
 import { toChartDirName, toConfigUnitPath, toLocalPath } from "../../types/types.js"
 import { listSubdirectories } from "../../utils/fs.js"
 import { CONFIG_YAML_FILE_NAME, REGISTRY_YAML_FILE_NAME } from "./schema.js"
 
 /** 1つのchartディレクトリと、その配下の走査で見つかった設定ユニットの`unitPath`一覧 */
-export type ChartUnits = {
+export type ChartDirUnits = {
   readonly chartDirName: ChartDirName
   readonly chartDirPath: LocalPath
   readonly unitPaths: readonly ConfigUnitPath[]
@@ -22,7 +22,7 @@ type UnitSegments = readonly string[]
  * `unitPath`一覧を集める（階層に問題があれば例外をスローする）。`registry.yaml`が無い
  * ディレクトリは配下ごと無視する（走査対象のchartとみなさない）。
  */
-export function findConfigUnits(configDirPath: LocalPath, chartDir: string): readonly ChartUnits[] {
+export function findConfigUnits(configDirPath: LocalPath, chartDir: string): readonly ChartDirUnits[] {
   const chartDirPath = toLocalPath(join(configDirPath, chartDir))
   if (!existsSync(join(chartDirPath, REGISTRY_YAML_FILE_NAME))) return []
   return [
@@ -45,30 +45,30 @@ function findUnitPaths(chartDirPath: LocalPath): readonly ConfigUnitPath[] {
   if (unitSegmentsList.some((segments) => segments.length === 0)) {
     throw new Error(
       `${join(chartDirPath, CONFIG_YAML_FILE_NAME)}: ${CONFIG_YAML_FILE_NAME} が ${REGISTRY_YAML_FILE_NAME} と同じ階層にあります` +
-        `（設定ユニットは chartディレクトリから数えて深さ1〜${MAX_UNIT_DEPTH} のディレクトリに置いてください）`,
+        `（設定ユニットは chartディレクトリから数えて深さ1〜${MAX_CONFIG_UNIT_DEPTH} のディレクトリに置いてください）`,
     )
   }
 
-  const tooDeep = unitSegmentsList.find((segments) => segments.length > MAX_UNIT_DEPTH)
+  const tooDeep = unitSegmentsList.find((segments) => segments.length > MAX_CONFIG_UNIT_DEPTH)
   if (tooDeep !== undefined) {
     throw new Error(
       `${join(chartDirPath, ...tooDeep, CONFIG_YAML_FILE_NAME)}: 設定ユニットのディレクトリが深すぎます` +
         `（深さ${tooDeep.length}）。${CONFIG_YAML_FILE_NAME} は chartディレクトリから数えて` +
-        `深さ1〜${MAX_UNIT_DEPTH} のディレクトリに置いてください`,
+        `深さ1〜${MAX_CONFIG_UNIT_DEPTH} のディレクトリに置いてください`,
     )
   }
 
   const nested = findNestedPair(unitSegmentsList)
   if (nested !== undefined) {
     throw new Error(
-      `${chartDirPath}: 設定ユニット "${nested.parent.join(UNIT_PATH_SEPARATOR)}" の配下に設定ユニット ` +
-        `"${nested.child.join(UNIT_PATH_SEPARATOR)}" があり、入れ子になっています。入れ子だと固定ブランチ名 ` +
+      `${chartDirPath}: 設定ユニット "${nested.parent.join(CONFIG_UNIT_PATH_SEPARATOR)}" の配下に設定ユニット ` +
+        `"${nested.child.join(CONFIG_UNIT_PATH_SEPARATOR)}" があり、入れ子になっています。入れ子だと固定ブランチ名 ` +
         `feature/yadokari/<unitPath> 同士がプレフィックス関係になり、Gitのrefが同一リポジトリに` +
         `共存できません`,
     )
   }
 
-  return unitSegmentsList.map((segments) => toConfigUnitPath(segments.join(UNIT_PATH_SEPARATOR)))
+  return unitSegmentsList.map((segments) => toConfigUnitPath(segments.join(CONFIG_UNIT_PATH_SEPARATOR)))
 }
 
 /**

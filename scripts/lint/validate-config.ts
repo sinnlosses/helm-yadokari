@@ -29,11 +29,9 @@ function loadLocally(): Config {
   }
 }
 
-const { chartAndAppsList } = loadLocally()
-const appCount = chartAndAppsList.reduce((sum, chartAndApps) => sum + chartAndApps.apps.length, 0)
-console.log(
-  `config OK: ${chartAndAppsList.length} 設定ユニット, ${appCount} apps (${configDirPath})`,
-)
+const { configUnits } = loadLocally()
+const appCount = configUnits.reduce((sum, configUnit) => sum + configUnit.apps.length, 0)
+console.log(`config OK: ${configUnits.length} 設定ユニット, ${appCount} apps (${configDirPath})`)
 
 if (remote) {
   // 環境変数（GITLAB_URL/ACCESS_TOKEN）を要求するのは --remote のときだけなので、
@@ -53,7 +51,7 @@ if (remote) {
 
   const problems = await validateRemoteExistence(
     createClient(env.gitlabUrl, env.accessToken),
-    chartAndAppsList,
+    configUnits,
     env.concurrencyLimit,
   )
   if (problems.length > 0) {

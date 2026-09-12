@@ -1,5 +1,5 @@
 import { buildConfigUnitLocation } from "../../domain/config-unit.js"
-import type { AnchorTarget, ChartAndApps, LocalPath, ProjectId, ProjectName, TagFormat } from "../../types/types.js"
+import type { AnchorTarget, ConfigUnit, LocalPath, ProjectId, ProjectName, TagFormat } from "../../types/types.js"
 
 /**
  * `registry.yaml` / `config.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス
@@ -15,14 +15,14 @@ import type { AnchorTarget, ChartAndApps, LocalPath, ProjectId, ProjectName, Tag
  * 違う形式で決まってしまう（詳細は`docs/architecture.md`のタグ形式の置き場所を扱う節）。
  * `branchToSync`の食い違いは設定ユニット側の判断として正当なので検証しない。
  */
-export function validateTagFormatConsistency(chartAndAppsList: readonly ChartAndApps[]): void {
+export function validateTagFormatConsistency(configUnits: readonly ConfigUnit[]): void {
   const seen = new Map<
     ProjectId,
     { readonly projectName: ProjectName; readonly tagFormat: TagFormat; readonly location: string }
   >()
-  for (const chartAndApps of chartAndAppsList) {
-    const location = buildConfigUnitLocation(chartAndApps.chartDirName, chartAndApps.unitPath)
-    for (const app of chartAndApps.apps) {
+  for (const configUnit of configUnits) {
+    const location = buildConfigUnitLocation(configUnit.chartDirName, configUnit.unitPath)
+    for (const app of configUnit.apps) {
       const prior = seen.get(app.projectId)
       if (prior === undefined) {
         seen.set(app.projectId, { projectName: app.projectName, tagFormat: app.tagFormat, location })

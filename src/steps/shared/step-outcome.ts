@@ -1,9 +1,9 @@
 import { extractHttpStatus, isFatalError } from "../../lib/gitlab/errors.js"
 import type {
-  ChartAndApps,
   ChartDirName,
-  ChartUpdateResult,
+  ConfigUnit,
   ConfigUnitPath,
+  ConfigUnitUpdateResult,
   ProjectId,
   ProjectName,
 } from "../../types/types.js"
@@ -11,11 +11,11 @@ import { FatalError, toErrorMessage } from "../../utils/errors.js"
 import { logger } from "../../utils/logger.js"
 
 /**
- * chartAndApps 1件分の処理結果ログに共通で載せる識別情報。3つのstepが`withHandling()`から
+ * 設定ユニット1件分の処理結果ログに共通で載せる識別情報。3つのstepが`withHandling()`から
  * 受け取り、自分の`result`/`reason`を足してログに出す。
  */
-export type ChartUpdateLogContext = {
-  readonly event: "update_chart"
+export type ConfigUnitLogContext = {
+  readonly event: "update_unit"
   readonly chartDirName: ChartDirName
   readonly unitPath: ConfigUnitPath
   readonly chartProjectId: ProjectId
@@ -24,13 +24,13 @@ export type ChartUpdateLogContext = {
 
 export type StepOutcome<T> =
   | { readonly status: "ok"; readonly value: T }
-  | { readonly status: "settled"; readonly result: ChartUpdateResult }
+  | { readonly status: "settled"; readonly result: ConfigUnitUpdateResult }
 
 export function ok<T>(value: T): StepOutcome<T> {
   return { status: "ok", value }
 }
 
-export function settle<T>(result: ChartUpdateResult): StepOutcome<T> {
+export function settle<T>(result: ConfigUnitUpdateResult): StepOutcome<T> {
   return { status: "settled", result }
 }
 
@@ -43,7 +43,7 @@ export function withAppContext<T>(projectName: ProjectName, fn: () => Promise<T>
 }
 
 /**
- * chartAndApps単位の並列処理1件分を実行する高階関数。捕捉した例外はこのツールのエラー方針に
+ * 設定ユニット単位の並列処理1件分を実行する高階関数。捕捉した例外はこのツールのエラー方針に
  * 従って処理され、fatalなら`FatalError`として投げ直され（実行全体が止まる）、それ以外は
  * `ERROR`のsettled outcomeになる。
  *
@@ -51,10 +51,10 @@ export function withAppContext<T>(projectName: ProjectName, fn: () => Promise<T>
  * 封じ込める」ことがstepの入口に並んで見えるようにしている。
  */
 export function withHandling<T>(
-  chartAndApps: ChartAndApps,
-  fn: (logContext: ChartUpdateLogContext) => Promise<StepOutcome<T>>,
+  configUnit: ConfigUnit,
+  fn: (logContext: ConfigUnitLogContext) => Promise<StepOutcome<T>>,
 ): Promise<StepOutcome<T>> {
-  const logContext = buildLogContext(chartAndApps)
+  const logContext = buildLogContext(configUnit)
   return fn(logContext).catch((err: unknown) => settle<T>(settleAsError(err, logContext)))
 }
 
@@ -76,13 +76,13 @@ function rethrowWithAppContext(err: unknown, projectName: ProjectName): never {
 /**
  * step内で捕捉した例外を、このツールのエラー方針に従って処理する。
  *
- * - 401 / 5xx / ネットワーク障害（`isFatalError()`）は全chartAndApps共通の致命的エラーなので
+ * - 401 / 5xx / ネットワーク障害（`isFatalError()`）は全設定ユニット共通の致命的エラーなので
  *   `FatalError`として投げ直し、実行全体を即時終了させる（この関数は値を返さない）
- * - それ以外は該当chartAndAppsのみ`ERROR`として記録し、他のchartAndAppsの処理は続行する
+ * - それ以外は該当設定ユニットのみ`ERROR`として記録し、他の設定ユニットの処理は続行する
  *
  * 方針そのものを1箇所に置くための関数。3つのstepからは直接ではなく`withHandling()`経由で呼ぶ。
  */
-function settleAsError(err: unknown, logContext: ChartUpdateLogContext): "ERROR" {
+function settleAsError(err: unknown, logContext: ConfigUnitLogContext): "ERROR" {
   if (isFatalError(err)) throw new FatalError(extractHttpStatus(err), err)
   logger.error({
     ...logContext,
@@ -95,12 +95,12 @@ function settleAsError(err: unknown, logContext: ChartUpdateLogContext): "ERROR"
 /**
  * 3つのstepすべてが同じキー・同じ値で出力するよう、ここ1箇所で組み立てる。
  */
-function buildLogContext(chartAndApps: ChartAndApps): ChartUpdateLogContext {
+function buildLogContext(configUnit: ConfigUnit): ConfigUnitLogContext {
   return {
-    event: "update_chart",
-    chartDirName: chartAndApps.chartDirName,
-    unitPath: chartAndApps.unitPath,
-    chartProjectId: chartAndApps.chart.projectId,
-    chartProjectName: chartAndApps.chart.projectName,
+    event: "update_unit",
+    chartDirName: configUnit.chartDirName,
+    unitPath: configUnit.unitPath,
+    chartProjectId: configUnit.chartRepo.projectId,
+    chartProjectName: configUnit.chartRepo.projectName,
   }
 }

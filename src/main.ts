@@ -5,7 +5,7 @@ import { createClient } from "./lib/gitlab/gitlab.js"
 import { applyUpdates } from "./steps/apply-updates/apply-updates.js"
 import { buildPlans } from "./steps/build-plans/build-plans.js"
 import { filterTargets } from "./steps/filter-targets/filter-targets.js"
-import type { ChartUpdateResult, RunResult } from "./types/types.js"
+import type { ConfigUnitUpdateResult, RunResult } from "./types/types.js"
 import { logger } from "./utils/logger.js"
 import { timed } from "./utils/timer.js"
 
@@ -31,21 +31,21 @@ export async function run(env: EnvConfig): Promise<RunResult> {
  * targetChart / targetUnits が設定されている場合は、該当するchart・設定ユニットのみに
  * 絞り込んで実行する。
  *
- * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがあるchartAndAppsを除外する
- * 2. buildPlans: 残ったchartAndAppsそれぞれの更新計画（差分）を構築する
- * 3. applyUpdates: 差分があるchartAndAppsに対してコミット・MR作成を行う
+ * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがある設定ユニットを除外する
+ * 2. buildPlans: 残った設定ユニットそれぞれの更新計画（差分）を構築する
+ * 3. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
  */
-async function runProcess(env: EnvConfig): Promise<Record<ChartUpdateResult, number>> {
+async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult, number>> {
   const gitlab = createClient(env.gitlabUrl, env.accessToken)
   const gitlabCache = createGitlabBatchCache(gitlab)
-  const { chartAndAppsList } = loadConfig(env.configDirPath, {
+  const { configUnits } = loadConfig(env.configDirPath, {
     chartDirName: env.targetChart,
     units: env.targetUnits,
   })
 
   const { targets, settled: filtered } = await filterTargets(
     gitlab,
-    chartAndAppsList,
+    configUnits,
     env.concurrencyLimit,
   )
   const { toApply, settled: planned } = await buildPlans(
@@ -61,9 +61,9 @@ async function runProcess(env: EnvConfig): Promise<Record<ChartUpdateResult, num
 }
 
 function summarizeResults(
-  results: readonly ChartUpdateResult[],
-): Record<ChartUpdateResult, number> {
-  return results.reduce<Record<ChartUpdateResult, number>>(
+  results: readonly ConfigUnitUpdateResult[],
+): Record<ConfigUnitUpdateResult, number> {
+  return results.reduce<Record<ConfigUnitUpdateResult, number>>(
     (counts, result) => ({ ...counts, [result]: counts[result] + 1 }),
     { CREATED: 0, SKIPPED: 0, ERROR: 0 },
   )

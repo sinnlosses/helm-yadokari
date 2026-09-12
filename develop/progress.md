@@ -5,13 +5,21 @@
 **T-201〜T-207 の7タスクとして登録**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは5件**（T-203 → T-207 の一直線。T-206 のみ `opus`）。完了タスクは
+**未着手のタスクは4件**（T-204 → T-207 の一直線。T-206 のみ `opus`）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 `docs/glossary.md` の整理
+
+- **T-203**: `ChartAndApps`→`ConfigUnit` を軸にコードを一括改名（35ファイル、357/360行で
+  **純粋な改名**）。型5件・フィールド2件・定数と関数5件・ファイル1件・ログイベント1件。
+  **受け入れで17件の取りこぼしを直した**（`docs/architecture.md` 14件・
+  `docs/coding-standards.md` 3件）。原因は T-201 の完了条件を
+  `grep 'AnchorTarget\|ChartAndApps'` としか書かなかったことで、小文字の `chartAndApps` と
+  `ChartUpdate*` 系を拾えていなかった。**完了条件の grep は大文字小文字と派生形まで列挙しないと
+  抜ける**という教訓。`pnpm check` 通過: 385 Tests（変更前と同数）
 
 - **T-202**: 用語集を新しい規約に合わせて全面更新（38項→36項）。内部の型6件を日本語見出しにし、
   `config.yaml` に打ち込む語（YAMLキー・環境変数・ファイル名）は識別子見出しのまま残した。
@@ -74,14 +82,13 @@
 
 ## 次にやること
 
-**未着手は T-203 → T-207 の5件**（命名の洗い直しの実施、登録は 2026-09-12）。
+**未着手は T-204 → T-207 の4件**（命名の洗い直しの実施、登録は 2026-09-12）。
 **順序に意味がある**（正典が先、コードが後）ので、依存を飛ばさないこと:
 
-1. **T-203**（`sonnet`）: `ChartAndApps`→`ConfigUnit` と `Chart*` 型ファミリの整理（波及106件超）
-2. **T-204**（`sonnet`）: `AnchorTarget`→`AnchorLocation` と YAMLキー `chart[]`→`locations[]`
-3. **T-205**（`sonnet`）: `previous*`→`current*` とログ項目、`helm.branchToSync`→`helm.branchName`
-4. **T-206**（`opus`）: `HelmTargetBranchUpdate.newBranch` の削除。**これだけ設計変更**
-5. **T-207**（`haiku`）: `ParsedTag.builtAt`→`taggedAt`
+1. **T-204**（`sonnet`）: `AnchorTarget`→`AnchorLocation` と YAMLキー `chart[]`→`locations[]`
+2. **T-205**（`sonnet`）: `previous*`→`current*` とログ項目、`helm.branchToSync`→`helm.branchName`
+3. **T-206**（`opus`）: `HelmTargetBranchUpdate.newBranch` の削除。**これだけ設計変更**
+4. **T-207**（`haiku`）: `ParsedTag.builtAt`→`taggedAt`
 
 T-204・T-205 は `config/` のYAMLキーを変えるので、**スキーマと `config/` を同じコミットに
 入れる**こと（片方だけだと `pnpm lint` が落ちる）。7件とも `/loop` に載せてよい

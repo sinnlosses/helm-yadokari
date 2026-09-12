@@ -12,7 +12,7 @@ import {
   toProjectName,
   toValuesPath,
 } from "../../../../src/types/types.js"
-import { makeApp, makeChartAndApps, mockGitlab } from "../../../helpers.js"
+import { makeApp, makeConfigUnit, mockGitlab } from "../../../helpers.js"
 
 const VALUES_YAML = `variables:\n  - &appVersion main-build-at-20260101-000000\n  - &targetBranch main\n`
 
@@ -28,13 +28,13 @@ describe("validateRemoteExistence", () => {
   })
 
   it("すべて実在するとき問題を1件も返さない", async () => {
-    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
     expect(problems).toEqual([])
   })
 
-  it("1件の検証が例外で落ちても他のchartAndAppsの検証を続け、問題として返す", async () => {
-    const failing = makeChartAndApps([makeApp({ projectId: toProjectId(2) })], {
+  it("1件の検証が例外で落ちても他の設定ユニットの検証を続け、問題として返す", async () => {
+    const failing = makeConfigUnit([makeApp({ projectId: toProjectId(2) })], {
       unitPath: toConfigUnitPath("tenant1/client2"),
     })
     vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => {
@@ -44,7 +44,7 @@ describe("validateRemoteExistence", () => {
 
     const problems = await validateRemoteExistence(
       mockGitlab,
-      [failing, makeChartAndApps([makeApp()])],
+      [failing, makeConfigUnit([makeApp()])],
       3,
     )
 
@@ -56,7 +56,7 @@ describe("validateRemoteExistence", () => {
   it("chartリポジトリのprojectIdが存在しないとき問題として返す", async () => {
     vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== 100)
 
-    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain("100")
@@ -65,7 +65,7 @@ describe("validateRemoteExistence", () => {
   it("アプリのprojectIdが存在しないとき問題として返す", async () => {
     vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== 1)
 
-    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
     expect(problems.join("\n")).toContain("my-app")
   })
@@ -75,7 +75,7 @@ describe("validateRemoteExistence", () => {
       async (_gitlab, _projectId, branch) => branch !== "develop",
     )
 
-    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
     expect(problems.join("\n")).toContain("mrTargetBranch")
   })
@@ -85,7 +85,7 @@ describe("validateRemoteExistence", () => {
       async (_gitlab, _projectId, branch) => branch !== "main",
     )
 
-    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
     expect(problems.join("\n")).toContain("branchToSync")
   })
@@ -93,7 +93,7 @@ describe("validateRemoteExistence", () => {
   it("valuesPathのファイルが存在しないとき問題として返す", async () => {
     vi.mocked(getFileContent).mockResolvedValue(undefined)
 
-    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([makeApp()])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain("values.yaml")
@@ -106,7 +106,7 @@ describe("validateRemoteExistence", () => {
       ],
     })
 
-    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([app])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([app])], 3)
 
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain("noSuchAnchor")
@@ -120,7 +120,7 @@ describe("validateRemoteExistence", () => {
       ],
     })
 
-    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps([app])], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([app])], 3)
 
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain("スカラー値に付いていません")
@@ -139,7 +139,7 @@ describe("validateRemoteExistence", () => {
 
     const problems = await validateRemoteExistence(
       mockGitlab,
-      [makeChartAndApps([makeApp()], { helmTargetBranch })],
+      [makeConfigUnit([makeApp()], { helmTargetBranch })],
       3,
     )
 
@@ -163,7 +163,7 @@ describe("validateRemoteExistence", () => {
 
     const problems = await validateRemoteExistence(
       mockGitlab,
-      [makeChartAndApps(apps, { helmTargetBranch })],
+      [makeConfigUnit(apps, { helmTargetBranch })],
       3,
     )
 
@@ -181,7 +181,7 @@ describe("validateRemoteExistence", () => {
       }),
     ]
 
-    const problems = await validateRemoteExistence(mockGitlab, [makeChartAndApps(apps)], 3)
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit(apps)], 3)
 
     expect(problems).toHaveLength(2)
   })
@@ -194,17 +194,17 @@ describe("validateRemoteExistence", () => {
       ],
     })
 
-    await validateRemoteExistence(mockGitlab, [makeChartAndApps([app])], 3)
+    await validateRemoteExistence(mockGitlab, [makeConfigUnit([app])], 3)
 
     expect(vi.mocked(getFileContent)).toHaveBeenCalledTimes(1)
   })
 
-  it("複数chartAndAppsを並列に検証しても、問題は入力順で返る", async () => {
+  it("複数の設定ユニットを並列に検証しても、問題は入力順で返る", async () => {
     vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== 2)
-    const first = makeChartAndApps([
+    const first = makeConfigUnit([
       makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-first") }),
     ])
-    const second = makeChartAndApps([
+    const second = makeConfigUnit([
       makeApp({ projectId: toProjectId(3), projectName: toProjectName("app-second") }),
     ])
 

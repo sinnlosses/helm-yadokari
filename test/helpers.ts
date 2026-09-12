@@ -12,7 +12,7 @@ import {
   getLatestPipelineForRef,
   listTags,
 } from "../src/lib/gitlab/gitlab.js"
-import type { AppConfig, AppUpdatePlan, ChartAndApps, TagName } from "../src/types/types.js"
+import type { AppConfig, AppUpdatePlan, ConfigUnit, TagName } from "../src/types/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -76,14 +76,14 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
   }
 }
 
-export function makeChartAndApps(
+export function makeConfigUnit(
   apps: AppConfig[],
-  overrides: Partial<Pick<ChartAndApps, "chartDirName" | "unitPath" | "helmTargetBranch">> = {},
-): ChartAndApps {
+  overrides: Partial<Pick<ConfigUnit, "chartDirName" | "unitPath" | "helmTargetBranch">> = {},
+): ConfigUnit {
   return {
     chartDirName: toChartDirName("teamA-chart"),
     unitPath: toConfigUnitPath("tenant1/client1"),
-    chart: {
+    chartRepo: {
       projectId: toProjectId(100),
       projectName: toProjectName("teamA-chart"),
       mrTargetBranch: toBranchName("develop"),

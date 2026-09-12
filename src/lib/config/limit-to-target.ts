@@ -1,6 +1,6 @@
-import type { ChartAndApps, ChartDirName, ConfigUnitPath } from "../../types/types.js"
+import type { ChartDirName, ConfigUnit, ConfigUnitPath } from "../../types/types.js"
 import { CONFIG_YAML_FILE_NAME, REGISTRY_YAML_FILE_NAME } from "./schema.js"
-import type { ChartUnits } from "./find-config-units.js"
+import type { ChartDirUnits } from "./find-config-units.js"
 
 /**
  * 特定のchartディレクトリ・特定の設定ユニット（複数可）に処理対象を絞り込むためのフィルタ。
@@ -35,10 +35,10 @@ export function selectChartDirs(chartDirs: readonly string[], target: ConfigTarg
  * 対象外の設定ユニットも含めて既に済んでいるため、ここでは走査結果の`unitPath`との照合だけを行う。
  * 指定した`unitPath`が1件でも見つからなければ例外をスローする。
  */
-export function selectTargetUnits(
-  chartUnitsList: readonly ChartUnits[],
+export function selectTargetConfigUnits(
+  chartUnitsList: readonly ChartDirUnits[],
   target: ConfigTarget,
-): readonly ChartUnits[] {
+): readonly ChartDirUnits[] {
   const { units } = target
   if (units === undefined) return chartUnitsList
 
@@ -58,15 +58,15 @@ export function selectTargetUnits(
 }
 
 /**
- * `target`を明示的に指定したのに絞り込み結果（`chartAndAppsList`）が0件のとき例外をスローする。
+ * `target`を明示的に指定したのに絞り込み結果（`configUnits`）が0件のとき例外をスローする。
  * `target`未指定時は0件でもエラーにしない（`config/`が空でも正常終了する現状仕様）。
  */
 export function assertTargetMatched(
   target: ConfigTarget,
   chartDirs: readonly string[],
-  chartAndAppsList: readonly ChartAndApps[],
+  configUnits: readonly ConfigUnit[],
 ): void {
-  if (isExplicitlyTargeted(target) && chartAndAppsList.length === 0) {
+  if (isExplicitlyTargeted(target) && configUnits.length === 0) {
     throw new Error(
       "TARGET_CHART / TARGET_UNITS で絞り込んだ結果、対象となるchartが1件も見つかりませんでした。" +
         `config/ 直下のディレクトリ名を指定し、そのディレクトリに ${REGISTRY_YAML_FILE_NAME} と ${CONFIG_YAML_FILE_NAME} が` +

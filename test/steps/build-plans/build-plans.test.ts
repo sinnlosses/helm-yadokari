@@ -22,7 +22,7 @@ import {
   NEW_TAG,
   OLD_TAG,
   makeApp,
-  makeChartAndApps,
+  makeConfigUnit,
   makeHttpError,
   mockBuildPlansGitlab,
   mockGitlab,
@@ -38,11 +38,11 @@ describe("buildPlans", () => {
     vi.clearAllMocks()
   })
 
-  it("差分があるchartAndAppsはtoApplyに含まれる", async () => {
-    const group = makeChartAndApps([makeApp()])
+  it("差分がある設定ユニットはtoApplyに含まれる", async () => {
+    const group = makeConfigUnit([makeApp()])
     const { toApply, settled } = await buildPlans(mockGitlab, newBatchCache(), [group], 3, false)
     expect(toApply).toHaveLength(1)
-    expect(toApply[0]?.chartAndApps).toBe(group)
+    expect(toApply[0]?.configUnit).toBe(group)
     expect(toApply[0]?.plans[0]?.latestTag.name).toBe(NEW_TAG)
     expect(toApply[0]?.files).toEqual([
       { valuesPath: "values.yaml", content: `variables:\n  - &appVersion ${NEW_TAG}\n` },
@@ -50,12 +50,12 @@ describe("buildPlans", () => {
     expect(settled).toEqual([])
   })
 
-  it("差分がないchartAndAppsはsettledにSKIPPEDとして入る", async () => {
+  it("差分がない設定ユニットはsettledにSKIPPEDとして入る", async () => {
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${NEW_TAG}\n`)
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -67,7 +67,7 @@ describe("buildPlans", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       true,
     )
@@ -80,7 +80,7 @@ describe("buildPlans", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -98,7 +98,7 @@ describe("buildPlans", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([appOk, appFail])],
+      [makeConfigUnit([appOk, appFail])],
       3,
       false,
     )
@@ -133,7 +133,7 @@ describe("buildPlans", () => {
     const { toApply } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([appA, appB])],
+      [makeConfigUnit([appA, appB])],
       3,
       false,
     )
@@ -145,7 +145,7 @@ describe("buildPlans", () => {
   it("401エラーのとき FatalError をスローする", async () => {
     vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
     await expect(
-      buildPlans(mockGitlab, newBatchCache(), [makeChartAndApps([makeApp()])], 3, false),
+      buildPlans(mockGitlab, newBatchCache(), [makeConfigUnit([makeApp()])], 3, false),
     ).rejects.toThrow(FatalError)
   })
 
@@ -154,7 +154,7 @@ describe("buildPlans", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -162,11 +162,11 @@ describe("buildPlans", () => {
     expect(settled).toEqual(["ERROR"])
   })
 
-  it("非fatalなAPIエラーは該当chartAndAppsだけをERRORにし、他のchartAndAppsの処理は続行する", async () => {
+  it("非fatalなAPIエラーは該当設定ユニットだけをERRORにし、他の設定ユニットの処理は続行する", async () => {
     const appFail = makeApp({ projectId: toProjectId(1), projectName: toProjectName("app-fail") })
     const appOk = makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-ok") })
-    const failing = { ...makeChartAndApps([appFail]), chartDirName: toChartDirName("failing") }
-    const ok = { ...makeChartAndApps([appOk]), chartDirName: toChartDirName("ok") }
+    const failing = { ...makeConfigUnit([appFail]), chartDirName: toChartDirName("failing") }
+    const ok = { ...makeConfigUnit([appOk]), chartDirName: toChartDirName("ok") }
     vi.mocked(listTags).mockImplementation(async (_client, projectId) => {
       if (projectId === 1) throw makeHttpError(403)
       return [{ name: NEW_TAG, commitSha: HEAD_SHA }]
@@ -179,14 +179,14 @@ describe("buildPlans", () => {
       false,
     )
     expect(toApply).toHaveLength(1)
-    expect(toApply[0]?.chartAndApps).toBe(ok)
+    expect(toApply[0]?.configUnit).toBe(ok)
     expect(settled).toEqual(["ERROR"])
   })
 
   it("values.yaml が見つからないときのエラーメッセージにアプリ名が含まれる", async () => {
     vi.mocked(getFileContent).mockResolvedValue(undefined)
     const app = makeApp({ projectName: toProjectName("test-app-name") })
-    await buildPlans(mockGitlab, newBatchCache(), [makeChartAndApps([app])], 3, false)
+    await buildPlans(mockGitlab, newBatchCache(), [makeConfigUnit([app])], 3, false)
     expect(vi.mocked(logger.error)).toHaveBeenCalled()
     const errorCall = vi.mocked(logger.error).mock.calls[0]?.[0]
     expect(errorCall?.reason).toContain("test-app-name")
@@ -198,7 +198,7 @@ describe("buildPlans", () => {
     // 同じchartディレクトリ配下の別tenant/client（chart.projectIdは既定値で共通）が
     // 同じvalues.yamlの別アンカーを書き換える構成（docs/requirements.md 4.2節の既知の制限）
     const makeGroup = (unit: string, anchorName: string) =>
-      makeChartAndApps(
+      makeConfigUnit(
         [
           makeApp({
             imageTagTargets: [

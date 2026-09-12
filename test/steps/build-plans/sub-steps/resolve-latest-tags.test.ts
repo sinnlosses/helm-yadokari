@@ -28,7 +28,7 @@ import {
   NEW_TAG,
   OLD_TAG,
   makeApp,
-  makeChartAndApps,
+  makeConfigUnit,
   makeHttpError,
   mockBuildPlansGitlab,
   mockGitlab,
@@ -52,7 +52,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const { toApply } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([app])],
+      [makeConfigUnit([app])],
       3,
       false,
     )
@@ -67,7 +67,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -85,7 +85,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -98,7 +98,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const { toApply } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -117,7 +117,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([app])],
+      [makeConfigUnit([app])],
       3,
       false,
     )
@@ -139,7 +139,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([app])],
+      [makeConfigUnit([app])],
       3,
       false,
     )
@@ -155,7 +155,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     // 実際には作らず、作成予定の名前だけを使って以降の判定を続ける
     vi.mocked(listTags).mockResolvedValue([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
-    await buildPlans(mockGitlab, newBatchCache(), [makeChartAndApps([app])], 3, true)
+    await buildPlans(mockGitlab, newBatchCache(), [makeConfigUnit([app])], 3, true)
     expect(createTag).not.toHaveBeenCalled()
   })
 
@@ -164,7 +164,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -177,7 +177,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.mocked(listTags).mockResolvedValue([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
-    await buildPlans(mockGitlab, newBatchCache(), [makeChartAndApps([makeApp()])], 3, true)
+    await buildPlans(mockGitlab, newBatchCache(), [makeConfigUnit([makeApp()])], 3, true)
     expect(createTag).not.toHaveBeenCalled()
   })
 
@@ -189,7 +189,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -207,7 +207,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -229,7 +229,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -248,7 +248,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const { toApply } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -264,7 +264,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     const { toApply } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -272,12 +272,12 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     expect(toApply).toHaveLength(1)
   })
 
-  it("追跡ブランチがchartリポジトリに存在しないとき、タグを作成せずそのchartAndAppsをERRORにする", async () => {
+  it("追跡ブランチがchartリポジトリに存在しないとき、タグを作成せずその設定ユニットをERRORにする", async () => {
     vi.mocked(getBranchHeadSha).mockResolvedValue(undefined)
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([makeApp()])],
+      [makeConfigUnit([makeApp()])],
       3,
       false,
     )
@@ -286,17 +286,17 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     expect(settled).toEqual(["ERROR"])
   })
 
-  it("追跡ブランチが存在しないchartAndAppsをERRORにしつつ、他のchartAndAppsの処理は続行する", async () => {
+  it("追跡ブランチが存在しない設定ユニットをERRORにしつつ、他の設定ユニットの処理は続行する", async () => {
     const appMissingBranch = makeApp({
       projectId: toProjectId(1),
       projectName: toProjectName("app-missing-branch"),
     })
     const appOk = makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-ok") })
     const missing = {
-      ...makeChartAndApps([appMissingBranch]),
+      ...makeConfigUnit([appMissingBranch]),
       chartDirName: toChartDirName("missing"),
     }
-    const ok = { ...makeChartAndApps([appOk]), chartDirName: toChartDirName("ok") }
+    const ok = { ...makeConfigUnit([appOk]), chartDirName: toChartDirName("ok") }
     vi.mocked(getBranchHeadSha).mockImplementation(async (_client, projectId) =>
       projectId === 1 ? undefined : HEAD_SHA,
     )
@@ -309,7 +309,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     )
     expect(createTag).not.toHaveBeenCalled()
     expect(toApply).toHaveLength(1)
-    expect(toApply[0]?.chartAndApps).toBe(ok)
+    expect(toApply[0]?.configUnit).toBe(ok)
     expect(settled).toEqual(["ERROR"])
   })
 })
@@ -381,9 +381,9 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
     // 秒をまたいで同じコミットに冗長なタグが並ぶ
     const app = makeApp()
     const targets = [
-      makeChartAndApps([app], { unitPath: toConfigUnitPath("tenant1/clientA") }),
-      makeChartAndApps([app], { unitPath: toConfigUnitPath("tenant1/clientB") }),
-      makeChartAndApps([app], { unitPath: toConfigUnitPath("tenant1/clientC") }),
+      makeConfigUnit([app], { unitPath: toConfigUnitPath("tenant1/clientA") }),
+      makeConfigUnit([app], { unitPath: toConfigUnitPath("tenant1/clientB") }),
+      makeConfigUnit([app], { unitPath: toConfigUnitPath("tenant1/clientC") }),
     ]
 
     await buildPlans(mockGitlab, newBatchCache(), targets, 3, false)
@@ -395,8 +395,8 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
 
   it("追跡ブランチが違えば別々に解決する", async () => {
     const targets = [
-      makeChartAndApps([makeApp()], { unitPath: toConfigUnitPath("tenant1/clientA") }),
-      makeChartAndApps([makeApp({ branchToSync: toBranchName("release/2026-q2") })], {
+      makeConfigUnit([makeApp()], { unitPath: toConfigUnitPath("tenant1/clientA") }),
+      makeConfigUnit([makeApp({ branchToSync: toBranchName("release/2026-q2") })], {
         unitPath: toConfigUnitPath("tenant1/clientB"),
       }),
     ]

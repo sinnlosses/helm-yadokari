@@ -14,16 +14,10 @@ import { buildMrContent } from "../../../src/steps/apply-updates/sub-steps/build
 import { collectMrEntries } from "../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js"
 import type { MrEntries } from "../../../src/steps/apply-updates/sub-steps/shared/types.js"
 import { submitMergeRequest } from "../../../src/steps/apply-updates/sub-steps/submit-merge-request.js"
-import type { ChartUpdateTarget } from "../../../src/types/types.js"
+import type { ConfigUnitUpdateTarget } from "../../../src/types/types.js"
 import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"
-import {
-  makeApp,
-  makeChartAndApps,
-  makeHttpError,
-  mockGitlab,
-  newBatchCache,
-} from "../../helpers.js"
+import { makeApp, makeConfigUnit, makeHttpError, mockGitlab, newBatchCache } from "../../helpers.js"
 
 const MR_ENTRIES: MrEntries = { imageTags: [], helmBranches: [] }
 
@@ -38,9 +32,9 @@ const NEW_TAG = {
   builtAt: new Date(Date.UTC(2026, 0, 1)),
 }
 
-function makeTarget(): ChartUpdateTarget {
+function makeTarget(): ConfigUnitUpdateTarget {
   return {
-    chartAndApps: makeChartAndApps([makeApp()]),
+    configUnit: makeConfigUnit([makeApp()]),
     plans: [
       {
         app: makeApp(),
@@ -86,7 +80,7 @@ describe("applyUpdates", () => {
       target.plans,
       target.helmTargetBranchUpdates,
     )
-    expect(buildMrContent).toHaveBeenCalledWith(target.chartAndApps.unitPath, MR_ENTRIES)
+    expect(buildMrContent).toHaveBeenCalledWith(target.configUnit.unitPath, MR_ENTRIES)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[3]).toBe(MR_CONTENT)
   })
 
@@ -97,10 +91,10 @@ describe("applyUpdates", () => {
     )
   })
 
-  it("chartAndAppsのchart設定と書き換え済みファイルをそのまま渡す", async () => {
+  it("設定ユニットのchartRepo設定と書き換え済みファイルをそのまま渡す", async () => {
     const target = makeTarget()
     await applyUpdates(mockGitlab, newBatchCache(), [target], 3)
-    expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[1]).toBe(target.chartAndApps.chart)
+    expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[1]).toBe(target.configUnit.chartRepo)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[4]).toBe(target.files)
   })
 

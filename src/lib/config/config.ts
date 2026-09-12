@@ -2,9 +2,9 @@ import type { Config, LocalPath } from "../../types/types.js"
 import { toLocalPath } from "../../types/types.js"
 import { assertSafePath, listSubdirectories } from "../../utils/fs.js"
 import { findConfigUnits } from "./find-config-units.js"
-import { loadChartAndApps } from "./load-chart-and-apps.js"
+import { loadConfigUnits } from "./load-config-unit.js"
 import type { ConfigTarget } from "./limit-to-target.js"
-import { NO_TARGET, assertTargetMatched, selectChartDirs, selectTargetUnits } from "./limit-to-target.js"
+import { NO_TARGET, assertTargetMatched, selectChartDirs, selectTargetConfigUnits } from "./limit-to-target.js"
 import { validateTagFormatConsistency } from "./validate.js"
 
 /** `CONFIG_PATH`・コマンドライン引数のどちらも省略されたときに読む設定ディレクトリ */
@@ -20,9 +20,9 @@ export function loadConfig(configDirPath: LocalPath, target: ConfigTarget = NO_T
   const allChartDirs = listSubdirectories(configDirPath)
   const chartDirs = selectChartDirs(allChartDirs, target)
   const chartUnitsList = chartDirs.flatMap((dir) => findConfigUnits(configDirPath, dir))
-  const selected = selectTargetUnits(chartUnitsList, target)
-  const chartAndAppsList = selected.flatMap(loadChartAndApps)
-  validateTagFormatConsistency(chartAndAppsList)
-  assertTargetMatched(target, allChartDirs, chartAndAppsList)
-  return { chartAndAppsList }
+  const selected = selectTargetConfigUnits(chartUnitsList, target)
+  const configUnits = selected.flatMap(loadConfigUnits)
+  validateTagFormatConsistency(configUnits)
+  assertTargetMatched(target, allChartDirs, configUnits)
+  return { configUnits }
 }

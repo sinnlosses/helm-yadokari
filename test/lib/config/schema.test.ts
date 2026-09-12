@@ -118,8 +118,8 @@ describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.apps[0]?.tagFormat).toBe("{date}-{time}-{branch}")
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits[0]?.apps[0]?.tagFormat).toBe("{date}-{time}-{branch}")
   })
 
   it("省略したとき例外をスローする", () => {

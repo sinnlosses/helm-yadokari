@@ -51,8 +51,8 @@ describe("loadConfig（config.yaml と registry.yaml の appSpecs[] の紐づけ
       ]),
     )
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.apps.map((a) => a.projectName)).toEqual(["app-1"])
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits[0]?.apps.map((a) => a.projectName)).toEqual(["app-1"])
   })
 
   it("config.yamlとregistry.yamlでprojectIdが同じでもprojectNameが一致しないとき例外をスローする", () => {
@@ -230,9 +230,9 @@ describe("loadConfig（重複指定の検証）", () => {
       ]),
     )
 
-    const { chartAndAppsList } = loadConfig(dir.path)
+    const { configUnits } = loadConfig(dir.path)
 
-    expect(chartAndAppsList[0]?.apps).toHaveLength(2)
+    expect(configUnits[0]?.apps).toHaveLength(2)
   })
 })
 
@@ -286,9 +286,9 @@ describe("loadConfig（複数のchartリポジトリにまたがるtagFormatの�
     )
     dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYamlFor("develop"))
 
-    const { chartAndAppsList } = loadConfig(dir.path)
+    const { configUnits } = loadConfig(dir.path)
 
-    expect(chartAndAppsList).toHaveLength(2)
+    expect(configUnits).toHaveLength(2)
   })
 
   it("同じchartリポジトリ配下の複数の設定ユニットは同じtagFormatの台帳を共有するため食い違いようが無い", () => {
@@ -302,10 +302,10 @@ describe("loadConfig（複数のchartリポジトリにまたがるtagFormatの�
     dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYamlFor("main"))
     dir.writeConfigYaml("teamA-chart", "tenant1/client2", configYamlFor("develop"))
 
-    const { chartAndAppsList } = loadConfig(dir.path)
+    const { configUnits } = loadConfig(dir.path)
 
-    expect(chartAndAppsList).toHaveLength(2)
-    expect(chartAndAppsList.every((g) => g.apps[0]?.tagFormat === "{date}-{time}-{branch}")).toBe(
+    expect(configUnits).toHaveLength(2)
+    expect(configUnits.every((g) => g.apps[0]?.tagFormat === "{date}-{time}-{branch}")).toBe(
       true,
     )
   })

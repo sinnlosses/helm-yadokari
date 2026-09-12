@@ -23,7 +23,7 @@ export type StageImageTagUpdatesResult = {
 type StageAppImageTagUpdatesAcc = StageUpdatesAcc<ImageTagUpdate>
 
 /**
- * 1つのchartAndApps配下の全アプリについて、イメージタグの更新を1つの下書きに積み上げる。
+ * 1つの設定ユニット配下の全アプリについて、イメージタグの更新を1つの下書きに積み上げる。
  *
  * 同じvalues.yamlを参照する複数アプリ・複数箇所の変更が1つの下書きに積み重なるよう、
  * アプリは並列化せず1つずつ処理する。

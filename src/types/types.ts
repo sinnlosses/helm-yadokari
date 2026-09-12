@@ -50,17 +50,17 @@ export type ChartRepoConfig = {
 }
 
 /** `config/<chartリポジトリ>/<unitPath>/`1つ分。MRを作成する単位でもある */
-export type ChartAndApps = {
+export type ConfigUnit = {
   readonly chartDirName: ChartDirName
   readonly unitPath: ConfigUnitPath
-  readonly chart: ChartRepoConfig
+  readonly chartRepo: ChartRepoConfig
   readonly apps: readonly AppConfig[]
   /** `targets`は`helm.chart[]`のうちapps側が実際に書き込むvaluesPathを指す要素だけになる（空もありうる） */
   readonly helmTargetBranch: HelmTargetBranchConfig
 }
 
 export type Config = {
-  readonly chartAndAppsList: readonly ChartAndApps[]
+  readonly configUnits: readonly ConfigUnit[]
 }
 
 /** タグ名から読み取れる情報。追跡ブランチと、タグ形式の`{date}`/`{time}`から読み取った打刻日時 */
@@ -104,7 +104,7 @@ export type AppUpdatePlan = {
   readonly updates: readonly ImageTagUpdate[]
 }
 
-export type ChartUpdateResult = "CREATED" | "SKIPPED" | "ERROR"
+export type ConfigUnitUpdateResult = "CREATED" | "SKIPPED" | "ERROR"
 
 export type RunResult = "SUCCESS" | "PARTIAL_FAILURE"
 
@@ -114,12 +114,12 @@ export type FileUpdate = {
 }
 
 /**
- * 差分が確定し、コミット・MR作成の対象になった1chartAndApps分の更新内容。
+ * 差分が確定し、コミット・MR作成の対象になった1設定ユニット分の更新内容。
  * `helmTargetBranchUpdates`がapp単位でなくここにあるのは、向き先ブランチが設定ユニット内の
  * apps全体で共通だから（`plans`が空でもこちらに差分があればMRを作る）
  */
-export type ChartUpdateTarget = {
-  readonly chartAndApps: ChartAndApps
+export type ConfigUnitUpdateTarget = {
+  readonly configUnit: ConfigUnit
   readonly plans: readonly AppUpdatePlan[]
   readonly helmTargetBranchUpdates: readonly HelmTargetBranchUpdate[]
   readonly files: readonly FileUpdate[]

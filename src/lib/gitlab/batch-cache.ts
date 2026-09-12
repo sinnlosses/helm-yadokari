@@ -50,7 +50,7 @@ export type GitlabBatchCache = {
 
   /**
    * このツールが書き込むのは固定ブランチだけで、読み先の`mrTargetBranch`はバッチ中に変わらない
-   * ため載せている。返すのは**常にGitLab上の内容**で、書き換え中の内容はchartAndApps単位の
+   * ため載せている。返すのは**常にGitLab上の内容**で、書き換え中の内容は設定ユニット単位の
    * 下書き（`ValuesYamlDraft`）にしか載らない。
    */
   readonly getFileContent: (

@@ -29,7 +29,7 @@ describe("loadConfig（パストラバーサル）", () => {
 })
 
 describe("loadConfig（正常系）", () => {
-  it("registry.yaml と config.yaml を読み込み ChartAndApps を返す", () => {
+  it("registry.yaml と config.yaml を読み込み ConfigUnit を返す", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -50,12 +50,12 @@ describe("loadConfig（正常系）", () => {
       ]),
     )
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList).toHaveLength(1)
-    expect(chartAndAppsList[0]).toEqual({
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits).toHaveLength(1)
+    expect(configUnits[0]).toEqual({
       chartDirName: "teamA-chart",
       unitPath: "tenant1/client1",
-      chart: {
+      chartRepo: {
         projectId: 888,
         projectName: "teamA-chart",
         mrTargetBranch: "develop",
@@ -98,11 +98,11 @@ describe("loadConfig（正常系）", () => {
     )
     dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYaml())
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList.map((g) => g.chartDirName)).toEqual(["teamA-chart", "teamB-chart"])
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits.map((g) => g.chartDirName)).toEqual(["teamA-chart", "teamB-chart"])
   })
 
-  it("同じchartディレクトリ配下の複数の設定ユニットはそれぞれ別のChartAndAppsになる", () => {
+  it("同じchartディレクトリ配下の複数の設定ユニットはそれぞれ別のConfigUnitになる", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -151,9 +151,9 @@ describe("loadConfig（正常系）", () => {
       ]),
     )
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList).toHaveLength(3)
-    expect(chartAndAppsList.map((g) => [g.unitPath, g.apps.map((a) => a.projectName)])).toEqual([
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits).toHaveLength(3)
+    expect(configUnits.map((g) => [g.unitPath, g.apps.map((a) => a.projectName)])).toEqual([
       ["tenant1/client1", ["app-1"]],
       ["tenant1/client2", ["app-2"]],
       ["tenant2/client1", ["app-3"]],
@@ -168,23 +168,23 @@ describe("loadConfig（正常系）", () => {
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYaml())
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList.map((g) => g.chartDirName)).toEqual(["teamA-chart"])
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits.map((g) => g.chartDirName)).toEqual(["teamA-chart"])
   })
 
-  it("config.yaml が存在しないtenant/clientディレクトリはChartAndAppsを作らない", () => {
+  it("config.yaml が存在しないtenant/clientディレクトリはConfigUnitを作らない", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
     )
     mkdirSync(join(dir.path, "teamA-chart", "tenant1", "client1"), { recursive: true })
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList).toEqual([])
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits).toEqual([])
   })
 
-  it("configディレクトリが空のとき chartAndAppsList: [] を返す", () => {
-    expect(loadConfig(dir.path)).toEqual({ chartAndAppsList: [] })
+  it("configディレクトリが空のとき configUnits: [] を返す", () => {
+    expect(loadConfig(dir.path)).toEqual({ configUnits: [] })
   })
 })
 
@@ -199,16 +199,16 @@ describe("loadConfig（設定ユニットの階層）", () => {
   it("深さ1のディレクトリに置かれたconfig.yamlを読み込む", () => {
     dir.writeConfigYaml("teamA-chart", "central", configYaml())
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList.map((g) => g.unitPath)).toEqual(["central"])
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits.map((g) => g.unitPath)).toEqual(["central"])
   })
 
   it("深さ1と深さ2の設定ユニットを同じchartディレクトリ配下に混在させられる", () => {
     dir.writeConfigYaml("teamA-chart", "central", configYaml())
     dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYaml())
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList.map((g) => g.unitPath)).toEqual(["central", "tenant1/client1"])
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits.map((g) => g.unitPath)).toEqual(["central", "tenant1/client1"])
   })
 
   it("設定ユニットが入れ子になっているとき例外をスローする", () => {
@@ -229,8 +229,8 @@ describe("loadConfig（設定ユニットの階層）", () => {
     dir.writeConfigYaml("teamA-chart", "central", configYaml())
     dir.writeConfigYaml("teamA-chart", "central2", configYaml())
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList.map((g) => g.unitPath)).toEqual(["central", "central2"])
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits.map((g) => g.unitPath)).toEqual(["central", "central2"])
   })
 
   it("深さ3のディレクトリにconfig.yamlがあるとき例外をスローする", () => {
@@ -257,7 +257,7 @@ describe("loadConfig（設定ユニットの階層）", () => {
   it("registry.yamlが無いディレクトリの配下は走査しない（深さの検証もしない）", () => {
     dir.writeConfigYaml("not-a-chart", "tenant1/client1/extra", configYaml())
 
-    expect(loadConfig(dir.path)).toEqual({ chartAndAppsList: [] })
+    expect(loadConfig(dir.path)).toEqual({ configUnits: [] })
   })
 })
 
@@ -286,8 +286,8 @@ describe("loadConfig（chartの複数指定）", () => {
       ]),
     )
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.apps[0]?.imageTagTargets).toEqual([
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits[0]?.apps[0]?.imageTagTargets).toEqual([
       { valuesPath: "charts/webapi/values.yaml", anchorName: "appVersion" },
       { valuesPath: "charts/batch/values.yaml", anchorName: "batchAppsVersion" },
     ])
@@ -358,13 +358,13 @@ describe("loadConfig（target絞り込み）", () => {
   })
 
   it("chartDirNameを指定すると該当chartのみ返す", () => {
-    const { chartAndAppsList } = loadConfig(dir.path, {
+    const { configUnits } = loadConfig(dir.path, {
       chartDirName: toChartDirName("teamA-chart"),
       units: undefined,
     })
-    expect(chartAndAppsList).toHaveLength(2)
-    expect(chartAndAppsList.every((g) => g.chartDirName === "teamA-chart")).toBe(true)
-    expect(chartAndAppsList.map((g) => [g.unitPath, g.apps.map((a) => a.projectName)])).toEqual([
+    expect(configUnits).toHaveLength(2)
+    expect(configUnits.every((g) => g.chartDirName === "teamA-chart")).toBe(true)
+    expect(configUnits.map((g) => [g.unitPath, g.apps.map((a) => a.projectName)])).toEqual([
       ["tenant1/client1", ["app-1"]],
       ["tenant2/client2", ["app-2"]],
     ])
@@ -383,12 +383,12 @@ describe("loadConfig（target絞り込み）", () => {
   })
 
   it("unitsを1件指定すると該当アプリのみ返す（chart横断）", () => {
-    const { chartAndAppsList } = loadConfig(dir.path, {
+    const { configUnits } = loadConfig(dir.path, {
       chartDirName: undefined,
       units: [unit("tenant1", "client1")],
     })
     expect(
-      chartAndAppsList.map((g) => [g.chartDirName, g.apps.map((a) => a.projectName)]),
+      configUnits.map((g) => [g.chartDirName, g.apps.map((a) => a.projectName)]),
     ).toEqual([
       ["teamA-chart", ["app-1"]],
       ["teamB-chart", ["app-3"]],
@@ -396,12 +396,12 @@ describe("loadConfig（target絞り込み）", () => {
   })
 
   it("unitsを複数指定すると該当する全アプリを返す", () => {
-    const { chartAndAppsList } = loadConfig(dir.path, {
+    const { configUnits } = loadConfig(dir.path, {
       chartDirName: undefined,
       units: [unit("tenant1", "client1"), unit("tenant2", "client2")],
     })
     expect(
-      chartAndAppsList.map((g) => [g.chartDirName, g.unitPath, g.apps.map((a) => a.projectName)]),
+      configUnits.map((g) => [g.chartDirName, g.unitPath, g.apps.map((a) => a.projectName)]),
     ).toEqual([
       ["teamA-chart", "tenant1/client1", ["app-1"]],
       ["teamA-chart", "tenant2/client2", ["app-2"]],
@@ -412,22 +412,22 @@ describe("loadConfig（target絞り込み）", () => {
   it("深さ1のunitPathで絞り込める", () => {
     dir.writeConfigYaml("teamA-chart", "central", configYaml())
 
-    const { chartAndAppsList } = loadConfig(dir.path, {
+    const { configUnits } = loadConfig(dir.path, {
       chartDirName: undefined,
       units: [toConfigUnitPath("central")],
     })
-    expect(chartAndAppsList.map((g) => [g.chartDirName, g.unitPath])).toEqual([
+    expect(configUnits.map((g) => [g.chartDirName, g.unitPath])).toEqual([
       ["teamA-chart", "central"],
     ])
   })
 
   it("chartDirName + units を組み合わせて絞り込める", () => {
-    const { chartAndAppsList } = loadConfig(dir.path, {
+    const { configUnits } = loadConfig(dir.path, {
       chartDirName: toChartDirName("teamA-chart"),
       units: [unit("tenant2", "client2")],
     })
-    expect(chartAndAppsList).toHaveLength(1)
-    expect(chartAndAppsList[0]?.apps.map((a) => a.projectName)).toEqual(["app-2"])
+    expect(configUnits).toHaveLength(1)
+    expect(configUnits[0]?.apps.map((a) => a.projectName)).toEqual(["app-2"])
   })
 
   it("存在しないunitPathを指定したとき例外をスローする", () => {
@@ -459,7 +459,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
   it("target未指定でregistry.yamlが無いディレクトリしか無いとき、0件のまま正常終了する（現状仕様）", () => {
     dir.writeFile("not-a-chart/readme.txt", "hello")
 
-    expect(loadConfig(dir.path)).toEqual({ chartAndAppsList: [] })
+    expect(loadConfig(dir.path)).toEqual({ configUnits: [] })
   })
 
   it("chartDirNameを指定した先にregistry.yamlが無いとき例外をスローする", () => {
@@ -517,11 +517,11 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYaml())
 
-    const { chartAndAppsList } = loadConfig(dir.path, {
+    const { configUnits } = loadConfig(dir.path, {
       chartDirName: toChartDirName("teamA-chart"),
       units: undefined,
     })
-    expect(chartAndAppsList).toHaveLength(1)
+    expect(configUnits).toHaveLength(1)
   })
 })
 
@@ -550,8 +550,8 @@ describe("loadConfig（helmTargetBranch）", () => {
       ),
     )
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.helmTargetBranch).toEqual({
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits[0]?.helmTargetBranch).toEqual({
       branchName: "release/2026-q1",
       targets: [{ valuesPath: "a.yaml", anchorName: "targetBranch" }],
     })
@@ -728,8 +728,8 @@ describe("loadConfig（helmTargetBranch）", () => {
       ),
     )
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.helmTargetBranch?.targets).toEqual([
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits[0]?.helmTargetBranch?.targets).toEqual([
       { valuesPath: "a.yaml", anchorName: "targetBranchA" },
       { valuesPath: "b.yaml", anchorName: "targetBranchB" },
     ])
@@ -768,8 +768,8 @@ describe("loadConfig（helmTargetBranch）", () => {
       ),
     )
 
-    const { chartAndAppsList } = loadConfig(dir.path)
-    expect(chartAndAppsList[0]?.helmTargetBranch).toEqual({
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits[0]?.helmTargetBranch).toEqual({
       branchName: "release/2026-q1",
       targets: [
         { valuesPath: "webapi.yaml", anchorName: "webapiTargetBranch" },

@@ -12,7 +12,7 @@ import {
   NEW_TAG,
   OLD_TAG,
   makeApp,
-  makeChartAndApps,
+  makeConfigUnit,
   mockBuildPlansGitlab,
   mockGitlab,
   newBatchCache,
@@ -42,7 +42,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     const { toApply } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([app])],
+      [makeConfigUnit([app])],
       3,
       false,
     )
@@ -71,7 +71,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     const { toApply } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([app])],
+      [makeConfigUnit([app])],
       3,
       false,
     )
@@ -104,7 +104,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     const { toApply } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeChartAndApps([app])],
+      [makeConfigUnit([app])],
       3,
       false,
     )
@@ -130,7 +130,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       const { toApply } = await buildPlans(
         mockGitlab,
         newBatchCache(),
-        [makeChartAndApps([app])],
+        [makeConfigUnit([app])],
         3,
         false,
       )

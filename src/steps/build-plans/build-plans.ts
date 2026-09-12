@@ -1,12 +1,16 @@
 import type { GitlabBatchCache } from "../../lib/gitlab/batch-cache.js"
 import type { GitlabClient } from "../../lib/gitlab/gitlab.js"
-import type { ChartAndApps, ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
+import type {
+  ConfigUnit,
+  ConfigUnitUpdateResult,
+  ConfigUnitUpdateTarget,
+} from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
 import { describeHelmTargetBranchUpdates, describePlan } from "../shared/describe-plan.js"
 import {
-  type ChartUpdateLogContext,
+  type ConfigUnitLogContext,
   type StepOutcome,
   ok,
   settle,
@@ -18,29 +22,29 @@ import { stageHelmTargetBranchUpdates } from "./sub-steps/stage-helm-target-bran
 import { stageImageTagUpdates } from "./sub-steps/stage-image-tag-updates.js"
 
 export type BuildPlansResult = {
-  readonly toApply: readonly ChartUpdateTarget[]
-  readonly settled: readonly ChartUpdateResult[]
+  readonly toApply: readonly ConfigUnitUpdateTarget[]
+  readonly settled: readonly ConfigUnitUpdateResult[]
 }
 
 /**
- * 各chartAndAppsの更新計画を並列に構築する。差分がないもの・dryRunのものは
+ * 各設定ユニットの更新計画を並列に構築する。差分がないもの・dryRunのものは
  * settled（SKIPPED）に、実際に適用が必要なものは toApply にまとめて返す。
  *
- * いずれか1つのアプリの処理が失敗した場合、そのchartAndApps全体をオールオアナッシングで
+ * いずれか1つのアプリの処理が失敗した場合、その設定ユニット全体をオールオアナッシングで
  * settled（ERROR）に含める（`buildPlan()` 参照）。
  */
 export async function buildPlans(
   gitlab: GitlabClient,
   gitlabCache: GitlabBatchCache,
-  targets: readonly ChartAndApps[],
+  targets: readonly ConfigUnit[],
   concurrencyLimit: number,
   dryRun: boolean,
 ): Promise<BuildPlansResult> {
   const resolveLatestTags = createResolveLatestTags(gitlab, dryRun)
 
-  const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (chartAndApps) =>
-    withHandling(chartAndApps, (logContext) =>
-      buildPlan(gitlabCache, resolveLatestTags, chartAndApps, dryRun, logContext),
+  const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (configUnit) =>
+    withHandling(configUnit, (logContext) =>
+      buildPlan(gitlabCache, resolveLatestTags, configUnit, dryRun, logContext),
     ),
   )
 
@@ -51,7 +55,7 @@ export async function buildPlans(
 }
 
 /**
- * 1つのchartAndAppsの更新計画を組み立て、結果を振り分ける（このstepの並列処理1件分）。
+ * 1つの設定ユニットの更新計画を組み立て、結果を振り分ける（このstepの並列処理1件分）。
  *
  * 向き先ブランチは設定ユニット内のapps全体で共通なので、全アプリのイメージタグを積んだ後の
  * 下書きに重ねる。こうすることで同じvalues.yamlへの書き換えが失われない。
@@ -59,20 +63,20 @@ export async function buildPlans(
 async function buildPlan(
   gitlabCache: GitlabBatchCache,
   resolveLatestTags: ResolveLatestTags,
-  chartAndApps: ChartAndApps,
+  configUnit: ConfigUnit,
   dryRun: boolean,
-  logContext: ChartUpdateLogContext,
-): Promise<StepOutcome<ChartUpdateTarget>> {
-  const valuesYamlSource: ValuesYamlSource = { gitlabCache, chart: chartAndApps.chart }
+  logContext: ConfigUnitLogContext,
+): Promise<StepOutcome<ConfigUnitUpdateTarget>> {
+  const valuesYamlSource: ValuesYamlSource = { gitlabCache, chart: configUnit.chartRepo }
 
-  const appsWithLatestTag = await resolveLatestTags(chartAndApps.apps)
+  const appsWithLatestTag = await resolveLatestTags(configUnit.apps)
   const { plans, draft: draftAfterApps } = await stageImageTagUpdates(
     valuesYamlSource,
     appsWithLatestTag,
   )
   const { draft, updates: helmTargetBranchUpdates } = await stageHelmTargetBranchUpdates(
     valuesYamlSource,
-    chartAndApps.helmTargetBranch,
+    configUnit.helmTargetBranch,
     draftAfterApps,
   )
 
@@ -90,5 +94,5 @@ async function buildPlan(
     })
     return settle("SKIPPED")
   }
-  return ok({ chartAndApps, plans, helmTargetBranchUpdates, files: toFileUpdates(draft) })
+  return ok({ configUnit, plans, helmTargetBranchUpdates, files: toFileUpdates(draft) })
 }

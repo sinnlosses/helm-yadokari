@@ -23,7 +23,7 @@ import {
 import { run } from "../src/main.js"
 import { toAccessToken, toCommitSha, toGitLabUrl, toTagName } from "../src/types/types.js"
 import { FatalError } from "../src/utils/errors.js"
-import { makeApp, makeChartAndApps, makeHttpError, mockGitlab } from "./helpers.js"
+import { makeApp, makeConfigUnit, makeHttpError, mockGitlab } from "./helpers.js"
 
 const env: EnvConfig = {
   gitlabUrl: toGitLabUrl("https://gitlab.test"),
@@ -42,7 +42,7 @@ const HEAD_SHA = toCommitSha("head-sha")
 describe("run", () => {
   beforeEach(() => {
     vi.mocked(createClient).mockReturnValue(mockGitlab)
-    vi.mocked(loadConfig).mockReturnValue({ chartAndAppsList: [] })
+    vi.mocked(loadConfig).mockReturnValue({ configUnits: [] })
     vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
@@ -57,7 +57,7 @@ describe("run", () => {
     vi.clearAllMocks()
   })
 
-  /** summary イベントに載った chartAndApps 単位の件数 */
+  /** summary イベントに載った設定ユニット単位の件数 */
   async function summaryCounts(): Promise<unknown> {
     const { logger } = await import("../src/utils/logger.js")
     const call = vi
@@ -67,27 +67,27 @@ describe("run", () => {
     return call && { CREATED: call["CREATED"], SKIPPED: call["SKIPPED"], ERROR: call["ERROR"] }
   }
 
-  it('chartAndAppsListがないとき "SUCCESS" を返し、件数は全て0になる', async () => {
+  it('configUnitsがないとき "SUCCESS" を返し、件数は全て0になる', async () => {
     await expect(run(env)).resolves.toBe("SUCCESS")
     await expect(summaryCounts()).resolves.toEqual({ CREATED: 0, SKIPPED: 0, ERROR: 0 })
   })
 
   it("全件 CREATED のとき正しい件数を集計する", async () => {
     vi.mocked(loadConfig).mockReturnValue({
-      chartAndAppsList: [makeChartAndApps([makeApp()]), makeChartAndApps([makeApp()])],
+      configUnits: [makeConfigUnit([makeApp()]), makeConfigUnit([makeApp()])],
     })
     await expect(run(env)).resolves.toBe("SUCCESS")
     await expect(summaryCounts()).resolves.toEqual({ CREATED: 2, SKIPPED: 0, ERROR: 0 })
   })
 
   it("FatalErrorが発生したとき reject する", async () => {
-    vi.mocked(loadConfig).mockReturnValue({ chartAndAppsList: [makeChartAndApps([makeApp()])] })
+    vi.mocked(loadConfig).mockReturnValue({ configUnits: [makeConfigUnit([makeApp()])] })
     vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
     await expect(run(env)).rejects.toThrow(FatalError)
   })
 
   it('ERROR が1件以上あるとき "PARTIAL_FAILURE" を返す', async () => {
-    vi.mocked(loadConfig).mockReturnValue({ chartAndAppsList: [makeChartAndApps([makeApp()])] })
+    vi.mocked(loadConfig).mockReturnValue({ configUnits: [makeConfigUnit([makeApp()])] })
     vi.mocked(listTags).mockRejectedValue(makeHttpError(403))
     await expect(run(env)).resolves.toBe("PARTIAL_FAILURE")
   })

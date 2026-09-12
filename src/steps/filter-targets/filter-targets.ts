@@ -1,11 +1,11 @@
 import { buildFeatureBranch } from "../../domain/feature-branch.js"
 import { type GitlabClient, openMergeRequestExists } from "../../lib/gitlab/gitlab.js"
-import type { ChartAndApps, ChartUpdateResult } from "../../types/types.js"
+import type { ConfigUnit, ConfigUnitUpdateResult } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
 import {
-  type ChartUpdateLogContext,
+  type ConfigUnitLogContext,
   type StepOutcome,
   ok,
   settle,
@@ -13,21 +13,21 @@ import {
 } from "../shared/step-outcome.js"
 
 export type FilterTargetsResult = {
-  readonly targets: readonly ChartAndApps[]
-  readonly settled: readonly ChartUpdateResult[]
+  readonly targets: readonly ConfigUnit[]
+  readonly settled: readonly ConfigUnitUpdateResult[]
 }
 
 /**
- * 登録アプリが0件、または固定ブランチにオープン中のMRが既にあるchartAndAppsを除外する。
- * 除外されたchartAndAppsの判定結果（SKIPPED/ERROR）は settled にまとめて返す。
+ * 登録アプリが0件、または固定ブランチにオープン中のMRが既にある設定ユニットを除外する。
+ * 除外された設定ユニットの判定結果（SKIPPED/ERROR）は settled にまとめて返す。
  */
 export async function filterTargets(
   gitlab: GitlabClient,
-  chartAndAppsList: readonly ChartAndApps[],
+  configUnits: readonly ConfigUnit[],
   concurrencyLimit: number,
 ): Promise<FilterTargetsResult> {
-  const outcomes = await mapWithConcurrency(chartAndAppsList, concurrencyLimit, (chartAndApps) =>
-    withHandling(chartAndApps, (logContext) => evaluateTarget(gitlab, chartAndApps, logContext)),
+  const outcomes = await mapWithConcurrency(configUnits, concurrencyLimit, (configUnit) =>
+    withHandling(configUnit, (logContext) => evaluateTarget(gitlab, configUnit, logContext)),
   )
 
   const { left: settled, right: targets } = partitionMap(outcomes, (outcome) =>
@@ -37,23 +37,23 @@ export async function filterTargets(
 }
 
 /**
- * 1つのchartAndAppsが処理対象か判定する（このstepの並列処理1件分）。登録アプリが0件、
+ * 1つの設定ユニットが処理対象か判定する（このstepの並列処理1件分）。登録アプリが0件、
  * または固定ブランチにオープン中のMRがある場合はSKIPPED。
  */
 async function evaluateTarget(
   gitlab: GitlabClient,
-  chartAndApps: ChartAndApps,
-  logContext: ChartUpdateLogContext,
-): Promise<StepOutcome<ChartAndApps>> {
-  if (chartAndApps.apps.length === 0) {
+  configUnit: ConfigUnit,
+  logContext: ConfigUnitLogContext,
+): Promise<StepOutcome<ConfigUnit>> {
+  if (configUnit.apps.length === 0) {
     logger.info({ ...logContext, result: "SKIPPED", reason: "no_apps" })
     return settle("SKIPPED")
   }
 
-  const branch = buildFeatureBranch(chartAndApps.unitPath)
-  if (await openMergeRequestExists(gitlab, chartAndApps.chart.projectId, branch)) {
+  const branch = buildFeatureBranch(configUnit.unitPath)
+  if (await openMergeRequestExists(gitlab, configUnit.chartRepo.projectId, branch)) {
     logger.info({ ...logContext, result: "SKIPPED", reason: "mr_exists" })
     return settle("SKIPPED")
   }
-  return ok(chartAndApps)
+  return ok(configUnit)
 }

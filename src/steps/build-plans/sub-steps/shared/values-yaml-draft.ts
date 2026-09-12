@@ -2,7 +2,7 @@ import type { GitlabBatchCache } from "../../../../lib/gitlab/batch-cache.js"
 import type { ChartRepoConfig, FileUpdate, ValuesPath } from "../../../../types/types.js"
 
 /**
- * 1つのvaluesPathについての下書き状態。`modified`が指すのはこのchartAndAppsの処理中に
+ * 1つのvaluesPathについての下書き状態。`modified`が指すのはこの設定ユニットの処理中に
  * 書き換えたかどうかで、GitLabから読んだだけのエントリは`false`のまま。
  */
 type ValuesYamlEntry = {
@@ -11,7 +11,7 @@ type ValuesYamlEntry = {
 }
 
 /**
- * 1つのchartAndAppsを処理する間の「values.yamlの下書き状態」。書き換え後の内容と「書き換えた」
+ * 1つの設定ユニットを処理する間の「values.yamlの下書き状態」。書き換え後の内容と「書き換えた」
  * 印を常に同じエントリに乗せるため、「印は付いているのに内容が無い」組み合わせが型上あり得ない。
  */
 export type ValuesYamlDraft = ReadonlyMap<ValuesPath, ValuesYamlEntry>
@@ -24,7 +24,7 @@ export type ValuesYamlSource = {
 
 /**
  * values.yamlの現在値を下書き優先で取り出す。下書きに無いときだけGitLabから読むため、
- * 同じchartAndApps内の別アプリが既に書き換えた内容がそのまま次のアプリへ引き継がれる。
+ * 同じ設定ユニット内の別アプリが既に書き換えた内容がそのまま次のアプリへ引き継がれる。
  * 渡した下書きは変更せず、読み込み結果を載せた新しい下書きを返す。
  */
 export async function readValuesYamlDraft(

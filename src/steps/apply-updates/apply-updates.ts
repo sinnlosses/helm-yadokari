@@ -1,12 +1,12 @@
 import { buildFeatureBranch } from "../../domain/feature-branch.js"
 import type { GitlabBatchCache } from "../../lib/gitlab/batch-cache.js"
 import type { GitlabClient } from "../../lib/gitlab/gitlab.js"
-import type { ChartUpdateResult, ChartUpdateTarget } from "../../types/types.js"
+import type { ConfigUnitUpdateResult, ConfigUnitUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { describeHelmTargetBranchUpdates, describePlan } from "../shared/describe-plan.js"
 import {
-  type ChartUpdateLogContext,
+  type ConfigUnitLogContext,
   type StepOutcome,
   ok,
   withHandling,
@@ -16,16 +16,16 @@ import { collectMrEntries } from "./sub-steps/collect-mr-entries.js"
 import { submitMergeRequest } from "./sub-steps/submit-merge-request.js"
 
 /**
- * 更新計画があるchartAndAppsに対して、固定ブランチへのコミットとMR作成を並列実行する。
+ * 更新計画がある設定ユニットに対して、固定ブランチへのコミットとMR作成を並列実行する。
  */
 export async function applyUpdates(
   gitlab: GitlabClient,
   gitlabCache: GitlabBatchCache,
-  targets: readonly ChartUpdateTarget[],
+  targets: readonly ConfigUnitUpdateTarget[],
   concurrencyLimit: number,
-): Promise<readonly ChartUpdateResult[]> {
+): Promise<readonly ConfigUnitUpdateResult[]> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (target) =>
-    withHandling(target.chartAndApps, (logContext) =>
+    withHandling(target.configUnit, (logContext) =>
       applyUpdate(gitlab, gitlabCache, target, logContext),
     ),
   )
@@ -33,21 +33,21 @@ export async function applyUpdates(
 }
 
 /**
- * 1つのchartAndAppsにコミットとMR作成を適用する。
+ * 1つの設定ユニットにコミットとMR作成を適用する。
  */
 async function applyUpdate(
   gitlab: GitlabClient,
   gitlabCache: GitlabBatchCache,
-  target: ChartUpdateTarget,
-  logContext: ChartUpdateLogContext,
-): Promise<StepOutcome<ChartUpdateResult>> {
-  const { chartAndApps, plans, helmTargetBranchUpdates, files } = target
-  const { chart, unitPath } = chartAndApps
+  target: ConfigUnitUpdateTarget,
+  logContext: ConfigUnitLogContext,
+): Promise<StepOutcome<ConfigUnitUpdateResult>> {
+  const { configUnit, plans, helmTargetBranchUpdates, files } = target
+  const { chartRepo, unitPath } = configUnit
   const featureBranch = buildFeatureBranch(unitPath)
 
   const entries = await collectMrEntries(gitlabCache, plans, helmTargetBranchUpdates)
   const content = buildMrContent(unitPath, entries)
-  await submitMergeRequest(gitlab, chart, featureBranch, content, files)
+  await submitMergeRequest(gitlab, chartRepo, featureBranch, content, files)
 
   logger.info({
     ...logContext,
@@ -55,5 +55,5 @@ async function applyUpdate(
     apps: plans.map(describePlan),
     helmTargetBranchUpdates: describeHelmTargetBranchUpdates(helmTargetBranchUpdates),
   })
-  return ok<ChartUpdateResult>("CREATED")
+  return ok<ConfigUnitUpdateResult>("CREATED")
 }
