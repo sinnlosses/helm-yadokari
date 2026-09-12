@@ -80,12 +80,13 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 
 `### ディレクトリ配置` の中:
 
-| 節                                                                         | 中身                     |
-| -------------------------------------------------------------------------- | ------------------------ |
-| #### `lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く  | 分割の基準               |
-| #### URLは`URL`オブジェクトではなく文字列のブランド型で扱う                | `URL`を使わない理由      |
-| #### サブステップ同士は互いをimportせず、共有物は`sub-steps/shared/`に置く | 原則1のサブステップ版    |
-| #### 実在チェックは`src/lib/`ではなく`scripts/lint/`に置く                 | 原則3が原則2に優先する例 |
+| 節                                                                         | 中身                                        |
+| -------------------------------------------------------------------------- | ------------------------------------------- |
+| #### `lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く  | 分割の基準                                  |
+| #### URLは`URL`オブジェクトではなく文字列のブランド型で扱う                | `URL`を使わない理由                         |
+| #### サブステップ同士は互いをimportせず、共有物は`sub-steps/shared/`に置く | 原則1のサブステップ版                       |
+| #### 実在チェックは`src/lib/`ではなく`scripts/lint/`に置く                 | 原則3が原則2に優先する例                    |
+| #### GitLab/GitHub の2実装は関数テーブル型`Platform`で受け渡す             | 2実装の並べ方、語彙、`batch-cache.ts`の移動 |
 
 `### 設定・環境変数・外部形式` の中:
 
@@ -98,6 +99,7 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 | #### `values.yaml` の位置指定はYAMLアンカーのみ、YAML処理は `yaml` パッケージ | `js-yaml`を使わない理由                                                              |
 | #### Helmの向き先ブランチはapp単位に振り分けず設定ユニット単位で持つ          | 設定ユニット単位で持つ理由                                                           |
 | #### MRの単位は `(chartリポジトリ, 設定ユニット)`                             | MRの粒度の理由                                                                       |
+| #### プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/`GITHUB_URL`のまま | 環境変数の形と、GitHub側をPATのみにした理由                                          |
 
 **既知の制約・注意点** — 踏みやすい落とし穴
 
@@ -840,6 +842,37 @@ GitLab APIと`config/`形式に依存するので`lib/`の条件（原則2）は
 置くか否か」を決めない。本体パイプラインからの参照は0なので、`src/`に置くと`dist/`に本体が
 使わないコードが混ざり、「本体から呼ばれない」という一番効く事実が構成に現れない。
 
+#### GitLab/GitHub の2実装は関数テーブル型`Platform`で受け渡す
+
+GitLabとGitHubの**両方に対応する。ただし1回の実行で混在はさせない**（ユーザー判断、2026-09-12）。
+
+**語彙は`Platform`。** `lib/platform/platform.ts` に13関数を並べた `Platform` 型を1つ置き、
+`lib/gitlab/` と `lib/github/` がそれぞれその形の値を組み立てる。`steps/` は `Platform` を
+引数で受け取り、`lib/`配下への直接のimport（現在7ファイル）は無くなる。あわせて
+`GitLabUrl` は `PlatformUrl` に改名する（`PipelineInfo` は名前自体が特定サービスに
+寄っていないため据え置き。漏れているのは `webUrl` の型のほうだった）。
+
+- **`forge`を採らなかった**。FOSS界隈では定着した語だが（Forgejo・ForgeFed）、GitHubとGitLab
+  自身がその語で自称していない。`platform`は**このリポジトリのCIが既に動かしているRenovate**が
+  `platform: "gitlab" | "github" | ...` として使っている語で、外部との一貫性の根拠が強い
+- **関数テーブルという形は新しい発明ではない**。`lib/gitlab/batch-cache.ts` の
+  `GitlabBatchCache`（`readonly branchExists: (...) => Promise<boolean>` を4本並べたオブジェクト型）と
+  `resolve-latest-tags.ts` の `ResolveLatestTags`（関数型を1つ定義して工場関数が返す）が既にあり、
+  `Platform` はその席に座るだけ
+- **`lib/platform/`は「置き場所を名前にしたファイル」ではない**（原則4）。`platform`はこのツールの
+  ドメイン語彙（`docs/glossary.md`に載せる語）であって、`helpers`・`common`のような容れ物の名前ではない
+- **`batch-cache.ts`は`lib/gitlab/`から`lib/platform/`へ移す。** どの読み取りをキャッシュしてよいかの
+  選定（このツール自身の書き込みでバッチ中に値が変わらないか）はプラットフォーム非依存の判断で、
+  GitLab固有の知識を持たない
+
+採らなかった案:
+
+- **`interface`と2クラス**。一般的な形だが、**このリポジトリに`interface`は0件**で、多態をクラスで
+  作った前例も無い。既存の規約に無い仕組みを1つ増やすことになる
+- **クライアント型のユニオン（`GitlabClient | GithubClient`）**。`steps/`の引数の形は変わらないが、
+  **13関数すべての内部に実行時の分岐が入る**。分界面が関数の中に散り、「1関数＝1 API呼び出しの
+  薄いラッパー」（「ブランチの作り直しはサブステップに置き〜」節）が保てない
+
 ### 設定・環境変数・外部形式
 
 #### 環境変数はモジュールのトップレベルではなく`loadEnvConfig()`で読む
@@ -1014,6 +1047,25 @@ MR本文を組み立てる`collect-mr-entries.ts`が書き込み先単位で重�
 
 MRタイトルの件数は「何が何件変わったか」を種別ごとに示す。以前は「N app image tag(s)」固定で、
 向き先ブランチだけが変わった場合もイメージタグが変わったように読めていた。
+
+#### プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/`GITHUB_URL`のまま
+
+`PLATFORM=gitlab|github`（未指定は`gitlab`）で切り替え、接続先URLは**プラットフォームごとに
+別の変数**（`GITLAB_URL` / `GITHUB_URL`）で受ける。`PLATFORM_URL`のような1変数に統一すると
+読みやすくはなるが、既存の`.env`とGitLab CI/CD Variablesの付け替えが要る破壊的変更になる。
+1回の実行で混在させない以上、使う側は常に片方しか設定しないので、変数名で「どちらの値か」が
+読めるほうが得になる。
+
+`ACCESS_TOKEN`は両プラットフォームで共通。**GitHub側はPersonal Access Tokenのみをサポートする**
+（fine-grained推奨）。GitLabのGroup Access Tokenと同じく、ヘッダに載せるだけの静的な文字列で済む。
+
+- **GitHub Appを採らなかった**。GitHub自身は長期の連携にAppを推奨しているが、Appのinstallation
+  access tokenは**1時間で失効する**ため、秘密鍵からJWTを作って都度発行する仕組みが要る。
+  環境変数も3つ（App ID・秘密鍵・installation ID）に増える。PATでも同じことができ、必要に
+  なった時点でOctokit側の対応に乗せて足せる
+- **踏みやすい前提**: GitHub Enterprise CloudでSAML SSOが有効な組織は、classic PATを組織ごとに
+  Authorizeしないと使えない（fine-grained PATは作成時に済む）。また組織側がfine-grained PATの
+  利用をブロックしている場合がある
 
 ## 既知の制約・注意点
 

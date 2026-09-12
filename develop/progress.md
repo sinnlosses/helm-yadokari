@@ -8,13 +8,23 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは T-220〜T-227 の8件**（起点は T-220。下の「次にやること」）。完了タスクは
+**未着手のタスクは T-221〜T-228 の8件**（T-220 は完了。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
+
+- **T-220**: プラットフォーム対応の設計を5論点まとめて決め、`docs/architecture.md` に
+  設計判断2節として追記した。**語彙は `Platform`**（`forge` を採らず、このリポジトリのCIが
+  既に動かしている Renovate の `platform` に揃えた）。**2実装は13関数の関数テーブル型 `Platform`
+  で受け渡す**（`interface` はリポジトリに0件、クライアント型のユニオンは13関数すべてに実行時
+  分岐が入るため却下。既存の `GitlabBatchCache`・`ResolveLatestTags` と同じ形の席に座らせた）。
+  環境変数は `PLATFORM` + 既存の `GITLAB_URL`/`GITHUB_URL` 据え置きで、**GitHub側はPATのみ**
+  （GitHub App の installation access token は1時間で失効し都度発行が要るため見送り）。
+  `GitLabUrl` → `PlatformUrl`、**`PipelineInfo` は据え置き**（漏れていたのはフィールドの型だった）。
+  決定を受けて T-228（`Platform` 型の導入と `steps/` の付け替え）を追加。`pnpm check` 通過: 386 Tests
 
 - **T-219**: `ProjectId` を `string` のブランド型に差し替えて `pnpm tsc --noEmit` を通し、
   壊れる箇所を実測した（実験の変更は戻し、残したのは調査記録の追記だけ）。**型エラー55件のうち
@@ -264,13 +274,15 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**GitHub対応を進めることが決まり（ユーザー判断、2026-09-12）、T-220〜T-227 の8件を登録した。**
-まず **T-220（設計、`opus`、`loopable: "N"`、依存なし）** から。5つの論点をまとめて決めるタスクで、
-**ユーザーがいるセッションで `/next-task` を直接呼ぶ必要がある**（`/loop` では拾われない）。
-T-221（`ProjectId` の中立化）は依存なしなので T-220 と並行して進められる。
+**T-220（設計）が完了し、残りは T-221〜T-228 の8件。全件 `loopable: "Y"` なので
+`/loop /next-task` で流せる。** 依存の無い T-221（`ProjectId` の中立化）と T-222
+（`GitLabUrl` → `PlatformUrl`）が着手可能。以降は
+T-228（`Platform` 型の導入と `steps/` の付け替え）→ T-223〜T-225（`lib/github/` の実装）
+→ T-226（配線）→ T-227（ドキュメント追随）の順。
 
-残る6件（T-222〜T-227）は `dependencies` で後ろに置いてあり、すべて `loopable: "Y"`。
-T-220 が終われば `/loop /next-task` で流せる。
+**T-228 は T-220 の決定を受けて追加したタスク。** 関数テーブル型を選んだことで、GitHub実装を
+足す前に「GitLab1実装のまま `Platform` の形へ移す」ステップが独立して必要になった
+（2実装を同時に書くと、型の形が悪かったときの原因がどちらにあるか分からなくなるため）。
 
 前提（着手前にユーザーが決めた）:
 
