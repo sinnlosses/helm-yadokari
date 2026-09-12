@@ -1,6 +1,7 @@
 import { vi } from "vitest"
 
 import { validateTagFormat } from "../src/domain/tag-format.js"
+import { extractHttpStatus, isFatalError } from "../src/lib/gitlab/errors.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
 import type { PlatformBatchCache } from "../src/lib/platform/batch-cache.js"
 import { createPlatformBatchCache } from "../src/lib/platform/batch-cache.js"
@@ -31,9 +32,13 @@ export const makeHttpError = (status: number): Error =>
 export const mockGitlab = {} as unknown as GitlabClient
 
 /**
- * `steps/`のテストが受け取る`Platform`の偽物。13関数すべてを`vi.fn()`にした状態で返すため、
+ * `steps/`のテストが受け取る`Platform`の偽物。API呼び出しの13関数を`vi.fn()`にした状態で返すため、
  * 各テストは`vi.mocked(platform.X)`でその場ごとに返り値・実装を差し替えられる。
  * `overrides`は個別の関数を丸ごと差し替えたいとき（稀）に使う。
+ *
+ * エラー分類の2関数だけは`vi.fn()`にせずGitLab版の実物を入れる。`makeHttpError()`が組み立てるのが
+ * gitbeaker形のエラーで、`steps/`のテストが確かめたいのは「401はFatalError、403はERROR」という
+ * 振り分けそのものだからである。
  */
 export function makePlatform(overrides: Partial<Platform> = {}): Platform {
   return {
@@ -50,6 +55,8 @@ export function makePlatform(overrides: Partial<Platform> = {}): Platform {
     getLatestPipelineForRef: vi.fn(),
     buildTagUrl: vi.fn(),
     buildCompareUrl: vi.fn(),
+    isFatalError,
+    extractHttpStatus,
     ...overrides,
   }
 }

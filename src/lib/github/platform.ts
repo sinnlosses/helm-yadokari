@@ -1,4 +1,5 @@
 import type { Platform } from "../platform/platform.js"
+import { extractHttpStatus, isFatalError } from "./errors.js"
 import {
   type GithubClient,
   branchExists,
@@ -38,5 +39,7 @@ export function createGithubPlatform(github: GithubClient): Platform {
     getLatestPipelineForRef: (projectId, ref) => getLatestPipelineForRef(github, projectId, ref),
     buildTagUrl,
     buildCompareUrl,
+    isFatalError,
+    extractHttpStatus,
   }
 }

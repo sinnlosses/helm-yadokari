@@ -45,7 +45,13 @@ describe("collectMrEntries", () => {
       ],
     })
 
-    const entries = await collectMrEntries(newPlatformCache(platform), [plan], [], helmBranchRef)
+    const entries = await collectMrEntries(
+      platform,
+      newPlatformCache(platform),
+      [plan],
+      [],
+      helmBranchRef,
+    )
 
     expect(entries.imageTags).toHaveLength(2)
     expect(entries.imageTags.map((entry) => entry.update.location.anchorName)).toEqual(["x", "y"])
@@ -57,6 +63,7 @@ describe("collectMrEntries", () => {
     mockWebUrl()
 
     const entries = await collectMrEntries(
+      platform,
       newPlatformCache(platform),
       [],
       [helmUpdate],
@@ -78,6 +85,7 @@ describe("collectMrEntries", () => {
     }
 
     const entries = await collectMrEntries(
+      platform,
       newPlatformCache(platform),
       [],
       [helmUpdate, other],
@@ -96,6 +104,7 @@ describe("collectMrEntries", () => {
 
     await expect(
       collectMrEntries(
+        platform,
         newPlatformCache(platform),
         [makePlan({ projectName: "my-app" })],
         [],
@@ -110,8 +119,8 @@ describe("collectMrEntries", () => {
     // バッチ1回ぶんのキャッシュを共有したまま、clientの数だけ collectMrEntries が呼ばれる形
     const platformCache = newPlatformCache(platform)
 
-    await collectMrEntries(platformCache, [makePlan()], [], helmBranchRef)
-    await collectMrEntries(platformCache, [makePlan()], [], helmBranchRef)
+    await collectMrEntries(platform, platformCache, [makePlan()], [], helmBranchRef)
+    await collectMrEntries(platform, platformCache, [makePlan()], [], helmBranchRef)
 
     expect(platform.getProjectWebUrl).toHaveBeenCalledOnce()
     expect(platform.getLatestPipelineForRef).toHaveBeenCalledOnce()

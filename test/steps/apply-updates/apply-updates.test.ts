@@ -90,6 +90,7 @@ describe("applyUpdates", () => {
     const target = makeTarget()
     await applyUpdates(platform, newPlatformCache(platform), [target], 3)
     expect(collectMrEntries).toHaveBeenCalledWith(
+      platform,
       expect.anything(),
       target.plans,
       target.helmBranchRefUpdates,

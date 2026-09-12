@@ -41,7 +41,7 @@ export function createResolveLatestTags(platform: Platform, dryRun: boolean): Re
       ...acc,
       {
         app,
-        latestTag: await withAppContext(app.projectName, () =>
+        latestTag: await withAppContext(platform, app.projectName, () =>
           getOrFetchShared(cache, `${app.projectId}:${app.branchToSync}`, () =>
             resolveLatestTag(platform, app, dryRun),
           ),

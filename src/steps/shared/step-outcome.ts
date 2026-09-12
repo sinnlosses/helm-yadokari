@@ -1,4 +1,4 @@
-import { extractHttpStatus, isFatalError } from "../../lib/gitlab/errors.js"
+import type { Platform } from "../../lib/platform/platform.js"
 import type {
   ChartDirName,
   ConfigUnit,
@@ -38,8 +38,12 @@ export function settle<T>(result: ConfigUnitUpdateResult): StepOutcome<T> {
  * アプリ単位の処理を実行し、非fatalな例外に「どのアプリで起きたか」を付けて投げ直す。
  * 致命的エラーはそのまま投げる（アプリ名を付けない）。
  */
-export function withAppContext<T>(projectName: ProjectName, fn: () => Promise<T>): Promise<T> {
-  return fn().catch((err: unknown) => rethrowWithAppContext(err, projectName))
+export function withAppContext<T>(
+  platform: Platform,
+  projectName: ProjectName,
+  fn: () => Promise<T>,
+): Promise<T> {
+  return fn().catch((err: unknown) => rethrowWithAppContext(platform, err, projectName))
 }
 
 /**
@@ -49,13 +53,18 @@ export function withAppContext<T>(projectName: ProjectName, fn: () => Promise<T>
  *
  * 各stepでは`mapWithConcurrency()`の直下で呼び、「並列に実行する」ことと「1件ずつ失敗を
  * 封じ込める」ことがstepの入口に並んで見えるようにしている。
+ *
+ * `platform`を受け取るのはエラーの分類（`isFatalError`・`extractHttpStatus`）のためだけで、
+ * API呼び出しはしない。gitbeakerとOctokitでは例外の形が違うので、どちらで動いているかを
+ * 知っている`Platform`に尋ねる。
  */
 export function withHandling<T>(
+  platform: Platform,
   configUnit: ConfigUnit,
   fn: (logContext: ConfigUnitLogContext) => Promise<StepOutcome<T>>,
 ): Promise<StepOutcome<T>> {
   const logContext = buildLogContext(configUnit)
-  return fn(logContext).catch((err: unknown) => settle<T>(settleAsError(err, logContext)))
+  return fn(logContext).catch((err: unknown) => settle<T>(settleAsError(platform, err, logContext)))
 }
 
 /**
@@ -63,31 +72,36 @@ export function withHandling<T>(
  * オールオアナッシングで設定ユニット全体がERRORになるため、原因のアプリがログから特定できないと
  * 調査できないことへの対策。`withAppContext()`の内部実装であり、外からは直接呼ばない。
  *
- * 致命的エラー（401 / 5xx / ネットワーク障害）は**包まずにそのまま投げる**。`settleAsError()`は
- * 元の例外の構造（`cause.response.status` や `code`）を見て判定するため、`new Error(..., { cause })`
- * で包むとその構造が1段深くなり、`FatalError`に昇格できなくなるためである。この「何が致命的か」の
- * 判断を`settleAsError()`と同じファイルに置くことで、方針の変更漏れを防ぐ。
+ * 致命的エラー（401 / 5xx / ネットワーク障害）は**包まずにそのまま投げる**。判定は元の例外の構造
+ * （gitbeakerなら`cause.response.status`、Octokitなら`status`）を読むため、
+ * `new Error(..., { cause })`で包むとその構造が1段深くなり、`FatalError`に昇格できなくなるため
+ * である。この関数と`settleAsError()`が同じ`platform.isFatalError()`に尋ねることで、
+ * 包む・包まないの境目と昇格の境目がずれないようにしている。
  */
-function rethrowWithAppContext(err: unknown, projectName: ProjectName): never {
-  if (isFatalError(err) || !(err instanceof Error)) throw err
+function rethrowWithAppContext(platform: Platform, err: unknown, projectName: ProjectName): never {
+  if (platform.isFatalError(err) || !(err instanceof Error)) throw err
   throw new Error(`[アプリ: ${projectName}] ${err.message}`, { cause: err })
 }
 
 /**
  * step内で捕捉した例外を、このツールのエラー方針に従って処理する。
  *
- * - 401 / 5xx / ネットワーク障害（`isFatalError()`）は全設定ユニット共通の致命的エラーなので
+ * - 401 / 5xx / ネットワーク障害（`platform.isFatalError()`）は全設定ユニット共通の致命的エラーなので
  *   `FatalError`として投げ直し、実行全体を即時終了させる（この関数は値を返さない）
  * - それ以外は該当設定ユニットのみ`ERROR`として記録し、他の設定ユニットの処理は続行する
  *
  * 方針そのものを1箇所に置くための関数。3つのstepからは直接ではなく`withHandling()`経由で呼ぶ。
  */
-function settleAsError(err: unknown, logContext: ConfigUnitLogContext): "ERROR" {
-  if (isFatalError(err)) throw new FatalError(extractHttpStatus(err), err)
+function settleAsError(
+  platform: Platform,
+  err: unknown,
+  logContext: ConfigUnitLogContext,
+): "ERROR" {
+  if (platform.isFatalError(err)) throw new FatalError(platform.extractHttpStatus(err), err)
   logger.error({
     ...logContext,
     result: "ERROR",
-    reason: `httpStatus: ${extractHttpStatus(err)}, message: ${toErrorMessage(err)}`,
+    reason: `httpStatus: ${platform.extractHttpStatus(err)}, message: ${toErrorMessage(err)}`,
   })
   return "ERROR"
 }

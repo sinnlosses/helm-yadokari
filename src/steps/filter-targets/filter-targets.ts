@@ -27,7 +27,9 @@ export async function filterTargets(
   concurrencyLimit: number,
 ): Promise<FilterTargetsResult> {
   const outcomes = await mapWithConcurrency(configUnits, concurrencyLimit, (configUnit) =>
-    withHandling(configUnit, (logContext) => evaluateTarget(platform, configUnit, logContext)),
+    withHandling(platform, configUnit, (logContext) =>
+      evaluateTarget(platform, configUnit, logContext),
+    ),
   )
 
   const { left: settled, right: targets } = partitionMap(outcomes, (outcome) =>

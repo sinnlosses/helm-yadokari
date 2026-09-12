@@ -1,4 +1,5 @@
 import type { Platform } from "../platform/platform.js"
+import { extractHttpStatus, isFatalError } from "./errors.js"
 import {
   type GitlabClient,
   branchExists,
@@ -42,5 +43,7 @@ export function createGitlabPlatform(gitlab: GitlabClient): Platform {
     getLatestPipelineForRef: (projectId, ref) => getLatestPipelineForRef(gitlab, projectId, ref),
     buildTagUrl,
     buildCompareUrl,
+    isFatalError,
+    extractHttpStatus,
   }
 }

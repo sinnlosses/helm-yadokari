@@ -25,7 +25,7 @@ export async function applyUpdates(
   concurrencyLimit: number,
 ): Promise<readonly ConfigUnitUpdateResult[]> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (target) =>
-    withHandling(target.configUnit, (logContext) =>
+    withHandling(platform, target.configUnit, (logContext) =>
       applyUpdate(platform, platformCache, target, logContext),
     ),
   )
@@ -46,6 +46,7 @@ async function applyUpdate(
   const featureBranch = buildFeatureBranch(unitPath)
 
   const entries = await collectMrEntries(
+    platform,
     platformCache,
     plans,
     helmBranchRefUpdates,

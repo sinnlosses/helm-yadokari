@@ -8,13 +8,24 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは T-225〜T-227 の3件**（T-220〜T-224・T-228 は完了。下の「次にやること」）。完了タスクは
+**未着手のタスクは T-226・T-227 の2件**（T-220〜T-225・T-228 は完了。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
+
+- **T-225**（着手時に `difficulty` を `sonnet` → `opus` に上げた。エラー分類の受け渡しが
+  `steps/` の形に触る設計判断だったため）: `lib/github/errors.ts` に `isFatalError` と
+  `retry-after` 対応を実装し、**`Platform` に `isFatalError` / `extractHttpStatus` を足して**
+  `step-outcome.ts` の `lib/gitlab/` 直 import を解いた（`grep "lib/gitlab" src/steps` が0件に）。
+  **表を1つに保つ決め手は「API呼び出しはGitHub・エラー分類はGitLab」という取り違えが構造的に
+  起きないこと。** 403/429は `retry-after` が60秒以内ならリトライ、無ければ権限不足として `ERROR`
+  （`x-ratelimit-remaining` は読まない。行き先が同じで分岐だけ増えるため）。`utils/retry.ts` は
+  `retryDelayMs` を**注入で受ける**形にしたので `retry-after` というヘッダ名を知らないまま。
+  `docs/architecture.md`「HTTPエラーの経路」節も両プラットフォーム対応に更新。
+  `pnpm check` 通過: 39 Test Files / 480 Tests
 
 - **T-224**: `lib/github/` の `commitFileUpdates` を Git Data API の4呼び出しで実装した。
   **起点の取得に `git.getRef` ではなく `repos.getBranch` を使う**のが効いていて、`createTree` の
@@ -318,8 +329,8 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**T-220〜T-224・T-228 が完了し、`lib/github/` の13エントリが全部埋まった。残りは
-T-225〜T-227 の3件で全件 `loopable: "Y"`。** 次は T-225（エラー分類）。以降は
+**T-220〜T-225・T-228 が完了。残りは T-226（配線）と T-227（ドキュメント追随）の2件で、
+どちらも `loopable: "Y"`。** 以降は
 T-228（`Platform` 型の導入と `steps/` の付け替え）→ T-223〜T-225（`lib/github/` の実装）
 → T-226（配線）→ T-227（ドキュメント追随）の順。
 

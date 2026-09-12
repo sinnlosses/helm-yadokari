@@ -18,6 +18,10 @@ import type {
  *
  * 各関数はプロジェクトやアクセストークンを結びつけたクライアントを内側に閉じ込めた状態で渡る
  * ため、`steps/`の引数にはクライアントの型が一切出てこない。
+ *
+ * **API呼び出しだけの表ではない。** URLの組み立て（`buildTagUrl`）とエラーの分類
+ * （`isFatalError`）も、プラットフォームごとに違って`steps/`が必要とするものなのでここに並べる。
+ * 表を1つに保つことで、API呼び出しはGitHub・エラー分類はGitLab、という取り違えが起こらない。
  */
 export type Platform = {
   /** タグ名とそれが指すコミットSHAの一覧を返す */
@@ -82,4 +86,14 @@ export type Platform = {
 
   /** プロジェクトのweb URL配下の、2つのタグ間の比較ページURLを組み立てる */
   readonly buildCompareUrl: (webUrl: PlatformUrl, from: TagName, to: TagName) => PlatformUrl
+
+  /**
+   * 捕捉した例外が実行全体を止めるべきものか（401 / 5xx / ネットワーク障害）。エラーの形は
+   * プラットフォームごとに違う（gitbeakerは`cause.response.status`、Octokitは`status`）ため、
+   * `steps/shared/step-outcome.ts`は判定そのものを持たずこの関数に尋ねる。
+   */
+  readonly isFatalError: (error: unknown) => boolean
+
+  /** 捕捉した例外からHTTPステータスを読む。読めない場合は undefined（ログと`FatalError`に載せる） */
+  readonly extractHttpStatus: (error: unknown) => number | undefined
 }

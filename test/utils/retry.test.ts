@@ -40,6 +40,32 @@ describe("withRetry", () => {
     expect(fn).toHaveBeenCalledTimes(3)
   })
 
+  it("retryDelayMs がミリ秒を返した回はその値を待ち、返さない回は指数バックオフに戻る", async () => {
+    vi.useFakeTimers()
+    try {
+      const delays: number[] = []
+      vi.spyOn(globalThis, "setTimeout").mockImplementation(((cb: () => void, ms?: number) => {
+        delays.push(ms ?? 0)
+        cb()
+        return 0 as unknown as ReturnType<typeof setTimeout>
+      }) as typeof setTimeout)
+
+      const withDelay = new Error("retry-after あり")
+      const fn = vi.fn().mockRejectedValueOnce(withDelay).mockRejectedValue(new Error("boom"))
+      await expect(
+        withRetry(fn, always, {
+          maxAttempts: 3,
+          baseDelayMs: 100,
+          retryDelayMs: (err) => (err === withDelay ? 5000 : undefined),
+        }),
+      ).rejects.toBeDefined()
+      expect(delays).toEqual([5000, 200])
+    } finally {
+      vi.useRealTimers()
+      vi.restoreAllMocks()
+    }
+  })
+
   it("待ち時間は指数バックオフで伸びる", async () => {
     vi.useFakeTimers()
     try {

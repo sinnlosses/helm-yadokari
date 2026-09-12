@@ -14,7 +14,7 @@ import type {
 } from "../../types/types.js"
 import { toCommitSha, toPlatformUrl, toTagName } from "../../types/types.js"
 import { withRetry } from "../../utils/retry.js"
-import { isNotFoundError, isRetryableError } from "./errors.js"
+import { isNotFoundError, isRetryableError, retryAfterMs } from "./errors.js"
 
 export type GithubClient = InstanceType<typeof Octokit>
 
@@ -335,8 +335,9 @@ async function withNotFoundFallback<T>(fn: () => Promise<T>, fallback: T): Promi
 
 /**
  * `lib/github/`からのすべての呼び出しに同じリトライ方針を当てる。どのエラーを再試行するかの
- * 判断は`errors.ts`が持ち、`withRetry()`は指数バックオフの仕組みだけを提供する。
+ * 判断も、レート制限で待つべき秒数の読み取りも`errors.ts`が持ち、`withRetry()`は待って
+ * 呼び直す仕組みだけを提供する。
  */
 function withGithubRetry<T>(fn: () => Promise<T>): Promise<T> {
-  return withRetry(fn, isRetryableError)
+  return withRetry(fn, isRetryableError, { retryDelayMs: retryAfterMs })
 }

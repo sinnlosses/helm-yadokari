@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../src/lib/gitlab/gitlab.js")
 
+import { extractHttpStatus, isFatalError } from "../../../src/lib/gitlab/errors.js"
 import {
   type GitlabClient,
   branchExists,
@@ -83,5 +84,13 @@ describe("createGitlabPlatform", () => {
     const platform = createGitlabPlatform(gitlab)
     expect(platform.buildTagUrl).toBe(buildTagUrl)
     expect(platform.buildCompareUrl).toBe(buildCompareUrl)
+  })
+
+  it("エラーの分類は`errors.ts`の関数をそのまま渡す", () => {
+    // `steps/shared/step-outcome.ts`はここから渡った関数だけを見る。取り違えると
+    // 別プラットフォームの形でステータスを探すことになり、すべての分類が黙って外れる
+    const platform = createGitlabPlatform(gitlab)
+    expect(platform.isFatalError).toBe(isFatalError)
+    expect(platform.extractHttpStatus).toBe(extractHttpStatus)
   })
 })

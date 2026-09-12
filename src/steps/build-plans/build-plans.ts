@@ -43,8 +43,8 @@ export async function buildPlans(
   const resolveLatestTags = createResolveLatestTags(platform, dryRun)
 
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (configUnit) =>
-    withHandling(configUnit, (logContext) =>
-      buildPlan(platformCache, resolveLatestTags, configUnit, dryRun, logContext),
+    withHandling(platform, configUnit, (logContext) =>
+      buildPlan(platform, platformCache, resolveLatestTags, configUnit, dryRun, logContext),
     ),
   )
 
@@ -61,6 +61,7 @@ export async function buildPlans(
  * 下書きに重ねる。こうすることで同じvalues.yamlへの書き換えが失われない。
  */
 async function buildPlan(
+  platform: Platform,
   platformCache: PlatformBatchCache,
   resolveLatestTags: ResolveLatestTags,
   configUnit: ConfigUnit,
@@ -71,6 +72,7 @@ async function buildPlan(
 
   const appsWithLatestTag = await resolveLatestTags(configUnit.apps)
   const { plans, draft: draftAfterApps } = await stageImageTagUpdates(
+    platform,
     valuesYamlSource,
     appsWithLatestTag,
   )
