@@ -620,21 +620,29 @@ web URL・パイプライン解決。
 #### サブステップに関数型を注入しない。キャッシュを持つ側が工場関数を公開する
 
 **親stepがクロージャを組み立ててサブステップに渡す形は採らない。** サブステップは
-`PlatformAdapter`（キャッシュ済みの読み取りが要るものは`PlatformAdapterWithCachedReads`。
-`ValuesYamlSource`に束ねた形を含む）をそのまま受け取り、必要な問い合わせを自分で呼ぶ。
-読み込み先はそれ自体がただのデータなので、関数型で包んでも間接層が増えるだけになる。
+`PlatformAdapter`（キャッシュ済みの読み取りが要るものは`PlatformAdapterWithCachedReads`）を
+そのまま受け取り、必要な問い合わせを自分で呼ぶ。読み込み先はそれ自体がただのデータなので、
+関数型で包んでも間接層が増えるだけになる。
 
 この形に落ち着くまでに、同じ理由で2つの注入をやめている:
 
 - **values.yamlの読み込み**（`ReadDraftValuesYaml`）: 下書きの読み書きが「読みは親stepが
   組み立てたクロージャ、書きは`values-yaml-draft.ts`の関数」と別々の出所に分かれていて、
-  一連の操作として追いにくかった。`readValuesYamlDraft(source, draft, valuesPath)`の
+  一連の操作として追いにくかった。`readValuesYamlDraft(adapter, chart, draft, valuesPath)`の
   直接呼び出しにした
 - **ブランチの実在確認**（`BranchExists`）: 「バッチ単位のキャッシュとchartのprojectIdを親step側に
-  閉じ込めるため」という理由で注入していたが、**同じ関数が`source`（`ValuesYamlSource`＝
-  `adapter`（`PlatformAdapterWithCachedReads`）+`chart`）を別の引数で受け取っており、
-  隠せていなかった**。`source.adapter.cached.branchExists(source.chart.projectId, ...)`の
-  直接呼び出しにして、問い合わせ先を決める情報が関数の中で1つに揃うようにした
+  閉じ込めるため」という理由で注入していたが、**同じ関数が`source`（当時は`adapter`
+  （`PlatformAdapterWithCachedReads`）と`chart`を`ValuesYamlSource`という1つの型に束ねて
+  受け取っていた）を別の引数で受け取っており、隠せていなかった**。
+  `source.adapter.cached.branchExists(source.chart.projectId, ...)`の直接呼び出しにして、
+  問い合わせ先を決める情報が関数の中で1つに揃うようにした
+
+  その後、`ValuesYamlSource`自体を廃止し、`adapter`と`chart`を素の引数として渡す形にした。
+  束ねる利益（引数が1本減る）より、`stageImageTagUpdates()`が`adapter`（分類用）と
+  `source.adapter`（`source`越し）という同じ値を2つの経路で受け取ってしまう歪みのほうが
+  大きいと判断したため。`readValuesYamlDraft()`・`stageHelmBranchRefUpdate()`など上の
+  直接呼び出しは`adapter.cached.branchExists(chart.projectId, ...)`のように`adapter`・`chart`を
+  そのまま並べる形になっている
 
 **唯一の例外は、サブステップ自身がバッチ単位のキャッシュを持つ場合**で、工場関数を公開して
 親stepに寿命だけを持たせる（`createResolveLatestTags()`）。親stepにキャッシュ付きの関数を

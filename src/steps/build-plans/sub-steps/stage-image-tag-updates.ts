@@ -1,8 +1,9 @@
 import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
-import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
+import type { PlatformAdapterWithCachedReads } from "../../../lib/platform/cached-reads.js"
 import type {
   AnchorLocation,
   AppUpdatePlan,
+  ChartRepoConfig,
   ImageTagUpdate,
   ParsedTag,
   TagName,
@@ -12,7 +13,7 @@ import { logger } from "../../../utils/logger.js"
 import { reduceAsync } from "../../../utils/sequential.js"
 import { withAppContext } from "../../shared/step-outcome.js"
 import type { AppWithLatestTag, StageUpdatesAcc } from "./shared/types.js"
-import type { ValuesYamlDraft, ValuesYamlSource } from "./shared/values-yaml-draft.js"
+import type { ValuesYamlDraft } from "./shared/values-yaml-draft.js"
 import { readValuesYamlDraft, writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 
 /** 差分があったアプリの更新計画と、全アプリ分を積み終えた下書き */
@@ -30,14 +31,14 @@ type StageAppImageTagUpdatesAcc = StageUpdatesAcc<ImageTagUpdate>
  * アプリは並列化せず1つずつ処理する。
  */
 export async function stageImageTagUpdates(
-  adapter: PlatformAdapter,
-  source: ValuesYamlSource,
+  adapter: PlatformAdapterWithCachedReads,
+  chart: ChartRepoConfig,
   appsWithLatestTag: readonly AppWithLatestTag[],
 ): Promise<StageImageTagUpdatesResult> {
   const initialResult: StageImageTagUpdatesResult = { plans: [], draft: new Map() }
   return reduceAsync(appsWithLatestTag, initialResult, (result, appWithLatestTag) =>
     withAppContext(adapter, appWithLatestTag.app.projectName, () =>
-      stageAppImageTagUpdates(source, result, appWithLatestTag),
+      stageAppImageTagUpdates(adapter, chart, result, appWithLatestTag),
     ),
   )
 }
@@ -48,14 +49,15 @@ export async function stageImageTagUpdates(
  * 引き継ぐ（読み込んだvalues.yamlは次のアプリで使い回せる）。
  */
 async function stageAppImageTagUpdates(
-  source: ValuesYamlSource,
+  adapter: PlatformAdapterWithCachedReads,
+  chart: ChartRepoConfig,
   result: StageImageTagUpdatesResult,
   { app, latestTag }: AppWithLatestTag,
 ): Promise<StageImageTagUpdatesResult> {
   const tag = latestTag.tag
   const initialAcc: StageAppImageTagUpdatesAcc = { draft: result.draft, updates: [] }
   const { draft, updates } = await reduceAsync(app.imageTagLocations, initialAcc, (acc, location) =>
-    stageImageTagUpdate(source, tag, latestTag.trackedHeadTagNames, acc, location),
+    stageImageTagUpdate(adapter, chart, tag, latestTag.trackedHeadTagNames, acc, location),
   )
 
   if (updates.length === 0) {
@@ -82,7 +84,8 @@ async function stageAppImageTagUpdates(
  * 違ってもデプロイされる中身は同じで、更新しても意味が無いMRになるため。
  */
 async function stageImageTagUpdate(
-  source: ValuesYamlSource,
+  adapter: PlatformAdapterWithCachedReads,
+  chart: ChartRepoConfig,
   latestTag: ParsedTag,
   trackedHeadTagNames: ReadonlySet<TagName>,
   acc: StageAppImageTagUpdatesAcc,
@@ -90,7 +93,8 @@ async function stageImageTagUpdate(
 ): Promise<StageAppImageTagUpdatesAcc> {
   const latestTagName = latestTag.name
   const { valuesYamlContent, draft } = await readValuesYamlDraft(
-    source,
+    adapter,
+    chart,
     acc.draft,
     location.valuesPath,
   )

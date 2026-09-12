@@ -16,7 +16,7 @@ import {
   withHandling,
 } from "../shared/step-outcome.js"
 import { type ResolveLatestTags, createResolveLatestTags } from "./sub-steps/resolve-latest-tags.js"
-import { type ValuesYamlSource, toFileUpdates } from "./sub-steps/shared/values-yaml-draft.js"
+import { toFileUpdates } from "./sub-steps/shared/values-yaml-draft.js"
 import { stageHelmBranchRefUpdates } from "./sub-steps/stage-helm-branch-ref-updates.js"
 import { stageImageTagUpdates } from "./sub-steps/stage-image-tag-updates.js"
 
@@ -65,16 +65,15 @@ async function buildPlan(
   dryRun: boolean,
   logContext: ConfigUnitLogContext,
 ): Promise<StepOutcome<ConfigUnitUpdateTarget>> {
-  const valuesYamlSource: ValuesYamlSource = { adapter, chart: configUnit.chartRepo }
-
   const appsWithLatestTag = await resolveLatestTags(configUnit.apps)
   const { plans, draft: draftAfterApps } = await stageImageTagUpdates(
     adapter,
-    valuesYamlSource,
+    configUnit.chartRepo,
     appsWithLatestTag,
   )
   const { draft, updates: helmBranchRefUpdates } = await stageHelmBranchRefUpdates(
-    valuesYamlSource,
+    adapter,
+    configUnit.chartRepo,
     configUnit.helm,
     draftAfterApps,
   )

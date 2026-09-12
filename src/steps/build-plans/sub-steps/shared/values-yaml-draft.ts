@@ -16,26 +16,20 @@ type ValuesYamlEntry = {
  */
 export type ValuesYamlDraft = ReadonlyMap<ValuesPath, ValuesYamlEntry>
 
-/** 下書きに無いvalues.yamlの取得元。chartリポジトリ1つ分の読み込み先を束ねただけの値 */
-export type ValuesYamlSource = {
-  readonly adapter: PlatformAdapterWithCachedReads
-  readonly chart: ChartRepoConfig
-}
-
 /**
  * values.yamlの現在値を下書き優先で取り出す。下書きに無いときだけGitLabから読むため、
  * 同じ設定ユニット内の別アプリが既に書き換えた内容がそのまま次のアプリへ引き継がれる。
  * 渡した下書きは変更せず、読み込み結果を載せた新しい下書きを返す。
  */
 export async function readValuesYamlDraft(
-  source: ValuesYamlSource,
+  adapter: PlatformAdapterWithCachedReads,
+  chart: ChartRepoConfig,
   draft: ValuesYamlDraft,
   valuesPath: ValuesPath,
 ): Promise<{ readonly valuesYamlContent: string; readonly draft: ValuesYamlDraft }> {
   const cached = draft.get(valuesPath)
   if (cached !== undefined) return { valuesYamlContent: cached.content, draft }
 
-  const { adapter, chart } = source
   const valuesYamlContent = await adapter.cached.getFileContent(
     chart.projectId,
     valuesPath,

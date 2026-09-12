@@ -1,9 +1,15 @@
 import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
-import type { AnchorLocation, HelmConfig, HelmBranchRefUpdate } from "../../../types/types.js"
+import type { PlatformAdapterWithCachedReads } from "../../../lib/platform/cached-reads.js"
+import type {
+  AnchorLocation,
+  ChartRepoConfig,
+  HelmConfig,
+  HelmBranchRefUpdate,
+} from "../../../types/types.js"
 import { toBranchName } from "../../../types/types.js"
 import { reduceAsync } from "../../../utils/sequential.js"
 import type { StageUpdatesAcc } from "./shared/types.js"
-import type { ValuesYamlDraft, ValuesYamlSource } from "./shared/values-yaml-draft.js"
+import type { ValuesYamlDraft } from "./shared/values-yaml-draft.js"
 import { readValuesYamlDraft, writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 
 export type StageHelmBranchRefUpdatesAcc = StageUpdatesAcc<HelmBranchRefUpdate>
@@ -14,13 +20,14 @@ export type StageHelmBranchRefUpdatesAcc = StageUpdatesAcc<HelmBranchRefUpdate>
  * 「Helmの向き先ブランチを適用する」という1つの操作として呼ぶだけでよい。
  */
 export async function stageHelmBranchRefUpdates(
-  source: ValuesYamlSource,
+  adapter: PlatformAdapterWithCachedReads,
+  chart: ChartRepoConfig,
   helm: HelmConfig,
   draft: ValuesYamlDraft,
 ): Promise<StageHelmBranchRefUpdatesAcc> {
   const initialAcc: StageHelmBranchRefUpdatesAcc = { draft, updates: [] }
   return reduceAsync(helm.locations, initialAcc, (current, location) =>
-    stageHelmBranchRefUpdate(source, helm, current, location),
+    stageHelmBranchRefUpdate(adapter, chart, helm, current, location),
   )
 }
 
@@ -29,18 +36,20 @@ export async function stageHelmBranchRefUpdates(
  * 比較する。差分があれば、書き込み前にそのブランチがchartリポジトリ上に実在するか検証した
  * うえで書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ`updates`に含めない）。
  *
- * 実在確認は`source.adapter.cached`越しに行う。値の読み込み（`readValuesYamlDraft()`）と
- * 同じ`source`を使うので、問い合わせ先を決める情報がこの関数の中で1つに揃う。
+ * 実在確認は`adapter.cached`越しに行う。値の読み込み（`readValuesYamlDraft()`）と
+ * 同じ`adapter`・`chart`を使うので、問い合わせ先を決める情報がこの関数の中で1つに揃う。
  */
 async function stageHelmBranchRefUpdate(
-  source: ValuesYamlSource,
+  adapter: PlatformAdapterWithCachedReads,
+  chart: ChartRepoConfig,
   helm: HelmConfig,
   acc: StageHelmBranchRefUpdatesAcc,
   location: AnchorLocation,
 ): Promise<StageHelmBranchRefUpdatesAcc> {
   const { branchRef } = helm
   const { valuesYamlContent, draft } = await readValuesYamlDraft(
-    source,
+    adapter,
+    chart,
     acc.draft,
     location.valuesPath,
   )
@@ -51,7 +60,6 @@ async function stageHelmBranchRefUpdate(
   )
   if (currentBranchRaw === branchRef) return { ...acc, draft }
 
-  const { adapter, chart } = source
   if (!(await adapter.cached.branchExists(chart.projectId, branchRef))) {
     throw new Error(
       `向き先ブランチ "${branchRef}" がchartリポジトリに見つかりません (valuesPath: ${location.valuesPath}, anchor: ${location.anchorName})`,

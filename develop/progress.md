@@ -18,6 +18,16 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
 
+- **`ValuesYamlSource` を廃止し、`adapter` と `chart` を素の引数にした**（タスクIDなし、2026-09-13）。
+  このリポジトリで唯一のまとめ型だったが、**束ねたせいで `stageImageTagUpdates()` が同じ
+  アダプタを2経路で受け取っていた**（エラー分類用の `adapter` と、`source.adapter`。
+  しかも前者は `PlatformAdapter`、後者は `PlatformAdapterWithCachedReads` と型まで違った）。
+  束ねる利益は入れ子の private 関数3段で引数が1本減ることだけで、`chart` は
+  `configUnit.chartRepo` そのものだから呼び出し側は元から持っている。6関数のシグネチャが
+  `(adapter, chart, ...)` になり、**引数の受け渡しが全部素の値で統一された**。
+  `docs/architecture.md`「サブステップに関数型を注入しない」節には、当時の理由づけを残したまま
+  廃止の経緯を追記してある。`pnpm check` 通過: 39 Test Files / 494 Tests（件数変化なし）
+
 - **`PlatformBatchCache` を廃し、キャッシュ済みの読み取りをアダプタの入れ子にした**
   （タスクIDなし、2026-09-13）。`PlatformAdapterWithCachedReads = PlatformAdapter &
 { readonly cached: CachedReads }` を `lib/platform/cached-reads.ts`（旧 `batch-cache.ts`）に置き、
