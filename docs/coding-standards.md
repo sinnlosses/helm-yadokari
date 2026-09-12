@@ -303,7 +303,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `test/utils/cache.test.ts` 全2件                        | `batch-cache.test.ts`（同時呼び出しで1回・失敗はキャッシュに残さない）と `resolve-latest-tags.test.ts`       |
 | `test/utils/partition.test.ts` 全4件                    | `filter-targets`・`apply-updates` の振り分けと入力順のテスト。「入力配列を変更しない」は `readonly` 型が保証 |
-| `test/utils/fs.test.ts` 全10件                          | `config.test.ts` のパストラバーサル3件・実ディレクトリ走査、`env.test.ts` の `CONFIG_PATH` 検証              |
+| `test/utils/fs.test.ts` 全10件                          | `config.test.ts` のパストラバーサル3件・実ディレクトリ走査、`env.test.ts` の `CONFIG_ROOT_PATH` 検証         |
 | `test/utils/timer.test.ts` 全1件                        | `main.test.ts`（`run_end` の `durationMs` ログ）                                                             |
 | `test/utils/sequential.test.ts` 2件（引き継ぎ・空配列） | 引き継ぎは `build-plans.test.ts`。空配列は `imageTagLocations` が1件以上とスキーマで保証され実行時に来ない   |
 | `test/utils/yaml.test.ts` 3件                           | `schema.test.ts` 全6件が「形式が不正です」を固定                                                             |
@@ -325,7 +325,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
   作り直し順という、上位に守り手がいない振る舞いを固定している
 
 **この整理で見つかったコード側の問題**: `assertSafePath` の `label = "パス"` は、呼び出し元
-2箇所がどちらも `"CONFIG_PATH"` を渡すため実行時に使われないデフォルトだった（`isFatalStatus`
+2箇所がどちらも `"CONFIG_ROOT_PATH"` を渡すため実行時に使われないデフォルトだった（`isFatalStatus`
 と同じパターン）。テストを消すのではなく、デフォルトを外して `label` を必須にした。
 
 **残り32ファイルの中身の精査（実施済み）**。ファイル単位では消せなかったものについて、

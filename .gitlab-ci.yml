@@ -8,8 +8,8 @@ spec:
       description: "(chartリポジトリ, 設定ユニット)単位の同時処理数（1〜20の整数）"
       default: "3"
       type: string
-    CONFIG_PATH:
-      description: "設定ファイル(config/)のパス（省略時はデフォルト: config/）"
+    CONFIG_ROOT_PATH:
+      description: "設定ディレクトリの最上位のパス（省略時はデフォルト: config/）"
       default: ""
       type: string
     TARGET_CHART:
@@ -57,9 +57,9 @@ variables:
   CONCURRENCY_LIMIT:
     value: "$[[ inputs.CONCURRENCY_LIMIT ]]"
     description: "(chartリポジトリ, 設定ユニット)単位の同時処理数（1〜20の整数、デフォルト: 3）省略可"
-  CONFIG_PATH:
-    value: "$[[ inputs.CONFIG_PATH ]]"
-    description: "設定ファイルのパス（省略時はデフォルト: config/）省略可"
+  CONFIG_ROOT_PATH:
+    value: "$[[ inputs.CONFIG_ROOT_PATH ]]"
+    description: "設定ディレクトリの最上位のパス（省略時はデフォルト: config/）省略可"
   TARGET_CHART:
     value: "$[[ inputs.TARGET_CHART ]]"
     description: "特定のchartディレクトリのみ対象にする場合に指定（省略時は全chart）"

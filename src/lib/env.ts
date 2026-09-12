@@ -28,11 +28,10 @@ export function validateGitlabUrl(raw: string): GitLabUrl {
 }
 
 /**
- * CONFIG_PATH は `loadConfig()`（`lib/config/config.ts`）が読む設定ディレクトリの
+ * CONFIG_ROOT_PATH は `loadConfig()`（`lib/config/config.ts`）が読む設定ディレクトリの
  * ルートパス（`<configRootPath>/<chartディレクトリ>/registry.yaml` という2階層固定の構成を
  * 走査する起点）。`config.yaml` があるディレクトリ（設定ユニットのディレクトリ）と紛れないよう、
- * フィールド名・変数名は `config/` の最上位だと分かる `configRootPath` を使う（`CONFIG_PATH`という
- * 環境変数名自体は外部インターフェースのため変えない）。
+ * フィールド名・変数名は `config/` の最上位だと分かる `configRootPath` を使う。
  *
  * パストラバーサル検証は`toConfigRootPath()`が行う。ディレクトリとして実在することは
  * そちらでは見ないのでここで検証する。無いままだと後段の`listSubdirectories()`が
@@ -41,7 +40,7 @@ export function validateGitlabUrl(raw: string): GitLabUrl {
 export function parseConfigRootPath(raw: string | undefined): ConfigRootPath {
   const configRootPath = toConfigRootPath(raw ?? DEFAULT_CONFIG_ROOT_PATH)
   if (!existsSync(configRootPath) || !statSync(configRootPath).isDirectory()) {
-    throw new Error(`CONFIG_PATH で指定されたディレクトリが存在しません: "${configRootPath}"`)
+    throw new Error(`CONFIG_ROOT_PATH で指定されたディレクトリが存在しません: "${configRootPath}"`)
   }
   return configRootPath
 }
@@ -93,7 +92,7 @@ export function loadEnvConfig(): EnvConfig {
   return {
     gitlabUrl: validateGitlabUrl(loadEnv("GITLAB_URL")),
     accessToken: toAccessToken(loadEnv("ACCESS_TOKEN")),
-    configRootPath: parseConfigRootPath(loadOptionalEnv("CONFIG_PATH")),
+    configRootPath: parseConfigRootPath(loadOptionalEnv("CONFIG_ROOT_PATH")),
     concurrencyLimit: parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT")),
     dryRun: loadOptionalEnv("DRY_RUN") === "true",
     targetChart: parseTargetChart(loadOptionalEnv("TARGET_CHART")),

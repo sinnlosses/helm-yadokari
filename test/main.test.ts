@@ -97,7 +97,7 @@ describe("run", () => {
     expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
   })
 
-  it("loadConfig に CONFIG_PATH と TARGET_CHART/TARGET_UNITS由来のtargetを渡す", async () => {
+  it("loadConfig に CONFIG_ROOT_PATH と TARGET_CHART/TARGET_UNITS由来のtargetを渡す", async () => {
     await run(env)
     expect(loadConfig).toHaveBeenCalledWith(DEFAULT_CONFIG_ROOT_PATH, {
       chartDirName: undefined,

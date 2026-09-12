@@ -88,13 +88,13 @@ describe("parseConfigRootPath", () => {
     expect(parseConfigRootPath(relativePath)).toBe(relativePath)
   })
 
-  it("パストラバーサルのとき例外をスローし、メッセージに CONFIG_PATH と指定値を含む", () => {
-    expect(() => parseConfigRootPath("../../etc/passwd")).toThrow("CONFIG_PATH")
+  it("パストラバーサルのとき例外をスローし、メッセージに CONFIG_ROOT_PATH と指定値を含む", () => {
+    expect(() => parseConfigRootPath("../../etc/passwd")).toThrow("CONFIG_ROOT_PATH")
     expect(() => parseConfigRootPath("../../etc/passwd")).toThrow("../../etc/passwd")
   })
 
-  it("存在しないディレクトリのとき例外をスローし、メッセージに CONFIG_PATH と指定値を含む", () => {
-    expect(() => parseConfigRootPath("config-does-not-exist-xyz")).toThrow("CONFIG_PATH")
+  it("存在しないディレクトリのとき例外をスローし、メッセージに CONFIG_ROOT_PATH と指定値を含む", () => {
+    expect(() => parseConfigRootPath("config-does-not-exist-xyz")).toThrow("CONFIG_ROOT_PATH")
     expect(() => parseConfigRootPath("config-does-not-exist-xyz")).toThrow(
       "config-does-not-exist-xyz",
     )
@@ -187,7 +187,7 @@ describe("loadEnvConfig", () => {
   it("必須の環境変数だけが設定されているとき、省略可能な項目に既定値を入れる", () => {
     vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
     vi.stubEnv("ACCESS_TOKEN", "token")
-    vi.stubEnv("CONFIG_PATH", undefined)
+    vi.stubEnv("CONFIG_ROOT_PATH", undefined)
     vi.stubEnv("CONCURRENCY_LIMIT", undefined)
     vi.stubEnv("DRY_RUN", undefined)
     vi.stubEnv("TARGET_CHART", undefined)

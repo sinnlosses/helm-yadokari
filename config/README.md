@@ -1,7 +1,7 @@
 # config/
 
 このディレクトリには、**pipeline schedule の定期実行で更新対象にするアプリの登録**を置く。
-`CONFIG_PATH` を省略したときに読まれる既定のディレクトリで、CIの `validate-config-remote` が
+`CONFIG_ROOT_PATH` を省略したときに読まれる既定のディレクトリで、CIの `validate-config-remote` が
 検証する対象でもある。
 
 - ディレクトリ構成とスキーマの正典は [`docs/requirements.md`](../docs/requirements.md) 4.4節
@@ -24,7 +24,7 @@ chartリポジトリと、定期実行が更新するchartリポジトリは**�
   なので、両方に同じ設定ユニットがあると定期実行とスモーク実行が同じブランチを奪い合い、
   `submitMergeRequest` の「固定ブランチが残っていたら削除して作り直す」挙動と
   スモークの後片付け（接頭辞一致でブランチを削除する）が互いのMRを壊す
-- 分けている限り、**既定パス（`CONFIG_PATH` 未指定）は実機で一度も通らない**。
+- 分けている限り、**既定パス（`CONFIG_ROOT_PATH` 未指定）は実機で一度も通らない**。
   ここに置けば定期実行もスモークも同じ経路を通り、CIの `validate-config-remote` も
   空ディレクトリではなく実在の設定を検証するようになる
 

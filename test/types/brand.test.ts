@@ -4,15 +4,15 @@ import { toConfigRootPath } from "../../src/types/types.js"
 
 describe("toConfigRootPath", () => {
   it(".. を含む相対パスのとき例外をスローする", () => {
-    expect(() => toConfigRootPath("../../etc/passwd")).toThrow("CONFIG_PATH")
+    expect(() => toConfigRootPath("../../etc/passwd")).toThrow("CONFIG_ROOT_PATH")
   })
 
   it(".. を含む絶対パスのとき例外をスローする", () => {
-    expect(() => toConfigRootPath("/tmp/../etc/passwd")).toThrow("CONFIG_PATH")
+    expect(() => toConfigRootPath("/tmp/../etc/passwd")).toThrow("CONFIG_ROOT_PATH")
   })
 
   it("cwd() 外の絶対パスのとき例外をスローする", () => {
-    expect(() => toConfigRootPath("/etc/passwd")).toThrow("CONFIG_PATH")
+    expect(() => toConfigRootPath("/etc/passwd")).toThrow("CONFIG_ROOT_PATH")
   })
 
   it("label を指定すると、そのラベルでエラーメッセージを出す", () => {

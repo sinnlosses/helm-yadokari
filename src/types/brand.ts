@@ -82,16 +82,16 @@ export function toLocalPath(s: string): LocalPath {
 
 declare const configRootPathBrand: unique symbol
 /**
- * `loadConfig()`が読む設定ディレクトリのルート（`CONFIG_PATH`・コマンドライン引数由来）。
+ * `loadConfig()`が読む設定ディレクトリのルート（`CONFIG_ROOT_PATH`・コマンドライン引数由来）。
  * `LocalPath`の部分型なので`join()`や`listSubdirectories()`にはそのまま渡せる。
  */
 export type ConfigRootPath = LocalPath & { readonly [configRootPathBrand]: never }
 /**
  * `ConfigRootPath`の唯一の生成経路。cwd()配下に収まっていることをここで検証するので、
  * パストラバーサルを含むパスが`ConfigRootPath`になることはない。label はエラーメッセージ内で
- * そのパスを何と呼ぶか（既定は環境変数名の`CONFIG_PATH`）。
+ * そのパスを何と呼ぶか（既定は環境変数名の`CONFIG_ROOT_PATH`）。
  */
-export function toConfigRootPath(s: string, label = "CONFIG_PATH"): ConfigRootPath {
+export function toConfigRootPath(s: string, label = "CONFIG_ROOT_PATH"): ConfigRootPath {
   assertSafePath(s, label)
   return s as ConfigRootPath
 }

@@ -8,7 +8,7 @@ import type { ConfigTarget } from "./limit-to-target.js"
 import { NO_TARGET, assertTargetMatched, selectChartDirs, selectTargetConfigUnits } from "./limit-to-target.js"
 import { validateTagFormatConsistency } from "./validate.js"
 
-/** `CONFIG_PATH`・コマンドライン引数のどちらも省略されたときに読む設定ディレクトリ */
+/** `CONFIG_ROOT_PATH`・コマンドライン引数のどちらも省略されたときに読む設定ディレクトリ */
 export const DEFAULT_CONFIG_ROOT_PATH: ConfigRootPath = toConfigRootPath("config")
 
 /**
