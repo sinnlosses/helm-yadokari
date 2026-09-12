@@ -7,11 +7,25 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
 2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは1件**（T-212。`loopable: "N"` なので `/loop` では進まない）。完了タスクは
+**未着手のタスクは0件**（登録済みのタスクはすべて `done`）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-12 README.md の精査
+
+- **T-212**: `README.md`（322行）の17見出しを読者目線で精査し、**冗長6件・不足7件・
+  実装/正典とのズレ4件**を提案表にまとめた（README.md は1行も変更していない）。着手前に
+  ユーザーが**読者像＝OSS公開体裁を維持**・**正典との重複より README 単体完結を優先**と
+  決めたため、「`docs/` に書いてあるから削る」方向の指摘は全件対象外にし、**README 内で
+  2回書いている箇所**と**読者の意思決定に寄与しない記述**だけを冗長として扱った。
+  最も重いのは不足側の L-1（`pnpm dev` は `tsx --env-file=.env` なので `.env` が無いと
+  起動前に落ちるのに、README に `.env` の作成手順が1行も無い）と L-2（同梱の
+  `config/yadokari-smoke-test-chart*` は作者の GitLab 固有の `projectId` なので、
+  第三者環境では必ず `ERROR`＋`exit(1)` になる）。**採否は未定**で、反映は別タスク。
+  `maintain-docs` の7検査で機械的に拾える指摘は**0件**だった（検査7が出す5件は見出し名の
+  重複のみで、本レポートの対象と重ならない）。`pnpm check` 通過: 386 Tests
 
 ### 2026-09-12 型の置き場所の裏付け
 
@@ -171,11 +185,10 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
 
 ## 次にやること
 
-**`todo` は T-212 の1件**（`README.md` の冗長・不足を読者目線で洗い出し、提案として提示する。
-`opus` / `loopable: "N"` / 依存なし）。**`loopable` が `"N"` なので `/loop` では拾われない** —
-提案の採否をユーザーが決めるタスクなので、`/next-task` を直接呼んで進める。README.md の
-書き換えは、採否が決まってから別タスクとして登録する
-（指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（3回目）」）。
+**登録済みのタスクは全件 `done`。** 次にやることは、下の「未解決」に置いた
+**T-212 の提案17件の採否をユーザーが決めること**。採ると決まったものを反映タスクとして
+登録する（指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の
+「2026-09-12（3回目）」）。
 
 設定まわりの命名（T-208・T-209・T-210）と、その過程で見つかった型の置き場所の裏付け直し
 （T-211）は完了済み（指示メモは同ファイルの「2026-09-12（2回目）」）。
@@ -195,6 +208,33 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
 確かめられる。ローカルの `pnpm check` と `pnpm lint`（`config/` のスキーマ検証を含む）は通っている。
 
 ## 未解決
+
+- **T-212 で洗い出した `README.md` の提案17件は採否が未定**（2026-09-12）。README.md は
+  無変更のまま。採ると決めたものを反映タスクとして登録する。**重みの高いものだけ**を以下に残す
+  （全17件の表はセッションのレポートにあり、再現したければ README.md を同じ観点で読み直す）:
+  - **L-1（不足・高）**: `Quick Start`(113-122) に `.env` の作成手順が無い。`pnpm dev` は
+    `tsx --env-file=.env`（`package.json:7`）なので、`.env` が無いと起動前に落ちる
+    （`.env` は `.gitignore:11` で追跡外）。`cp .env.example .env` を手順に足す案
+  - **L-2（不足・高）**: 同梱の `config/yadokari-smoke-test-chart`・`同2` は作者の GitLab 固有の
+    `projectId`（86061211 等）なので、第三者環境では必ず `ERROR`＋`exit(1)`。手順2に
+    「同梱設定を消すか `TARGET_CHART` で絞る」を足す案
+  - **L-3（不足・高）**: `registry.yaml`/`config.yaml` の最小サンプルが README 本文に無い
+    （`タグ形式` 節の `appSpecs` 断片のみ）。README 単体完結の前提では手順2を実行できない
+  - **R-1（冗長・高）**: `環境変数` 表(168-176) と `手動実行時のオプション` 表(276-282) が
+    5変数の説明を同文で持つ（173行と279行は完全一致）。後者の説明列を前者への参照に寄せる案
+  - **R-2（冗長・高）**: 「Protected を OFF にする理由」が `設定ファイルの検証`(229-231) と
+    `セットアップ手順`(263-266) の両方で本文展開されている
+  - **D-1（ズレ・高）**: README:239 の「指数バックオフ（1秒→2秒→**4秒**）で**最大3回リトライ**」が
+    実装と違う。`withRetry` の既定は `maxAttempts: 3`・`baseDelayMs: 1000`（`src/utils/retry.ts:11`）で
+    `attempt === maxAttempts` で打ち切るため、**試行3回＝リトライ2回・待ちは1秒→2秒**。
+    `docs/architecture.md:387` は正しく、README だけがズレている
+  - **D-2（ズレ・中）**: README:311 の `src/ # steps/ → lib/ → utils/ の3層構成` が
+    `domain/`・`types/` を落としている（実際は5ディレクトリ）
+  - **D-4（ズレ・中）**: `docs/requirements.md` 5章が配布方法を「npmjs.com に公開して
+    `npm install`」と定めているが、`package.json` に `version`/`bin`/`files` が無く CI も
+    `pnpm start`。**正典側が実装から取り残されている**疑い。README ではなく要件側の要否確認が要る
+  - **L-5（不足・中）**: `LICENSE` も `package.json` の `license` も無い。OSS公開体裁を維持する
+    判断をしたので、**ライセンス選定はユーザー判断**が要る
 
 - **`docs/architecture.md` の `src/steps/` 責務表（`resolve-latest-tags.ts` の行）が
   「追跡ブランチを切り替えた場合はタグを自動作成」と書いている**が、現在のコードと
