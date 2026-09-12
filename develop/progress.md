@@ -7,7 +7,7 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
 2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは0件**（登録済みのタスクはすべて `done`）。完了タスクは
+**未着手のタスクは1件**（T-213）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -185,10 +185,17 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
 
 ## 次にやること
 
-**登録済みのタスクは全件 `done`。** 次にやることは、下の「未解決」に置いた
-**T-212 の提案17件の採否をユーザーが決めること**。採ると決まったものを反映タスクとして
-登録する（指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の
-「2026-09-12（3回目）」）。
+**`todo` は T-213 の1件**（`scripts/` 2ファイルの引数パースを `node:util` の `parseArgs` に
+置き換える。`sonnet` / `loopable: "Y"` / 依存なし）。**「導入して良くなるライブラリはあるか」の
+問いから出たタスク**で、結論は「外部パッケージは増やさない」——本体3,784行に対し実行時依存は
+4つ（`@gitbeaker/rest`・`p-limit`・`yaml`・`zod`）で、手作りの `logger.ts` 35行・`retry.ts` 36行は
+どれも置き換える利が無い（pino はログ形式が `README.md` の外部インターフェースとして固定されて
+いるため、p-retry は `isRetryable` を注入する今の形が原則2に沿っているため、却下）。
+**唯一の実益が Node 標準の `parseArgs`** で、依存を増やさずに引数のtypoを弾ける。
+
+あわせて、下の「未解決」に置いた **T-212 の提案17件の採否**がユーザー判断待ち。採ると決まった
+ものを反映タスクとして登録する（指示メモは
+[`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（3回目）」）。
 
 設定まわりの命名（T-208・T-209・T-210）と、その過程で見つかった型の置き場所の裏付け直し
 （T-211）は完了済み（指示メモは同ファイルの「2026-09-12（2回目）」）。
