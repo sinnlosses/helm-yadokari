@@ -8,11 +8,25 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは0件**（`develop/tasks.json` は `[]`）。完了タスクは
+**未着手のタスクは T-219 の1件**（`loopable: "N"`。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-12 config のサンプルとGitHub対応の調査
+
+- **`config.example/`（タスクIDなし）**: `config/` のコピー用サンプルを新設
+  （`commit b6f4b42`）。`config/` に架空の設定を置くとCIの `validate-config-remote` が
+  実在チェックで必ず落ちるため別ディレクトリにした。深さ1の最小構成と深さ2の複数app構成を
+  収録し、`pnpm lint` に `lint:validate-config:example` を足してスキーマ変更時の腐りを検知する。
+  `pnpm check` 通過: 386 Tests
+
+- **GitHub対応の調査（タスクIDなし）**: `docs/research/github-support.md` を追加
+  （`commit fb09229`）。分界面（`lib/gitlab/` の13関数）は機能しているが、`ProjectId`・
+  `GitLabUrl`・`PipelineInfo` の3つが外に漏れている。最大の実装差は複数ファイルの1コミット化で、
+  GitHubに等価APIが無くGit Data APIで4呼び出しに分解が要る。GitHub/GitLab公式ドキュメント
+  5本の引用付き。**採用も着手も未決**で、最小の一歩として T-219 を登録した
 
 ### 2026-09-12 README.md の提案の反映
 
@@ -242,13 +256,16 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**登録済みのタスクは全件 `done`。T-212 の提案17件はすべて反映し終えた**
-（T-214〜T-218。ユーザーが採否を決め、L-5はMIT・D-4は「npm配布しないので正典を実装に
-合わせる」で確定。残り15件は全件採用）。**README.md は clone 直後に Quick Start どおり
-動く状態になった。**
+**T-219（`ProjectId` の中立化の計測、`opus`、`loopable: "N"`、依存なし）が1件 `todo`。**
+`loopable: "N"` なので `/loop` では拾われない。**ユーザーがいるセッションで `/next-task` を
+直接呼ぶ必要がある**（候補の表現の選定に承認が要り、計測結果がGitHub対応そのものの採否判断の
+入力になるため）。調査記録は [`docs/research/github-support.md`](../docs/research/github-support.md)、
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（4回目）」。
 
-次にやることは下の「未解決」から拾うか、`develop/direction.md` に新しい指示を書いて
-`/plan-tasks` でタスク化する。**実機スモークテストは未実施のまま**（下の記述を参照）。
+T-212 の提案17件はすべて反映し終えた（T-214〜T-218。ユーザーが採否を決め、L-5はMIT・
+D-4は「npm配布しないので正典を実装に合わせる」で確定。残り15件は全件採用）。
+**README.md は clone 直後に Quick Start どおり動く状態になった。**
+**実機スモークテストは未実施のまま**（下の記述を参照）。
 
 T-213（`parseArgs` 化）は
 **「導入して良くなるライブラリはあるか」の問いから出たタスク**で、結論は「外部パッケージは増やさない」——本体3,784行に対し実行時依存は
