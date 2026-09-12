@@ -60,5 +60,60 @@
     "status": "done",
     "passes": true,
     "evidence": "`scripts/smoke/smoke-fixture.ts`・`scripts/lint/validate-config.ts` の引数パースを `node:util` の `parseArgs`（`strict: true` + `allowPositionals`）に置換。外部依存は増えていない。`process.argv.includes`/`args.find(` は grep 0件。`--brokn-anchor`・`--remot` はどちらも exit=1 （どのフラグが不正かをメッセージに出す）。既存の呼び出しは `pnpm lint:validate-config` exit=0（config OK: 4設定ユニット/6apps）、`smoke-fixture.ts reset`（--apply 無し）exit=0 で dry-run 完走。受け入れで2点修正: 戻り値のインライン型に `readonly` を付けた（`src/utils/partition.ts` が前例）／smoke-fixture 側のエラー表示を同ファイルの `smoke-fixture ERROR:` 書式に揃えた。`pnpm check` 通過: 386 Tests"
+  },
+  {
+    "id": "T-214",
+    "difficulty": "sonnet",
+    "loopable": "Y",
+    "dependencies": [],
+    "summary": "`README.md` の実装と食い違う記述3件（D-1〜D-3）を実物に合わせて直す",
+    "task": "## 背景\n\nT-212 の精査で、`README.md` に**実装と食い違う記述**が3件見つかった。いずれも事実の誤りで、\n読者の判断を誤らせる。\n\n- **D-1（重み高）** `README.md:239`（`エラーハンドリング` 表の 503/504 の行）:\n  「指数バックオフ（**1秒→2秒→4秒**）で**最大3回リトライ**し」と書いてある。\n  実装は `withGitlabRetry()`（`src/lib/gitlab/gitlab.ts:225`）が `withRetry(fn, isRetryableError)` を\n  オプション無しで呼び、既定は `maxAttempts: 3`・`baseDelayMs: 1000`（`src/utils/retry.ts:11`）。\n  `runAttempt()` は `attempt === maxAttempts` で throw する（`src/utils/retry.ts:29`）ので、\n  **試行は3回＝リトライ2回、待ちは1秒→2秒で「4秒」は発生しない**。\n  `docs/architecture.md:387` は既定を正しく書いており、**README だけがズレている**\n- **D-2（重み中）** `README.md:311`（`プロジェクト構成`）:\n  `src/  # steps/ → lib/ → utils/ の3層構成` と書いてあるが、実際は\n  `src/steps/`・`src/lib/`・`src/domain/`・`src/utils/`・`src/types/` の5ディレクトリ。\n  `docs/architecture.md` の責務表は **steps / lib / domain / utils の4区分**で立てており、\n  `domain/` は「`lib/`でも`utils/`でもないため新設した区分」と明記されている\n  （`docs/architecture.md:222-223`）\n- **D-3（重み低）** `README.md:172`（`環境変数` 表の `CONFIG_ROOT_PATH` 行）:\n  デフォルトを `config/`（末尾スラッシュ付き）と書いているが、実装の既定値は\n  `toConfigRootPath(\"config\")`（`src/lib/config/config.ts:12`、スラッシュ無し）。\n  同じ README の実行ログ例（`README.md:154`）は `\"configRootPath\":\"config\"` と書いており、\n  **README 内で表記が食い違っている**\n\n## やること\n\n1. D-1: 239行を実装どおりに直す。「試行3回（リトライ2回）」「待ちは1秒→2秒」が読める文にする。\n   **`docs/architecture.md:387` の書き方と矛盾しないこと**\n2. D-2: 311行の `3層構成` を実態に合わせる。`docs/architecture.md` の4区分（steps / lib /\n   domain / utils）と `types/` の存在が分かる書き方にする\n3. D-3: 172行の既定値の表記を、ログ例（154行）および実装（`toConfigRootPath(\"config\")`）と\n   揃える。**`.env.example` と `.gitlab-ci.yml` の `config/` 表記は変えない**\n   （あちらはパスの例示であって既定値の表示ではない）\n4. **README.md 以外のファイルは変更しない**（`docs/architecture.md` は既に正しい）\n\n## 完了条件\n\n- `README.md:239` に「4秒」が無く、試行回数と待ち時間が `src/utils/retry.ts` の既定と一致する\n- `README.md:311` に「3層」が無く、`domain/` が読み取れる\n- `README.md:172` の既定値表記が `README.md:154` のログ例と一致する\n- `git diff --stat` の変更が `README.md` の1ファイルだけ\n- `pnpm check` が通る\n\n## 注意\n\n- 事実の訂正だけを行う。文章の整理・節の並べ替えは別タスク（T-215・T-216）の担当なので\n  ここでは触らない\n",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "T-215",
+    "difficulty": "sonnet",
+    "loopable": "Y",
+    "dependencies": ["T-214"],
+    "summary": "`README.md` の重複・読みにくい記述6件（R-1〜R-6）を整理する",
+    "task": "## 背景\n\nT-212 の精査で見つかった `README.md` の冗長6件。ユーザーの判断で\n**「`docs/` の正典に書いてあるから README から削る」方向の整理はしない**（README 単体で\n完結することを優先する）。ここで扱うのは **README 内で2回書いているもの**と\n**読者の意思決定に寄与しない記述**だけ。\n\n- **R-1（高）** `環境変数` 表（168-176行）と `手動実行時のオプション（Pipeline inputs）` 表\n  （276-282行）が、`DRY_RUN`・`CONCURRENCY_LIMIT`・`CONFIG_ROOT_PATH`・`TARGET_CHART`・\n  `TARGET_UNITS` の説明をほぼ同文で持っている。**173行と279行は完全一致**、176行と282行も\n  `unitPath` の説明が同文\n- **R-2（高）** 「CI/CD Variables の Protected を OFF にする理由」が、`設定ファイルの検証`\n  （229-231行）と `セットアップ手順`（263-266行）の両方で本文として展開されている。\n  前者は末尾で「詳細は下記CI/CD章」と参照を張りながら、理由も自前で書いている\n- **R-3（中）** `config/` 節の194-202行が、1段落9行に「ファイルを分ける軸」「registry.yaml の\n  中身」「config.yaml の中身」「Helm向き先ブランチの定義と `mrTargetBranch` との違い」\n  「`helm` が必須な理由」「更新したくないときの書き方」の6話題を詰め込んでいる。\n  198-200行は1文が3行にまたがり、括弧内に別概念の定義が入れ子になっている\n- **R-4（中）** `エラーハンドリング` 表の241行が「追跡ブランチのHEADを指すタグが無い/切り替えた\n  → タグを作成して続行」という**正常系**で、表の他8行（すべて失敗時の挙動）と性質が違う。\n  同内容は `タグの自動作成` 節（88-89行）と Features（53-54行）に既にある\n- **R-5（低）** `開発` 節の299-304行の「ローカル実行」が、Quick Start の120-122行と同じ\n  `GITLAB_URL=... ACCESS_TOKEN=... pnpm dev` の形。288行の `pnpm install` も106行の再掲\n- **R-6（低）** `実行ログの例` の161-162行、「`targetChart`/`targetUnits` は指定時のみ載る\n  （未指定なら `undefined` になりJSONから落ちる）」という注記2行。`undefined` が JSON から\n  落ちる内部挙動は読者の判断に寄与しない\n\n## やること\n\n1. **R-1**: Pipeline inputs 表（276-282行）の「説明」列を `環境変数` 表への参照に寄せる。\n   **inputs 固有の情報は残す**（`型`列、`\"\"` が「未指定」を意味すること、\n   272-274行の「Run pipeline すると自動で開始する」）\n2. **R-2**: Protected OFF の理由の本文は `セットアップ手順`（263-266行）に一本化し、\n   `設定ファイルの検証` 側は「Protected は OFF が必要（理由は[CI/CD](#cicd)）」相当の1行に縮める\n3. **R-3**: 194-202行を3段落に割る（①ファイルを分ける軸と2ファイルの役割 ②Helm向き先ブランチの\n   定義と `helm` が必須な理由 ③更新させたくない設定ユニットの書き方）。\n   `mrTargetBranch` との対比は括弧の入れ子から出して独立した文にする\n4. **R-4**: 241行を表から外し、表の直後に「タグ不在・追跡ブランチ切替はエラーではない」旨と\n   `タグの自動作成` 節へのリンクを1行置く\n5. **R-5**: `開発` 節のローカル実行を Quick Start への参照にし、Quick Start に無い\n   `pnpm build` → `pnpm start` だけ残す\n6. **R-6**: 161-162行を1行に縮める（絞り込み未指定の実行例であることだけ伝える）\n\n## 完了条件\n\n- `README.md:173` と `README.md:279` に相当する行（`CONCURRENCY_LIMIT` の説明）が\n  **同文で2箇所に存在しない**\n- 「保護ブランチ以外のパイプラインで変数が空になる」に相当する説明が README 内に1箇所だけ\n- `エラーハンドリング` 表の全行が「失敗したときどうなるか」になっている\n- 目次（29-47行）のアンカーが、見出しを変えた場合は追随している\n- `git diff --stat` の変更が `README.md` の1ファイルだけ\n- `pnpm check` が通る\n\n## 注意\n\n- **正典（`docs/`）との重複は削らない。** ユーザーが「README 単体で完結を優先」と決めている\n- ロゴ・バッジ・`Features` 節・英語見出しには触らない（OSS公開体裁を維持する判断）\n- 情報を落とさずに重複だけ減らす。迷ったら残す側に倒す\n",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "T-216",
+    "difficulty": "sonnet",
+    "loopable": "Y",
+    "dependencies": ["T-215"],
+    "summary": "`README.md` の不足6件（L-1〜L-4・L-6・L-7）を埋め、clone直後に手順どおり動くようにする",
+    "task": "## 背景\n\nT-212 の精査で見つかった `README.md` の不足。**Quick Start の3件は「README どおりに実行すると\n必ず失敗する」種類**で、第三者が最初に踏む。\n\n- **L-1（高）** `Quick Start`(113-122行) に `.env` の作成手順が無い。`package.json:7` の\n  `dev` は `tsx --env-file=.env src/index.ts` なので、`.env` が無いと\n  `node: .env: not found` で**起動前に落ちる**。`.env` は `.gitignore:11` で追跡外なので\n  clone 直後には存在しない。`.env.example` はリポジトリにあるが、README に一度も出てこない\n- **L-2（高）** 手順2(108-111行)が自分の `config/<chart>/` を足すだけで手順3を実行させるが、\n  リポジトリには `config/yadokari-smoke-test-chart/`・`config/yadokari-smoke-test-chart2/` が\n  同梱されている。中身は作者の GitLab 固有の projectId（`86061211`・`86354445`・`82861978` 等）で、\n  **第三者の環境では必ず `ERROR`＋`exit(1)` になる**（絞り込み未指定なら全chartが対象。\n  `README.md:175`。ERROR が1件でも非ゼロ終了。`README.md:246`）\n- **L-3（高）** `registry.yaml`/`config.yaml` の最小サンプルが README 本文に無い。\n  README にある YAML は `タグ形式` 節(78-84行)の `appSpecs` 断片のみで、\n  `chartToUpdate`・`helm.branchRef`・`apps[].branchToSync`・`locations[].anchor` の\n  **書き方が README から一度も見えない**\n- **L-4（中）** `README.md:104` の `git clone <this-repo>` がプレースホルダのまま。\n  リモートは `github.com/sinnlosses/helm-yadokari` と\n  `gitlab.com/sinnlosses-group/helm-yadokari` の2つ\n- **L-6（中）** `docs/` への導線が `requirements.md`(27・91・213行) と\n  `architecture.md`(321行) の2本だけ。`glossary.md`・`smoke-test.md`・`coding-standards.md` に\n  辿り着けない。README は「設定ユニット」「追跡ブランチ」「Helmの向き先ブランチ」\n  「値定義ブランチ」を定義せずに使っている箇所がある（例: 198-200行）\n- **L-7（低）** `CI/CD`(252行) は `renovate` ジョブの存在に触れるが、動かすのに必要な\n  `RENOVATE_TOKEN` の登録と `RENOVATE=true` 付きスケジュールの作成が README に無い。\n  `.gitlab-ci.yml` の renovate 節は両方を **【必須】** と書いている\n\n## やること\n\n1. **L-1**: Quick Start の手順2と3の間（または手順1の直後）に `cp .env.example .env` を入れ、\n   `.env` に `GITLAB_URL`/`ACCESS_TOKEN` を書くことを1行添える。\n   **`.env.example` の実物を読んで、実際に入っているキーと矛盾しないようにすること**\n2. **L-2**: 手順2に「同梱の `config/yadokari-smoke-test-chart*` は作者の検証用なので、\n   消すか `TARGET_CHART=<自分のchartディレクトリ名>` を付けて実行する」旨を1行足す\n3. **L-3**: `config/` 節の末尾に、`registry.yaml` と `config.yaml` の**最小サンプル**を\n   YAML コードブロックで載せる。**`src/lib/config/schema.ts` を読んで必須フィールドだけに絞る**\n   （余計なフィールドを足さない）。完全な仕様は今どおり `docs/requirements.md` 4.4節への\n   リンクを残す。**`pnpm lint:validate-config` が通る形であること**（サンプルは config/ に\n   置かないので直接は検証されないが、スキーマと矛盾させない）\n4. **L-4**: 104行を実際の clone URL に置き換える。**github.com 側を採用する**\n   （README は OSS 公開ページとして扱う判断のため）\n5. **L-6**: `プロジェクト構成` 節の末尾に `docs/` の1行リストを足す\n   （用語集・スモークテスト手順・コーディング規約。既に導線がある requirements.md /\n   architecture.md も含めてよい）\n6. **L-7**: `セットアップ手順` に「（任意）Renovate を使う場合」として\n   `RENOVATE_TOKEN` の登録と `RENOVATE=true` スケジュールの作成を足す。\n   **`.gitlab-ci.yml` の renovate 節を読んで、そこに書いてある必須事項と一致させること**\n\n## 完了条件\n\n- `README.md` に `.env.example` の語が現れ、Quick Start に `.env` を用意する手順がある\n- Quick Start に、同梱の `config/yadokari-smoke-test-chart*` をどうするかの指示がある\n- `README.md` に `chartToUpdate`・`helm.branchRef`・`apps[].branchToSync`・`locations[]` の\n  4つすべてが YAML サンプルとして現れる\n- `README.md` に `<this-repo>` が残っていない\n- `README.md` から `docs/glossary.md`・`docs/smoke-test.md`・`docs/coding-standards.md` への\n  リンクがある（相対リンクで、リンク先が実在すること）\n- `git diff --stat` の変更が `README.md` の1ファイルだけ\n- `pnpm check` が通る\n\n## 注意\n\n- **`config/` 配下には何も足さない・消さない**（架空の設定を置くとCIの\n  `validate-config-remote` が必ず失敗する）。サンプルは README 本文の中だけ\n- ライセンス（L-5）は別タスク（T-217）の担当。ここでは触らない\n- 目次（29-47行）に新しい見出しを足した場合は追随させる\n",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "T-217",
+    "difficulty": "haiku",
+    "loopable": "Y",
+    "dependencies": ["T-216"],
+    "summary": "MIT ライセンスを追加する（`LICENSE`・`package.json` の `license`・`README.md` の License 節）",
+    "task": "## 背景\n\nT-212 の精査（L-5）で、`LICENSE` ファイルも `package.json` の `license` フィールドも\n無いことが分かった。README を OSS 公開ページとして扱う判断をしたので、第三者が利用可否を\n判断できる状態にする。\n\n**ライセンスは MIT に決定済み**（ユーザー判断、2026-09-12）。\n\n## やること\n\n1. リポジトリのルートに `LICENSE` を作る。**MIT License の原文をそのまま使う**\n   （文面を独自に言い換えない）。著作権行は `Copyright (c) 2026 sinnlosses` とする\n2. `package.json` に `\"license\": \"MIT\"` を足す。**フィールドの位置は `engines` の前後など、\n   既存の並び（name → type → scripts → dependencies → devDependencies → engines →\n   packageManager）を崩さない場所**にする\n3. `README.md` の末尾に `## License` 節を足し、MIT であることと `LICENSE` への相対リンクを書く。\n   **目次（29-47行）にも追随させる**\n\n## 完了条件\n\n- ルートに `LICENSE` があり、1行目が `MIT License`、著作権行が `Copyright (c) 2026 sinnlosses`\n- `package.json` に `\"license\": \"MIT\"` がある\n- `README.md` に `## License` 節があり、`LICENSE` への相対リンクが実在するファイルを指す\n- 目次に `License` のエントリがある\n- `pnpm check` が通る\n\n## 注意\n\n- **npm への公開はしない**（ユーザー判断、2026-09-12）。`version`・`bin`・`files`・\n  `publishConfig` は足さない。`private: true` も足さない（公開リポジトリでライセンスを\n  明示するだけが目的）\n- 著作権者名を本名に変えたい場合はユーザーが後から直す。ここでは `sinnlosses` で固定する\n",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
+  },
+  {
+    "id": "T-218",
+    "difficulty": "sonnet",
+    "loopable": "Y",
+    "dependencies": [],
+    "summary": "`docs/requirements.md` 5章の配布方針を、npm公開しない実態（clone + CI実行）に合わせて書き直す",
+    "task": "## 背景\n\nT-212 の精査（D-4）で、**正典が実装から取り残されている**ことが分かった。\n\n`docs/requirements.md` の5章が配布方法を「**公開npmレジストリ（npmjs.com）にパッケージを\n公開し、CI job上で `npm install`**」と定めているが、実態は違う:\n\n- `package.json` に `version`・`bin`・`files`・`publishConfig` がいずれも無い\n- `.gitlab-ci.yml` の `update-app-versions` ジョブは `pnpm start`（ローカルビルドの実行）\n- `README.md` の Quick Start も `git clone` 前提\n\n**ユーザーの判断（2026-09-12）: npm では配布しない。** 正典を実装に合わせて書き直す。\n\n## やること\n\n1. `docs/requirements.md` の**節の索引で5章を特定し、その節だけを読む**\n   （30KB超のファイルなので通読しない。`sed -n '/^#### 見出し/,/^#\\{2,4\\}/p'` の形で切り出す）\n2. 5章の配布方針を実態に合わせて書き直す。**「このリポジトリを clone して CI 上で実行する\n   （npmレジストリには公開しない）」**という趣旨にする。`.gitlab-ci.yml` の\n   `update-app-versions` が `pnpm start` であることと矛盾しない書き方にすること\n3. 5章の記述が他の節や他のドキュメントから参照されていないか確認する\n   （`grep -n 'npm install\\|npmjs\\|レジストリ\\|配布' docs/ README.md CLAUDE.md`）。\n   参照があれば追随させる\n4. **調べて5章が既に実態と合っていた（読み違いだった）と分かったら、直さずに理由を\n   `evidence` に書いて閉じる**\n\n## 完了条件\n\n- `docs/requirements.md` 5章に「npmjs.com に公開」「`npm install`」に相当する記述が無い\n- 書き直した内容が `.gitlab-ci.yml` の `update-app-versions` ジョブの実際の形と一致する\n- `grep -n 'npmjs\\|公開npmレジストリ' docs/ README.md CLAUDE.md` が0件\n- `pnpm check` が通る\n\n## 注意\n\n- **`package.json` は変更しない**（`version`・`bin`・`files` を足さない）。このタスクは\n  正典の記述を実態に合わせるだけ\n- `docs/requirements.md` は**通読しない**。索引で節を1つ特定して読む\n- 5章以外の節には触らない\n",
+    "status": "todo",
+    "passes": false,
+    "evidence": ""
   }
 ]
