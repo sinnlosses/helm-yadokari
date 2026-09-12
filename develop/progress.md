@@ -1,17 +1,30 @@
 # 現在の状態
 
-最終更新: 2026-09-12（**T-198〜T-200 を完了**し、命名の見直しで決まった改名1件を
-**T-201 として登録**。`docs/glossary.md` の整理はこれで一段落。未着手は T-201 の1件。
-2026-09-11以前の記録は
+最終更新: 2026-09-12（**T-198〜T-200 を完了**したあと、`/grilling` で命名を**33問・10ラウンド
+かけて洗い直し**、T-200 の結論が大きく覆った。規約4件の書き換えと改名31件を
+**T-201〜T-207 の7タスクとして登録**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは1件**（T-201。`AnchorTarget` の改名、`haiku`、`/loop` 可）。完了タスクは
+**未着手のタスクは7件**（T-201 → T-207 の一直線。T-206 のみ `opus`）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 `docs/glossary.md` の整理
+
+- **命名の洗い直し（`/grilling`、33問・10ラウンド）**: T-200 の結論「改名1件・据え置き5件」を
+  前提から問い直し、**大きく覆った**。決め手は2つ。(1) 据え置きの根拠に使っていた
+  `docs/architecture.md`「型と命名」の規約が**実態と逆**だったこと。`BranchName` 型の
+  フィールド6件は「修飾語があれば `Name` を落とす」で例外ゼロなのに、規約は「落とさない
+  （ただし `previousBranch` 等は除く）」と書いていた。一般則を見つけ損ねて個別例外を
+  規約に書き込んだ跡。(2) 「読者は未来の自分が主」「`config/` の実物6ファイルは全部自分の
+  フィクスチャで他チームの登録はまだ無い」と確認したことで、**「外部インターフェースだから
+  動かせない」という据え置き理由が今は効かない**と分かったこと。
+  結果、**規約4件すべてを書き換え、改名は31件**になった。最大のものは
+  `ChartAndApps`→`ConfigUnit`（ブランド型 `ConfigUnitPath` が既に `ConfigUnit` を語幹に
+  持つのに肝心の型が無かった）と、`HelmTargetBranchUpdate.newBranch` の削除（設定ユニットに
+  1つしかない値を書き込み位置ごとに複製していた）。決定は T-201〜T-207 に落としてある
 
 - **T-200**: 命名の論点6件にユーザー判断で結論を出した。**改名は `AnchorTarget`→`AnchorLocation`
   の1件だけ**（T-201 として登録）。`target` が既に「MRのベース」「向き先」「処理対象」の3義で
@@ -46,12 +59,19 @@
 
 ## 次にやること
 
-**未着手は T-201 の1件**（T-198〜T-200 は完了）:
+**未着手は T-201 → T-207 の7件**（命名の洗い直しの実施、登録は 2026-09-12）。
+**順序に意味がある**（正典が先、コードが後）ので、依存を飛ばさないこと:
 
-- **T-201**（`haiku`、`/loop` 可）: `AnchorTarget` → `AnchorLocation` の改名。
-  正典（`docs/glossary.md`）は T-200 で新名に書き換え済みで、コードと `docs/architecture.md` を
-  それに追随させる。フィールド名 `target`/`targets`/`imageTagTargets` は据え置きなので変えない。
-  波及は26件/8ファイル（src 14・docs 9・test 0）
+1. **T-201**（`sonnet`）: `docs/architecture.md`「型と命名」の規約4件を書き換える
+2. **T-202**（`sonnet`）: `docs/glossary.md` を新しい規約と決定に合わせて全面更新
+3. **T-203**（`sonnet`）: `ChartAndApps`→`ConfigUnit` と `Chart*` 型ファミリの整理（波及106件超）
+4. **T-204**（`sonnet`）: `AnchorTarget`→`AnchorLocation` と YAMLキー `chart[]`→`locations[]`
+5. **T-205**（`sonnet`）: `previous*`→`current*` とログ項目、`helm.branchToSync`→`helm.branchName`
+6. **T-206**（`opus`）: `HelmTargetBranchUpdate.newBranch` の削除。**これだけ設計変更**
+7. **T-207**（`haiku`）: `ParsedTag.builtAt`→`taggedAt`
+
+T-204・T-205 は `config/` のYAMLキーを変えるので、**スキーマと `config/` を同じコミットに
+入れる**こと（片方だけだと `pnpm lint` が落ちる）。7件とも `/loop` に載せてよい
 
 T-172〜T-197 はすべて `done`（T-183〜T-192 は `docs/history/tasks-archive.md` へアーカイブ済みで、
 `develop/tasks.json` からは消えている）。
@@ -125,6 +145,13 @@ GitLab上に無い状態で設定だけ先にコミットすると落ちる。T-
     2回引く。影響が小さいので見送り
 
 ## 注意
+
+- **いま `docs/glossary.md` と `docs/architecture.md` は、2026-09-12 の `/grilling` で覆った
+  古い決定を載せたままになっている。** 具体的には用語集の「### 「target」の意味は文脈で決まる」
+  （「いずれも改名せず据え置く」と書いてあるが `AnchorTarget` は改名が決まった）と、
+  「Helmの向き先ブランチ」の表記ゆれ欄（`helm.branchToSync` の据え置きを宣言しているが
+  `helm.branchName` への改名が決まった）。**T-201・T-202 が直すまでの一時的な状態**なので、
+  この2箇所を読んで判断しないこと。決定の正典は `develop/tasks.json` の T-201〜T-207 の本文
 
 - **コミット手順は「記録を書く → `pnpm format` → `pnpm check` → `git add` → `git commit`」の順に固定する。**
   `develop/tasks.json` は `oxfmt` の対象（`.prettierignore` の除外は `.claude/` と `config/` だけ）で、
