@@ -92,7 +92,7 @@ async function buildPlan(
       apps: plans.map(describePlan),
       helmTargetBranchUpdates: describeHelmTargetBranchUpdates(
         helmTargetBranchUpdates,
-        configUnit.helmTargetBranch.branchName,
+        configUnit.helmTargetBranch.branchRef,
       ),
     })
     return settle("SKIPPED")

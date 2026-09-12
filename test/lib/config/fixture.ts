@@ -98,11 +98,11 @@ export type ConfigAppFixture = {
 }
 
 /**
- * `config.yaml`の`helm`（Helmの向き先ブランチ）1件分。`branchName`・`locations`を省略すると
+ * `config.yaml`の`helm`（Helmの向き先ブランチ）1件分。`branchRef`・`locations`を省略すると
  * そのキーごとYAMLに出さないので、片方だけ書いた設定エラーの検証にも使える
  */
 export type ConfigHelmFixture = {
-  readonly branchName?: string
+  readonly branchRef?: string
   readonly locations?: readonly AnchorLocationFixture[]
 }
 
@@ -124,14 +124,14 @@ function defaultHelm(apps: readonly ConfigAppFixture[]): ConfigHelmFixture {
   const valuesPaths = [...new Set(apps.flatMap((app) => app.locations.map((l) => l.valuesPath)))]
   const covered = valuesPaths.length === 0 ? ["values.yaml"] : valuesPaths
   return {
-    branchName: "release/2026-q1",
+    branchRef: "release/2026-q1",
     locations: covered.map((valuesPath) => ({ valuesPath, anchor: "defaultHelmTargetBranch" })),
   }
 }
 
 function helmField(helm: ConfigHelmFixture): string {
   const branchBlock =
-    helm.branchName === undefined ? "" : `  branchName: ${helm.branchName}\n`
+    helm.branchRef === undefined ? "" : `  branchRef: ${helm.branchRef}\n`
   return `helm:\n${branchBlock}${helm.locations === undefined ? "" : helmLocationsBlock(helm.locations)}`
 }
 

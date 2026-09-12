@@ -15,7 +15,7 @@ import { makePlan, newBatchCache } from "../../../helpers.js"
 
 const webUrl = toGitLabUrl("https://gitlab.example.com/g/my-app")
 
-const helmBranchName = toBranchName("release/2026-q1")
+const helmBranchRef = toBranchName("release/2026-q1")
 
 const helmUpdate = {
   location: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
@@ -46,7 +46,7 @@ describe("collectMrEntries", () => {
       ],
     })
 
-    const entries = await collectMrEntries(newBatchCache(), [plan], [], helmBranchName)
+    const entries = await collectMrEntries(newBatchCache(), [plan], [], helmBranchRef)
 
     expect(entries.imageTags).toHaveLength(2)
     expect(entries.imageTags.map((entry) => entry.update.location.anchorName)).toEqual(["x", "y"])
@@ -57,7 +57,7 @@ describe("collectMrEntries", () => {
   it("plansが空のとき、imageTagsは空でweb URLも要求しない（helm向き先ブランチだけのMR）", async () => {
     mockWebUrl()
 
-    const entries = await collectMrEntries(newBatchCache(), [], [helmUpdate], helmBranchName)
+    const entries = await collectMrEntries(newBatchCache(), [], [helmUpdate], helmBranchRef)
 
     expect(entries.imageTags).toEqual([])
     expect(getProjectWebUrl).not.toHaveBeenCalled()
@@ -73,10 +73,10 @@ describe("collectMrEntries", () => {
       },
     }
 
-    const entries = await collectMrEntries(newBatchCache(), [], [helmUpdate, other], helmBranchName)
+    const entries = await collectMrEntries(newBatchCache(), [], [helmUpdate, other], helmBranchRef)
 
     expect(entries.helmBranches).toEqual([helmUpdate, other])
-    expect(entries.helmBranchName).toBe(helmBranchName)
+    expect(entries.helmBranchRef).toBe(helmBranchRef)
   })
 
   it("plan単位の解決で失敗したとき、エラーにどのアプリかを付ける", async () => {
@@ -84,7 +84,7 @@ describe("collectMrEntries", () => {
     vi.mocked(getLatestPipelineForRef).mockRejectedValue(new Error("パイプラインの取得に失敗"))
 
     await expect(
-      collectMrEntries(newBatchCache(), [makePlan({ projectName: "my-app" })], [], helmBranchName),
+      collectMrEntries(newBatchCache(), [makePlan({ projectName: "my-app" })], [], helmBranchRef),
     ).rejects.toThrow("[アプリ: my-app] パイプラインの取得に失敗")
   })
 
@@ -94,8 +94,8 @@ describe("collectMrEntries", () => {
     // バッチ1回ぶんのキャッシュを共有したまま、clientの数だけ collectMrEntries が呼ばれる形
     const gitlabCache = newBatchCache()
 
-    await collectMrEntries(gitlabCache, [makePlan()], [], helmBranchName)
-    await collectMrEntries(gitlabCache, [makePlan()], [], helmBranchName)
+    await collectMrEntries(gitlabCache, [makePlan()], [], helmBranchRef)
+    await collectMrEntries(gitlabCache, [makePlan()], [], helmBranchRef)
 
     expect(getProjectWebUrl).toHaveBeenCalledOnce()
     expect(getLatestPipelineForRef).toHaveBeenCalledOnce()

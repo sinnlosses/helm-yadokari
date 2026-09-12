@@ -20,12 +20,12 @@ export type AnchorLocation = {
 }
 
 /**
- * Helmの向き先ブランチを扱うための設定。`branchName`はconfig.yamlの`helm.branchName`由来、
+ * Helmの向き先ブランチを扱うための設定。`branchRef`はconfig.yamlの`helm.branchRef`由来、
  * `locations`は同じconfig.yamlの`helm.locations[]`のうち、設定ユニット内のいずれかのappが書き込む
  * valuesPathを指すもの。向き先ブランチは設定ユニット内のapps全体で共通なので設定ユニット単位で持つ
  */
 export type HelmTargetBranchConfig = {
-  readonly branchName: BranchName
+  readonly branchRef: BranchName
   readonly locations: readonly AnchorLocation[]
 }
 
@@ -89,7 +89,7 @@ export type ImageTagUpdate = {
 
 /**
  * `HelmTargetBranchConfig.locations`のうち1箇所分の更新内容。`currentBranch`はvalues.yaml側の
- * 現在値。新しい値は設定ユニットに1つしかないので`ConfigUnit.helmTargetBranch.branchName`から取る
+ * 現在値。新しい値は設定ユニットに1つしかないので`ConfigUnit.helmTargetBranch.branchRef`から取る
  */
 export type HelmTargetBranchUpdate = {
   readonly location: AnchorLocation

@@ -632,7 +632,9 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 
 `anchor: AnchorName` は「アンカーそのもの」を持っているように読めるが、実際に持っているのは
 名前だけで、この差が読み違いを生む。だから修飾語が無いフィールドは`Name`のような型の語を
-落とさず持たせる（`HelmTargetBranchConfig.branchName`・`ParsedTag.branchName`）。逆に
+落とさず持たせる（`ParsedTag.branchName`・`HelmTargetBranchConfig.branchRef`）。`Ref`も
+`Name`と同じ役割で、ブランチそのものではなく**それを指す値**を持つことを語に出している
+（使い分けは`docs/glossary.md`「Helmの向き先ブランチ」）。逆に
 `current`・`mrTarget`のような「どれか」を言う修飾語が付いたフィールドは型の語を落とす
 （`AppConfig.branchToSync`・`ChartRepoConfig.mrTargetBranch`・
 `HelmTargetBranchUpdate.currentBranch`・`ImageTagUpdate.currentTag`）。**規則は向きが逆で、
@@ -819,7 +821,7 @@ projectIdが本番実行時にはじめて`ERROR`になっていた。
 - **同じキー名を2つの意味に使わない（同名別義）。同一ファイルの中にも及ぶ。** 実例は
   `config.yaml` の `helm.branchToSync`（values.yamlへ書き込む向き先ブランチ）と
   `apps[].branchToSync`（タグを探す追跡ブランチ）で、**同じファイルの数行違いで別物を指して
-  いた**（helm側を`helm.branchName`に改名して解消した）。2ファイル間でも同じで、同じキー名が
+  いた**（helm側を`helm.branchRef`に改名して解消した）。2ファイル間でも同じで、同じキー名が
   両方に現れると鏡写しに見えて読み違いを招く（下の `chart` の例）
 - **YAMLキーと型フィールドで語幹を違えない**。`locations[]` というキーを `targets` という
   フィールド名で受けるような食い違いは作らない

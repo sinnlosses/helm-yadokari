@@ -353,11 +353,11 @@ apps:
 
 ```yaml
 # config.yaml トップレベル。apps:配列と同階層、設定ユニット単位に1件のオブジェクト。
-# helm は必須で、branchName と locations[] の両方が必要
+# helm は必須で、branchRef と locations[] の両方が必要
 helm:
-  branchName: release/2026-q1
+  branchRef: release/2026-q1
   locations:
-    # helm.branchNameの値をこのvaluesPath内のこのアンカーに書き込む
+    # helm.branchRefの値をこのvaluesPath内のこのアンカーに書き込む
     - valuesPath: charts/my-app/values.yaml
       anchor: myAppTargetBranch
 apps:
@@ -369,10 +369,10 @@ apps:
 - `helm`は**必須**とする。chartリポジトリは「`values.yaml`等のパラメータを定義するブランチ」と
   「そのパラメータを受け取ってk8sリソースを構築するブランチ」の2ブランチ構成である、というのが
   この運用の前提だからで、設定ユニットごとに向き先ブランチを1件書くのが常態になる。
-  `helm`自体の省略も、`helm.branchName`と`helm.locations[]`の片方だけの指定も設定エラー。
-  向き先ブランチを更新したくない設定ユニットは、`helm.branchName`に現在の値と同じブランチ名を
+  `helm`自体の省略も、`helm.branchRef`と`helm.locations[]`の片方だけの指定も設定エラー。
+  向き先ブランチを更新したくない設定ユニットは、`helm.branchRef`に現在の値と同じブランチ名を
   書けば差分が出ないので更新されない
-- `config.yaml`の`helm.branchName`はchartリポジトリ内の別ブランチ（`registry.yaml`の`chartToUpdate.projectId`と
+- `config.yaml`の`helm.branchRef`はchartリポジトリ内の別ブランチ（`registry.yaml`の`chartToUpdate.projectId`と
   同一プロジェクト）を指す、設定ユニット単位に1件の値。人間が自己申告方式で直接書き換える
   運用とし、タグ形式のような自動生成・自動判定の仕組みは持たない
 - `helm.locations[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、

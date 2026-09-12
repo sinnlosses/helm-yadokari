@@ -114,7 +114,7 @@
 次に何かを始めるときは `develop/direction.md` に指示を書き、`/plan-tasks` でタスク化する。
 
 **実機スモークテストは未実施。** `config.yaml` のキーが2つ変わっている
-（`chart[]`→`locations[]`、`helm.branchToSync`→`helm.branchName`）ので、一度
+（`chart[]`→`locations[]`、`helm.branchToSync`→`helm.branchRef`）ので、一度
 `docs/smoke-test.md` の手順を通しておくと、設定の読み込みが実機でも壊れていないことを
 確かめられる。ローカルの `pnpm check` と `pnpm lint`（`config/` のスキーマ検証を含む）は通っている。
 
@@ -174,7 +174,7 @@
   取りこぼしを踏み、次のタスクの注意に書いたら取りこぼしが0件になった
 - **ログの項目名と `config.yaml` のキー名が 2026-09-12 に変わっている。** 過去のログや古い
   `config.yaml` を読むときは `update_chart`→`update_unit`、`previousTagName`→`currentTag`、
-  `chart[]`→`locations[]`、`helm.branchToSync`→`helm.branchName` で読み替えること
+  `chart[]`→`locations[]`、`helm.branchToSync`・`helm.branchName`→`helm.branchRef` で読み替えること
 
 - **コミット手順は「記録を書く → `pnpm format` → `pnpm check` → `git add` → `git commit`」の順に固定する。**
   `develop/tasks.json` は `oxfmt` の対象（`.prettierignore` の除外は `.claude/` と `config/` だけ）で、

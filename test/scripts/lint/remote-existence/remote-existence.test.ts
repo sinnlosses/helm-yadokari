@@ -128,7 +128,7 @@ describe("validateRemoteExistence", () => {
 
   it("Helmの向き先ブランチが存在しないとき問題として返す", async () => {
     const helmTargetBranch = {
-      branchName: toBranchName("release/ghost"),
+      branchRef: toBranchName("release/ghost"),
       locations: [
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
       ],
@@ -148,7 +148,7 @@ describe("validateRemoteExistence", () => {
 
   it("Helmの向き先ブランチの問題は、アプリの数だけ重複して報告しない", async () => {
     const helmTargetBranch = {
-      branchName: toBranchName("release/ghost"),
+      branchRef: toBranchName("release/ghost"),
       locations: [
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
       ],

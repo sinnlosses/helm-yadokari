@@ -29,7 +29,7 @@ export async function stageHelmTargetBranchUpdates(
 }
 
 /**
- * `helmTargetBranch.locations`のうち1箇所分について、現在の値を読み取り設定値（`branchName`）と
+ * `helmTargetBranch.locations`のうち1箇所分について、現在の値を読み取り設定値（`branchRef`）と
  * 比較する。差分があれば、書き込み前にそのブランチがchartリポジトリ上に実在するか検証した
  * うえで書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ`updates`に含めない）。
  *
@@ -42,7 +42,7 @@ async function stageHelmTargetBranchUpdate(
   acc: StageHelmTargetBranchUpdatesAcc,
   location: AnchorLocation,
 ): Promise<StageHelmTargetBranchUpdatesAcc> {
-  const { branchName } = helmTargetBranch
+  const { branchRef } = helmTargetBranch
   const { valuesYamlContent, draft } = await readValuesYamlDraft(
     source,
     acc.draft,
@@ -53,12 +53,12 @@ async function stageHelmTargetBranchUpdate(
     location.anchorName,
     location.valuesPath,
   )
-  if (currentBranchRaw === branchName) return { ...acc, draft }
+  if (currentBranchRaw === branchRef) return { ...acc, draft }
 
   const { gitlabCache, chart } = source
-  if (!(await gitlabCache.branchExists(chart.projectId, branchName))) {
+  if (!(await gitlabCache.branchExists(chart.projectId, branchRef))) {
     throw new Error(
-      `向き先ブランチ "${branchName}" がchartリポジトリに見つかりません (valuesPath: ${location.valuesPath}, anchor: ${location.anchorName})`,
+      `向き先ブランチ "${branchRef}" がchartリポジトリに見つかりません (valuesPath: ${location.valuesPath}, anchor: ${location.anchorName})`,
     )
   }
 
@@ -66,7 +66,7 @@ async function stageHelmTargetBranchUpdate(
     draft: writeValuesYamlDraft(
       draft,
       location.valuesPath,
-      setValueAtAnchor(valuesYamlContent, location.anchorName, branchName),
+      setValueAtAnchor(valuesYamlContent, location.anchorName, branchRef),
     ),
     updates: [
       ...acc.updates,

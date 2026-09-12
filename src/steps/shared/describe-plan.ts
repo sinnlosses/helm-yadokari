@@ -38,16 +38,16 @@ export function describePlan(plan: AppUpdatePlan): PlanLogSummary {
 
 /**
  * Helmの向き先ブランチの更新をログ用のサマリに変換する。設定ユニット単位なのでアプリ名は持たない。
- * `branchName`（`ConfigUnit.helmTargetBranch.branchName`）は全箇所で共通の書き込み後の値で、
+ * `branchRef`（`ConfigUnit.helmTargetBranch.branchRef`）は全箇所で共通の書き込み後の値で、
  * 1行だけで前→後が読めるようサマリの各件にも入れる。
  */
 export function describeHelmTargetBranchUpdates(
   updates: readonly HelmTargetBranchUpdate[],
-  branchName: BranchName,
+  branchRef: BranchName,
 ): readonly HelmTargetBranchLogSummary[] {
   return updates.map((update) => ({
     valuesPath: update.location.valuesPath,
     currentBranch: update.currentBranch,
-    newBranch: branchName,
+    newBranch: branchRef,
   }))
 }

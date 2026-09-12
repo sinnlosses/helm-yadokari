@@ -20,7 +20,7 @@ import { makePlan } from "../../../helpers.js"
 
 const defaultWebUrl = toGitLabUrl("https://gitlab.example.com/g/my-app")
 
-const helmBranchName = toBranchName("release/2026-q1")
+const helmBranchRef = toBranchName("release/2026-q1")
 
 const helmUpdate = {
   location: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
@@ -39,7 +39,7 @@ function entriesOf(
       plan.updates.map((update) => ({ plan, update, webUrl, pipeline })),
     ),
     helmBranches,
-    helmBranchName,
+    helmBranchRef,
   }
 }
 

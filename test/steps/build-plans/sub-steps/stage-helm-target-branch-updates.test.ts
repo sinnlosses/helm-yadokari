@@ -35,7 +35,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
   it("helmTargetBranchが現在値と異なるとき、helmTargetBranchUpdateに含めて書き換える", async () => {
     const app = makeApp()
     const helmTargetBranch = {
-      branchName: toBranchName("release/2026-q1"),
+      branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
@@ -65,7 +65,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
   it("helmTargetBranchが現在値と同じで、chart側も差分が無いとき、そのアプリはSKIPPEDになる", async () => {
     const app = makeApp()
     const helmTargetBranch = {
-      branchName: toBranchName("release/2026-q1"),
+      branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
@@ -90,7 +90,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
   it("chart側の差分は無くhelmTargetBranchのみ差分があるとき、アプリの計画は作らずMR対象にする", async () => {
     const app = makeApp()
     const helmTargetBranch = {
-      branchName: toBranchName("release/2026-q1"),
+      branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
@@ -116,7 +116,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
   it("指定した向き先ブランチがchartリポジトリに存在しないとき、その設定ユニット全体をERRORにする", async () => {
     const app = makeApp()
     const helmTargetBranch = {
-      branchName: toBranchName("release/2026-q1"),
+      branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
@@ -142,7 +142,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
   it("向き先ブランチの存在確認は、chartリポジトリのprojectIdに対して行う", async () => {
     const app = makeApp()
     const helmTargetBranch = {
-      branchName: toBranchName("release/2026-q1"),
+      branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
@@ -164,7 +164,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
 
   it("向き先ブランチが見つからないときのエラーメッセージにブランチ名、valuesPath、anchorが含まれる", async () => {
     const helmTargetBranch = {
-      branchName: toBranchName("release/2026-q1"),
+      branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
           valuesPath: toValuesPath("helm/values.yaml"),
@@ -192,7 +192,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
 
   it("同じchartRepo.projectId・同じブランチ名の向き先ブランチ確認は、複数の設定ユニットにまたがってもGitLab APIへの問い合わせを1回にまとめる", async () => {
     const helmTargetBranch = {
-      branchName: toBranchName("release/2026-q1"),
+      branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),

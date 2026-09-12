@@ -91,7 +91,7 @@ export function makeConfigUnit(
     apps,
     // 既定は書き込み先が空＝向き先ブランチの更新が1件も積まれない状態。向き先ブランチそのものを
     // 検証するテストだけが`locations`を持つ値で上書きする
-    helmTargetBranch: { branchName: toBranchName("release/2026-q1"), locations: [] },
+    helmTargetBranch: { branchRef: toBranchName("release/2026-q1"), locations: [] },
     ...overrides,
   }
 }

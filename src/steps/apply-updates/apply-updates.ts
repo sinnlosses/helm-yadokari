@@ -49,7 +49,7 @@ async function applyUpdate(
     gitlabCache,
     plans,
     helmTargetBranchUpdates,
-    configUnit.helmTargetBranch.branchName,
+    configUnit.helmTargetBranch.branchRef,
   )
   const content = buildMrContent(unitPath, entries)
   await submitMergeRequest(gitlab, chartRepo, featureBranch, content, files)
@@ -60,7 +60,7 @@ async function applyUpdate(
     apps: plans.map(describePlan),
     helmTargetBranchUpdates: describeHelmTargetBranchUpdates(
       helmTargetBranchUpdates,
-      configUnit.helmTargetBranch.branchName,
+      configUnit.helmTargetBranch.branchRef,
     ),
   })
   return ok<ConfigUnitUpdateResult>("CREATED")

@@ -1,6 +1,6 @@
 # 深さ1の設定ユニット（docs/smoke-test.md 参照）
 helm:
-  branchName: release/2026-q1
+  branchRef: release/2026-q1
   locations:
     - valuesPath: charts/anchor-app/values.yaml
       anchor: smokeTestTargetBranch
