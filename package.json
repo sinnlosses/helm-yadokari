@@ -1,5 +1,6 @@
 {
   "name": "helm-yadokari",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

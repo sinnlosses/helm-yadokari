@@ -101,9 +101,9 @@
     "dependencies": ["T-216"],
     "summary": "MIT ライセンスを追加する（`LICENSE`・`package.json` の `license`・`README.md` の License 節）",
     "task": "## 背景\n\nT-212 の精査（L-5）で、`LICENSE` ファイルも `package.json` の `license` フィールドも\n無いことが分かった。README を OSS 公開ページとして扱う判断をしたので、第三者が利用可否を\n判断できる状態にする。\n\n**ライセンスは MIT に決定済み**（ユーザー判断、2026-09-12）。\n\n## やること\n\n1. リポジトリのルートに `LICENSE` を作る。**MIT License の原文をそのまま使う**\n   （文面を独自に言い換えない）。著作権行は `Copyright (c) 2026 sinnlosses` とする\n2. `package.json` に `\"license\": \"MIT\"` を足す。**フィールドの位置は `engines` の前後など、\n   既存の並び（name → type → scripts → dependencies → devDependencies → engines →\n   packageManager）を崩さない場所**にする\n3. `README.md` の末尾に `## License` 節を足し、MIT であることと `LICENSE` への相対リンクを書く。\n   **目次（29-47行）にも追随させる**\n\n## 完了条件\n\n- ルートに `LICENSE` があり、1行目が `MIT License`、著作権行が `Copyright (c) 2026 sinnlosses`\n- `package.json` に `\"license\": \"MIT\"` がある\n- `README.md` に `## License` 節があり、`LICENSE` への相対リンクが実在するファイルを指す\n- 目次に `License` のエントリがある\n- `pnpm check` が通る\n\n## 注意\n\n- **npm への公開はしない**（ユーザー判断、2026-09-12）。`version`・`bin`・`files`・\n  `publishConfig` は足さない。`private: true` も足さない（公開リポジトリでライセンスを\n  明示するだけが目的）\n- 著作権者名を本名に変えたい場合はユーザーが後から直す。ここでは `sinnlosses` で固定する\n",
-    "status": "todo",
-    "passes": false,
-    "evidence": ""
+    "status": "done",
+    "passes": true,
+    "evidence": "`LICENSE`（新規、MIT原文・`Copyright (c) 2026 sinnlosses`）・`package.json`（`\"license\": \"MIT\"` を `name` の直後に追加）・`README.md`（末尾に `## License` 節、目次に `- [License](#license)`）の3ファイル。`version`/`bin`/`files`/`publishConfig`/`private` は足していない（npm公開しない判断）。受け入れで License 節の本文を英語から日本語に直した（`Features`・`Quick Start` と同じく見出しは英語・本文は日本語というこのREADMEの作法に合わせた）。`pnpm check` 通過: 386 Tests"
   },
   {
     "id": "T-218",

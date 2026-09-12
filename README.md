@@ -44,6 +44,7 @@ chart リポジトリ単位に更新をまとめた MR 作成を自動化しま�
   - [手動実行時のオプション（Pipeline inputs）](#手動実行時のオプションpipeline-inputs)
 - [開発](#開発)
   - [プロジェクト構成](#プロジェクト構成)
+- [License](#license)
 
 ## Features
 
@@ -369,3 +370,7 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 - [`docs/glossary.md`](./docs/glossary.md) — 用語集（ドメイン用語とコード上の識別子の対応）
 - [`docs/coding-standards.md`](./docs/coding-standards.md) — コーディング規約
 - [`docs/smoke-test.md`](./docs/smoke-test.md) — 実機スモークテストの手順
+
+## License
+
+MIT License で配布しています。全文は [LICENSE](./LICENSE) を参照してください。
