@@ -5,13 +5,20 @@
 **T-201〜T-207 の7タスクとして登録**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは7件**（T-201 → T-207 の一直線。T-206 のみ `opus`）。完了タスクは
+**未着手のタスクは6件**（T-202 → T-207 の一直線。T-206 のみ `opus`）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 `docs/glossary.md` の整理
+
+- **T-201**: `docs/architecture.md` の命名規約4件を書き換えた。規約②は「落とさない」から
+  **「修飾語があれば落とす」へ反転**し、`previousBranch` の名指し除外を削除。規約①は多義を
+  明示的に許可したうえで判定基準「修飾語が用途を言っているか、識別の手段を言っているだけか」を
+  追加した。規約④には同名別義とYAML/型の語幹違いの禁止を足した。受け入れで3点を直している
+  （同名別義の適用範囲が2ファイル間に狭まっていた・例に削除予定の `newBranch` が使われていた・
+  判定基準の由来である `AnchorLocation` の例が抜けていた）。`pnpm check` 通過: 385 Tests
 
 - **命名の洗い直し（`/grilling`、33問・10ラウンド）**: T-200 の結論「改名1件・据え置き5件」を
   前提から問い直し、**大きく覆った**。決め手は2つ。(1) 据え置きの根拠に使っていた
@@ -59,16 +66,15 @@
 
 ## 次にやること
 
-**未着手は T-201 → T-207 の7件**（命名の洗い直しの実施、登録は 2026-09-12）。
+**未着手は T-202 → T-207 の6件**（命名の洗い直しの実施、登録は 2026-09-12）。
 **順序に意味がある**（正典が先、コードが後）ので、依存を飛ばさないこと:
 
-1. **T-201**（`sonnet`）: `docs/architecture.md`「型と命名」の規約4件を書き換える
-2. **T-202**（`sonnet`）: `docs/glossary.md` を新しい規約と決定に合わせて全面更新
-3. **T-203**（`sonnet`）: `ChartAndApps`→`ConfigUnit` と `Chart*` 型ファミリの整理（波及106件超）
-4. **T-204**（`sonnet`）: `AnchorTarget`→`AnchorLocation` と YAMLキー `chart[]`→`locations[]`
-5. **T-205**（`sonnet`）: `previous*`→`current*` とログ項目、`helm.branchToSync`→`helm.branchName`
-6. **T-206**（`opus`）: `HelmTargetBranchUpdate.newBranch` の削除。**これだけ設計変更**
-7. **T-207**（`haiku`）: `ParsedTag.builtAt`→`taggedAt`
+1. **T-202**（`sonnet`）: `docs/glossary.md` を新しい規約と決定に合わせて全面更新
+2. **T-203**（`sonnet`）: `ChartAndApps`→`ConfigUnit` と `Chart*` 型ファミリの整理（波及106件超）
+3. **T-204**（`sonnet`）: `AnchorTarget`→`AnchorLocation` と YAMLキー `chart[]`→`locations[]`
+4. **T-205**（`sonnet`）: `previous*`→`current*` とログ項目、`helm.branchToSync`→`helm.branchName`
+5. **T-206**（`opus`）: `HelmTargetBranchUpdate.newBranch` の削除。**これだけ設計変更**
+6. **T-207**（`haiku`）: `ParsedTag.builtAt`→`taggedAt`
 
 T-204・T-205 は `config/` のYAMLキーを変えるので、**スキーマと `config/` を同じコミットに
 入れる**こと（片方だけだと `pnpm lint` が落ちる）。7件とも `/loop` に載せてよい
