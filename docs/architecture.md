@@ -609,13 +609,19 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 `ConfigUnitPath`（識別子）と同じ式に並ぶため、この基準に該当する。GitLab上のパスを表す
 `ValuesPath`（chart内での相対パス）とは別の型で、`LocalPath`にはしない。パスの種類ごとに
 ブランドを分けることはせず、ローカルパス全体で`LocalPath`1つにまとめる。
+
+例外は**不変条件を型で表す場合**で、`ConfigDirPath`（`LocalPath`の部分型）だけがこれに当たる。
+種類が違うから分けているのではなく、「cwd配下であることを検証済み」という性質を型に載せるため。
+`toConfigDirPath()`が唯一の生成経路なので、未検証のパスが`loadConfig()`に渡ることはコンパイル時に
+弾かれ、`loadConfig()`と`env.ts`の双方に検証を置く必要がなくなる（`toGitLabUrl()`と同じ作法）。
+部分型にしているのは`join()`・`listSubdirectories()`へ変換なしで渡すため。
 `src/utils/`（`fs.ts`・`yaml.ts`）は技術・ファイル形式に特化した汎用ユーティリティで
 ドメインの型を持たないため（原則2）、そちらの引数は素の`string`のまま据え置く。
 
 #### 型の置き場所は`src/`全件と突き合わせて確かめてある
 
-「型の置き場所」の表は、`src/`の型定義54件（`types/types.ts` 16・`brand.ts` 13・残り25）を
-全件突き合わせたうえでの形（2026-09-08に53件で実施し、`LocalPath`の追加で1件増えた）。**表から外れているものは1件も無い**。
+「型の置き場所」の表は、`src/`の型定義55件（`types/types.ts` 16・`brand.ts` 14・残り25）を
+全件突き合わせたうえでの形（2026-09-08に53件で実施し、`LocalPath`・`ConfigDirPath`の追加で2件増えた）。**表から外れているものは1件も無い**。
 表に足りなかったのは基準の側で、`ParsedTag`（1行目と5行目の競合）・`LabeledLocation`（引数の形）・
 `AppSpec`（`z.infer`由来）・`EnvConfig`（2行目の例）を補って埋めた。
 

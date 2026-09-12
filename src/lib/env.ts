@@ -4,12 +4,11 @@ import { parseConfigUnitPath } from "../domain/config-unit.js"
 import type {
   AccessToken,
   ChartDirName,
+  ConfigDirPath,
   ConfigUnitPath,
   GitLabUrl,
-  LocalPath,
 } from "../types/types.js"
-import { toAccessToken, toChartDirName, toGitLabUrl, toLocalPath } from "../types/types.js"
-import { assertSafePath } from "../utils/fs.js"
+import { toAccessToken, toChartDirName, toConfigDirPath, toGitLabUrl } from "../types/types.js"
 import { DEFAULT_CONFIG_DIR_PATH } from "./config/config.js"
 
 export function loadEnv(key: string): string {
@@ -35,21 +34,16 @@ export function validateGitlabUrl(raw: string): GitLabUrl {
  * 常に「ディレクトリ」であることが分かる `configDirPath` を使う（`CONFIG_PATH`という
  * 環境変数名自体は外部インターフェースのため変えない）。
  *
- * パストラバーサル検証（`assertSafePath`）は `loadConfig()` 内にもある。`loadConfig()` は
- * `scripts/lint/validate-config.ts` からコマンドライン引数のパスで直接呼ばれる経路もあり、
- * そちらの検証は消せないため、環境変数由来の値はここでも検証する（`loadConfig()`経由で
- * 2重に検証が走るが、副作用のない同じ関数を2回呼ぶだけなので実害はない）。
- *
- * ディレクトリとして実在することもここで検証する。無いままだと後段の`listSubdirectories()`が
+ * パストラバーサル検証は`toConfigDirPath()`が行う。ディレクトリとして実在することは
+ * そちらでは見ないのでここで検証する。無いままだと後段の`listSubdirectories()`が
  * 生の`ENOENT`を投げるだけで、どの環境変数が原因か分からないため。
  */
-export function parseConfigDirPath(raw: string | undefined): LocalPath {
-  const configDirPath = raw ?? DEFAULT_CONFIG_DIR_PATH
-  assertSafePath(configDirPath, "CONFIG_PATH")
+export function parseConfigDirPath(raw: string | undefined): ConfigDirPath {
+  const configDirPath = toConfigDirPath(raw ?? DEFAULT_CONFIG_DIR_PATH)
   if (!existsSync(configDirPath) || !statSync(configDirPath).isDirectory()) {
     throw new Error(`CONFIG_PATH で指定されたディレクトリが存在しません: "${configDirPath}"`)
   }
-  return toLocalPath(configDirPath)
+  return configDirPath
 }
 
 export function parseConcurrencyLimit(raw: string | undefined): number {
@@ -79,7 +73,7 @@ export function parseTargetUnits(raw: string | undefined): readonly ConfigUnitPa
 export type EnvConfig = {
   readonly gitlabUrl: GitLabUrl
   readonly accessToken: AccessToken
-  readonly configDirPath: LocalPath
+  readonly configDirPath: ConfigDirPath
   readonly concurrencyLimit: number
   readonly dryRun: boolean
   readonly targetChart: ChartDirName | undefined

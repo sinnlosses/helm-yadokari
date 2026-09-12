@@ -3,6 +3,8 @@
  * このファイルだけ。`src/types/types.ts` から再エクスポートしている。
  */
 
+import { assertSafePath } from "../utils/fs.js"
+
 declare const projectIdBrand: unique symbol
 export type ProjectId = number & { readonly [projectIdBrand]: never }
 export function toProjectId(n: number): ProjectId {
@@ -76,6 +78,22 @@ declare const localPathBrand: unique symbol
 export type LocalPath = string & { readonly [localPathBrand]: never }
 export function toLocalPath(s: string): LocalPath {
   return s as LocalPath
+}
+
+declare const configDirPathBrand: unique symbol
+/**
+ * `loadConfig()`が読む設定ディレクトリのルート（`CONFIG_PATH`・コマンドライン引数由来）。
+ * `LocalPath`の部分型なので`join()`や`listSubdirectories()`にはそのまま渡せる。
+ */
+export type ConfigDirPath = LocalPath & { readonly [configDirPathBrand]: never }
+/**
+ * `ConfigDirPath`の唯一の生成経路。cwd()配下に収まっていることをここで検証するので、
+ * パストラバーサルを含むパスが`ConfigDirPath`になることはない。label はエラーメッセージ内で
+ * そのパスを何と呼ぶか（既定は環境変数名の`CONFIG_PATH`）。
+ */
+export function toConfigDirPath(s: string, label = "CONFIG_PATH"): ConfigDirPath {
+  assertSafePath(s, label)
+  return s as ConfigDirPath
 }
 
 declare const chartDirNameBrand: unique symbol
