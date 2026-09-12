@@ -269,8 +269,8 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 | 型の性質                                                                             | 置き場所                                         | 例                                                                              |
 | ------------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------- |
-| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                           | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ConfigUnit`・`AppUpdatePlan`・`ConfigUnitUpdateResult`・`Config`・`ParsedTag`  |
-| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                   | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`AppSpec`・`EnvConfig`                          |
+| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                           | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ConfigUnit`・`AppUpdatePlan`・`ConfigUnitUpdateResult`・`ParsedTag`            |
+| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                   | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`LoadedConfig`・`AppSpec`・`EnvConfig`          |
 | ドメイン知識を持たない汎用処理の型                                                   | その`utils/`ファイル                             | `Sorted`                                                                        |
 | 複数のstepが共有する、ドメイン型にだけ依存する型                                     | `steps/shared/`                                  | `StepOutcome<T>`・`ConfigUnitLogContext`                                        |
 | ステップ内部の作業用の型（アキュムレータ・処理中の文脈・そのstepの戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlansResult`・`FilterTargetsResult`・`ValuesYamlDraft`・`LabeledLocation` |
@@ -278,7 +278,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 - 「型は`types/`にまとめる」という運用にしないのは、`types/`が「ドメイン語彙の一覧」ではなく
   「型の物置」になると、どの型がこのツールの語彙でどの型が実装の都合かが読み分けられなくなるため。
-  `src/types/types.ts` に利用箇所が1ファイルしかない型（`Config`・`PipelineInfo`・`RunResult`）が
+  `src/types/types.ts` に利用箇所が1〜2ファイルしかない型（`RunResult`・`TagInfo`）が
   あるのは意図的で、上表の1行目に当たる
 - `sub-steps/shared/types.ts`のような型だけのファイルは、**特定の1ファイルに帰属しない型**
   （複数のサブステップが共有する関数型インターフェースや共通のアキュムレータ基底）だけに使う。
@@ -295,6 +295,10 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - **Zodスキーマから `z.infer` で導出した型はスキーマと同じファイル**（`AppSpec` は
   `lib/config/schema.ts`）。外部ファイル形式の写しなので2行目に当たる。内部表現への詰め替えは
   スキーマの `.transform()` が担うため、詰め替え後の型はドメイン語彙として1行目へ移る
+- **中身を1つ包むだけの集約型は語彙ではなく2行目**（`LoadedConfig` は `lib/config/config.ts`）。
+  `config/`を読む唯一の入口の戻り値の形なので、引数側の `ConfigTarget` と同じくそのアダプタの
+  インターフェースの一部に当たる。1行目の目安は`docs/glossary.md`に載る概念かどうかで、
+  既にある型を1つ包むだけの型はそこに載らない
 
 ## 設計判断（なぜ今の形なのか）
 
@@ -620,7 +624,7 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 
 #### 型の置き場所は`src/`全件と突き合わせて確かめてある
 
-「型の置き場所」の表は、`src/`の型定義55件（`types/types.ts` 16・`brand.ts` 14・残り25）を
+「型の置き場所」の表は、`src/`の型定義55件（`types/types.ts` 15・`brand.ts` 14・残り26）を
 全件突き合わせたうえでの形（2026-09-08に53件で実施し、`LocalPath`・`ConfigRootPath`の追加で2件増えた）。**表から外れているものは1件も無い**。
 表に足りなかったのは基準の側で、`ParsedTag`（1行目と5行目の競合）・`LabeledLocation`（引数の形）・
 `AppSpec`（`z.infer`由来）・`EnvConfig`（2行目の例）を補って埋めた。

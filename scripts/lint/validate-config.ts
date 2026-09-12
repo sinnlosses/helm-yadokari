@@ -1,7 +1,7 @@
+import type { LoadedConfig } from "../../src/lib/config/config.js"
 import { DEFAULT_CONFIG_ROOT_PATH, loadConfig } from "../../src/lib/config/config.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
-import type { Config } from "../../src/types/types.js"
 import { toConfigRootPath } from "../../src/types/types.js"
 import { validateRemoteExistence } from "./remote-existence/remote-existence.js"
 
@@ -21,7 +21,7 @@ function fail(message: string): never {
   process.exit(1)
 }
 
-function loadLocally(): Config {
+function loadLocally(): LoadedConfig {
   try {
     return loadConfig(configRootPath)
   } catch (err) {

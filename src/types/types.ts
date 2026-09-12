@@ -59,10 +59,6 @@ export type ConfigUnit = {
   readonly helm: HelmConfig
 }
 
-export type Config = {
-  readonly configUnits: readonly ConfigUnit[]
-}
-
 /** タグ名から読み取れる情報。追跡ブランチと、タグ形式の`{date}`/`{time}`から読み取った打刻日時 */
 export type ParsedTag = {
   readonly name: TagName

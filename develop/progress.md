@@ -1,18 +1,26 @@
 # 現在の状態
 
-最終更新: 2026-09-12（**T-198〜T-207 をすべて完了**し、**T-208・T-209 を新規登録して T-208 を完了**し、**T-210（環境変数名の追随）を追加して完了**。`/grilling` で命名を33問・10ラウンド
+最終更新: 2026-09-12（**T-198〜T-207 をすべて完了**し、**T-208・T-209 を新規登録して T-208 を完了**し、**T-210（環境変数名の追随）を追加して完了、T-209 も完了**。`/grilling` で命名を33問・10ラウンド
 かけて洗い直し、`docs/architecture.md` の命名規約4件を書き換えたうえで、正典・コード・
 `config/`・ログ・`README.md` まで改名31件を反映し終えた。**`done` 15件をアーカイブ済み**。
 2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは1件**（T-209。下の「次にやること」）。完了タスクは
+**未着手のタスクは0件。**完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 設定まわりの命名
+
+- **T-209**: ルートの `Config`→`LoadedConfig` に改名し、`src/types/types.ts` から
+  `src/lib/config/config.ts` へ**移した**。置き場所は「型の置き場所」の表の**2行目**で説明が付き、
+  表に行を足す必要は無かった（引数側の `ConfigTarget` が同じ `lib/config/` で2行目の例になっている＝
+  戻り値の形も同じアダプタのインターフェースの一部）。**281行目は改名と無関係に既に事実と
+  食い違っていた**——`PipelineInfo` を「利用箇所が1ファイルしかない型」に挙げていたが実測3ファイル。
+  実測し直して「1〜2ファイルしかない型（`RunResult`・`TagInfo`）」に直した。型は消さずに残した
+  （グローバル設定を将来足す余地）。`pnpm check` 通過: 386 Tests
 
 - **T-210**: 環境変数 `CONFIG_PATH`→`CONFIG_ROOT_PATH`（12ファイル）。T-208 が
   「外部インターフェースだから」と据え置いた最後の1つを、**ユーザーが据え置きを解除**して改名した。
@@ -129,13 +137,8 @@
 
 ## 次にやること
 
-**設定まわりの命名を直す残り1件**（2026-09-12のチャットで合意。指示メモは
-[`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（2回目）」）。
-**T-208 は完了済み**（上の「完了したこと」）。残るは T-209 の1件。
-
-- **T-209**（`opus`、T-208依存＝解決済み）: ルートの `Config` → `LoadedConfig` と型の置き場所の見直し。
-  `docs/architecture.md` が `Config` を「ドメイン語彙の例」に挙げているのに T-199 は
-  glossaryに足さないと判断済みという**矛盾の解消**を含む
+**未着手のタスクは0件。** 設定まわりの命名（T-208・T-209・T-210）はこれで完了した
+（指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（2回目）」）。
 
 **`ConfigUnit` の `unit` を外す案は検討して却下した**（ユーザー判断、2026-09-12）。`Config` が
 ルートの型で埋まっている・`ConfigUnitPath` が `ConfigRootPath` と同語になる・`unit` が
