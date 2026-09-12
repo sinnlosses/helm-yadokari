@@ -48,12 +48,12 @@ async function stageHelmTargetBranchUpdate(
     acc.draft,
     location.valuesPath,
   )
-  const previousBranchRaw = getRequiredValueAtAnchor(
+  const currentBranchRaw = getRequiredValueAtAnchor(
     valuesYamlContent,
     location.anchorName,
     location.valuesPath,
   )
-  if (previousBranchRaw === branchName) return { ...acc, draft }
+  if (currentBranchRaw === branchName) return { ...acc, draft }
 
   const { gitlabCache, chart } = source
   if (!(await gitlabCache.branchExists(chart.projectId, branchName))) {
@@ -72,7 +72,7 @@ async function stageHelmTargetBranchUpdate(
       ...acc.updates,
       {
         location,
-        previousBranch: toBranchName(previousBranchRaw),
+        currentBranch: toBranchName(currentBranchRaw),
         newBranch: branchName,
       },
     ],

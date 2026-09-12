@@ -98,12 +98,12 @@ export function makeConfigUnit(
 
 export function makePlan(
   overrides: Partial<{
-    previousTagName: TagName
+    currentTag: TagName
     projectName: string
     updates: AppUpdatePlan["updates"]
   }> = {},
 ): AppUpdatePlan {
-  const previousTagName = overrides.previousTagName ?? toTagName("main-build-at-20251231-000000")
+  const currentTag = overrides.currentTag ?? toTagName("main-build-at-20251231-000000")
   return {
     app: makeApp({
       projectId: toProjectId(1),
@@ -120,7 +120,7 @@ export function makePlan(
           valuesPath: toValuesPath("values.yaml"),
           anchorName: toAnchorName("appVersion"),
         },
-        previousTagName,
+        currentTag,
       },
     ],
   }

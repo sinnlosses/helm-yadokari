@@ -17,7 +17,7 @@ const webUrl = toGitLabUrl("https://gitlab.example.com/g/my-app")
 
 const helmUpdate = {
   location: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
-  previousBranch: toBranchName("release/2025-q4"),
+  currentBranch: toBranchName("release/2025-q4"),
   newBranch: toBranchName("release/2026-q1"),
 }
 
@@ -36,11 +36,11 @@ describe("collectMrEntries", () => {
       updates: [
         {
           location: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
-          previousTagName: toTagName("prev"),
+          currentTag: toTagName("prev"),
         },
         {
           location: { valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") },
-          previousTagName: toTagName("prev"),
+          currentTag: toTagName("prev"),
         },
       ],
     })

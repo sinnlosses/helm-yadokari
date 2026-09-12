@@ -13,14 +13,14 @@ export type PlanLogSummary = {
   readonly latestTag: TagName
   readonly updates: readonly {
     readonly valuesPath: ValuesPath
-    readonly previousTagName: TagName
+    readonly currentTag: TagName
   }[]
 }
 
 /** `describeHelmTargetBranchUpdates()`が組み立てる、向き先ブランチの更新1件分のログ表現 */
 export type HelmTargetBranchLogSummary = {
   readonly valuesPath: ValuesPath
-  readonly previousBranch: BranchName
+  readonly currentBranch: BranchName
   readonly newBranch: BranchName
 }
 
@@ -31,7 +31,7 @@ export function describePlan(plan: AppUpdatePlan): PlanLogSummary {
     latestTag: plan.latestTag.name,
     updates: plan.updates.map((update) => ({
       valuesPath: update.location.valuesPath,
-      previousTagName: update.previousTagName,
+      currentTag: update.currentTag,
     })),
   }
 }
@@ -42,7 +42,7 @@ export function describeHelmTargetBranchUpdates(
 ): readonly HelmTargetBranchLogSummary[] {
   return updates.map((update) => ({
     valuesPath: update.location.valuesPath,
-    previousBranch: update.previousBranch,
+    currentBranch: update.currentBranch,
     newBranch: update.newBranch,
   }))
 }

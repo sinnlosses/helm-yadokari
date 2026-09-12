@@ -148,7 +148,7 @@ function resolveProjectLinkage(
 }
 
 /**
- * config.yamlの`helm`（`branchToSync`＝書き込む値、`locations[]`＝書き込み先の`valuesPath`+
+ * config.yamlの`helm`（`branchName`＝書き込む値、`locations[]`＝書き込み先の`valuesPath`+
  * `anchor`一覧）から、設定ユニット単位の`HelmTargetBranchConfig`を作る。Helmの向き先ブランチは
  * 「1設定ユニット内のapps全体で共通」という前提なので、appごとに振り分けず設定ユニット単位で
  * 1つだけ持つ。そのconfig.yaml配下の全アプリの全`locations[].valuesPath`が`helm.locations[]`で
@@ -179,5 +179,5 @@ function resolveHelmTargetBranch(
     apps.flatMap((app) => app.imageTagLocations.map((location) => location.valuesPath)),
   )
   const locations = helm.locations.filter((location) => allValuesPaths.has(location.valuesPath))
-  return { branchName: helm.branchToSync, locations }
+  return { branchName: helm.branchName, locations }
 }

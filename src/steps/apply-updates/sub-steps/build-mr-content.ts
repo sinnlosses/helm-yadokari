@@ -51,9 +51,9 @@ function buildImageTagSection(entries: readonly ImageTagEntry[]): string {
         `\`${plan.app.branchToSync}\``,
         `\`${update.location.valuesPath}\``,
         `\`${update.location.anchorName}\``,
-        `[${update.previousTagName}](${buildTagUrl(webUrl, update.previousTagName)})`,
+        `[${update.currentTag}](${buildTagUrl(webUrl, update.currentTag)})`,
         `[${plan.latestTag.name}](${buildTagUrl(webUrl, plan.latestTag.name)})`,
-        buildCompareUrl(webUrl, update.previousTagName, plan.latestTag.name),
+        buildCompareUrl(webUrl, update.currentTag, plan.latestTag.name),
         pipeline ? pipeline.webUrl : "-",
       ]
       return `| ${cells.join(" | ")} |`
@@ -74,7 +74,7 @@ function buildHelmTargetBranchSection(updates: readonly HelmTargetBranchUpdate[]
     "| --- | --- | --- | --- |",
     ...updates.map((update) => {
       const cells = [
-        `\`${update.previousBranch}\``,
+        `\`${update.currentBranch}\``,
         `\`${update.newBranch}\``,
         `\`${update.location.valuesPath}\``,
         `\`${update.location.anchorName}\``,

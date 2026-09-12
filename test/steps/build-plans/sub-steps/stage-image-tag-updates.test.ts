@@ -135,7 +135,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
         false,
       )
       expect(toApply[0]?.plans[0]?.updates).toHaveLength(1)
-      expect(toApply[0]?.plans[0]?.updates[0]?.previousTagName).toBe(OLD_TAG)
+      expect(toApply[0]?.plans[0]?.updates[0]?.currentTag).toBe(OLD_TAG)
     },
   )
 })

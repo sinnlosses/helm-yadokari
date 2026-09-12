@@ -5,13 +5,19 @@
 **T-201〜T-207 の7タスクとして登録**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは3件**（T-205 → T-207 の一直線。T-206 のみ `opus`）。完了タスクは
+**未着手のタスクは2件**（T-206 → T-207。T-206 が唯一の設計変更で `opus`）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 `docs/glossary.md` の整理
+
+- **T-205**: 「前」側の値を `current` に統一（`previousTagName`→`currentTag`、
+  `previousBranch`→`currentBranch`）し、ログ項目と `helm.branchToSync`→`helm.branchName` も
+  揃えた。27ファイル・78/78行で**完全に釣り合った純粋な改名**。**受け入れでの修正は初めて0件**で、
+  前タスクの教訓「確認の grep に単語境界 `\b` を使わない」を注意に書いたのが効いた。
+  `newBranch` は T-206 の担当なので無変更を `git diff` で確認済み。`pnpm check` 通過: 385 Tests
 
 - **T-204**: `AnchorTarget`→`AnchorLocation` と、YAMLキー `apps[].chart[]`/`helm.chart[]`→
   `locations[]`（`config/` 4ファイル計10箇所）。受け入れで2つ直した。**(1) T-203 の取りこぼし19件**
@@ -91,16 +97,14 @@
 
 ## 次にやること
 
-**未着手は T-205 → T-207 の3件**（命名の洗い直しの実施、登録は 2026-09-12）。
+**未着手は T-206 → T-207 の2件**（命名の洗い直しの実施、登録は 2026-09-12）。
 **順序に意味がある**（正典が先、コードが後）ので、依存を飛ばさないこと:
 
-1. **T-205**（`sonnet`）: `previous*`→`current*` とログ項目、`helm.branchToSync`→`helm.branchName`
-2. **T-206**（`opus`）: `HelmTargetBranchUpdate.newBranch` の削除。**これだけ設計変更**
-3. **T-207**（`haiku`）: `ParsedTag.builtAt`→`taggedAt`
+1. **T-206**（`opus`）: `HelmTargetBranchUpdate.newBranch` の削除。**これだけ設計変更**
+2. **T-207**（`haiku`）: `ParsedTag.builtAt`→`taggedAt`
 
-T-205 は `config/` のYAMLキーを変えるので、**スキーマと `config/` を同じコミットに
-入れる**こと（片方だけだと `pnpm lint` が落ちる）。**改名の確認 grep は単語境界 `\b` を
-使わない**（日本語に挟まれた識別子を見逃す。T-204 で19件の取りこぼしを踏んだ）。7件とも `/loop` に載せてよい
+**改名の確認 grep は単語境界 `\b` を使わない**（日本語に挟まれた識別子を見逃す。
+T-204 で19件の取りこぼしを踏み、T-205 で注意に書いたら取りこぼし0件になった）。7件とも `/loop` に載せてよい
 
 T-172〜T-197 はすべて `done`（T-183〜T-192 は `docs/history/tasks-archive.md` へアーカイブ済みで、
 `develop/tasks.json` からは消えている）。

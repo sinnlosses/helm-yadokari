@@ -61,7 +61,7 @@ chartリポジトリ1と同じ設定にしてある（`sinnlosses-group` 配下�
 
 向き先ブランチのアンカーは全ユニットで必須（`config.yaml`の`helm`は必須フィールド）。
 `t2c1HelmTargetBranch` と `t2c1HelmTargetBranchExtra` だけシード値が `main` で、残りは
-`release/2026-q1`（＝`helm.branchToSync`と同じ値）をシードするので差分が出ない。
+`release/2026-q1`（＝`helm.branchName`と同じ値）をシードするので差分が出ない。
 
 ### chartリポジトリ 2 に必要なもの
 

@@ -139,7 +139,7 @@ async function validateApp(
 }
 
 /**
- * Helmの向き先ブランチ（`helm.branchToSync` と `helm.locations[]`）を検証する。設定ユニット単位で
+ * Helmの向き先ブランチ（`helm.branchName` と `helm.locations[]`）を検証する。設定ユニット単位で
  * 1つなので、アプリの数だけ同じ問題を報告しないようアプリのループの外で1回だけ呼ぶ。
  */
 async function validateHelmTargetBranch(
@@ -152,7 +152,7 @@ async function validateHelmTargetBranch(
   const branchProblems = branchFound
     ? []
     : [
-        `${where}: helm.branchToSync "${helmTargetBranch.branchName}" が ${chart.projectName} に見つかりません`,
+        `${where}: helm.branchName "${helmTargetBranch.branchName}" が ${chart.projectName} に見つかりません`,
       ]
   const targetProblems = await validateLocations(
     context,

@@ -56,7 +56,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     expect(toApply[0]?.helmTargetBranchUpdates).toEqual([
       {
         location: { valuesPath: "values.yaml", anchorName: "targetBranch" },
-        previousBranch: "release/2025-q4",
+        currentBranch: "release/2025-q4",
         newBranch: "release/2026-q1",
       },
     ])

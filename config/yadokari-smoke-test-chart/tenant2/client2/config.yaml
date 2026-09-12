@@ -1,7 +1,7 @@
 # 複数appのimage tag更新のみを検証するclient（docs/smoke-test.md 参照）。
-# Helmの向き先ブランチは values.yaml の初期値を branchToSync と同じ値にしてあるので差分が出ない
+# Helmの向き先ブランチは values.yaml の初期値を helm.branchName と同じ値にしてあるので差分が出ない
 helm:
-  branchToSync: release/2026-q1
+  branchName: release/2026-q1
   locations:
     - valuesPath: charts/smoke-tenant2/client2/values.yaml
       anchor: t2c2HelmTargetBranch

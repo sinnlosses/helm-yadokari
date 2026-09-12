@@ -45,7 +45,7 @@ function makeTarget(): ConfigUnitUpdateTarget {
               valuesPath: toValuesPath("values.yaml"),
               anchorName: toAnchorName("appVersion"),
             },
-            previousTagName: toTagName("prev"),
+            currentTag: toTagName("prev"),
           },
         ],
       },

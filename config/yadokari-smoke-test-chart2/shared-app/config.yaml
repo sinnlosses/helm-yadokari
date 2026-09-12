@@ -1,6 +1,6 @@
 # 複数chartリポジトリにまたがるappと、branchToSyncが複数種類になることを検証するユニット（docs/smoke-test.md 参照）
 helm:
-  branchToSync: release/2026-q1
+  branchName: release/2026-q1
   locations:
     - valuesPath: charts/shared-app/values.yaml
       anchor: sharedHelmTargetBranch

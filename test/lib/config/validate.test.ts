@@ -200,7 +200,7 @@ describe("loadConfig（重複指定の検証）", () => {
           },
         ],
         {
-          branchToSync: "release/2026-q1",
+          branchName: "release/2026-q1",
           locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
         },
       ),

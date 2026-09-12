@@ -92,12 +92,12 @@ async function stageImageTagUpdate(
     acc.draft,
     location.valuesPath,
   )
-  const previousTagName = toTagName(
+  const currentTagName = toTagName(
     getRequiredValueAtAnchor(valuesYamlContent, location.anchorName, location.valuesPath),
   )
 
   // タグ名が同じ、またはタグ名は違っても追跡ブランチのHEADを指す（＝デプロイされる中身が同じ）ならスキップする
-  if (previousTagName === latestTagName || trackedHeadTagNames.has(previousTagName)) {
+  if (currentTagName === latestTagName || trackedHeadTagNames.has(currentTagName)) {
     return { ...acc, draft }
   }
 
@@ -107,6 +107,6 @@ async function stageImageTagUpdate(
       location.valuesPath,
       setValueAtAnchor(valuesYamlContent, location.anchorName, latestTagName),
     ),
-    updates: [...acc.updates, { location, previousTagName }],
+    updates: [...acc.updates, { location, currentTag: currentTagName }],
   }
 }
