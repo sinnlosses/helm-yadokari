@@ -8,7 +8,9 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは0件**（GitHub対応の8タスクを完了）。完了タスクは
+**未着手のタスクは0件**（GitHub対応の8タスクを完了し、`done` 10件を
+[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み。
+`develop/tasks.json` は `[]`）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
