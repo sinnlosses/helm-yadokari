@@ -87,11 +87,13 @@ export type ImageTagUpdate = {
   readonly currentTag: TagName
 }
 
-/** `currentBranch`はvalues.yaml側の現在値、`newBranch`はconfig.yaml設定値 */
+/**
+ * `HelmTargetBranchConfig.locations`のうち1箇所分の更新内容。`currentBranch`はvalues.yaml側の
+ * 現在値。新しい値は設定ユニットに1つしかないので`ConfigUnit.helmTargetBranch.branchName`から取る
+ */
 export type HelmTargetBranchUpdate = {
   readonly location: AnchorLocation
   readonly currentBranch: BranchName
-  readonly newBranch: BranchName
 }
 
 /**

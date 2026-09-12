@@ -90,7 +90,10 @@ async function buildPlan(
       result: "SKIPPED",
       reason: "dry_run",
       apps: plans.map(describePlan),
-      helmTargetBranchUpdates: describeHelmTargetBranchUpdates(helmTargetBranchUpdates),
+      helmTargetBranchUpdates: describeHelmTargetBranchUpdates(
+        helmTargetBranchUpdates,
+        configUnit.helmTargetBranch.branchName,
+      ),
     })
     return settle("SKIPPED")
   }

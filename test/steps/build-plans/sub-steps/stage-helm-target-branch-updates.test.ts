@@ -57,7 +57,6 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       {
         location: { valuesPath: "values.yaml", anchorName: "targetBranch" },
         currentBranch: "release/2025-q4",
-        newBranch: "release/2026-q1",
       },
     ])
     expect(toApply[0]?.files[0]?.content).toContain("&targetBranch release/2026-q1")

@@ -19,7 +19,11 @@ import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../sr
 import { FatalError } from "../../../src/utils/errors.js"
 import { makeApp, makeConfigUnit, makeHttpError, mockGitlab, newBatchCache } from "../../helpers.js"
 
-const MR_ENTRIES: MrEntries = { imageTags: [], helmBranches: [] }
+const MR_ENTRIES: MrEntries = {
+  imageTags: [],
+  helmBranches: [],
+  helmBranchName: toBranchName("release/2026-q1"),
+}
 
 const MR_CONTENT = {
   title: "Auto MR by yadokari: update tenant1/client1 1 app image tag(s)",
@@ -79,6 +83,7 @@ describe("applyUpdates", () => {
       expect.anything(),
       target.plans,
       target.helmTargetBranchUpdates,
+      target.configUnit.helmTargetBranch.branchName,
     )
     expect(buildMrContent).toHaveBeenCalledWith(target.configUnit.unitPath, MR_ENTRIES)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[3]).toBe(MR_CONTENT)

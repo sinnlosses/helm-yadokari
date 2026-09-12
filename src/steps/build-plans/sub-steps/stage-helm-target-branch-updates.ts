@@ -73,7 +73,6 @@ async function stageHelmTargetBranchUpdate(
       {
         location,
         currentBranch: toBranchName(currentBranchRaw),
-        newBranch: branchName,
       },
     ],
   }

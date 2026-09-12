@@ -1,5 +1,6 @@
 import type {
   AppUpdatePlan,
+  BranchName,
   GitLabUrl,
   HelmTargetBranchUpdate,
   ImageTagUpdate,
@@ -21,10 +22,12 @@ export type ImageTagEntry = {
 /**
  * 1つのMRに載せる項目。`collectMrEntries()`が組み立て、`buildMrContent()`が
  * タイトルと本文にする。タイトルの件数と本文のテーブルの行を同じ配列から数えるための形。
+ * `helmBranchName`は`helmBranches`全件で共通の書き込み後の値なので、件ごとではなくここに1つ持つ。
  */
 export type MrEntries = {
   readonly imageTags: readonly ImageTagEntry[]
   readonly helmBranches: readonly HelmTargetBranchUpdate[]
+  readonly helmBranchName: BranchName
 }
 
 /**

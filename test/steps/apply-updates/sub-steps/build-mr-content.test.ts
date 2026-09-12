@@ -20,10 +20,11 @@ import { makePlan } from "../../../helpers.js"
 
 const defaultWebUrl = toGitLabUrl("https://gitlab.example.com/g/my-app")
 
+const helmBranchName = toBranchName("release/2026-q1")
+
 const helmUpdate = {
   location: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
   currentBranch: toBranchName("release/2025-q4"),
-  newBranch: toBranchName("release/2026-q1"),
 }
 
 /** `collectMrEntries()`が返す形を組み立てる。向き先ブランチはclient単位なのでplansとは別に渡す */
@@ -38,6 +39,7 @@ function entriesOf(
       plan.updates.map((update) => ({ plan, update, webUrl, pipeline })),
     ),
     helmBranches,
+    helmBranchName,
   }
 }
 

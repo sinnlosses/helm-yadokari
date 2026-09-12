@@ -1,5 +1,5 @@
 import { buildCompareUrl, buildTagUrl } from "../../../lib/gitlab/web-url.js"
-import type { ConfigUnitPath, HelmTargetBranchUpdate } from "../../../types/types.js"
+import type { BranchName, ConfigUnitPath, HelmTargetBranchUpdate } from "../../../types/types.js"
 import type { ImageTagEntry, MrContent, MrEntries } from "./shared/types.js"
 
 /**
@@ -29,7 +29,7 @@ function buildMrDescription(entries: MrEntries): string {
   return [
     ...(entries.imageTags.length > 0 ? [buildImageTagSection(entries.imageTags)] : []),
     ...(entries.helmBranches.length > 0
-      ? [buildHelmTargetBranchSection(entries.helmBranches)]
+      ? [buildHelmTargetBranchSection(entries.helmBranches, entries.helmBranchName)]
       : []),
   ].join("\n\n")
 }
@@ -65,8 +65,12 @@ function buildImageTagSection(entries: readonly ImageTagEntry[]): string {
  * Helmの向き先ブランチの更新をテーブルにする。
  * 向き先ブランチは設定ユニット単位で共通の値なので、イメージタグとは別のセクションに置く。
  * 書き込み先はイメージタグの表と同じくファイル・アンカーの2列に分ける。
+ * 新ブランチの列は全行が同じ`branchName`になる。
  */
-function buildHelmTargetBranchSection(updates: readonly HelmTargetBranchUpdate[]): string {
+function buildHelmTargetBranchSection(
+  updates: readonly HelmTargetBranchUpdate[],
+  branchName: BranchName,
+): string {
   return [
     "## Helmの向き先ブランチ",
     "",
@@ -75,7 +79,7 @@ function buildHelmTargetBranchSection(updates: readonly HelmTargetBranchUpdate[]
     ...updates.map((update) => {
       const cells = [
         `\`${update.currentBranch}\``,
-        `\`${update.newBranch}\``,
+        `\`${branchName}\``,
         `\`${update.location.valuesPath}\``,
         `\`${update.location.anchorName}\``,
       ]

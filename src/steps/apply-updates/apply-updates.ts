@@ -45,7 +45,12 @@ async function applyUpdate(
   const { chartRepo, unitPath } = configUnit
   const featureBranch = buildFeatureBranch(unitPath)
 
-  const entries = await collectMrEntries(gitlabCache, plans, helmTargetBranchUpdates)
+  const entries = await collectMrEntries(
+    gitlabCache,
+    plans,
+    helmTargetBranchUpdates,
+    configUnit.helmTargetBranch.branchName,
+  )
   const content = buildMrContent(unitPath, entries)
   await submitMergeRequest(gitlab, chartRepo, featureBranch, content, files)
 
@@ -53,7 +58,10 @@ async function applyUpdate(
     ...logContext,
     result: "CREATED",
     apps: plans.map(describePlan),
-    helmTargetBranchUpdates: describeHelmTargetBranchUpdates(helmTargetBranchUpdates),
+    helmTargetBranchUpdates: describeHelmTargetBranchUpdates(
+      helmTargetBranchUpdates,
+      configUnit.helmTargetBranch.branchName,
+    ),
   })
   return ok<ConfigUnitUpdateResult>("CREATED")
 }
