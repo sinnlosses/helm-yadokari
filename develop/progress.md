@@ -18,6 +18,21 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
 
+- **`PlatformBatchCache` を廃し、キャッシュ済みの読み取りをアダプタの入れ子にした**
+  （タスクIDなし、2026-09-13）。`PlatformAdapterWithCachedReads = PlatformAdapter &
+{ readonly cached: CachedReads }` を `lib/platform/cached-reads.ts`（旧 `batch-cache.ts`）に置き、
+  `main.ts` が `withCachedReads()` で**1つだけ作って全stepへ渡す**。
+  **「キャッシュと名乗りながらAPIを叩く型」だったのが動機**で、read-through なので
+  read-through であることが呼び出し行に出る形にした。
+  **`branchExists` は生とキャッシュ済みの両方が要る唯一のメンバー**（`submitMergeRequest()` は
+  固定ブランチの削除と再作成をまたぐため生、向き先ブランチの実在確認はキャッシュ済み）で、
+  今まで変数名（`adapter` か `platformCache` か）でしか読めなかったこの区別が
+  `adapter.branchExists` / `adapter.cached.branchExists` と**1行で読める**ようになった。
+  交差型なので**渡す値は1つのまま、関数ごとに必要な最小の型を宣言する**
+  （`.cached` を使わない6ファイルは `PlatformAdapter` のまま。型を見ればその関数が
+  キャッシュを使うか分かる）。`pnpm check` 通過: 39 Test Files / 494 Tests（+1件は
+  生とキャッシュ済みが同じ値の上で独立に動くことの確認）
+
 - **`config/` の `projectId` を文字列表記に統一**（タスクIDなし、2026-09-13。`commit 79022f5`）。
   GitHubは `owner/repo` でリポジトリを指し、レスポンスの数値 `id` でAPIを叩く経路が公式には無い
   （`GET /repos/{owner}/{repo}` が唯一のアドレッシング）。スキーマは数値も受け続けるため、

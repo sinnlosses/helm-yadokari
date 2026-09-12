@@ -23,8 +23,8 @@ import {
   makeConfigUnit,
   makeHttpError,
   makeAdapter,
+  makeAdapterWithCachedReads,
   mockBuildPlansAdapter,
-  newPlatformCache,
 } from "../../helpers.js"
 
 const adapter = makeAdapter()
@@ -41,8 +41,7 @@ describe("buildPlans", () => {
   it("差分がある設定ユニットはtoApplyに含まれる", async () => {
     const group = makeConfigUnit([makeApp()])
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [group],
       3,
       false,
@@ -59,8 +58,7 @@ describe("buildPlans", () => {
   it("差分がない設定ユニットはsettledにSKIPPEDとして入る", async () => {
     vi.mocked(adapter.getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${NEW_TAG}\n`)
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -71,8 +69,7 @@ describe("buildPlans", () => {
 
   it("差分があってもdryRunのときはsettledにSKIPPEDとして入り、toApplyには含まれない", async () => {
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       true,
@@ -84,8 +81,7 @@ describe("buildPlans", () => {
   it("values.yaml が見つからないときsettledにERRORとして入る", async () => {
     vi.mocked(adapter.getFileContent).mockResolvedValue(undefined)
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -102,8 +98,7 @@ describe("buildPlans", () => {
       return [{ name: NEW_TAG, commitSha: HEAD_SHA }]
     })
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([appOk, appFail])],
       3,
       false,
@@ -137,8 +132,7 @@ describe("buildPlans", () => {
       `variables:\n  - &appAVersion ${OLD_TAG}\n  - &appBVersion ${OLD_TAG}\n`,
     )
     const { toApply } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([appA, appB])],
       3,
       false,
@@ -151,15 +145,14 @@ describe("buildPlans", () => {
   it("401エラーのとき FatalError をスローする", async () => {
     vi.mocked(adapter.listTags).mockRejectedValue(makeHttpError(401))
     await expect(
-      buildPlans(adapter, newPlatformCache(adapter), [makeConfigUnit([makeApp()])], 3, false),
+      buildPlans(makeAdapterWithCachedReads(adapter), [makeConfigUnit([makeApp()])], 3, false),
     ).rejects.toThrow(FatalError)
   })
 
   it("非fatalなAPIエラーのときsettledにERRORとして入る", async () => {
     vi.mocked(adapter.listTags).mockRejectedValue(makeHttpError(403))
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -178,8 +171,7 @@ describe("buildPlans", () => {
       return [{ name: NEW_TAG, commitSha: HEAD_SHA }]
     })
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [failing, ok],
       3,
       false,
@@ -192,7 +184,7 @@ describe("buildPlans", () => {
   it("values.yaml が見つからないときのエラーメッセージにアプリ名が含まれる", async () => {
     vi.mocked(adapter.getFileContent).mockResolvedValue(undefined)
     const app = makeApp({ projectName: toProjectName("test-app-name") })
-    await buildPlans(adapter, newPlatformCache(adapter), [makeConfigUnit([app])], 3, false)
+    await buildPlans(makeAdapterWithCachedReads(adapter), [makeConfigUnit([app])], 3, false)
     expect(vi.mocked(logger.error)).toHaveBeenCalled()
     const errorCall = vi.mocked(logger.error).mock.calls[0]?.[0]
     expect(errorCall?.reason).toContain("test-app-name")
@@ -219,8 +211,7 @@ describe("buildPlans", () => {
       )
 
     const { toApply } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeGroup("clientA", "appVersion"), makeGroup("clientB", "otherVersion")],
       3,
       false,

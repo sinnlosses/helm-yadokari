@@ -29,7 +29,7 @@ export async function stageHelmBranchRefUpdates(
  * 比較する。差分があれば、書き込み前にそのブランチがchartリポジトリ上に実在するか検証した
  * うえで書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ`updates`に含めない）。
  *
- * 実在確認は`source`のバッチキャッシュ越しに行う。値の読み込み（`readValuesYamlDraft()`）と
+ * 実在確認は`source.adapter.cached`越しに行う。値の読み込み（`readValuesYamlDraft()`）と
  * 同じ`source`を使うので、問い合わせ先を決める情報がこの関数の中で1つに揃う。
  */
 async function stageHelmBranchRefUpdate(
@@ -51,8 +51,8 @@ async function stageHelmBranchRefUpdate(
   )
   if (currentBranchRaw === branchRef) return { ...acc, draft }
 
-  const { platformCache, chart } = source
-  if (!(await platformCache.branchExists(chart.projectId, branchRef))) {
+  const { adapter, chart } = source
+  if (!(await adapter.cached.branchExists(chart.projectId, branchRef))) {
     throw new Error(
       `向き先ブランチ "${branchRef}" がchartリポジトリに見つかりません (valuesPath: ${location.valuesPath}, anchor: ${location.anchorName})`,
     )

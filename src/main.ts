@@ -5,7 +5,7 @@ import { createClient as createGithubClient } from "./lib/github/github.js"
 import { createGitlabAdapter } from "./lib/gitlab/adapter.js"
 import { createClient as createGitlabClient } from "./lib/gitlab/gitlab.js"
 import type { PlatformAdapter } from "./lib/platform/adapter.js"
-import { createPlatformBatchCache } from "./lib/platform/batch-cache.js"
+import { withCachedReads } from "./lib/platform/cached-reads.js"
 import { applyUpdates } from "./steps/apply-updates/apply-updates.js"
 import { buildPlans } from "./steps/build-plans/build-plans.js"
 import { filterTargets } from "./steps/filter-targets/filter-targets.js"
@@ -41,8 +41,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
  * 3. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
  */
 async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult, number>> {
-  const adapter = createPlatform(env)
-  const platformCache = createPlatformBatchCache(adapter)
+  const adapter = withCachedReads(createPlatform(env))
   const { configUnits } = loadConfig(env.configRootPath, {
     chartDirName: env.targetChart,
     units: env.targetUnits,
@@ -55,12 +54,11 @@ async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult
   )
   const { toApply, settled: planned } = await buildPlans(
     adapter,
-    platformCache,
     targets,
     env.concurrencyLimit,
     env.dryRun,
   )
-  const applied = await applyUpdates(adapter, platformCache, toApply, env.concurrencyLimit)
+  const applied = await applyUpdates(adapter, toApply, env.concurrencyLimit)
 
   return summarizeResults([...filtered, ...planned, ...applied])
 }

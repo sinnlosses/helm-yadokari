@@ -4,8 +4,8 @@ import { validateTagFormat } from "../src/domain/tag-format.js"
 import { extractHttpStatus, isFatalError } from "../src/lib/gitlab/errors.js"
 import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
 import type { PlatformAdapter } from "../src/lib/platform/adapter.js"
-import type { PlatformBatchCache } from "../src/lib/platform/batch-cache.js"
-import { createPlatformBatchCache } from "../src/lib/platform/batch-cache.js"
+import type { PlatformAdapterWithCachedReads } from "../src/lib/platform/cached-reads.js"
+import { withCachedReads } from "../src/lib/platform/cached-reads.js"
 import type { AppConfig, AppUpdatePlan, ConfigUnit, TagName } from "../src/types/types.js"
 import {
   toAnchorName,
@@ -62,11 +62,16 @@ export function makeAdapter(overrides: Partial<PlatformAdapter> = {}): PlatformA
 }
 
 /**
- * `buildPlans()`等に渡すバッチキャッシュ。中身は本物で、包む対象の`adapter`だけが偽物になる。
- * 呼び出しごとに作り直すのは、キャッシュした結果が別のテストへ持ち越されないようにするため。
+ * `buildPlans()`等に渡す、キャッシュ済みの読み取り（`cached`）付きの`PlatformAdapter`。
+ * キャッシュの仕組みは本物（`withCachedReads()`）で、包む対象の`adapter`（`makeAdapter()`の
+ * 偽物）だけをテスト側が用意する。**呼び出しごとに作り直す**こと。同じ`adapter`を渡していても、
+ * ここで包み直さないとキャッシュしたMapが前のテスト・前の呼び出しから持ち越されてしまう。
  */
-export const newPlatformCache = (adapter: PlatformAdapter): PlatformBatchCache =>
-  createPlatformBatchCache(adapter)
+export function makeAdapterWithCachedReads(
+  adapter: PlatformAdapter,
+): PlatformAdapterWithCachedReads {
+  return withCachedReads(adapter)
+}
 
 /** テストのapp（`makeApp()`）のタグ形式。実際に使われている2形式のうちの1つ */
 const BUILD_AT_FORMAT = validateTagFormat("{branch}-build-at-{date}-{time}")

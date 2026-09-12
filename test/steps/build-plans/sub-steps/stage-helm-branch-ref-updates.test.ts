@@ -17,8 +17,8 @@ import {
   makeApp,
   makeConfigUnit,
   makeAdapter,
+  makeAdapterWithCachedReads,
   mockBuildPlansAdapter,
-  newPlatformCache,
 } from "../../../helpers.js"
 
 const adapter = makeAdapter()
@@ -47,8 +47,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const { toApply } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([app], { helm })],
       3,
       false,
@@ -77,8 +76,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2026-q1\n`,
     )
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([app], { helm })],
       3,
       false,
@@ -102,8 +100,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const { toApply } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([app], { helm })],
       3,
       false,
@@ -129,8 +126,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     )
     vi.mocked(adapter.branchExists).mockResolvedValue(false)
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([app], { helm })],
       3,
       false,
@@ -154,7 +150,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const group = makeConfigUnit([app], { helm })
-    await buildPlans(adapter, newPlatformCache(adapter), [group], 3, false)
+    await buildPlans(makeAdapterWithCachedReads(adapter), [group], 3, false)
     expect(adapter.branchExists).toHaveBeenCalledWith(group.chartRepo.projectId, "release/2026-q1")
   })
 
@@ -173,8 +169,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     )
     vi.mocked(adapter.branchExists).mockResolvedValue(false)
     await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()], { helm })],
       3,
       false,
@@ -208,7 +203,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       unitPath: toConfigUnitPath("tenant1/clientB"),
       helm,
     })
-    await buildPlans(adapter, newPlatformCache(adapter), [groupA, groupB], 3, false)
+    await buildPlans(makeAdapterWithCachedReads(adapter), [groupA, groupB], 3, false)
     expect(adapter.branchExists).toHaveBeenCalledTimes(1)
   })
 })

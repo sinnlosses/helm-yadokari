@@ -22,10 +22,10 @@ import {
   makeConfigUnit,
   makeHttpError,
   makeAdapter,
-  newPlatformCache,
+  makeAdapterWithCachedReads,
 } from "../../helpers.js"
 
-const adapter = makeAdapter()
+const adapter = makeAdapterWithCachedReads(makeAdapter())
 
 const MR_ENTRIES: MrEntries = {
   imageTags: [],
@@ -80,18 +80,15 @@ describe("applyUpdates", () => {
   })
 
   it("成功したとき 'CREATED' を返す", async () => {
-    expect(await applyUpdates(adapter, newPlatformCache(adapter), [makeTarget()], 3)).toEqual([
-      "CREATED",
-    ])
+    expect(await applyUpdates(adapter, [makeTarget()], 3)).toEqual(["CREATED"])
     expect(submitMergeRequest).toHaveBeenCalledOnce()
   })
 
   it("collectMrEntriesの結果からbuildMrContentを呼び、その結果をMR送信に渡す", async () => {
     const target = makeTarget()
-    await applyUpdates(adapter, newPlatformCache(adapter), [target], 3)
+    await applyUpdates(adapter, [target], 3)
     expect(collectMrEntries).toHaveBeenCalledWith(
       adapter,
-      expect.anything(),
       target.plans,
       target.helmBranchRefUpdates,
       target.configUnit.helm.branchRef,
@@ -101,7 +98,7 @@ describe("applyUpdates", () => {
   })
 
   it("unitPathを含む固定ブランチ名でMRを送る", async () => {
-    await applyUpdates(adapter, newPlatformCache(adapter), [makeTarget()], 3)
+    await applyUpdates(adapter, [makeTarget()], 3)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[2]).toBe(
       "feature/yadokari/tenant1/client1",
     )
@@ -109,31 +106,28 @@ describe("applyUpdates", () => {
 
   it("設定ユニットのchartRepo設定と書き換え済みファイルをそのまま渡す", async () => {
     const target = makeTarget()
-    await applyUpdates(adapter, newPlatformCache(adapter), [target], 3)
+    await applyUpdates(adapter, [target], 3)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[1]).toBe(target.configUnit.chartRepo)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[4]).toBe(target.files)
   })
 
   it("401エラーのとき FatalError をスローする", async () => {
     vi.mocked(submitMergeRequest).mockRejectedValue(makeHttpError(401))
-    await expect(
-      applyUpdates(adapter, newPlatformCache(adapter), [makeTarget()], 3),
-    ).rejects.toThrow(FatalError)
+    await expect(applyUpdates(adapter, [makeTarget()], 3)).rejects.toThrow(FatalError)
   })
 
   it("非fatalなエラーのとき 'ERROR' を返す", async () => {
     vi.mocked(submitMergeRequest).mockRejectedValue(makeHttpError(403))
-    expect(await applyUpdates(adapter, newPlatformCache(adapter), [makeTarget()], 3)).toEqual([
-      "ERROR",
-    ])
+    expect(await applyUpdates(adapter, [makeTarget()], 3)).toEqual(["ERROR"])
   })
 
   it("複数targetの結果を入力順を保った配列で返す", async () => {
     vi.mocked(submitMergeRequest)
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(makeHttpError(403))
-    expect(
-      await applyUpdates(adapter, newPlatformCache(adapter), [makeTarget(), makeTarget()], 3),
-    ).toEqual(["CREATED", "ERROR"])
+    expect(await applyUpdates(adapter, [makeTarget(), makeTarget()], 3)).toEqual([
+      "CREATED",
+      "ERROR",
+    ])
   })
 })

@@ -1,5 +1,4 @@
-import type { PlatformAdapter } from "../../lib/platform/adapter.js"
-import type { PlatformBatchCache } from "../../lib/platform/batch-cache.js"
+import type { PlatformAdapterWithCachedReads } from "../../lib/platform/cached-reads.js"
 import type {
   ConfigUnit,
   ConfigUnitUpdateResult,
@@ -34,8 +33,7 @@ export type BuildPlansResult = {
  * settled（ERROR）に含める（`buildPlan()` 参照）。
  */
 export async function buildPlans(
-  adapter: PlatformAdapter,
-  platformCache: PlatformBatchCache,
+  adapter: PlatformAdapterWithCachedReads,
   targets: readonly ConfigUnit[],
   concurrencyLimit: number,
   dryRun: boolean,
@@ -44,7 +42,7 @@ export async function buildPlans(
 
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (configUnit) =>
     withHandling(adapter, configUnit, (logContext) =>
-      buildPlan(adapter, platformCache, resolveLatestTags, configUnit, dryRun, logContext),
+      buildPlan(adapter, resolveLatestTags, configUnit, dryRun, logContext),
     ),
   )
 
@@ -61,14 +59,13 @@ export async function buildPlans(
  * 下書きに重ねる。こうすることで同じvalues.yamlへの書き換えが失われない。
  */
 async function buildPlan(
-  adapter: PlatformAdapter,
-  platformCache: PlatformBatchCache,
+  adapter: PlatformAdapterWithCachedReads,
   resolveLatestTags: ResolveLatestTags,
   configUnit: ConfigUnit,
   dryRun: boolean,
   logContext: ConfigUnitLogContext,
 ): Promise<StepOutcome<ConfigUnitUpdateTarget>> {
-  const valuesYamlSource: ValuesYamlSource = { platformCache, chart: configUnit.chartRepo }
+  const valuesYamlSource: ValuesYamlSource = { adapter, chart: configUnit.chartRepo }
 
   const appsWithLatestTag = await resolveLatestTags(configUnit.apps)
   const { plans, draft: draftAfterApps } = await stageImageTagUpdates(

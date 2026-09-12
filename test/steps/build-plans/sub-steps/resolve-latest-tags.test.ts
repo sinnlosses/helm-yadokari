@@ -24,8 +24,8 @@ import {
   makeConfigUnit,
   makeHttpError,
   makeAdapter,
+  makeAdapterWithCachedReads,
   mockBuildPlansAdapter,
-  newPlatformCache,
 } from "../../../helpers.js"
 
 const adapter = makeAdapter()
@@ -45,8 +45,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
     const { toApply } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([app])],
       3,
       false,
@@ -60,8 +59,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -80,8 +78,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     ])
     vi.mocked(adapter.getBranchHeadSha).mockResolvedValue(toCommitSha("new-sha"))
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -93,8 +90,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
 
   it("反映済みタグが追跡ブランチ由来のとき、HEADと一致する既存タグを再利用して新しいタグは作らない", async () => {
     const { toApply } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -112,8 +108,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.mocked(adapter.listTags).mockResolvedValue([{ name: existingTag, commitSha: HEAD_SHA }])
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([app])],
       3,
       false,
@@ -136,8 +131,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     ])
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([app])],
       3,
       false,
@@ -156,7 +150,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
     ])
     const app = makeApp({ branchToSync: toBranchName("release/2026-q2") })
-    await buildPlans(adapter, newPlatformCache(adapter), [makeConfigUnit([app])], 3, true)
+    await buildPlans(makeAdapterWithCachedReads(adapter), [makeConfigUnit([app])], 3, true)
     expect(adapter.createTag).not.toHaveBeenCalled()
   })
 
@@ -165,8 +159,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       `variables:\n  - &otherVersion ${OLD_TAG}\n`,
     )
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -180,7 +173,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.mocked(adapter.listTags).mockResolvedValue([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
-    await buildPlans(adapter, newPlatformCache(adapter), [makeConfigUnit([makeApp()])], 3, true)
+    await buildPlans(makeAdapterWithCachedReads(adapter), [makeConfigUnit([makeApp()])], 3, true)
     expect(adapter.createTag).not.toHaveBeenCalled()
   })
 
@@ -190,8 +183,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     ])
     vi.mocked(adapter.createTag).mockRejectedValue(makeHttpError(403))
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -208,8 +200,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     ])
 
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -230,8 +221,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.mocked(adapter.getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
 
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -249,8 +239,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     ])
 
     const { toApply } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -265,8 +254,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
     vi.mocked(adapter.listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
 
     const { toApply } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -278,8 +266,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
   it("追跡ブランチがchartリポジトリに存在しないとき、タグを作成せずその設定ユニットをERRORにする", async () => {
     vi.mocked(adapter.getBranchHeadSha).mockResolvedValue(undefined)
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([makeApp()])],
       3,
       false,
@@ -304,8 +291,7 @@ describe("buildPlans（タグの解決・自動作成）", () => {
       projectId === "1" ? undefined : HEAD_SHA,
     )
     const { toApply, settled } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [missing, ok],
       3,
       false,
@@ -391,7 +377,7 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
       makeConfigUnit([app], { unitPath: toConfigUnitPath("tenant1/clientC") }),
     ]
 
-    await buildPlans(adapter, newPlatformCache(adapter), targets, 3, false)
+    await buildPlans(makeAdapterWithCachedReads(adapter), targets, 3, false)
 
     expect(adapter.listTags).toHaveBeenCalledTimes(1)
     expect(adapter.getBranchHeadSha).toHaveBeenCalledTimes(1)
@@ -406,7 +392,7 @@ describe("createResolveLatestTags（同じappが複数clientに登録されて�
       }),
     ]
 
-    await buildPlans(adapter, newPlatformCache(adapter), targets, 3, false)
+    await buildPlans(makeAdapterWithCachedReads(adapter), targets, 3, false)
 
     expect(adapter.listTags).toHaveBeenCalledTimes(2)
     expect(adapter.createTag).toHaveBeenCalledTimes(2)

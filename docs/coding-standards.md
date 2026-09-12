@@ -301,7 +301,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 
 | 消したもの                                              | 上位の守り手                                                                                                 |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `test/utils/cache.test.ts` 全2件                        | `batch-cache.test.ts`（同時呼び出しで1回・失敗はキャッシュに残さない）と `resolve-latest-tags.test.ts`       |
+| `test/utils/cache.test.ts` 全2件                        | `cached-reads.test.ts`（同時呼び出しで1回・失敗はキャッシュに残さない）と `resolve-latest-tags.test.ts`      |
 | `test/utils/partition.test.ts` 全4件                    | `filter-targets`・`apply-updates` の振り分けと入力順のテスト。「入力配列を変更しない」は `readonly` 型が保証 |
 | `test/utils/fs.test.ts` 全10件                          | `config.test.ts` のパストラバーサル3件・実ディレクトリ走査、`env.test.ts` の `CONFIG_ROOT_PATH` 検証         |
 | `test/utils/timer.test.ts` 全1件                        | `main.test.ts`（`run_end` の `durationMs` ログ）                                                             |
@@ -318,7 +318,8 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
   壊れているかを示すのはこれだけ（`schema.test.ts` はパスまでは固定していない）
 - `test/domain/config-unit.test.ts`「空白を含んでも受け入れる」: 文字種を検証しないという
   `docs/requirements.md` 4.2節の決定を固定する唯一のテスト
-- `test/lib/platform/batch-cache.test.ts` 全5件・`test/lib/gitlab/web-url.test.ts` 全4件・
+- `test/lib/platform/cached-reads.test.ts` 全6件（`branchExists`が生とキャッシュ済みの両方を
+  同じ値の上に持つことの確認1件を含む）・`test/lib/gitlab/web-url.test.ts` 全4件・
   `test/steps/apply-updates/sub-steps/collect-mr-entries.test.ts` 全5件・
   `submit-merge-request.test.ts` 全4件: いずれも丸ごと外してもカバレッジは減らないが、
   falsy値のキャッシュ・サブパス設置のURL組み立て・問い合わせの1回収束・固定ブランチの

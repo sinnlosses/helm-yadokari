@@ -8,7 +8,7 @@ import {
   toTagName,
   toValuesPath,
 } from "../../../../src/types/types.js"
-import { makePlan, makeAdapter, newPlatformCache } from "../../../helpers.js"
+import { makePlan, makeAdapter, makeAdapterWithCachedReads } from "../../../helpers.js"
 
 const webUrl = toPlatformUrl("https://gitlab.example.com/g/my-app")
 
@@ -46,8 +46,7 @@ describe("collectMrEntries", () => {
     })
 
     const entries = await collectMrEntries(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [plan],
       [],
       helmBranchRef,
@@ -63,8 +62,7 @@ describe("collectMrEntries", () => {
     mockWebUrl()
 
     const entries = await collectMrEntries(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [],
       [helmUpdate],
       helmBranchRef,
@@ -85,8 +83,7 @@ describe("collectMrEntries", () => {
     }
 
     const entries = await collectMrEntries(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [],
       [helmUpdate, other],
       helmBranchRef,
@@ -104,8 +101,7 @@ describe("collectMrEntries", () => {
 
     await expect(
       collectMrEntries(
-        adapter,
-        newPlatformCache(adapter),
+        makeAdapterWithCachedReads(adapter),
         [makePlan({ projectName: "my-app" })],
         [],
         helmBranchRef,
@@ -116,11 +112,11 @@ describe("collectMrEntries", () => {
   it("同じappが複数clientに登録されていても、web URLとパイプラインの問い合わせは1回に収束する", async () => {
     mockWebUrl()
     vi.mocked(adapter.getLatestPipelineForRef).mockResolvedValue(undefined)
-    // バッチ1回ぶんのキャッシュを共有したまま、clientの数だけ collectMrEntries が呼ばれる形
-    const platformCache = newPlatformCache(adapter)
-
-    await collectMrEntries(adapter, platformCache, [makePlan()], [], helmBranchRef)
-    await collectMrEntries(adapter, platformCache, [makePlan()], [], helmBranchRef)
+    // 同じキャッシュ付きadapter（adapter.cached）を共有したまま、clientの数だけ
+    // collectMrEntries が呼ばれる形
+    const cachedAdapter = makeAdapterWithCachedReads(adapter)
+    await collectMrEntries(cachedAdapter, [makePlan()], [], helmBranchRef)
+    await collectMrEntries(cachedAdapter, [makePlan()], [], helmBranchRef)
 
     expect(adapter.getProjectWebUrl).toHaveBeenCalledOnce()
     expect(adapter.getLatestPipelineForRef).toHaveBeenCalledOnce()

@@ -80,13 +80,13 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 
 `### ディレクトリ配置` の中:
 
-| 節                                                                         | 中身                                        |
-| -------------------------------------------------------------------------- | ------------------------------------------- |
-| #### `lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く  | 分割の基準                                  |
-| #### URLは`URL`オブジェクトではなく文字列のブランド型で扱う                | `URL`を使わない理由                         |
-| #### サブステップ同士は互いをimportせず、共有物は`sub-steps/shared/`に置く | 原則1のサブステップ版                       |
-| #### 実在チェックは`src/lib/`ではなく`scripts/lint/`に置く                 | 原則3が原則2に優先する例                    |
-| #### GitLab/GitHub の2実装は関数テーブル型`PlatformAdapter`で受け渡す      | 2実装の並べ方、語彙、`batch-cache.ts`の移動 |
+| 節                                                                         | 中身                                               |
+| -------------------------------------------------------------------------- | -------------------------------------------------- |
+| #### `lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く  | 分割の基準                                         |
+| #### URLは`URL`オブジェクトではなく文字列のブランド型で扱う                | `URL`を使わない理由                                |
+| #### サブステップ同士は互いをimportせず、共有物は`sub-steps/shared/`に置く | 原則1のサブステップ版                              |
+| #### 実在チェックは`src/lib/`ではなく`scripts/lint/`に置く                 | 原則3が原則2に優先する例                           |
+| #### GitLab/GitHub の2実装は関数テーブル型`PlatformAdapter`で受け渡す      | 2実装の並べ方、語彙、`cached-reads.ts`の移動・改名 |
 
 `### 設定・環境変数・外部形式` の中:
 
@@ -160,26 +160,26 @@ importせず〜」の節を参照）。
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
-| ファイル                      | 責務                                                                                                                                                                                  |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `platform/adapter.ts`         | `PlatformAdapter`型（GitLab/GitHubの15エントリを並べた関数テーブル。`steps/`はこれだけを受け取り、クライアントの型を知らない）。API呼び出しに加えエラー分類（`isFatalError`等）も持つ |
-| `platform/batch-cache.ts`     | `PlatformBatchCache`。バッチ1回を通して使い回す`PlatformAdapter`読み取りのキャッシュ。キャッシュしてよい読み取りの一覧                                                                |
-| `gitlab/gitlab.ts`            | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitLab専用**                                                                                           |
-| `gitlab/adapter.ts`           | `createGitlabAdapter()`。`gitlab.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                 |
-| `gitlab/web-url.ts`           | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                                                                      |
-| `gitlab/errors.ts`            | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所**                                        |
-| `github/github.ts`            | `@octokit/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitHub専用**                                                                                             |
-| `github/adapter.ts`           | `createGithubAdapter()`。`github.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                 |
-| `github/web-url.ts`           | GitHubのページURL（タグ→リリースページ・比較）のパス組み立て。外部I/Oを持たない                                                                                                       |
-| `github/errors.ts`            | Octokitのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否・`retry-after`の読み取り）。**Octokit固有のエラー構造を知ってよい唯一の場所**                   |
-| `config/config.ts`            | 公開API `loadConfig()`。絞り込み（`limit-to-target.ts`）→設定ユニットの発見（`find-config-units.ts`）→読み込み・結合（`load-config-unit.ts`）の段を順に呼ぶだけの入口                 |
-| `config/limit-to-target.ts`   | `TARGET_CHART`/`TARGET_UNITS`（`ConfigTarget`）の解釈。絞り込み（`selectChartDirs`/`selectTargetConfigUnits`）と絞り込み結果0件の検出（`assertTargetMatched`）                        |
-| `config/find-config-units.ts` | 1つのchartディレクトリから設定ユニットを見つける（`findConfigUnits()`）。`registry.yaml`の有無を見て、階層の検証（深さ・入れ子）込みで`ChartDirUnits`にする                           |
-| `config/load-config-unit.ts`  | 走査で見つかった設定ユニットごとに `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を読み込み・結合し `ConfigUnit` にする                                        |
-| `config/schema.ts`            | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                                                     |
-| `config/validate.ts`          | projectId重複・書き込み先重複・chartリポジトリをまたぐtagFormat食い違いの検証                                                                                                         |
-| `helm.ts`                     | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                                        |
-| `env.ts`                      | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                                                                                                  |
+| ファイル                      | 責務                                                                                                                                                                                            |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform/adapter.ts`         | `PlatformAdapter`型（GitLab/GitHubの15エントリを並べた関数テーブル。`steps/`はこれだけを受け取り、クライアントの型を知らない）。API呼び出しに加えエラー分類（`isFatalError`等）も持つ           |
+| `platform/cached-reads.ts`    | `CachedReads`と`withCachedReads()`。バッチ1回を通して使い回す`PlatformAdapter`読み取りのキャッシュを`PlatformAdapterWithCachedReads.cached`として入れ子にする。キャッシュしてよい読み取りの一覧 |
+| `gitlab/gitlab.ts`            | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitLab専用**                                                                                                     |
+| `gitlab/adapter.ts`           | `createGitlabAdapter()`。`gitlab.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                           |
+| `gitlab/web-url.ts`           | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                                                                                |
+| `gitlab/errors.ts`            | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所**                                                  |
+| `github/github.ts`            | `@octokit/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitHub専用**                                                                                                       |
+| `github/adapter.ts`           | `createGithubAdapter()`。`github.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                           |
+| `github/web-url.ts`           | GitHubのページURL（タグ→リリースページ・比較）のパス組み立て。外部I/Oを持たない                                                                                                                 |
+| `github/errors.ts`            | Octokitのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否・`retry-after`の読み取り）。**Octokit固有のエラー構造を知ってよい唯一の場所**                             |
+| `config/config.ts`            | 公開API `loadConfig()`。絞り込み（`limit-to-target.ts`）→設定ユニットの発見（`find-config-units.ts`）→読み込み・結合（`load-config-unit.ts`）の段を順に呼ぶだけの入口                           |
+| `config/limit-to-target.ts`   | `TARGET_CHART`/`TARGET_UNITS`（`ConfigTarget`）の解釈。絞り込み（`selectChartDirs`/`selectTargetConfigUnits`）と絞り込み結果0件の検出（`assertTargetMatched`）                                  |
+| `config/find-config-units.ts` | 1つのchartディレクトリから設定ユニットを見つける（`findConfigUnits()`）。`registry.yaml`の有無を見て、階層の検証（深さ・入れ子）込みで`ChartDirUnits`にする                                     |
+| `config/load-config-unit.ts`  | 走査で見つかった設定ユニットごとに `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を読み込み・結合し `ConfigUnit` にする                                                  |
+| `config/schema.ts`            | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                                                               |
+| `config/validate.ts`          | projectId重複・書き込み先重複・chartリポジトリをまたぐtagFormat食い違いの検証                                                                                                                   |
+| `helm.ts`                     | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                                                  |
+| `env.ts`                      | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                                                                                                            |
 
 ### `src/domain/` — このツールの取り決めを tech非依存で表す
 
@@ -545,11 +545,23 @@ web URL・パイプライン解決。
 
 #### PlatformAdapterへの問い合わせのキャッシュは`lib/platform/`に列挙し、バッチ単位で1つ持ち回る
 
-実行1回（バッチ）を通して使い回す読み取りは`lib/platform/batch-cache.ts`の`PlatformBatchCache`に
-**列挙したものだけ**がキャッシュされる（明示的なオプトイン）。`runProcess()`が1つ作り、必要な
-stepへ引数で渡す。キャッシュが必要になるたびにその場で工場関数を書いていた頃は、新しい
-問い合わせを足す人がキャッシュの要否を毎回自分で気づく必要があり、素の関数を呼ぶほうが常に
-書きやすいぶん抜けるほうへ倒れていた。
+実行1回（バッチ）を通して使い回す読み取りは`lib/platform/cached-reads.ts`の`CachedReads`に
+**列挙したものだけ**がキャッシュされる（明示的なオプトイン）。`runProcess()`が
+`withCachedReads(adapter)`を1回だけ呼び、返した`PlatformAdapterWithCachedReads`（`adapter`に
+`cached: CachedReads`を1つ足しただけの値）を全stepへ引数で渡す。キャッシュが必要になるたびに
+その場で工場関数を書いていた頃は、新しい問い合わせを足す人がキャッシュの要否を毎回自分で
+気づく必要があり、素の関数を呼ぶほうが常に書きやすいぶん抜けるほうへ倒れていた。
+
+**キャッシュ済みの読み取りを`PlatformAdapter`に入れ子にする。** 以前は`adapter`とバッチキャッシュの
+2つの値を`steps/`が持ち回り、生とキャッシュ済みのどちらを呼んでいるかが変数名でしか読めなかった。
+`branchExists`は生・キャッシュ済みの両方が要る唯一のメンバーで
+（`submitMergeRequest()`は固定ブランチの削除と再作成をまたぐため`adapter.branchExists`を、
+`stageHelmBranchRefUpdate()`はバッチ中不変な向き先ブランチの実在確認なので
+`adapter.cached.branchExists`を呼ぶ）、`.cached`の有無で呼び出し箇所に読み取り経路が出る。
+渡す値は1つだが、`.cached`を使わない関数（`filterTargets`・`submitMergeRequest`・
+`buildMrContent`・`resolveLatestTag`系・`stageImageTagUpdates`等）は宣言する型を素の
+`PlatformAdapter`のままにし、使う関数だけ`PlatformAdapterWithCachedReads`を宣言する。
+`PlatformAdapterWithCachedReads`は`PlatformAdapter`の交差型なので前者は後者にそのまま代入できる。
 
 **新しい`PlatformAdapter`への問い合わせを足すときの判断**:
 
@@ -557,7 +569,7 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
    `createMergeRequest`・ブランチ削除）で変わるか。変わるなら載せず、`PlatformAdapter`の生の関数を
    直接呼ぶ。`listTags`（`createTag`で変わる）・`openMergeRequestExists`（`createMergeRequest`で
    変わる）・固定ブランチを作り直すときの存在確認（`submitMergeRequest()`。削除と再作成をまたぐ）がこれに当たる
-2. 変わらないなら`PlatformBatchCache`にメンバーを1つ足す。キーは引数から機械的に組み立てられる
+2. 変わらないなら`CachedReads`にメンバーを1つ足す。キーは引数から機械的に組み立てられる
    ので手書きしない。読み取りごとに`Map`を分けてあるため、別の読み取りとのキー衝突も起きない
 3. **複数のAPI呼び出しとドメイン判定にまたがる「解決結果」はここに載せない。** その処理を持つ
    サブステップが工場関数でキャッシュを持つ（`createResolveLatestTags()`。最新タグの解決は
@@ -581,13 +593,13 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
 - **stepごとにキャッシュを作る**: 今キャッシュしたい読み取りはたまたまstepをまたがないが、
   寿命の宣言がstepごとに散り、またぐ読み取りが出たときに気づけない。バッチの寿命を知っているのは
   `runProcess()`だけなので、生成もそこに置く
-- **`utils/`に`PlatformBatchCache`そのものを置く**: どの読み取りがバッチ中に変わらないかは
+- **`utils/`に`CachedReads`そのものを置く**: どの読み取りがバッチ中に変わらないかは
   プラットフォーム固有の知識なので、原則2で`lib/`。`utils/cache.ts`にあるのは技術非依存の
   メモ化（`getOrFetchShared()`・引数からキーを組み立てて読み取り1つをキャッシュ付きにする
   `cacheByArgs()`）だけで、`scripts/lint/remote-existence/remote-cache.ts`も同じものを使っている
 
 `getOrFetchShared()`は「未キャッシュ」の判定に`undefined`を使う（`V extends {}`）ため、
-`cacheByArgs()`は値を箱に入れてから載せる。これで`PlatformBatchCache`の`getFileContent`・
+`cacheByArgs()`は値を箱に入れてから載せる。これで`CachedReads`の`getFileContent`・
 `getLatestPipelineForRef`のように`undefined`を返す読み取りも、メンバーごとに独自の箱を
 作らずそのまま載せられる。
 
@@ -608,9 +620,9 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
 #### サブステップに関数型を注入しない。キャッシュを持つ側が工場関数を公開する
 
 **親stepがクロージャを組み立ててサブステップに渡す形は採らない。** サブステップは
-`PlatformAdapter`や`PlatformBatchCache`（`ValuesYamlSource`に束ねた形を含む）をそのまま受け取り、
-必要な問い合わせを自分で呼ぶ。読み込み先はそれ自体がただのデータなので、関数型で包んでも
-間接層が増えるだけになる。
+`PlatformAdapter`（キャッシュ済みの読み取りが要るものは`PlatformAdapterWithCachedReads`。
+`ValuesYamlSource`に束ねた形を含む）をそのまま受け取り、必要な問い合わせを自分で呼ぶ。
+読み込み先はそれ自体がただのデータなので、関数型で包んでも間接層が増えるだけになる。
 
 この形に落ち着くまでに、同じ理由で2つの注入をやめている:
 
@@ -620,9 +632,9 @@ stepへ引数で渡す。キャッシュが必要になるたびにその場で�
   直接呼び出しにした
 - **ブランチの実在確認**（`BranchExists`）: 「バッチ単位のキャッシュとchartのprojectIdを親step側に
   閉じ込めるため」という理由で注入していたが、**同じ関数が`source`（`ValuesYamlSource`＝
-  `platformCache`+`chart`）を別の引数で受け取っており、隠せていなかった**。
-  `source.platformCache.branchExists(source.chart.projectId, ...)`の直接呼び出しにして、
-  問い合わせ先を決める情報が関数の中で1つに揃うようにした
+  `adapter`（`PlatformAdapterWithCachedReads`）+`chart`）を別の引数で受け取っており、
+  隠せていなかった**。`source.adapter.cached.branchExists(source.chart.projectId, ...)`の
+  直接呼び出しにして、問い合わせ先を決める情報が関数の中で1つに揃うようにした
 
 **唯一の例外は、サブステップ自身がバッチ単位のキャッシュを持つ場合**で、工場関数を公開して
 親stepに寿命だけを持たせる（`createResolveLatestTags()`）。親stepにキャッシュ付きの関数を
@@ -902,15 +914,17 @@ GitLabとGitHubの**両方に対応する。ただし1回の実行で混在は�
   自身がその語で自称していない。`platform`は**このリポジトリのCIが既に動かしているRenovate**が
   `platform: "gitlab" | "github" | ...` として使っている語で、外部との一貫性の根拠が強い
 - **関数テーブルという形は新しい発明ではない**。移動前の`lib/gitlab/batch-cache.ts`にあった
-  `GitlabBatchCache`（現在は`lib/platform/batch-cache.ts`の`PlatformBatchCache`。
+  `GitlabBatchCache`（現在は`lib/platform/cached-reads.ts`の`CachedReads`。
   `readonly branchExists: (...) => Promise<boolean>` を4本並べたオブジェクト型）と
   `resolve-latest-tags.ts` の `ResolveLatestTags`（関数型を1つ定義して工場関数が返す）が既にあり、
   `PlatformAdapter` はその席に座るだけ
 - **`lib/platform/`は「置き場所を名前にしたファイル」ではない**（原則4）。`platform`はこのツールの
   ドメイン語彙（`docs/glossary.md`に載せる語）であって、`helpers`・`common`のような容れ物の名前ではない
-- **`batch-cache.ts`は`lib/gitlab/`から`lib/platform/`へ移す。** どの読み取りをキャッシュしてよいかの
+- **`batch-cache.ts`（現在の`lib/platform/cached-reads.ts`）は`lib/gitlab/`から`lib/platform/`へ移す。** どの読み取りをキャッシュしてよいかの
   選定（このツール自身の書き込みでバッチ中に値が変わらないか）はプラットフォーム非依存の判断で、
-  GitLab固有の知識を持たない
+  GitLab固有の知識を持たない。後日`cached-reads.ts`に改名し、`CachedReads`を
+  `PlatformAdapterWithCachedReads.cached`として`PlatformAdapter`に入れ子にした
+  （「PlatformAdapterへの問い合わせのキャッシュは〜」節）
 
 採らなかった案:
 
@@ -1155,7 +1169,7 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
   有無に関わらず読み取り値は一貫して文字列になり、読み取り→比較→書き戻しの往復は壊れない
 - タグに紐づくGitLabプロジェクトのURLは `Projects.show` で取得している（`config/`に
   namespace slugを持たせていないため。GitHubは`repos.get()`の`html_url`で同じ役割を果たす）。
-  バッチ1回につきprojectIdごとに1回で、それ以降は`PlatformBatchCache` が返す
+  バッチ1回につきprojectIdごとに1回で、それ以降は`adapter.cached.getProjectWebUrl` が返す
 - Helm CLI（`helm lint` / `helm template` 等）は呼び出さない。`values.yaml`のテキスト更新のみ行う
 
 ## ディレクトリ構成の勘所

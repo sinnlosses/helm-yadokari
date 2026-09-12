@@ -1,6 +1,5 @@
 import { buildFeatureBranch } from "../../domain/feature-branch.js"
-import type { PlatformAdapter } from "../../lib/platform/adapter.js"
-import type { PlatformBatchCache } from "../../lib/platform/batch-cache.js"
+import type { PlatformAdapterWithCachedReads } from "../../lib/platform/cached-reads.js"
 import type { ConfigUnitUpdateResult, ConfigUnitUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
@@ -19,14 +18,13 @@ import { submitMergeRequest } from "./sub-steps/submit-merge-request.js"
  * 更新計画がある設定ユニットに対して、固定ブランチへのコミットとMR作成を並列実行する。
  */
 export async function applyUpdates(
-  adapter: PlatformAdapter,
-  platformCache: PlatformBatchCache,
+  adapter: PlatformAdapterWithCachedReads,
   targets: readonly ConfigUnitUpdateTarget[],
   concurrencyLimit: number,
 ): Promise<readonly ConfigUnitUpdateResult[]> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (target) =>
     withHandling(adapter, target.configUnit, (logContext) =>
-      applyUpdate(adapter, platformCache, target, logContext),
+      applyUpdate(adapter, target, logContext),
     ),
   )
   return outcomes.map((outcome) => (outcome.status === "ok" ? outcome.value : outcome.result))
@@ -36,8 +34,7 @@ export async function applyUpdates(
  * 1つの設定ユニットにコミットとMR作成を適用する。
  */
 async function applyUpdate(
-  adapter: PlatformAdapter,
-  platformCache: PlatformBatchCache,
+  adapter: PlatformAdapterWithCachedReads,
   target: ConfigUnitUpdateTarget,
   logContext: ConfigUnitLogContext,
 ): Promise<StepOutcome<ConfigUnitUpdateResult>> {
@@ -47,7 +44,6 @@ async function applyUpdate(
 
   const entries = await collectMrEntries(
     adapter,
-    platformCache,
     plans,
     helmBranchRefUpdates,
     configUnit.helm.branchRef,

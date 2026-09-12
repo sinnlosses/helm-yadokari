@@ -12,8 +12,8 @@ import {
   makeApp,
   makeConfigUnit,
   makeAdapter,
+  makeAdapterWithCachedReads,
   mockBuildPlansAdapter,
-  newPlatformCache,
 } from "../../../helpers.js"
 
 const adapter = makeAdapter()
@@ -40,8 +40,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       `variables:\n  - &helmVersion develop\n  - &tenant1client1AppsVersion ${OLD_TAG}\n`,
     )
     const { toApply } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([app])],
       3,
       false,
@@ -69,8 +68,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       return undefined
     })
     const { toApply } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([app])],
       3,
       false,
@@ -102,8 +100,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       return undefined
     })
     const { toApply } = await buildPlans(
-      adapter,
-      newPlatformCache(adapter),
+      makeAdapterWithCachedReads(adapter),
       [makeConfigUnit([app])],
       3,
       false,
@@ -130,8 +127,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
         `variables:\n  - &appVersion ${OLD_TAG}\n`,
       )
       const { toApply } = await buildPlans(
-        adapter,
-        newPlatformCache(adapter),
+        makeAdapterWithCachedReads(adapter),
         [makeConfigUnit([app])],
         3,
         false,
