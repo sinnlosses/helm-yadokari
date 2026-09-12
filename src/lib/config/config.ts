@@ -1,6 +1,7 @@
 import type { Config, LocalPath } from "../../types/types.js"
 import { toLocalPath } from "../../types/types.js"
 import { assertSafePath, listSubdirectories } from "../../utils/fs.js"
+import type { ChartDirUnits } from "./find-config-units.js"
 import { findConfigUnits } from "./find-config-units.js"
 import { loadConfigUnits } from "./load-config-unit.js"
 import type { ConfigTarget } from "./limit-to-target.js"
@@ -18,11 +19,26 @@ export const DEFAULT_CONFIG_DIR_PATH: LocalPath = toLocalPath("config")
 export function loadConfig(configDirPath: LocalPath, target: ConfigTarget = NO_TARGET): Config {
   assertSafePath(configDirPath, "CONFIG_PATH")
   const allChartDirs = listSubdirectories(configDirPath)
-  const chartDirs = selectChartDirs(allChartDirs, target)
-  const chartUnitsList = chartDirs.flatMap((dir) => findConfigUnits(configDirPath, dir))
-  const selected = selectTargetConfigUnits(chartUnitsList, target)
-  const configUnits = selected.flatMap(loadConfigUnits)
+
+  const targetUnits = selectTargetUnits(configDirPath, allChartDirs, target)
+  const configUnits = targetUnits.flatMap(loadConfigUnits)
   validateTagFormatConsistency(configUnits)
   assertTargetMatched(target, allChartDirs, configUnits)
+
   return { configUnits }
+}
+
+/**
+ * `config/`配下を走査して見つけた設定ユニットのうち、`target`に合致するものだけを返す。
+ * `allChartDirs`を呼び出し側から受け取るのは、絞り込む前の一覧が`assertTargetMatched()`の
+ * エラーメッセージにも要るため。
+ */
+function selectTargetUnits(
+  configDirPath: LocalPath,
+  allChartDirs: readonly string[],
+  target: ConfigTarget,
+): readonly ChartDirUnits[] {
+  const chartDirs = selectChartDirs(allChartDirs, target)
+  const chartUnitsList = chartDirs.flatMap((dir) => findConfigUnits(configDirPath, dir))
+  return selectTargetConfigUnits(chartUnitsList, target)
 }
