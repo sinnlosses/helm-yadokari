@@ -6,6 +6,7 @@ import type {
   ChartDirName,
   ConfigRootPath,
   ConfigUnitPath,
+  PlatformKind,
   PlatformUrl,
 } from "../types/types.js"
 import { toAccessToken, toChartDirName, toConfigRootPath, toPlatformUrl } from "../types/types.js"
@@ -25,6 +26,23 @@ export function loadOptionalEnv(key: string): string | undefined {
 /** URLとしての検証は`toPlatformUrl()`が行う。ここは環境変数名をメッセージに載せるだけ */
 export function validateGitlabUrl(raw: string): PlatformUrl {
   return toPlatformUrl(raw, "GITLAB_URL")
+}
+
+/** URLとしての検証は`toPlatformUrl()`が行う。ここは環境変数名をメッセージに載せるだけ */
+export function validateGithubUrl(raw: string): PlatformUrl {
+  return toPlatformUrl(raw, "GITHUB_URL")
+}
+
+/**
+ * PLATFORM は接続先（GitLab/GitHub）の選択。1回の実行で混在させないため全体に効く
+ * （`docs/architecture.md`「プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/
+ * `GITHUB_URL`のまま」節）。未指定は`"gitlab"`（既存の`.env`・GitLab CI/CD Variablesが
+ * そのまま動き続けるようにするための既定値）。
+ */
+export function parsePlatform(raw: string | undefined): PlatformKind {
+  if (raw === undefined) return "gitlab"
+  if (raw === "gitlab" || raw === "github") return raw
+  throw new Error(`PLATFORM は "gitlab" または "github" である必要があります: "${raw}"`)
 }
 
 /**
@@ -70,10 +88,11 @@ export function parseTargetUnits(raw: string | undefined): readonly ConfigUnitPa
 
 /**
  * 環境変数から読み取った実行時設定。`loadEnvConfig()`だけが生成する。`platformUrl`と
- * 名付けているのは、対応プラットフォームの選択（`PLATFORM`）に応じて`GITLAB_URL`/
- * `GITHUB_URL`のどちらかを読む配線を見込んでいるため（現時点では`GITLAB_URL`のみ読む）
+ * 名付けているのは、`platform`に応じて`GITLAB_URL`/`GITHUB_URL`のどちらかを読んでいるため
+ * （どちらの値が入っているかは`platform`を見ないと分からない）
  */
 export type EnvConfig = {
+  readonly platform: PlatformKind
   readonly platformUrl: PlatformUrl
   readonly accessToken: AccessToken
   readonly configRootPath: ConfigRootPath
@@ -93,8 +112,10 @@ export type EnvConfig = {
  * （ファイルシステムへのアクセス）も同じ理由でここでしか走らせない。
  */
 export function loadEnvConfig(): EnvConfig {
+  const platform = parsePlatform(loadOptionalEnv("PLATFORM"))
   return {
-    platformUrl: validateGitlabUrl(loadEnv("GITLAB_URL")),
+    platform,
+    platformUrl: loadPlatformUrl(platform),
     accessToken: toAccessToken(loadEnv("ACCESS_TOKEN")),
     configRootPath: parseConfigRootPath(loadOptionalEnv("CONFIG_ROOT_PATH")),
     concurrencyLimit: parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT")),
@@ -102,6 +123,13 @@ export function loadEnvConfig(): EnvConfig {
     targetChart: parseTargetChart(loadOptionalEnv("TARGET_CHART")),
     targetUnits: parseTargetUnits(loadOptionalEnv("TARGET_UNITS")),
   }
+}
+
+/** 接続先URLは`PLATFORM`ごとに別の環境変数（`GITLAB_URL`/`GITHUB_URL`）で受ける */
+function loadPlatformUrl(platform: PlatformKind): PlatformUrl {
+  return platform === "gitlab"
+    ? validateGitlabUrl(loadEnv("GITLAB_URL"))
+    : validateGithubUrl(loadEnv("GITHUB_URL"))
 }
 
 function parseTargetUnitEntry(entry: string): ConfigUnitPath {

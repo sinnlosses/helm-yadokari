@@ -8,13 +8,27 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは T-226・T-227 の2件**（T-220〜T-225・T-228 は完了。下の「次にやること」）。完了タスクは
+**未着手のタスクは T-227 の1件**（T-220〜T-226・T-228 は完了。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
+
+- **T-226**: `PLATFORM`（未指定は `gitlab`）を `lib/env.ts` に足し、`GITLAB_URL`/`GITHUB_URL` を
+  読み分けるようにした。`main.ts` の `createPlatform()` が `env.platform` を見て
+  `createGitlabPlatform()` / `createGithubPlatform()` を選ぶ。**これで `PLATFORM=github` が
+  本体パイプラインを通る。** `validateGitlabUrl()` は改名せず対称の `validateGithubUrl()` を
+  新設する形で解いた（名前がその環境変数専用という意味を保てる）。`scripts/` 2本は
+  **GitLab専用のまま**（`remote-existence` は `Platform` に無い `projectExists` を、
+  `smoke-fixture` はgitbeakerの生APIを直接使うため）で、`PLATFORM!=gitlab` なら即終了する
+  ガードを入れて `README.md` にも1行明示。**`main.ts` のログのフィールド名 `gitlabUrl` は
+  まだ据え置き**（README「実行ログの例」との整合は T-227）。
+  受け入れ時に `PlatformKind` を `lib/env.ts` から `types/types.ts` へ移した
+  （`docs/architecture.md`「型の置き場所」1行目のドメイン語彙に当たるため。
+  同じ文字列リテラルunionの `ConfigUnitUpdateResult` と同じ扱い）。
+  `pnpm check` 通過: 39 Test Files / 493 Tests
 
 - **T-225**（着手時に `difficulty` を `sonnet` → `opus` に上げた。エラー分類の受け渡しが
   `steps/` の形に触る設計判断だったため）: `lib/github/errors.ts` に `isFatalError` と
@@ -329,8 +343,8 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**T-220〜T-225・T-228 が完了。残りは T-226（配線）と T-227（ドキュメント追随）の2件で、
-どちらも `loopable: "Y"`。** 以降は
+**T-220〜T-226・T-228 が完了し、`PLATFORM=github` が本体パイプラインを通るようになった。
+残りは T-227（ドキュメント追随）の1件で `loopable: "Y"`。** 以降は
 T-228（`Platform` 型の導入と `steps/` の付け替え）→ T-223〜T-225（`lib/github/` の実装）
 → T-226（配線）→ T-227（ドキュメント追随）の順。
 

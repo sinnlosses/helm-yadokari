@@ -72,6 +72,12 @@ if (remote) {
       )
     }
   })()
+  // このスクリプトは`GitlabClient`（gitbeaker）を直接使っており、GitHub向けの実装を
+  // 持たない。`PLATFORM=github`のとき`env.platformUrl`にはGITHUB_URLの値が入っているため、
+  // 気付かないままGitLabクライアントに渡すと分かりにくい失敗になる。ここで明示的に止める
+  if (env.platform !== "gitlab") {
+    fail(`実在チェック（--remote）は現時点で GitLab 専用です（PLATFORM=${env.platform}）`)
+  }
 
   const problems = await validateRemoteExistence(
     createClient(env.platformUrl, env.accessToken),

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../src/lib/gitlab/gitlab.js")
+vi.mock("../src/lib/github/github.js")
 vi.mock("../src/lib/config/config.js")
 vi.mock("../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -9,6 +10,7 @@ vi.mock("../src/utils/logger.js", () => ({
 import { loadConfig } from "../src/lib/config/config.js"
 import { DEFAULT_CONFIG_ROOT_PATH } from "../src/lib/config/config.js"
 import type { EnvConfig } from "../src/lib/env.js"
+import { createClient as createGithubClient } from "../src/lib/github/github.js"
 import {
   commitFileUpdates,
   createClient,
@@ -26,6 +28,7 @@ import { FatalError } from "../src/utils/errors.js"
 import { makeApp, makeConfigUnit, makeHttpError, mockGitlab } from "./helpers.js"
 
 const env: EnvConfig = {
+  platform: "gitlab",
   platformUrl: toPlatformUrl("https://gitlab.test"),
   accessToken: toAccessToken("test-token"),
   configRootPath: DEFAULT_CONFIG_ROOT_PATH,
@@ -117,5 +120,32 @@ describe("run", () => {
     expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
       expect.objectContaining({ event: "run_end", durationMs: expect.any(Number) }),
     )
+  })
+})
+
+describe("run（PLATFORMによる実装の切り替え）", () => {
+  beforeEach(() => {
+    vi.mocked(loadConfig).mockReturnValue({ configUnits: [] })
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('PLATFORM="gitlab"（既定）のとき、GitLab側のcreateClientだけを使う', async () => {
+    await run(env)
+    expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
+    expect(createGithubClient).not.toHaveBeenCalled()
+  })
+
+  it('PLATFORM="github"のとき、GitHub側のcreateClientだけを使う', async () => {
+    const githubEnv: EnvConfig = {
+      ...env,
+      platform: "github",
+      platformUrl: toPlatformUrl("https://github.test"),
+    }
+    await run(githubEnv)
+    expect(createGithubClient).toHaveBeenCalledWith("https://github.test", "test-token")
+    expect(createClient).not.toHaveBeenCalled()
   })
 })

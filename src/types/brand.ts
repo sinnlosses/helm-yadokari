@@ -127,9 +127,10 @@ export function toAnchorName(s: string): AnchorName {
 
 declare const accessTokenBrand: unique symbol
 /**
- * GitLabのアクセストークン（`createClient`の認証情報）。`PlatformUrl`と同じ関数呼び出しに
- * 並ぶため、取り違え防止でブランド型にしている。空でないことは`loadEnv()`が既に保証している。
- * 接頭辞や長さでの形式検証はしない（Personal Access Tokenの`glpat-`は慣習であり、
+ * GitLab/GitHubのアクセストークン（`createClient`の認証情報。GitLabはGroup/Project Access
+ * Token、GitHubはPersonal Access Token）。`PlatformUrl`と同じ関数呼び出しに並ぶため、
+ * 取り違え防止でブランド型にしている。空でないことは`loadEnv()`が既に保証している。
+ * 接頭辞や長さでの形式検証はしない（GitLabの`glpat-`・GitHubの`ghp_`はいずれも慣習であり、
  * Group Access TokenやCI変数経由の値では前提にできないため）
  */
 export type AccessToken = string & { readonly [accessTokenBrand]: never }

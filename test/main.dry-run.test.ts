@@ -21,6 +21,7 @@ import { makeApp, makeConfigUnit } from "./helpers.js"
 const OLD_TAG = "main-build-at-20251231-000000"
 
 const env: EnvConfig = {
+  platform: "gitlab",
   platformUrl: toPlatformUrl("https://gitlab.test"),
   accessToken: toAccessToken("test-token"),
   configRootPath: DEFAULT_CONFIG_ROOT_PATH,

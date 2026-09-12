@@ -268,6 +268,8 @@ pnpm lint:validate-config:remote
 pnpm lint:validate-config:example
 ```
 
+`pnpm lint:validate-config:remote` と `scripts/smoke/` のフィクスチャ操作スクリプトは、現時点では GitLab 専用です（`PLATFORM=github` では未対応）。
+
 存在しないアンカーやブランチを指定した設定は、実行時に該当する設定ユニットが `ERROR` になるまで
 気づけません。これをMRの時点で止めるために、`--remote` 版をCIの `validate-config-remote`
 ジョブとして**必ず実行**しています（MR・push・手動実行時）。このジョブが動くには

@@ -175,6 +175,16 @@ const CHART2_SEED_FILES: Record<string, string> = {
 }
 
 const env = loadEnvConfig()
+// このスクリプトはgitbeakerのクライアントAPI（Tags/Branches/Commits等）を直接叩いており、
+// GitHub向けの実装を持たない。`PLATFORM=github`のとき`env.platformUrl`にはGITHUB_URLの値が
+// 入っているため、気付かないままGitLabクライアントに渡すと分かりにくい失敗になる。ここで
+// 明示的に止める
+if (env.platform !== "gitlab") {
+  console.error(
+    `smoke-fixture ERROR: このスクリプトは現時点で GitLab 専用です（PLATFORM=${env.platform}）`,
+  )
+  process.exit(1)
+}
 const gitlab = createClient(env.platformUrl, env.accessToken)
 
 /**

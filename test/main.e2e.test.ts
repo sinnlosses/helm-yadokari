@@ -100,6 +100,7 @@ const VALUES_YAML_SHARED_APP =
   `  - &sharedHelmTargetBranch ${NEW_HELM_BRANCH}\n`
 
 const env: EnvConfig = {
+  platform: "gitlab",
   platformUrl: toPlatformUrl("https://gitlab.test"),
   accessToken: toAccessToken("test-token"),
   configRootPath: toConfigRootPath("config"),

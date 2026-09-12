@@ -102,6 +102,12 @@ export type AppUpdatePlan = {
   readonly updates: readonly ImageTagUpdate[]
 }
 
+/**
+ * このツールが接続できるプラットフォーム。`PLATFORM`環境変数が選び、1回の実行では
+ * 混在させないため実行全体で1つに決まる
+ */
+export type PlatformKind = "gitlab" | "github"
+
 export type ConfigUnitUpdateResult = "CREATED" | "SKIPPED" | "ERROR"
 
 export type RunResult = "SUCCESS" | "PARTIAL_FAILURE"

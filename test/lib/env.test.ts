@@ -9,8 +9,10 @@ import {
   loadOptionalEnv,
   parseConcurrencyLimit,
   parseConfigRootPath,
+  parsePlatform,
   parseTargetChart,
   parseTargetUnits,
+  validateGithubUrl,
   validateGitlabUrl,
 } from "../../src/lib/env.js"
 
@@ -67,6 +69,39 @@ describe("validateGitlabUrl", () => {
 
   it("http/https以外のスキームのとき例外をスローする", () => {
     expect(() => validateGitlabUrl("ftp://gitlab.example.com")).toThrow("GITLAB_URL")
+  })
+})
+
+describe("validateGithubUrl", () => {
+  it("https:// の URL を受け入れる", () => {
+    expect(validateGithubUrl("https://github.example.com")).toBe("https://github.example.com")
+  })
+
+  it("URLとして不正な文字列のとき例外をスローする", () => {
+    expect(() => validateGithubUrl("not a url")).toThrow("GITHUB_URL")
+  })
+
+  it("http/https以外のスキームのとき例外をスローする", () => {
+    expect(() => validateGithubUrl("ftp://github.example.com")).toThrow("GITHUB_URL")
+  })
+})
+
+describe("parsePlatform", () => {
+  it('未指定のとき既定値 "gitlab" を返す', () => {
+    expect(parsePlatform(undefined)).toBe("gitlab")
+  })
+
+  it('"gitlab" を指定するとそのまま返す', () => {
+    expect(parsePlatform("gitlab")).toBe("gitlab")
+  })
+
+  it('"github" を指定するとそのまま返す', () => {
+    expect(parsePlatform("github")).toBe("github")
+  })
+
+  it("未知の値のとき例外をスローし、メッセージに PLATFORM と指定値を含む", () => {
+    expect(() => parsePlatform("bitbucket")).toThrow("PLATFORM")
+    expect(() => parsePlatform("bitbucket")).toThrow("bitbucket")
   })
 })
 
@@ -185,6 +220,7 @@ describe("loadEnvConfig", () => {
   })
 
   it("必須の環境変数だけが設定されているとき、省略可能な項目に既定値を入れる", () => {
+    vi.stubEnv("PLATFORM", undefined)
     vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
     vi.stubEnv("ACCESS_TOKEN", "token")
     vi.stubEnv("CONFIG_ROOT_PATH", undefined)
@@ -194,6 +230,7 @@ describe("loadEnvConfig", () => {
     vi.stubEnv("TARGET_UNITS", undefined)
 
     expect(loadEnvConfig()).toEqual({
+      platform: "gitlab",
       platformUrl: "https://gitlab.example.com",
       accessToken: "token",
       configRootPath: "config",
@@ -213,5 +250,44 @@ describe("loadEnvConfig", () => {
 
     vi.stubEnv("DRY_RUN", "1")
     expect(loadEnvConfig().dryRun).toBe(false)
+  })
+
+  it("PLATFORM未指定のとき gitlab 扱いで GITLAB_URL を読む（GITHUB_URLは無視）", () => {
+    vi.stubEnv("PLATFORM", undefined)
+    vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
+    vi.stubEnv("GITHUB_URL", "https://github.example.com")
+    vi.stubEnv("ACCESS_TOKEN", "token")
+
+    const env = loadEnvConfig()
+    expect(env.platform).toBe("gitlab")
+    expect(env.platformUrl).toBe("https://gitlab.example.com")
+  })
+
+  it("PLATFORM=github のとき GITHUB_URL を読み、GITLAB_URLは無視する", () => {
+    vi.stubEnv("PLATFORM", "github")
+    vi.stubEnv("GITHUB_URL", "https://github.example.com")
+    vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
+    vi.stubEnv("ACCESS_TOKEN", "token")
+
+    const env = loadEnvConfig()
+    expect(env.platform).toBe("github")
+    expect(env.platformUrl).toBe("https://github.example.com")
+  })
+
+  it("PLATFORM=github で GITHUB_URL が未設定のとき例外をスローする", () => {
+    vi.stubEnv("PLATFORM", "github")
+    vi.stubEnv("GITHUB_URL", undefined)
+    vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
+    vi.stubEnv("ACCESS_TOKEN", "token")
+
+    expect(() => loadEnvConfig()).toThrow("GITHUB_URL")
+  })
+
+  it("PLATFORM が未知の値のとき例外をスローする", () => {
+    vi.stubEnv("PLATFORM", "bitbucket")
+    vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
+    vi.stubEnv("ACCESS_TOKEN", "token")
+
+    expect(() => loadEnvConfig()).toThrow("PLATFORM")
   })
 })

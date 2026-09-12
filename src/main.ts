@@ -1,8 +1,11 @@
 import { loadConfig } from "./lib/config/config.js"
 import type { EnvConfig } from "./lib/env.js"
-import { createClient } from "./lib/gitlab/gitlab.js"
+import { createClient as createGithubClient } from "./lib/github/github.js"
+import { createGithubPlatform } from "./lib/github/platform.js"
+import { createClient as createGitlabClient } from "./lib/gitlab/gitlab.js"
 import { createGitlabPlatform } from "./lib/gitlab/platform.js"
 import { createPlatformBatchCache } from "./lib/platform/batch-cache.js"
+import type { Platform } from "./lib/platform/platform.js"
 import { applyUpdates } from "./steps/apply-updates/apply-updates.js"
 import { buildPlans } from "./steps/build-plans/build-plans.js"
 import { filterTargets } from "./steps/filter-targets/filter-targets.js"
@@ -13,6 +16,9 @@ import { timed } from "./utils/timer.js"
 export async function run(env: EnvConfig): Promise<RunResult> {
   logger.info({
     event: "run_start",
+    // フィールド名`gitlabUrl`はREADME.md「実行ログの例」が示す外部インターフェースなので、
+    // PLATFORM=github時に実態と食い違うと分かっていてもここでは改名しない
+    // （ログ形式の変更はdocsの追随を伴うため別タスク）
     gitlabUrl: env.platformUrl,
     dryRun: env.dryRun,
     concurrencyLimit: env.concurrencyLimit,
@@ -37,7 +43,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
  * 3. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
  */
 async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult, number>> {
-  const platform = createGitlabPlatform(createClient(env.platformUrl, env.accessToken))
+  const platform = createPlatform(env)
   const platformCache = createPlatformBatchCache(platform)
   const { configUnits } = loadConfig(env.configRootPath, {
     chartDirName: env.targetChart,
@@ -59,6 +65,13 @@ async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult
   const applied = await applyUpdates(platform, platformCache, toApply, env.concurrencyLimit)
 
   return summarizeResults([...filtered, ...planned, ...applied])
+}
+
+/** `env.platform`（1回の実行でGitLab/GitHubを混在させない選択）に応じてPlatform実装を組み立てる */
+function createPlatform(env: EnvConfig): Platform {
+  return env.platform === "github"
+    ? createGithubPlatform(createGithubClient(env.platformUrl, env.accessToken))
+    : createGitlabPlatform(createGitlabClient(env.platformUrl, env.accessToken))
 }
 
 function summarizeResults(
