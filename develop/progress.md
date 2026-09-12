@@ -6,7 +6,7 @@
 2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは0件。**完了タスクは
+**未着手のタスクは1件**（T-211。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -137,8 +137,14 @@
 
 ## 次にやること
 
-**未着手のタスクは0件。** 設定まわりの命名（T-208・T-209・T-210）はこれで完了した
+設定まわりの命名（T-208・T-209・T-210）は完了した
 （指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（2回目）」）。
+
+- **T-211**（`opus`、依存なし）: `docs/architecture.md`「型の置き場所は`src/`全件と突き合わせて
+  確かめてある」節の件数が実物と合っていない（「残り26」に対し実測30〜38）。T-209 で
+  **281行目の記述が実測と食い違っていた**（`PipelineInfo` を1ファイルと書いていたが3ファイル）のを
+  見つけたのが発端。件数のズレ自体ではなく、**「表から外れているものは1件も無い」という
+  監査済みの主張の裏付けが古い**のが問題。数え方を決めて節に書き、再現コマンドも載せる
 
 **`ConfigUnit` の `unit` を外す案は検討して却下した**（ユーザー判断、2026-09-12）。`Config` が
 ルートの型で埋まっている・`ConfigUnitPath` が `ConfigRootPath` と同語になる・`unit` が
