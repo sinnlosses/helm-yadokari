@@ -3,6 +3,7 @@ import { findLatestParsedTag, parseTag, validateTagFormat } from "../../src/doma
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
 import { toBranchName, toTagName } from "../../src/types/types.js"
+import { toErrorMessage } from "../../src/utils/errors.js"
 
 // 実機スモークテスト（docs/smoke-test.md）用のフィクスチャ操作スクリプト。
 //
@@ -147,23 +148,6 @@ const CHART2_SEED_FILES: Record<string, string> = {
 
 const env = loadEnvConfig()
 const gitlab = createClient(env.gitlabUrl, env.accessToken)
-const project = await gitlab.Projects.show(projectId)
-console.log(`対象(chart1): ${String(project.path_with_namespace)} (${env.gitlabUrl})`)
-if (chart2ProjectId !== undefined) {
-  const project2 = await gitlab.Projects.show(chart2ProjectId)
-  console.log(`対象(chart2): ${String(project2.path_with_namespace)} (${env.gitlabUrl})`)
-} else {
-  console.log("対象(chart2): SMOKE_CHART2_PROJECT_ID 未設定のためスキップ")
-}
-console.log(apply ? "モード: --apply（実際に反映します）" : "モード: dry-run（--apply で反映）")
-// 壊れたシードかどうかはファイル名の一覧に出ないため、モード行の隣で明示する
-// （dry-runを見てから--applyする運用なので、見分けが付かないと取り違えて書き込みうる）
-if (brokenAnchor) {
-  console.log(
-    "シード: --broken-anchor（charts/smoke-tenant2/client2/values.yaml から " +
-      "t2c2QaSprintVersion を抜いた版。tenant2/client2 が ERROR になる）",
-  )
-}
 
 /**
  * シード値に使うタグがソースリポジトリに実在することを保証する。無い場合は追跡ブランチの
@@ -291,5 +275,38 @@ async function reset(): Promise<void> {
   }
 }
 
-await (command === "setup" ? setup() : reset())
-console.log(apply ? "完了" : "dry-run 完了（--apply を付けると実行します）")
+/**
+ * GitLabへ問い合わせる処理はすべてこの中から呼ぶ。gitbeakerの例外は`cause`にリクエスト
+ * （＝`private-token`ヘッダ）を抱えたままなので、捕まえずにNodeの既定のエラー表示まで
+ * 到達させるとアクセストークンが生のまま端末に出る。`src/index.ts`と同じく、
+ * 表示するのはメッセージだけに限る。
+ */
+async function main(): Promise<void> {
+  const project = await gitlab.Projects.show(projectId)
+  console.log(`対象(chart1): ${String(project.path_with_namespace)} (${env.gitlabUrl})`)
+  if (chart2ProjectId !== undefined) {
+    const project2 = await gitlab.Projects.show(chart2ProjectId)
+    console.log(`対象(chart2): ${String(project2.path_with_namespace)} (${env.gitlabUrl})`)
+  } else {
+    console.log("対象(chart2): SMOKE_CHART2_PROJECT_ID 未設定のためスキップ")
+  }
+  console.log(apply ? "モード: --apply（実際に反映します）" : "モード: dry-run（--apply で反映）")
+  // 壊れたシードかどうかはファイル名の一覧に出ないため、モード行の隣で明示する
+  // （dry-runを見てから--applyする運用なので、見分けが付かないと取り違えて書き込みうる）
+  if (brokenAnchor) {
+    console.log(
+      "シード: --broken-anchor（charts/smoke-tenant2/client2/values.yaml から " +
+        "t2c2QaSprintVersion を抜いた版。tenant2/client2 が ERROR になる）",
+    )
+  }
+
+  await (command === "setup" ? setup() : reset())
+  console.log(apply ? "完了" : "dry-run 完了（--apply を付けると実行します）")
+}
+
+try {
+  await main()
+} catch (err) {
+  console.error(`smoke-fixture ERROR: ${toErrorMessage(err)}`)
+  process.exit(1)
+}
