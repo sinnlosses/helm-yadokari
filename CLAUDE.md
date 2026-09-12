@@ -19,6 +19,11 @@ chart リポジトリ単位で1つの Merge Request を作成する。クラス�
 - Node.js 22.x, pnpm 11.x
 - `pnpm install` で依存関係をインストール
 - ローカル実行には `.env`（`.env.example` を参照）に `GITLAB_URL` / `ACCESS_TOKEN` を設定
+- タスク運用スキル（`/next-task` など）は別リポジトリ
+  <https://github.com/sinnlosses/claude-skills> を clone し、その `skills/<名前>` を
+  `~/.claude/skills/<名前>` へスキルごとに symlink して導入する。未導入でもCLI自体の
+  ビルド・テストは通るが、`develop/` 配下を使った進め方（下の「進捗管理とHandoff」）は
+  できない
 
 ## よく使うコマンド
 
@@ -112,7 +117,7 @@ Spec軸（`docs/requirements.md`）を参照。
 ## 導入済みスキル
 
 スキルは**ユーザー単位**（`~/.claude/skills/`）に置いてあり、このリポジトリには含まれない
-（ソースは `~/ghq/github.com/sinnlosses/claude-skills`。一覧は毎セッションのスキル案内を参照）。
+（導入方法は上の「セットアップ / 環境構築」。一覧は毎セッションのスキル案内を参照）。
 ユーザー単位スキルはプロジェクト単位の同名スキルより優先されるので、このリポジトリ側で
 同名スキルを置いて上書きすることはできない。プロジェクト差分は `develop/workflow.json` で表す。
 
