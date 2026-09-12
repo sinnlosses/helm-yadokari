@@ -29,7 +29,10 @@ description: "develop/direction.md に書かれたユーザーからの指示を
    - 1タスクは「1コミットで説明が付く」大きさに収める
    - 既存タスクと重なるなら、新しく作らず既存タスクの本文を更新する
 
-4. **書く**: タスク本文は次の5節で書く。節の名前もそのまま使う。
+4. **書く**: まず `summary`（何をするかの一行要約）を書く。**1行に収まらなければタスクが
+   大きすぎる合図**なので、手順3に戻って分ける。基準は `docs/workflow.md`「summary」が正典。
+
+   そのうえで、タスク本文は次の5節で書く。節の名前もそのまま使う。
 
    - `## 背景`: なぜこれをやるのか。指示の言い回しではなく、**コードのどこがどうなっているか**を
      ファイル名・関数名つきで書く（サブエージェントはまっさらな文脈で起動するため）
@@ -42,7 +45,9 @@ description: "develop/direction.md に書かれたユーザーからの指示を
 
 5. **登録する**: `develop/tasks.json` に追記する。`id` は通し番号の続き（`docs/workflow.md`
    「何を移すか」参照）、`status: "todo"`、`passes: false`、`evidence: ""`。
-   **`difficulty` と `dependencies` は登録時に必ず埋める**（後から付けない）。
+   **`summary`・`difficulty`・`dependencies` は登録時に必ず埋める**（後から付けない）。
+   フィールドの並びは `id` → `difficulty` → `dependencies` → `summary` → `task` → `status`
+   → `passes` → `evidence`。
 
    追記したら**その場で `docs/workflow.md`「いつ移すか（トリガー）」の判定を行う**
    （`tasks.json`は`done`が10件以上または`done`のサイズが30KB超。**`todo`は数えない**ので、
@@ -70,6 +75,6 @@ description: "develop/direction.md に書かれたユーザーからの指示を
 
 - **`develop/direction.md` の各項目 → 生成したタスクID の対応表**（1対1でなくてよい）。
   タスクにしなかった項目は、その理由を書く。**取りこぼしの検知点はここだけなので必ず出す**
-- 登録したタスクの件数と、それぞれの `difficulty`・`dependencies`
+- 登録したタスクの件数と、それぞれの `summary`・`difficulty`・`dependencies`
 - `develop/direction.md` を空にしたこと、移した先（`docs/history/direction.md` の日付見出し）
 - アーカイブしたなら、移したタスクIDと `develop/tasks.json` のサイズ（前後）
