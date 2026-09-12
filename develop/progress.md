@@ -7,7 +7,7 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
 2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは0件**（登録済みのタスクはすべて `done`）。完了タスクは
+**未着手のタスクは1件**（T-212。`loopable: "N"` なので `/loop` では進まない）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -171,11 +171,14 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
 
 ## 次にやること
 
-**登録済みのタスクは全件 `done`。** 設定まわりの命名（T-208・T-209・T-210）と、その過程で
-見つかった型の置き場所の裏付け直し（T-211）まで終わっている
-（指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（2回目）」）。
-次にやることは下の「未解決」から拾うか、`develop/direction.md` に新しい指示を書いて
-`/plan-tasks` でタスク化する。
+**`todo` は T-212 の1件**（`README.md` の冗長・不足を読者目線で洗い出し、提案として提示する。
+`opus` / `loopable: "N"` / 依存なし）。**`loopable` が `"N"` なので `/loop` では拾われない** —
+提案の採否をユーザーが決めるタスクなので、`/next-task` を直接呼んで進める。README.md の
+書き換えは、採否が決まってから別タスクとして登録する
+（指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（3回目）」）。
+
+設定まわりの命名（T-208・T-209・T-210）と、その過程で見つかった型の置き場所の裏付け直し
+（T-211）は完了済み（指示メモは同ファイルの「2026-09-12（2回目）」）。
 
 - **`AnchorValueLookup`（`lib/helm.ts`、公開）と `AnchorLookup`（同ファイル、内部）が1文字違いで、
   名前から公開・内部の区別が読めない。** T-211 の突き合わせ中に見つけたが、「型の置き場所」では
