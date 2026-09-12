@@ -1,17 +1,22 @@
 # 現在の状態
 
-最終更新: 2026-09-12（**T-198〜T-200 を完了**したあと、`/grilling` で命名を**33問・10ラウンド
-かけて洗い直し**、T-200 の結論が大きく覆った。規約4件の書き換えと改名31件を
-**T-201〜T-207 の7タスクとして登録**。2026-09-11以前の記録は
+最終更新: 2026-09-12（**T-198〜T-207 をすべて完了**。`/grilling` で命名を33問・10ラウンド
+かけて洗い直し、`docs/architecture.md` の命名規約4件を書き換えたうえで、正典・コード・
+`config/`・ログ・`README.md` まで改名31件を反映し終えた。**`done` 15件をアーカイブ済み**。
+2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは1件**（T-207。`builtAt`→`taggedAt`、`haiku`）。完了タスクは
+**未着手のタスクは0件。** 完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 `docs/glossary.md` の整理
+
+- **T-207**: `ParsedTag.builtAt`→`taggedAt`。6ファイル・19/19行の機械的な改名で、受け入れでの
+  修正なし。**これで T-201〜T-207 が全完了**し、`/grilling` で決めた規約4件と改名31件が
+  正典・コード・`config/`・ログ・`README.md` のすべてに反映された
 
 - **T-206**（唯一の設計変更）: `HelmTargetBranchUpdate` から `newBranch` を削り、
   `{ location, currentBranch }` に。`ImageTagUpdate` の `{ location, currentTag }` と**完全に対称**
@@ -105,35 +110,13 @@
 
 ## 次にやること
 
-**未着手は T-207 の1件**（命名の洗い直しの実施、登録は 2026-09-12）。
-**順序に意味がある**（正典が先、コードが後）ので、依存を飛ばさないこと:
+**未着手のタスクは0件。** 命名の洗い直し（T-198〜T-207）はこれで完了した。
+次に何かを始めるときは `develop/direction.md` に指示を書き、`/plan-tasks` でタスク化する。
 
-1. **T-207**（`haiku`）: `ParsedTag.builtAt`→`taggedAt`
-
-**改名の確認 grep は単語境界 `\b` を使わない**（日本語に挟まれた識別子を見逃す。
-T-204 で19件の取りこぼしを踏み、T-205 で注意に書いたら取りこぼし0件になった）。7件とも `/loop` に載せてよい
-
-T-172〜T-197 はすべて `done`（T-183〜T-192 は `docs/history/tasks-archive.md` へアーカイブ済みで、
-`develop/tasks.json` からは消えている）。
-
-スモークテストの包括化は完了（T-193〜T-197）。GitLabのフィクスチャは初期状態に戻してある。
-次に実機スモークを回すときは `docs/smoke-test.md` の手順どおりでよい。
-
-**順序の制約**（次に `config/` を触るとき用）: GitLab側のフィクスチャが先、`config/` への追加が後。
-`config/` に設定ユニットを足すと `pnpm lint:validate-config:remote` とCIが実在を検証するため、
-GitLab上に無い状態で設定だけ先にコミットすると落ちる。T-176・T-177 は着手しない判断で閉じたもので、理由は下の
-「未解決」にある。
-
-`src/lib/config/` のリファクタリングでは、案2（`resolveProjectLinkage` を `validate.ts` から
-`chart-and-apps.ts` へ移す）・案3（`loadChartAndApps()` の6引数をスコープ別の2オブジェクトに
-まとめる）・案B（`select-units.ts` の新設）を**提案したうえで見送っている**（2026-09-11、
-ユーザー判断）。経緯は `docs/history/direction.md` の 2026-09-11 の2つの節にある。
-
-- **次回の実機スモークは `docs/smoke-test.md` の手順1からやり直す。** `helm` 必須化で
-  3つの設定ユニットすべてが `helm` を持つようになり、差分が出るのは `tenant2/client1` だけ
-  （`client2` と `anchor-app` は向き先ブランチが `helm.branchToSync` と同値）。
-  `smoke-fixture.ts setup --apply` は 2026-09-10 に実行済みで、フィクスチャは初期状態にある
-- 新しい指示は `develop/direction.md` に書き、`/plan-tasks` でタスク化する
+**実機スモークテストは未実施。** `config.yaml` のキーが2つ変わっている
+（`chart[]`→`locations[]`、`helm.branchToSync`→`helm.branchName`）ので、一度
+`docs/smoke-test.md` の手順を通しておくと、設定の読み込みが実機でも壊れていないことを
+確かめられる。ローカルの `pnpm check` と `pnpm lint`（`config/` のスキーマ検証を含む）は通っている。
 
 ## 未解決
 
@@ -186,14 +169,12 @@ GitLab上に無い状態で設定だけ先にコミットすると落ちる。T-
 
 ## 注意
 
-- **正典（`docs/architecture.md`・`docs/glossary.md`・`README.md` の一部）は T-201・T-202 で
-  既に改名後の名前に書き換わっているが、コードはまだ旧名のまま。** これは
-  「正典を先に更新し、実装は後から追随させる」という意図どおりの状態で、T-203〜T-207 が
-  解消する。**この期間はドキュメントとコードの識別子が食い違って見える**ので、コードを
-  読んで正典が間違っていると判断しないこと
-- `README.md`「実行ログの例」にはまだ `update_chart` と `previousTagName` が残っている。
-  これは**わざと**で、ツールが実際に出す出力を載せる場所なので T-203・T-205 がコードと
-  同時に直す
+- **改名の確認 grep は単語境界 `\b` を使わない。** 日本語に挟まれた識別子
+  （「1つのchartAndAppsを処理する」など）を単語境界として認識せず見逃す。T-204 で19件の
+  取りこぼしを踏み、次のタスクの注意に書いたら取りこぼしが0件になった
+- **ログの項目名と `config.yaml` のキー名が 2026-09-12 に変わっている。** 過去のログや古い
+  `config.yaml` を読むときは `update_chart`→`update_unit`、`previousTagName`→`currentTag`、
+  `chart[]`→`locations[]`、`helm.branchToSync`→`helm.branchName` で読み替えること
 
 - **コミット手順は「記録を書く → `pnpm format` → `pnpm check` → `git add` → `git commit`」の順に固定する。**
   `develop/tasks.json` は `oxfmt` の対象（`.prettierignore` の除外は `.claude/` と `config/` だけ）で、
