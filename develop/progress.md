@@ -8,13 +8,21 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは T-219 の1件**（`loopable: "N"`。下の「次にやること」）。完了タスクは
+**未着手のタスクは0件**（T-219 まで完了）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
+
+- **T-219**: `ProjectId` を `string` のブランド型に差し替えて `pnpm tsc --noEmit` を通し、
+  壊れる箇所を実測した（実験の変更は戻し、残したのは調査記録の追記だけ）。**型エラー55件のうち
+  `src/` は `lib/config/schema.ts` の3件だけ**で、`steps/`・`lib/gitlab/`・`domain/`・`utils/` は
+  ゼロ。残り52件は `test/` の `toProjectId(<数値>)` → `toProjectId("<数値>")` の機械的置換で
+  消えることまで実測で確かめた。**当初「338箇所」と見積もった影響は、設定スキーマの3箇所に
+  収束する。** 残る争点はYAMLの `projectId: 100` を文字列に寄せるかどうかで、これは
+  `config/` の破壊的変更になるため採否と一緒に決める（下の「未解決」）。`pnpm check` 通過: 386 Tests
 
 - **`config.example/`（タスクIDなし）**: `config/` のコピー用サンプルを新設
   （`commit b6f4b42`）。`config/` に架空の設定を置くとCIの `validate-config-remote` が
@@ -256,10 +264,9 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**T-219（`ProjectId` の中立化の計測、`opus`、`loopable: "N"`、依存なし）が1件 `todo`。**
-`loopable: "N"` なので `/loop` では拾われない。**ユーザーがいるセッションで `/next-task` を
-直接呼ぶ必要がある**（候補の表現の選定に承認が要り、計測結果がGitHub対応そのものの採否判断の
-入力になるため）。調査記録は [`docs/research/github-support.md`](../docs/research/github-support.md)、
+**登録済みのタスクは全件 `done`（T-219 完了）。** 次にやることは下の「未解決」の
+**GitHub対応の採否**から拾うか、`develop/direction.md` に新しい指示を書いて `/plan-tasks` で
+タスク化する。調査記録は [`docs/research/github-support.md`](../docs/research/github-support.md)、
 指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（4回目）」。
 
 T-212 の提案17件はすべて反映し終えた（T-214〜T-218。ユーザーが採否を決め、L-5はMIT・
@@ -296,6 +303,14 @@ T-213（`parseArgs` 化）は
 確かめられる。ローカルの `pnpm check` と `pnpm lint`（`config/` のスキーマ検証を含む）は通っている。
 
 ## 未解決
+
+- **GitHub対応をやるかどうかが未定**（2026-09-12）。T-219 の計測で「`ProjectId` の中立化は
+  呼び出し側への波及という意味では障害にならない」ことは確かめた（`src/` の影響は
+  `lib/config/schema.ts` の3箇所）。**残る判断は2つ**:
+  - YAMLの `projectId: 100` を文字列に寄せるか（`config/` の破壊的変更）、スキーマで両方受けるか
+  - 最大の実装差である「複数ファイルの1コミット化」（GitHubに等価APIが無く、Git Data APIで
+    4呼び出しに分解が要る）を引き受けるか
+    詳細は [`docs/research/github-support.md`](../docs/research/github-support.md)。
 
 - ~~**T-212 で洗い出した `README.md` の提案17件は採否が未定**~~ **全件反映済み**
   （T-214〜T-218、2026-09-12）。以下は反映した内容の要約として残す:
