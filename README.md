@@ -101,26 +101,31 @@ appSpecs:
 
 ```bash
 # 1. インストール
-git clone <this-repo>
+git clone https://github.com/sinnlosses/helm-yadokari.git
 cd helm-yadokari
 pnpm install
 
-# 2. 設定ファイルを作成（config/ 配下の構成は下記「設定」を参照）
+# 2. .env を作成（GITLAB_URL / ACCESS_TOKEN を書き込む。他のキーは .env.example 参照）
+cp .env.example .env
+# → GITLAB_URL / ACCESS_TOKEN を編集する（未設定だと `pnpm dev` が起動前に落ちる）
+
+# 3. 設定ファイルを作成（config/ 配下の構成は下記「設定」を参照）
 mkdir -p config/my-team-chart/my-unit   # 深さ2も可（例: config/my-team-chart/my-group/my-unit）
-# → registry.yaml / config.yaml を作成する
-#   （記述例は docs/requirements.md 4.4節。config/yadokari-smoke-test-chart/ の実物も参考になる）
+# → registry.yaml / config.yaml を作成する（最小サンプルは下記「config/」参照。
+#   完全な記述例は docs/requirements.md 4.4節）
+# 同梱の config/yadokari-smoke-test-chart* は作者の検証用configなので、
+# 消すか TARGET_CHART=my-team-chart のように絞り込みを指定してから実行する
+# （絞り込み無しだと第三者の環境では必ず ERROR になる）
 
-# 3. 動作確認（ブランチ作成・MR作成なし・安全）
-GITLAB_URL=https://gitlab.example.com \
-ACCESS_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx \
-DRY_RUN=true \
-pnpm dev
+# 4. 動作確認（ブランチ作成・MR作成なし・安全）
+DRY_RUN=true TARGET_CHART=my-team-chart pnpm dev
 
-# 4. 実行
-GITLAB_URL=https://gitlab.example.com \
-ACCESS_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx \
-pnpm dev
+# 5. 実行
+TARGET_CHART=my-team-chart pnpm dev
 ```
+
+環境変数はどれも、`.env` に書く代わりに上の手順4・5のようにコマンド行頭で渡せます
+（両方にある場合はコマンド行頭の値が優先されます）。
 
 ## 仕組み
 
@@ -215,6 +220,36 @@ Helmの向き先ブランチとは、values.yaml のパラメータを受け取�
 重複禁止など、設定ミスは実行前に例外で停止します）は [`docs/requirements.md`](./docs/requirements.md)
 の「4.4 アプリの登録・設定」が正典です（`config/yadokari-smoke-test-chart/` にも実物の記述例があります）。
 
+最小構成の例（必須フィールドのみ）:
+
+```yaml
+# registry.yaml
+chartToUpdate:
+  projectId: 100
+  projectName: my-team-chart
+  mrTargetBranch: main # 値定義ブランチ（MRの作成先）
+appSpecs:
+  - projectId: 2
+    projectName: my-app
+    tagFormat: "{branch}-build-at-{date}-{time}"
+```
+
+```yaml
+# config.yaml
+helm: # Helmの向き先ブランチ（values.yamlを受け取ってk8sリソースを構築するブランチ）の設定。必須
+  branchRef: helm-main
+  locations:
+    - valuesPath: charts/my-app/values.yaml
+      anchor: my-app-tag
+apps:
+  - projectId: 2 # registry.yaml の appSpecs[].projectId と対応させる
+    projectName: my-app
+    branchToSync: main # このアプリの追跡ブランチ
+    locations:
+      - valuesPath: charts/my-app/values.yaml
+        anchor: my-app-tag
+```
+
 ### 設定ファイルの検証
 
 ```bash
@@ -270,6 +305,14 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
 
 2. **CI/CD > Schedules** でスケジュールを作成する
 
+**（任意）Renovate を使う場合** — `renovate` ジョブはこのCLI自体の依存パッケージ更新用で、
+動かすには以下の2つが**両方とも必須**です（`.gitlab-ci.yml` の `renovate` ジョブ参照）。
+
+1. **Settings > CI/CD > Variables** に `RENOVATE_TOKEN`（`api` スコープの GitLab PAT。
+   Masked: ON 推奨）を登録する
+2. **CI/CD > Schedules** に、本体実行用とは別のスケジュールを作成し、変数
+   `RENOVATE=true` を追加する（付けないと `renovate` ジョブは実行されない）
+
 ### 手動実行時のオプション（Pipeline inputs）
 
 **Run pipeline を実行すると `update-app-versions` は自動で開始します。** `DRY_RUN` を `true` に
@@ -319,3 +362,10 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 
 `src/` 配下の各ファイルの責務・ディレクトリ構成の勘所（`config/`・`scripts/` の使い方を
 含む）・既知の制約は [`docs/architecture.md`](./docs/architecture.md) を参照してください。
+
+`docs/` にはこの他に以下のドキュメントがあります。
+
+- [`docs/requirements.md`](./docs/requirements.md) — 要件定義（仕様の正典）
+- [`docs/glossary.md`](./docs/glossary.md) — 用語集（ドメイン用語とコード上の識別子の対応）
+- [`docs/coding-standards.md`](./docs/coding-standards.md) — コーディング規約
+- [`docs/smoke-test.md`](./docs/smoke-test.md) — 実機スモークテストの手順

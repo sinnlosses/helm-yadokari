@@ -15,6 +15,16 @@ T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張
 
 ### 2026-09-12 README.md の提案の反映
 
+- **T-216**: `README.md` の不足6件（L-1〜L-4・L-6・L-7）を埋めた（+65/-15行）。
+  **clone 直後に手順どおり動く状態になった**のが本体で、`cp .env.example .env`（無いと
+  `pnpm dev` が起動前に落ちる）と、同梱の `config/yadokari-smoke-test-chart*` を消すか
+  `TARGET_CHART` で絞る指示（第三者の環境では必ず `ERROR` になる）の2つが効いている。
+  `registry.yaml`/`config.yaml` の最小サンプルも本文に載せた（`src/lib/config/schema.ts` の
+  必須フィールドと突き合わせ済み）。受け入れで1文直した——「`GITLAB_URL`/`ACCESS_TOKEN`
+  **以外**の環境変数は行頭で渡せる」と範囲を誤っていたので、どれも渡せる形に。
+  **`--env-file` と行頭指定は行頭が勝つ**ことを `node --env-file` で実測して確かめた。
+  `pnpm check` 通過: 386 Tests
+
 - **T-215**: `README.md` の重複6件（R-1〜R-6）を整理（+32/-33行）。効いたのは
   **同文の表2つ**（Pipeline inputs 表の説明列を `環境変数` 表への参照に寄せた）と
   **Protected OFF の理由の二重展開**（`セットアップ手順` に一本化）。`config/` 節の
