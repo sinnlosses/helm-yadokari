@@ -5,7 +5,7 @@ import type { MrEntries } from "../../../../src/steps/apply-updates/sub-steps/sh
 import type {
   AppUpdatePlan,
   GitLabUrl,
-  HelmTargetBranchUpdate,
+  HelmBranchRefUpdate,
   PipelineInfo,
 } from "../../../../src/types/types.js"
 import {
@@ -30,7 +30,7 @@ const helmUpdate = {
 /** `collectMrEntries()`が返す形を組み立てる。向き先ブランチはclient単位なのでplansとは別に渡す */
 function entriesOf(
   plans: readonly AppUpdatePlan[],
-  helmBranches: readonly HelmTargetBranchUpdate[] = [],
+  helmBranches: readonly HelmBranchRefUpdate[] = [],
   webUrl: GitLabUrl = defaultWebUrl,
   pipeline: PipelineInfo | undefined = undefined,
 ): MrEntries {

@@ -120,7 +120,7 @@ const HelmSchema = z.object(
   },
 )
 
-export type HelmConfig = z.infer<typeof HelmSchema>
+export type ConfigHelm = z.infer<typeof HelmSchema>
 
 export const ConfigYamlSchema = z.object({
   helm: HelmSchema,

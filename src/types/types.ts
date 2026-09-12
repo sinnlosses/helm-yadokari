@@ -24,7 +24,7 @@ export type AnchorLocation = {
  * `locations`は同じconfig.yamlの`helm.locations[]`のうち、設定ユニット内のいずれかのappが書き込む
  * valuesPathを指すもの。向き先ブランチは設定ユニット内のapps全体で共通なので設定ユニット単位で持つ
  */
-export type HelmTargetBranchConfig = {
+export type HelmConfig = {
   readonly branchRef: BranchName
   readonly locations: readonly AnchorLocation[]
 }
@@ -56,7 +56,7 @@ export type ConfigUnit = {
   readonly chartRepo: ChartRepoConfig
   readonly apps: readonly AppConfig[]
   /** `locations`は`helm.locations[]`のうちapps側が実際に書き込むvaluesPathを指す要素だけになる（空もありうる） */
-  readonly helmTargetBranch: HelmTargetBranchConfig
+  readonly helm: HelmConfig
 }
 
 export type Config = {
@@ -88,10 +88,10 @@ export type ImageTagUpdate = {
 }
 
 /**
- * `HelmTargetBranchConfig.locations`のうち1箇所分の更新内容。`currentBranch`はvalues.yaml側の
- * 現在値。新しい値は設定ユニットに1つしかないので`ConfigUnit.helmTargetBranch.branchRef`から取る
+ * `HelmConfig.locations`のうち1箇所分の更新内容。`currentBranch`はvalues.yaml側の
+ * 現在値。新しい値は設定ユニットに1つしかないので`ConfigUnit.helm.branchRef`から取る
  */
-export type HelmTargetBranchUpdate = {
+export type HelmBranchRefUpdate = {
   readonly location: AnchorLocation
   readonly currentBranch: BranchName
 }
@@ -117,12 +117,12 @@ export type FileUpdate = {
 
 /**
  * 差分が確定し、コミット・MR作成の対象になった1設定ユニット分の更新内容。
- * `helmTargetBranchUpdates`がapp単位でなくここにあるのは、向き先ブランチが設定ユニット内の
+ * `helmBranchRefUpdates`がapp単位でなくここにあるのは、向き先ブランチが設定ユニット内の
  * apps全体で共通だから（`plans`が空でもこちらに差分があればMRを作る）
  */
 export type ConfigUnitUpdateTarget = {
   readonly configUnit: ConfigUnit
   readonly plans: readonly AppUpdatePlan[]
-  readonly helmTargetBranchUpdates: readonly HelmTargetBranchUpdate[]
+  readonly helmBranchRefUpdates: readonly HelmBranchRefUpdate[]
   readonly files: readonly FileUpdate[]
 }

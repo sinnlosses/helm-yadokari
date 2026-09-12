@@ -2,7 +2,7 @@ import type {
   AppUpdatePlan,
   BranchName,
   GitLabUrl,
-  HelmTargetBranchUpdate,
+  HelmBranchRefUpdate,
   ImageTagUpdate,
   PipelineInfo,
 } from "../../../../types/types.js"
@@ -26,7 +26,7 @@ export type ImageTagEntry = {
  */
 export type MrEntries = {
   readonly imageTags: readonly ImageTagEntry[]
-  readonly helmBranches: readonly HelmTargetBranchUpdate[]
+  readonly helmBranches: readonly HelmBranchRefUpdate[]
   readonly helmBranchRef: BranchName
 }
 

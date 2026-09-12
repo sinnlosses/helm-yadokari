@@ -6,7 +6,7 @@ import type {
   AppConfig,
   ChartRepoConfig,
   ConfigUnit,
-  HelmTargetBranchConfig,
+  HelmConfig,
 } from "../../../src/types/types.js"
 import { toErrorMessage } from "../../../src/utils/errors.js"
 import { mapWithConcurrency } from "../../../src/utils/parallel.js"
@@ -68,7 +68,7 @@ export async function validateRemoteExistence(
  * 行わず、原因となる1件だけを報告する。
  */
 async function validateConfigUnit(cache: RemoteCache, configUnit: ConfigUnit): Promise<string[]> {
-  const { chartRepo, apps, helmTargetBranch } = configUnit
+  const { chartRepo, apps, helm } = configUnit
   const context: ValidateContext = {
     cache,
     where: buildConfigUnitLocation(configUnit.chartDirName, configUnit.unitPath),
@@ -98,9 +98,7 @@ async function validateConfigUnit(cache: RemoteCache, configUnit: ConfigUnit): P
     ...acc,
     ...(await validateApp(context, app, baseBranchFound)),
   ])
-  const helmProblems = baseBranchFound
-    ? await validateHelmTargetBranch(context, helmTargetBranch)
-    : []
+  const helmProblems = baseBranchFound ? await validateHelmConfig(context, helm) : []
 
   return [...chartProblems, ...baseBranchProblems, ...appProblems, ...helmProblems]
 }
@@ -142,23 +140,14 @@ async function validateApp(
  * Helmの向き先ブランチ（`helm.branchRef` と `helm.locations[]`）を検証する。設定ユニット単位で
  * 1つなので、アプリの数だけ同じ問題を報告しないようアプリのループの外で1回だけ呼ぶ。
  */
-async function validateHelmTargetBranch(
-  context: ValidateContext,
-  helmTargetBranch: HelmTargetBranchConfig,
-): Promise<string[]> {
+async function validateHelmConfig(context: ValidateContext, helm: HelmConfig): Promise<string[]> {
   const { cache, where, chart } = context
 
-  const branchFound = await cache.hasBranch(chart.projectId, helmTargetBranch.branchRef)
+  const branchFound = await cache.hasBranch(chart.projectId, helm.branchRef)
   const branchProblems = branchFound
     ? []
-    : [
-        `${where}: helm.branchRef "${helmTargetBranch.branchRef}" が ${chart.projectName} に見つかりません`,
-      ]
-  const targetProblems = await validateLocations(
-    context,
-    helmTargetBranch.locations,
-    "helm.locations[]",
-  )
+    : [`${where}: helm.branchRef "${helm.branchRef}" が ${chart.projectName} に見つかりません`]
+  const targetProblems = await validateLocations(context, helm.locations, "helm.locations[]")
   return [...branchProblems, ...targetProblems]
 }
 

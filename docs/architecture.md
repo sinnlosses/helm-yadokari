@@ -133,13 +133,13 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 受け渡すだけになる（アプリのループを親stepに持たせない理由は「サブステップ同士は互いを
 importせず〜」の節を参照）。
 
-| ファイル                              | 責務                                                                                                                                                                                                                                    |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resolve-latest-tags.ts`              | 追跡ブランチ由来の最新タグの判定と、設定ユニット配下の全アプリのループ。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成。同じappが複数の設定ユニットに登録されうるため、解決結果をバッチ全体でキャッシュする |
-| `stage-image-tag-updates.ts`          | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagLocations`全箇所＋設定ユニット配下の全アプリのループ                                                                                                                          |
-| `stage-helm-target-branch-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）。設定ユニット単位なので全アプリのイメージタグを積んだ後に1回だけ呼ぶ                                                                                         |
-| `shared/values-yaml-draft.ts`         | 1つの設定ユニットを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）の読み込み（下書き優先・無ければバッチキャッシュ経由でGitLab）・書き換え・`FileUpdate[]`化                                                               |
-| `shared/types.ts`                     | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                                                                                                                                |
+| ファイル                           | 責務                                                                                                                                                                                                                                    |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolve-latest-tags.ts`           | 追跡ブランチ由来の最新タグの判定と、設定ユニット配下の全アプリのループ。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成。同じappが複数の設定ユニットに登録されうるため、解決結果をバッチ全体でキャッシュする |
+| `stage-image-tag-updates.ts`       | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagLocations`全箇所＋設定ユニット配下の全アプリのループ                                                                                                                          |
+| `stage-helm-branch-ref-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）。設定ユニット単位なので全アプリのイメージタグを積んだ後に1回だけ呼ぶ                                                                                         |
+| `shared/values-yaml-draft.ts`      | 1つの設定ユニットを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）の読み込み（下書き優先・無ければバッチキャッシュ経由でGitLab）・書き換え・`FileUpdate[]`化                                                               |
+| `shared/types.ts`                  | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                                                                                                                                |
 
 #### `apply-updates/sub-steps/`
 
@@ -632,12 +632,12 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 
 `anchor: AnchorName` は「アンカーそのもの」を持っているように読めるが、実際に持っているのは
 名前だけで、この差が読み違いを生む。だから修飾語が無いフィールドは`Name`のような型の語を
-落とさず持たせる（`ParsedTag.branchName`・`HelmTargetBranchConfig.branchRef`）。`Ref`も
+落とさず持たせる（`ParsedTag.branchName`・`HelmConfig.branchRef`）。`Ref`も
 `Name`と同じ役割で、ブランチそのものではなく**それを指す値**を持つことを語に出している
 （使い分けは`docs/glossary.md`「Helmの向き先ブランチ」）。逆に
 `current`・`mrTarget`のような「どれか」を言う修飾語が付いたフィールドは型の語を落とす
 （`AppConfig.branchToSync`・`ChartRepoConfig.mrTargetBranch`・
-`HelmTargetBranchUpdate.currentBranch`・`ImageTagUpdate.currentTag`）。**規則は向きが逆で、
+`HelmBranchRefUpdate.currentBranch`・`ImageTagUpdate.currentTag`）。**規則は向きが逆で、
 修飾語の有無が型の語を残すかどうかを決める**。`BranchName`型のフィールドを数え上げると、
 この形から外れるものは無い。
 
@@ -671,19 +671,18 @@ values.yamlの書き込み位置は用途を問わず`AnchorLocation`1つ。Type
 #### 1つの語を2つの意味に使ってよいのは、包含する型名・キー名が用途を与える場合だけ
 
 **多義（同じ語を複数の意味で使うこと）自体は禁止しない。** `target`は`mrTargetBranch`
-（MRのベース）・`helmTargetBranch`（Helmの向き先）・`ConfigUnitUpdateTarget`（更新対象）・
-`TARGET_CHART`/`filterTargets`（処理対象）の4つの意味で使われており、それぞれ単独では
-読み違えない。値の意味を語れないフィールド名（用途を何も語らない`chart`、既に別の意味で
+（MRのベース）・`ConfigUnitUpdateTarget`（更新対象）・`TARGET_CHART`/`filterTargets`
+（処理対象）の3つの意味で使われており、それぞれ単独では読み違えない。値の意味を語れないフィールド名（用途を何も語らない`chart`、既に別の意味で
 使われている`targets`）は避け、既存の語彙とそのまま繋がる名前を選ぶのが原則だが、
 **包含する型名・キー名が用途（何のためのものか）を与えている場合は、短い名前のままでよい**
-（`helmTargetBranch.locations`。含む**キー名**`helmTargetBranch`自体が「Helmの向き先」という
+（`helm.locations`。含む**キー名**`helm`自体が「Helmの向き先」という
 用途を語っているので、`locations`だけで何の場所か読み違えない）。
 
 判定基準は「修飾語が用途（何のためのものか）を言っているか、それとも識別の**手段**を言って
 いるだけか」。後者では但し書きは効かない。
 
-- **`AnchorLocation`が`target`を使わない理由がこれ。** 上の4つは修飾語が用途を言っている
-  （`mr`＝MRのベース、`helm`＝向き先、`ConfigUnitUpdate`＝更新の対象、`TARGET_CHART`＝処理対象）
+- **`AnchorLocation`が`target`を使わない理由がこれ。** 上の3つは修飾語が用途を言っている
+  （`mr`＝MRのベース、`ConfigUnitUpdate`＝更新の対象、`TARGET_CHART`＝処理対象）
   のに対し、アンカーは値の位置を**どう指すか**という手段でしかなく、「何のための位置か」を
   答えていない。但し書きが効かないので、多義でない`Location`を使う
 - **`ConfigUnit.chartRepo`は但し書きが効かなくなった例。** 型名が`chart`を含んでいた間は
@@ -714,7 +713,7 @@ values.yamlの書き込み位置は用途を問わず`AnchorLocation`1つ。Type
 | `VerifyContext`                               | `ValidateContext`                                   |
 | `verifyChartAndApps()`                        | `validateConfigUnit()`                              |
 | `verifyApp()`                                 | `validateApp()`                                     |
-| `verifyHelmTargetBranch()`                    | `validateHelmTargetBranch()`                        |
+| `verifyHelmTargetBranch()`                    | `validateHelmConfig()`                              |
 | `verifyTargets()`                             | `validateLocations()`                               |
 | `verifyTarget()`                              | `validateLocation()`                                |
 | `test/scripts/lint/verify-config/`            | `test/scripts/lint/remote-existence/`               |

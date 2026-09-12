@@ -4,7 +4,7 @@ import type { GitlabClient } from "../../lib/gitlab/gitlab.js"
 import type { ConfigUnitUpdateResult, ConfigUnitUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
-import { describeHelmTargetBranchUpdates, describePlan } from "../shared/describe-plan.js"
+import { describeHelmBranchRefUpdates, describePlan } from "../shared/describe-plan.js"
 import {
   type ConfigUnitLogContext,
   type StepOutcome,
@@ -41,15 +41,15 @@ async function applyUpdate(
   target: ConfigUnitUpdateTarget,
   logContext: ConfigUnitLogContext,
 ): Promise<StepOutcome<ConfigUnitUpdateResult>> {
-  const { configUnit, plans, helmTargetBranchUpdates, files } = target
+  const { configUnit, plans, helmBranchRefUpdates, files } = target
   const { chartRepo, unitPath } = configUnit
   const featureBranch = buildFeatureBranch(unitPath)
 
   const entries = await collectMrEntries(
     gitlabCache,
     plans,
-    helmTargetBranchUpdates,
-    configUnit.helmTargetBranch.branchRef,
+    helmBranchRefUpdates,
+    configUnit.helm.branchRef,
   )
   const content = buildMrContent(unitPath, entries)
   await submitMergeRequest(gitlab, chartRepo, featureBranch, content, files)
@@ -58,9 +58,9 @@ async function applyUpdate(
     ...logContext,
     result: "CREATED",
     apps: plans.map(describePlan),
-    helmTargetBranchUpdates: describeHelmTargetBranchUpdates(
-      helmTargetBranchUpdates,
-      configUnit.helmTargetBranch.branchRef,
+    helmBranchRefUpdates: describeHelmBranchRefUpdates(
+      helmBranchRefUpdates,
+      configUnit.helm.branchRef,
     ),
   })
   return ok<ConfigUnitUpdateResult>("CREATED")

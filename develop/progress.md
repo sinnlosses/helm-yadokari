@@ -18,7 +18,7 @@
   修正なし。**これで T-201〜T-207 が全完了**し、`/grilling` で決めた規約4件と改名31件が
   正典・コード・`config/`・ログ・`README.md` のすべてに反映された
 
-- **T-206**（唯一の設計変更）: `HelmTargetBranchUpdate` から `newBranch` を削り、
+- **T-206**（唯一の設計変更）: `HelmBranchRefUpdate` から `newBranch` を削り、
   `{ location, currentBranch }` に。`ImageTagUpdate` の `{ location, currentTag }` と**完全に対称**
   になった。消費側2つは引数を1つ足すだけで解決し、**原則1を壊す必要は無かった**
   （呼び出し元3箇所がいずれも `configUnit` を持っていた）。**ログには新しい値を出し続ける判断**
@@ -74,7 +74,7 @@
   動かせない」という据え置き理由が今は効かない**と分かったこと。
   結果、**規約4件すべてを書き換え、改名は31件**になった。最大のものは
   `ChartAndApps`→`ConfigUnit`（ブランド型 `ConfigUnitPath` が既に `ConfigUnit` を語幹に
-  持つのに肝心の型が無かった）と、`HelmTargetBranchUpdate.newBranch` の削除（設定ユニットに
+  持つのに肝心の型が無かった）と、`HelmBranchRefUpdate.newBranch` の削除（設定ユニットに
   1つしかない値を書き込み位置ごとに複製していた）。決定は T-201〜T-207 に落としてある
 
 - **T-200**: 命名の論点6件にユーザー判断で結論を出した。**改名は `AnchorTarget`→`AnchorLocation`
@@ -92,7 +92,7 @@
 - **T-199**: `src/types/types.ts`（10型）・`brand.ts`（13型）・`schema.ts` のYAMLキー・`env.ts` の
   環境変数・`docs/requirements.md`「3. 用語」から候補を列挙し、用語集に7項を足した
   （`chartToUpdate・appSpecs`・`AnchorTarget`・`ParsedTag`・`TagInfo`・`ImageTagUpdate`・
-  `HelmTargetBranchUpdate`・`TARGET_CHART・TARGET_UNITS`。283行→339行、24.6KB→29.9KB）。
+  `HelmBranchRefUpdate`・`TARGET_CHART・TARGET_UNITS`。283行→339行、24.6KB→29.9KB）。
   値のラップと技術的な入れ物（`Config`・`FileUpdate`・`PipelineInfo`・`CommitSha` 等）は足さず、
   理由は `evidence` にある。方針「識別子が無い用語は省略」は実態と食い違っていたので
   「主要ドキュメントで使う業務用語は載せる」に改めた。**命名の気づき6件を `evidence` に残し
@@ -174,7 +174,8 @@
   取りこぼしを踏み、次のタスクの注意に書いたら取りこぼしが0件になった
 - **ログの項目名と `config.yaml` のキー名が 2026-09-12 に変わっている。** 過去のログや古い
   `config.yaml` を読むときは `update_chart`→`update_unit`、`previousTagName`→`currentTag`、
-  `chart[]`→`locations[]`、`helm.branchToSync`・`helm.branchName`→`helm.branchRef` で読み替えること
+  `chart[]`→`locations[]`、`helm.branchToSync`・`helm.branchName`→`helm.branchRef`、
+  `helmTargetBranchUpdates`→`helmBranchRefUpdates` で読み替えること
 
 - **コミット手順は「記録を書く → `pnpm format` → `pnpm check` → `git add` → `git commit`」の順に固定する。**
   `develop/tasks.json` は `oxfmt` の対象（`.prettierignore` の除外は `.claude/` と `config/` だけ）で、

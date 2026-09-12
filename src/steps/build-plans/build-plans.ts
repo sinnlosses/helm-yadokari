@@ -8,7 +8,7 @@ import type {
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
-import { describeHelmTargetBranchUpdates, describePlan } from "../shared/describe-plan.js"
+import { describeHelmBranchRefUpdates, describePlan } from "../shared/describe-plan.js"
 import {
   type ConfigUnitLogContext,
   type StepOutcome,
@@ -18,7 +18,7 @@ import {
 } from "../shared/step-outcome.js"
 import { type ResolveLatestTags, createResolveLatestTags } from "./sub-steps/resolve-latest-tags.js"
 import { type ValuesYamlSource, toFileUpdates } from "./sub-steps/shared/values-yaml-draft.js"
-import { stageHelmTargetBranchUpdates } from "./sub-steps/stage-helm-target-branch-updates.js"
+import { stageHelmBranchRefUpdates } from "./sub-steps/stage-helm-branch-ref-updates.js"
 import { stageImageTagUpdates } from "./sub-steps/stage-image-tag-updates.js"
 
 export type BuildPlansResult = {
@@ -74,13 +74,13 @@ async function buildPlan(
     valuesYamlSource,
     appsWithLatestTag,
   )
-  const { draft, updates: helmTargetBranchUpdates } = await stageHelmTargetBranchUpdates(
+  const { draft, updates: helmBranchRefUpdates } = await stageHelmBranchRefUpdates(
     valuesYamlSource,
-    configUnit.helmTargetBranch,
+    configUnit.helm,
     draftAfterApps,
   )
 
-  if (plans.length === 0 && helmTargetBranchUpdates.length === 0) {
+  if (plans.length === 0 && helmBranchRefUpdates.length === 0) {
     logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })
     return settle("SKIPPED")
   }
@@ -90,12 +90,12 @@ async function buildPlan(
       result: "SKIPPED",
       reason: "dry_run",
       apps: plans.map(describePlan),
-      helmTargetBranchUpdates: describeHelmTargetBranchUpdates(
-        helmTargetBranchUpdates,
-        configUnit.helmTargetBranch.branchRef,
+      helmBranchRefUpdates: describeHelmBranchRefUpdates(
+        helmBranchRefUpdates,
+        configUnit.helm.branchRef,
       ),
     })
     return settle("SKIPPED")
   }
-  return ok({ configUnit, plans, helmTargetBranchUpdates, files: toFileUpdates(draft) })
+  return ok({ configUnit, plans, helmBranchRefUpdates, files: toFileUpdates(draft) })
 }

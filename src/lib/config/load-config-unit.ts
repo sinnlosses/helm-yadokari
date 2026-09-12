@@ -6,12 +6,12 @@ import type {
   ChartRepoConfig,
   ConfigUnit,
   ConfigUnitPath,
-  HelmTargetBranchConfig,
+  HelmConfig,
   LocalPath,
 } from "../../types/types.js"
 import { toLocalPath } from "../../types/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
-import type { AppSpec, ConfigApp, HelmConfig } from "./schema.js"
+import type { AppSpec, ConfigApp, ConfigHelm } from "./schema.js"
 import {
   CONFIG_YAML_FILE_NAME,
   ConfigYamlSchema,
@@ -101,7 +101,7 @@ function buildConfigUnit(
     unitPath,
     chartRepo: chart,
     apps: appConfigs,
-    helmTargetBranch: resolveHelmTargetBranch(configYamlPath, helm, appConfigs),
+    helm: resolveHelmConfig(configYamlPath, helm, appConfigs),
   }
 }
 
@@ -149,18 +149,18 @@ function resolveProjectLinkage(
 
 /**
  * config.yamlの`helm`（`branchRef`＝書き込む値、`locations[]`＝書き込み先の`valuesPath`+
- * `anchor`一覧）から、設定ユニット単位の`HelmTargetBranchConfig`を作る。Helmの向き先ブランチは
+ * `anchor`一覧）から、設定ユニット単位の`HelmConfig`を作る。Helmの向き先ブランチは
  * 「1設定ユニット内のapps全体で共通」という前提なので、appごとに振り分けず設定ユニット単位で
  * 1つだけ持つ。そのconfig.yaml配下の全アプリの全`locations[].valuesPath`が`helm.locations[]`で
  * カバーされている必要がある（1つでも漏れていれば、そのvaluesPathだけ更新対象から漏れてしまう
  * 設定ミスとして例外をスローする）。
  * 逆にどのappも書き込まないvaluesPathを指す`helm.locations[]`の要素は`locations`に含めない。
  */
-function resolveHelmTargetBranch(
+function resolveHelmConfig(
   configYamlPath: LocalPath,
-  helm: HelmConfig,
+  helm: ConfigHelm,
   apps: readonly AppConfig[],
-): HelmTargetBranchConfig {
+): HelmConfig {
   for (const app of apps) {
     const appValuesPaths = [
       ...new Set(app.imageTagLocations.map((location) => location.valuesPath)),

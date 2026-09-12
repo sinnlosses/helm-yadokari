@@ -78,7 +78,7 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
 
 export function makeConfigUnit(
   apps: AppConfig[],
-  overrides: Partial<Pick<ConfigUnit, "chartDirName" | "unitPath" | "helmTargetBranch">> = {},
+  overrides: Partial<Pick<ConfigUnit, "chartDirName" | "unitPath" | "helm">> = {},
 ): ConfigUnit {
   return {
     chartDirName: toChartDirName("teamA-chart"),
@@ -91,7 +91,7 @@ export function makeConfigUnit(
     apps,
     // 既定は書き込み先が空＝向き先ブランチの更新が1件も積まれない状態。向き先ブランチそのものを
     // 検証するテストだけが`locations`を持つ値で上書きする
-    helmTargetBranch: { branchRef: toBranchName("release/2026-q1"), locations: [] },
+    helm: { branchRef: toBranchName("release/2026-q1"), locations: [] },
     ...overrides,
   }
 }

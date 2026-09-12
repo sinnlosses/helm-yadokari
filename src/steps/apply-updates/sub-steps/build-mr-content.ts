@@ -1,5 +1,5 @@
 import { buildCompareUrl, buildTagUrl } from "../../../lib/gitlab/web-url.js"
-import type { BranchName, ConfigUnitPath, HelmTargetBranchUpdate } from "../../../types/types.js"
+import type { BranchName, ConfigUnitPath, HelmBranchRefUpdate } from "../../../types/types.js"
 import type { ImageTagEntry, MrContent, MrEntries } from "./shared/types.js"
 
 /**
@@ -29,7 +29,7 @@ function buildMrDescription(entries: MrEntries): string {
   return [
     ...(entries.imageTags.length > 0 ? [buildImageTagSection(entries.imageTags)] : []),
     ...(entries.helmBranches.length > 0
-      ? [buildHelmTargetBranchSection(entries.helmBranches, entries.helmBranchRef)]
+      ? [buildHelmBranchRefSection(entries.helmBranches, entries.helmBranchRef)]
       : []),
   ].join("\n\n")
 }
@@ -67,8 +67,8 @@ function buildImageTagSection(entries: readonly ImageTagEntry[]): string {
  * 書き込み先はイメージタグの表と同じくファイル・アンカーの2列に分ける。
  * 新ブランチの列は全行が同じ`branchRef`になる。
  */
-function buildHelmTargetBranchSection(
-  updates: readonly HelmTargetBranchUpdate[],
+function buildHelmBranchRefSection(
+  updates: readonly HelmBranchRefUpdate[],
   branchRef: BranchName,
 ): string {
   return [

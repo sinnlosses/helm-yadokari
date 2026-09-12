@@ -54,7 +54,7 @@ function makeTarget(): ConfigUnitUpdateTarget {
         ],
       },
     ],
-    helmTargetBranchUpdates: [],
+    helmBranchRefUpdates: [],
     files: [{ valuesPath: toValuesPath("values.yaml"), content: "image:\n  tag: x\n" }],
   }
 }
@@ -82,8 +82,8 @@ describe("applyUpdates", () => {
     expect(collectMrEntries).toHaveBeenCalledWith(
       expect.anything(),
       target.plans,
-      target.helmTargetBranchUpdates,
-      target.configUnit.helmTargetBranch.branchRef,
+      target.helmBranchRefUpdates,
+      target.configUnit.helm.branchRef,
     )
     expect(buildMrContent).toHaveBeenCalledWith(target.configUnit.unitPath, MR_ENTRIES)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[3]).toBe(MR_CONTENT)

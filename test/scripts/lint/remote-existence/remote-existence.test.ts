@@ -127,7 +127,7 @@ describe("validateRemoteExistence", () => {
   })
 
   it("Helmの向き先ブランチが存在しないとき問題として返す", async () => {
-    const helmTargetBranch = {
+    const helm = {
       branchRef: toBranchName("release/ghost"),
       locations: [
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
@@ -139,7 +139,7 @@ describe("validateRemoteExistence", () => {
 
     const problems = await validateRemoteExistence(
       mockGitlab,
-      [makeConfigUnit([makeApp()], { helmTargetBranch })],
+      [makeConfigUnit([makeApp()], { helm })],
       3,
     )
 
@@ -147,7 +147,7 @@ describe("validateRemoteExistence", () => {
   })
 
   it("Helmの向き先ブランチの問題は、アプリの数だけ重複して報告しない", async () => {
-    const helmTargetBranch = {
+    const helm = {
       branchRef: toBranchName("release/ghost"),
       locations: [
         { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
@@ -161,11 +161,7 @@ describe("validateRemoteExistence", () => {
       makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-2") }),
     ]
 
-    const problems = await validateRemoteExistence(
-      mockGitlab,
-      [makeConfigUnit(apps, { helmTargetBranch })],
-      3,
-    )
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit(apps, { helm })], 3)
 
     expect(problems.filter((problem) => problem.includes("release/ghost"))).toHaveLength(1)
   })

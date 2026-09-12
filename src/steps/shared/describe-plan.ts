@@ -1,7 +1,7 @@
 import type {
   AppUpdatePlan,
   BranchName,
-  HelmTargetBranchUpdate,
+  HelmBranchRefUpdate,
   ProjectName,
   TagName,
   ValuesPath,
@@ -17,8 +17,8 @@ export type PlanLogSummary = {
   }[]
 }
 
-/** `describeHelmTargetBranchUpdates()`が組み立てる、向き先ブランチの更新1件分のログ表現 */
-export type HelmTargetBranchLogSummary = {
+/** `describeHelmBranchRefUpdates()`が組み立てる、向き先ブランチの更新1件分のログ表現 */
+export type HelmBranchRefLogSummary = {
   readonly valuesPath: ValuesPath
   readonly currentBranch: BranchName
   readonly newBranch: BranchName
@@ -38,13 +38,13 @@ export function describePlan(plan: AppUpdatePlan): PlanLogSummary {
 
 /**
  * Helmの向き先ブランチの更新をログ用のサマリに変換する。設定ユニット単位なのでアプリ名は持たない。
- * `branchRef`（`ConfigUnit.helmTargetBranch.branchRef`）は全箇所で共通の書き込み後の値で、
+ * `branchRef`（`ConfigUnit.helm.branchRef`）は全箇所で共通の書き込み後の値で、
  * 1行だけで前→後が読めるようサマリの各件にも入れる。
  */
-export function describeHelmTargetBranchUpdates(
-  updates: readonly HelmTargetBranchUpdate[],
+export function describeHelmBranchRefUpdates(
+  updates: readonly HelmBranchRefUpdate[],
   branchRef: BranchName,
-): readonly HelmTargetBranchLogSummary[] {
+): readonly HelmBranchRefLogSummary[] {
   return updates.map((update) => ({
     valuesPath: update.location.valuesPath,
     currentBranch: update.currentBranch,

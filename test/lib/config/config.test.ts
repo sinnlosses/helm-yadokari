@@ -60,7 +60,7 @@ describe("loadConfig（正常系）", () => {
           ],
         },
       ],
-      helmTargetBranch: {
+      helm: {
         branchRef: "release/2026-q1",
         locations: [
           {
@@ -511,8 +511,8 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
   })
 })
 
-describe("loadConfig（helmTargetBranch）", () => {
-  it("config.yamlのhelm.locations[].valuesPathがappのlocations[].valuesPathと一致すると、appのhelmTargetBranchにマージされる", () => {
+describe("loadConfig（helm）", () => {
+  it("config.yamlのhelm.locations[].valuesPathがappのlocations[].valuesPathと一致すると、appのhelmにマージされる", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -537,7 +537,7 @@ describe("loadConfig（helmTargetBranch）", () => {
     )
 
     const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.helmTargetBranch).toEqual({
+    expect(configUnits[0]?.helm).toEqual({
       branchRef: "release/2026-q1",
       locations: [{ valuesPath: "a.yaml", anchorName: "targetBranch" }],
     })
@@ -715,13 +715,13 @@ describe("loadConfig（helmTargetBranch）", () => {
     )
 
     const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.helmTargetBranch?.locations).toEqual([
+    expect(configUnits[0]?.helm?.locations).toEqual([
       { valuesPath: "a.yaml", anchorName: "targetBranchA" },
       { valuesPath: "b.yaml", anchorName: "targetBranchB" },
     ])
   })
 
-  it("1アプリのlocations内で複数のvaluesPathがそれぞれhelm.locations[]と一致すると、helmTargetBranch.locationsに複数含める", () => {
+  it("1アプリのlocations内で複数のvaluesPathがそれぞれhelm.locations[]と一致すると、helm.locationsに複数含める", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -755,7 +755,7 @@ describe("loadConfig（helmTargetBranch）", () => {
     )
 
     const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.helmTargetBranch).toEqual({
+    expect(configUnits[0]?.helm).toEqual({
       branchRef: "release/2026-q1",
       locations: [
         { valuesPath: "webapi.yaml", anchorName: "webapiTargetBranch" },

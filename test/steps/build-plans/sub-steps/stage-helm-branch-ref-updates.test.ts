@@ -32,9 +32,9 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     vi.clearAllMocks()
   })
 
-  it("helmTargetBranchが現在値と異なるとき、helmTargetBranchUpdateに含めて書き換える", async () => {
+  it("helmが現在値と異なるとき、helmBranchRefUpdateに含めて書き換える", async () => {
     const app = makeApp()
-    const helmTargetBranch = {
+    const helm = {
       branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
@@ -49,11 +49,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     const { toApply } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeConfigUnit([app], { helmTargetBranch })],
+      [makeConfigUnit([app], { helm })],
       3,
       false,
     )
-    expect(toApply[0]?.helmTargetBranchUpdates).toEqual([
+    expect(toApply[0]?.helmBranchRefUpdates).toEqual([
       {
         location: { valuesPath: "values.yaml", anchorName: "targetBranch" },
         currentBranch: "release/2025-q4",
@@ -62,9 +62,9 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     expect(toApply[0]?.files[0]?.content).toContain("&targetBranch release/2026-q1")
   })
 
-  it("helmTargetBranchが現在値と同じで、chart側も差分が無いとき、そのアプリはSKIPPEDになる", async () => {
+  it("helmが現在値と同じで、chart側も差分が無いとき、そのアプリはSKIPPEDになる", async () => {
     const app = makeApp()
-    const helmTargetBranch = {
+    const helm = {
       branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
@@ -79,7 +79,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeConfigUnit([app], { helmTargetBranch })],
+      [makeConfigUnit([app], { helm })],
       3,
       false,
     )
@@ -87,9 +87,9 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     expect(settled).toEqual(["SKIPPED"])
   })
 
-  it("chart側の差分は無くhelmTargetBranchのみ差分があるとき、アプリの計画は作らずMR対象にする", async () => {
+  it("chart側の差分は無くhelmのみ差分があるとき、アプリの計画は作らずMR対象にする", async () => {
     const app = makeApp()
-    const helmTargetBranch = {
+    const helm = {
       branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
@@ -104,18 +104,18 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     const { toApply } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeConfigUnit([app], { helmTargetBranch })],
+      [makeConfigUnit([app], { helm })],
       3,
       false,
     )
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.plans).toEqual([])
-    expect(toApply[0]?.helmTargetBranchUpdates).toHaveLength(1)
+    expect(toApply[0]?.helmBranchRefUpdates).toHaveLength(1)
   })
 
   it("指定した向き先ブランチがchartリポジトリに存在しないとき、その設定ユニット全体をERRORにする", async () => {
     const app = makeApp()
-    const helmTargetBranch = {
+    const helm = {
       branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
@@ -131,7 +131,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     const { toApply, settled } = await buildPlans(
       mockGitlab,
       newBatchCache(),
-      [makeConfigUnit([app], { helmTargetBranch })],
+      [makeConfigUnit([app], { helm })],
       3,
       false,
     )
@@ -141,7 +141,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
 
   it("向き先ブランチの存在確認は、chartリポジトリのprojectIdに対して行う", async () => {
     const app = makeApp()
-    const helmTargetBranch = {
+    const helm = {
       branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
@@ -153,7 +153,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     vi.mocked(getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
-    const group = makeConfigUnit([app], { helmTargetBranch })
+    const group = makeConfigUnit([app], { helm })
     await buildPlans(mockGitlab, newBatchCache(), [group], 3, false)
     expect(branchExists).toHaveBeenCalledWith(
       mockGitlab,
@@ -163,7 +163,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
   })
 
   it("向き先ブランチが見つからないときのエラーメッセージにブランチ名、valuesPath、anchorが含まれる", async () => {
-    const helmTargetBranch = {
+    const helm = {
       branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
@@ -176,13 +176,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     vi.mocked(branchExists).mockResolvedValue(false)
-    await buildPlans(
-      mockGitlab,
-      newBatchCache(),
-      [makeConfigUnit([makeApp()], { helmTargetBranch })],
-      3,
-      false,
-    )
+    await buildPlans(mockGitlab, newBatchCache(), [makeConfigUnit([makeApp()], { helm })], 3, false)
     expect(vi.mocked(logger.error)).toHaveBeenCalled()
     const errorCall = vi.mocked(logger.error).mock.calls[0]?.[0]
     expect(errorCall?.reason).toContain("release/2026-q1")
@@ -191,7 +185,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
   })
 
   it("同じchartRepo.projectId・同じブランチ名の向き先ブランチ確認は、複数の設定ユニットにまたがってもGitLab APIへの問い合わせを1回にまとめる", async () => {
-    const helmTargetBranch = {
+    const helm = {
       branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
@@ -206,11 +200,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     // 同じchartディレクトリ配下の別tenant/client（chart.projectIdは既定値で共通）
     const groupA = makeConfigUnit([makeApp()], {
       unitPath: toConfigUnitPath("tenant1/clientA"),
-      helmTargetBranch,
+      helm,
     })
     const groupB = makeConfigUnit([makeApp()], {
       unitPath: toConfigUnitPath("tenant1/clientB"),
-      helmTargetBranch,
+      helm,
     })
     await buildPlans(mockGitlab, newBatchCache(), [groupA, groupB], 3, false)
     expect(branchExists).toHaveBeenCalledTimes(1)

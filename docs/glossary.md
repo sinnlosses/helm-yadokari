@@ -115,7 +115,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### Helmの向き先ブランチ
 
 - **英語識別子**: `helm.branchRef`（config.yamlのフィールド名）/
-  `ConfigUnit.helmTargetBranch: HelmTargetBranchConfig`（設定ユニット単位で持つコード上の型）
+  `ConfigUnit.helm: HelmConfig`（設定ユニット単位で持つコード上の型）
 - **定義**: Helm chartは(1)`values.yaml`等のパラメータを定義するブランチ（既存の`mrTargetBranch`に相当）と、
   (2)そのパラメータを受け取ってk8sリソースを実際に構築するブランチの2種類で構成される、という前提のもと、
   後者を指すブランチ名。タグではなくブランチ名そのもので指定する。1つの設定ユニット内のapps全体で
@@ -134,10 +134,10 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 - **表記ゆれ**: YAMLキーは2026-09-12に`helm.branchName`から`helm.branchRef`へ改名した
   （その前は`helm.branchToSync`）。古い`config.yaml`・過去のログを読むときは読み替える。
 - **`AppConfig.branchToSync`（追跡ブランチ）との関係**: YAMLキー名は`helm.branchRef`と
-  `apps[].branchToSync`で別々になっており、コード側も`HelmTargetBranchConfig.branchRef`と
+  `apps[].branchToSync`で別々になっており、コード側も`HelmConfig.branchRef`と
   `AppConfig.branchToSync`で名前が分かれている。指しているものも別（前者はk8sリソースを
   構築するブランチ、後者はタグを探す追跡ブランチ）で、混同しない。
-- **HelmTargetBranchConfig**: `branchRef`（向き先ブランチ名。`helm.branchRef`由来）と
+- **HelmConfig**: `branchRef`（向き先ブランチ名。`helm.branchRef`由来）と
   `locations`（書き込み先の`valuesPath`＋`anchorName`の一覧。`helm.locations[]`のうち、設定ユニット内の
   いずれかのappが実際に書き込む`valuesPath`を指す要素だけになる。空もありうる）の2フィールドを
   持つ、設定ユニット単位の集約型。
@@ -298,14 +298,14 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   作らない」の但し書き（包含する型名・キー名が用途を与えている場合は、フィールド名で用途を
   繰り返さなくてよい）による。`ImageTagUpdate.location`は型名が「イメージタグの更新」という
   用途を与えているため、`AnchorLocation`という型の語をそのまま繰り返さない。
-  `HelmTargetBranchUpdate.location`も同じ。
+  `HelmBranchRefUpdate.location`も同じ。
 
 ### 向き先ブランチの更新
 
-- **英語識別子**: `HelmTargetBranchUpdate`（`location: AnchorLocation`・`currentBranch: BranchName`の2フィールド）
+- **英語識別子**: `HelmBranchRefUpdate`（`location: AnchorLocation`・`currentBranch: BranchName`の2フィールド）
 - **定義**: Helmの向き先ブランチのうち1箇所分の更新内容。`currentBranch`は`values.yaml`側の現在値。
-  新しい値は`ConfigUnit.helmTargetBranch.branchRef`（`config.yaml`の設定値）からその都度取るため、
-  `HelmTargetBranchUpdate`自体は新しい値のフィールドを持たない。`ConfigUnitUpdateTarget.helmTargetBranchUpdates`
+  新しい値は`ConfigUnit.helm.branchRef`（`config.yaml`の設定値）からその都度取るため、
+  `HelmBranchRefUpdate`自体は新しい値のフィールドを持たない。`ConfigUnitUpdateTarget.helmBranchRefUpdates`
   の要素になる。
 - **`location`という短いフィールド名にする理由**: 「イメージタグの更新」の項を参照
   （`ImageTagUpdate.location`と同じ理由）。
@@ -361,15 +361,18 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### 「target」の意味は文脈で決まる
 
-`target`という語は次の4つの意味で使われている。**いずれも改名せず据え置くと決めている**
+`target`という語は次の3つの意味で使われている。**いずれも改名せず据え置くと決めている**
 （ユーザー判断）。1語を1意味に絞るより、包含する型名・キー名が用途を与えているほうを優先する。
 
 | 使われ方                                            | 意味                   | 据え置く理由                                                                |
 | --------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------- |
 | `mrTargetBranch`                                    | MRのベースブランチ     | GitLabがMRのベースブランチを指して使う語そのもの。独自の言い換えはしない    |
-| `helmTargetBranch`                                  | Helmの向き先ブランチ   | 「向き先」を表す語で、包含する`helm`が主語を与えている                      |
 | `ConfigUnitUpdateTarget`                            | 更新対象の設定ユニット | 「対象」の意味。`TARGET_CHART`・`filterTargets()`と同じ使い方で一貫している |
 | `TARGET_CHART` / `TARGET_UNITS` / `filterTargets()` | 処理対象の絞り込み     | 同上                                                                        |
+
+Helmの向き先ブランチは2026-09-12まで`helmTargetBranch`／`HelmTargetBranchConfig`でこの一覧に
+入っていたが、`ConfigUnit.helm`／`HelmConfig`へ改名して`target`を使わなくなった。向き先を表す語は
+`ref`に寄せてある（理由は「Helmの向き先ブランチ」の項）。
 
 **書き込み位置1箇所分を表す型だけは`target`を使わず`AnchorLocation`と呼ぶ。** アンカーは
 値の位置を**どう指すか**という識別の手段でしかなく、「何のための位置か」という用途を
