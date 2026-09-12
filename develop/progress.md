@@ -1,13 +1,14 @@
 # 現在の状態
 
-最終更新: 2026-09-12（**T-198〜T-211 をすべて完了**。T-208〜T-210 で設定まわりの命名を揃え、
-T-211 で `docs/architecture.md`「型の置き場所」の監査済みの主張を裏付け直した。`/grilling` で命名を33問・10ラウンド
-かけて洗い直し、`docs/architecture.md` の命名規約4件を書き換えたうえで、正典・コード・
-`config/`・ログ・`README.md` まで改名31件を反映し終えた。**`done` 15件をアーカイブ済み**。
-2026-09-11以前の記録は
+最終更新: 2026-09-12（**T-198〜T-218 をすべて完了**。前半は命名の洗い直し（`/grilling` 33問・
+10ラウンド → 規約4件の書き換えと改名31件）と設定まわりの命名（T-208〜T-211）。後半は
+**`README.md` の精査と反映**で、読者目線で洗い出した17件（冗長6・不足7・実装とのズレ4）を
+T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く状態**にした。MIT ライセンスも
+追加。`scripts/` の引数パースは `node:util` の `parseArgs` に置き換えた（T-213）。
+**`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは0件**（登録済みのタスクはすべて `done`）。完了タスクは
+**未着手のタスクは0件**（`develop/tasks.json` は `[]`）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
