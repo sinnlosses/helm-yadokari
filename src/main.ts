@@ -41,7 +41,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
  * 3. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
  */
 async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult, number>> {
-  const adapter = withCachedReads(createPlatform(env))
+  const adapter = withCachedReads(createPlatformAdapter(env))
   const { configUnits } = loadConfig(env.configRootPath, {
     chartDirName: env.targetChart,
     units: env.targetUnits,
@@ -64,7 +64,7 @@ async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult
 }
 
 /** `env.platform`（1回の実行でGitLab/GitHubを混在させない選択）に応じてPlatformAdapterを組み立てる */
-function createPlatform(env: EnvConfig): PlatformAdapter {
+function createPlatformAdapter(env: EnvConfig): PlatformAdapter {
   return env.platform === "github"
     ? createGithubAdapter(createGithubClient(env.platformUrl, env.accessToken))
     : createGitlabAdapter(createGitlabClient(env.platformUrl, env.accessToken))
