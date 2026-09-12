@@ -19,9 +19,6 @@ import { buildCompareUrl, buildTagUrl } from "./web-url.js"
  * GitHubクライアントを`Platform`の形に組み立てる。`github.ts`の各関数は第1引数に
  * クライアントを取るが、ここで束ねることでクライアントは閉じ込められ、`Platform`の
  * 呼び出し側（`steps/`）には見えなくなる（`lib/gitlab/platform.ts`と同じ形）。
- *
- * `commitFileUpdates`だけは`github.ts`側が未実装で、呼ぶと例外になる。ここに並べてあるのは
- * 戻り値が`Platform`を満たすことを型で保つためで、実装が入れ替わってもこのファイルは変わらない。
  */
 export function createGithubPlatform(github: GithubClient): Platform {
   return {

@@ -72,9 +72,9 @@
     "dependencies": ["T-223"],
     "summary": "lib/github/ の commitFileUpdates を Git Data API の4呼び出しで実装する",
     "task": "## 背景\n\nこのタスクがGitHub対応で**最大の実装差**（`docs/research/github-support.md`）。\n\nGitLabは `POST /projects/:id/repository/commits` の1呼び出しで、`actions[]` による複数ファイルの\n更新と `start_branch` によるブランチ作成をまとめて行える。GitHubに等価のエンドポイントは無く、\nGit Data API で4呼び出しに分解する:\n\n`git.getRef`（baseBranch のSHA）→ `git.createTree`（`base_tree` ＋ 複数ファイルをインラインの\n`content` で）→ `git.createCommit` → `git.createRef`（featureBranch）\n\n代替の `PUT /repos/{owner}/{repo}/contents/{path}` は**1ファイル＝1コミット**になるため使えない。\n`docs/architecture.md`「MRの単位は `(chartリポジトリ, 設定ユニット)`」が前提にしている\n「1MRは1コミット」が崩れる。\n\n呼び出し元は `steps/apply-updates/sub-steps/submit-merge-request.ts` で、\n「固定ブランチが残っていれば削除して作り直す」手順はそちらが持っている（`lib/` には置かない）。\n\n## 解くべき論点\n\n- **tree にインラインの `content` を載せるか、先に `git.createBlob` してSHAで参照するか。**\n  values.yaml のサイズなら前者で足りるはずだが、根拠を確かめる\n- `tree[].mode` は `100644` 固定でよいか（既存ファイルの更新しか来ない。この前提は\n  `lib/gitlab/commitFileUpdates()` のJSDocにある不変条件と同じ）\n- 4呼び出しのうち途中で失敗したときの扱い。GitLabは1呼び出しなので原子的だが、**GitHubでは\n  中途半端なオブジェクトが残りうる**。ref を作る最後の1歩まで到達しなければブランチは\n  生えないので実害が無いか確かめ、結論を実装のコメントに残す\n- リトライとの相互作用。`withRetry()` が4呼び出しのどの単位に掛かるか\n\n## やること\n\n1. `lib/github/` に `commitFileUpdates` を実装する。シグネチャは `lib/gitlab/` と揃える\n2. **複数ファイルが1コミットにまとまることを検証するテスト**を書く\n   （`git.createTree` に全ファイルが1回で渡ること、`git.createCommit` が1回だけ呼ばれること）\n3. 上の論点のうち「途中で失敗したときの扱い」の結論を、実装のコメントか\n   `docs/architecture.md` に残す（どちらにするかは内容の性質で決める）\n\n## 完了条件\n\n- `pnpm check` が通る（基準: T-223 完了時点の件数 + 追加分）\n- 2ファイル以上を渡したとき `createTree` 1回・`createCommit` 1回・`createRef` 1回になることを\n  検証するテストがある\n- `lib/github/` の13関数がすべて揃っている\n\n## 注意\n\n- 「固定ブランチを削除して作り直す」手順を `lib/github/` に持ち込まない\n  （`submit-merge-request.ts` の責務。`docs/architecture.md`「ブランチの作り直しは\n  サブステップに置き、`lib/gitlab/` は薄いラッパーに保つ」）",
-    "status": "todo",
-    "passes": false,
-    "evidence": ""
+    "status": "done",
+    "passes": true,
+    "evidence": "lib/github/github.ts の commitFileUpdates を Git Data API の4呼び出しで実装（repos.getBranch → git.createTree(base_tree+インラインcontent) → createCommit → createRef）。複数ファイルが1tree・1コミットになること、途中失敗時に ref を作らないことをテストで固定。src/ に未実装の関数は0件。pnpm check 通過: 38 Test Files / 429 Tests"
   },
   {
     "id": "T-225",

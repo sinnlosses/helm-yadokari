@@ -34,7 +34,7 @@ function makeClient(
   overrides: Partial<{
     paginate: MockFn
     repos: Partial<Record<"listTags" | "getBranch" | "getContent" | "get" | "getCommit", MockFn>>
-    git: Partial<Record<"deleteRef" | "createRef", MockFn>>
+    git: Partial<Record<"deleteRef" | "createRef" | "createTree" | "createCommit", MockFn>>
     pulls: Partial<Record<"list" | "create", MockFn>>
     actions: Partial<Record<"listWorkflowRunsForRepo", MockFn>>
   }> = {},
@@ -50,7 +50,13 @@ function makeClient(
         getCommit: vi.fn(),
         ...overrides.repos,
       },
-      git: { deleteRef: vi.fn(), createRef: vi.fn(), ...overrides.git },
+      git: {
+        deleteRef: vi.fn(),
+        createRef: vi.fn(),
+        createTree: vi.fn(),
+        createCommit: vi.fn(),
+        ...overrides.git,
+      },
       pulls: { list: vi.fn(), create: vi.fn(), ...overrides.pulls },
       actions: { listWorkflowRunsForRepo: vi.fn(), ...overrides.actions },
     },
@@ -234,17 +240,98 @@ describe("openMergeRequestExists", () => {
 })
 
 describe("commitFileUpdates", () => {
-  it("未実装であることが分かるエラーを投げる", () => {
-    expect(() =>
+  const FILES = [
+    { valuesPath: VALUES_PATH, content: "image:\n  tag: v2\n" },
+    { valuesPath: toValuesPath("charts/api/values.yaml"), content: "image:\n  tag: v3\n" },
+  ]
+
+  const makeGitMocks = (
+    overrides: Partial<Record<"createTree" | "createCommit" | "createRef", MockFn>> = {},
+  ) => ({
+    createTree: vi.fn().mockResolvedValue({ data: { sha: "tree-sha" } }),
+    createCommit: vi.fn().mockResolvedValue({ data: { sha: "commit-sha" } }),
+    createRef: vi.fn().mockResolvedValue({}),
+    ...overrides,
+  })
+
+  const makeCommitClient = (git: ReturnType<typeof makeGitMocks>): GithubClient =>
+    makeClient({
+      repos: {
+        getBranch: vi.fn().mockResolvedValue({
+          data: { commit: { sha: "base-commit-sha", commit: { tree: { sha: "base-tree-sha" } } } },
+        }),
+      },
+      git,
+    })
+
+  it("複数ファイルを1つのtree・1つのコミットにまとめる", async () => {
+    const git = makeGitMocks()
+    await commitFileUpdates(
+      makeCommitClient(git),
+      PROJECT_ID,
+      toBranchName("yad/update"),
+      toBranchName("develop"),
+      "chore: update",
+      FILES,
+    )
+    expect(git.createTree).toHaveBeenCalledTimes(1)
+    expect(git.createTree).toHaveBeenCalledWith({
+      owner: "acme",
+      repo: "chart",
+      base_tree: "base-tree-sha",
+      tree: [
+        { path: "values.yaml", mode: "100644", type: "blob", content: "image:\n  tag: v2\n" },
+        {
+          path: "charts/api/values.yaml",
+          mode: "100644",
+          type: "blob",
+          content: "image:\n  tag: v3\n",
+        },
+      ],
+    })
+    expect(git.createCommit).toHaveBeenCalledTimes(1)
+    expect(git.createRef).toHaveBeenCalledTimes(1)
+  })
+
+  it("baseBranch のHEADを親にしたコミットを featureBranch として作る", async () => {
+    const git = makeGitMocks()
+    await commitFileUpdates(
+      makeCommitClient(git),
+      PROJECT_ID,
+      toBranchName("yad/update"),
+      toBranchName("develop"),
+      "chore: update",
+      FILES,
+    )
+    expect(git.createCommit).toHaveBeenCalledWith({
+      owner: "acme",
+      repo: "chart",
+      message: "chore: update",
+      tree: "tree-sha",
+      parents: ["base-commit-sha"],
+    })
+    expect(git.createRef).toHaveBeenCalledWith({
+      owner: "acme",
+      repo: "chart",
+      ref: "refs/heads/yad/update",
+      sha: "commit-sha",
+    })
+  })
+
+  it("途中で失敗したときは ref を作らない（ブランチが中途半端に生えない）", async () => {
+    const err = makeHttpError(422)
+    const git = makeGitMocks({ createCommit: vi.fn().mockRejectedValue(err) })
+    await expect(
       commitFileUpdates(
-        makeClient(),
+        makeCommitClient(git),
         PROJECT_ID,
         toBranchName("yad/update"),
         toBranchName("develop"),
         "chore: update",
-        [{ valuesPath: VALUES_PATH, content: "image:\n  tag: v2\n" }],
+        FILES,
       ),
-    ).toThrow("未実装")
+    ).rejects.toBe(err)
+    expect(git.createRef).not.toHaveBeenCalled()
   })
 })
 

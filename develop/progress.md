@@ -8,13 +8,22 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは T-224〜T-227 の4件**（T-220〜T-223・T-228 は完了。下の「次にやること」）。完了タスクは
+**未着手のタスクは T-225〜T-227 の3件**（T-220〜T-224・T-228 は完了。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
+
+- **T-224**: `lib/github/` の `commitFileUpdates` を Git Data API の4呼び出しで実装した。
+  **起点の取得に `git.getRef` ではなく `repos.getBranch` を使う**のが効いていて、`createTree` の
+  `base_tree` が要求するのはコミットではなく**treeのSHA**なので、`getRef` だと `git.getCommit` を
+  足して5呼び出しになるところを4に保てる。内容は tree の entry に**インラインの `content`**
+  で載せる（GitHubがblobを書き出すのでファイル数が増えても呼び出しは4回のまま）。
+  **途中で失敗しても `featureBranch` は生えない**（refを作る最後の1歩まで到達しないと
+  ブランチにならず、残るのはどのrefからも参照されないオブジェクトだけ）ことを確かめ、
+  呼び出す人向けの前提としてJSDocに残した。`pnpm check` 通過: 38 Test Files / 429 Tests
 
 - **T-223**: `lib/github/`（`github.ts` 286行・`platform.ts`・`web-url.ts`・`errors.ts`）を追加し、
   `createGithubPlatform()` が `Platform` 型を満たすようにした。依存は **`@octokit/rest`**
@@ -309,8 +318,8 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**T-220〜T-223・T-228 が完了し、残りは T-224〜T-227 の4件。全件 `loopable: "Y"` なので
-`/loop /next-task` で流せる。** 次は T-224（`commitFileUpdates` を Git Data API で実装）。以降は
+**T-220〜T-224・T-228 が完了し、`lib/github/` の13エントリが全部埋まった。残りは
+T-225〜T-227 の3件で全件 `loopable: "Y"`。** 次は T-225（エラー分類）。以降は
 T-228（`Platform` 型の導入と `steps/` の付け替え）→ T-223〜T-225（`lib/github/` の実装）
 → T-226（配線）→ T-227（ドキュメント追随）の順。
 

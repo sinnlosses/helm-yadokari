@@ -126,23 +126,79 @@ export async function openMergeRequestExists(
   return pulls.data.length > 0
 }
 
+/** 通常ファイル（実行ビット無し）のblob。`commitFileUpdates()`が作るtreeのentryはこれだけ */
+type TreeEntry = {
+  readonly path: ValuesPath
+  readonly mode: "100644"
+  readonly type: "blob"
+  readonly content: string
+}
+
 /**
  * `baseBranch` を起点に `featureBranch` を作り、渡したファイルを1コミットで積む。
+ * `featureBranch` が既に存在する場合の扱い（削除して作り直すか）は呼び出し元の判断で、
+ * ここでは行わない。
  *
- * **未実装。** GitHubにはGitLabの`POST /projects/:id/repository/commits`に相当する
- * 「複数ファイルの更新とブランチ作成を1呼び出しで行う」エンドポイントが無く、Git Data APIの
- * 4呼び出し（`getRef`→`createTree`→`createCommit`→`createRef`）に分解する必要がある。
- * シグネチャだけを`lib/gitlab/`と揃えて先に置いてある。
+ * GitHubにはGitLabの`POST /projects/:id/repository/commits`にあたる「複数ファイルの更新と
+ * ブランチ作成を1呼び出しで行う」エンドポイントが無いため、Git Data APIの4呼び出しに分解する。
+ * 内容はtreeのentryにインラインの`content`で載せる（GitHubがblobを書き出すので
+ * ファイルごとの`createBlob`は要らず、ファイルが何個でもAPI呼び出しは4回のまま）。
+ * `PUT /repos/{owner}/{repo}/contents/{path}`は1ファイル＝1コミットになるため使えない。
+ *
+ * 起点の取得に`git.getRef`ではなく`repos.getBranch`を使うのは、`createTree`の`base_tree`が
+ * **コミットではなくtreeのSHA**を要求するため。`getRef`だとコミットSHAしか得られず
+ * `git.getCommit`を足して5呼び出しになるが、`getBranch`なら親コミットとそのtreeが1回で揃う。
+ *
+ * ファイルごとの扱いが常に「既存ファイルの更新」である前提は`lib/gitlab/`の同名関数と同じ
+ * （呼び出し元が渡すのは`baseBranch`時点の内容を読み込めたファイルだけ）。modeを`100644`に
+ * 固定できるのもこの前提があるからで、実行ビットやシンボリックリンクは渡ってこない。
+ *
+ * **途中で失敗しても`featureBranch`は生えない。** ブランチができるのは最後の`createRef`が
+ * 成功したときだけで、それより手前で落ちたときに残るのはどのrefからも参照されないtree・
+ * commitオブジェクトだけ（GitHubのGCが回収する）。次回実行の差分にも現れないため、
+ * 呼び出し元はGitLab側の1呼び出しと同じく「成功＝ブランチができた／失敗＝できていない」で
+ * 扱ってよい。
  */
-export function commitFileUpdates(
-  _github: GithubClient,
-  _projectId: ProjectId,
-  _featureBranch: BranchName,
-  _baseBranch: BranchName,
-  _message: string,
-  _files: readonly FileUpdate[],
+export async function commitFileUpdates(
+  github: GithubClient,
+  projectId: ProjectId,
+  featureBranch: BranchName,
+  baseBranch: BranchName,
+  message: string,
+  files: readonly FileUpdate[],
 ): Promise<void> {
-  throw new Error("lib/github/ の commitFileUpdates は未実装です")
+  const { owner, repo } = splitProjectId(projectId)
+  const tree: TreeEntry[] = files.map((file) => ({
+    path: file.valuesPath,
+    mode: "100644",
+    type: "blob",
+    content: file.content,
+  }))
+  // 4呼び出しをまとめて1つのリトライ単位にする（複数呼び出しを1単位にするのは
+  // `getLatestPipelineForRef`と同じ形）。同じ内容から作り直したtreeは内容で決まる同じSHAに
+  // なるので重複せず、やり直しても状態は増えない。
+  await withGithubRetry(async () => {
+    const base = await github.rest.repos.getBranch({ owner, repo, branch: baseBranch })
+    const newTree = await github.rest.git.createTree({
+      owner,
+      repo,
+      base_tree: base.data.commit.commit.tree.sha,
+      tree,
+    })
+    const commit = await github.rest.git.createCommit({
+      owner,
+      repo,
+      message,
+      tree: newTree.data.sha,
+      parents: [base.data.commit.sha],
+    })
+    await github.rest.git.createRef({
+      owner,
+      repo,
+      ref: `refs/heads/${featureBranch}`,
+      sha: commit.data.sha,
+    })
+  })
 }
 
 export async function createMergeRequest(
