@@ -34,11 +34,11 @@ describe("validateRemoteExistence", () => {
   })
 
   it("1件の検証が例外で落ちても他の設定ユニットの検証を続け、問題として返す", async () => {
-    const failing = makeConfigUnit([makeApp({ projectId: toProjectId(2) })], {
+    const failing = makeConfigUnit([makeApp({ projectId: toProjectId("2") })], {
       unitPath: toConfigUnitPath("tenant1/client2"),
     })
     vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => {
-      if (projectId === 2) throw new Error("想定外のエラー")
+      if (projectId === "2") throw new Error("想定外のエラー")
       return true
     })
 
@@ -54,7 +54,7 @@ describe("validateRemoteExistence", () => {
   })
 
   it("chartリポジトリのprojectIdが存在しないとき問題として返す", async () => {
-    vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== 100)
+    vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== "100")
 
     const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
@@ -63,7 +63,7 @@ describe("validateRemoteExistence", () => {
   })
 
   it("アプリのprojectIdが存在しないとき問題として返す", async () => {
-    vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== 1)
+    vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== "1")
 
     const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
@@ -157,8 +157,8 @@ describe("validateRemoteExistence", () => {
       async (_gitlab, _projectId, branch) => branch !== "release/ghost",
     )
     const apps = [
-      makeApp({ projectId: toProjectId(1), projectName: toProjectName("app-1") }),
-      makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-2") }),
+      makeApp({ projectId: toProjectId("1"), projectName: toProjectName("app-1") }),
+      makeApp({ projectId: toProjectId("2"), projectName: toProjectName("app-2") }),
     ]
 
     const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit(apps, { helm })], 3)
@@ -196,12 +196,12 @@ describe("validateRemoteExistence", () => {
   })
 
   it("複数の設定ユニットを並列に検証しても、問題は入力順で返る", async () => {
-    vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== 2)
+    vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== "2")
     const first = makeConfigUnit([
-      makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-first") }),
+      makeApp({ projectId: toProjectId("2"), projectName: toProjectName("app-first") }),
     ])
     const second = makeConfigUnit([
-      makeApp({ projectId: toProjectId(3), projectName: toProjectName("app-second") }),
+      makeApp({ projectId: toProjectId("3"), projectName: toProjectName("app-second") }),
     ])
 
     const problems = await validateRemoteExistence(mockGitlab, [first, second], 3)

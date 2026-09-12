@@ -8,13 +8,19 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは T-221〜T-228 の8件**（T-220 は完了。下の「次にやること」）。完了タスクは
+**未着手のタスクは T-222〜T-228 の7件**（T-220・T-221 は完了。下の「次にやること」）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
+
+- **T-221**: `ProjectId` を `string` のブランド型にし、`schema.ts` に共有の `ProjectIdSchema`
+  （`z.union([z.number().int(), z.string().min(1)])` で受けて `String()` で寄せる）を追加した。
+  **`config/` と `config.example/` の YAML は無変更**で、既存の数値表記がそのまま動く。
+  `toProjectId()` に形式検証は付けていない（他のブランド型と同じ扱い。GitLabの数値IDと
+  GitHubの `owner/repo` の形式検証はプラットフォーム実装側の責務）。`pnpm check` 通過: 388 Tests
 
 - **T-220**: プラットフォーム対応の設計を5論点まとめて決め、`docs/architecture.md` に
   設計判断2節として追記した。**語彙は `Platform`**（`forge` を採らず、このリポジトリのCIが
@@ -274,9 +280,9 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**T-220（設計）が完了し、残りは T-221〜T-228 の8件。全件 `loopable: "Y"` なので
-`/loop /next-task` で流せる。** 依存の無い T-221（`ProjectId` の中立化）と T-222
-（`GitLabUrl` → `PlatformUrl`）が着手可能。以降は
+**T-220（設計）と T-221（`ProjectId` の中立化）が完了し、残りは T-222〜T-228 の7件。
+全件 `loopable: "Y"` なので `/loop /next-task` で流せる。** 次は依存の無い T-222
+（`GitLabUrl` → `PlatformUrl`）。以降は
 T-228（`Platform` 型の導入と `steps/` の付け替え）→ T-223〜T-225（`lib/github/` の実装）
 → T-226（配線）→ T-227（ドキュメント追随）の順。
 

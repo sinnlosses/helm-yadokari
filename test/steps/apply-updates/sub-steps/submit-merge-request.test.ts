@@ -20,7 +20,7 @@ import {
 import { mockGitlab } from "../../../helpers.js"
 
 const CHART: ChartRepoConfig = {
-  projectId: toProjectId(100),
+  projectId: toProjectId("100"),
   projectName: toProjectName("teamA-chart"),
   mrTargetBranch: toBranchName("develop"),
 }

@@ -7,7 +7,7 @@ import { branchExists } from "../../../src/lib/gitlab/gitlab.js"
 import { toBranchName, toProjectId } from "../../../src/types/types.js"
 import { mockGitlab } from "../../helpers.js"
 
-const PROJECT_ID = toProjectId(1)
+const PROJECT_ID = toProjectId("1")
 const MAIN = toBranchName("main")
 
 describe("createGitlabBatchCache", () => {
@@ -36,7 +36,7 @@ describe("createGitlabBatchCache", () => {
 
     await cache.branchExists(PROJECT_ID, MAIN)
     await cache.branchExists(PROJECT_ID, toBranchName("develop"))
-    await cache.branchExists(toProjectId(2), MAIN)
+    await cache.branchExists(toProjectId("2"), MAIN)
 
     expect(branchExists).toHaveBeenCalledTimes(3)
   })

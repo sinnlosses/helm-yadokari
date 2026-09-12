@@ -34,6 +34,14 @@ const AnchorLocationSchema = z
   .transform((v): AnchorLocation => ({ valuesPath: v.valuesPath, anchorName: v.anchor }))
 
 /**
+ * `projectId`はGitLabの数値IDとGitHubの`owner/repo`の両方を受け、`ProjectId`（文字列）へ
+ * 寄せる。既存の`config/`のYAML（数値表記）を書き換えずに済ませるための書式
+ */
+const ProjectIdSchema = z
+  .union([z.number().int(), z.string().min(1)])
+  .transform((v) => toProjectId(String(v)))
+
+/**
  * `registry.yaml`の`appSpecs[].tagFormat`のZodスキーマ。既定値は持たせず必須にしているのは、
  * ソースリポジトリごとに実際のタグ形式が違い、既定に当てはまらないappを黙って取りこぼすより
  * 明示させるほうが安全なため。テンプレート文字列そのものの妥当性検証（プレースホルダの
@@ -63,7 +71,7 @@ const TagFormatSchema = z
  * `config.yaml`側と食い違っていないかの検証用に重複して持つ
  */
 const AppSpecSchema = z.object({
-  projectId: z.number().int().transform(toProjectId),
+  projectId: ProjectIdSchema,
   projectName: z.string().min(1).transform(toProjectName),
   tagFormat: TagFormatSchema,
 })
@@ -72,7 +80,7 @@ export type AppSpec = z.infer<typeof AppSpecSchema>
 
 export const RegistryYamlSchema = z.object({
   chartToUpdate: z.object({
-    projectId: z.number().int().transform(toProjectId),
+    projectId: ProjectIdSchema,
     projectName: z.string().min(1).transform(toProjectName),
     mrTargetBranch: z.string().min(1, "mrTargetBranch は空にできません").transform(toBranchName),
   }),
@@ -84,7 +92,7 @@ export const RegistryYamlSchema = z.object({
  * `tagFormat`は持たず、`registry.yaml`の`appSpecs[]`から`projectId`で引く
  */
 const AppSchema = z.object({
-  projectId: z.number().int().transform(toProjectId),
+  projectId: ProjectIdSchema,
   projectName: z.string().min(1).transform(toProjectName),
   branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
   locations: z.array(AnchorLocationSchema).min(1, "locations は1件以上指定してください"),

@@ -288,17 +288,17 @@ describe("buildPlans（タグの解決・自動作成）", () => {
 
   it("追跡ブランチが存在しない設定ユニットをERRORにしつつ、他の設定ユニットの処理は続行する", async () => {
     const appMissingBranch = makeApp({
-      projectId: toProjectId(1),
+      projectId: toProjectId("1"),
       projectName: toProjectName("app-missing-branch"),
     })
-    const appOk = makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-ok") })
+    const appOk = makeApp({ projectId: toProjectId("2"), projectName: toProjectName("app-ok") })
     const missing = {
       ...makeConfigUnit([appMissingBranch]),
       chartDirName: toChartDirName("missing"),
     }
     const ok = { ...makeConfigUnit([appOk]), chartDirName: toChartDirName("ok") }
     vi.mocked(getBranchHeadSha).mockImplementation(async (_client, projectId) =>
-      projectId === 1 ? undefined : HEAD_SHA,
+      projectId === "1" ? undefined : HEAD_SHA,
     )
     const { toApply, settled } = await buildPlans(
       mockGitlab,

@@ -62,7 +62,7 @@ export function mockBuildPlansGitlab(): void {
 
 export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
   return {
-    projectId: toProjectId(1),
+    projectId: toProjectId("1"),
     projectName: toProjectName("my-app"),
     branchToSync: toBranchName("main"),
     tagFormat: BUILD_AT_FORMAT,
@@ -84,7 +84,7 @@ export function makeConfigUnit(
     chartDirName: toChartDirName("teamA-chart"),
     unitPath: toConfigUnitPath("tenant1/client1"),
     chartRepo: {
-      projectId: toProjectId(100),
+      projectId: toProjectId("100"),
       projectName: toProjectName("teamA-chart"),
       mrTargetBranch: toBranchName("develop"),
     },
@@ -106,7 +106,7 @@ export function makePlan(
   const currentTag = overrides.currentTag ?? toTagName("main-build-at-20251231-000000")
   return {
     app: makeApp({
-      projectId: toProjectId(1),
+      projectId: toProjectId("1"),
       projectName: toProjectName(overrides.projectName ?? "my-app"),
     }),
     latestTag: {

@@ -28,9 +28,9 @@
     "dependencies": [],
     "summary": "ProjectId を string のブランド型にし、config スキーマで数値と文字列の両方を受ける",
     "task": "## 背景\n\n`src/types/brand.ts` の `ProjectId` は `number` のブランド型で、GitHubの `owner/repo` を\n表せない。T-219 で `string` のブランド型に差し替えて実測した結果、\n**`src/` で壊れるのは `src/lib/config/schema.ts` の3箇所だけ**で、`steps/`・`lib/gitlab/`・\n`domain/`・`utils/` はゼロ件だった（`docs/research/github-support.md`「ProjectId 中立化の計測」）。\n\n`test/` の52件は `toProjectId(<数値>)` → `toProjectId(\"<数値>\")` と\n`projectId === <数値>` → `projectId === \"<数値>\"` の機械的置換で消えることも実測済み。\n\n設定ファイルの書式は**スキーマで数値と文字列の両方を受ける**方針（ユーザー判断、2026-09-12）。\n既存の `config/` の YAML を書き換えずに済ませるため。\n\n## 解くべき論点\n\n- `z.union([z.number().int(), z.string().min(1)]).transform((v) => toProjectId(String(v)))` の形で\n  よいか。エラーメッセージが読めるものになるか（`z.union` は失敗時に両方の枝のエラーを出す）\n- `toProjectId()` に形式の検証を付けるか。`docs/architecture.md`「ブランド型にするのは〜」節は\n  「形式の検証を付けるかは値ごとに決めてよい」としている\n\n## やること\n\n1. `src/types/brand.ts` の `ProjectId` を `string` のブランド型に、`toProjectId` を\n   `(s: string) => ProjectId` に変える\n2. `src/lib/config/schema.ts` の3箇所（`AppSpecSchema`・`RegistryYamlSchema.chartToUpdate`・\n   `AppSchema`）を、数値と文字列の両方を受けて文字列へ寄せる形にする\n3. `test/` の機械的置換を当てる（上記2パターン）\n4. **既存の数値の `projectId` がそのまま読めること**と、**文字列の `projectId` も読めること**を\n   確かめる回帰テストを `test/lib/config/schema.test.ts` に足す\n\n## 完了条件\n\n- `pnpm check` が通る（基準: 386 Tests。上の回帰テストのぶん増える）\n- **`config/` と `config.example/` の YAML に差分が無い**（`git status` で確認）\n- `projectId: 100`（数値）と `projectId: \"owner/repo\"`（文字列）の両方を読めるテストがある\n\n## 注意\n\n- `config/` と `config.example/` の YAML を書き換えない。既存の数値表記が動き続けることが\n  このタスクの主眼\n- `ProjectName` は触らない（別の型）",
-    "status": "todo",
-    "passes": false,
-    "evidence": ""
+    "status": "done",
+    "passes": true,
+    "evidence": "ProjectId を string のブランド型に変更し、schema.ts に共有の ProjectIdSchema（z.union で数値と文字列の両方を受けて String() で寄せる）を追加。config/ と config.example/ の YAML は無変更。pnpm check 通過: 388 Tests（回帰テスト2件増）"
   },
   {
     "id": "T-222",

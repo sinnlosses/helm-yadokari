@@ -34,19 +34,19 @@ import {
 import { makeHttpError } from "./helpers.js"
 
 /** `config/yadokari-smoke-test-chart/registry.yaml` の projectId */
-const CHART_PROJECT_ID = 86061211
+const CHART_PROJECT_ID = "86061211"
 /** `config/yadokari-smoke-test-chart2/registry.yaml` の projectId */
-const CHART2_PROJECT_ID = 86354445
+const CHART2_PROJECT_ID = "86354445"
 /** `sample-qa-sprint`。4つの設定ユニット（`anchor-app`＋`tenant2/client1`＋`tenant2/client2`＋
  * chartリポジトリ2の`shared-app`）共通で登録されているapp。追跡ブランチ`main`のHEADに現在値と
  * 異なる名前のタグが既にある状態にする（更新対象、タグ自動作成の経路には入らない）。
  * `shared-app`だけは`branchToSync`が`develop`で、キャッシュキー（`projectId:branchToSync`）が
  * 他の3ユニットとは分岐する経路を通る */
-const QA_PROJECT_ID = 82861978
+const QA_PROJECT_ID = "82861978"
 /** `sample-develop-client`。tenant2の2ユニット共通で登録されているapp（`anchor-app`・
  * `shared-app`は登録していない）。追跡ブランチ`main`のHEADのタグ名がvalues.yamlの現在値と
  * 同じ状態にする（already_up_to_dateで据え置き）*/
-const DEV_PROJECT_ID = 82861977
+const DEV_PROJECT_ID = "82861977"
 
 const HEAD_SHA_QA = "head-sha-qa"
 const HEAD_SHA_DEV = "head-sha-dev"
@@ -115,7 +115,7 @@ const env: EnvConfig = {
  * 理由はファイル冒頭のコメント参照）。
  */
 function makeFakeGitlab() {
-  const tagsByProject = new Map<number, { name: string; commit: { id: string } }[]>([
+  const tagsByProject = new Map<string, { name: string; commit: { id: string } }[]>([
     [
       QA_PROJECT_ID,
       [
@@ -143,14 +143,14 @@ function makeFakeGitlab() {
 
   return {
     Tags: {
-      all: vi.fn((projectId: number) => Promise.resolve(tagsByProject.get(projectId) ?? [])),
+      all: vi.fn((projectId: string) => Promise.resolve(tagsByProject.get(projectId) ?? [])),
       create: vi.fn().mockResolvedValue({}),
     },
     Branches: {
       // 未登録の組み合わせ（固定ブランチ`feature/yadokari/...`など）は404を返す。
       // `submitMergeRequest()`の「featureBranchが既に存在するか」判定はこの経路を通り、
       // 常に「まだ存在しない」として扱われる。
-      show: vi.fn((projectId: number, branch: string) => {
+      show: vi.fn((projectId: string, branch: string) => {
         const sha = branchHeadShaByKey.get(`${projectId}\0${branch}`)
         return sha !== undefined
           ? Promise.resolve({ commit: { id: sha } })
@@ -159,7 +159,7 @@ function makeFakeGitlab() {
       remove: vi.fn().mockResolvedValue(undefined),
     },
     RepositoryFiles: {
-      show: vi.fn((_projectId: number, path: string) => {
+      show: vi.fn((_projectId: string, path: string) => {
         const content = valuesYamlByPath.get(path)
         if (content === undefined) return Promise.reject(makeHttpError(404))
         return Promise.resolve({ content: Buffer.from(content).toString("base64") })

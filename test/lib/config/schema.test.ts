@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest"
 
 import { loadConfig } from "../../../src/lib/config/config.js"
-import { configYaml, registryYaml, useConfigDir } from "./fixture.js"
+import { DEFAULT_TAG_FORMAT, configYaml, registryYaml, useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
 
 describe("loadConfig（スキーマ検証エラー）", () => {
-  it("registry.yaml の projectId が数値でないとき例外をスローする", () => {
+  it("registry.yaml の projectId が空文字のとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
-      'chartToUpdate:\n  projectId: "not-a-number"\n  projectName: teamA-chart\n  mrTargetBranch: develop\nappSpecs: []\n',
+      'chartToUpdate:\n  projectId: ""\n  projectName: teamA-chart\n  mrTargetBranch: develop\nappSpecs: []\n',
     )
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
@@ -148,4 +148,52 @@ describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
       expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
     },
   )
+})
+
+describe("loadConfig（projectIdの数値/文字列両対応）", () => {
+  it("registry.yaml と config.yaml の projectId が数値（GitLabのプロジェクトID）でも読める", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml({ projectId: 100, projectName: "teamA-chart", mrTargetBranch: "develop" }, [
+        { projectId: 100, projectName: "app-1" },
+      ]),
+    )
+    dir.writeConfigYaml(
+      "teamA-chart",
+      "tenant1/client1",
+      configYaml([
+        {
+          projectId: 100,
+          projectName: "app-1",
+          branchToSync: "main",
+          locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+        },
+      ]),
+    )
+
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits[0]?.chartRepo.projectId).toBe("100")
+    expect(configUnits[0]?.apps[0]?.projectId).toBe("100")
+  })
+
+  it("registry.yaml と config.yaml の projectId が文字列（GitHubのowner/repo）でも読める", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      'chartToUpdate:\n  projectId: "owner/repo"\n  projectName: teamA-chart\n' +
+        '  mrTargetBranch: develop\n' +
+        'appSpecs:\n  - projectId: "owner/repo"\n    projectName: app-1\n' +
+        `    tagFormat: '${DEFAULT_TAG_FORMAT}'\n`,
+    )
+    dir.writeConfigYaml(
+      "teamA-chart",
+      "tenant1/client1",
+      'helm:\n  branchRef: release/2026-q1\n  locations:\n    - valuesPath: a.yaml\n      anchor: defaultHelmTargetBranch\n' +
+        'apps:\n  - projectId: "owner/repo"\n    projectName: app-1\n    branchToSync: main\n' +
+        '    locations:\n      - valuesPath: a.yaml\n        anchor: appVersion\n',
+    )
+
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits[0]?.chartRepo.projectId).toBe("owner/repo")
+    expect(configUnits[0]?.apps[0]?.projectId).toBe("owner/repo")
+  })
 })

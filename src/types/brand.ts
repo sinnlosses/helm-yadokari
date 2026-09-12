@@ -6,9 +6,13 @@
 import { assertSafePath } from "../utils/fs.js"
 
 declare const projectIdBrand: unique symbol
-export type ProjectId = number & { readonly [projectIdBrand]: never }
-export function toProjectId(n: number): ProjectId {
-  return n as ProjectId
+/**
+ * GitLabのプロジェクトID（数値）またはGitHubの`owner/repo`。プラットフォーム中立に
+ * 扱うため文字列で統一している（数値表記は`String()`した値になる）。形式の検証はしない
+ */
+export type ProjectId = string & { readonly [projectIdBrand]: never }
+export function toProjectId(s: string): ProjectId {
+  return s as ProjectId
 }
 
 declare const projectNameBrand: unique symbol

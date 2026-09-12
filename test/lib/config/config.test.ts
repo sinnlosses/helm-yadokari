@@ -42,13 +42,13 @@ describe("loadConfig（正常系）", () => {
       chartDirName: "teamA-chart",
       unitPath: "tenant1/client1",
       chartRepo: {
-        projectId: 888,
+        projectId: "888",
         projectName: "teamA-chart",
         mrTargetBranch: "develop",
       },
       apps: [
         {
-          projectId: 1,
+          projectId: "1",
           projectName: "my-app",
           branchToSync: "main",
           tagFormat: "{branch}-build-at-{date}-{time}",

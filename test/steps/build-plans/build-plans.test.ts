@@ -89,10 +89,10 @@ describe("buildPlans", () => {
   })
 
   it("複数アプリのうち1件が失敗したとき、成功分も反映せず全体をERRORにする（オールオアナッシング）", async () => {
-    const appOk = makeApp({ projectId: toProjectId(1), projectName: toProjectName("app-ok") })
-    const appFail = makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-fail") })
+    const appOk = makeApp({ projectId: toProjectId("1"), projectName: toProjectName("app-ok") })
+    const appFail = makeApp({ projectId: toProjectId("2"), projectName: toProjectName("app-fail") })
     vi.mocked(listTags).mockImplementation(async (_client, projectId) => {
-      if (projectId === 2) throw makeHttpError(403)
+      if (projectId === "2") throw makeHttpError(403)
       return [{ name: NEW_TAG, commitSha: HEAD_SHA }]
     })
     const { toApply, settled } = await buildPlans(
@@ -108,7 +108,7 @@ describe("buildPlans", () => {
 
   it("同じvaluesPathを参照する複数アプリの変更を1ファイルにまとめる", async () => {
     const appA = makeApp({
-      projectId: toProjectId(1),
+      projectId: toProjectId("1"),
       projectName: toProjectName("app-a"),
       imageTagLocations: [
         {
@@ -118,7 +118,7 @@ describe("buildPlans", () => {
       ],
     })
     const appB = makeApp({
-      projectId: toProjectId(2),
+      projectId: toProjectId("2"),
       projectName: toProjectName("app-b"),
       imageTagLocations: [
         {
@@ -163,12 +163,12 @@ describe("buildPlans", () => {
   })
 
   it("非fatalなAPIエラーは該当設定ユニットだけをERRORにし、他の設定ユニットの処理は続行する", async () => {
-    const appFail = makeApp({ projectId: toProjectId(1), projectName: toProjectName("app-fail") })
-    const appOk = makeApp({ projectId: toProjectId(2), projectName: toProjectName("app-ok") })
+    const appFail = makeApp({ projectId: toProjectId("1"), projectName: toProjectName("app-fail") })
+    const appOk = makeApp({ projectId: toProjectId("2"), projectName: toProjectName("app-ok") })
     const failing = { ...makeConfigUnit([appFail]), chartDirName: toChartDirName("failing") }
     const ok = { ...makeConfigUnit([appOk]), chartDirName: toChartDirName("ok") }
     vi.mocked(listTags).mockImplementation(async (_client, projectId) => {
-      if (projectId === 1) throw makeHttpError(403)
+      if (projectId === "1") throw makeHttpError(403)
       return [{ name: NEW_TAG, commitSha: HEAD_SHA }]
     })
     const { toApply, settled } = await buildPlans(

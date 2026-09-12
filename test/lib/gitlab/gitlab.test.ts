@@ -80,7 +80,7 @@ describe("listTags", () => {
         create: vi.fn(),
       },
     })
-    expect(await listTags(client, toProjectId(1))).toEqual([
+    expect(await listTags(client, toProjectId("1"))).toEqual([
       { name: "main-build-at-20260101-000000", commitSha: "sha1" },
       { name: "main-build-at-20260201-000000", commitSha: "sha2" },
     ])
@@ -90,32 +90,32 @@ describe("listTags", () => {
 describe("projectExists", () => {
   it("プロジェクトが存在するとき true を返す", async () => {
     const client = makeClient({ Projects: { show: vi.fn().mockResolvedValue({ id: 1 }) } })
-    expect(await projectExists(client, toProjectId(1))).toBe(true)
+    expect(await projectExists(client, toProjectId("1"))).toBe(true)
   })
 
   it("404 のとき false を返す", async () => {
     const client = makeClient({ Projects: { show: vi.fn().mockRejectedValue(makeHttpError(404)) } })
-    expect(await projectExists(client, toProjectId(1))).toBe(false)
+    expect(await projectExists(client, toProjectId("1"))).toBe(false)
   })
 })
 
 describe("branchExists", () => {
   it("ブランチが存在するとき true を返す", async () => {
     const client = makeClient({ Branches: { show: vi.fn().mockResolvedValue({}) } })
-    expect(await branchExists(client, toProjectId(1), toBranchName("main"))).toBe(true)
+    expect(await branchExists(client, toProjectId("1"), toBranchName("main"))).toBe(true)
   })
 
   it("404 のとき false を返す", async () => {
     const client = makeClient({
       Branches: { show: vi.fn().mockRejectedValue(makeHttpError(404)) },
     })
-    expect(await branchExists(client, toProjectId(1), toBranchName("nonexistent"))).toBe(false)
+    expect(await branchExists(client, toProjectId("1"), toBranchName("nonexistent"))).toBe(false)
   })
 
   it("404 以外のエラーは再スローする", async () => {
     const err = makeHttpError(500)
     const client = makeClient({ Branches: { show: vi.fn().mockRejectedValue(err) } })
-    await expect(branchExists(client, toProjectId(1), toBranchName("main"))).rejects.toBe(err)
+    await expect(branchExists(client, toProjectId("1"), toBranchName("main"))).rejects.toBe(err)
   })
 })
 
@@ -123,8 +123,8 @@ describe("deleteBranch", () => {
   it("Branches.remove を呼び出す", async () => {
     const removeFn = vi.fn().mockResolvedValue(undefined)
     const client = makeClient({ Branches: { show: vi.fn(), remove: removeFn } })
-    await deleteBranch(client, toProjectId(1), toBranchName("yadokari/update"))
-    expect(removeFn).toHaveBeenCalledWith(1, "yadokari/update")
+    await deleteBranch(client, toProjectId("1"), toBranchName("yadokari/update"))
+    expect(removeFn).toHaveBeenCalledWith("1", "yadokari/update")
   })
 })
 
@@ -133,7 +133,7 @@ describe("getBranchHeadSha", () => {
     const client = makeClient({
       Branches: { show: vi.fn().mockResolvedValue({ commit: { id: "abc123" } }) },
     })
-    expect(await getBranchHeadSha(client, toProjectId(1), toBranchName("main"))).toBe("abc123")
+    expect(await getBranchHeadSha(client, toProjectId("1"), toBranchName("main"))).toBe("abc123")
   })
 
   it("ブランチが存在しない(404)とき undefined を返す", async () => {
@@ -141,7 +141,7 @@ describe("getBranchHeadSha", () => {
       Branches: { show: vi.fn().mockRejectedValue(makeHttpError(404)) },
     })
     expect(
-      await getBranchHeadSha(client, toProjectId(1), toBranchName("nonexistent")),
+      await getBranchHeadSha(client, toProjectId("1"), toBranchName("nonexistent")),
     ).toBeUndefined()
   })
 })
@@ -155,7 +155,7 @@ describe("getFileContent", () => {
     expect(
       await getFileContent(
         client,
-        toProjectId(1),
+        toProjectId("1"),
         toValuesPath("values.yaml"),
         toBranchName("main"),
       ),
@@ -169,7 +169,7 @@ describe("getFileContent", () => {
     expect(
       await getFileContent(
         client,
-        toProjectId(1),
+        toProjectId("1"),
         toValuesPath("values.yaml"),
         toBranchName("main"),
       ),
@@ -183,7 +183,7 @@ describe("openMergeRequestExists", () => {
       MergeRequests: { all: vi.fn().mockResolvedValue([{ iid: 1 }]), create: vi.fn() },
     })
     expect(
-      await openMergeRequestExists(client, toProjectId(1), toBranchName("yadokari/update")),
+      await openMergeRequestExists(client, toProjectId("1"), toBranchName("yadokari/update")),
     ).toBe(true)
   })
 
@@ -192,16 +192,16 @@ describe("openMergeRequestExists", () => {
       MergeRequests: { all: vi.fn().mockResolvedValue([]), create: vi.fn() },
     })
     expect(
-      await openMergeRequestExists(client, toProjectId(1), toBranchName("yadokari/update")),
+      await openMergeRequestExists(client, toProjectId("1"), toBranchName("yadokari/update")),
     ).toBe(false)
   })
 
   it("正しいパラメータで MergeRequests.all を呼び出す", async () => {
     const allFn = vi.fn().mockResolvedValue([])
     const client = makeClient({ MergeRequests: { all: allFn, create: vi.fn() } })
-    await openMergeRequestExists(client, toProjectId(42), toBranchName("yadokari/update"))
+    await openMergeRequestExists(client, toProjectId("42"), toBranchName("yadokari/update"))
     expect(allFn).toHaveBeenCalledWith({
-      projectId: 42,
+      projectId: "42",
       sourceBranch: "yadokari/update",
       state: "opened",
     })
@@ -214,14 +214,14 @@ describe("commitFileUpdates", () => {
     const client = makeClient({ Commits: { create: createFn } })
     await commitFileUpdates(
       client,
-      toProjectId(1),
+      toProjectId("1"),
       toBranchName("yadokari/update"),
       toBranchName("develop"),
       "chore: update",
       [{ valuesPath: toValuesPath("values.yaml"), content: "image:\n  tag: v2\n" }],
     )
     expect(createFn).toHaveBeenCalledWith(
-      1,
+      "1",
       "yadokari/update",
       "chore: update",
       [{ action: "update", filePath: "values.yaml", content: "image:\n  tag: v2\n" }],
@@ -238,7 +238,7 @@ describe("commitFileUpdates", () => {
     })
     await commitFileUpdates(
       client,
-      toProjectId(1),
+      toProjectId("1"),
       toBranchName("yadokari/update"),
       toBranchName("develop"),
       "chore: update",
@@ -253,7 +253,7 @@ describe("commitFileUpdates", () => {
     const client = makeClient({ Commits: { create: createFn } })
     await commitFileUpdates(
       client,
-      toProjectId(1),
+      toProjectId("1"),
       toBranchName("yadokari/update"),
       toBranchName("develop"),
       "chore: update",
@@ -276,14 +276,14 @@ describe("createMergeRequest", () => {
     const client = makeClient({ MergeRequests: { all: vi.fn(), create: createFn } })
     await createMergeRequest(
       client,
-      toProjectId(1),
+      toProjectId("1"),
       toBranchName("yadokari/update"),
       toBranchName("develop"),
       "chore: update app versions",
       "description body",
     )
     expect(createFn).toHaveBeenCalledWith(
-      1,
+      "1",
       "yadokari/update",
       "develop",
       "chore: update app versions",
@@ -306,7 +306,7 @@ describe("getLatestPipelineForRef", () => {
     expect(
       await getLatestPipelineForRef(
         client,
-        toProjectId(1),
+        toProjectId("1"),
         toTagName("main-build-at-20260101-000000"),
       ),
     ).toEqual({ webUrl: "https://gitlab.example.com/p/1" })
@@ -319,7 +319,7 @@ describe("getLatestPipelineForRef", () => {
     expect(
       await getLatestPipelineForRef(
         client,
-        toProjectId(1),
+        toProjectId("1"),
         toTagName("main-build-at-20260101-000000"),
       ),
     ).toBeUndefined()
@@ -334,7 +334,7 @@ describe("getLatestPipelineForRef", () => {
     expect(
       await getLatestPipelineForRef(
         client,
-        toProjectId(1),
+        toProjectId("1"),
         toTagName("main-build-at-20260101-000000"),
       ),
     ).toBeUndefined()
@@ -344,7 +344,7 @@ describe("getLatestPipelineForRef", () => {
     const err = makeHttpError(500)
     const client = makeClient({ Pipelines: { showLatest: vi.fn().mockRejectedValue(err) } })
     await expect(
-      getLatestPipelineForRef(client, toProjectId(1), toTagName("main-build-at-20260101-000000")),
+      getLatestPipelineForRef(client, toProjectId("1"), toTagName("main-build-at-20260101-000000")),
     ).rejects.toBe(err)
   })
 })
@@ -355,11 +355,11 @@ describe("createTag", () => {
     const client = makeClient({ Tags: { all: vi.fn(), create: createFn } })
     await createTag(
       client,
-      toProjectId(1),
+      toProjectId("1"),
       toTagName("main-build-at-20260101-000000"),
       toBranchName("main"),
     )
-    expect(createFn).toHaveBeenCalledWith(1, "main-build-at-20260101-000000", "main")
+    expect(createFn).toHaveBeenCalledWith("1", "main-build-at-20260101-000000", "main")
   })
 
   it("エラーは再スローする", async () => {
@@ -368,7 +368,7 @@ describe("createTag", () => {
     await expect(
       createTag(
         client,
-        toProjectId(1),
+        toProjectId("1"),
         toTagName("main-build-at-20260101-000000"),
         toBranchName("main"),
       ),
@@ -384,7 +384,7 @@ describe("getProjectWebUrl", () => {
       },
     })
 
-    expect(await getProjectWebUrl(client, toProjectId(1))).toBe(
+    expect(await getProjectWebUrl(client, toProjectId("1"))).toBe(
       toGitLabUrl("https://gitlab.example.com/group/app"),
     )
   })
@@ -393,6 +393,6 @@ describe("getProjectWebUrl", () => {
     const client = makeClient({
       Projects: { show: vi.fn().mockResolvedValue({ web_url: "not a url" }) },
     })
-    await expect(getProjectWebUrl(client, toProjectId(1))).rejects.toThrow("web_url")
+    await expect(getProjectWebUrl(client, toProjectId("1"))).rejects.toThrow("web_url")
   })
 })
