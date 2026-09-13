@@ -9,6 +9,12 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-13（4回目）
+
+生成したタスク: T-237（README のプロジェクト構成で `src/` を4区分まで展開）。タスクにしなかった項目: なし。
+
+- READMEのプロジェクト構成の部分、srcの1つ下のディレクトリ(stepsなど)も書いてほしい。2つ下まではやらなくていいよ。
+
 ## 2026-09-13（3回目）
 
 生成したタスク: T-235（`groupByTagSource()` の不変化）・T-236（`resolve-tags/` のサブステップ構成の評価と提案）。タスクにしなかった項目: import の `.js` 拡張子を lint で塞ぐ件（前提が逆で、`tsc` は import 指定子を書き換えないため `node dist/src/index.js`（`"type": "module"`）で動かすには `.js` が必須。`pnpm build` 後の `dist/src/steps/resolve-tags/resolve-tags.js` が `from "../../domain/tag-source.js"` のまま出ることを確認済み）。

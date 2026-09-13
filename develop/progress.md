@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは2件**（T-235・T-236。`resolve-tags/` の不変化と構成の整理）。`done` 10件は
+**未着手のタスクは3件**（T-235・T-236・T-237。`resolve-tags/` の不変化と構成の整理、README のツリー展開）。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
@@ -114,6 +114,17 @@
 - 後片付け済み（`reset --apply` → `setup --apply`。オープンMR 0件、フィクスチャは初期状態）
 
 ## 次にやること
+
+**`README.md` のプロジェクト構成のツリー展開を T-237 として登録した**（2026-09-13、`/plan-tasks`）。
+`src/` が1行にまとまっていて4区分がコメントの列挙でしか見えないため、`steps/`・`lib/`・
+`domain/`・`utils/` を1階層だけ枝に出す。**2階層目（`src/steps/resolve-tags/` など）は出さない**:
+
+- **T-237**（sonnet・loopable `Y`）: 区分ごとの一行コメントは `docs/architecture.md` の
+  `###` 見出しの要約（T-234 で2軸に書き換えた定義）に沿わせる。責務の本体を README に
+  書き写すと正典が二重になるので、名札の粒度を超えない
+
+他のタスクとは独立で、T-235・T-236 とは触るファイルが重ならない。
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13（4回目）」。
 
 **`resolve-tags/` まわりの2タスクを T-235・T-236 として登録した**（2026-09-13、`/plan-tasks`）。
 依存は直列で、**T-235 → T-236** の順に実行する（同じファイルを触るため）:
