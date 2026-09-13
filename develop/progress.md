@@ -1,6 +1,6 @@
 # 現在の状態
 
-最終更新: 2026-09-12（**T-198〜T-218 をすべて完了**。前半は命名の洗い直し（`/grilling` 33問・
+最終更新: 2026-09-13（T-233・T-234 を登録。**T-198〜T-218 をすべて完了**。前半は命名の洗い直し（`/grilling` 33問・
 10ラウンド → 規約4件の書き換えと改名31件）と設定まわりの命名（T-208〜T-211）。後半は
 **`README.md` の精査と反映**で、読者目線で洗い出した17件（冗長6・不足7・実装とのズレ4）を
 T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く状態**にした。MIT ライセンスも
@@ -8,9 +8,8 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは0件**（GitHub対応の8タスクを完了し、`done` 10件を
-[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み。
-`develop/tasks.json` は `[]`）。完了タスクは
+**未着手のタスクは6件**（T-229〜T-234。`done` 10件は
+[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -402,11 +401,23 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
+**`src/types/` を `src/domain/` に吸収する2タスクを T-233・T-234 として登録した**（2026-09-13、
+`/plan-tasks`）。`domain/` が「ドメイン」を名乗りながら語彙（型）は全部 `types/` にあり、
+規則3ファイルだけの区分になっている異物感を解消する。**T-229 より先に実行する**
+（T-229 が T-233 に依存。T-232 は T-234 にも依存）:
+
+- **T-233**（`sonnet` / `Y`）: `src/types/` を `src/domain/` に吸収し、import・テスト・ドキュメントのパスを追随させる
+- **T-234**（`opus` / `Y`）: `docs/architecture.md` の `domain/` の定義を「ドメイン×技術」の2軸に書き換える
+
+`lib/config/validate.ts`・`steps/shared/describe-plan.ts` は文面上「技術非依存＋ドメイン知識あり」
+だが動かさない（概念のまとまりを優先。T-234 で規約に書く）。`lib/` → `adapters/` 改名は採らない。
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13（2回目）」。
+
 **タグ解決の step 切り出しを T-229〜T-232 として登録した**（2026-09-13、`/plan-tasks`）。
 `createResolveLatestTags()` のキャッシュを廃し、パイプラインを
 `filterTargets → resolveTags → buildPlans → applyUpdates` にする。依存は直列:
 
-- **T-229**（`sonnet` / `Y`）: `TagSource` を新設し、タグ解決まわりの型を `src/types/types.ts` に集約する
+- **T-229**（`sonnet` / `Y`）: `TagSource` を新設し、タグ解決まわりの型を `src/domain/types.ts` に集約する（T-233 の後）
 - **T-230**（`opus` / **`N`**）: `resolve-tags` step への切り出し本体。重複排除をキャッシュから集合演算にする
 - **T-231**（`sonnet` / `Y`）: `LatestTagResolution` に `origin` を足し、新規作成予定のタグを計画のログに出す
 - **T-232**（`opus` / `Y`）: 軸交差の規則を `docs/architecture.md` に書き、README・glossary を追随させる

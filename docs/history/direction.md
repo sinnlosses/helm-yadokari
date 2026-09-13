@@ -9,6 +9,25 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-13（2回目）
+
+生成したタスク: T-233（移動とパス追随）・T-234（`docs/architecture.md` の定義書き換え）。既存の T-229・T-231 の本文と T-229 の summary の `src/types/types.ts` を `src/domain/types.ts` に読み替え、T-229 は T-233 に、T-232 は T-234 に依存させた。タスクにしなかった項目: なし（`lib/`→`adapters/` 改名は指示どおり採らない）。
+
+### `src/types/` を `src/domain/` に吸収する
+
+`src/domain/` の異物感（「ドメイン」を名乗りながら語彙＝型は全部 `src/types/` にあり、規則3ファイルだけが置かれている。設計記録上も「`lib/` でも `utils/` でもない隙間」として消去法で生まれた区分）を解消する。
+
+やること:
+
+- `src/types/types.ts` → `src/domain/types.ts`、`src/types/brand.ts` → `src/domain/brand.ts` に移動（中身は変えない。`types.ts` の `export * from "./brand.js"` も据え置く）。`src/types/` は消す
+- `src/`・`scripts/`（36ファイル）と `test/`（28ファイル）の import パスを追随。`test/types/brand.test.ts` → `test/domain/brand.test.ts`
+- `docs/architecture.md` を追随: 「`src/domain/`」節を「語彙（`types.ts`・`brand.ts`）＋規則」の定義に書き換え、「`src/types/`」への言及（9箇所）を直す。「新しいコードを置く場所」の表と補足で `domain/` を「`lib/` でも `utils/` でもない区分」ではなく **「ドメインを知っているか」×「技術を知っているか」の2軸** で説明する（`domain/`=ドメイン○技術×、`lib/`=ドメイン○技術○、`utils/`=ドメイン×。`utils/yaml.ts`・`fs.ts` が技術依存でも `utils/` にある理由がこの軸で自然に収まる）。「型の置き場所」表の1行目を `src/domain/types.ts`（ブランド型は `brand.ts`）に、「現に `src/domain/` には型定義が1つも無い」の記述を削る
+- `lib/config/validate.ts`・`steps/shared/describe-plan.ts` は文面上は「技術非依存＋ドメイン知識あり」だが **動かさない**。「概念のまとまり（config の仲間・step の仲間）を優先し、`domain/` は複数の適応層/ステップにまたがる語彙と規則の置き場」という判断を `docs/architecture.md` に明記する
+- `README.md` の構成図（`src/ # steps/・lib/・domain/・utils/ の4区分（型は types/）`）を4区分に直す。`CLAUDE.md` の該当箇所も確認
+- 既存の todo タスク T-229・T-231 の本文にある `src/types/types.ts` を `src/domain/types.ts` に読み替える（T-229 の summary も）。新タスクは T-229 より先に実行する（T-229 が新タスクに依存する形にする）
+
+方針の検討経緯（依存グラフ・呼び出し元の一覧・影響範囲の見積もり）はこのセッションで済ませており、設計は決定済み。`lib/` → `adapters/` 改名は今回はやらない。
+
 ## 2026-09-13
 
 生成したタスク: T-229（`TagSource` の新設と型の集約）/ T-230（`resolve-tags` step への切り出し本体）/
