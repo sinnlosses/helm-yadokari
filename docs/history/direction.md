@@ -9,6 +9,69 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-13
+
+生成したタスク: T-229（`TagSource` の新設と型の集約）/ T-230（`resolve-tags` step への切り出し本体）/
+T-231（`origin` フィールドと計画ログ）/ T-232（`docs/architecture.md` の軸交差の規則とドキュメント追随）。
+**「今回のスコープ外」の3項目（`AppConfig` の組み替え・作成予定タグ一覧のロールアップ・`cacheBy(keyOf, fn)`）は
+タスクにしていない**（指示自身がスコープ外と明記しているため）。「決めていない論点」の2件
+（`CONCURRENCY_LIMIT` の意味、`create_tag` ログの偏り）は T-230 の「解くべき論点」に入れ、
+同タスクを `loopable: "N"` にした。指示の内容は会話で現物を読みながら詰めたもので、
+`createResolveLatestTags()` の4つの「唯一」・`validateTagFormatConsistency()` の参照・
+`README.md` のフロー図と `CONCURRENCY_LIMIT` の記述はいずれも現物で確認済み。
+
+- 最新タグの解決（`createResolveLatestTags()`）を `build-plans` のサブステップから独立した step へ切り出し、
+  重複排除をキャッシュではなく集合演算にしたい。パイプラインは
+  `filterTargets → resolveTags → buildPlans → applyUpdates` にする。設計は会話で詰めたので、以下を前提にタスク化してほしい。
+  - 動機: `createResolveLatestTags()` は「`steps/` で唯一の工場関数DI（`docs/architecture.md` が唯一の例外と明記）」
+    「唯一の手書きキャッシュキー」「サブステップが唯一バッチ寿命の状態を持つ場所」「唯一、読み取りではなく
+    **書き込み**を重複排除するキャッシュ」の4つを兼ねている。切り出すと4つとも消える
+  - `TagSource`（`projectId` / `projectName` / `branchToSync` / `tagFormat`）を `src/types/types.ts` に足し、
+    `resolveLatestTag()` の引数を `AppConfig` からこれに絞る。重複排除のキーは
+    `projectId` + `branchToSync` + `tagFormat`（`projectName` は `projectId` と1:1のラベルなので除く）。
+    引数の型を絞ることで「キーが引数の部分集合」でなくなり、キャッシュキーという概念を新設せずに済む
+  - ファイルは2つ。`src/steps/resolve-tags/resolve-tags.ts`（step本体＋一意化＋キー組み立て）と
+    `src/steps/resolve-tags/sub-steps/resolve-latest-tag.ts`（今の `resolveLatestTag()` と
+    `resolveTrackedHeadTagNames()` を**単数形**で移設）。3ファイルに割ると `sub-steps/` 直下で
+    キー関数を共有できず `shared/` が要る（原則1）ので割らない
+  - `resolveTags` は解決結果のマップだけを返す純粋な生産者にする（`settled` を持たない）。設定ユニットへの
+    引き当てと ERROR 判定は `buildPlans()` の既存の `withHandling()` の中に置き、**ERRORログが出る場所を今と変えない**。
+    `buildPlan()` の変更は `await resolveLatestTags(configUnit.apps)` を引き当ての1行に差し替えるだけ
+  - アプリ単位の失敗を値として持ち回るため、`steps/shared/step-outcome.ts` に `withHandling()` と対になる
+    `settleApp()`（+ `AppOutcome`）を足す。fatal はここでも `FatalError` として投げ直す。
+    `src/steps/` に try/catch を書かない規約を守るための追加
+  - 1アプリの失敗は、そのアプリを含む**全**設定ユニットの ERROR になる（今は最初の設定ユニットだけ ERROR で、
+    `getOrFetchShared()` が失敗Promiseを捨てるため次の設定ユニットが再試行して成功しうる＝実行順依存）。
+    この偶発的な再試行は捨ててよい。本命の再試行は `lib/gitlab/gitlab.ts` / `lib/github/github.ts` の
+    `withRetry()` がクライアント層で持っている
+  - `LatestTagResolution` に `origin: "existing" | "created"` を足し、`describePlan()` 経由で計画のログに出す
+    （dryRun の `"created"` は「作成予定」の意味）。今は `trackedHeadTagNames.size === 0` で導出できるだけで、
+    計画を読む人には見えない
+  - `LatestTagResolution` / `AppWithLatestTag` と解決結果のマップ型は step 間を流れるので
+    `src/types/types.ts` へ移す（前例: `ConfigUnitUpdateTarget`）
+  - dryRun の挙動は変えない（`if (!dryRun)` は `resolveLatestTag()` の中に残す）
+  - `docs/architecture.md` に軸交差の規則を書く: **読み取りだけの軸交差は `CachedReads` で暗黙に、
+    副作用を伴う軸交差は step として明示的に。**理由は「並行実行下では、読みのキャッシュで副作用の重複排除が
+    できない」から。このツールには「ソース軸（`projectId`+追跡ブランチ）」と「設定ユニット軸」の2本があり
+    多対多なので、どこかで必ず1回交差する。今はそれをキャッシュの中に隠している
+  - 追随が要る箇所: `docs/architecture.md` のキャッシュ節の判断3（合成した解決結果は載せない）・
+    「重複排除をキャッシュの外にも置かない」の書き分け・「サブステップに関数型を注入しない」の唯一の例外が
+    消える件・ファイル一覧の表2箇所 / `src/main.ts` の `runProcess()` JSDoc（3→4ステップ）/
+    `src/lib/config/validate.ts` の JSDoc の参照先 / `README.md` のフロー図と `CONCURRENCY_LIMIT` の説明
+    （この step だけ並列の単位が「設定ユニット」ではなく「タグ解決の単位」になる）/ `docs/glossary.md` に `TagSource`
+  - テスト再編: `test/steps/build-plans/sub-steps/resolve-latest-tags.test.ts`（400行）を
+    「1アプリの解決」＝サブステップ側と「重複排除・失敗の全設定ユニットへの波及・fatalの即時終了」＝step側に割る。
+    `build-plans.test.ts` は `listTags` のスタブが不要になって軽くなる
+  - 分解の目安（この順に積むと各コミットで `pnpm check` が通る）: (1) `TagSource` 新設と引数の絞り込み（挙動不変）→
+    (2) 型を `types.ts` へ移設（挙動不変）→ (3) `settleApp()` 追加 → (4) `resolve-tags` step 新設と
+    `buildPlans()` からの剥がし（`main.ts` も同時）→ (5) `origin` 追加とログ → (6) テスト再編 → (7) ドキュメント追随
+  - 今回のスコープ外: `AppConfig` を `{ source: TagSource; imageTagLocations }` に組み替えること /
+    `resolveTags` の締めに「作成予定タグ一覧」をロールアップで出すこと（`create_tag` ログの集計でしかない）/
+    `utils/cache.ts` に部分キー対応のメモ化（`cacheBy(keyOf, fn)`）を足すこと（この切り出しで不要になる）
+  - 決めていない論点: `CONCURRENCY_LIMIT` の意味が step ごとに変わることを許容するか
+    （別の上限を足すのは環境変数が増えるので割に合わないと考えている）/ `create_tag` のログがバッチの
+    先頭に固まることが実機の運用で困らないか
+
 ## 2026-09-12（5回目）
 
 生成したタスク: **T-220〜T-227** の8件（`ProjectId` の中立化 T-221 と設計 T-220 を起点に、

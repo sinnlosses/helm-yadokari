@@ -402,12 +402,25 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 
 ## 次にやること
 
-**GitHub対応の8タスク（T-220〜T-228）はすべて完了。登録済みのタスクは全件 `done`。**
+**タグ解決の step 切り出しを T-229〜T-232 として登録した**（2026-09-13、`/plan-tasks`）。
+`createResolveLatestTags()` のキャッシュを廃し、パイプラインを
+`filterTargets → resolveTags → buildPlans → applyUpdates` にする。依存は直列:
+
+- **T-229**（`sonnet` / `Y`）: `TagSource` を新設し、タグ解決まわりの型を `src/types/types.ts` に集約する
+- **T-230**（`opus` / **`N`**）: `resolve-tags` step への切り出し本体。重複排除をキャッシュから集合演算にする
+- **T-231**（`sonnet` / `Y`）: `LatestTagResolution` に `origin` を足し、新規作成予定のタグを計画のログに出す
+- **T-232**（`opus` / `Y`）: 軸交差の規則を `docs/architecture.md` に書き、README・glossary を追随させる
+
+**T-230 は `/loop` では拾われない**（`loopable: "N"`）。ユーザーの判断が要る論点を2つ含むため:
+`CONCURRENCY_LIMIT` の意味が step ごとに変わることを許容するか、`create_tag` のログがバッチの
+先頭に固まることが実機の運用で困らないか。指示メモは
+[`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13」。
+
+**GitHub対応の8タスク（T-220〜T-228）はすべて完了。**
 `PLATFORM=gitlab|github` で切り替わり、ドキュメントも追随済み。
 
-**次にやることは下の「未解決」から拾う。最有力は実機検証**（GitLab側のスモークテストも
-未実施のままで、GitHub側は一度も実機に当てていない）。新しい指示を出す場合は
-`develop/direction.md` に書いて `/plan-tasks` でタスク化する。
+**実機検証は未実施のまま**（GitLab側のスモークテストも未実施で、GitHub側は一度も実機に
+当てていない）。新しい指示を出す場合は `develop/direction.md` に書いて `/plan-tasks` でタスク化する。
 
 前提（着手前にユーザーが決めた）:
 
