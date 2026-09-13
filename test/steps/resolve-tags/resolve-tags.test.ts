@@ -4,7 +4,7 @@ vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-import { toTagSourceKey } from "../../../src/domain/tag-source.js"
+import { buildTagSourceKey } from "../../../src/domain/tag-source.js"
 import {
   toBranchName,
   toCommitSha,
@@ -65,10 +65,10 @@ describe("resolveTags（解決の単位ごとに1回だけ解決する）", () =
     // 別インスタンスのapp（appA/appB/appC）でも同じ解決単位を表す値キーは1件にまとまり、
     // 3つの設定ユニットのappすべてがその1件を引き当てられる
     expect(resolvedTags.size).toBe(1)
-    const outcome = resolvedTags.get(toTagSourceKey(appA))
+    const outcome = resolvedTags.get(buildTagSourceKey(appA))
     expect(outcome).toBeDefined()
-    expect(resolvedTags.get(toTagSourceKey(appB))).toBe(outcome)
-    expect(resolvedTags.get(toTagSourceKey(appC))).toBe(outcome)
+    expect(resolvedTags.get(buildTagSourceKey(appB))).toBe(outcome)
+    expect(resolvedTags.get(buildTagSourceKey(appC))).toBe(outcome)
   })
 
   it("追跡ブランチが違えば別々に解決する", async () => {

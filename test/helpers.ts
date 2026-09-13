@@ -1,7 +1,7 @@
 import { vi } from "vitest"
 
 import { validateTagFormat } from "../src/domain/tag-format.js"
-import { toTagSourceKey } from "../src/domain/tag-source.js"
+import { buildTagSourceKey } from "../src/domain/tag-source.js"
 import type {
   AppConfig,
   AppUpdatePlan,
@@ -136,7 +136,7 @@ export function makeResolvedTags(
   return new Map(
     configUnits.flatMap((configUnit) =>
       configUnit.apps.map((app): readonly [TagSourceKey, AppOutcome<LatestTagResolution>] => [
-        toTagSourceKey(app),
+        buildTagSourceKey(app),
         outcomeFor(app),
       ]),
     ),

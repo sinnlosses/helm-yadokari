@@ -1,5 +1,5 @@
-import { toTagSourceKey as brandTagSourceKey } from "./brand.js"
 import type { TagSource, TagSourceKey } from "./types.js"
+import { toTagSourceKey } from "./types.js"
 
 /**
  * `TagSource`の同一性を表す値キーを組み立てる。同じ解決単位（`projectId`+`branchToSync`+
@@ -13,6 +13,6 @@ import type { TagSource, TagSourceKey } from "./types.js"
  * 区切りにヌル文字を使う理由は`utils/cache.ts`の`toCacheKey()`と同じ（通常の文字列引数に
  * ほぼ現れない制御文字であり、区切りが値の中に現れて別の組み合わせと同じキーになることを防ぐ）。
  */
-export function toTagSourceKey(source: TagSource): TagSourceKey {
-  return brandTagSourceKey([source.projectId, source.branchToSync, source.tagFormat].join("\0"))
+export function buildTagSourceKey(source: TagSource): TagSourceKey {
+  return toTagSourceKey([source.projectId, source.branchToSync, source.tagFormat].join("\0"))
 }

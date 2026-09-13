@@ -1,4 +1,4 @@
-import { toTagSourceKey } from "../../domain/tag-source.js"
+import { buildTagSourceKey } from "../../domain/tag-source.js"
 import type {
   AppConfig,
   AppWithLatestTag,
@@ -112,7 +112,7 @@ function lookUpLatestTags(
   resolvedTags: ReadonlyMap<TagSourceKey, AppOutcome<LatestTagResolution>>,
 ): readonly AppWithLatestTag[] {
   return apps.map((app) => {
-    const resolved = resolvedTags.get(toTagSourceKey(app))
+    const resolved = resolvedTags.get(buildTagSourceKey(app))
     if (resolved === undefined) {
       throw new Error(`アプリ "${app.projectName}" の最新タグが解決されていません`)
     }

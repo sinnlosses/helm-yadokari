@@ -1,4 +1,4 @@
-import { toTagSourceKey } from "../../domain/tag-source.js"
+import { buildTagSourceKey } from "../../domain/tag-source.js"
 import type {
   AppConfig,
   ConfigUnit,
@@ -36,7 +36,7 @@ export async function resolveTags(
     groupByTagSource(targets),
     concurrencyLimit,
     async (source): Promise<readonly [TagSourceKey, AppOutcome<LatestTagResolution>]> => [
-      toTagSourceKey(source),
+      buildTagSourceKey(source),
       await settleApp(adapter, source.projectName, () => resolveLatestTag(adapter, source, dryRun)),
     ],
   )
@@ -50,7 +50,7 @@ export async function resolveTags(
 function groupByTagSource(targets: readonly ConfigUnit[]): readonly TagSource[] {
   const sources = new Map<TagSourceKey, TagSource>()
   for (const app of targets.flatMap((configUnit) => configUnit.apps)) {
-    sources.set(toTagSourceKey(app), toTagSource(app))
+    sources.set(buildTagSourceKey(app), toTagSource(app))
   }
   return [...sources.values()]
 }

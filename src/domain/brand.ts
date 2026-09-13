@@ -126,7 +126,7 @@ export function toAnchorName(s: string): AnchorName {
 }
 
 declare const tagSourceKeyBrand: unique symbol
-/** `TagSource`の同一性を表す値キー。生成は`domain/tag-source.ts`の`toTagSourceKey()`経由のみ */
+/** `TagSource`の同一性を表す値キー。組み立ては`domain/tag-source.ts`の`buildTagSourceKey()`が行う */
 export type TagSourceKey = string & { readonly [tagSourceKeyBrand]: never }
 export function toTagSourceKey(s: string): TagSourceKey {
   return s as TagSourceKey
