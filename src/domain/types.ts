@@ -43,8 +43,8 @@ export type AppConfig = {
 }
 
 /**
- * 最新タグを解決する単位。どこから取るか（`projectId`/`branchToSync`/`tagFormat`、
- * ラベル用の`projectName`）だけを持ち、どこへ書くか（`AppConfig.imageTagLocations`）は持たない。
+ * 最新タグを解決する単位。どこから取るか（`projectId`/`projectName`/`branchToSync`/`tagFormat`）
+ * だけを持ち、どこへ書くか（`imageTagLocations`）は持たない
  */
 export type TagSource = {
   readonly projectId: ProjectId
@@ -104,6 +104,16 @@ export type HelmBranchRefUpdate = {
 }
 
 /**
+ * 1アプリの更新内容。`updates`は差分がある箇所だけを含み、空ならこのAppUpdatePlan自体を
+ * 生成しない（＝そのアプリは全箇所が反映済み）
+ */
+export type AppUpdatePlan = {
+  readonly app: AppConfig
+  readonly latestTag: ParsedTag
+  readonly updates: readonly ImageTagUpdate[]
+}
+
+/**
  * 1アプリ分の「最新タグの判定結果」。`resolve-latest-tags.ts`が組み立て、イメージタグの
  * 差分判定（`stage-image-tag-updates.ts`）が使う。
  *
@@ -127,16 +137,6 @@ export type LatestTagResolution = {
 export type AppWithLatestTag = {
   readonly app: AppConfig
   readonly latestTag: LatestTagResolution
-}
-
-/**
- * 1アプリの更新内容。`updates`は差分がある箇所だけを含み、空ならこのAppUpdatePlan自体を
- * 生成しない（＝そのアプリは全箇所が反映済み）
- */
-export type AppUpdatePlan = {
-  readonly app: AppConfig
-  readonly latestTag: ParsedTag
-  readonly updates: readonly ImageTagUpdate[]
 }
 
 /**

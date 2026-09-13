@@ -5,7 +5,7 @@
 ×技術を知っているか」の2軸になった。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは3件**（T-230〜T-232。T-229・T-233・T-234 は完了。`done` 10件は
+**未着手のタスクは3件**（T-230〜T-232。T-229・T-233・T-234 は完了。**並行セッションは中止し、T-230 は未コミットのWIPを残したまま `todo` に戻してある**。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
@@ -32,12 +32,11 @@
   **キー＝入力の実質全体**（`projectId`+`branchToSync`+`tagFormat`、ヌル文字区切り）に戻した。
   `LatestTagResolution`・`AppWithLatestTag` は T-230 で step 間を流れるため `domain/types.ts` へ移動。
   型の集計も再計算（合計 73→74）。`pnpm check` 通過: 39 Test Files / 494 Tests（不変）
-  **注意: T-229 は別セッションと重複実装になった。** 同時刻に別のワークツリー
-  （`../helm-yadokari-resolve-tags`、ブランチ `work/resolve-tags` の `3f3856d`）でも同じT-229が
-  実装され、共有の `develop/tasks.json` 経由で `doing`→`done` が記録されていた。main側（`fe4824c`）は
-  `docs/architecture.md` の型集計の再計算を含み、ブランチ側は `resolveTrackedHeadTagNames()` も
-  `TagSource` を受ける形にしてキャッシュキーに `tagFormat` を含める理由をJSDocに明記している。
-  **どちらを採るかはユーザー判断待ち**（ブランチ側の2点をmainへ取り込むのが素直）
+  **T-229 は別セッションと重複実装になり、ユーザー判断でブランチ側を正とした。**
+  別ワークツリー（`../helm-yadokari-resolve-tags`、ブランチ `work/resolve-tags` の `3f3856d`）の実装を
+  main へ取り込み、コード4ファイルは `3f3856d` と完全一致させた（`resolveTrackedHeadTagNames()` も
+  `TagSource` を受ける形になり、キャッシュキーに `tagFormat` を含める理由がJSDocに残った）。
+  `docs/architecture.md` の型集計の再計算は main 側の成果を残してある（型の件数は両版で同じ）
 
 ## 次にやること
 
@@ -58,14 +57,18 @@
 `filterTargets → resolveTags → buildPlans → applyUpdates` にする。依存は直列:
 
 - ~~**T-229**~~（done）: `TagSource` を新設し、タグ解決まわりの型を `src/domain/types.ts` に集約する
-- **T-230**（`opus` / **`N`**）: `resolve-tags` step への切り出し本体。重複排除をキャッシュから集合演算にする
+- **T-230**（`opus` / `Y`）: `resolve-tags` step への切り出し本体。重複排除をキャッシュから集合演算にする
 - **T-231**（`sonnet` / `Y`）: `LatestTagResolution` に `origin` を足し、新規作成予定のタグを計画のログに出す
 - **T-232**（`opus` / `Y`）: 軸交差の規則を `docs/architecture.md` に書き、README・glossary を追随させる
 
-**T-230 は `/loop` では拾われない**（`loopable: "N"`）。ユーザーの判断が要る論点を2つ含むため:
-`CONCURRENCY_LIMIT` の意味が step ごとに変わることを許容するか、`create_tag` のログがバッチの
-先頭に固まることが実機の運用で困らないか。指示メモは
-[`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13」。
+**T-230 に未コミットのWIPが残っている。着手前に必ず確認すること。** 並行セッションが
+ワークツリー `../helm-yadokari-resolve-tags`（ブランチ `work/resolve-tags`）で T-230 に着手したまま
+中止になった。`src/steps/resolve-tags/` の新規作成・`resolve-latest-tags.ts` の削除・
+`main.ts`／`build-plans.ts`／`validate.ts`／`step-outcome.ts`／`test/helpers.ts` の変更が
+**コミットされずに残っている**。引き継ぐか破棄するかを決めてから着手する（破棄はユーザー承認が要る）。
+`loopable` は当初 `N` だったが、論点2件（`CONCURRENCY_LIMIT` の意味が step ごとに変わることの許容、
+`create_tag` のログがバッチ先頭に固まること）の決定が本文に入ったため `Y` になっている（`7ae8e87`）。
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13」。
 
 **GitHub対応の8タスク（T-220〜T-228）はすべて完了。**
 `PLATFORM=gitlab|github` で切り替わり、ドキュメントも追随済み。

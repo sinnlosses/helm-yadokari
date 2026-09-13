@@ -2,10 +2,8 @@ import { buildNewTag, findLatestParsedTag, parseTag } from "../../../domain/tag-
 import type {
   AppConfig,
   AppWithLatestTag,
-  BranchName,
   CommitSha,
   LatestTagResolution,
-  TagFormat,
   TagInfo,
   TagName,
   TagSource,
@@ -26,12 +24,18 @@ export type ResolveLatestTags = (apps: readonly AppConfig[]) => Promise<readonly
  * 呼ぶだけでよい。解決結果はアプリと対（`AppWithLatestTag`）にして返すため、後段の差分判定
  * （`stage-image-tag-updates.ts`）はどのタグがどのアプリのものかを引き当て直さずに済む。
  *
- * 解決結果をprojectId+追跡ブランチ単位でバッチ全体を通してキャッシュするのは、**同じappが
- * 複数の設定ユニットに登録されうる**ため。キャッシュが無いと同じappの解決が設定ユニットの数だけ走り、
- * HEADを指すタグが無いときはタグ作成もその回数だけ実行される（タグ名は秒精度なので、同名に
- * なれば2件目以降が失敗し、秒をまたげば同じコミットに冗長なタグが並んで設定ユニットごとに違う
- * タグ名がvalues.yamlに書かれる）。`mapWithConcurrency`により設定ユニットは並列実行される
- * ため、同時に来た同じキーの問い合わせも1回にまとめる`getOrFetchShared`を使う。
+ * 解決結果を`TagSource`（`projectId`+`branchToSync`+`tagFormat`）単位でバッチ全体を通して
+ * キャッシュするのは、**同じappが複数の設定ユニットに登録されうる**ため。キャッシュが無いと
+ * 同じappの解決が設定ユニットの数だけ走り、HEADを指すタグが無いときはタグ作成もその回数だけ
+ * 実行される（タグ名は秒精度なので、同名になれば2件目以降が失敗し、秒をまたげば同じコミットに
+ * 冗長なタグが並んで設定ユニットごとに違うタグ名がvalues.yamlに書かれる）。`mapWithConcurrency`
+ * により設定ユニットは並列実行されるため、同時に来た同じキーの問い合わせも1回にまとめる
+ * `getOrFetchShared`を使う。
+ *
+ * キーに`tagFormat`まで含めるのは、`projectId`ごとの`tagFormat`一致は`validateTagFormatConsistency()`
+ * が保証しており通常は`projectId`+`branchToSync`だけで一意になるが、その保証が将来外れたときに
+ * 「実行順でどちらの形式のタグになるか決まる」という壊れ方ではなく「同じappにタグが2つできる」
+ * という壊れ方にするため。
  *
  * キャッシュの寿命はこの関数が返すクロージャと同じで、バッチごとに`buildPlans()`が1つ作る。
  */
@@ -49,16 +53,13 @@ export function createResolveLatestTags(
         branchToSync: app.branchToSync,
         tagFormat: app.tagFormat,
       }
+      const cacheKey = [source.projectId, source.branchToSync, source.tagFormat].join("\0")
       return [
         ...acc,
         {
           app,
           latestTag: await withAppContext(adapter, source.projectName, () =>
-            getOrFetchShared(
-              cache,
-              `${source.projectId}\0${source.branchToSync}\0${source.tagFormat}`,
-              () => resolveLatestTag(adapter, source, dryRun),
-            ),
+            getOrFetchShared(cache, cacheKey, () => resolveLatestTag(adapter, source, dryRun)),
           ),
         },
       ]
@@ -67,7 +68,7 @@ export function createResolveLatestTags(
 }
 
 /**
- * 1アプリ分の、追跡ブランチ由来の最新タグを判定する。タグ形式は`app.tagFormat`
+ * `source`分の、追跡ブランチ由来の最新タグを判定する。タグ形式は`source.tagFormat`
  * （`registry.yaml`の`appSpecs[].tagFormat`由来）に従う。
  *
  * このツールの目的は「追跡ブランチの最新コミットの中身をデプロイさせること」なので、
@@ -96,12 +97,7 @@ async function resolveLatestTag(
       `追跡ブランチ "${source.branchToSync}" がプロジェクト "${source.projectName}" に見つかりません`,
     )
   }
-  const trackedHeadTagNames = resolveTrackedHeadTagNames(
-    tags,
-    headSha,
-    source.branchToSync,
-    source.tagFormat,
-  )
+  const trackedHeadTagNames = resolveTrackedHeadTagNames(tags, headSha, source)
 
   // HEADを指すタグはどれも同じコミットを指すため中身は同じだが、返す値を一意に決める
   // ためだけに、打刻日時が最も新しいものを選ぶ（決定性のための規則）。
@@ -130,21 +126,22 @@ async function resolveLatestTag(
 }
 
 /**
- * 「現在の追跡ブランチ由来（＝`branch`と`format`でパースできる）で、かつ`headSha`と同じ
- * コミットを指すタグ名」の集合を組み立てる。追跡ブランチを切り替えた場合、切り替え前の
- * タグ名は現在の`branch`ではパースできないためこの集合には含まれない。結果として、HEADと
- * 同じコミットを指していても更新をスキップしない。
+ * 「現在の追跡ブランチ由来（＝`source.branchToSync`と`source.tagFormat`でパースできる）で、
+ * かつ`headSha`と同じコミットを指すタグ名」の集合を組み立てる。追跡ブランチを切り替えた場合、
+ * 切り替え前のタグ名は現在の`source.branchToSync`ではパースできないためこの集合には含まれない。
+ * 結果として、HEADと同じコミットを指していても更新をスキップしない。
  */
 function resolveTrackedHeadTagNames(
   tags: readonly TagInfo[],
   headSha: CommitSha,
-  branch: BranchName,
-  format: TagFormat,
+  source: TagSource,
 ): ReadonlySet<TagName> {
   return new Set(
     tags
       .filter(
-        (tag) => tag.commitSha === headSha && parseTag(tag.name, branch, format) !== undefined,
+        (tag) =>
+          tag.commitSha === headSha &&
+          parseTag(tag.name, source.branchToSync, source.tagFormat) !== undefined,
       )
       .map((tag) => tag.name),
   )
