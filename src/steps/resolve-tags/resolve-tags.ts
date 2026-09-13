@@ -48,10 +48,11 @@ export async function resolveTags(
  * 返す件数がそのまま解決の回数になる。
  */
 function groupByTagSource(targets: readonly ConfigUnit[]): readonly TagSource[] {
-  const sources = new Map<TagSourceKey, TagSource>()
-  for (const app of targets.flatMap((configUnit) => configUnit.apps)) {
-    sources.set(buildTagSourceKey(app), toTagSource(app))
-  }
+  const sources = new Map<TagSourceKey, TagSource>(
+    targets
+      .flatMap((configUnit) => configUnit.apps)
+      .map((app) => [buildTagSourceKey(app), toTagSource(app)]),
+  )
   return [...sources.values()]
 }
 

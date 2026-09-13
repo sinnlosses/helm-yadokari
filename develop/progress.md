@@ -6,12 +6,20 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは3件**（T-235・T-236・T-237。`resolve-tags/` の不変化と構成の整理、README のツリー展開）。`done` 10件は
+**未着手のタスクは2件**（T-236・T-237。`resolve-tags/` の構成の整理、README のツリー展開）。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-13 `resolve-tags` の不変化
+
+- **T-235: `groupByTagSource()` を可変Mapの組み立てから不変な生成に書き換えた**。
+  `new Map<TagSourceKey, TagSource>(targets.flatMap(...).map(...))` の形にし、
+  `lib/config/load-config-unit.ts:133` と揃えた。後勝ちの挙動は不変で、
+  `src/` から生成後に `set()` でループする箇所が無くなった。テストは無変更のまま通過。
+  `pnpm check` 通過: 40 Test Files / 495 Tests（件数不変）
 
 ### 2026-09-13 `src/types/` を `src/domain/` に吸収
 
@@ -129,7 +137,7 @@
 **`resolve-tags/` まわりの2タスクを T-235・T-236 として登録した**（2026-09-13、`/plan-tasks`）。
 依存は直列で、**T-235 → T-236** の順に実行する（同じファイルを触るため）:
 
-- **T-235**（sonnet・loopable `Y`）: `resolve-tags.ts` の `groupByTagSource()` を可変Mapの
+- ~~**T-235**~~（done）: `resolve-tags.ts` の `groupByTagSource()` を可変Mapの
   組み立てから不変な生成に書き換える。`src/` で生成後に `set()` でループしているのはここだけで、
   前例は `lib/config/load-config-unit.ts:133` の `new Map(xs.map(...))`
 - **T-236**（opus・loopable `N`）: `resolve-tags/` のサブステップ構成（`sub-steps/` に1ファイルだけ）を
