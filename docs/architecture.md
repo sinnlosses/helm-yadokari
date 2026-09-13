@@ -191,6 +191,8 @@ importせず〜」の節を参照）。
 | `config/validate.ts`          | projectId重複・書き込み先重複・chartリポジトリをまたぐtagFormat食い違いの検証                                                                                                                   |
 | `helm.ts`                     | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                                                  |
 | `env.ts`                      | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                                                                                                            |
+| `report/format-report.ts`     | 設定ユニット単位のレコード配列をMarkdown1枚（ヘッダ＋表）に整形する。外部I/Oを持たない同期の純粋関数                                                                                            |
+| `report/write-report.ts`      | `format-report.ts`が組み立てたMarkdownを`REPORT_OUTPUT_PATH`へ書き出す。親ディレクトリが無ければ作る                                                                                            |
 
 ### `src/domain/` — このツールの語彙（型）と、その語彙に閉じた規則
 

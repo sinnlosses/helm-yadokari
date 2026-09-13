@@ -100,6 +100,19 @@ export function toConfigRootPath(s: string, label = "CONFIG_ROOT_PATH"): ConfigR
   return s as ConfigRootPath
 }
 
+declare const reportOutputPathBrand: unique symbol
+/**
+ * `runProcess()`が書き出すレポートの出力先（`REPORT_OUTPUT_PATH`由来）。`LocalPath`の部分型
+ * なので`writeFileSync`等にそのまま渡せる。`ConfigRootPath`と違い、これから作るファイルを指すため
+ * 実在チェックはしない（パストラバーサル検証のみ）。
+ */
+export type ReportOutputPath = LocalPath & { readonly [reportOutputPathBrand]: never }
+/** `ReportOutputPath`の唯一の生成経路。label はエラーメッセージ内でそのパスを何と呼ぶか（既定は環境変数名の`REPORT_OUTPUT_PATH`） */
+export function toReportOutputPath(s: string, label = "REPORT_OUTPUT_PATH"): ReportOutputPath {
+  assertSafePath(s, label)
+  return s as ReportOutputPath
+}
+
 declare const chartDirNameBrand: unique symbol
 /** config/ 直下、1chart分の設定を束ねるディレクトリ名（例: "teamA-chart"） */
 export type ChartDirName = string & { readonly [chartDirNameBrand]: never }

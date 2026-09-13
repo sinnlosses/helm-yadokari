@@ -1,3 +1,5 @@
+import { existsSync, readFileSync, rmSync } from "node:fs"
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 // GitLabクライアントの生成そのものを通したいので、`src/lib/gitlab/gitlab.js` ではなく
@@ -12,7 +14,7 @@ vi.mock("../src/utils/logger.js", () => ({
 
 import { Gitlab } from "@gitbeaker/rest"
 
-import { toAccessToken, toPlatformUrl } from "../src/domain/types.js"
+import { toAccessToken, toPlatformUrl, toReportOutputPath } from "../src/domain/types.js"
 import { DEFAULT_CONFIG_ROOT_PATH, loadConfig } from "../src/lib/config/config.js"
 import type { EnvConfig } from "../src/lib/env.js"
 import { run } from "../src/main.js"
@@ -20,11 +22,16 @@ import { makeApp, makeConfigUnit } from "./helpers.js"
 
 const OLD_TAG = "main-build-at-20251231-000000"
 
+/** このファイル専用の一時出力先。`REPORT_OUTPUT_PATH`の実在チェックはcwd()配下限定のため相対パスにする */
+const REPORT_OUTPUT_DIR = "test-tmp-report-dry-run"
+const REPORT_OUTPUT_PATH = toReportOutputPath(`${REPORT_OUTPUT_DIR}/report.md`)
+
 const env: EnvConfig = {
   platform: "gitlab",
   platformUrl: toPlatformUrl("https://gitlab.test"),
   accessToken: toAccessToken("test-token"),
   configRootPath: DEFAULT_CONFIG_ROOT_PATH,
+  reportOutputPath: REPORT_OUTPUT_PATH,
   concurrencyLimit: 3,
   dryRun: true,
   targetChart: undefined,
@@ -85,6 +92,14 @@ describe("run（DRY_RUN=true）", () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+    rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
+  })
+
+  it("dryRunでもレポートを書き出す（headerにdryRun: trueが載る）", async () => {
+    await expect(run(env)).resolves.toBe("SUCCESS")
+
+    expect(existsSync(REPORT_OUTPUT_PATH)).toBe(true)
+    expect(readFileSync(REPORT_OUTPUT_PATH, "utf-8")).toContain("- dryRun: true")
   })
 
   it("GitLabの状態を変える呼び出しが1つも起きない", async () => {

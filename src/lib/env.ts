@@ -8,9 +8,17 @@ import type {
   ConfigUnitPath,
   PlatformKind,
   PlatformUrl,
+  ReportOutputPath,
 } from "../domain/types.js"
-import { toAccessToken, toChartDirName, toConfigRootPath, toPlatformUrl } from "../domain/types.js"
+import {
+  toAccessToken,
+  toChartDirName,
+  toConfigRootPath,
+  toPlatformUrl,
+  toReportOutputPath,
+} from "../domain/types.js"
 import { DEFAULT_CONFIG_ROOT_PATH } from "./config/config.js"
+import { DEFAULT_REPORT_OUTPUT_PATH } from "./report/write-report.js"
 
 export function loadEnv(key: string): string {
   const value = process.env[key]
@@ -63,6 +71,18 @@ export function parseConfigRootPath(raw: string | undefined): ConfigRootPath {
   return configRootPath
 }
 
+/**
+ * REPORT_OUTPUT_PATH は `runProcess()` 末尾が書き出すレポートの出力先。GitLabの
+ * artifactsは`$CI_PROJECT_DIR`配下のパスしか回収しないため、既定値は作業ディレクトリからの
+ * 相対パスにする。
+ *
+ * パストラバーサル検証は`toReportOutputPath()`が行う。`CONFIG_ROOT_PATH`と違い、
+ * 実在チェックはしない（これから書き出すファイルなので存在するはずがない）。
+ */
+export function parseReportOutputPath(raw: string | undefined): ReportOutputPath {
+  return toReportOutputPath(raw ?? DEFAULT_REPORT_OUTPUT_PATH)
+}
+
 export function parseConcurrencyLimit(raw: string | undefined): number {
   const value = Number(raw ?? "3")
   if (!Number.isInteger(value) || value < 1 || value > 20) {
@@ -96,6 +116,7 @@ export type EnvConfig = {
   readonly platformUrl: PlatformUrl
   readonly accessToken: AccessToken
   readonly configRootPath: ConfigRootPath
+  readonly reportOutputPath: ReportOutputPath
   readonly concurrencyLimit: number
   readonly dryRun: boolean
   readonly targetChart: ChartDirName | undefined
@@ -118,6 +139,7 @@ export function loadEnvConfig(): EnvConfig {
     platformUrl: loadPlatformUrl(platform),
     accessToken: toAccessToken(loadEnv("ACCESS_TOKEN")),
     configRootPath: parseConfigRootPath(loadOptionalEnv("CONFIG_ROOT_PATH")),
+    reportOutputPath: parseReportOutputPath(loadOptionalEnv("REPORT_OUTPUT_PATH")),
     concurrencyLimit: parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT")),
     dryRun: loadOptionalEnv("DRY_RUN") === "true",
     targetChart: parseTargetChart(loadOptionalEnv("TARGET_CHART")),

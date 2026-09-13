@@ -10,6 +10,7 @@ import {
   parseConcurrencyLimit,
   parseConfigRootPath,
   parsePlatform,
+  parseReportOutputPath,
   parseTargetChart,
   parseTargetUnits,
   validateGithubUrl,
@@ -136,6 +137,34 @@ describe("parseConfigRootPath", () => {
   })
 })
 
+describe("parseReportOutputPath", () => {
+  let tmpDir = ""
+
+  afterEach(() => {
+    if (tmpDir) rmSync(tmpDir, { recursive: true })
+    tmpDir = ""
+  })
+
+  it("未指定のとき デフォルトの出力パスを返す", () => {
+    expect(parseReportOutputPath(undefined)).toBe("report/report.md")
+  })
+
+  it("指定されたパスをそのまま返す（これから書き出すファイルなので実在チェックはしない）", () => {
+    expect(parseReportOutputPath("out/summary.md")).toBe("out/summary.md")
+  })
+
+  it("実在するディレクトリを指しても例外をスローしない", () => {
+    tmpDir = mkdtempSync(join(process.cwd(), "test-tmp-"))
+    const relativePath = join(tmpDir.slice(process.cwd().length + 1), "report.md")
+    expect(parseReportOutputPath(relativePath)).toBe(relativePath)
+  })
+
+  it("パストラバーサルのとき例外をスローし、メッセージに REPORT_OUTPUT_PATH と指定値を含む", () => {
+    expect(() => parseReportOutputPath("../../etc/passwd")).toThrow("REPORT_OUTPUT_PATH")
+    expect(() => parseReportOutputPath("../../etc/passwd")).toThrow("../../etc/passwd")
+  })
+})
+
 describe("parseConcurrencyLimit", () => {
   it("未指定のとき デフォルト値 3 を返す", () => {
     expect(parseConcurrencyLimit(undefined)).toBe(3)
@@ -224,6 +253,7 @@ describe("loadEnvConfig", () => {
     vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
     vi.stubEnv("ACCESS_TOKEN", "token")
     vi.stubEnv("CONFIG_ROOT_PATH", undefined)
+    vi.stubEnv("REPORT_OUTPUT_PATH", undefined)
     vi.stubEnv("CONCURRENCY_LIMIT", undefined)
     vi.stubEnv("DRY_RUN", undefined)
     vi.stubEnv("TARGET_CHART", undefined)
@@ -234,6 +264,7 @@ describe("loadEnvConfig", () => {
       platformUrl: "https://gitlab.example.com",
       accessToken: "token",
       configRootPath: "config",
+      reportOutputPath: "report/report.md",
       concurrencyLimit: 3,
       dryRun: false,
       targetChart: undefined,

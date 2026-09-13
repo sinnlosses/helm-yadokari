@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは2件**（T-239・T-240。バッチ実行レポートのartifacts化。T-238 は完了）。
+**未着手のタスクは1件**（T-240。`.gitlab-ci.yml` への `artifacts` 追加。`loopable: "N"`）。
 **T-229〜T-238 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は 59,620B → 8,570B）。完了タスクは
@@ -14,6 +14,24 @@
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-13 レポートをMarkdownで書き出す
+
+- **T-239: `REPORT_OUTPUT_PATH`（既定 `report/report.md`）を追加し、`src/lib/report/` から
+  Markdown 1枚を書き出すようにした**。`format-report.ts`（レコード配列→Markdown文字列の
+  純粋関数）と `write-report.ts`（`node:fs` での書き出し）に分けた（分ける合図①「責務が
+  『整形』と『書き出し』」・④「片方だけ外部I/Oを持つ」。`build-mr-content.ts`／
+  `submit-merge-request.ts` の前例に倣う）
+- **`runProcess()` が `runPipeline()` を包む形にした**。`runPipeline()` が `FatalError` で
+  reject すれば `runProcess()` もそのまま reject するため、**fatal時は書き出しに到達しない**
+  （方針どおり）。`DRY_RUN=true` では書き出す
+- 出力パスは新設のブランド型 `ReportOutputPath`。`CONFIG_ROOT_PATH` と違い**実在チェックは
+  しない**（これから書き出すファイルなので）。親ディレクトリは `mkdirSync(recursive)` で作る
+- **レビューで2点直した**: (1) ERRORの `reason` は例外のメッセージそのもので `|` や改行を
+  含みうるため、そのまま入れると表が崩れる。`toTableCell()` でエスケープし、テストを足した。
+  (2) テストヘルパーの `as ConfigUnitReport` を、本番の `toConfigUnitReport()` と同じ
+  「識別情報 + outcome」の組み立てに変えてキャストを消した
+- `pnpm check` 通過: 42 Test Files / 514 Tests（496→514）
 
 ### 2026-09-13 レポート用レコード型を4stepの戻り値に通す
 
@@ -178,7 +196,7 @@
   4stepの戻り値と `settle()` を通して `runProcess()` まで運ぶ。**挙動もログの出力も不変**。
   `StepOutcome<T>` の `settled` と `summarizeResults()` の `Record<ConfigUnitUpdateResult, number>` に
   触るのでここが一番重い
-- **T-239**（sonnet・loopable `Y`）: Markdown 1枚に整形して `src/lib/` から書き出し、
+- ~~**T-239**~~（done）: Markdown 1枚に整形して `src/lib/` から書き出し、
   出力パスの環境変数を `src/lib/env.ts` に追加。`README.md` の環境変数表と
   `docs/architecture.md` の `lib/` 責務表も追随
 - **T-240**（sonnet・loopable `N`）: `.gitlab-ci.yml` に `artifacts`（**`when: always` が必須**）を

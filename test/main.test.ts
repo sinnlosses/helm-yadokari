@@ -1,3 +1,5 @@
+import { existsSync, readFileSync, rmSync } from "node:fs"
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../src/lib/gitlab/gitlab.js")
@@ -7,7 +9,13 @@ vi.mock("../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-import { toAccessToken, toCommitSha, toPlatformUrl, toTagName } from "../src/domain/types.js"
+import {
+  toAccessToken,
+  toCommitSha,
+  toPlatformUrl,
+  toReportOutputPath,
+  toTagName,
+} from "../src/domain/types.js"
 import { loadConfig } from "../src/lib/config/config.js"
 import { DEFAULT_CONFIG_ROOT_PATH } from "../src/lib/config/config.js"
 import type { EnvConfig } from "../src/lib/env.js"
@@ -27,11 +35,16 @@ import { run } from "../src/main.js"
 import { FatalError } from "../src/utils/errors.js"
 import { makeApp, makeConfigUnit, makeHttpError, mockGitlab } from "./helpers.js"
 
+/** このファイル専用の一時出力先。`REPORT_OUTPUT_PATH`の実在チェックはcwd()配下限定のため相対パスにする */
+const REPORT_OUTPUT_DIR = "test-tmp-report-main"
+const REPORT_OUTPUT_PATH = toReportOutputPath(`${REPORT_OUTPUT_DIR}/report.md`)
+
 const env: EnvConfig = {
   platform: "gitlab",
   platformUrl: toPlatformUrl("https://gitlab.test"),
   accessToken: toAccessToken("test-token"),
   configRootPath: DEFAULT_CONFIG_ROOT_PATH,
+  reportOutputPath: REPORT_OUTPUT_PATH,
   concurrencyLimit: 3,
   dryRun: false,
   targetChart: undefined,
@@ -58,6 +71,7 @@ describe("run", () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+    rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
   })
 
   /** summary イベントに載った設定ユニット単位の件数 */
@@ -87,6 +101,27 @@ describe("run", () => {
     vi.mocked(loadConfig).mockReturnValue({ configUnits: [makeConfigUnit([makeApp()])] })
     vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
     await expect(run(env)).rejects.toThrow(FatalError)
+  })
+
+  it("FatalErrorが発生したときレポートを書き出さない", async () => {
+    vi.mocked(loadConfig).mockReturnValue({ configUnits: [makeConfigUnit([makeApp()])] })
+    vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
+    await expect(run(env)).rejects.toThrow(FatalError)
+    expect(existsSync(REPORT_OUTPUT_PATH)).toBe(false)
+  })
+
+  it("実行後、件数サマリと設定ユニット1件につき1行の表を含むMarkdownレポートを書き出す", async () => {
+    vi.mocked(loadConfig).mockReturnValue({
+      configUnits: [makeConfigUnit([makeApp()]), makeConfigUnit([makeApp()])],
+    })
+    await run(env)
+
+    expect(existsSync(REPORT_OUTPUT_PATH)).toBe(true)
+    const markdown = readFileSync(REPORT_OUTPUT_PATH, "utf-8")
+    expect(markdown).toContain("- dryRun: false")
+    expect(markdown).toContain("- 件数: CREATED 2 / SKIPPED 0 / ERROR 0")
+    expect(markdown).toContain("| chart | unit | 結果 | 理由 |")
+    expect(markdown).toMatch(/\| .+ \| .+ \| CREATED \| - \|/)
   })
 
   it('ERROR が1件以上あるとき "PARTIAL_FAILURE" を返す', async () => {
@@ -130,6 +165,7 @@ describe("run（PLATFORMによる実装の切り替え）", () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+    rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
   })
 
   it('PLATFORM="gitlab"（既定）のとき、GitLab側のcreateClientだけを使う', async () => {
