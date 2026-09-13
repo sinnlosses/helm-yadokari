@@ -1,20 +1,20 @@
-import type { AppConfig, ConfigUnit, LatestTagResolution, TagSource } from "../../domain/types.js"
+import { toTagSourceKey } from "../../domain/tag-source.js"
+import type {
+  AppConfig,
+  ConfigUnit,
+  LatestTagResolution,
+  TagSource,
+  TagSourceKey,
+} from "../../domain/types.js"
 import type { PlatformAdapter } from "../../lib/platform/adapter.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { type AppOutcome, settleApp } from "../shared/step-outcome.js"
 import { resolveLatestTag } from "./sub-steps/resolve-latest-tag.js"
 
-/** 1つの`TagSource`と、それを共有するapp。`targets`をソース軸に束ね直した1件分 */
-type TagSourceGroup = {
-  readonly source: TagSource
-  readonly apps: readonly AppConfig[]
-}
-
 /**
  * 全設定ユニットのappを最新タグの解決単位（`TagSource`）へ一意化し、単位ごとに1回だけ解決する。
- * 解決結果は`targets`のappのオブジェクト参照から引ける形で返し、どの設定ユニットのERRORに
- * するかは受け取った側（`buildPlans()`）が決める。このstepはappの失敗も`AppOutcome`として
- * 返すだけで、設定ユニット単位の結果（`settled`）を持たない。
+ * このstepはappの失敗も`AppOutcome`として返すだけで、設定ユニット単位の結果（`settled`）は
+ * 持たない。どの設定ユニットのERRORにするかは受け取った側（`buildPlans()`）が決める。
  *
  * **一意化はこのstepの効率化ではなく正しさのためにある。** 同じappは複数の設定ユニットに
  * 登録されうるが、解決は「HEADを指すタグが無ければ作る」という**書き込み**を含むため、
@@ -31,47 +31,28 @@ export async function resolveTags(
   targets: readonly ConfigUnit[],
   concurrencyLimit: number,
   dryRun: boolean,
-): Promise<ReadonlyMap<AppConfig, AppOutcome<LatestTagResolution>>> {
+): Promise<ReadonlyMap<TagSourceKey, AppOutcome<LatestTagResolution>>> {
   const resolved = await mapWithConcurrency(
     groupByTagSource(targets),
     concurrencyLimit,
-    async ({ source, apps }) => ({
-      apps,
-      outcome: await settleApp(adapter, source.projectName, () =>
-        resolveLatestTag(adapter, source, dryRun),
-      ),
-    }),
+    async (source): Promise<readonly [TagSourceKey, AppOutcome<LatestTagResolution>]> => [
+      toTagSourceKey(source),
+      await settleApp(adapter, source.projectName, () => resolveLatestTag(adapter, source, dryRun)),
+    ],
   )
-  return new Map(
-    resolved.flatMap(({ apps, outcome }) =>
-      apps.map((app): readonly [AppConfig, AppOutcome<LatestTagResolution>] => [app, outcome]),
-    ),
-  )
+  return new Map(resolved)
 }
 
 /**
- * 全設定ユニットのappを`TagSource`ごとに束ねる。同じ解決単位のappは1つのグループに入るため、
- * グループの数がそのまま解決の回数になる。
- *
- * キーの区切りにヌル文字を使う理由は`utils/cache.ts`の`toCacheKey()`と同じ。`projectName`は
- * `projectId`と1:1のラベルなのでキーに入れない。`tagFormat`まで含めるのは、`projectId`ごとの
- * `tagFormat`一致は`validateTagFormatConsistency()`が保証しており通常は`projectId`+
- * `branchToSync`だけで一意になるが、その保証が将来外れたときに「実行順でどちらの形式のタグに
- * なるか決まる」という壊れ方ではなく「同じappにタグが2つできる」という壊れ方にするため。
+ * 全設定ユニットのappを`TagSource`ごとに一意化する。同じ解決単位のappは1件にまとまるため、
+ * 返す件数がそのまま解決の回数になる。
  */
-function groupByTagSource(targets: readonly ConfigUnit[]): readonly TagSourceGroup[] {
-  const groups = new Map<string, TagSourceGroup>()
+function groupByTagSource(targets: readonly ConfigUnit[]): readonly TagSource[] {
+  const sources = new Map<TagSourceKey, TagSource>()
   for (const app of targets.flatMap((configUnit) => configUnit.apps)) {
-    const key = [app.projectId, app.branchToSync, app.tagFormat].join("\0")
-    const group = groups.get(key)
-    groups.set(
-      key,
-      group === undefined
-        ? { source: toTagSource(app), apps: [app] }
-        : { ...group, apps: [...group.apps, app] },
-    )
+    sources.set(toTagSourceKey(app), toTagSource(app))
   }
-  return [...groups.values()]
+  return [...sources.values()]
 }
 
 function toTagSource(app: AppConfig): TagSource {

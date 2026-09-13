@@ -1,6 +1,7 @@
 import { vi } from "vitest"
 
 import { validateTagFormat } from "../src/domain/tag-format.js"
+import { toTagSourceKey } from "../src/domain/tag-source.js"
 import type {
   AppConfig,
   AppUpdatePlan,
@@ -8,6 +9,7 @@ import type {
   LatestTagResolution,
   TagName,
   TagSource,
+  TagSourceKey,
 } from "../src/domain/types.js"
 import {
   toAnchorName,
@@ -120,18 +122,19 @@ export function resolvedAtHead(
 }
 
 /**
- * `buildPlans()`に渡す解決済みの最新タグ。`resolveTags()`が返すマップと同じく**appのオブジェクト
- * 参照をキーにする**ので、`buildPlans()`へ渡すのと同じ`configUnits`から組み立てること。
- * 既定は全appが`NEW_TAG`に解決できた状態で、失敗や別のタグを混ぜたいテストだけ`outcomeFor`を渡す。
+ * `buildPlans()`に渡す解決済みの最新タグ。`resolveTags()`が返すマップと同じく解決単位の
+ * 値キー（`TagSourceKey`）で引けるので、`buildPlans()`へ渡すのと同じ`configUnits`から
+ * 組み立てること。既定は全appが`NEW_TAG`に解決できた状態で、失敗や別のタグを混ぜたいテストだけ
+ * `outcomeFor`を渡す。
  */
 export function makeResolvedTags(
   configUnits: readonly ConfigUnit[],
   outcomeFor: (app: AppConfig) => AppOutcome<LatestTagResolution> = () => resolvedAtHead(),
-): ReadonlyMap<AppConfig, AppOutcome<LatestTagResolution>> {
+): ReadonlyMap<TagSourceKey, AppOutcome<LatestTagResolution>> {
   return new Map(
     configUnits.flatMap((configUnit) =>
-      configUnit.apps.map((app): readonly [AppConfig, AppOutcome<LatestTagResolution>] => [
-        app,
+      configUnit.apps.map((app): readonly [TagSourceKey, AppOutcome<LatestTagResolution>] => [
+        toTagSourceKey(app),
         outcomeFor(app),
       ]),
     ),

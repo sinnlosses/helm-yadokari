@@ -1,3 +1,4 @@
+import { toTagSourceKey } from "../../domain/tag-source.js"
 import type {
   AppConfig,
   AppWithLatestTag,
@@ -5,6 +6,7 @@ import type {
   ConfigUnitUpdateResult,
   ConfigUnitUpdateTarget,
   LatestTagResolution,
+  TagSourceKey,
 } from "../../domain/types.js"
 import type { PlatformAdapterWithCachedReads } from "../../lib/platform/cached-reads.js"
 import { logger } from "../../utils/logger.js"
@@ -34,14 +36,11 @@ export type BuildPlansResult = {
  *
  * いずれか1つのアプリの処理が失敗した場合、その設定ユニット全体をオールオアナッシングで
  * settled（ERROR）に含める（`buildPlan()` 参照）。最新タグの解決の失敗も同じ扱いになる。
- *
- * `resolvedTags`はappのオブジェクト参照で引くため、`resolveTags()`に渡したのと同じ`targets`を
- * 渡すこと。
  */
 export async function buildPlans(
   adapter: PlatformAdapterWithCachedReads,
   targets: readonly ConfigUnit[],
-  resolvedTags: ReadonlyMap<AppConfig, AppOutcome<LatestTagResolution>>,
+  resolvedTags: ReadonlyMap<TagSourceKey, AppOutcome<LatestTagResolution>>,
   concurrencyLimit: number,
   dryRun: boolean,
 ): Promise<BuildPlansResult> {
@@ -65,7 +64,7 @@ export async function buildPlans(
  */
 async function buildPlan(
   adapter: PlatformAdapterWithCachedReads,
-  resolvedTags: ReadonlyMap<AppConfig, AppOutcome<LatestTagResolution>>,
+  resolvedTags: ReadonlyMap<TagSourceKey, AppOutcome<LatestTagResolution>>,
   configUnit: ConfigUnit,
   dryRun: boolean,
   logContext: ConfigUnitLogContext,
@@ -110,10 +109,10 @@ async function buildPlan(
  */
 function lookUpLatestTags(
   apps: readonly AppConfig[],
-  resolvedTags: ReadonlyMap<AppConfig, AppOutcome<LatestTagResolution>>,
+  resolvedTags: ReadonlyMap<TagSourceKey, AppOutcome<LatestTagResolution>>,
 ): readonly AppWithLatestTag[] {
   return apps.map((app) => {
-    const resolved = resolvedTags.get(app)
+    const resolved = resolvedTags.get(toTagSourceKey(app))
     if (resolved === undefined) {
       throw new Error(`アプリ "${app.projectName}" の最新タグが解決されていません`)
     }

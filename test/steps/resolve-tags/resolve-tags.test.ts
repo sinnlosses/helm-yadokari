@@ -4,6 +4,7 @@ vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
+import { toTagSourceKey } from "../../../src/domain/tag-source.js"
 import {
   toBranchName,
   toCommitSha,
@@ -47,10 +48,13 @@ describe("resolveTags（解決の単位ごとに1回だけ解決する）", () =
   it("同じapp（projectId+追跡ブランチ+tagFormat）が複数の設定ユニットに登録されていても解決は1回だけ行う", async () => {
     // タグ名は秒精度なので、設定ユニットごとにタグを作ると同名で2件目以降が失敗するか、
     // 秒をまたいで同じコミットに冗長なタグが並ぶ
+    const appA = makeApp()
+    const appB = makeApp()
+    const appC = makeApp()
     const targets = [
-      makeConfigUnit([makeApp()], { unitPath: toConfigUnitPath("tenant1/clientA") }),
-      makeConfigUnit([makeApp()], { unitPath: toConfigUnitPath("tenant1/clientB") }),
-      makeConfigUnit([makeApp()], { unitPath: toConfigUnitPath("tenant1/clientC") }),
+      makeConfigUnit([appA], { unitPath: toConfigUnitPath("tenant1/clientA") }),
+      makeConfigUnit([appB], { unitPath: toConfigUnitPath("tenant1/clientB") }),
+      makeConfigUnit([appC], { unitPath: toConfigUnitPath("tenant1/clientC") }),
     ]
 
     const resolvedTags = await resolveTags(adapter, targets, 3, false)
@@ -58,8 +62,13 @@ describe("resolveTags（解決の単位ごとに1回だけ解決する）", () =
     expect(adapter.listTags).toHaveBeenCalledTimes(1)
     expect(adapter.getBranchHeadSha).toHaveBeenCalledTimes(1)
     expect(adapter.createTag).toHaveBeenCalledTimes(1)
-    // 3つの設定ユニットのappすべてが、その1回の結果を引き当てられる
-    expect(resolvedTags.size).toBe(3)
+    // 別インスタンスのapp（appA/appB/appC）でも同じ解決単位を表す値キーは1件にまとまり、
+    // 3つの設定ユニットのappすべてがその1件を引き当てられる
+    expect(resolvedTags.size).toBe(1)
+    const outcome = resolvedTags.get(toTagSourceKey(appA))
+    expect(outcome).toBeDefined()
+    expect(resolvedTags.get(toTagSourceKey(appB))).toBe(outcome)
+    expect(resolvedTags.get(toTagSourceKey(appC))).toBe(outcome)
   })
 
   it("追跡ブランチが違えば別々に解決する", async () => {

@@ -125,6 +125,13 @@ export function toAnchorName(s: string): AnchorName {
   return s as AnchorName
 }
 
+declare const tagSourceKeyBrand: unique symbol
+/** `TagSource`の同一性を表す値キー。生成は`domain/tag-source.ts`の`toTagSourceKey()`経由のみ */
+export type TagSourceKey = string & { readonly [tagSourceKeyBrand]: never }
+export function toTagSourceKey(s: string): TagSourceKey {
+  return s as TagSourceKey
+}
+
 declare const accessTokenBrand: unique symbol
 /**
  * GitLab/GitHubのアクセストークン（`createClient`の認証情報。GitLabはGroup/Project Access
