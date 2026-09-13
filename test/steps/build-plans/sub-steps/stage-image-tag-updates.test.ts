@@ -166,7 +166,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       false,
     )
     expect(toApply).toEqual([])
-    expect(settled).toEqual(["SKIPPED"])
+    expect(settled.map((report) => report.result)).toEqual(["SKIPPED"])
   })
 
   it("values.yamlの値がタグ名でないとき（初期値など）は更新する", async () => {

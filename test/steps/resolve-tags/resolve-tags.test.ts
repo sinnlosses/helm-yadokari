@@ -118,7 +118,7 @@ describe("resolveTags（解決の失敗）", () => {
       false,
     )
 
-    expect(settled).toEqual(["ERROR", "ERROR"])
+    expect(settled.map((report) => report.result)).toEqual(["ERROR", "ERROR"])
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.configUnit).toBe(targets[2])
     // 失敗したappの解決は設定ユニットごとに再試行しない（再試行はクライアント層のwithRetry()が持つ）

@@ -69,7 +69,7 @@ describe("buildPlans", () => {
       false,
     )
     expect(toApply).toEqual([])
-    expect(settled).toEqual(["SKIPPED"])
+    expect(settled).toEqual([expect.objectContaining({ result: "SKIPPED", reason: "no_diff" })])
   })
 
   it("差分があってもdryRunのときはsettledにSKIPPEDとして入り、toApplyには含まれない", async () => {
@@ -82,7 +82,7 @@ describe("buildPlans", () => {
       true,
     )
     expect(toApply).toEqual([])
-    expect(settled).toEqual(["SKIPPED"])
+    expect(settled).toEqual([expect.objectContaining({ result: "SKIPPED", reason: "dry_run" })])
   })
 
   it("values.yaml が見つからないときsettledにERRORとして入る", async () => {
@@ -96,7 +96,7 @@ describe("buildPlans", () => {
       false,
     )
     expect(toApply).toEqual([])
-    expect(settled).toEqual(["ERROR"])
+    expect(settled.map((report) => report.result)).toEqual(["ERROR"])
   })
 
   it("複数アプリのうち1件が失敗したとき、成功分も反映せず全体をERRORにする（オールオアナッシング）", async () => {
@@ -113,7 +113,7 @@ describe("buildPlans", () => {
       false,
     )
     expect(toApply).toEqual([])
-    expect(settled).toEqual(["ERROR"])
+    expect(settled.map((report) => report.result)).toEqual(["ERROR"])
   })
 
   it("同じvaluesPathを参照する複数アプリの変更を1ファイルにまとめる", async () => {
@@ -161,7 +161,7 @@ describe("buildPlans", () => {
     ).rejects.toThrow(FatalError)
   })
 
-  it("非fatalなAPIエラーのときsettledにERRORとして入る", async () => {
+  it("非fatalなAPIエラーのときsettledにERRORとして入り、reasonにエラーの内容が入る", async () => {
     vi.mocked(adapter.getFileContent).mockRejectedValue(makeHttpError(403))
     const targets = [makeConfigUnit([makeApp()])]
     const { toApply, settled } = await buildPlans(
@@ -172,7 +172,13 @@ describe("buildPlans", () => {
       false,
     )
     expect(toApply).toEqual([])
-    expect(settled).toEqual(["ERROR"])
+    expect(settled).toEqual([
+      expect.objectContaining({
+        result: "ERROR",
+        // 包み直された例外はstatusを読み取れなくなる（`rethrowWithAppContext()`のJSDoc参照）
+        reason: "httpStatus: undefined, message: [アプリ: my-app] HTTP Error",
+      }),
+    ])
   })
 
   it("非fatalなAPIエラーは該当設定ユニットだけをERRORにし、他の設定ユニットの処理は続行する", async () => {
@@ -200,7 +206,7 @@ describe("buildPlans", () => {
     )
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.configUnit).toBe(ok)
-    expect(settled).toEqual(["ERROR"])
+    expect(settled.map((report) => report.result)).toEqual(["ERROR"])
   })
 
   it("values.yaml が見つからないときのエラーメッセージにアプリ名が含まれる", async () => {

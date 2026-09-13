@@ -6,12 +6,32 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは3件**（T-238〜T-240。バッチ実行レポートのartifacts化。直列の依存）。`done` 10件は
+**未着手のタスクは2件**（T-239・T-240。バッチ実行レポートのartifacts化。T-238 は完了）。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-13 レポート用レコード型を4stepの戻り値に通す
+
+- **T-238: `ConfigUnitReport` を新設し、4stepの戻り値と `settle()` を通して `runProcess()` まで
+  運んだ**。`ConfigUnitUpdateResult` は広げず据え置き（`summarizeResults()` の
+  `Record<ConfigUnitUpdateResult, number>` のキーとして使われているため）。かわりに
+  `ConfigUnitUpdateOutcome`（`result` で判別する合併。SKIPPEDの理由だけ閉じた集合、
+  ERRORは動的文字列、CREATEDは `reason: undefined`）と、識別情報との交差型 `ConfigUnitReport` を
+  `src/domain/types.ts` に置いた
+- `StepOutcome` の `settled` は `result` から `report` へ、`settle()` は
+  `(logContext, outcome)` の2引数に変わった。識別情報は `ConfigUnitLogContext` から取るため、
+  **ログとレポートで必ず同じ値になる**
+- **ログの出力は1文字も変えていない**（`README.md`「実行ログの例」が外部インターフェースのため）。
+  ログ検証テスト（`test/main.dry-run.test.ts`・`test/main.e2e.test.ts`・`test/main.test.ts`）は
+  無変更のまま通過
+- **レビューで1点直した**: スキップの `reason` がログとレコードで同じリテラルを2回書く形に
+  なっていたため、4箇所とも `const outcome` に括り出してログへは `...outcome` で spread した。
+  同じ差分の `settleAsError()` が既にこの形（`const reason` の括り出し）だったので揃えた。
+  あわせて `AppOutcome` のJSDocに残っていた旧型名も直した
+- `pnpm check` 通過: 40 Test Files / 496 Tests（495→496）
 
 ### 2026-09-13 `resolve-tags/` の構成は現状維持で決着
 
@@ -152,7 +172,7 @@
 **方針はタスク化の前にチャットで確定済み**なので、各タスクに残る判断は局所的。
 依存は直列で **T-238 → T-239 → T-240** の順に実行する:
 
-- **T-238**（opus・loopable `Y`）: 設定ユニット単位のレポート用レコード型を作り、
+- ~~**T-238**~~（done）: 設定ユニット単位のレポート用レコード型を作り、
   4stepの戻り値と `settle()` を通して `runProcess()` まで運ぶ。**挙動もログの出力も不変**。
   `StepOutcome<T>` の `settled` と `summarizeResults()` の `Record<ConfigUnitUpdateResult, number>` に
   触るのでここが一番重い

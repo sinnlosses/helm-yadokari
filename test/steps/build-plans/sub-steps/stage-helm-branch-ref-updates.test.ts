@@ -87,7 +87,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       false,
     )
     expect(toApply).toEqual([])
-    expect(settled).toEqual(["SKIPPED"])
+    expect(settled.map((report) => report.result)).toEqual(["SKIPPED"])
   })
 
   it("chart側の差分は無くhelmのみ差分があるとき、アプリの計画は作らずMR対象にする", async () => {
@@ -141,7 +141,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       false,
     )
     expect(toApply).toEqual([])
-    expect(settled).toEqual(["ERROR"])
+    expect(settled.map((report) => report.result)).toEqual(["ERROR"])
   })
 
   it("向き先ブランチの存在確認は、chartリポジトリのprojectIdに対して行う", async () => {

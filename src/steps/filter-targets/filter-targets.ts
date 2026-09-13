@@ -1,5 +1,5 @@
 import { buildFeatureBranch } from "../../domain/feature-branch.js"
-import type { ConfigUnit, ConfigUnitUpdateResult } from "../../domain/types.js"
+import type { ConfigUnit, ConfigUnitReport, ConfigUnitUpdateOutcome } from "../../domain/types.js"
 import type { PlatformAdapter } from "../../lib/platform/adapter.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
@@ -14,7 +14,7 @@ import {
 
 export type FilterTargetsResult = {
   readonly targets: readonly ConfigUnit[]
-  readonly settled: readonly ConfigUnitUpdateResult[]
+  readonly settled: readonly ConfigUnitReport[]
 }
 
 /**
@@ -33,7 +33,7 @@ export async function filterTargets(
   )
 
   const { left: settled, right: targets } = partitionMap(outcomes, (outcome) =>
-    outcome.status === "ok" ? right(outcome.value) : left(outcome.result),
+    outcome.status === "ok" ? right(outcome.value) : left(outcome.report),
   )
   return { targets, settled }
 }
@@ -48,14 +48,16 @@ async function evaluateTarget(
   logContext: ConfigUnitLogContext,
 ): Promise<StepOutcome<ConfigUnit>> {
   if (configUnit.apps.length === 0) {
-    logger.info({ ...logContext, result: "SKIPPED", reason: "no_apps" })
-    return settle("SKIPPED")
+    const outcome: ConfigUnitUpdateOutcome = { result: "SKIPPED", reason: "no_apps" }
+    logger.info({ ...logContext, ...outcome })
+    return settle(logContext, outcome)
   }
 
   const branch = buildFeatureBranch(configUnit.unitPath)
   if (await adapter.openMergeRequestExists(configUnit.chartRepo.projectId, branch)) {
-    logger.info({ ...logContext, result: "SKIPPED", reason: "mr_exists" })
-    return settle("SKIPPED")
+    const outcome: ConfigUnitUpdateOutcome = { result: "SKIPPED", reason: "mr_exists" }
+    logger.info({ ...logContext, ...outcome })
+    return settle(logContext, outcome)
   }
   return ok(configUnit)
 }

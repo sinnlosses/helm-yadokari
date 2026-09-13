@@ -80,8 +80,16 @@ describe("applyUpdates", () => {
     vi.clearAllMocks()
   })
 
-  it("成功したとき 'CREATED' を返す", async () => {
-    expect(await applyUpdates(adapter, [makeTarget()], 3)).toEqual(["CREATED"])
+  it("成功したとき、識別情報を持つCREATEDのレコードを返す", async () => {
+    expect(await applyUpdates(adapter, [makeTarget()], 3)).toEqual([
+      {
+        chartDirName: "teamA-chart",
+        unitPath: "tenant1/client1",
+        chartProjectName: "teamA-chart",
+        result: "CREATED",
+        reason: undefined,
+      },
+    ])
     expect(submitMergeRequest).toHaveBeenCalledOnce()
   })
 
@@ -130,16 +138,16 @@ describe("applyUpdates", () => {
 
   it("非fatalなエラーのとき 'ERROR' を返す", async () => {
     vi.mocked(submitMergeRequest).mockRejectedValue(makeHttpError(403))
-    expect(await applyUpdates(adapter, [makeTarget()], 3)).toEqual(["ERROR"])
+    expect(await applyUpdates(adapter, [makeTarget()], 3)).toEqual([
+      expect.objectContaining({ result: "ERROR" }),
+    ])
   })
 
   it("複数targetの結果を入力順を保った配列で返す", async () => {
     vi.mocked(submitMergeRequest)
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(makeHttpError(403))
-    expect(await applyUpdates(adapter, [makeTarget(), makeTarget()], 3)).toEqual([
-      "CREATED",
-      "ERROR",
-    ])
+    const reports = await applyUpdates(adapter, [makeTarget(), makeTarget()], 3)
+    expect(reports.map((report) => report.result)).toEqual(["CREATED", "ERROR"])
   })
 })

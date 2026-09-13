@@ -1,4 +1,4 @@
-import type { ConfigUnitUpdateResult, RunResult } from "./domain/types.js"
+import type { ConfigUnitReport, ConfigUnitUpdateResult, RunResult } from "./domain/types.js"
 import { loadConfig } from "./lib/config/config.js"
 import type { EnvConfig } from "./lib/env.js"
 import { createGithubAdapter } from "./lib/github/adapter.js"
@@ -25,10 +25,19 @@ export async function run(env: EnvConfig): Promise<RunResult> {
     targetChart: env.targetChart,
     targetUnits: env.targetUnits,
   })
-  const { value: resultCounts, durationMs } = await timed(() => runProcess(env))
-  logger.info({ event: "summary", ...resultCounts })
+  const { value: processed, durationMs } = await timed(() => runProcess(env))
+  logger.info({ event: "summary", ...processed.counts })
   logger.info({ event: "run_end", durationMs })
-  return resultCounts.ERROR === 0 ? "SUCCESS" : "PARTIAL_FAILURE"
+  return processed.counts.ERROR === 0 ? "SUCCESS" : "PARTIAL_FAILURE"
+}
+
+/**
+ * バッチ1回分の処理結果。`counts`は`summary`ログに出す設定ユニット単位の件数、`reports`は
+ * 同じ結果を設定ユニット1件につき1レコードで並べたもの
+ */
+type RunProcessResult = {
+  readonly counts: Record<ConfigUnitUpdateResult, number>
+  readonly reports: readonly ConfigUnitReport[]
 }
 
 /**
@@ -42,7 +51,7 @@ export async function run(env: EnvConfig): Promise<RunResult> {
  * 3. buildPlans: 設定ユニットそれぞれの更新計画（差分）を構築する
  * 4. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
  */
-async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult, number>> {
+async function runProcess(env: EnvConfig): Promise<RunProcessResult> {
   const adapter = withCachedReads(createPlatformAdapter(env))
   const { configUnits } = loadConfig(env.configRootPath, {
     chartDirName: env.targetChart,
@@ -64,7 +73,8 @@ async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult
   )
   const applied = await applyUpdates(adapter, toApply, env.concurrencyLimit)
 
-  return summarizeResults([...filtered, ...planned, ...applied])
+  const reports = [...filtered, ...planned, ...applied]
+  return { counts: summarizeResults(reports), reports }
 }
 
 /** `env.platform`（1回の実行でGitLab/GitHubを混在させない選択）に応じてPlatformAdapterを組み立てる */
@@ -75,10 +85,10 @@ function createPlatformAdapter(env: EnvConfig): PlatformAdapter {
 }
 
 function summarizeResults(
-  results: readonly ConfigUnitUpdateResult[],
+  reports: readonly ConfigUnitReport[],
 ): Record<ConfigUnitUpdateResult, number> {
-  return results.reduce<Record<ConfigUnitUpdateResult, number>>(
-    (counts, result) => ({ ...counts, [result]: counts[result] + 1 }),
+  return reports.reduce<Record<ConfigUnitUpdateResult, number>>(
+    (counts, { result }) => ({ ...counts, [result]: counts[result] + 1 }),
     { CREATED: 0, SKIPPED: 0, ERROR: 0 },
   )
 }

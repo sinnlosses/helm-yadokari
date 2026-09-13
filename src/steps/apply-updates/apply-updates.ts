@@ -1,5 +1,5 @@
 import { buildFeatureBranch } from "../../domain/feature-branch.js"
-import type { ConfigUnitUpdateResult, ConfigUnitUpdateTarget } from "../../domain/types.js"
+import type { ConfigUnitReport, ConfigUnitUpdateTarget } from "../../domain/types.js"
 import type { PlatformAdapterWithCachedReads } from "../../lib/platform/cached-reads.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
@@ -8,6 +8,7 @@ import {
   type ConfigUnitLogContext,
   type StepOutcome,
   ok,
+  toConfigUnitReport,
   withHandling,
 } from "../shared/step-outcome.js"
 import { buildMrContent } from "./sub-steps/build-mr-content.js"
@@ -21,13 +22,13 @@ export async function applyUpdates(
   adapter: PlatformAdapterWithCachedReads,
   targets: readonly ConfigUnitUpdateTarget[],
   concurrencyLimit: number,
-): Promise<readonly ConfigUnitUpdateResult[]> {
+): Promise<readonly ConfigUnitReport[]> {
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (target) =>
     withHandling(adapter, target.configUnit, (logContext) =>
       applyUpdate(adapter, target, logContext),
     ),
   )
-  return outcomes.map((outcome) => (outcome.status === "ok" ? outcome.value : outcome.result))
+  return outcomes.map((outcome) => (outcome.status === "ok" ? outcome.value : outcome.report))
 }
 
 /**
@@ -37,7 +38,7 @@ async function applyUpdate(
   adapter: PlatformAdapterWithCachedReads,
   target: ConfigUnitUpdateTarget,
   logContext: ConfigUnitLogContext,
-): Promise<StepOutcome<ConfigUnitUpdateResult>> {
+): Promise<StepOutcome<ConfigUnitReport>> {
   const { configUnit, plans, helmBranchRefUpdates, files } = target
   const { chartRepo, unitPath } = configUnit
   const featureBranch = buildFeatureBranch(unitPath)
@@ -60,5 +61,5 @@ async function applyUpdate(
       configUnit.helm.branchRef,
     ),
   })
-  return ok<ConfigUnitUpdateResult>("CREATED")
+  return ok(toConfigUnitReport(logContext, { result: "CREATED", reason: undefined }))
 }

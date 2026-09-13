@@ -24,7 +24,7 @@ describe("filterTargets", () => {
     const group = makeConfigUnit([])
     const { targets, settled } = await filterTargets(adapter, [group], 3)
     expect(targets).toEqual([])
-    expect(settled).toEqual(["SKIPPED"])
+    expect(settled.map((report) => report.result)).toEqual(["SKIPPED"])
   })
 
   it("既にオープン中のMRがある設定ユニットはsettledにSKIPPEDとして入り、targetsには含まれない", async () => {
@@ -32,7 +32,19 @@ describe("filterTargets", () => {
     const group = makeConfigUnit([makeApp()])
     const { targets, settled } = await filterTargets(adapter, [group], 3)
     expect(targets).toEqual([])
-    expect(settled).toEqual(["SKIPPED"])
+    expect(settled.map((report) => report.result)).toEqual(["SKIPPED"])
+  })
+
+  it("settledのレコードは設定ユニットの識別情報とスキップ理由を持つ", async () => {
+    vi.mocked(adapter.openMergeRequestExists).mockResolvedValue(true)
+    const { settled } = await filterTargets(adapter, [makeConfigUnit([makeApp()])], 3)
+    expect(settled[0]).toEqual({
+      chartDirName: "teamA-chart",
+      unitPath: "tenant1/client1",
+      chartProjectName: "teamA-chart",
+      result: "SKIPPED",
+      reason: "mr_exists",
+    })
   })
 
   it("対象の設定ユニットはtargetsに含まれ、settledは空", async () => {
@@ -47,7 +59,7 @@ describe("filterTargets", () => {
     const target = { ...makeConfigUnit([makeApp()]), chartDirName: toChartDirName("target") }
     const { targets, settled } = await filterTargets(adapter, [noApps, target], 3)
     expect(targets).toEqual([target])
-    expect(settled).toEqual(["SKIPPED"])
+    expect(settled.map((report) => report.result)).toEqual(["SKIPPED"])
   })
 
   it("unitPathを含むブランチでオープン中MRの有無を判定する", async () => {
@@ -73,7 +85,7 @@ describe("filterTargets", () => {
     )
     const { targets, settled } = await filterTargets(adapter, [clientA, clientB], 3)
     expect(targets).toEqual([clientB])
-    expect(settled).toEqual(["SKIPPED"])
+    expect(settled.map((report) => report.result)).toEqual(["SKIPPED"])
   })
 
   it("401エラーのとき FatalError をスローする", async () => {
@@ -87,7 +99,7 @@ describe("filterTargets", () => {
     vi.mocked(adapter.openMergeRequestExists).mockRejectedValue(makeHttpError(403))
     const { targets, settled } = await filterTargets(adapter, [makeConfigUnit([makeApp()])], 3)
     expect(targets).toEqual([])
-    expect(settled).toEqual(["ERROR"])
+    expect(settled.map((report) => report.result)).toEqual(["ERROR"])
   })
 
   it("非fatalなAPIエラーは該当設定ユニットだけをERRORにし、他の設定ユニットの処理は続行する", async () => {
@@ -103,6 +115,6 @@ describe("filterTargets", () => {
     })
     const { targets, settled } = await filterTargets(adapter, [failing, ok], 3)
     expect(targets).toEqual([ok])
-    expect(settled).toEqual(["ERROR"])
+    expect(settled.map((report) => report.result)).toEqual(["ERROR"])
   })
 })

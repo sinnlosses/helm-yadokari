@@ -156,6 +156,29 @@ export type PlatformKind = "gitlab" | "github"
 
 export type ConfigUnitUpdateResult = "CREATED" | "SKIPPED" | "ERROR"
 
+/** 設定ユニットがSKIPPEDになった理由。実行ログの`reason`に出る値と同じ */
+export type ConfigUnitSkipReason = "no_apps" | "mr_exists" | "no_diff" | "dry_run"
+
+/**
+ * 設定ユニット1件の処理結果と、その理由。`result`で判別する合併で、SKIPPEDの理由だけが
+ * 閉じた集合になる。ERRORの理由は捕捉した例外から組み立てるため任意の文字列で、CREATEDには
+ * 理由が無い
+ */
+export type ConfigUnitUpdateOutcome =
+  | { readonly result: "CREATED"; readonly reason: undefined }
+  | { readonly result: "SKIPPED"; readonly reason: ConfigUnitSkipReason }
+  | { readonly result: "ERROR"; readonly reason: string }
+
+/**
+ * 設定ユニット1件分の実行結果の記録。バッチ1回分のレポートの1行にあたる。
+ * アプリ単位の内訳やMRのURLは持たない（レポートの粒度が設定ユニット単位のため）
+ */
+export type ConfigUnitReport = ConfigUnitUpdateOutcome & {
+  readonly chartDirName: ChartDirName
+  readonly unitPath: ConfigUnitPath
+  readonly chartProjectName: ProjectName
+}
+
 export type RunResult = "SUCCESS" | "PARTIAL_FAILURE"
 
 export type FileUpdate = {

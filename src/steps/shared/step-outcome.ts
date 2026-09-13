@@ -2,7 +2,8 @@ import type {
   ChartDirName,
   ConfigUnit,
   ConfigUnitPath,
-  ConfigUnitUpdateResult,
+  ConfigUnitReport,
+  ConfigUnitUpdateOutcome,
   ProjectId,
   ProjectName,
 } from "../../domain/types.js"
@@ -24,12 +25,12 @@ export type ConfigUnitLogContext = {
 
 export type StepOutcome<T> =
   | { readonly status: "ok"; readonly value: T }
-  | { readonly status: "settled"; readonly result: ConfigUnitUpdateResult }
+  | { readonly status: "settled"; readonly report: ConfigUnitReport }
 
 /**
  * アプリ1件分の処理結果。失敗を例外ではなく値として持つため、1回だけ実行した処理の結果を
  * 成功・失敗のどちらでも複数の設定ユニットへ配れる（例外は最初の1つにしか届かない）。
- * 設定ユニット単位の`ConfigUnitUpdateResult`を持たないのは、この失敗をどの設定ユニットの
+ * 設定ユニット単位の`ConfigUnitReport`を持たないのは、この失敗をどの設定ユニットの
  * ERRORにするかを決めるのが受け取った側だから。
  */
 export type AppOutcome<T> =
@@ -40,8 +41,32 @@ export function ok<T>(value: T): StepOutcome<T> {
   return { status: "ok", value }
 }
 
-export function settle<T>(result: ConfigUnitUpdateResult): StepOutcome<T> {
-  return { status: "settled", result }
+/**
+ * この設定ユニットの処理をここで打ち切り、結果をレポート用のレコードにして返す。
+ * ログ出力は呼び出し側に残してあり、この関数は出さない（同じ`result`/`reason`でも、
+ * stepによってログに足す情報が違うため）。
+ */
+export function settle<T>(
+  logContext: ConfigUnitLogContext,
+  outcome: ConfigUnitUpdateOutcome,
+): StepOutcome<T> {
+  return { status: "settled", report: toConfigUnitReport(logContext, outcome) }
+}
+
+/**
+ * 設定ユニット1件分のレポート用レコードを組み立てる。識別情報は`withHandling()`が
+ * 渡す`logContext`から取るため、ログとレポートで同じ値になる。
+ */
+export function toConfigUnitReport(
+  logContext: ConfigUnitLogContext,
+  outcome: ConfigUnitUpdateOutcome,
+): ConfigUnitReport {
+  return {
+    chartDirName: logContext.chartDirName,
+    unitPath: logContext.unitPath,
+    chartProjectName: logContext.chartProjectName,
+    ...outcome,
+  }
 }
 
 /**
@@ -93,7 +118,9 @@ export function withHandling<T>(
   fn: (logContext: ConfigUnitLogContext) => Promise<StepOutcome<T>>,
 ): Promise<StepOutcome<T>> {
   const logContext = buildLogContext(configUnit)
-  return fn(logContext).catch((err: unknown) => settle<T>(settleAsError(adapter, err, logContext)))
+  return fn(logContext).catch((err: unknown) =>
+    settle<T>(logContext, settleAsError(adapter, err, logContext)),
+  )
 }
 
 /**
@@ -139,14 +166,11 @@ function settleAsError(
   adapter: PlatformAdapter,
   err: unknown,
   logContext: ConfigUnitLogContext,
-): "ERROR" {
+): ConfigUnitUpdateOutcome {
   if (adapter.isFatalError(err)) throw new FatalError(adapter.extractHttpStatus(err), err)
-  logger.error({
-    ...logContext,
-    result: "ERROR",
-    reason: `httpStatus: ${adapter.extractHttpStatus(err)}, message: ${toErrorMessage(err)}`,
-  })
-  return "ERROR"
+  const reason = `httpStatus: ${adapter.extractHttpStatus(err)}, message: ${toErrorMessage(err)}`
+  logger.error({ ...logContext, result: "ERROR", reason })
+  return { result: "ERROR", reason }
 }
 
 /**

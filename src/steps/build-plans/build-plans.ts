@@ -3,7 +3,8 @@ import type {
   AppConfig,
   AppWithLatestTag,
   ConfigUnit,
-  ConfigUnitUpdateResult,
+  ConfigUnitReport,
+  ConfigUnitUpdateOutcome,
   ConfigUnitUpdateTarget,
   LatestTagResolution,
   TagSourceKey,
@@ -27,7 +28,7 @@ import { stageImageTagUpdates } from "./sub-steps/stage-image-tag-updates.js"
 
 export type BuildPlansResult = {
   readonly toApply: readonly ConfigUnitUpdateTarget[]
-  readonly settled: readonly ConfigUnitUpdateResult[]
+  readonly settled: readonly ConfigUnitReport[]
 }
 
 /**
@@ -51,7 +52,7 @@ export async function buildPlans(
   )
 
   const { left: settled, right: toApply } = partitionMap(outcomes, (outcome) =>
-    outcome.status === "ok" ? right(outcome.value) : left(outcome.result),
+    outcome.status === "ok" ? right(outcome.value) : left(outcome.report),
   )
   return { toApply, settled }
 }
@@ -83,21 +84,22 @@ async function buildPlan(
   )
 
   if (plans.length === 0 && helmBranchRefUpdates.length === 0) {
-    logger.info({ ...logContext, result: "SKIPPED", reason: "no_diff" })
-    return settle("SKIPPED")
+    const outcome: ConfigUnitUpdateOutcome = { result: "SKIPPED", reason: "no_diff" }
+    logger.info({ ...logContext, ...outcome })
+    return settle(logContext, outcome)
   }
   if (dryRun) {
+    const outcome: ConfigUnitUpdateOutcome = { result: "SKIPPED", reason: "dry_run" }
     logger.info({
       ...logContext,
-      result: "SKIPPED",
-      reason: "dry_run",
+      ...outcome,
       apps: plans.map(describePlan),
       helmBranchRefUpdates: describeHelmBranchRefUpdates(
         helmBranchRefUpdates,
         configUnit.helm.branchRef,
       ),
     })
-    return settle("SKIPPED")
+    return settle(logContext, outcome)
   }
   return ok({ configUnit, plans, helmBranchRefUpdates, files: toFileUpdates(draft) })
 }
