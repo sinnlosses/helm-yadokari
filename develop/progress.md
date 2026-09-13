@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは1件**（T-240。`.gitlab-ci.yml` への `artifacts` 追加。`loopable: "N"`）。
+**未着手のタスクは2件**（T-240・T-241）。
 **T-229〜T-238 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は 59,620B → 8,570B）。完了タスクは
@@ -187,6 +187,26 @@
 - 後片付け済み（`reset --apply` → `setup --apply`。オープンMR 0件、フィクスチャは初期状態）
 
 ## 次にやること
+
+**`lookUpLatestTags()` のサブステップ化を T-241 として登録した**（2026-09-13、`/plan-tasks`）。
+他のタスクとは独立（T-240 とは触るファイルが重ならない）:
+
+- **T-241**（sonnet・loopable `Y`）: `build-plans.ts:112` の非公開 `lookUpLatestTags()` を
+  `build-plans/sub-steps/` へ移し、`buildPlan()` の中で「ローカル関数の呼び出し」と
+  「サブステップの呼び出し」が同じ深さに並んでいる状態を解消する
+
+`docs/architecture.md` の記述は**2箇所とも移動を支持する側**（`#### build-plans/sub-steps/` の
+「サブステップは自分の関心事について全スコープを引き受ける」、「サブステップ同士は互いを
+importせず〜」の「アプリのループを各サブステップの内側へ入れる」）。`lookUpLatestTags()` は
+既に `apps.map(...)` で全アプリ分を引き受けているため、「1アプリ分の処理を独立した
+サブステップにしない」という但し書きには抵触しない。
+
+**ただし「単発のヘルパーに1ファイルを与えない」（同ドキュメント「1ファイルにまとめるか
+分けるか」の適用例）とは正面から衝突する。** 「ヘルパー」と「サブステップ」を別の概念として
+扱ってよいかを先に決める論点としてタスク本文に入れてある（前例は
+`apply-updates/sub-steps/collect-mr-entries.ts`＝31行・公開関数1つ）。成り立たないと判断したら
+移さずに閉じる逃げ道も書いてある。指示メモは
+[`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13（6回目）」。
 
 **バッチ実行レポートのartifacts化を T-238〜T-240 として登録した**（2026-09-13、`/plan-tasks`）。
 **方針はタスク化の前にチャットで確定済み**なので、各タスクに残る判断は局所的。

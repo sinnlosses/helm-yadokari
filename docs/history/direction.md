@@ -9,6 +9,12 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-13（6回目）
+
+生成したタスク: T-241（`lookUpLatestTags()` を `build-plans/sub-steps/` へ移す）。タスクにしなかった項目: なし。`lookUpLatestTags` は `src/steps/build-plans/build-plans.ts:112` に非公開関数として実在することを確認済み。
+
+- lookUpLatestTags は buildPlans のサブステップにしたほうがよいよ。
+
 ## 2026-09-13（5回目）
 
 生成したタスク: T-238（レコード型と4stepの戻り値）・T-239（Markdownへの整形と書き出し、出力パスの環境変数）・T-240（`.gitlab-ci.yml` の `artifacts` とドキュメント追随）。タスクにしなかった項目: なし。方針の3択（集約の出所／形式／粒度・MRのURL・fatal時・DRY_RUN）はタスク化の前にチャットで詰め、決定をこのメモ自体に書き足してから移した。
