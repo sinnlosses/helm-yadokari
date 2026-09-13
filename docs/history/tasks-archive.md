@@ -8955,3 +8955,679 @@ T-220 で、GitLabとGitHubの2実装は**13関数を並べた関数テーブル
 
 - **GitHubの実装はこのタスクに含めない**（T-223以降）。ここではGitLab1実装のまま形だけ移す
 - `lib/gitlab/` の各関数の中身を変えない。`Platform` へ束ねるだけ
+
+## T-229
+
+**タスク**: `TagSource` を新設し、タグ解決まわりの型を `src/domain/types.ts` に集約する
+
+**dependencies**: T-233
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: `TagSource`（`projectId`/`projectName`/`branchToSync`/`tagFormat`）を `src/domain/types.ts` に新設し、`resolveLatestTag()`・`resolveTrackedHeadTagNames()` をともに `TagSource` を受ける形に変更。キャッシュキーは `projectId:branchToSync` → `[projectId, branchToSync, tagFormat].join("\0")`（`tagFormat` を含める理由は JSDoc に明記）。`LatestTagResolution`・`AppWithLatestTag` を `build-plans/sub-steps/shared/types.ts` から `domain/types.ts` へ移動（残りは `StageUpdatesAcc<U>` のみ）。`docs/architecture.md` の型集計を再計算（合計73→74、1行目30→33、6行目6→4）。`pnpm check` exit 0（39 Test Files / 494 Tests、不変）。**2セッションが並行して実装したが、ユーザー判断でブランチ `work/resolve-tags` の `3f3856d` を正とし、main の実装をそちらで置き換えた**（コード4ファイルは `3f3856d` と完全一致）。architecture.md の再計算は main 側の成果を残した。
+
+## 背景
+
+`src/steps/build-plans/sub-steps/resolve-latest-tags.ts` の `resolveLatestTag()` は `AppConfig` を
+丸ごと受け取っているが、実際に読むのは `projectId` / `projectName` / `branchToSync` / `tagFormat` の
+4つだけで `imageTagLocations` は見ていない。同じappが複数の設定ユニットに登録されると
+`imageTagLocations` だけが違う `AppConfig` が並ぶため、`createResolveLatestTags()` のキャッシュキー
+（`${app.projectId}:${app.branchToSync}`）は引数の部分集合になっている。引数の型を絞れば
+「キー＝入力の実質全体」が回復し、キャッシュキーという概念を新設せずに済む。
+
+`LatestTagResolution` / `AppWithLatestTag` は `src/steps/build-plans/sub-steps/shared/types.ts` に
+あるが、後続タスクで step 間を流れる型になる（`CLAUDE.md` 原則1: `steps/` 同士は型でも import
+しない）。step 間を流れる型は `src/domain/types.ts` に置くのが前例（`ConfigUnitUpdateTarget` を
+`build-plans` が返して `apply-updates` が受け取る）。
+
+## 解くべき論点
+
+- キャッシュキーに `tagFormat` を含めるか。含めても実行時の挙動は変わらない
+  （`validateTagFormatConsistency()` が `projectId` ごとの `tagFormat` 一致を保証しているため）が、
+  その検証が将来外れたときの壊れ方が「実行順で形式が決まる（非決定的）」から
+  「同じappにタグが2つできる（決定的）」に変わる。**含める方針で進める**
+
+## やること
+
+1. `src/domain/types.ts` の `AppConfig` の隣に `TagSource`（`projectId` / `projectName` /
+   `branchToSync` / `tagFormat`）を足す。JSDocには「最新タグを解決する単位。どこから取るかだけを
+   持ち、どこへ書くか（`imageTagLocations`）は持たない」ことを書く
+2. `resolveLatestTag()` と `resolveTrackedHeadTagNames()` の引数を `AppConfig` から `TagSource` に
+   変える。`createResolveLatestTags()` が返すクロージャの中で `app` から `TagSource` を組み立てて渡す
+3. キャッシュキーを `projectId` + `branchToSync` + `tagFormat` の3つで組み立てる。区切りは
+   `src/utils/cache.ts` の `toCacheKey()` と同じ理由でヌル文字にする。`projectName` は `projectId` と
+   1:1のラベルなのでキーに入れない
+4. `LatestTagResolution` と `AppWithLatestTag` を `src/steps/build-plans/sub-steps/shared/types.ts`
+   から `src/domain/types.ts` へ移す。`StageUpdatesAcc` は `build-plans` の中に閉じているので移さない
+5. import と既存テストを追随させる
+
+## 完了条件
+
+- `pnpm check` が通る（テスト件数が減っていないこと）
+- `resolveLatestTag()` のシグネチャが `(adapter: PlatformAdapter, source: TagSource, dryRun: boolean)`
+  になっている
+- `src/steps/build-plans/sub-steps/shared/types.ts` に `LatestTagResolution` / `AppWithLatestTag` が
+  残っていない
+- 挙動は変えない。このタスクでは新規テストを足さない
+
+## 注意
+
+- step の切り出しはこのタスクではやらない（T-230）
+- `AppConfig` を `{ source: TagSource; imageTagLocations }` に組み替えるのはスコープ外
+
+## T-230
+
+**タスク**: 最新タグの解決を `resolve-tags` step に切り出し、重複排除をキャッシュから集合演算にする
+
+**dependencies**: T-229
+
+**difficulty**: opus / **loopable**: Y
+
+**evidence**: commit b21a801 + 6201f14（ブランチ work/resolve-tags、main へは未マージ）。pnpm check 通過: 40 Test Files / 493 Tests（494から-1。「アンカーが無いときタグを作らずERROR」のみ削除。前半の主張が新構造では build-plans から検証できないため）。完了条件6件を確認済み（build-plans 配下の listTags/getBranchHeadSha/createTag は grep 0件）。
+
+## 背景
+
+`src/steps/build-plans/sub-steps/resolve-latest-tags.ts` の `createResolveLatestTags()` は、同じappが
+複数の設定ユニットに登録されうるため、解決結果を `getOrFetchShared()` でバッチ全体にキャッシュして
+いる。これは効率化ではなく**正しさ**のためのキャッシュで、無いと `createTag` が設定ユニットの数だけ
+走る（秒精度のタグ名が衝突するか、秒をまたいで冗長なタグが並ぶ）。
+
+このキャッシュは `src/` の中で4つの「唯一」を兼ねている: `steps/` で唯一の工場関数DI
+（`docs/architecture.md`「サブステップに関数型を注入しない」が唯一の例外と明記）、唯一の手書き
+キャッシュキー、サブステップが唯一バッチ寿命の状態を持つ場所、唯一「読み取りではなく**書き込み**を
+重複排除する」キャッシュ。`lib/platform/cached-reads.ts` の `CachedReads` に載せられないのは、
+`listTags` を読んで `createTag` を書く合成であり、かつドメイン判定（`tagFormat`）を含むため。
+
+このツールには「ソース軸（`projectId` + 追跡ブランチ）」と「設定ユニット軸」の2本があり多対多なので、
+どこかで必ず1回交差する。今はその交差をキャッシュの中に隠している。交差を step の境界として
+表に出せば、上の4つの「唯一」がすべて消える。
+
+## 解くべき論点
+
+- **`CONCURRENCY_LIMIT` の扱い（2026-09-13にユーザーが決定済み）**: 既存3stepは設定ユニット単位の
+  同時実行数だが、この step だけは一意化したタグ解決の単位でfan-outする。**同じ `CONCURRENCY_LIMIT` を
+  使い回す**（専用の環境変数は足さない）。適用単位がこの step だけ違うことは `README.md` に注記する
+  （注記は T-232 の担当）
+- **`create_tag` のログの位置（2026-09-13にユーザーが決定済み）**: 今は設定ユニットの処理に混ざって
+  出ているが、切り出し後はバッチの先頭に固まる。**そのままでよい**（JSON行ログなので
+  `event: "create_tag"` で絞れる。行数も情報も変わらず、出る位置だけが変わる）
+- 1アプリの失敗が、そのアプリを含む**全**設定ユニットの ERROR になる（今は最初の設定ユニットだけ
+  ERROR で、`getOrFetchShared()` が失敗Promiseを捨てるため次の設定ユニットが再試行して成功しうる
+  ＝実行順依存）。この偶発的な再試行は捨ててよい。本命の再試行は `src/lib/gitlab/gitlab.ts` /
+  `src/lib/github/github.ts` の `withRetry()` がクライアント層で持っている
+
+## やること
+
+1. `src/steps/resolve-tags/resolve-tags.ts` を新設する。中身は step 本体、`TagSource` の一意化
+   （`targets` の全 `apps` から重複を除いた集合を作る）、キーの組み立て。step は解決結果のマップだけを
+   返す**純粋な生産者**にし、`settled` は持たない
+2. `src/steps/resolve-tags/sub-steps/resolve-latest-tag.ts` を新設し、今の `resolveLatestTag()` と
+   `resolveTrackedHeadTagNames()` を**単数形**で移設する。`src/steps/build-plans/sub-steps/resolve-latest-tags.ts`
+   は削除する。**サブステップを3ファイルに割らない**（割ると `sub-steps/` 直下でキー関数を共有できず
+   `shared/` が要る。原則1）
+3. `src/steps/shared/step-outcome.ts` に、`withHandling()` と対になる `settleApp()`（+ `AppOutcome`）を
+   足す。アプリ単位の失敗を値として持ち回る形にし、fatal はここでも `FatalError` として投げ直す。
+   `src/steps/` に try/catch を書かない規約を守るために必要
+4. 設定ユニットへの引き当てと ERROR 判定は `buildPlans()` の既存の `withHandling()` の中に置く。
+   **ERRORログが出る場所を今と変えない。**`buildPlan()` の変更は
+   `await resolveLatestTags(configUnit.apps)` を引き当ての1行に差し替えるだけにする
+5. `src/main.ts` の `runProcess()` を `filterTargets → resolveTags → buildPlans → applyUpdates` にし、
+   JSDoc のステップ説明を3件から4件に直す
+6. `src/lib/config/validate.ts` の `validateTagFormatConsistency()` のJSDocが
+   `createResolveLatestTags()` のキャッシュを参照しているので、新しい step を指すよう直す
+7. テストを再編する。`test/steps/build-plans/sub-steps/resolve-latest-tags.test.ts`（400行）を
+   「1アプリの解決」＝サブステップ側と、「重複排除・失敗の全設定ユニットへの波及・fatalの即時終了」
+   ＝step側に割る。`test/steps/build-plans/build-plans.test.ts` は `listTags` のスタブが不要になる
+8. 手順1で「一意化した集合を step が持つ」形にできない事情が見つかったら、押し切らずに理由を
+   `evidence` に書いて閉じ、ユーザーに預ける
+
+## 完了条件
+
+- `pnpm check` が通る
+- `src/steps/build-plans/sub-steps/resolve-latest-tags.ts` が存在しない
+- `buildPlan()` がタグ解決のIOを行わない（`listTags` / `getBranchHeadSha` / `createTag` を
+  `build-plans` 配下から呼ばない）
+- 同じappが2つの設定ユニットに登録されている入力で、`createTag` の呼び出しが1回だけになることを
+  検証するテストがある
+- 1アプリの解決が失敗したとき、そのアプリを含む全設定ユニットが ERROR になることを検証するテストがある
+- fatal（401 / 5xx）のとき `FatalError` で即時終了することを検証するテストがある
+
+## 注意
+
+- `docs/architecture.md` / `README.md` / `docs/glossary.md` の追随は T-232 でやる。このタスクでは
+  コードに隣接するJSDoc（`main.ts`・`validate.ts`）だけ直す
+- `origin` フィールドの追加は T-231
+- 上の2つの決定は2026-09-13の会話で確定済みなので、このタスクは `loopable: "Y"`
+  （登録時は未決だったため `"N"` だった）
+
+## T-231
+
+**タスク**: `LatestTagResolution` に `origin` を足し、新規作成予定のタグを計画のログに出す
+
+**dependencies**: T-230
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: commit 346e122。pnpm check 通過: 40 Test Files / 495 Tests（493から+2）。`origin: "existing" | "created"` を `LatestTagResolution` と `AppUpdatePlan` に持たせ、dry_run の SKIPPED ログと CREATED ログの両方に出ることをテストで確認済み。
+
+## 背景
+
+`src/steps/shared/describe-plan.ts` の `describePlan()` が出す `apps[].latestTag` は、そのタグが既に
+存在していたのか、これから作る（`DRY_RUN` なら作る予定の）ものなのかを区別していない。dryRun で
+計画を読む人は `event: "create_tag"` のログ行と突き合わせないと判別できない。
+
+情報自体は解決結果が持っている。`resolveLatestTag()` は、HEADを指すタグが1件も無かったときだけ
+新規タグ作成に落ちるので、`LatestTagResolution.trackedHeadTagNames` が空集合であることと新規作成で
+あることは同値になる。ただしこれは偶然そうなっているだけで、読む人には見えない。
+
+`DRY_RUN` の仕様は `docs/requirements.md` 4.1（「実際のタグ作成をスキップし、作成予定のタグ名だけを
+使って以降の判定を続ける」）のとおりで、この変更でも変えない。
+
+## 解くべき論点
+
+- フィールド名と値。`origin: "existing" | "created"` を想定している（dryRun 時の `"created"` は
+  「作成予定」の意味であることをJSDocに書く）。boolean にしない理由は、ログに出したとき値だけで
+  意味が読めるようにするため
+
+## やること
+
+1. `src/domain/types.ts` の `LatestTagResolution` に `origin` を足す。`resolveLatestTag()` の2つの
+   return（HEADにタグがあった場合／新規作成した場合）でそれぞれの値を返す
+2. `describePlan()` の `PlanLogSummary` に載せ、`SKIPPED / dry_run` とMR作成時の両方のログに出す
+3. 既存テストを追随させ、「HEADにタグがある場合は `existing`」「無い場合は `created`」を検証する
+   テストを足す
+
+## 完了条件
+
+- `pnpm check` が通る
+- `DRY_RUN=true` 相当のテストで、新規作成予定のアプリの計画ログに `origin` が `"created"` として
+  出ることを検証している
+- `trackedHeadTagNames.size === 0` から導出する形になっていない（明示フィールドとして持つ）
+
+## 注意
+
+- `resolveTags` の締めに「作成予定タグ一覧」をロールアップで1行出すのはスコープ外
+  （`create_tag` ログの集計でしかなく、新しい情報にならない）
+
+## T-232
+
+**タスク**: 軸交差の規則を `docs/architecture.md` に書き、README・glossary を追随させる
+
+**dependencies**: T-230, T-231, T-234
+
+**difficulty**: opus / **loopable**: Y
+
+**evidence**: commit ad71d0b（索引の追随漏れ1件を後続コミットで修正）。pnpm check 通過: 40 Test Files / 495 Tests。`docs/architecture.md` に軸交差の節を新設し、判断3・「重複排除をキャッシュの外にも置かない」・「唯一の例外」の3件を位置づけ直した。grep で createResolveLatestTags / resolve-latest-tags の本文残存0件（docs/history/・docs/research/ は当時の記録として据え置き）。
+
+## 背景
+
+T-230 で最新タグの解決が step になると、`docs/architecture.md` に記録済みの設計判断が3つ食い違う:
+
+- 「PlatformAdapterへの問い合わせのキャッシュは`lib/platform/`に列挙し、バッチ単位で1つ持ち回る」節の
+  判断3（**複数のAPI呼び出しとドメイン判定にまたがる「解決結果」はここに載せない**。
+  `createResolveLatestTags()` を例に挙げている）
+- 同じ節の「**重複排除をキャッシュの外にも置かない**」（`getProjectWebUrls()` の `new Set` を廃した経緯）
+- 「サブステップに関数型を注入しない。キャッシュを持つ側が工場関数を公開する」節の「唯一の例外」
+
+このツールには「ソース軸（`projectId` + 追跡ブランチ）」と「設定ユニット軸」の2本があり多対多なので、
+どこかで必ず1回交差する。読み取りだけの交差は既に3箇所あり（`getProjectWebUrl` / `getFileContent` /
+タグ解決）、前2つは `CachedReads` が扱えている。副作用を含むのはタグ解決だけで、並行実行下では
+読みのキャッシュで副作用の重複排除ができないことが、機構が2つに割れる理由。
+
+## 解くべき論点
+
+- 上の3つをどう書き直すか。**軸交差の規則**（読み取りだけの軸交差は `CachedReads` で暗黙に、
+  副作用を伴う軸交差は step として明示的に。理由は並行実行下では読みのキャッシュで副作用の重複排除が
+  できないから）を新しく置き、既存の3件をその規則の下に位置づけ直す形を想定している
+- 「重複排除をキャッシュの外にも置かない」は撤回ではなく**書き分け**にする（単一の読み取りの重複排除は
+  キャッシュへ、副作用を含む解決の重複排除は構造へ）
+
+## やること
+
+1. `docs/architecture.md` に軸交差の規則を書き、上の3件を追随させる。ファイル一覧の表2箇所
+   （`resolve-latest-tags.ts` の行、`platform/cached-reads.ts` の行）と、節の索引も直す
+2. `README.md` の mermaid フロー図（「(chart, 設定ユニット)単位で並列処理」の中にタグ作成がある形）を
+   新しいパイプラインに合わせる。`CONCURRENCY_LIMIT` の説明（環境変数の表）に、この step だけ並列の
+   単位が「設定ユニット」ではなく「タグ解決の単位」になることを書き足す
+3. `docs/glossary.md` の「## タグ・バージョン管理関連」に `TagSource` を足し、冒頭の「用語の索引」の
+   表にも載せる
+4. 書き終えたら `/maintain-docs` を回して、追随漏れ・重複がないか検査する
+
+## 完了条件
+
+- `pnpm check` が通る
+- `docs/architecture.md` に `createResolveLatestTags()` への言及が残っていない
+  （`grep -n 'createResolveLatestTags' docs/ README.md src/` が空）
+- `README.md` のフロー図にタグ解決が設定ユニットの並列処理の外側として描かれている
+- `docs/glossary.md` の索引の表から `TagSource` の見出しを `sed` で1節だけ引ける
+
+## 注意
+
+- アーカイブ（`docs/history/`）は当時の記述のまま残す。書き換えない
+
+## T-233
+
+**タスク**: `src/types/` を `src/domain/` に吸収し、import・テスト・ドキュメントのパスを追随させる
+
+**dependencies**: なし
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: `git mv` 3件（types.ts/brand.ts → src/domain/、brand.test.ts → test/domain/）＋ import 追随65ファイル、`src/types/`・`test/types/` 消滅。`pnpm check` exit 0（39 Test Files / 494 Tests、不変）。`grep -rn 'types/types\|types/brand\|src/types' src scripts test docs README.md CLAUDE.md --exclude-dir=history` の残り4件は `docs/requirements-grilling.md:160`・`docs/research/github-support.md:36,39,183` で、いずれも過去時点の記録（Q&Aログ・調査記録）なので意図して据え置き。`docs/architecture.md` の裸の `types/`（287・301行）と集計表の既存ズレ（src全体67→実測73、1行目29→30、3行目2→3。移動前から）は論旨の書き換えになるので T-234 へ送った
+
+## 背景
+
+`src/domain/` は「このツールの取り決めを tech非依存で表す」区分として T-093 で新設されたが、
+中身は規則3ファイル（`tag-format.ts`・`feature-branch.ts`・`config-unit.ts`、計217行）だけで、
+ドメインの語彙（`ConfigUnit`・`ParsedTag`・`PlatformKind` など）は全部 `src/types/types.ts` と
+`src/types/brand.ts` にある。`docs/architecture.md`「型の置き場所」節が「現に `src/domain/` には
+型定義が1つも無い」とわざわざ説明しているとおり、**名詞は `types/`、動詞は `domain/`** という
+分裂が起きている。`src/types/` の中身は全件がドメイン語彙なので、`domain/` に吸収すれば
+`domain/`＝「語彙＋規則」になり、区分が5→4に減る。
+
+依存の向きは `steps → lib → domain → types → utils` で逆流が無いので、移動しても循環は
+生まれない（`types/brand.ts` → `utils/fs.ts` の `assertSafePath` 参照は `domain/brand.ts` →
+`utils/fs.ts` になるだけ）。
+
+## やること
+
+1. `git mv src/types/types.ts src/domain/types.ts`、`git mv src/types/brand.ts src/domain/brand.ts`。
+   中身は変えない（`types.ts` 先頭の `export * from "./brand.js"` も据え置く）。`src/types/` を消す
+2. `src/`・`scripts/`（36ファイル）と `test/`（28ファイル）の import パスを追随させる
+   （`../types/types.js` → `../domain/types.js` 等。`domain/` 内の3ファイルは `../types/types.js` →
+   `./types.js` になる）
+3. `git mv test/types/brand.test.ts test/domain/brand.test.ts`。`test/types/` を消す
+4. `src/domain/brand.ts` 冒頭のコメント「`src/types/types.ts` から再エクスポートしている」と、
+   `TagFormat` の JSDoc「検証は `domain/tag-format.ts`」（同じディレクトリになる）の文言を実態に合わせる
+5. ドキュメントの**パス参照だけ**を直す（区分の定義の書き換えは T-234）:
+   - `docs/architecture.md`: 280行「型の置き場所」表1行目の `src/types/types.ts`、287〜307行の
+     `types/` 言及、717行の集計表と727行の grep コマンド（`src/types` → `src/domain`。件数は
+     再集計して合わせる）、810行・1012行の `types/brand.ts`・`types/types.ts`
+   - `README.md` 392行の構成図「`steps/・lib/・domain/・utils/ の4区分（型は types/）`」→
+     4区分だけにする（型は `domain/` 内）
+   - `CLAUDE.md`・`docs/coding-standards.md`・`docs/glossary.md` は `grep -n 'src/types\|types/types\|types/brand'`
+     で残りが無いことを確認する（現時点ではヒット無し）
+6. `vitest.config.ts`・`tsconfig.json` に `src/types` を指す設定が無いことを確認する
+   （現時点では無い。`tsconfig.json` の `"types": ["node"]` は無関係）
+
+## 完了条件
+
+- `pnpm check` が通る（39 Test Files / 494 Tests から減っていないこと）
+- `src/types/`・`test/types/` が存在しない
+- `grep -rn 'types/types\|types/brand\|src/types' src scripts test docs README.md CLAUDE.md` の
+  ヒットが0件（`docs/history/` は除く）
+- 挙動は変えない。新規テストは足さない
+
+## 注意
+
+- `src/domain/` の区分の定義（`docs/architecture.md` の「`src/domain/`」節・「新しいコードを置く場所」の
+  表と補足・「型の置き場所」の本文）の書き換えは T-234 でやる。このタスクはパスの追随まで
+- `lib/config/validate.ts`・`steps/shared/describe-plan.ts` は動かさない（理由は T-234 に記録する）
+
+## T-234
+
+**タスク**: `docs/architecture.md` の `domain/` の定義を「ドメイン×技術」の2軸に書き換える
+
+**dependencies**: T-233
+
+**difficulty**: opus / **loopable**: Y
+
+**evidence**: `docs/architecture.md`: 「`src/domain/`」節を語彙＋規則の定義に（`types.ts`・`brand.ts` の行を追加）、「新しいコードを置く場所」に2軸の表（早見表の `lib/`・`domain/`・`utils/` 3行を1行に畳んで送る）、補足に「概念のまとまりが`domain/`の基準に優先する」1箇所で `validate.ts`・`describe-plan.ts` の据え置きを規則化。`grep -n 'でも`utils/`でもない\|型定義が1つも無い' docs/architecture.md` 0件、節の索引⇔`####` 見出しの maintain-docs 検査4・5 が0件。集計表を再集計（合計67→73、1行目29→30、2行目10→13、3行目2→3、5行目18→19。節内の検証コマンド4本で再現）。`docs/glossary.md` 1行（配置基準の区分名を4区分に）。CLAUDE.md は無変更（原則2の「だけ」を「回数で決めない」の意と読み、architecture.md 側の補足で解消）。`pnpm check` exit 0（39 Test Files / 494 Tests）
+
+## 背景
+
+T-233 で `src/types/` を `src/domain/` に吸収した結果、`src/` は `steps/`・`lib/`・`domain/`・
+`utils/` の4区分になった。しかし `docs/architecture.md` は今も `domain/` を消去法で定義している:
+
+- 「`src/domain/`」節（184行〜）: 「GitLab APIにも外部ファイル形式にも依存せず、ブランド型・
+  ドメイン型にだけ依存する純粋な関数・定数」（型を含まない前提の文）
+- 「新しいコードを置く場所」の補足: 「**`domain/`は`lib/`でも`utils/`でもないため新設した区分**。
+  技術非依存なので`lib/`ではなく、ドメイン知識を持つので`utils/`でもない」
+- 「型の置き場所」本文: 「**1行目と5行目も競合しうる**。`ParsedTag` は `domain/tag-format.ts` の
+  関数が生み出す型だが…`types/types.ts` に置く。…現に `src/domain/` には型定義が1つも無い」
+  （T-233 でパスは直っているが、論点自体が消えている）
+
+また `utils/yaml.ts`・`utils/fs.ts` は技術・ファイル形式に依存しているのに `utils/` にあり、
+「ブランド型にするのは…」節がその理由を「ドメインの型を持たないため（原則2）」と別途説明
+している。原則2の文面（技術依存→`lib/`）と実態（`utils/` の軸はドメイン知識の有無）がずれている。
+
+さらに、文面上は「技術非依存＋ドメイン知識あり」に当たるのに `domain/` に無いファイルがある:
+`lib/config/validate.ts`（import は `domain/` と `types` だけ）と `steps/shared/describe-plan.ts`
+（import は `types` だけ）。これらは「config の仲間」「step の仲間」という概念のまとまりで
+置かれており、その判断は正しいが、規約に書かれていない。
+
+## 解くべき論点
+
+- 4区分を「ドメインを知っているか」×「技術を知っているか」の2軸で説明する表を、
+  「新しいコードを置く場所」の表と補足のどこに置くか（表を置き換えるのか、補足に足すのか）。
+  読者が「呼び出し元は何か」から入る今の導線を壊さないこと
+- `domain/` の定義を「複数の適応層/ステップにまたがる語彙と規則の置き場」にしたとき、
+  `validate.ts`・`describe-plan.ts` を据え置く判断を「概念のまとまりが優先」という規則として
+  どこに書くか（「設計判断」節に新しい `####` を足すか、「新しいコードを置く場所」の補足に足すか）
+- 原則2の文面（CLAUDE.md「特定の技術・外部システム・ファイル形式に依存するかだけで判断する」）を
+  変えるか。**変えない方針で進める**（`lib/` 行きの基準としては正しい。変えるのは `utils/` と
+  `domain/` の説明の側）。ただし CLAUDE.md 側の要約と矛盾が出ないことを確認する
+
+## やること
+
+1. 「`src/domain/`」節を「このツールのモデル＝語彙（`types.ts`・`brand.ts`）＋規則」の定義に
+   書き換え、責務の表に `types.ts`・`brand.ts` の行を足す
+2. 「新しいコードを置く場所」の補足から「`lib/`でも`utils/`でもないため新設した区分」を消し、
+   2軸の表（`domain/`＝ドメイン○技術×、`lib/`＝ドメイン○技術○、`utils/`＝ドメイン×。
+   `utils/yaml.ts`・`fs.ts` が技術依存でも `utils/` にある理由がこの軸で収まる）を入れる
+3. 「型の置き場所」本文の「1行目と5行目も競合しうる…現に `src/domain/` には型定義が1つも無い」を、
+   `ParsedTag` が `domain/types.ts` にある今の形に合わせて書き直す（論点が消えたなら項目ごと削る）
+4. `validate.ts`・`describe-plan.ts` を据え置く判断（概念のまとまりが `domain/` の基準に優先し、
+   `domain/` は複数の `lib/`・`steps/` にまたがる語彙と規則の置き場）を規約として書く
+5. 「ブランド型にするのは…」節末尾の `utils/` の説明を、2軸の表への参照に置き換える
+6. 冒頭の「節の索引」を追随させる
+7. `docs/glossary.md`・`README.md`・`CLAUDE.md` に `domain/` の定義を言い換えている箇所が
+   無いか grep し、あれば参照に置き換える（二重に書かない）
+8. `/maintain-docs` の7検査のうち「実物とのズレ」と「重複」だけを `docs/architecture.md` に
+   かけて仕上げる
+
+## T-233 からの申し送り
+
+- 287行「型は`types/`にまとめる…」・301行「`types/`へ上げるべきか」の裸の `types/` は、パスではなく
+  論旨なので T-233 では触っていない。`domain/types.ts` に置く話として書き直す
+- 717行付近の集計表は T-233 の移動前から実測とズレている（`src` 全体 67→73、1行目 29→30、
+  3行目 `utils/` 2→3）。「型の置き場所は`src/`全件と突き合わせて確かめてある」節の数値を
+  再集計して直す（手順8の「実物とのズレ」に含める）
+
+## 完了条件
+
+- `docs/architecture.md` に「`lib/`でも`utils/`でもない」「型定義が1つも無い」の文が無い
+- 「新しいコードを置く場所」に2軸の表があり、`utils/yaml.ts`・`fs.ts` の置き場所がその表で説明される
+- `validate.ts`・`describe-plan.ts` を `domain/` に動かさない理由が `docs/architecture.md` に
+  1箇所だけ書かれている
+- 「節の索引」の見出しが本文の `####` と一致する
+- `pnpm check` が通る（ドキュメントのみの変更なので件数不変）
+
+## 注意
+
+- コードは動かさない（`validate.ts`・`describe-plan.ts` を含む）
+- CLAUDE.md の原則1〜5の文面は変えない。矛盾が出る場合だけ最小限の語句修正に留め、evidence に書く
+- `lib/` → `adapters/` 改名は採らない（ユーザー判断済み）
+
+## T-235
+
+**タスク**: `resolve-tags.ts` の `groupByTagSource()` を可変Mapの組み立てから不変な生成に書き換える
+
+**dependencies**: なし
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: `groupByTagSource()` を `new Map<TagSourceKey, TagSource>(targets.flatMap(...).map(...))` に書き換え（`lib/config/load-config-unit.ts:133` と同じ形）。後勝ちの挙動は不変で、`test/steps/resolve-tags/resolve-tags.test.ts` は無変更のまま通過。`grep 'let \|\.set(' src/steps/resolve-tags/resolve-tags.ts` はマッチ0件。`pnpm check` 通過: 40 Test Files / 495 Tests（件数不変）。
+
+## 背景
+
+`src/steps/resolve-tags/resolve-tags.ts` の非公開関数 `groupByTagSource()`（50〜56行目）が、
+`const sources = new Map<TagSourceKey, TagSource>()` を先に作ってから `for...of` で
+`sources.set(...)` を呼ぶ手続き的な組み立てになっている。
+
+`src/` のほかの `Map` 生成はすべて不変の書き方で、生成後に `set()` でループしているのは
+この1箇所だけ:
+
+- `src/lib/config/load-config-unit.ts:133` — `new Map(appSpecs.map((appSpec) => [appSpec.projectId, appSpec]))`
+- `src/steps/build-plans/sub-steps/shared/values-yaml-draft.ts:53,72` — `new Map(draft).set(...)`（コピーしてから書く）
+- `src/steps/resolve-tags/resolve-tags.ts:43` — `new Map(resolved)`
+
+`src/` 配下に `.push()` は1件も無い。CLAUDE.md「変数は基本 `const`。コレクションも不変
+（`ReadonlyMap`・`readonly`）に保つ」の対象で、`load-config-unit.ts:133` がそのまま前例になる。
+
+## 解くべき論点
+
+- 重複キーの扱いを変えないこと。現行の `set()` ループは同じ `TagSourceKey` が複数回来たとき
+  **最後の** `toTagSource(app)` が残る。`new Map(entries)` も同じく後勝ちなので挙動は変わらないが、
+  書き換えでここを崩さない
+
+## やること
+
+1. `groupByTagSource()` を、中間の可変 `Map` を置かずに `new Map(...)` へ一度に渡す形へ書き換える
+   （`load-config-unit.ts:133` と同じ形）
+2. `toTagSource()` はそのまま残し、`map()` のコールバックから呼ぶ
+3. 戻り値の型 `readonly TagSource[]` と、`groupByTagSource()` / `resolveTags()` の JSDoc は変えない
+4. 調べてみて後勝ち以外の意味に依存しているテスト・呼び出しがあると分かったら、書き換えずに
+   理由を `evidence` に書いて閉じる
+
+## 完了条件
+
+- `src/steps/resolve-tags/resolve-tags.ts` に `let` と `.set(` が1つも無い
+- `test/steps/resolve-tags/resolve-tags.test.ts` を変更せずに通る（挙動不変）
+- `pnpm check` が通り、テスト件数が現状（39 Test Files / 494 Tests）から減っていない
+
+## 注意
+
+- この関数の外は触らない（`src/utils/cache.ts` の `cache.set()` などは対象外）
+- `resolve-tags.ts` の JSDoc が説明している「一意化はこのstepの効率化ではなく正しさのためにある」
+  という設計意図は変えない
+
+## T-236
+
+**タスク**: `resolve-tags/` のサブステップ構成を「まとめる/分ける合図」に照らして評価し、3案を比較して提案する
+
+**dependencies**: T-235
+
+**difficulty**: opus / **loopable**: N
+
+**evidence**: 3案（現状維持／`sub-steps/` を畳む／3サブステップに割る）を比較し、ユーザーが現状維持を選択。コードもドキュメントも変更なし（`git status` クリーン）。判断根拠: `resolve-latest-tag.ts`（90行・公開1・非公開1）は分ける合図0/5・まとめる合図4/4。特に③（`origin: "existing" | "created"` が探索と作成で1つの結果型を成す）と②（割ると `resolveTrackedHeadTagNames()` か受け渡し型が `export` に昇格）が効く。`sub-steps/` を畳む案は、`filter-targets.ts` の前例どおり step 直下に兄弟ファイルを置く形がこのリポジトリに無く、消す不揃いより作る不揃いのほうが大きい。
+
+## 背景
+
+`src/steps/resolve-tags/` は `resolve-tags.ts`（65行）と `sub-steps/resolve-latest-tag.ts`（90行）の
+2ファイルで、`sub-steps/` の中身は1ファイルしか無い。ほかの2stepは
+`build-plans/sub-steps/` が4ファイル、`apply-updates/sub-steps/` が4ファイル（どちらも `shared/` を含む）。
+
+`resolve-latest-tag.ts` は公開関数 `resolveLatestTag()` 1つと非公開 `resolveTrackedHeadTagNames()` 1つで、
+「タグ一覧とHEAD SHAの取得 → HEADを指す既存タグの探索 → 無ければ新規タグを作成（`dryRun` のときは
+名前の計算だけ）」を1本で行っている。
+
+ユーザーからの指示は「`resolve-tags/` は sub-steps があるのに1ファイルでガバッと書かれている。
+複数の意味のまとまりでサブステップにしてパイプラインにするか、いっそサブステップにしないか、
+整理を提案してほしい」。
+
+ただし `docs/architecture.md` には既にこの形についての判断が記録されている。**覆すならそこも
+書き換えることになる**:
+
+- 「### `src/steps/`」節の `#### resolve-tags/sub-steps/` — 「一意化した単位のループは親step
+  （`resolve-tags.ts`）側にある。サブステップが1つしかないため『サブステップがサブステップを呼ぶ』
+  構造にならず、`buildPlan()` が避けている『呼び出しの粒度が揃って見えなくなる』問題も起きない」
+- 「### 1ファイルにまとめるか分けるか」 — まとめる合図①〜④・分ける合図①〜⑤（**行数だけを
+  理由には割らない**。⑤は200行超）
+
+## 解くべき論点
+
+- `sub-steps/` に1ファイルしか無い状態について、他2stepとの構成の一貫性（3stepとも同じ階層の
+  読み方ができる）と、「ディレクトリが1ファイルしか抱えていない」冗長さのどちらを取るか
+- `resolveLatestTag()` は分ける合図のどれに当たるか。特に①「責務を『〜と〜』でしか説明できない」
+  （既存タグの探索という読み取りと、新規タグ作成という書き込みを1関数が持つ）に当たると読めるか、
+  それとも1つのアルゴリズムの分岐にすぎないか
+- 分ける場合、非公開の `resolveTrackedHeadTagNames()` を `export` に昇格させることになるか
+  （まとめる合図②「分割の最も見えにくいコスト」）
+- サブステップに割った場合、`adapter.listTags()` / `getBranchHeadSha()` の1回の取得結果を
+  どのサブステップが持つか（原則1により `sub-steps/` 直下のファイル同士は import できない）
+
+## やること
+
+1. `docs/architecture.md` の上記2節を（通読せず `sed` で節単位に）読み、`resolve-tags/` の現状を
+   まとめる合図①〜④・分ける合図①〜⑤に1つずつ当てはめる
+2. 当てはめた結果を根拠に、次の3案を比較して推す案を示す。他2stepとの一貫性への影響も書く
+   - (a) 現状維持
+   - (b) `sub-steps/` を畳んで `resolve-tags/resolve-latest-tag.ts` にする
+   - (c) `resolve-latest-tag.ts` を複数のサブステップに割ってパイプラインにする
+3. **提案をユーザーに示し、承認を得てからファイルを動かす。** 承認前に `git mv` や分割をしない
+4. 基準に照らして現状維持（a）が妥当だと分かったら、ファイルは動かさず、当てはめた結果を
+   `evidence` に書いて閉じる。`docs/architecture.md` に追記が要るかはユーザーに確認する
+5. 構成を変えた場合は、`docs/architecture.md`「### `src/steps/`」の責務表と
+   `#### resolve-tags/sub-steps/` の記述、`test/steps/resolve-tags/` 配下のパスも追随させる
+
+## 完了条件
+
+- 3案それぞれについて、まとめる合図・分ける合図のどれに当たる／当たらないかを明示した比較が出ている
+- ファイルを動かした場合は `pnpm check` が通り、テスト件数が現状（39 Test Files / 494 Tests）から減っていない
+- 現状維持で閉じた場合は、その判断根拠が `evidence` に残っている
+- `docs/architecture.md` の記述と実際のディレクトリ構成が一致している
+
+## 注意
+
+- 原則1（`steps/` 同士・`sub-steps/` 直下のファイル同士を型だけでも import しない）を崩す案は採らない
+- `resolve-tags.ts` の JSDoc が説明している「一意化はstepの効率化ではなく正しさのためにある」
+  という設計意図は変えない
+- T-235 と同じファイルを触るため、T-235 の完了後に着手する
+
+## T-237
+
+**タスク**: `README.md` のプロジェクト構成のツリーで `src/` を4区分（steps/lib/domain/utils）まで1階層だけ展開する
+
+**dependencies**: なし
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: `README.md`「### プロジェクト構成」で `src/` を `steps/`・`lib/`・`domain/`・`utils/` の4行に展開（2階層目は出さず、他のディレクトリは据え置き）。コメントは `docs/architecture.md` の `###` 見出しの要約に揃えたが、`steps/` だけは README に `runProcess()` の定義が無く行き止まりの参照になるため「上記「仕組み」のパイプライン」に直した。`index.ts`・`main.ts` は当初「ディレクトリ」の指示に従い省いたが、ユーザーの追加要望で枝に足した。`pnpm check` 通過: 40 Test Files / 495 Tests。
+
+## 背景
+
+`README.md` の「### プロジェクト構成」（384行目付近）のツリーで、`src/` が1行にまとまっている:
+
+```
+├── src/                    # steps/・lib/・domain/・utils/ の4区分（型は domain/ 内）
+```
+
+4区分の名前はコメントに列挙されているだけで、ツリーの枝としては見えない。`test/` が
+「`src/` と同じディレクトリ構成」と書かれているため、`src/` の枝が無いと `test/` の形も読めない。
+
+`src/` の直下は実際には次のとおり（`command ls -d src/*/` と `command ls src/*.ts` で確認済み）:
+
+- ディレクトリ4つ: `steps/`・`lib/`・`domain/`・`utils/`
+- ファイル2つ: `index.ts`・`main.ts`
+
+各区分の定義は `docs/architecture.md` の `###` 見出しがそのまま一行要約になっている
+（T-234 で「ドメインを知っているか × 技術を知っているか」の2軸に書き換えたばかり）:
+
+| 見出し（`docs/architecture.md`）                                        |
+| ----------------------------------------------------------------------- |
+| `### `src/steps/`—`runProcess()` が直接呼ぶフラットな4ステップ`         |
+| `### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理` |
+| `### `src/domain/` — このツールの語彙（型）と、その語彙に閉じた規則`    |
+| `### `src/utils/` — ドメイン知識を一切持たない汎用ユーティリティ`       |
+
+ユーザーからの指示は「README のプロジェクト構成の部分、`src` の1つ下のディレクトリ（`steps` など）も
+書いてほしい。**2つ下まではやらなくていい**」。
+
+## 解くべき論点
+
+- `index.ts`・`main.ts`（ディレクトリではないが `src/` 直下にある）をツリーに載せるか。
+  載せると `runProcess()` の入口が README から辿れるが、指示の文面は「ディレクトリ」を指している
+- 各区分に付ける一行コメントを、`docs/architecture.md` の `###` 見出しの要約に揃えるか、
+  さらに短くするか。**`docs/architecture.md` が「各ファイルの責務」の正典**で、README は
+  そこへのポインタを既に持っている（「`src/` 配下の各ファイルの責務……は `docs/architecture.md` を参照」）。
+  README 側に責務を書き写すと正典が二重になるため、**1行に収まる区分の名札**の粒度を超えない
+
+## やること
+
+1. `README.md`「### プロジェクト構成」のツリーで、`src/` を枝付きに展開し、`steps/`・`lib/`・
+   `domain/`・`utils/` の4つを1階層だけ並べる
+2. 各行のコメントは `docs/architecture.md` の `###` 見出しの要約に沿わせ、1行に収める
+3. `src/` 行の既存コメント（`# steps/・lib/・domain/・utils/ の4区分（型は domain/ 内）`）は、
+   枝に展開したことで重複するので整理する（4区分の列挙は枝が担う）
+4. `src/` 以外のディレクトリ（`test/`・`scripts/`・`config/` など）は展開しない
+5. ツリーのコメント列の桁揃えを、展開後の行幅に合わせ直す
+6. 展開してみて `docs/architecture.md` の該当見出しと食い違う区分があったら、README を推測で
+   書かず、食い違いの内容を `evidence` に書いて閉じる
+
+## 完了条件
+
+- `README.md`「### プロジェクト構成」のツリーに `src/steps/`・`src/lib/`・`src/domain/`・`src/utils/`
+  の4行があり、それぞれに1行のコメントが付いている
+- `src/` より下で**2階層目**（`src/steps/resolve-tags/` など）はツリーに出ていない
+- `src/` 以外のディレクトリの行が増えていない
+- 「`src/` 配下の各ファイルの責務……は `docs/architecture.md` を参照してください」の
+  ポインタが残っている
+- `pnpm check` が通る（`format:check` にツリーの整形が含まれる）
+
+## 注意
+
+- `README.md` の「## 目次」のアンカー（`- [プロジェクト構成](#プロジェクト構成)`）は見出しを
+  変えない限り触らない
+- `docs/architecture.md` は書き換えない。README 側を正典に合わせる向きだけ
+
+## T-238
+
+**タスク**: 設定ユニット単位のレポート用レコード型を作り、4stepの戻り値と `settle()` を通して `runProcess()` まで運ぶ
+
+**dependencies**: なし
+
+**difficulty**: opus / **loopable**: Y
+
+**evidence**: `ConfigUnitUpdateResult` は広げず `ConfigUnitReport`（`ConfigUnitUpdateOutcome` と識別情報の交差型）を`src/domain/types.ts` に新設。`Record<ConfigUnitUpdateResult, number>` のキーを保つため。`StepOutcome` の `settled` は `result` から `report` へ、`settle()` は `(logContext, outcome)` に。`runProcess()` は `{counts, reports}` を返す。ログの出力は不変で、ログ検証テストは無変更のまま通過。`pnpm check` 通過: 40 Test Files / 496 Tests（495→496）。
+
+## 背景
+
+バッチ1回分の実行結果をレポート（Markdown）として GitLab の artifacts に出したい。その第一段として、
+**レポートに載せる情報を `src/main.ts` まで運べるようにする**のがこのタスク。挙動は変えない。
+
+現状、レポートに要る情報は**5箇所の `logger.info` / `logger.error` の引数の中にしか存在しない**。
+`runProcess()` まで戻ってくるのは `ConfigUnitUpdateResult`（`"CREATED" | "SKIPPED" | "ERROR"` の
+文字列）だけで、`summarizeResults()`（`src/main.ts:77`）がそれを数えている。
+
+`reason` は型を持たず、5箇所で個別に組み立てられている:
+
+| 箇所                                            | `result`  | `reason`                                    |
+| ----------------------------------------------- | --------- | ------------------------------------------- |
+| `src/steps/filter-targets/filter-targets.ts:51` | `SKIPPED` | `"no_apps"`                                 |
+| `src/steps/filter-targets/filter-targets.ts:57` | `SKIPPED` | `"mr_exists"`                               |
+| `src/steps/build-plans/build-plans.ts:86`       | `SKIPPED` | `"no_diff"`                                 |
+| `src/steps/build-plans/build-plans.ts:92`       | `SKIPPED` | `"dry_run"`                                 |
+| `src/steps/shared/step-outcome.ts:147`          | `ERROR`   | `` `httpStatus: ${...}, message: ${...}` `` |
+
+識別情報（`chartDirName`・`unitPath`・`chartProjectId`・`chartProjectName`）は
+`ConfigUnitLogContext`（`step-outcome.ts:17`）が既に1箇所で組み立てている。
+
+方針はユーザーと確定済み（`docs/history/direction.md` の該当日付）。**レポートの粒度は
+設定ユニット単位の1行**で、アプリ単位の内訳（`describePlan()` の結果）は運ばない。
+MRのURLも載せない（`adapter.createMergeRequest()` は `Promise<void>` のまま）。
+
+## 解くべき論点
+
+- `ConfigUnitUpdateResult` を**広げる**（この型自体をレコードにする）か、**別の型を足す**か。
+  この型は `summarizeResults()` の `Record<ConfigUnitUpdateResult, number>` のキーとして
+  使われており、レコード型にするとキーに使えなくなる。集計の形をどう保つか
+- `reason` の型をどう作るか。スキップ理由4種は閉じた文字列リテラルの合併にできるが、
+  ERROR の理由は動的な文字列。1つの型に同居させるか、`result` ごとに形が変わる合併型にするか
+  （`StepOutcome` が既に `status` で判別する合併なので、その書き方に揃えられるか見る）
+- `settle()`（`step-outcome.ts:43`）と `StepOutcome<T>` の `settled` が
+  `ConfigUnitUpdateResult` しか運ばない。reason を運ぶために引数・型をどう変えるか。
+  `settleAsError()`（同139行）は `"ERROR"` を返しているのでここも連動する
+- ログの出力（`logger.info` の引数の形）は**外部インターフェース**で、`README.md`
+  「実行ログの例」に固定されている。レコード型を作ったついでにログのキーや値を変えないこと
+
+## やること
+
+1. `src/steps/shared/step-outcome.ts`・`src/steps/` 4ファイル・`src/main.ts`・
+   `src/domain/types.ts` を読み、上記5箇所と `settle()` / `StepOutcome` / `summarizeResults()` の
+   関係を把握する
+2. 設定ユニット1件分のレポート用レコード型を `src/domain/types.ts` に作る。最低限
+   `chartDirName`・`unitPath`・`chartProjectName`・`result`・`reason` を持つ
+3. `settle()` と `StepOutcome<T>` の `settled`、4stepの戻り値、`runProcess()` の集約を、
+   このレコードを運ぶ形に変える
+4. `runProcess()` が `Record<ConfigUnitUpdateResult, number>` の件数と、レコードの配列の
+   両方を持てるようにする（次のタスクが書き出しに使う）
+5. **ログの出力内容は1文字も変えない。** 既存のログのテストが変更なしで通ることで確認する
+6. 調べてみて `ConfigUnitUpdateResult` を広げると集計や他の箇所が壊れると分かったら、
+   広げずに別の型を足す形に切り替える（どちらを採ったかを `evidence` に書く）
+
+## 完了条件
+
+- `runProcess()` が、設定ユニット1件につき1つのレコード（識別情報 + `result` + `reason`）を
+  持つ配列を組み立てている
+- `logger.info` / `logger.error` が出力するキーと値が現状と同一（既存のログ関連テストが
+  変更なしで通る）
+- 新しいレコード型に対するテストがある
+- `pnpm check` が通り、テスト件数が現状（40 Test Files / 495 Tests）から減っていない
+- ファイルの書き出しや `.gitlab-ci.yml` の変更は**このタスクではしない**（次のタスク）
+
+## 注意
+
+- `src/steps/` 配下に `try`/`catch` を書かない（CLAUDE.md）
+- `adapter.createMergeRequest()` の戻り値（`Promise<void>`）は変えない
+- 「無いかもしれない」プロパティは `readonly x: T | undefined` で書き、`?:` は使わない

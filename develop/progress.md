@@ -6,8 +6,10 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは2件**（T-239・T-240。バッチ実行レポートのartifacts化。T-238 は完了）。`done` 10件は
-[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
+**未着手のタスクは2件**（T-239・T-240。バッチ実行レポートのartifacts化。T-238 は完了）。
+**T-229〜T-238 の `done` 10件は
+[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
+（`develop/tasks.json` は 59,620B → 8,570B）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
