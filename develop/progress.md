@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは0件**（T-229〜T-234 をすべて完了）。`done` 10件は
+**未着手のタスクは2件**（T-235・T-236。`resolve-tags/` の不変化と構成の整理）。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
@@ -113,6 +113,24 @@
 - 後片付け済み（`reset --apply` → `setup --apply`。オープンMR 0件、フィクスチャは初期状態）
 
 ## 次にやること
+
+**`resolve-tags/` まわりの2タスクを T-235・T-236 として登録した**（2026-09-13、`/plan-tasks`）。
+依存は直列で、**T-235 → T-236** の順に実行する（同じファイルを触るため）:
+
+- **T-235**（sonnet・loopable `Y`）: `resolve-tags.ts` の `groupByTagSource()` を可変Mapの
+  組み立てから不変な生成に書き換える。`src/` で生成後に `set()` でループしているのはここだけで、
+  前例は `lib/config/load-config-unit.ts:133` の `new Map(xs.map(...))`
+- **T-236**（opus・loopable `N`）: `resolve-tags/` のサブステップ構成（`sub-steps/` に1ファイルだけ）を
+  `docs/architecture.md`「1ファイルにまとめるか分けるか」の合図に照らして評価し、
+  現状維持 / `sub-steps/` を畳む / 複数サブステップに割る の3案を比較して提案する。
+  **どの案を採るかはユーザーが決めるため `/loop` には載せない**
+
+**import の `.js` 拡張子を lint で塞ぐ指示はタスクにしなかった。** 前提が逆で、`.js` は必須。
+`tsc` は import 指定子を書き換えないため、`"type": "module"` の状態で `node dist/src/index.js` を
+動かすには拡張子が要る（`pnpm build` 後の `dist/src/steps/resolve-tags/resolve-tags.js` が
+`from "../../domain/tag-source.js"` のまま出ることを確認済み）。`tsconfig.json` の
+`moduleResolution: "bundler"` は `.js` を**許す**だけで、省略を前提にしていない。
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13（3回目）」。
 
 **`src/types/` を `src/domain/` に吸収する2タスクを T-233・T-234 として登録した**（2026-09-13、
 `/plan-tasks`）。`domain/` が「ドメイン」を名乗りながら語彙（型）は全部 `types/` にあり、

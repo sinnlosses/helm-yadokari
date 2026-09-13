@@ -9,6 +9,14 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-13（3回目）
+
+生成したタスク: T-235（`groupByTagSource()` の不変化）・T-236（`resolve-tags/` のサブステップ構成の評価と提案）。タスクにしなかった項目: import の `.js` 拡張子を lint で塞ぐ件（前提が逆で、`tsc` は import 指定子を書き換えないため `node dist/src/index.js`（`"type": "module"`）で動かすには `.js` が必須。`pnpm build` 後の `dist/src/steps/resolve-tags/resolve-tags.js` が `from "../../domain/tag-source.js"` のまま出ることを確認済み）。
+
+- import 文 の import type { ValuesYamlDraft } from "./values-yaml-draft.js" など .js がついてるけど不要だと思うから lint あたりで塞ぐことできる?
+- resolve-tags.ts の groupByTagSource がイミュータブルじゃない方式だからできるならイミュータブルにしてくれる?
+- resolve-tags/ ディレクトリはsubstepsがあるけど、1ファイルでガバッと書かれているね。複数の意味のまとまりでサブステップにしてパイプラインとするとか、いっそサブステップにしないとか、ちょっと整理を提案してくれる?
+
 ## 2026-09-13（2回目）
 
 生成したタスク: T-233（移動とパス追随）・T-234（`docs/architecture.md` の定義書き換え）。既存の T-229・T-231 の本文と T-229 の summary の `src/types/types.ts` を `src/domain/types.ts` に読み替え、T-229 は T-233 に、T-232 は T-234 に依存させた。タスクにしなかった項目: なし（`lib/`→`adapters/` 改名は指示どおり採らない）。
