@@ -16,6 +16,7 @@ import {
   NEW_TAG,
   makeApp,
   makeConfigUnit,
+  makeResolvedTags,
   makeAdapter,
   makeAdapterWithCachedReads,
   mockBuildPlansAdapter,
@@ -46,9 +47,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
+    const targets = [makeConfigUnit([app], { helm })]
     const { toApply } = await buildPlans(
       makeAdapterWithCachedReads(adapter),
-      [makeConfigUnit([app], { helm })],
+      targets,
+      makeResolvedTags(targets),
       3,
       false,
     )
@@ -75,9 +78,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2026-q1\n`,
     )
+    const targets = [makeConfigUnit([app], { helm })]
     const { toApply, settled } = await buildPlans(
       makeAdapterWithCachedReads(adapter),
-      [makeConfigUnit([app], { helm })],
+      targets,
+      makeResolvedTags(targets),
       3,
       false,
     )
@@ -99,9 +104,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
+    const targets = [makeConfigUnit([app], { helm })]
     const { toApply } = await buildPlans(
       makeAdapterWithCachedReads(adapter),
-      [makeConfigUnit([app], { helm })],
+      targets,
+      makeResolvedTags(targets),
       3,
       false,
     )
@@ -125,9 +132,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     vi.mocked(adapter.branchExists).mockResolvedValue(false)
+    const targets = [makeConfigUnit([app], { helm })]
     const { toApply, settled } = await buildPlans(
       makeAdapterWithCachedReads(adapter),
-      [makeConfigUnit([app], { helm })],
+      targets,
+      makeResolvedTags(targets),
       3,
       false,
     )
@@ -150,7 +159,14 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     const group = makeConfigUnit([app], { helm })
-    await buildPlans(makeAdapterWithCachedReads(adapter), [group], 3, false)
+    const targets = [group]
+    await buildPlans(
+      makeAdapterWithCachedReads(adapter),
+      targets,
+      makeResolvedTags(targets),
+      3,
+      false,
+    )
     expect(adapter.branchExists).toHaveBeenCalledWith(group.chartRepo.projectId, "release/2026-q1")
   })
 
@@ -168,9 +184,11 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch release/2025-q4\n`,
     )
     vi.mocked(adapter.branchExists).mockResolvedValue(false)
+    const targets = [makeConfigUnit([makeApp()], { helm })]
     await buildPlans(
       makeAdapterWithCachedReads(adapter),
-      [makeConfigUnit([makeApp()], { helm })],
+      targets,
+      makeResolvedTags(targets),
       3,
       false,
     )
@@ -203,7 +221,14 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       unitPath: toConfigUnitPath("tenant1/clientB"),
       helm,
     })
-    await buildPlans(makeAdapterWithCachedReads(adapter), [groupA, groupB], 3, false)
+    const targets = [groupA, groupB]
+    await buildPlans(
+      makeAdapterWithCachedReads(adapter),
+      targets,
+      makeResolvedTags(targets),
+      3,
+      false,
+    )
     expect(adapter.branchExists).toHaveBeenCalledTimes(1)
   })
 })

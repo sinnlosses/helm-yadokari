@@ -10,6 +10,7 @@ import { withCachedReads } from "./lib/platform/cached-reads.js"
 import { applyUpdates } from "./steps/apply-updates/apply-updates.js"
 import { buildPlans } from "./steps/build-plans/build-plans.js"
 import { filterTargets } from "./steps/filter-targets/filter-targets.js"
+import { resolveTags } from "./steps/resolve-tags/resolve-tags.js"
 import { logger } from "./utils/logger.js"
 import { timed } from "./utils/timer.js"
 
@@ -37,8 +38,9 @@ export async function run(env: EnvConfig): Promise<RunResult> {
  * 絞り込んで実行する。
  *
  * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがある設定ユニットを除外する
- * 2. buildPlans: 残った設定ユニットそれぞれの更新計画（差分）を構築する
- * 3. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
+ * 2. resolveTags: 残った設定ユニットの全アプリの最新タグを、解決の単位ごとに1回だけ解決する
+ * 3. buildPlans: 設定ユニットそれぞれの更新計画（差分）を構築する
+ * 4. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
  */
 async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult, number>> {
   const adapter = withCachedReads(createPlatformAdapter(env))
@@ -52,9 +54,11 @@ async function runProcess(env: EnvConfig): Promise<Record<ConfigUnitUpdateResult
     configUnits,
     env.concurrencyLimit,
   )
+  const resolvedTags = await resolveTags(adapter, targets, env.concurrencyLimit, env.dryRun)
   const { toApply, settled: planned } = await buildPlans(
     adapter,
     targets,
+    resolvedTags,
     env.concurrencyLimit,
     env.dryRun,
   )

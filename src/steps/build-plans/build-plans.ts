@@ -1,7 +1,10 @@
 import type {
+  AppConfig,
+  AppWithLatestTag,
   ConfigUnit,
   ConfigUnitUpdateResult,
   ConfigUnitUpdateTarget,
+  LatestTagResolution,
 } from "../../domain/types.js"
 import type { PlatformAdapterWithCachedReads } from "../../lib/platform/cached-reads.js"
 import { logger } from "../../utils/logger.js"
@@ -9,13 +12,13 @@ import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"
 import { describeHelmBranchRefUpdates, describePlan } from "../shared/describe-plan.js"
 import {
+  type AppOutcome,
   type ConfigUnitLogContext,
   type StepOutcome,
   ok,
   settle,
   withHandling,
 } from "../shared/step-outcome.js"
-import { type ResolveLatestTags, createResolveLatestTags } from "./sub-steps/resolve-latest-tags.js"
 import { toFileUpdates } from "./sub-steps/shared/values-yaml-draft.js"
 import { stageHelmBranchRefUpdates } from "./sub-steps/stage-helm-branch-ref-updates.js"
 import { stageImageTagUpdates } from "./sub-steps/stage-image-tag-updates.js"
@@ -30,19 +33,21 @@ export type BuildPlansResult = {
  * settled（SKIPPED）に、実際に適用が必要なものは toApply にまとめて返す。
  *
  * いずれか1つのアプリの処理が失敗した場合、その設定ユニット全体をオールオアナッシングで
- * settled（ERROR）に含める（`buildPlan()` 参照）。
+ * settled（ERROR）に含める（`buildPlan()` 参照）。最新タグの解決の失敗も同じ扱いになる。
+ *
+ * `resolvedTags`はappのオブジェクト参照で引くため、`resolveTags()`に渡したのと同じ`targets`を
+ * 渡すこと。
  */
 export async function buildPlans(
   adapter: PlatformAdapterWithCachedReads,
   targets: readonly ConfigUnit[],
+  resolvedTags: ReadonlyMap<AppConfig, AppOutcome<LatestTagResolution>>,
   concurrencyLimit: number,
   dryRun: boolean,
 ): Promise<BuildPlansResult> {
-  const resolveLatestTags = createResolveLatestTags(adapter, dryRun)
-
   const outcomes = await mapWithConcurrency(targets, concurrencyLimit, (configUnit) =>
     withHandling(adapter, configUnit, (logContext) =>
-      buildPlan(adapter, resolveLatestTags, configUnit, dryRun, logContext),
+      buildPlan(adapter, resolvedTags, configUnit, dryRun, logContext),
     ),
   )
 
@@ -60,12 +65,12 @@ export async function buildPlans(
  */
 async function buildPlan(
   adapter: PlatformAdapterWithCachedReads,
-  resolveLatestTags: ResolveLatestTags,
+  resolvedTags: ReadonlyMap<AppConfig, AppOutcome<LatestTagResolution>>,
   configUnit: ConfigUnit,
   dryRun: boolean,
   logContext: ConfigUnitLogContext,
 ): Promise<StepOutcome<ConfigUnitUpdateTarget>> {
-  const appsWithLatestTag = await resolveLatestTags(configUnit.apps)
+  const appsWithLatestTag = lookUpLatestTags(configUnit.apps, resolvedTags)
   const { plans, draft: draftAfterApps } = await stageImageTagUpdates(
     adapter,
     configUnit.chartRepo,
@@ -96,4 +101,24 @@ async function buildPlan(
     return settle("SKIPPED")
   }
   return ok({ configUnit, plans, helmBranchRefUpdates, files: toFileUpdates(draft) })
+}
+
+/**
+ * `resolveTags()`が解決済みの最新タグから、この設定ユニットのappぶんを引き当てる。
+ * 解決は設定ユニットをまたいで一意化されているため、1つのappの失敗はそのappを含む
+ * すべての設定ユニットのERRORになる。
+ */
+function lookUpLatestTags(
+  apps: readonly AppConfig[],
+  resolvedTags: ReadonlyMap<AppConfig, AppOutcome<LatestTagResolution>>,
+): readonly AppWithLatestTag[] {
+  return apps.map((app) => {
+    const resolved = resolvedTags.get(app)
+    if (resolved === undefined) {
+      throw new Error(`アプリ "${app.projectName}" の最新タグが解決されていません`)
+    }
+    // 値として持ち回ってきた例外をここで投げ直し、ERROR判定と記録を既存の`withHandling()`に任せる
+    if (resolved.status === "failed") throw resolved.error
+    return { app, latestTag: resolved.value }
+  })
 }

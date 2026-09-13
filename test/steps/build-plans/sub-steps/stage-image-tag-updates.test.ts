@@ -4,13 +4,15 @@ vi.mock("../../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-import { toAnchorName, toValuesPath } from "../../../../src/domain/types.js"
+import { toAnchorName, toTagName, toValuesPath } from "../../../../src/domain/types.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import {
   NEW_TAG,
   OLD_TAG,
   makeApp,
   makeConfigUnit,
+  makeResolvedTags,
+  resolvedAtHead,
   makeAdapter,
   makeAdapterWithCachedReads,
   mockBuildPlansAdapter,
@@ -39,9 +41,11 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     vi.mocked(adapter.getFileContent).mockResolvedValue(
       `variables:\n  - &helmVersion develop\n  - &tenant1client1AppsVersion ${OLD_TAG}\n`,
     )
+    const targets = [makeConfigUnit([app])]
     const { toApply } = await buildPlans(
       makeAdapterWithCachedReads(adapter),
-      [makeConfigUnit([app])],
+      targets,
+      makeResolvedTags(targets),
       3,
       false,
     )
@@ -67,9 +71,11 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       if (filePath === "batch.yaml") return `variables:\n  - &batchVersion ${OLD_TAG}\n`
       return undefined
     })
+    const targets = [makeConfigUnit([app])]
     const { toApply } = await buildPlans(
       makeAdapterWithCachedReads(adapter),
-      [makeConfigUnit([app])],
+      targets,
+      makeResolvedTags(targets),
       3,
       false,
     )
@@ -99,9 +105,11 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       if (filePath === "batch.yaml") return `variables:\n  - &batchVersion ${NEW_TAG}\n`
       return undefined
     })
+    const targets = [makeConfigUnit([app])]
     const { toApply } = await buildPlans(
       makeAdapterWithCachedReads(adapter),
-      [makeConfigUnit([app])],
+      targets,
+      makeResolvedTags(targets),
       3,
       false,
     )
@@ -126,9 +134,11 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       vi.mocked(adapter.getFileContent).mockResolvedValue(
         `variables:\n  - &appVersion ${OLD_TAG}\n`,
       )
+      const targets = [makeConfigUnit([app])]
       const { toApply } = await buildPlans(
         makeAdapterWithCachedReads(adapter),
-        [makeConfigUnit([app])],
+        targets,
+        makeResolvedTags(targets),
         3,
         false,
       )
@@ -136,4 +146,33 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       expect(toApply[0]?.plans[0]?.updates[0]?.currentTag).toBe(OLD_TAG)
     },
   )
+
+  it("反映済みタグが最新タグと名前は違っても、追跡ブランチのHEADを指すときは更新しない", async () => {
+    // 同じコミットに古いタグと新しいタグの両方が付いている状態。タグ名は違ってもデプロイされる
+    // 中身は同じなので、意味の無いMRを作らない
+    const targets = [makeConfigUnit([makeApp()])]
+    const { toApply, settled } = await buildPlans(
+      makeAdapterWithCachedReads(adapter),
+      targets,
+      makeResolvedTags(targets, () => resolvedAtHead(new Set([NEW_TAG, toTagName(OLD_TAG)]))),
+      3,
+      false,
+    )
+    expect(toApply).toEqual([])
+    expect(settled).toEqual(["SKIPPED"])
+  })
+
+  it("values.yamlの値がタグ名でないとき（初期値など）は更新する", async () => {
+    vi.mocked(adapter.getFileContent).mockResolvedValue("variables:\n  - &appVersion placeholder\n")
+    const targets = [makeConfigUnit([makeApp()])]
+    const { toApply } = await buildPlans(
+      makeAdapterWithCachedReads(adapter),
+      targets,
+      makeResolvedTags(targets),
+      3,
+      false,
+    )
+    expect(toApply).toHaveLength(1)
+    expect(toApply[0]?.plans[0]?.updates[0]?.currentTag).toBe("placeholder")
+  })
 })

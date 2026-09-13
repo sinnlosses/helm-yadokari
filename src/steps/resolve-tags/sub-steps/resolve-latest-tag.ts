@@ -1,7 +1,5 @@
 import { buildNewTag, findLatestParsedTag, parseTag } from "../../../domain/tag-format.js"
 import type {
-  AppConfig,
-  AppWithLatestTag,
   CommitSha,
   LatestTagResolution,
   TagInfo,
@@ -9,63 +7,7 @@ import type {
   TagSource,
 } from "../../../domain/types.js"
 import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
-import { getOrFetchShared } from "../../../utils/cache.js"
 import { logger } from "../../../utils/logger.js"
-import { reduceAsync } from "../../../utils/sequential.js"
-import { withAppContext } from "../../shared/step-outcome.js"
-
-/** 1つの設定ユニット配下の全アプリぶんの最新タグを解決する関数。バッチ全体で使い回す */
-export type ResolveLatestTags = (apps: readonly AppConfig[]) => Promise<readonly AppWithLatestTag[]>
-
-/**
- * 最新タグの解決を組み立てる。返す関数は、1つの設定ユニット配下の全アプリについて追跡ブランチ
- * 由来の最新タグを解決する。アプリを1つずつ順に処理するのはこの関数の責務で、呼び出し元
- * （`build-plans.ts`）は「この設定ユニットの全アプリの最新タグを決める」という1つの操作として
- * 呼ぶだけでよい。解決結果はアプリと対（`AppWithLatestTag`）にして返すため、後段の差分判定
- * （`stage-image-tag-updates.ts`）はどのタグがどのアプリのものかを引き当て直さずに済む。
- *
- * 解決結果を`TagSource`（`projectId`+`branchToSync`+`tagFormat`）単位でバッチ全体を通して
- * キャッシュするのは、**同じappが複数の設定ユニットに登録されうる**ため。キャッシュが無いと
- * 同じappの解決が設定ユニットの数だけ走り、HEADを指すタグが無いときはタグ作成もその回数だけ
- * 実行される（タグ名は秒精度なので、同名になれば2件目以降が失敗し、秒をまたげば同じコミットに
- * 冗長なタグが並んで設定ユニットごとに違うタグ名がvalues.yamlに書かれる）。`mapWithConcurrency`
- * により設定ユニットは並列実行されるため、同時に来た同じキーの問い合わせも1回にまとめる
- * `getOrFetchShared`を使う。
- *
- * キーに`tagFormat`まで含めるのは、`projectId`ごとの`tagFormat`一致は`validateTagFormatConsistency()`
- * が保証しており通常は`projectId`+`branchToSync`だけで一意になるが、その保証が将来外れたときに
- * 「実行順でどちらの形式のタグになるか決まる」という壊れ方ではなく「同じappにタグが2つできる」
- * という壊れ方にするため。
- *
- * キャッシュの寿命はこの関数が返すクロージャと同じで、バッチごとに`buildPlans()`が1つ作る。
- */
-export function createResolveLatestTags(
-  adapter: PlatformAdapter,
-  dryRun: boolean,
-): ResolveLatestTags {
-  const cache = new Map<string, Promise<LatestTagResolution>>()
-  return (apps) => {
-    const initial: readonly AppWithLatestTag[] = []
-    return reduceAsync(apps, initial, async (acc, app) => {
-      const source: TagSource = {
-        projectId: app.projectId,
-        projectName: app.projectName,
-        branchToSync: app.branchToSync,
-        tagFormat: app.tagFormat,
-      }
-      const cacheKey = [source.projectId, source.branchToSync, source.tagFormat].join("\0")
-      return [
-        ...acc,
-        {
-          app,
-          latestTag: await withAppContext(adapter, source.projectName, () =>
-            getOrFetchShared(cache, cacheKey, () => resolveLatestTag(adapter, source, dryRun)),
-          ),
-        },
-      ]
-    })
-  }
-}
 
 /**
  * `source`分の、追跡ブランチ由来の最新タグを判定する。タグ形式は`source.tagFormat`
@@ -83,7 +25,7 @@ export function createResolveLatestTags(
  *
  * あわせて`trackedHeadTagNames`を返す（意味は`LatestTagResolution`のJSDoc参照）。
  */
-async function resolveLatestTag(
+export async function resolveLatestTag(
   adapter: PlatformAdapter,
   source: TagSource,
   dryRun: boolean,

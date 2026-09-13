@@ -1,7 +1,14 @@
 import { vi } from "vitest"
 
 import { validateTagFormat } from "../src/domain/tag-format.js"
-import type { AppConfig, AppUpdatePlan, ConfigUnit, TagName } from "../src/domain/types.js"
+import type {
+  AppConfig,
+  AppUpdatePlan,
+  ConfigUnit,
+  LatestTagResolution,
+  TagName,
+  TagSource,
+} from "../src/domain/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -18,6 +25,7 @@ import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
 import type { PlatformAdapter } from "../src/lib/platform/adapter.js"
 import type { PlatformAdapterWithCachedReads } from "../src/lib/platform/cached-reads.js"
 import { withCachedReads } from "../src/lib/platform/cached-reads.js"
+import type { AppOutcome } from "../src/steps/shared/step-outcome.js"
 
 export const makeHttpError = (status: number): Error =>
   new Error("HTTP Error", { cause: { response: { status } } })
@@ -81,16 +89,53 @@ export const NEW_TAG = toTagName("main-build-at-20260101-000000")
 export const HEAD_SHA = toCommitSha("head-sha")
 
 /**
- * `buildPlans()`を通すテストの既定のモック。追跡ブランチのHEADに`NEW_TAG`があり、values.yamlの
- * 現在値が`OLD_TAG`（＝差分1件が出る）状態にする。個別のテストは必要なものだけ上書きする。
+ * `buildPlans()`を通すテストの既定のモック。values.yamlの現在値が`OLD_TAG`（＝`makeResolvedTags()`の
+ * 既定の解決結果との差分が1件出る）状態にする。個別のテストは必要なものだけ上書きする。
+ * タグの解決は`buildPlans()`の外（`resolveTags()`）で済んでいるため、タグ関連の関数は含めない。
  */
 export function mockBuildPlansAdapter(adapter: PlatformAdapter): void {
-  vi.mocked(adapter.listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
-  vi.mocked(adapter.getBranchHeadSha).mockResolvedValue(HEAD_SHA)
   vi.mocked(adapter.getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
   vi.mocked(adapter.getLatestPipelineForRef).mockResolvedValue(undefined)
-  vi.mocked(adapter.createTag).mockResolvedValue(undefined)
   vi.mocked(adapter.branchExists).mockResolvedValue(true)
+}
+
+/**
+ * `resolveTags()`が返す成功の解決結果。既定は追跡ブランチのHEADに`NEW_TAG`だけが付いている状態で、
+ * HEADに別名のタグも付いている状態を作りたいテストだけ`trackedHeadTagNames`を渡す。
+ */
+export function resolvedAtHead(
+  trackedHeadTagNames: ReadonlySet<TagName> = new Set([NEW_TAG]),
+): AppOutcome<LatestTagResolution> {
+  return {
+    status: "ok",
+    value: {
+      tag: {
+        name: NEW_TAG,
+        branchName: toBranchName("main"),
+        taggedAt: new Date(Date.UTC(2026, 0, 1)),
+      },
+      trackedHeadTagNames,
+    },
+  }
+}
+
+/**
+ * `buildPlans()`に渡す解決済みの最新タグ。`resolveTags()`が返すマップと同じく**appのオブジェクト
+ * 参照をキーにする**ので、`buildPlans()`へ渡すのと同じ`configUnits`から組み立てること。
+ * 既定は全appが`NEW_TAG`に解決できた状態で、失敗や別のタグを混ぜたいテストだけ`outcomeFor`を渡す。
+ */
+export function makeResolvedTags(
+  configUnits: readonly ConfigUnit[],
+  outcomeFor: (app: AppConfig) => AppOutcome<LatestTagResolution> = () => resolvedAtHead(),
+): ReadonlyMap<AppConfig, AppOutcome<LatestTagResolution>> {
+  return new Map(
+    configUnits.flatMap((configUnit) =>
+      configUnit.apps.map((app): readonly [AppConfig, AppOutcome<LatestTagResolution>] => [
+        app,
+        outcomeFor(app),
+      ]),
+    ),
+  )
 }
 
 export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
@@ -105,6 +150,17 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
         anchorName: toAnchorName("appVersion"),
       },
     ],
+    ...overrides,
+  }
+}
+
+/** `resolveLatestTag()`に渡す解決の単位。`makeApp()`と同じappを`TagSource`として表したもの */
+export function makeTagSource(overrides: Partial<TagSource> = {}): TagSource {
+  return {
+    projectId: toProjectId("1"),
+    projectName: toProjectName("my-app"),
+    branchToSync: toBranchName("main"),
+    tagFormat: BUILD_AT_FORMAT,
     ...overrides,
   }
 }
