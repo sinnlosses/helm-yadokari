@@ -1,4 +1,4 @@
-import type { AppConfig, ParsedTag, TagName } from "../../../../types/types.js"
+import type { AppConfig, ParsedTag, TagName } from "../../../../domain/types.js"
 import type { ValuesYamlDraft } from "./values-yaml-draft.js"
 
 /**

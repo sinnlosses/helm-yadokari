@@ -5,7 +5,7 @@ import type {
   ProjectName,
   TagName,
   ValuesPath,
-} from "../../types/types.js"
+} from "../../domain/types.js"
 
 /** `describePlan()`が組み立てる、1アプリ分の更新計画のログ表現 */
 export type PlanLogSummary = {

@@ -1,5 +1,5 @@
+import type { AppUpdatePlan, BranchName, HelmBranchRefUpdate } from "../../../domain/types.js"
 import type { PlatformAdapterWithCachedReads } from "../../../lib/platform/cached-reads.js"
-import type { AppUpdatePlan, BranchName, HelmBranchRefUpdate } from "../../../types/types.js"
 import { withAppContext } from "../../shared/step-outcome.js"
 import type { MrEntries } from "./shared/types.js"
 

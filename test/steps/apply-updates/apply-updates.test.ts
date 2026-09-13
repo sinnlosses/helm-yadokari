@@ -9,13 +9,13 @@ vi.mock("../../../src/utils/logger.js", () => ({
 }))
 
 import { buildFeatureBranch } from "../../../src/domain/feature-branch.js"
+import type { ConfigUnitUpdateTarget } from "../../../src/domain/types.js"
+import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/domain/types.js"
 import { applyUpdates } from "../../../src/steps/apply-updates/apply-updates.js"
 import { buildMrContent } from "../../../src/steps/apply-updates/sub-steps/build-mr-content.js"
 import { collectMrEntries } from "../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js"
 import type { MrEntries } from "../../../src/steps/apply-updates/sub-steps/shared/types.js"
 import { submitMergeRequest } from "../../../src/steps/apply-updates/sub-steps/submit-merge-request.js"
-import type { ConfigUnitUpdateTarget } from "../../../src/types/types.js"
-import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"
 import {
   makeApp,

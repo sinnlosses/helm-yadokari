@@ -1,5 +1,5 @@
-import type { ChartDirName, ConfigUnitPath } from "../types/types.js"
-import { toConfigUnitPath } from "../types/types.js"
+import type { ChartDirName, ConfigUnitPath } from "./types.js"
+import { toConfigUnitPath } from "./types.js"
 
 /** `unitPath` のセグメントの区切り（ディレクトリの区切りをそのまま使う） */
 export const CONFIG_UNIT_PATH_SEPARATOR = "/"

@@ -5,7 +5,7 @@ import type {
   HelmBranchRefUpdate,
   ImageTagUpdate,
   PipelineInfo,
-} from "../../../../types/types.js"
+} from "../../../../domain/types.js"
 
 /**
  * MR本文のイメージタグ表の1行分。1アプリが複数箇所を書き換える場合は同じ`plan`の

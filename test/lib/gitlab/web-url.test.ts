@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
+import { toPlatformUrl, toTagName } from "../../../src/domain/types.js"
 import { buildCompareUrl, buildTagUrl } from "../../../src/lib/gitlab/web-url.js"
-import { toPlatformUrl, toTagName } from "../../../src/types/types.js"
 
 describe("buildTagUrl", () => {
   it("プロジェクトのweb URLの配下にタグページのパスを足す", () => {

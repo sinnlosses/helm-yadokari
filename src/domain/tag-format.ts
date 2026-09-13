@@ -1,5 +1,5 @@
-import type { BranchName, ParsedTag, TagFormat, TagName } from "../types/types.js"
-import { toTagFormat, toTagName } from "../types/types.js"
+import type { BranchName, ParsedTag, TagFormat, TagName } from "./types.js"
+import { toTagFormat, toTagName } from "./types.js"
 
 const REQUIRED_PLACEHOLDERS: readonly string[] = ["branch", "date", "time"]
 // どちらもキャプチャグループを持たせない。読むのはマッチ全体（`{...}`）だけで、グループを

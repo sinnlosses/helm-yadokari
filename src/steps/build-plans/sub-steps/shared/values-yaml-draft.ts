@@ -1,5 +1,5 @@
+import type { ChartRepoConfig, FileUpdate, ValuesPath } from "../../../../domain/types.js"
 import type { PlatformAdapterWithCachedReads } from "../../../../lib/platform/cached-reads.js"
-import type { ChartRepoConfig, FileUpdate, ValuesPath } from "../../../../types/types.js"
 
 /**
  * 1つのvaluesPathについての下書き状態。`modified`が指すのはこの設定ユニットの処理中に

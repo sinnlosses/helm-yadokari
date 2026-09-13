@@ -8,7 +8,7 @@ import type {
   TagInfo,
   TagName,
   ValuesPath,
-} from "../../types/types.js"
+} from "../../domain/types.js"
 
 /**
  * GitLab・GitHubのどちらでチャートリポジトリを管理していても`steps/`が同じ形で呼べるようにする

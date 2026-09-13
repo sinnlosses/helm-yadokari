@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../src/lib/gitlab/gitlab.js")
 
+import { toBranchName, toProjectId, toTagName, toValuesPath } from "../../../src/domain/types.js"
 import { createGitlabAdapter } from "../../../src/lib/gitlab/adapter.js"
 import { extractHttpStatus, isFatalError } from "../../../src/lib/gitlab/errors.js"
 import {
@@ -19,7 +20,6 @@ import {
   openMergeRequestExists,
 } from "../../../src/lib/gitlab/gitlab.js"
 import { buildCompareUrl, buildTagUrl } from "../../../src/lib/gitlab/web-url.js"
-import { toBranchName, toProjectId, toTagName, toValuesPath } from "../../../src/types/types.js"
 
 const gitlab = {} as unknown as GitlabClient
 const PROJECT_ID = toProjectId("1")

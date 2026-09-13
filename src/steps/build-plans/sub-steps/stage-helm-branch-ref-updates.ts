@@ -1,12 +1,12 @@
-import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
-import type { PlatformAdapterWithCachedReads } from "../../../lib/platform/cached-reads.js"
 import type {
   AnchorLocation,
   ChartRepoConfig,
   HelmConfig,
   HelmBranchRefUpdate,
-} from "../../../types/types.js"
-import { toBranchName } from "../../../types/types.js"
+} from "../../../domain/types.js"
+import { toBranchName } from "../../../domain/types.js"
+import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
+import type { PlatformAdapterWithCachedReads } from "../../../lib/platform/cached-reads.js"
 import { reduceAsync } from "../../../utils/sequential.js"
 import type { StageUpdatesAcc } from "./shared/types.js"
 import type { ValuesYamlDraft } from "./shared/values-yaml-draft.js"

@@ -1,6 +1,6 @@
 /**
  * ドメイン固有のブランド型と、その生成に使う factory 関数。`src/` 内で `as` を使うのは
- * このファイルだけ。`src/types/types.ts` から再エクスポートしている。
+ * このファイルだけ。`./types.ts` から再エクスポートしている。
  */
 
 import { assertSafePath } from "../utils/fs.js"
@@ -41,7 +41,7 @@ export function toCommitSha(s: string): CommitSha {
 }
 
 declare const tagFormatBrand: unique symbol
-/** タグ形式のテンプレート文字列（検証は `domain/tag-format.ts` の `validateTagFormat()`） */
+/** タグ形式のテンプレート文字列（検証は同じディレクトリの `tag-format.ts` の `validateTagFormat()`） */
 export type TagFormat = string & { readonly [tagFormatBrand]: never }
 export function toTagFormat(s: string): TagFormat {
   return s as TagFormat

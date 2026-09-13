@@ -1,12 +1,7 @@
 import { vi } from "vitest"
 
 import { validateTagFormat } from "../src/domain/tag-format.js"
-import { extractHttpStatus, isFatalError } from "../src/lib/gitlab/errors.js"
-import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
-import type { PlatformAdapter } from "../src/lib/platform/adapter.js"
-import type { PlatformAdapterWithCachedReads } from "../src/lib/platform/cached-reads.js"
-import { withCachedReads } from "../src/lib/platform/cached-reads.js"
-import type { AppConfig, AppUpdatePlan, ConfigUnit, TagName } from "../src/types/types.js"
+import type { AppConfig, AppUpdatePlan, ConfigUnit, TagName } from "../src/domain/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -17,7 +12,12 @@ import {
   toProjectName,
   toTagName,
   toValuesPath,
-} from "../src/types/types.js"
+} from "../src/domain/types.js"
+import { extractHttpStatus, isFatalError } from "../src/lib/gitlab/errors.js"
+import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
+import type { PlatformAdapter } from "../src/lib/platform/adapter.js"
+import type { PlatformAdapterWithCachedReads } from "../src/lib/platform/cached-reads.js"
+import { withCachedReads } from "../src/lib/platform/cached-reads.js"
 
 export const makeHttpError = (status: number): Error =>
   new Error("HTTP Error", { cause: { response: { status } } })

@@ -277,7 +277,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 | 型の性質                                                                           | 置き場所                                         | 例                                                                         |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------- |
-| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                         | `src/types/types.ts`（ブランド型は`brand.ts`）   | `ConfigUnit`・`AppUpdatePlan`・`ConfigUnitUpdateResult`・`ParsedTag`       |
+| ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                         | `src/domain/types.ts`（ブランド型は`brand.ts`）  | `ConfigUnit`・`AppUpdatePlan`・`ConfigUnitUpdateResult`・`ParsedTag`       |
 | 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                 | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`LoadedConfig`・`AppSpec`・`EnvConfig`     |
 | ドメイン知識を持たない汎用処理の型                                                 | その`utils/`ファイル                             | `Sorted`                                                                   |
 | 複数のstepが共有する、ドメイン型にだけ依存する型                                   | `steps/shared/`                                  | `StepOutcome<T>`・`ConfigUnitLogContext`                                   |
@@ -286,7 +286,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 - 「型は`types/`にまとめる」という運用にしないのは、`types/`が「ドメイン語彙の一覧」ではなく
   「型の物置」になると、どの型がこのツールの語彙でどの型が実装の都合かが読み分けられなくなるため。
-  `src/types/types.ts` に利用箇所が1〜2ファイルしかない型（`RunResult`・`TagInfo`）が
+  `src/domain/types.ts` に利用箇所が1〜2ファイルしかない型（`RunResult`・`TagInfo`）が
   あるのは意図的で、上表の1行目に当たる
 - `sub-steps/shared/types.ts`のような型だけのファイルは、**特定の1ファイルに帰属しない型**
   （複数のサブステップが共有する関数型インターフェースや共通のアキュムレータ基底）だけに使う。
@@ -304,7 +304,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
   （`step-outcome.ts`）で、`describe-plan.ts` の `PlanLogSummary`・`HelmBranchRefLogSummary` は
   `describePlan()` の戻り値の形でしかないので5行目に当たる。共有されているのは関数であって型ではない
 - **1行目と5行目も競合しうる**。`ParsedTag` は `domain/tag-format.ts` の関数が生み出す型だが、
-  タグから読み取れる情報そのものというドメイン語彙なので `types/types.ts` に置く。
+  タグから読み取れる情報そのものというドメイン語彙なので `domain/types.ts` に置く。
   **語彙かどうかが先**で、どの関数が作るかは後。現に `src/domain/` には型定義が1つも無い
 - **関数が引数として受け取る形も5行目**（`LabeledLocation` は `validateNoDuplicateLocations()` の
   引数で、呼び出し側の `load-config-unit.ts` が組み立てる）。「生み出す」だけでなく
@@ -714,7 +714,7 @@ grep -rhE '^(export )?(type|interface) ' --include='*.ts' src | wc -l   # 67
 
 | 表の行                            | 件数 | 実体                                             |
 | --------------------------------- | ---- | ------------------------------------------------ |
-| 1行目 ドメイン語彙                | 29   | `types/types.ts` 15・`types/brand.ts` 14         |
+| 1行目 ドメイン語彙                | 29   | `domain/types.ts` 15・`domain/brand.ts` 14       |
 | 2行目 `lib/`のインターフェース    | 10   | `env.ts`・`gitlab/`2・`config/`6・`helm.ts`1     |
 | 3行目 `utils/`                    | 2    | `partition.ts`・`cache.ts`                       |
 | 4行目 `steps/shared/`             | 2    | `step-outcome.ts`                                |
@@ -724,7 +724,7 @@ grep -rhE '^(export )?(type|interface) ' --include='*.ts' src | wc -l   # 67
 1・3・4・6行目は置き場所そのものが行の定義なので機械的に確かめられる:
 
 ```bash
-grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/types | wc -l                 # 29（1行目）
+grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/domain/types.ts src/domain/brand.ts | wc -l  # 29（1行目）
 grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/utils | wc -l                 # 2（3行目）
 grep -hE  '^(export )?(type|interface) ' src/steps/shared/step-outcome.ts | wc -l           # 2（4行目）
 grep -rhE '^(export )?(type|interface) ' src/steps/*/sub-steps/shared/types.ts | wc -l      # 6（6行目）
@@ -807,7 +807,7 @@ values.yamlの書き込み位置は用途を問わず`AnchorLocation`1つ。Type
 #### 検証の動詞は`validate`に統一し、`verify`は使わない
 
 `validate`はこのコードベース全体の「検証する」の一般動詞で、`validateGitlabUrl()`（`lib/env.ts`）・
-タグ形式の検証（`domain/`・`types/brand.ts`）・スキーマ検証（`lib/config/schema.ts`）から
+タグ形式の検証（`domain/`・`domain/brand.ts`）・スキーマ検証（`lib/config/schema.ts`）から
 `.gitlab-ci.yml`のstage名（検証全般を指す）まで、層をまたいで使われている。**`validate`に
 「形の検証だけ」のような狭い意味を割り当て直すことはできない**。
 
@@ -1009,7 +1009,7 @@ projectIdが本番実行時にはじめて`ERROR`になっていた。
 | `ChartYamlSchema`（`lib/config/schema.ts`）                                        | `RegistryYamlSchema` へ改名                | 外部ファイル形式の写しなので、ファイル名に追随する                                                                                                                                                                              |
 | `ChartApp` / `ChartAppSchema`（同上）                                              | `AppSpec` / `AppSpecSchema` へ改名         | 同上。`appSpecs[]` の1要素そのもの                                                                                                                                                                                              |
 | `chartYamlPath` / `chartApps`（`config.ts`・`load-config-unit.ts`・`validate.ts`） | `registryYamlPath` / `appSpecs` へ改名     | ファイル名・キー名をそのまま指しているローカル変数・引数                                                                                                                                                                        |
-| `ChartRepoConfig`（`types/types.ts`）                                              | 変えない                                   | ドメイン語彙。キーが `chartToUpdate` になっても、型が表すものは「chartリポジトリの設定」のまま                                                                                                                                  |
+| `ChartRepoConfig`（`domain/types.ts`）                                             | 変えない                                   | ドメイン語彙。キーが `chartToUpdate` になっても、型が表すものは「chartリポジトリの設定」のまま                                                                                                                                  |
 | `ConfigUnit` とそのフィールド `chartRepo`                                          | この論点では変えない（別の論点で改名済み） | ここでの論点はYAMLのファイル分割への追随の要否で、ドメイン語彙自体は変わらない。フィールド名`chartRepo`は「型と命名」の理由（型名が`chart`を含まなくなり用途を与えなくなったため）で別途改名した                                |
 | `lib/config/load-config-unit.ts`（ファイル名）                                     | この論点では変えない（別の論点で改名済み） | ここでの論点はYAMLのファイル名（`chart.yaml`→`registry.yaml`）への追随の要否で、`ConfigUnit` に対応する名前という位置づけは変わらないため据え置いた。のちに「動詞が無く何をするか読めない」という別の論点で現在名へ改名している |
 | `ConfigYamlSchema` / `AppSchema`（`lib/config/schema.ts`）                         | 変えない                                   | `config.yaml` を据え置くため                                                                                                                                                                                                    |

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest"
 import { parse as parseYaml } from "yaml"
 
+import { toAnchorName, toValuesPath } from "../../src/domain/types.js"
 import {
   getRequiredValueAtAnchor,
   lookupValueAtAnchor,
   setValueAtAnchor,
 } from "../../src/lib/helm.js"
-import { toAnchorName, toValuesPath } from "../../src/types/types.js"
 
 const VARIABLES_YAML = `variables:
   - &helmVersion develop

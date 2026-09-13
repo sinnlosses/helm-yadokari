@@ -1,10 +1,10 @@
+import type { BranchName, ProjectId, ValuesPath } from "../../../src/domain/types.js"
 import {
   type GitlabClient,
   branchExists,
   getFileContent,
   projectExists,
 } from "../../../src/lib/gitlab/gitlab.js"
-import type { BranchName, ProjectId, ValuesPath } from "../../../src/types/types.js"
 import { cacheByArgs } from "../../../src/utils/cache.js"
 
 /**

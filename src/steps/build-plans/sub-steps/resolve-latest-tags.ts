@@ -1,5 +1,4 @@
 import { buildNewTag, findLatestParsedTag, parseTag } from "../../../domain/tag-format.js"
-import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
 import type {
   AppConfig,
   BranchName,
@@ -7,7 +6,8 @@ import type {
   TagFormat,
   TagInfo,
   TagName,
-} from "../../../types/types.js"
+} from "../../../domain/types.js"
+import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
 import { getOrFetchShared } from "../../../utils/cache.js"
 import { logger } from "../../../utils/logger.js"
 import { reduceAsync } from "../../../utils/sequential.js"

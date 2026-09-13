@@ -4,8 +4,8 @@ import { join } from "node:path"
 import { beforeEach, describe, expect, it } from "vitest"
 
 import { loadConfig } from "../../../src/lib/config/config.js"
-import type { ConfigUnitPath } from "../../../src/types/types.js"
-import { toChartDirName, toConfigRootPath, toConfigUnitPath } from "../../../src/types/types.js"
+import type { ConfigUnitPath } from "../../../src/domain/types.js"
+import { toChartDirName, toConfigRootPath, toConfigUnitPath } from "../../../src/domain/types.js"
 import { configYaml, registryYaml, useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()

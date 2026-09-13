@@ -1,6 +1,6 @@
 import { buildFeatureBranch } from "../../domain/feature-branch.js"
+import type { ConfigUnitUpdateResult, ConfigUnitUpdateTarget } from "../../domain/types.js"
 import type { PlatformAdapterWithCachedReads } from "../../lib/platform/cached-reads.js"
-import type { ConfigUnitUpdateResult, ConfigUnitUpdateTarget } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { describeHelmBranchRefUpdates, describePlan } from "../shared/describe-plan.js"

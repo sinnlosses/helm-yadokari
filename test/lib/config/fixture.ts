@@ -3,8 +3,8 @@ import { join } from "node:path"
 
 import { afterEach, beforeEach } from "vitest"
 
-import type { ConfigRootPath } from "../../../src/types/types.js"
-import { toConfigRootPath } from "../../../src/types/types.js"
+import type { ConfigRootPath } from "../../../src/domain/types.js"
+import { toConfigRootPath } from "../../../src/domain/types.js"
 
 /**
  * `loadConfig()` のテスト用に、テストごとの使い捨て `config/` ディレクトリを用意する。

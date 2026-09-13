@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import type { MrContent } from "../../../../src/steps/apply-updates/sub-steps/shared/types.js"
-import { submitMergeRequest } from "../../../../src/steps/apply-updates/sub-steps/submit-merge-request.js"
-import type { ChartRepoConfig, FileUpdate } from "../../../../src/types/types.js"
+import type { ChartRepoConfig, FileUpdate } from "../../../../src/domain/types.js"
 import {
   toBranchName,
   toProjectId,
   toProjectName,
   toValuesPath,
-} from "../../../../src/types/types.js"
+} from "../../../../src/domain/types.js"
+import type { MrContent } from "../../../../src/steps/apply-updates/sub-steps/shared/types.js"
+import { submitMergeRequest } from "../../../../src/steps/apply-updates/sub-steps/submit-merge-request.js"
 import { makeAdapter } from "../../../helpers.js"
 
 const adapter = makeAdapter()

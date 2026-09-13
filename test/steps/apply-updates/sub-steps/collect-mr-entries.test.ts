@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { collectMrEntries } from "../../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js"
 import {
   toAnchorName,
   toBranchName,
   toPlatformUrl,
   toTagName,
   toValuesPath,
-} from "../../../../src/types/types.js"
+} from "../../../../src/domain/types.js"
+import { collectMrEntries } from "../../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js"
 import { makePlan, makeAdapter, makeAdapterWithCachedReads } from "../../../helpers.js"
 
 const webUrl = toPlatformUrl("https://gitlab.example.com/g/my-app")

@@ -4,7 +4,6 @@ vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-import { buildPlans } from "../../../src/steps/build-plans/build-plans.js"
 import {
   toAnchorName,
   toChartDirName,
@@ -12,7 +11,8 @@ import {
   toProjectId,
   toProjectName,
   toValuesPath,
-} from "../../../src/types/types.js"
+} from "../../../src/domain/types.js"
+import { buildPlans } from "../../../src/steps/build-plans/build-plans.js"
 import { FatalError } from "../../../src/utils/errors.js"
 import { logger } from "../../../src/utils/logger.js"
 import {

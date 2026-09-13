@@ -1,5 +1,5 @@
-import type { BranchName, ConfigUnitPath } from "../types/types.js"
-import { toBranchName } from "../types/types.js"
+import type { BranchName, ConfigUnitPath } from "./types.js"
+import { toBranchName } from "./types.js"
 
 const FEATURE_BRANCH_PREFIX = "feature/yadokari/"
 

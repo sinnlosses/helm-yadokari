@@ -1,3 +1,4 @@
+import type { ConfigUnitUpdateResult, RunResult } from "./domain/types.js"
 import { loadConfig } from "./lib/config/config.js"
 import type { EnvConfig } from "./lib/env.js"
 import { createGithubAdapter } from "./lib/github/adapter.js"
@@ -9,7 +10,6 @@ import { withCachedReads } from "./lib/platform/cached-reads.js"
 import { applyUpdates } from "./steps/apply-updates/apply-updates.js"
 import { buildPlans } from "./steps/build-plans/build-plans.js"
 import { filterTargets } from "./steps/filter-targets/filter-targets.js"
-import type { ConfigUnitUpdateResult, RunResult } from "./types/types.js"
 import { logger } from "./utils/logger.js"
 import { timed } from "./utils/timer.js"
 

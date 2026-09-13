@@ -4,13 +4,13 @@ vi.mock("../../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import {
   toAnchorName,
   toBranchName,
   toConfigUnitPath,
   toValuesPath,
-} from "../../../../src/types/types.js"
+} from "../../../../src/domain/types.js"
+import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
 import { logger } from "../../../../src/utils/logger.js"
 import {
   NEW_TAG,

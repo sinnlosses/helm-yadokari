@@ -4,8 +4,8 @@ vi.mock("../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
+import { toChartDirName, toConfigUnitPath } from "../../../src/domain/types.js"
 import { filterTargets } from "../../../src/steps/filter-targets/filter-targets.js"
-import { toChartDirName, toConfigUnitPath } from "../../../src/types/types.js"
 import { FatalError } from "../../../src/utils/errors.js"
 import { makeApp, makeConfigUnit, makeHttpError, makeAdapter } from "../../helpers.js"
 

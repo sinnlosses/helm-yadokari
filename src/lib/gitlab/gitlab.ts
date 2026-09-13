@@ -11,8 +11,8 @@ import type {
   TagInfo,
   TagName,
   ValuesPath,
-} from "../../types/types.js"
-import { toCommitSha, toPlatformUrl, toTagName } from "../../types/types.js"
+} from "../../domain/types.js"
+import { toCommitSha, toPlatformUrl, toTagName } from "../../domain/types.js"
 import { withRetry } from "../../utils/retry.js"
 import { extractHttpStatus, isNotFoundError, isRetryableError } from "./errors.js"
 

@@ -1,5 +1,5 @@
+import type { BranchName, ConfigUnitPath, HelmBranchRefUpdate } from "../../../domain/types.js"
 import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
-import type { BranchName, ConfigUnitPath, HelmBranchRefUpdate } from "../../../types/types.js"
 import type { ImageTagEntry, MrContent, MrEntries } from "./shared/types.js"
 
 /**

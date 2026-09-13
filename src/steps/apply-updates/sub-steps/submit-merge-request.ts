@@ -1,5 +1,5 @@
+import type { BranchName, ChartRepoConfig, FileUpdate } from "../../../domain/types.js"
 import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
-import type { BranchName, ChartRepoConfig, FileUpdate } from "../../../types/types.js"
 import type { MrContent } from "./shared/types.js"
 
 /**

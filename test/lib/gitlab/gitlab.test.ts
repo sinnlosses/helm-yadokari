@@ -1,6 +1,14 @@
 import { Gitlab } from "@gitbeaker/rest"
 import { describe, expect, it, vi } from "vitest"
 
+import {
+  toAccessToken,
+  toBranchName,
+  toPlatformUrl,
+  toProjectId,
+  toTagName,
+  toValuesPath,
+} from "../../../src/domain/types.js"
 import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
 import {
   branchExists,
@@ -17,14 +25,6 @@ import {
   openMergeRequestExists,
   projectExists,
 } from "../../../src/lib/gitlab/gitlab.js"
-import {
-  toAccessToken,
-  toBranchName,
-  toPlatformUrl,
-  toProjectId,
-  toTagName,
-  toValuesPath,
-} from "../../../src/types/types.js"
 import { makeHttpError } from "../../helpers.js"
 
 function makeClient(

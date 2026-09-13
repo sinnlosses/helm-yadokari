@@ -1,6 +1,14 @@
 import { Octokit } from "@octokit/rest"
 import { describe, expect, it, vi } from "vitest"
 
+import {
+  toAccessToken,
+  toBranchName,
+  toPlatformUrl,
+  toProjectId,
+  toTagName,
+  toValuesPath,
+} from "../../../src/domain/types.js"
 import type { GithubClient } from "../../../src/lib/github/github.js"
 import {
   branchExists,
@@ -16,14 +24,6 @@ import {
   listTags,
   openMergeRequestExists,
 } from "../../../src/lib/github/github.js"
-import {
-  toAccessToken,
-  toBranchName,
-  toPlatformUrl,
-  toProjectId,
-  toTagName,
-  toValuesPath,
-} from "../../../src/types/types.js"
 
 type MockFn = ReturnType<typeof vi.fn>
 

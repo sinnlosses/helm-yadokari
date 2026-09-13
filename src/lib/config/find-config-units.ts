@@ -2,8 +2,8 @@ import { existsSync } from "node:fs"
 import { join } from "node:path"
 
 import { CONFIG_UNIT_PATH_SEPARATOR, MAX_CONFIG_UNIT_DEPTH } from "../../domain/config-unit.js"
-import type { ChartDirName, ConfigUnitPath, LocalPath } from "../../types/types.js"
-import { toChartDirName, toConfigUnitPath, toLocalPath } from "../../types/types.js"
+import type { ChartDirName, ConfigUnitPath, LocalPath } from "../../domain/types.js"
+import { toChartDirName, toConfigUnitPath, toLocalPath } from "../../domain/types.js"
 import { listSubdirectories } from "../../utils/fs.js"
 import { CONFIG_YAML_FILE_NAME, REGISTRY_YAML_FILE_NAME } from "./schema.js"
 

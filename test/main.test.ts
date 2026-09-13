@@ -7,6 +7,7 @@ vi.mock("../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
+import { toAccessToken, toCommitSha, toPlatformUrl, toTagName } from "../src/domain/types.js"
 import { loadConfig } from "../src/lib/config/config.js"
 import { DEFAULT_CONFIG_ROOT_PATH } from "../src/lib/config/config.js"
 import type { EnvConfig } from "../src/lib/env.js"
@@ -23,7 +24,6 @@ import {
   openMergeRequestExists,
 } from "../src/lib/gitlab/gitlab.js"
 import { run } from "../src/main.js"
-import { toAccessToken, toCommitSha, toPlatformUrl, toTagName } from "../src/types/types.js"
 import { FatalError } from "../src/utils/errors.js"
 import { makeApp, makeConfigUnit, makeHttpError, mockGitlab } from "./helpers.js"
 

@@ -1,6 +1,6 @@
 import { buildFeatureBranch } from "../../domain/feature-branch.js"
+import type { ConfigUnit, ConfigUnitUpdateResult } from "../../domain/types.js"
 import type { PlatformAdapter } from "../../lib/platform/adapter.js"
-import type { ConfigUnit, ConfigUnitUpdateResult } from "../../types/types.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"

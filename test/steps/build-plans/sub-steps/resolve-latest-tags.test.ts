@@ -5,8 +5,6 @@ vi.mock("../../../../src/utils/logger.js", () => ({
 }))
 
 import { validateTagFormat } from "../../../../src/domain/tag-format.js"
-import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
-import { createResolveLatestTags } from "../../../../src/steps/build-plans/sub-steps/resolve-latest-tags.js"
 import {
   toBranchName,
   toChartDirName,
@@ -15,7 +13,9 @@ import {
   toProjectId,
   toProjectName,
   toTagName,
-} from "../../../../src/types/types.js"
+} from "../../../../src/domain/types.js"
+import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
+import { createResolveLatestTags } from "../../../../src/steps/build-plans/sub-steps/resolve-latest-tags.js"
 import {
   HEAD_SHA,
   NEW_TAG,

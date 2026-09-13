@@ -6,7 +6,7 @@ import {
   parseTag,
   validateTagFormat,
 } from "../../src/domain/tag-format.js"
-import { toBranchName, toTagName } from "../../src/types/types.js"
+import { toBranchName, toTagName } from "../../src/domain/types.js"
 
 /** 実際に使われているタグ形式の1つ。もう1つは並び順が異なる`{date}-{time}-{branch}` */
 const BUILD_AT_FORMAT = validateTagFormat("{branch}-build-at-{date}-{time}")

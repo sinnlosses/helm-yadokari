@@ -1,6 +1,6 @@
 import { type Document, type Scalar, isScalar, parseDocument, visit } from "yaml"
 
-import type { AnchorName, ValuesPath } from "../types/types.js"
+import type { AnchorName, ValuesPath } from "../domain/types.js"
 
 // Helm chart の values.yaml を操作するための処理を置く。
 // 今のところは YAMLアンカーでの値の取得・書き換えのみだが、Helm chart 固有の処理

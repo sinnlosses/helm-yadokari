@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../src/lib/github/github.js")
 
+import { toBranchName, toProjectId, toTagName, toValuesPath } from "../../../src/domain/types.js"
 import { createGithubAdapter } from "../../../src/lib/github/adapter.js"
 import { extractHttpStatus, isFatalError } from "../../../src/lib/github/errors.js"
 import {
@@ -19,7 +20,6 @@ import {
   openMergeRequestExists,
 } from "../../../src/lib/github/github.js"
 import { buildCompareUrl, buildTagUrl } from "../../../src/lib/github/web-url.js"
-import { toBranchName, toProjectId, toTagName, toValuesPath } from "../../../src/types/types.js"
 
 const github = {} as unknown as GithubClient
 const PROJECT_ID = toProjectId("acme/chart")

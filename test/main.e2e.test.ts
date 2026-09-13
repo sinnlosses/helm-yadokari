@@ -23,14 +23,14 @@ vi.mock("../src/utils/logger.js", () => ({
 
 import { Gitlab } from "@gitbeaker/rest"
 
-import type { EnvConfig } from "../src/lib/env.js"
-import { run } from "../src/main.js"
 import {
   toAccessToken,
   toConfigUnitPath,
   toPlatformUrl,
   toConfigRootPath,
-} from "../src/types/types.js"
+} from "../src/domain/types.js"
+import type { EnvConfig } from "../src/lib/env.js"
+import { run } from "../src/main.js"
 import { makeHttpError } from "./helpers.js"
 
 /** `config/yadokari-smoke-test-chart/registry.yaml` の projectId */

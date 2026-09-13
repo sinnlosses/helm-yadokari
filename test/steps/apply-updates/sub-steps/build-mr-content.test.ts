@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { buildCompareUrl, buildTagUrl } from "../../../../src/lib/gitlab/web-url.js"
-import { buildMrContent } from "../../../../src/steps/apply-updates/sub-steps/build-mr-content.js"
-import type { MrEntries } from "../../../../src/steps/apply-updates/sub-steps/shared/types.js"
 import type {
   AppUpdatePlan,
   PlatformUrl,
   HelmBranchRefUpdate,
   PipelineInfo,
-} from "../../../../src/types/types.js"
+} from "../../../../src/domain/types.js"
 import {
   toAnchorName,
   toBranchName,
@@ -16,7 +13,10 @@ import {
   toPlatformUrl,
   toTagName,
   toValuesPath,
-} from "../../../../src/types/types.js"
+} from "../../../../src/domain/types.js"
+import { buildCompareUrl, buildTagUrl } from "../../../../src/lib/gitlab/web-url.js"
+import { buildMrContent } from "../../../../src/steps/apply-updates/sub-steps/build-mr-content.js"
+import type { MrEntries } from "../../../../src/steps/apply-updates/sub-steps/shared/types.js"
 import { makePlan, makeAdapter } from "../../../helpers.js"
 
 /**

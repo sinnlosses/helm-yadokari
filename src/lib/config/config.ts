@@ -1,5 +1,5 @@
-import type { ConfigRootPath, ConfigUnit, LocalPath } from "../../types/types.js"
-import { toConfigRootPath } from "../../types/types.js"
+import type { ConfigRootPath, ConfigUnit, LocalPath } from "../../domain/types.js"
+import { toConfigRootPath } from "../../domain/types.js"
 import { listSubdirectories } from "../../utils/fs.js"
 import type { ChartDirUnits } from "./find-config-units.js"
 import { findConfigUnits } from "./find-config-units.js"

@@ -8,8 +8,8 @@ import type {
   ConfigUnitPath,
   PlatformKind,
   PlatformUrl,
-} from "../types/types.js"
-import { toAccessToken, toChartDirName, toConfigRootPath, toPlatformUrl } from "../types/types.js"
+} from "../domain/types.js"
+import { toAccessToken, toChartDirName, toConfigRootPath, toPlatformUrl } from "../domain/types.js"
 import { DEFAULT_CONFIG_ROOT_PATH } from "./config/config.js"
 
 export function loadEnv(key: string): string {

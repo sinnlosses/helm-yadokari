@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { buildFeatureBranch, isFeatureBranch } from "../../src/domain/feature-branch.js"
-import { toConfigUnitPath } from "../../src/types/types.js"
+import { toConfigUnitPath } from "../../src/domain/types.js"
 
 describe("isFeatureBranch", () => {
   it("buildFeatureBranchが組み立てたブランチ名を判定できる", () => {

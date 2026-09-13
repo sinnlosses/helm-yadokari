@@ -1,11 +1,11 @@
 import { parseArgs } from "node:util"
 
+import type { ConfigRootPath } from "../../src/domain/types.js"
+import { toConfigRootPath } from "../../src/domain/types.js"
 import type { LoadedConfig } from "../../src/lib/config/config.js"
 import { DEFAULT_CONFIG_ROOT_PATH, loadConfig } from "../../src/lib/config/config.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
-import type { ConfigRootPath } from "../../src/types/types.js"
-import { toConfigRootPath } from "../../src/types/types.js"
 import { validateRemoteExistence } from "./remote-existence/remote-existence.js"
 
 // config/ の検証スクリプト。2つのモードを持つ:

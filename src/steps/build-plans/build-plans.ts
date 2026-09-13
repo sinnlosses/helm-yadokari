@@ -1,9 +1,9 @@
-import type { PlatformAdapterWithCachedReads } from "../../lib/platform/cached-reads.js"
 import type {
   ConfigUnit,
   ConfigUnitUpdateResult,
   ConfigUnitUpdateTarget,
-} from "../../types/types.js"
+} from "../../domain/types.js"
+import type { PlatformAdapterWithCachedReads } from "../../lib/platform/cached-reads.js"
 import { logger } from "../../utils/logger.js"
 import { mapWithConcurrency } from "../../utils/parallel.js"
 import { left, partitionMap, right } from "../../utils/partition.js"

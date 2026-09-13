@@ -1,5 +1,3 @@
-import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
-import type { PlatformAdapterWithCachedReads } from "../../../lib/platform/cached-reads.js"
 import type {
   AnchorLocation,
   AppUpdatePlan,
@@ -7,8 +5,10 @@ import type {
   ImageTagUpdate,
   ParsedTag,
   TagName,
-} from "../../../types/types.js"
-import { toTagName } from "../../../types/types.js"
+} from "../../../domain/types.js"
+import { toTagName } from "../../../domain/types.js"
+import { getRequiredValueAtAnchor, setValueAtAnchor } from "../../../lib/helm.js"
+import type { PlatformAdapterWithCachedReads } from "../../../lib/platform/cached-reads.js"
 import { logger } from "../../../utils/logger.js"
 import { reduceAsync } from "../../../utils/sequential.js"
 import { withAppContext } from "../../shared/step-outcome.js"

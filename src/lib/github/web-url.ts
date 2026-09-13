@@ -1,5 +1,5 @@
-import type { PlatformUrl, TagName } from "../../types/types.js"
-import { toPlatformUrl } from "../../types/types.js"
+import type { PlatformUrl, TagName } from "../../domain/types.js"
+import { toPlatformUrl } from "../../domain/types.js"
 
 /**
  * リポジトリのweb URL配下のページURLを組み立てる。`webUrl`はオリジンではなく

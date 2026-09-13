@@ -11,8 +11,8 @@ import type {
   TagInfo,
   TagName,
   ValuesPath,
-} from "../../types/types.js"
-import { toCommitSha, toPlatformUrl, toTagName } from "../../types/types.js"
+} from "../../domain/types.js"
+import { toCommitSha, toPlatformUrl, toTagName } from "../../domain/types.js"
 import { withRetry } from "../../utils/retry.js"
 import { isNotFoundError, isRetryableError, retryAfterMs } from "./errors.js"
 
@@ -292,7 +292,7 @@ export async function getLatestPipelineForRef(
 
 /**
  * `ProjectId`をOctokitが別々に受け取る`owner`と`repo`に分ける。`ProjectId`は形式を検証しない
- * ブランド型（`types/brand.ts`）なので、GitHub向けの形になっているかを見るのはここだけ。
+ * ブランド型（`domain/brand.ts`）なので、GitHub向けの形になっているかを見るのはここだけ。
  * GitLab流の数値IDが`config/`に残っていても、どの値が原因かが読めるメッセージで止まる。
  */
 function splitProjectId(projectId: ProjectId): { readonly owner: string; readonly repo: string } {

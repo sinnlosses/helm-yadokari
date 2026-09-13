@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import { toBranchName, toProjectId } from "../../../src/domain/types.js"
 import { withCachedReads } from "../../../src/lib/platform/cached-reads.js"
-import { toBranchName, toProjectId } from "../../../src/types/types.js"
 import { makeAdapter } from "../../helpers.js"
 
 const PROJECT_ID = toProjectId("1")

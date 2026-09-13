@@ -1,14 +1,14 @@
 import { z } from "zod"
 
 import { validateTagFormat } from "../../domain/tag-format.js"
-import type { AnchorLocation } from "../../types/types.js"
+import type { AnchorLocation } from "../../domain/types.js"
 import {
   toAnchorName,
   toBranchName,
   toProjectId,
   toProjectName,
   toValuesPath,
-} from "../../types/types.js"
+} from "../../domain/types.js"
 
 /**
  * `config/` の2ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ。

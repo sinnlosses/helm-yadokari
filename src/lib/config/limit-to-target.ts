@@ -1,4 +1,4 @@
-import type { ChartDirName, ConfigUnit, ConfigUnitPath } from "../../types/types.js"
+import type { ChartDirName, ConfigUnit, ConfigUnitPath } from "../../domain/types.js"
 import { CONFIG_YAML_FILE_NAME, REGISTRY_YAML_FILE_NAME } from "./schema.js"
 import type { ChartDirUnits } from "./find-config-units.js"
 

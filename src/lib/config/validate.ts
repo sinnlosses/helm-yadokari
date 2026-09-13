@@ -1,5 +1,5 @@
 import { buildConfigUnitLocation } from "../../domain/config-unit.js"
-import type { AnchorLocation, ConfigUnit, LocalPath, ProjectId, ProjectName, TagFormat } from "../../types/types.js"
+import type { AnchorLocation, ConfigUnit, LocalPath, ProjectId, ProjectName, TagFormat } from "../../domain/types.js"
 
 /**
  * `registry.yaml` / `config.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス

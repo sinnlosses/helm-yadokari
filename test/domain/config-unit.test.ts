@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { buildConfigUnitLocation, parseConfigUnitPath } from "../../src/domain/config-unit.js"
-import { toChartDirName, toConfigUnitPath } from "../../src/types/types.js"
+import { toChartDirName, toConfigUnitPath } from "../../src/domain/types.js"
 
 describe("parseConfigUnitPath", () => {
   it("セグメントに空白を含んでいても、空でなければ受け入れる（文字種の検証はしない）", () => {

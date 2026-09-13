@@ -8,12 +8,21 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは6件**（T-229〜T-234。`done` 10件は
+**未着手のタスクは5件**（T-229〜T-232・T-234。T-233 は完了。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-13 `src/types/` を `src/domain/` に吸収
+
+- **T-233: `src/types/` を `src/domain/` に吸収し、import・テスト・ドキュメントのパスを追随させた**。
+  `domain/` が「ドメイン」を名乗りながら語彙（型）は全部 `types/` にあり、規則3ファイルだけの
+  区分になっていた分裂を解消。`src/` は `steps/`・`lib/`・`domain/`・`utils/` の4区分になった。
+  `git mv` 3件＋import追随65ファイル、挙動不変。`pnpm check` 通過: 39 Test Files / 494 Tests（不変）。
+  `docs/requirements-grilling.md`・`docs/research/github-support.md` に残る旧パスは過去の記録として
+  据え置き。`docs/architecture.md` の区分の定義（2軸化）と集計表の既存ズレは T-234 へ
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
 
@@ -406,7 +415,7 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 規則3ファイルだけの区分になっている異物感を解消する。**T-229 より先に実行する**
 （T-229 が T-233 に依存。T-232 は T-234 にも依存）:
 
-- **T-233**（`sonnet` / `Y`）: `src/types/` を `src/domain/` に吸収し、import・テスト・ドキュメントのパスを追随させる
+- ~~**T-233**~~（done）: `src/types/` を `src/domain/` に吸収し、import・テスト・ドキュメントのパスを追随させる
 - **T-234**（`opus` / `Y`）: `docs/architecture.md` の `domain/` の定義を「ドメイン×技術」の2軸に書き換える
 
 `lib/config/validate.ts`・`steps/shared/describe-plan.ts` は文面上「技術非依存＋ドメイン知識あり」

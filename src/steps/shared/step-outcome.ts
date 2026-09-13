@@ -1,4 +1,3 @@
-import type { PlatformAdapter } from "../../lib/platform/adapter.js"
 import type {
   ChartDirName,
   ConfigUnit,
@@ -6,7 +5,8 @@ import type {
   ConfigUnitUpdateResult,
   ProjectId,
   ProjectName,
-} from "../../types/types.js"
+} from "../../domain/types.js"
+import type { PlatformAdapter } from "../../lib/platform/adapter.js"
 import { FatalError, toErrorMessage } from "../../utils/errors.js"
 import { logger } from "../../utils/logger.js"
 

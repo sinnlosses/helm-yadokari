@@ -12,10 +12,10 @@ vi.mock("../src/utils/logger.js", () => ({
 
 import { Gitlab } from "@gitbeaker/rest"
 
+import { toAccessToken, toPlatformUrl } from "../src/domain/types.js"
 import { DEFAULT_CONFIG_ROOT_PATH, loadConfig } from "../src/lib/config/config.js"
 import type { EnvConfig } from "../src/lib/env.js"
 import { run } from "../src/main.js"
-import { toAccessToken, toPlatformUrl } from "../src/types/types.js"
 import { makeApp, makeConfigUnit } from "./helpers.js"
 
 const OLD_TAG = "main-build-at-20251231-000000"

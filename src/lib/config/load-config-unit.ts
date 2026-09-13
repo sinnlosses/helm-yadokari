@@ -8,8 +8,8 @@ import type {
   ConfigUnitPath,
   HelmConfig,
   LocalPath,
-} from "../../types/types.js"
-import { toLocalPath } from "../../types/types.js"
+} from "../../domain/types.js"
+import { toLocalPath } from "../../domain/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
 import type { AppSpec, ConfigApp, ConfigHelm } from "./schema.js"
 import {

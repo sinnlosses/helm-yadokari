@@ -5,7 +5,7 @@ import type {
   ProjectId,
   TagName,
   ValuesPath,
-} from "../../types/types.js"
+} from "../../domain/types.js"
 import { cacheByArgs } from "../../utils/cache.js"
 import type { PlatformAdapter } from "./adapter.js"
 

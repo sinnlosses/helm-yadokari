@@ -389,7 +389,7 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 
 ```
 .
-├── src/                    # steps/・lib/・domain/・utils/ の4区分（型は types/）
+├── src/                    # steps/・lib/・domain/・utils/ の4区分（型は domain/ 内）
 ├── test/                   # テスト（src/ と同じディレクトリ構成）
 ├── scripts/                # config/ の検証・スモークテスト用スクリプト
 ├── config/                 # 対象アプリ設定（定期実行の登録 ＋ 手動スモークテスト用の設定を同居）

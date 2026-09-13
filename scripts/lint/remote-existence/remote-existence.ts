@@ -1,13 +1,13 @@
 import { buildConfigUnitLocation } from "../../../src/domain/config-unit.js"
-import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
-import { lookupValueAtAnchor } from "../../../src/lib/helm.js"
 import type {
   AnchorLocation,
   AppConfig,
   ChartRepoConfig,
   ConfigUnit,
   HelmConfig,
-} from "../../../src/types/types.js"
+} from "../../../src/domain/types.js"
+import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
+import { lookupValueAtAnchor } from "../../../src/lib/helm.js"
 import { toErrorMessage } from "../../../src/utils/errors.js"
 import { mapWithConcurrency } from "../../../src/utils/parallel.js"
 import { reduceAsync } from "../../../src/utils/sequential.js"

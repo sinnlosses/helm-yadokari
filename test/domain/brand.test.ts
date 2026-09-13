@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { toConfigRootPath } from "../../src/types/types.js"
+import { toConfigRootPath } from "../../src/domain/types.js"
 
 describe("toConfigRootPath", () => {
   it(".. を含む相対パスのとき例外をスローする", () => {
