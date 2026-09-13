@@ -93,6 +93,25 @@
   main の `src`/`test` がマージ前に `3f3856d` と完全一致していることを確認したうえで
   全てブランチ側を採用した（`f782774`）
 
+### 2026-09-13 実機スモークテスト（GitLab、パス1〜3）
+
+- **`docs/smoke-test.md` のパス1〜3を gitlab.com の実機で通した**（パス4はMRの手動マージが
+  要るため今回は実施せず）。結果はすべて手順書の「期待する結果」と一致:
+  - パス1（通常更新）: 終了コード0、`{"CREATED":4,"SKIPPED":0,"ERROR":0}`。chart1に3件・
+    chart2に1件とプロジェクトをまたいでMRが分かれ、`tenant2/client1` だけ2ファイル＋
+    向き先ブランチ2件になった
+  - パス2（再実行）: 終了コード0、`{"CREATED":0,"SKIPPED":4,"ERROR":0}`。全件 `mr_exists`
+  - パス3（部分失敗）: **終了コード1**、`{"CREATED":3,"SKIPPED":0,"ERROR":1}`。ERRORは
+    `tenant2/client2` のみで、メッセージも期待値どおり
+    （`[アプリ: sample-qa-sprint] values.yaml にアンカー "t2c2QaSprintVersion" が見つかりません`）。
+    **残り3ユニットにはMRができており、「該当chartリポジトリだけERRORで処理継続」が実機で通った**
+- **今セッションの改修（T-229〜T-232）が実機で壊れていないことを確認できた。** 4stepの
+  パイプライン・`resolveTags` の一意化・`settleApp()` 経由のERROR伝播がすべて実データで動いた
+- **T-231 の `origin` が実機のログに出た**（今回は全件 `existing`）。`create_tag` は発生せず、
+  既存タグが再利用された（`docs/smoke-test.md`「2回目以降は作られたタグが再利用される」のとおり）
+- `pnpm lint:validate-config:remote` も通過（4設定ユニット / 6 apps、実在チェック済み）
+- 後片付け済み（`reset --apply` → `setup --apply`。オープンMR 0件、フィクスチャは初期状態）
+
 ## 次にやること
 
 **`src/types/` を `src/domain/` に吸収する2タスクを T-233・T-234 として登録した**（2026-09-13、
@@ -125,8 +144,10 @@ T-232 の `loopable` は `Y`。T-230 の `loopable` は当初 `N` だったが�
 **GitHub対応の8タスク（T-220〜T-228）はすべて完了。**
 `PLATFORM=gitlab|github` で切り替わり、ドキュメントも追随済み。
 
-**実機検証は未実施のまま**（GitLab側のスモークテストも未実施で、GitHub側は一度も実機に
-当てていない）。新しい指示を出す場合は `develop/direction.md` に書いて `/plan-tasks` でタスク化する。
+**GitLab側の実機スモークテストは2026-09-13に実施済み**（パス1〜3。上の「実機スモークテスト」参照）。
+**GitHub側は一度も実機に当てていない**（`scripts/smoke/smoke-fixture.ts` がGitLab APIしか呼ばないため、
+GitHub用のフィクスチャから作る必要がある）。新しい指示を出す場合は `develop/direction.md` に
+書いて `/plan-tasks` でタスク化する。
 
 前提（着手前にユーザーが決めた）:
 
@@ -142,7 +163,7 @@ T-232 の `loopable` は `Y`。T-230 の `loopable` は当初 `N` だったが�
 T-212 の提案17件はすべて反映し終えた（T-214〜T-218。ユーザーが採否を決め、L-5はMIT・
 D-4は「npm配布しないので正典を実装に合わせる」で確定。残り15件は全件採用）。
 **README.md は clone 直後に Quick Start どおり動く状態になった。**
-**実機スモークテストは未実施のまま**（下の記述を参照）。
+実機スモークテストは2026-09-13に実施済み（パス1〜3）。
 
 T-213（`parseArgs` 化）は
 **「導入して良くなるライブラリはあるか」の問いから出たタスク**で、結論は「外部パッケージは増やさない」——本体3,784行に対し実行時依存は
@@ -167,10 +188,10 @@ T-213（`parseArgs` 化）は
 「並列処理とMR発行の粒度」を表していて外すと `chartリポジトリ = config` と誤読される、の3点。
 識別子は約831箇所/62ファイルで T-203 の一括改名の直後でもある。**`ConfigUnit` 系は現状維持。**
 
-**実機スモークテストは未実施。** `config.yaml` のキーが2つ変わっている
-（`chart[]`→`locations[]`、`helm.branchToSync`→`helm.branchRef`）ので、一度
-`docs/smoke-test.md` の手順を通しておくと、設定の読み込みが実機でも壊れていないことを
-確かめられる。ローカルの `pnpm check` と `pnpm lint`（`config/` のスキーマ検証を含む）は通っている。
+**実機スモークテストは2026-09-13に実施し、パス1〜3がすべて期待どおりだった**（上の
+「実機スモークテスト」参照）。`config.yaml` のキー変更（`chart[]`→`locations[]`、
+`helm.branchToSync`→`helm.branchRef`）が実機でも壊れていないことはこれで確認済み。
+**残っているのはパス4（`no_diff`）とGitHub側の実機検証。**
 
 ## 未解決
 
