@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは1件**（T-232。着手中）。T-229〜T-231・T-233・T-234 は完了。`done` 10件は
+**未着手のタスクは0件**（T-229〜T-234 をすべて完了）。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
@@ -68,6 +68,18 @@
   持たせ、`describePlan()` 経由で dry_run の SKIPPED ログと CREATED ログの両方に出る。
   `pnpm check` 通過: 40 Test Files / 495 Tests。commit `346e122`
 
+- **T-232: 軸交差の規則を `docs/architecture.md` に書き、README・glossary を追随させた**。
+  新設した節は「読み取りだけの軸交差は`CachedReads`で暗黙に、副作用を伴う軸交差はstepとして
+  明示的に」。交差3箇所（web URL解決／values.yaml読み込み／最新タグ解決）の表と、
+  「**読みのキャッシュは速度の約束であって正しさの約束ではない**」という分かれ目を置いた。
+  既存の3件は消さずに位置づけ直した——判断3は根拠を差し替え、「重複排除をキャッシュの外にも
+  置かない」は「**単一の読み取りの**重複排除は〜」に書き分け、「唯一の例外」は例外が消えた経緯に
+  書き換え。`README.md` のフロー図はタグ解決を設定ユニットの並列処理の外に出した3段構成に。
+  `docs/glossary.md` に `TagSource` と `タグの由来（TagOrigin）` を追加。波及で
+  `docs/coding-standards.md`・`docs/smoke-test.md` も追随。`pnpm check` 通過: 40 Test Files /
+  495 Tests。commit `ad71d0b`（節の索引の追随漏れ1件は `82db4bd` で修正。過去のコミット由来のズレ）
+- **`docs/research/github-support.md` の旧ファイル名は据え置いた**。時点を明記した調査記録で、
+  T-233 でも同じ判断（旧パスを過去の記録として据え置く）をしているため揃えた
 ### 2026-09-13 並行セッションとの衝突と worktree
 
 - **T-229 が2セッションで重複実装になった。** こちらのセッションが `develop/tasks.json` の
@@ -102,7 +114,7 @@
 - ~~**T-229**~~（done）: `TagSource` を新設し、タグ解決まわりの型を `src/domain/types.ts` に集約する
 - ~~**T-230**~~（done）: `resolve-tags` step への切り出し本体。重複排除をキャッシュから集合演算にする
 - ~~**T-231**~~（done）: `LatestTagResolution` に `origin` を足し、新規作成予定のタグを計画のログに出す
-- **T-232**（`opus` / `Y`）: 軸交差の規則を `docs/architecture.md` に書き、README・glossary を追随させる（**着手中**）
+- ~~**T-232**~~（done）: 軸交差の規則を `docs/architecture.md` に書き、README・glossary を追随させる
 
 **T-230 の未コミットWIPは解消済み**（ワークツリーの成果を main へマージし、ワークツリーと
 ブランチは削除した。上の「並行セッションとの衝突と worktree」参照）。
