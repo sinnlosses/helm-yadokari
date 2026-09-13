@@ -84,8 +84,8 @@ chartリポジトリ2には `sample-qa-sprint` を登録する。**同じappが2
 **`branchToSync` が複数種類**であることを確認するため、`sample-qa-sprint` に `main` 以外の
 追跡ブランチ（例: `develop`）と、そのブランチ由来のタグが1件以上必要。
 **無ければ作る**が、ソースリポジトリへの書き込みになるので個別に承認を得る。
-`createResolveLatestTags()` のキャッシュキーが `projectId:branchToSync` なので、
-同じappを違うブランチで追う構成はキーが分岐する経路にあたる。
+最新タグの解決の単位（`TagSource`）は `projectId` ＋追跡ブランチ＋タグ形式なので、
+同じappを違うブランチで追う構成は単位が分かれる経路にあたる。
 
 ### パス3（部分失敗）用のシード
 

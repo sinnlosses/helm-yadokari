@@ -301,7 +301,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 
 | 消したもの                                              | 上位の守り手                                                                                                 |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `test/utils/cache.test.ts` 全2件                        | `cached-reads.test.ts`（同時呼び出しで1回・失敗はキャッシュに残さない）と `resolve-latest-tags.test.ts`      |
+| `test/utils/cache.test.ts` 全2件                        | `cached-reads.test.ts`（同時呼び出しで1回・失敗はキャッシュに残さない）                                      |
 | `test/utils/partition.test.ts` 全4件                    | `filter-targets`・`apply-updates` の振り分けと入力順のテスト。「入力配列を変更しない」は `readonly` 型が保証 |
 | `test/utils/fs.test.ts` 全10件                          | `config.test.ts` のパストラバーサル3件・実ディレクトリ走査、`env.test.ts` の `CONFIG_ROOT_PATH` 検証         |
 | `test/utils/timer.test.ts` 全1件                        | `main.test.ts`（`run_end` の `durationMs` ログ）                                                             |
@@ -312,8 +312,8 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 **敵対的に検討したうえで残したもの**:
 
 - `test/utils/sequential.test.ts`「順番に処理する（並列化しない）」「例外時に以降の要素を
-  処理しない」: `docs/architecture.md`「アプリ単位は逐次のまま」の決定と、失敗時にタグ作成の
-  副作用が止まることの唯一の守り手
+  処理しない」: `docs/architecture.md`「アプリ単位は逐次のまま」の決定と、1アプリの失敗で
+  以降のアプリの書き換えが止まることの唯一の守り手
 - `test/utils/yaml.test.ts`「ファイルパスを含む例外」: 設定ユニットが多いとき、どのファイルが
   壊れているかを示すのはこれだけ（`schema.test.ts` はパスまでは固定していない）
 - `test/domain/config-unit.test.ts`「空白を含んでも受け入れる」: 文字種を検証しないという
@@ -352,9 +352,9 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
   他が通していても**別の入力を拒否／受理する仕様**を固定している（表の1行目に当たらない）
 - `gitlab.test.ts` の残り: `main.e2e.test.ts` はMR作成とコミットの引数を固定しているが、
   404/403フォールバックと `action: "update"`・起点ブランチまでは通らない
-- `resolve-latest-tags.test.ts` 全21件: 固有カバレッジは1行だが、タグの再利用・追跡ブランチの
-  切り替え・dry-run・403の扱いという、`docs/architecture.md` に記録した判断ごとの振る舞いを
-  1件ずつ固定している
+- `resolve-tags.test.ts`・`resolve-latest-tag.test.ts`: 固有カバレッジは1行だが、タグの再利用・
+  追跡ブランチの切り替え・dry-run・403の扱い・解決の単位での一意化という、
+  `docs/architecture.md` に記録した判断ごとの振る舞いを1件ずつ固定している
 
 **削除の手続き**。次の2つを両方満たしたものだけ消す。片方でも満たさなければ残す。
 
@@ -399,7 +399,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 
 自動テストが一度も通していないのは、要件の項目そのものではなく**その間の連結**1箇所だけ:
 
-> `config/` のYAML3ファイル（実ファイル） → `loadConfig()` → 3ステップ →
+> `config/` のYAML3ファイル（実ファイル） → `loadConfig()` → 4ステップ →
 > コミットされる `values.yaml` の中身・MRのタイトル・MR本文
 
 `loadConfig()` が実ファイルを読むところまでは `test/lib/config/` が一時ディレクトリの実YAMLで

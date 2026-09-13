@@ -28,12 +28,12 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 
 **各ファイルの責務** — どのファイルが何をするかの表
 
-| 節                | 中身                                                                                     |
-| ----------------- | ---------------------------------------------------------------------------------------- |
-| ### `src/steps/`  | 3ステップの責務表。`build-plans/sub-steps/`・`apply-updates/sub-steps/` の表もこの節の中 |
-| ### `src/lib/`    | 外部システム・ファイル形式に依存するアダプタの責務表                                     |
-| ### `src/domain/` | このツールの語彙（型）と、語彙に閉じた規則の責務表                                       |
-| ### `src/utils/`  | ドメイン知識を持たない汎用ユーティリティの責務表                                         |
+| 節                | 中身                                                                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------- |
+| ### `src/steps/`  | 4ステップの責務表。`resolve-tags/sub-steps/`・`build-plans/sub-steps/`・`apply-updates/sub-steps/` の表もこの節の中 |
+| ### `src/lib/`    | 外部システム・ファイル形式に依存するアダプタの責務表                                                                |
+| ### `src/domain/` | このツールの語彙（型）と、語彙に閉じた規則の責務表                                                                  |
+| ### `src/utils/`  | ドメイン知識を持たない汎用ユーティリティの責務表                                                                    |
 
 **新しいコードを置く場所** — 置き場所に迷ったらここ（CLAUDE.mdの原則1〜5の判断材料）
 
@@ -51,19 +51,20 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
 | #### エラーは「fatalは例外・それ以外は戻り値」の2チャネル                                  | `steps/`に`try`/`catch`を書かない理由                                      |
 | #### HTTPエラーの経路                                                                      | 失敗が`ERROR`/`FatalError`/リトライ/フォールバックに落ちるまでの関数と順序 |
-| #### アプリ名の付与は`steps/shared/`に置き、アプリ単位の処理を切り出した箇所すべてから呼ぶ | `withAppContext()`の置き場所と呼び出し先                                   |
+| #### アプリ名の付与は`steps/shared/`に置き、アプリ単位の処理を切り出した箇所すべてから呼ぶ | `withAppContext()`・`settleApp()`の置き場所と呼び出し先                    |
 | #### stepの入口にある「並列実行 → 振り分け」の重複は共通化しない                           | 検討したうえで採らなかった共通化                                           |
 | #### アプリ単位は逐次のまま（並列化しない）                                                | 並列化しない理由                                                           |
 | #### dry-runは分岐を集約せず、書き込みに到達しないことをテストで守る                       | dry-runの分岐を分離しない理由                                              |
 
 `### データの受け渡し` の中:
 
-| 節                                                                                               | 中身                                         |
-| ------------------------------------------------------------------------------------------------ | -------------------------------------------- |
-| #### 引数として渡した入れ物が呼び出し先で書き変わる契約にしない                                  | データの受け渡しの契約                       |
-| #### PlatformAdapterへの問い合わせのキャッシュは`lib/platform/`に列挙し、バッチ単位で1つ持ち回る | 何をキャッシュしてよいかの判断               |
-| #### サブステップに関数型を注入しない。キャッシュを持つ側が工場関数を公開する                    | DIを置かない理由と、唯一の例外               |
-| #### ブランチの作り直しはサブステップに置き、`lib/gitlab/`は薄いラッパーに保つ                   | コミット周りの分担と、以前の判断を覆した理由 |
+| 節                                                                                               | 中身                                                          |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| #### 引数として渡した入れ物が呼び出し先で書き変わる契約にしない                                  | データの受け渡しの契約                                        |
+| #### 読み取りだけの軸交差は`CachedReads`で暗黙に、副作用を伴う軸交差はstepとして明示的に         | ソース軸と設定ユニット軸が交差する3箇所と、重複排除の置き場所 |
+| #### PlatformAdapterへの問い合わせのキャッシュは`lib/platform/`に列挙し、バッチ単位で1つ持ち回る | 何をキャッシュしてよいかの判断                                |
+| #### サブステップに関数型を注入しない                                                            | DIを置かない理由と、やめた3つの注入                           |
+| #### ブランチの作り直しはサブステップに置き、`lib/gitlab/`は薄いラッパーに保つ                   | コミット周りの分担と、以前の判断を覆した理由                  |
 
 `### 型と命名` の中:
 
@@ -113,19 +114,30 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 
 ## 各ファイルの責務
 
-### `src/steps/` — `runProcess()` が直接呼ぶフラットな3ステップ
+### `src/steps/` — `runProcess()` が直接呼ぶフラットな4ステップ
 
 `lib/`・`utils/`・`domain/`・`steps/shared/` にのみ依存し、step同士は互いに呼ばない。
 各stepは「並列処理1件分」を担う非公開関数を1つ持ち、`<動詞>+単数形の対象`で命名する
 （`process` のような汎用名は、オーケストレータやグローバルの `process` と紛らわしいため使わない）。
 
-| ファイル                           | 責務                                                                    |
-| ---------------------------------- | ----------------------------------------------------------------------- |
-| `filter-targets/filter-targets.ts` | 登録アプリ0件・固定ブランチにオープン中のMRがある設定ユニットを除外する |
-| `build-plans/build-plans.ts`       | 残った設定ユニットごとに更新計画（差分）を並列に構築する                |
-| `apply-updates/apply-updates.ts`   | 差分がある設定ユニットにコミット・MR作成を並列実行する                  |
-| `shared/step-outcome.ts`           | 3つのstepが共有する処理結果の型・結果ログの識別情報・エラー方針         |
-| `shared/describe-plan.ts`          | 更新計画1件をログ用のサマリに整形する（dryRun時とMR作成時で共有）       |
+| ファイル                           | 責務                                                                                                                    |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `filter-targets/filter-targets.ts` | 登録アプリ0件・固定ブランチにオープン中のMRがある設定ユニットを除外する                                                 |
+| `resolve-tags/resolve-tags.ts`     | 残った設定ユニットの全アプリを`TagSource`へ一意化し、単位ごとに1回だけ最新タグを解決する                                |
+| `build-plans/build-plans.ts`       | 解決済みの最新タグを引き当て、設定ユニットごとに更新計画（差分）を並列に構築する                                        |
+| `apply-updates/apply-updates.ts`   | 差分がある設定ユニットにコミット・MR作成を並列実行する                                                                  |
+| `shared/step-outcome.ts`           | stepが共有する処理結果の型（設定ユニット単位の`StepOutcome`とアプリ単位の`AppOutcome`）・結果ログの識別情報・エラー方針 |
+| `shared/describe-plan.ts`          | 更新計画1件をログ用のサマリに整形する（dryRun時とMR作成時で共有）                                                       |
+
+#### `resolve-tags/sub-steps/`
+
+| ファイル                | 責務                                                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `resolve-latest-tag.ts` | `TagSource`1件分の最新タグの判定。追跡ブランチのHEADを指すタグが1件も無ければ作成する（`dryRun`のときは名前の計算だけ） |
+
+一意化した単位のループは親step（`resolve-tags.ts`）側にある。サブステップが1つしかないため
+「サブステップがサブステップを呼ぶ」構造にならず、`buildPlan()`が避けている「呼び出しの粒度が
+揃って見えなくなる」問題も起きない（「サブステップ同士は互いをimportせず〜」節）。
 
 #### `build-plans/sub-steps/`
 
@@ -135,13 +147,12 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 受け渡すだけになる（アプリのループを親stepに持たせない理由は「サブステップ同士は互いを
 importせず〜」の節を参照）。
 
-| ファイル                           | 責務                                                                                                                                                                                                                                    |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resolve-latest-tags.ts`           | 追跡ブランチ由来の最新タグの判定と、設定ユニット配下の全アプリのループ。HEADに追いついていない場合と、追跡ブランチを切り替えた場合はタグを自動作成。同じappが複数の設定ユニットに登録されうるため、解決結果をバッチ全体でキャッシュする |
-| `stage-image-tag-updates.ts`       | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagLocations`全箇所＋設定ユニット配下の全アプリのループ                                                                                                                          |
-| `stage-helm-branch-ref-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）。設定ユニット単位なので全アプリのイメージタグを積んだ後に1回だけ呼ぶ                                                                                         |
-| `shared/values-yaml-draft.ts`      | 1つの設定ユニットを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）の読み込み（下書き優先・無ければバッチキャッシュ経由でGitLab）・書き換え・`FileUpdate[]`化                                                               |
-| `shared/types.ts`                  | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                                                                                                                                |
+| ファイル                           | 責務                                                                                                                                                                      |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stage-image-tag-updates.ts`       | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagLocations`全箇所＋設定ユニット配下の全アプリのループ                                                            |
+| `stage-helm-branch-ref-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）。設定ユニット単位なので全アプリのイメージタグを積んだ後に1回だけ呼ぶ                           |
+| `shared/values-yaml-draft.ts`      | 1つの設定ユニットを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）の読み込み（下書き優先・無ければバッチキャッシュ経由でGitLab）・書き換え・`FileUpdate[]`化 |
+| `shared/types.ts`                  | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                                                                  |
 
 #### `apply-updates/sub-steps/`
 
@@ -193,6 +204,7 @@ helm-yadokari が何を扱っているかを表す**語彙**（ドメイン型�
 | `types.ts`          | このツールのドメイン型（`ConfigUnit`・`AppUpdatePlan`・`ParsedTag`など）。`brand.ts`を再エクスポートするので、型のimportはこのファイル1つで足りる                             |
 | `brand.ts`          | ドメインのブランド型と、その生成に使うfactory関数（`toProjectId`等）。**`src/`内で`as`を使ってよい唯一のファイル**                                                            |
 | `tag-format.ts`     | タグ形式（`docs/requirements.md` 4.1節）のパース・生成・テンプレート文字列の検証                                                                                              |
+| `tag-source.ts`     | 最新タグの解決単位（`TagSource`）の同一性を表す値キーの組み立て（`buildTagSourceKey()`）                                                                                      |
 | `feature-branch.ts` | 固定ブランチ名 `feature/yadokari/<unitPath>` の組み立てと判定                                                                                                                 |
 | `config-unit.ts`    | `TARGET_UNITS`の1エントリを`ConfigUnitPath`として受け入れられる形かどうかの検証。設定ユニットの位置表示（`<chartDirName>/<unitPath>`、`buildConfigUnitLocation()`）の組み立て |
 
@@ -299,7 +311,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 | ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                         | `src/domain/types.ts`（ブランド型は`brand.ts`）  | `ConfigUnit`・`AppUpdatePlan`・`ConfigUnitUpdateResult`・`ParsedTag`       |
 | 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                 | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`LoadedConfig`・`AppSpec`・`EnvConfig`     |
 | ドメイン知識を持たない汎用処理の型                                                 | その`utils/`ファイル                             | `Sorted`                                                                   |
-| 複数のstepが共有する、ドメイン型にだけ依存する型                                   | `steps/shared/`                                  | `StepOutcome<T>`・`ConfigUnitLogContext`                                   |
+| 複数のstepが共有する、ドメイン型にだけ依存する型                                   | `steps/shared/`                                  | `StepOutcome<T>`・`AppOutcome<T>`・`ConfigUnitLogContext`                  |
 | 関数の内部の作業用の型（アキュムレータ・処理中の文脈・その関数の戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlansResult`・`ValuesYamlDraft`・`LabeledLocation`・`ChartRepoScope` |
 | 特定の1ファイルに帰属せず、複数のサブステップが共有する型                          | `steps/<step名>/sub-steps/shared/types.ts`       | `MrEntries`・`ImageTagEntry`・`StageUpdatesAcc<U>`                         |
 
@@ -354,6 +366,11 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - **2チャネルを1つの`Result`型に寄せる案は採らない**。fatalは「実行全体の中止」というスコープの
   違う事象で、戻り値に混ぜると各stepに「fatalなら伝播させる」判断が戻り、いま消したいものが
   再び分散する。例外はスコープの広い事象、戻り値は設定ユニット単位の結果、で固定する
+- **アプリ単位の封じ込め（`settleApp()`・`AppOutcome`）は3つ目のチャネルではない**。
+  `resolveTags()`だけは1回の解決の結果を複数の設定ユニットへ配るため、例外のままでは最初の
+  1つにしか届かない。そこで失敗を値にして持ち回るが、`ERROR`として記録するのは
+  `buildPlans()`が投げ直したあとの`settleAsError()`のままで、**ログの位置は増えない**
+  （「読み取りだけの軸交差は〜」節）
 - **対象外**: `lib/`の404/403フォールバックと`utils/retry.ts`（特定のHTTPステータスを正常系に
   変換するだけで設定ユニット単位の結果とは無関係）、`scripts/lint/remote-existence/`（問題を全件
   列挙して返すのが目的の別プログラムで、fatalで全体を落とす方針そのものを持たない）
@@ -403,6 +420,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 | `isRetryableError()`         | `src/lib/gitlab/errors.ts`         | 再試行してよいステータスか（プラットフォームごとに集合が違う。下記）                  |
 | `retryAfterMs()`             | `src/lib/github/errors.ts`         | `retry-after`ヘッダの秒数（GitHubのみ。`withRetry()`に渡す）                          |
 | `withHandling()`             | `src/steps/shared/step-outcome.ts` | 設定ユニット1件分を包み、抜けてきた例外を`settleAsError()`に渡す                      |
+| `settleApp()`                | `src/steps/shared/step-outcome.ts` | アプリ1件分を包み、fatalでなければ`AppOutcome`の値にする（ログは出さない）            |
 | `settleAsError()` `*`        | `src/steps/shared/step-outcome.ts` | fatalなら`FatalError`を投げ、それ以外は`ERROR`をログに記録して返す                    |
 | `isFatalError()`             | `src/lib/gitlab/errors.ts`         | 401 / 5xx / ネットワーク障害を真とする（GitLabは`GitbeakerTimeoutError`も）           |
 | `extractHttpStatus()`        | `src/lib/gitlab/errors.ts`         | 例外からHTTPステータスを読む（gitbeakerは`cause.response.status`、Octokitは`status`） |
@@ -431,6 +449,11 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
    `new FatalError(platform.extractHttpStatus(err), err)`を投げ、偽なら`httpStatus`とメッセージを
    `result: "ERROR"`としてログに出し、`ConfigUnitUpdateResult`の`"ERROR"`を返す
 5. `FatalError`は`src/index.ts`まで上がり、`event: "fatal_error"`をログに出して`exit(1)`
+
+**`resolveTags()`の失敗だけは4に入るのが遅れる。** 3の後で`settleApp()`が捕まえて`AppOutcome`の
+`failed`にし、`buildPlans()`が引き当てのたびに投げ直してから4に入る。1回の解決の失敗を、その
+アプリを含む**すべての**設定ユニットのERRORにするための遠回りで、fatalかどうかの判定だけは
+`settleApp()`側でも行うため即時終了は遅れない。
 
 **404と403の読み替えは`lib/<プラットフォーム>/`の内側で完結する**。`withNotFoundFallback()`が既定値に
 変えるのは404だけで、403は変換せずそのまま上がる（`isFatalError()`も403をfatalにしない。トークンが
@@ -463,11 +486,16 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 #### アプリ名の付与は`steps/shared/`に置き、アプリ単位の処理を切り出した箇所すべてから呼ぶ
 
-`withAppContext()`（`steps/shared/step-outcome.ts`）は、設定ユニットの中でアプリ1件ぶんの処理を
-切り出している箇所を包み、非fatalな例外に`[アプリ: <projectName>]`を前置する。呼び出し元は
-`build-plans/sub-steps/`のアプリのループ2箇所（`resolve-latest-tags.ts`・
-`stage-image-tag-updates.ts`）と、`apply-updates/sub-steps/collect-mr-entries.ts`のplanごとの
-web URL・パイプライン解決。
+`withAppContext()`（`steps/shared/step-outcome.ts`）は、アプリ1件ぶんの処理を切り出している箇所を
+包み、非fatalな例外に`[アプリ: <projectName>]`を前置する。呼び出し元は
+`build-plans/sub-steps/stage-image-tag-updates.ts`のアプリのループと、
+`apply-updates/sub-steps/collect-mr-entries.ts`のplanごとのweb URL・パイプライン解決、そして
+`resolveTags()`（`settleApp()`経由）の3箇所。
+
+`settleApp()`は`withAppContext()`を包んで、非fatalな失敗を投げ直す代わりに`AppOutcome`の値に
+する。`withHandling()`が設定ユニット単位で行う封じ込めのアプリ単位版だが、**設定ユニットが
+決まっていないのでログは出さない**。1回の解決の失敗が何件の設定ユニットのERRORになるかを
+決めるのは受け取った`buildPlans()`側で、`ERROR`の記録は`settleAsError()`1箇所に残る。
 
 - **`collect-mr-entries.ts`を対象外にしない**。設定ユニットはオールオアナッシングでERRORになるため、
   「どのアプリで落ちたか」が要るのはアプリ単位の処理を持つ箇所すべてで同じ。ここは
@@ -480,10 +508,11 @@ web URL・パイプライン解決。
 
 #### stepの入口にある「並列実行 → 振り分け」の重複は共通化しない
 
-3つのstepのうち2つが同じ形をしていて共通化したくなるが、**検討したうえで採らない**:
+4つのstepのうち2つが同じ形をしていて共通化したくなるが、**検討したうえで採らない**:
 
-- **3つ揃わない**。`applyUpdates()`だけは振り分けが要らない（成功時の値がそのまま結果になる）。
-  2つのために抽象を1つ増やしても、読み手は結局2つの形を覚えることになる
+- **4つ揃わない**。`applyUpdates()`は振り分けが要らず（成功時の値がそのまま結果になる）、
+  `resolveTags()`は設定ユニット単位の結果を持たない（`withHandling()`ではなく`settleApp()`を使う）。
+  2つのために抽象を1つ増やしても、読み手は結局複数の形を覚えることになる
 - **共通化すると差を埋めるだけの引数が要る**。3つで`ConfigUnit`の取り出し方が違うため、
   差を隠すためだけの引数を高階関数に足すことになる
 - **重複しているのは配線であって方針ではない**。間違えると危ないエラー方針は既に集約済みで、
@@ -492,18 +521,19 @@ web URL・パイプライン解決。
 #### アプリ単位は逐次のまま（並列化しない）
 
 同じ`values.yaml`への複数アプリ・複数箇所の書き換えを1つの下書きに積み上げる必要があるため。
-並列実行制御（`p-limit`）は設定ユニット単位にのみ適用している。
+設定ユニットの中のアプリは`utils/sequential.ts`で順に処理し、並列実行制御（`p-limit`）は
+設定ユニット単位に当てている（`resolveTags`だけは適用単位が違う。「`CONCURRENCY_LIMIT`は〜」節）。
 **読み取りだけを先に並列化する案も検討したうえで採らなかった**:
 
 - 技術的には可能（1アプリの読み取りは他アプリの書き換え結果に依存しない）
 - 採らない理由: 1アプリあたりのAPI往復は実質2〜3回で削減幅が小さい一方、下書きの並列共有には
-  二重fetch対策が要る。さらに最新タグの解決は**タグ作成という副作用**を持つため、並列化すると
-  タグの作成順が実行ごとに変わる。夜間の定期実行という前提で、MR内容とGitLabへの書き込みに
+  二重fetch対策が要る。夜間の定期実行という前提で、MR内容とプラットフォームへの書き込みに
   関わる経路を複雑にする価値は無い
-- **フェーズの分割自体は行っている**（`resolveLatestTags()`が全アプリの最新タグを先に解決し、
-  その後`stageImageTagUpdates()`が差分を積む）。ただし逐次のままなのでタグの作成順は変わらず、
-  作られるタグの集合も変わらない（差分の有無に関わらず解決時に作る点は従来どおり）。従来と違うのは
-  途中でFatalErrorが出たときにどこまでタグが作られているかだけ
+- **タグ作成という副作用はもうこのループの中に無い**。以前は最新タグの解決も設定ユニットの中の
+  アプリのループにあり、「並列化するとタグの作成順が実行ごとに変わる」ことが逐次を選ぶ理由の
+  1つだった。今は`resolveTags`として設定ユニットの外に出ており、一意化した解決の単位で並列に
+  走る（「読み取りだけの軸交差は〜」節）。作られるタグの集合は解決の単位ごとに高々1つと
+  決まっているので、並列でも実行ごとに変わるのは作成順だけになる
 - 遅い場合にまず動かすのは`CONCURRENCY_LIMIT`。1つの設定ユニットに数十アプリが登録され、そこが実測で
   ボトルネックになったときに再検討する
 
@@ -515,7 +545,7 @@ web URL・パイプライン解決。
 
 | 箇所                                           | 何をしているか                                                                                                                                                                             |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `build-plans/sub-steps/resolve-latest-tags.ts` | `createTag()` を呼ばない（純粋な書き込み抑止）                                                                                                                                             |
+| `resolve-tags/sub-steps/resolve-latest-tag.ts` | `createTag()` を呼ばない（純粋な書き込み抑止）                                                                                                                                             |
 | `build-plans/build-plans.ts` の `buildPlan()`  | **dry-runの成果物そのもの**。「何を更新する予定か」をログに出し `SKIPPED (dry_run)` として計上する。あわせて `toApply` に載せないことで `applyUpdates()`（コミット・MR作成）に到達させない |
 
 **この2つを1つに集約する案は採らない。**
@@ -531,8 +561,9 @@ web URL・パイプライン解決。
   `steps/` を順に呼ぶだけの薄いレイヤー」でなくなる。`buildLogContext()` は
   「3つのstepが同じキー・同じ値で出す」ために `steps/shared/step-outcome.ts` の非公開関数に
   してあるので、それを公開する形にもなる
-- **`dryRun` を受け取るだけで使っていない関数は無い**（`buildPlans()` は `buildPlan()` と
-  `createResolveLatestTags()` の両方に渡すために必要）。引数の貫通を減らす余地はほとんど無い
+- **`dryRun` を受け取るだけで使っていない関数は無い**（`buildPlans()` は `buildPlan()` へ、
+  `resolveTags()` は `resolveLatestTag()` へ渡すために受け取る）。引数の貫通を減らす余地は
+  ほとんど無い
 
 **代わりに、分岐が漏れたことを検知できるようにしてある。** `test/main.dry-run.test.ts` は
 `src/lib/gitlab/gitlab.ts` ではなく**gitbeakerの境界**（`@gitbeaker/rest` の `Gitlab`）で
@@ -543,8 +574,9 @@ web URL・パイプライン解決。
 ようにしてある。
 
 **新しくGitLabの状態を変える呼び出しを足すときは、この2箇所のどちらで抑止されるかを確かめる。**
-計画（`build-plans`）の途中で書き込むなら `resolve-latest-tags.ts` と同じく `dryRun` の分岐が要り、
-適用（`apply-updates`）の中で書き込むなら `toApply` に載らないことで自動的に抑止される。
+解決（`resolve-tags`）や計画（`build-plans`）の途中で書き込むなら `resolve-latest-tag.ts` と
+同じく `dryRun` の分岐が要り、適用（`apply-updates`）の中で書き込むなら `toApply` に載らない
+ことで自動的に抑止される。
 
 ### データの受け渡し
 
@@ -563,6 +595,38 @@ web URL・パイプライン解決。
   手作業で詰め替えていた。「印は付いているのに内容が無い」組み合わせを型で防げず、
   実行時のinternal errorで検査していた
 
+#### 読み取りだけの軸交差は`CachedReads`で暗黙に、副作用を伴う軸交差はstepとして明示的に
+
+このツールの処理には2本の軸がある。**ソース軸**（`TagSource`＝`projectId`＋追跡ブランチ＋タグ形式）と
+**設定ユニット軸**（chartリポジトリ×`unitPath`）で、1つのappが複数の設定ユニットに登録され、
+1つの設定ユニットが複数のappを持つ多対多なので、処理はどこかで必ず1回この2軸を交差する。
+交差する箇所は現在3つある。
+
+| 交差する箇所          | 何が1つに収束するか                                                                             | 副作用   | 収束させている仕組み  |
+| --------------------- | ----------------------------------------------------------------------------------------------- | -------- | --------------------- |
+| web URLの解決         | `projectId`ごとに1回                                                                            | 無し     | `CachedReads`         |
+| values.yamlの読み込み | `(projectId, valuesPath, ref)`ごとに1回（`docs/requirements.md` 4.2節の既知の制限にあたる構成） | 無し     | `CachedReads`         |
+| 最新タグの解決        | `TagSource`ごとに1回                                                                            | タグ作成 | `resolveTags`（step） |
+
+**読み取りだけの交差はキャッシュに任せ、副作用を伴う交差はstepの境界に出す。** 読みのキャッシュが
+約束するのは「同じ問い合わせを2回しない」という速度であって、「同じ書き込みを2回しない」という
+正しさではない。並行実行下でタグ作成の重複を防ごうとすると、載せられるのは`listTags`のような
+単一の読み取りではなく（`createTag`で値が変わるので下の節の判断1で載せられない）、複数のAPI
+呼び出しとドメイン判定を合成した「解決結果」そのものになる。そうすると「同じコミットに冗長な
+タグを並べない」という**正しさ**が、外しても型が通り呼び出し側からは見えないキャッシュのキーと
+寿命に載る。
+
+交差をstepの境界に出すと、同じ重複排除が`TagSource`での一意化という集合演算になり、
+`resolveTags()`の入口（`groupByTagSource()`）と戻り値の型（`ReadonlyMap<TagSourceKey, ...>`）に
+現れる。stepを1つ増やす代償で得るのはこれ。
+
+**この形が`AppOutcome`を要求する。** 1回だけ実行した解決の結果は、そのappを含むすべての設定
+ユニットへ配る必要があるが、例外は最初の1つにしか届かない。`settleApp()`が失敗を値に変え、
+`buildPlans()`が引き当てのたびに投げ直す（「アプリ名の付与は〜」節）。
+
+**副作用を伴う交差を新しく足すときは、キャッシュではなくstepを1つ足す。** 読み取りだけなら
+`CachedReads`にメンバーを足す（判断の手順は次節）。
+
 #### PlatformAdapterへの問い合わせのキャッシュは`lib/platform/`に列挙し、バッチ単位で1つ持ち回る
 
 実行1回（バッチ）を通して使い回す読み取りは`lib/platform/cached-reads.ts`の`CachedReads`に
@@ -579,7 +643,7 @@ web URL・パイプライン解決。
 `stageHelmBranchRefUpdate()`はバッチ中不変な向き先ブランチの実在確認なので
 `adapter.cached.branchExists`を呼ぶ）、`.cached`の有無で呼び出し箇所に読み取り経路が出る。
 渡す値は1つだが、`.cached`を使わない関数（`filterTargets`・`submitMergeRequest`・
-`buildMrContent`・`resolveLatestTag`系・`stageImageTagUpdates`等）は宣言する型を素の
+`buildMrContent`・`resolveTags`・`resolveLatestTag`・`stageImageTagUpdates`等）は宣言する型を素の
 `PlatformAdapter`のままにし、使う関数だけ`PlatformAdapterWithCachedReads`を宣言する。
 `PlatformAdapterWithCachedReads`は`PlatformAdapter`の交差型なので前者は後者にそのまま代入できる。
 
@@ -591,11 +655,12 @@ web URL・パイプライン解決。
    変わる）・固定ブランチを作り直すときの存在確認（`submitMergeRequest()`。削除と再作成をまたぐ）がこれに当たる
 2. 変わらないなら`CachedReads`にメンバーを1つ足す。キーは引数から機械的に組み立てられる
    ので手書きしない。読み取りごとに`Map`を分けてあるため、別の読み取りとのキー衝突も起きない
-3. **複数のAPI呼び出しとドメイン判定にまたがる「解決結果」はここに載せない。** その処理を持つ
-   サブステップが工場関数でキャッシュを持つ（`createResolveLatestTags()`。最新タグの解決は
-   `listTags`＋`getBranchHeadSha`＋タグ作成とその判定の組で、`lib/platform/`はドメイン判定を
-   知らない）。`build-plans.ts`にあった`createCachedBranchExists()`は逆に単一の読み取りだけを
-   包んでいたので、この機構へ移して廃止した
+3. **複数のAPI呼び出しとドメイン判定にまたがる「解決結果」はここに載せない。** 以前はその処理を
+   持つサブステップが工場関数でバッチ寿命のキャッシュを持っていたが、最新タグの解決は
+   `listTags`＋`getBranchHeadSha`＋タグ作成とその判定の組で**副作用を含む**ため、今はキャッシュ
+   ではなくstep（`resolveTags`）として軸の交差を明示する（前節）。`lib/platform/`がドメイン判定を
+   知らないという理由は当時から変わっていない。`build-plans.ts`にあった
+   `createCachedBranchExists()`は逆に単一の読み取りだけを包んでいたので、この機構へ移して廃止した
 
 なお、**厳密には値が変わりうるが載せてよい読み取りもある**。`getLatestPipelineForRef`は
 このツールが作ったタグに後からパイプラインが現れうるが、MR本文への参考情報でしかなく、
@@ -631,13 +696,15 @@ web URL・パイプライン解決。
 読み込みは1回で済む）。キャッシュを`lib/platform/`の読み取り単位に置いたことで、この分離は
 作りから自動的に決まる。
 
-**重複排除をキャッシュの外にも置かない。** web URLの解決は以前`getProjectWebUrls()`が
-`new Set`で`projectId`を一意化していたが、その重複排除は1回の呼び出しの中だけに閉じていて、
-バッチ全体を見るキャッシュと役割が二重になる。`getProjectWebUrls()`は廃止して単数の
-`getProjectWebUrl()`だけを残し、一意化はキャッシュに一本化した。あわせて「依頼した
+**単一の読み取りの重複排除はキャッシュの外に置かない。** web URLの解決は以前
+`getProjectWebUrls()`が`new Set`で`projectId`を一意化していたが、その重複排除は1回の呼び出しの
+中だけに閉じていて、バッチ全体を見るキャッシュと役割が二重になる。`getProjectWebUrls()`は廃止して
+単数の`getProjectWebUrl()`だけを残し、一意化はキャッシュに一本化した。あわせて「依頼した
 `projectId`はすべて解決済み」という呼び出し元側の前提チェックも要らなくなっている。
+**副作用を含む解決の重複排除は逆にキャッシュへ寄せない**（前節）。一意化をどちらに置くかは
+「速度のためか、正しさのためか」で分かれる。
 
-#### サブステップに関数型を注入しない。キャッシュを持つ側が工場関数を公開する
+#### サブステップに関数型を注入しない
 
 **親stepがクロージャを組み立ててサブステップに渡す形は採らない。** サブステップは
 `PlatformAdapter`（キャッシュ済みの読み取りが要るものは`PlatformAdapterWithCachedReads`）を
@@ -664,10 +731,11 @@ web URL・パイプライン解決。
   直接呼び出しは`adapter.cached.branchExists(chart.projectId, ...)`のように`adapter`・`chart`を
   そのまま並べる形になっている
 
-**唯一の例外は、サブステップ自身がバッチ単位のキャッシュを持つ場合**で、工場関数を公開して
-親stepに寿命だけを持たせる（`createResolveLatestTags()`）。親stepにキャッシュ付きの関数を
-組み立てさせるとサブステップの内部関数を並べて公開することになり、「1ファイル＝1公開関数」に
-反するため。上の2つとの違いは、包む対象が`PlatformAdapter`の関数か、そのサブステップ自身の処理か。
+**例外は無い。** 以前は「サブステップ自身がバッチ単位のキャッシュを持つ場合」だけを例外とし、
+工場関数を公開して親stepに寿命だけを持たせていた（最新タグの解決）。その解決自体がstepになり、
+重複排除がキャッシュではなく`TagSource`での一意化に変わったため（「読み取りだけの軸交差は〜」節）、
+工場関数を公開するサブステップは1つも無くなった。バッチ寿命のキャッシュを持つのは
+`lib/platform/cached-reads.ts`だけで、サブステップはそれを`adapter.cached.*`として受け取る。
 
 #### ブランチの作り直しはサブステップに置き、`lib/gitlab/`は薄いラッパーに保つ
 
@@ -716,10 +784,9 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 
 #### 型の置き場所は`src/`全件と突き合わせて確かめてある
 
-「型の置き場所」の表は、`src/`の型定義74件を1件ずつ**表のどの行に当たるかまで**割り当てた
-うえでの形（2026-09-12に実施し、`src/types/`を`src/domain/`へ吸収したあと2026-09-13に
-数え直し、同日中に`TagSource`の新設と`LatestTagResolution`/`AppWithLatestTag`の
-`domain/types.ts`への移動でもう一度数え直した）。**表の行のどれにも当たらない型は1件も無い。**
+「型の置き場所」の表は、`src/`の型定義76件を1件ずつ**表のどの行に当たるかまで**割り当てた
+うえでの形（2026-09-12に実施し、以後は型が増減するたびに数え直している）。
+**表の行のどれにも当たらない型は1件も無い。**
 
 **数え方**（これを書いておかないと次に数え直したとき同じ数にならない）: `src/`配下の`.ts`で、
 **行頭から**始まる`type`／`interface`の宣言を1件と数える。`export`の有無は問わない
@@ -729,31 +796,31 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 `utils/errors.ts`の`class FatalError`も値なので数えない。
 
 ```bash
-grep -rhE '^(export )?(type|interface) ' --include='*.ts' src | wc -l   # 74
+grep -rhE '^(export )?(type|interface) ' --include='*.ts' src | wc -l   # 76
 ```
 
-**表の行ごとの内訳**（件数の裏付けになるのはこちら。合計74）:
+**表の行ごとの内訳**（件数の裏付けになるのはこちら。合計76）:
 
 | 表の行                            | 件数 | 実体                                                                    |
 | --------------------------------- | ---- | ----------------------------------------------------------------------- |
-| 1行目 ドメイン語彙                | 33   | `domain/types.ts` 19・`domain/brand.ts` 14                              |
+| 1行目 ドメイン語彙                | 35   | `domain/types.ts` 21・`domain/brand.ts` 14                              |
 | 2行目 `lib/`のインターフェース    | 13   | `config/`6・`platform/`3・`gitlab/`1・`github/`1・`env.ts`1・`helm.ts`1 |
 | 3行目 `utils/`                    | 3    | `partition.ts`・`cache.ts`・`retry.ts`                                  |
-| 4行目 `steps/shared/`             | 2    | `step-outcome.ts`                                                       |
-| 5行目 関数と同じファイル          | 19   | `steps/`10（`describe-plan.ts`2を含む）・`lib/`9                        |
+| 4行目 `steps/shared/`             | 3    | `step-outcome.ts`                                                       |
+| 5行目 関数と同じファイル          | 18   | `steps/`9（`describe-plan.ts`2を含む）・`lib/`9                         |
 | 6行目 `sub-steps/shared/types.ts` | 4    | `build-plans/`1・`apply-updates/`3                                      |
 
 1・3・4・6行目は置き場所そのものが行の定義なので機械的に確かめられる:
 
 ```bash
-grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/domain/types.ts src/domain/brand.ts | wc -l  # 33（1行目）
+grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/domain/types.ts src/domain/brand.ts | wc -l  # 35（1行目）
 grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/utils | wc -l                 # 3（3行目）
-grep -hE  '^(export )?(type|interface) ' src/steps/shared/step-outcome.ts | wc -l           # 2（4行目）
+grep -hE  '^(export )?(type|interface) ' src/steps/shared/step-outcome.ts | wc -l           # 3（4行目）
 grep -rhE '^(export )?(type|interface) ' src/steps/*/sub-steps/shared/types.ts | wc -l      # 4（6行目）
 ```
 
-残り32件が2行目と5行目で、この2つは同じファイルに同居するため境目は人が読んで決める
-（判断基準は表の下の箇条書き）。内訳は`lib/`22件（2行目13・5行目9）と`steps/`10件（すべて5行目）。
+残り31件が2行目と5行目で、この2つは同じファイルに同居するため境目は人が読んで決める
+（判断基準は表の下の箇条書き）。内訳は`lib/`22件（2行目13・5行目9）と`steps/`9件（すべて5行目）。
 
 2026-09-12の突き合わせで表から外れていたのは9件で、いずれも**基準の側**が足りていなかった。
 5行目が「ステップ内部の作業用の型」と`steps/`限定の書き方になっていたため、`lib/`の中の作業用の型7件と
@@ -914,8 +981,8 @@ importし合っていないことをディレクトリの形で確認できる�
 
 - **1アプリ分の処理を独立したサブステップにしない**。それ自体が他のサブステップを呼ぶ
   「サブステップがサブステップを呼ぶ」構造になるため。代わりに**アプリのループを各サブステップの
-  内側へ入れる**（`resolve-latest-tags.ts`＝全アプリの最新タグ解決、`stage-image-tag-updates.ts`
-  ＝全アプリのイメージタグ反映）。親stepにアプリのループと非公開の中間層を置く形も採れるが、
+  内側へ入れる**（`stage-image-tag-updates.ts`＝全アプリのイメージタグ反映）。親stepにアプリの
+  ループと非公開の中間層を置く形も採れるが、
   そうすると`buildPlan()`の中で「1段下へ降りる呼び出し」と「同じ段のサブステップ呼び出し」が
   同じ深さに並び、粒度が揃って見えなくなる。**階層はサブステップ側に隠す**
 
@@ -946,8 +1013,8 @@ GitLabとGitHubの**両方に対応する。ただし1回の実行で混在は�
 - **関数テーブルという形は新しい発明ではない**。移動前の`lib/gitlab/batch-cache.ts`にあった
   `GitlabBatchCache`（現在は`lib/platform/cached-reads.ts`の`CachedReads`。
   `readonly branchExists: (...) => Promise<boolean>` を4本並べたオブジェクト型）と
-  `resolve-latest-tags.ts` の `ResolveLatestTags`（関数型を1つ定義して工場関数が返す）が既にあり、
-  `PlatformAdapter` はその席に座るだけ
+  当時の最新タグ解決のサブステップが持っていた `ResolveLatestTags`（関数型を1つ定義して工場関数が
+  返す）が既にあり、`PlatformAdapter` はその席に座るだけ
 - **`lib/platform/`は「置き場所を名前にしたファイル」ではない**（原則4）。`platform`はこのツールの
   ドメイン語彙（`docs/glossary.md`に載せる語）であって、`helpers`・`common`のような容れ物の名前ではない
 - **`batch-cache.ts`（現在の`lib/platform/cached-reads.ts`）は`lib/gitlab/`から`lib/platform/`へ移す。** どの読み取りをキャッシュしてよいかの
@@ -1075,11 +1142,13 @@ chart構造」を混ぜない、という変更頻度の軸で分けていた。
 置き場所を二重にするだけで、優先順位の説明コストが増えること。
 
 **同じ`projectId`のappが複数のchartリポジトリの`registry.yaml`に登録されているとき、
-`tagFormat` の食い違いを設定エラーにする**のは、`createResolveLatestTags()` のキャッシュキーが
-`projectId:branchToSync` だから。タグ形式をキーに加えれば食い違いを許容できるが、そうすると同じコミットに形式ごとの
-タグが並び、設定ユニットごとに違うタグ名が `values.yaml` に書かれる（キャッシュを入れた
-そもそもの理由と同じ問題が戻る）。キーを増やすのではなく、食い違い自体を設定エラーにして防ぐ。
-`branchToSync` の食い違いはこれと違って正当な設定なので検証しない。
+`tagFormat` の食い違いを設定エラーにする**のは、許すと同じコミットに形式ごとのタグが並び、
+設定ユニットごとに違うタグ名が `values.yaml` に書かれるため。タグ形式は最新タグの解決の単位
+（`TagSource`）の一部なので、形式が違えば別の単位として別々に解決される。それでも
+`buildTagSourceKey()` が `tagFormat` までキーに含めているのは食い違いを許容するためではなく、
+`validateTagFormatConsistency()` の保証が将来外れたときの壊れ方を「実行順でどちらの形式のタグに
+なるかが決まる」ではなく「同じappにタグが2つできる」にするため。`branchToSync` の食い違いは
+これと違って正当な設定なので検証しない。
 
 #### 設定ユニットの走査は深さで打ち切らず、絞り込みより先に階層を検証する
 
@@ -1164,6 +1233,10 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
 
 これは設定ユニット単位の同時処理数であって、その内側に要素数ぶんの`Promise.all`が2箇所ある
 （web URLの解決とファイルのコミット）。実効の同時接続数は`CONCURRENCY_LIMIT` × それらの件数。
+**`resolveTags`だけは適用する単位が違い**、設定ユニットではなく一意化した最新タグの解決の単位
+（`TagSource`）に当たる（1単位につき`listTags`と`getBranchHeadSha`の2本を`Promise.all`で投げる）。
+それでも同じ値を使うのは、単位が違っても同時接続数のオーダーは変わらず、運用側のつまみを
+2つに増やす理由が無いため。
 **現状は絞らない判断**:
 
 - 絞ると`lib/gitlab/`・`lib/github/`に並列度を引き回すことになるが、この層はこのツールの並列度の

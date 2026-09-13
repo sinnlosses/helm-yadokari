@@ -28,7 +28,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 | 節                          | 収録している用語                                                                                                                                                                                                                                                                                         |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ## 設定・登録関連           | アプリ / ソースリポジトリ / chartリポジトリ / 設定ユニット（ConfigUnit） / registry.yaml・config.yaml / chartToUpdate・appSpecs / valuesPath / 書き込み位置（AnchorLocation） / anchor（locations[].anchor） / Helmの向き先ブランチ / helm.locations[].anchor / chartディレクトリ名 / セルフサービス方式 |
-| ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / タグの読み取り結果（ParsedTag） / タグ情報（TagInfo） / 打刻日時 / 最新タグ / 反映済みタグ / タグ自動作成                                                                                                                                                        |
+| ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / TagSource / タグの読み取り結果（ParsedTag） / タグ情報（TagInfo） / 打刻日時 / 最新タグ / 反映済みタグ / タグ自動作成 / タグの由来（TagOrigin）                                                                                                                  |
 | ## MR・リポジトリ操作関連   | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング                                                                                                                                                                                                                               |
 | ## 実行結果・処理単位関連   | アプリ更新計画 / イメージタグの更新 / 向き先ブランチの更新 / 設定ユニット更新対象 / 設定ユニット処理結果 / 実行結果                                                                                                                                                                                      |
 | ## 実行環境・運用関連       | Dry-runモード / TARGET_CHART・TARGET_UNITS / pipeline schedules / Platform / ACCESS_TOKEN                                                                                                                                                                                                                |
@@ -187,6 +187,20 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   並び順と区切り文字は自由。既定値は持たず必須。`validateTagFormat()`/`parseTag()`/
   `buildNewTag()`が扱う。仕様は`docs/requirements.md` 4.1節が正典。
 
+### TagSource
+
+- **英語識別子**: `TagSource`（`projectId`・`projectName`・`branchToSync`・`tagFormat`の4フィールド）・
+  `TagSourceKey`（同一性を表す値キーのブランド型。組み立ては`domain/tag-source.ts`の
+  `buildTagSourceKey()`）
+- **定義**: 最新タグを1回解決する単位。「どこから取るか」（ソースリポジトリ・追跡ブランチ・
+  タグ形式）だけを持ち、「どこへ書くか」（`imageTagLocations`）は持たない。同じ`TagSource`の
+  アプリは、複数の設定ユニットに登録されていても`resolveTags()`が1回だけ解決する。
+- **一意化は効率化ではなく正しさのため**: 解決は「HEADを指すタグが無ければ作る」という書き込みを
+  含むので、設定ユニットごとに解決すると同じコミットに冗長なタグが並ぶ（秒をまたげば設定ユニット
+  ごとに違うタグ名が`values.yaml`に書かれる）。判断の経緯は`docs/architecture.md`
+  「読み取りだけの軸交差は〜」節。
+- **`projectName`をキーに入れない**: `projectId`と1:1のラベルで、同一性の判定には効かないため。
+
 ### タグの読み取り結果
 
 - **英語識別子**: `ParsedTag`（`name: TagName`・`branchName: BranchName`・`taggedAt: Date`の3フィールド）
@@ -249,6 +263,17 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   それを再利用し、新しいタグは作らない。タグ名には追跡ブランチ名が含まれるため、そのタグを
   `values.yaml`に書けば追跡先が変わったことは名前から読み取れる。仕様は
   `docs/requirements.md` 4.1節が正典。
+
+### タグの由来（TagOrigin）
+
+- **英語識別子**: `TagOrigin`（`"existing" | "created"`）・`origin`（`LatestTagResolution`・
+  `AppUpdatePlan`のフィールド）
+- **定義**: 最新タグが既にあったもの（`"existing"`）か、この実行で新しく作ったもの
+  （`"created"`。「タグ自動作成」の項）かの区別。更新計画のログ（`describePlan()`）に載るので、
+  MRに現れたタグがソースリポジトリ側で打たれたものか、このツールが作ったものかを実行ログだけで
+  見分けられる。
+- **`DRY_RUN=true`のときの`"created"`は「作成予定」**: 実際のタグ作成はスキップし、名前の計算
+  だけを行うため、そのタグはまだソースリポジトリに存在しない。
 
 ## MR・リポジトリ操作関連
 
