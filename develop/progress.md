@@ -1,11 +1,12 @@
 # 現在の状態
 
-最終更新: 2026-09-13（**`src/types/` を `src/domain/` に吸収し、`src/` を `steps/`・`lib/`・
-`domain/`・`utils/` の4区分にした**（T-233・T-234）。`domain/` の定義は「ドメインを知っているか
-×技術を知っているか」の2軸になった。**2026-09-12以前の「完了したこと」は
+最終更新: 2026-09-13（**最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
+`filterTargets → resolveTags → buildPlans → applyUpdates` の4stepにした**（T-229〜T-231）。
+`createResolveLatestTags()` のバッチ寿命キャッシュは消滅し、重複排除は集合演算になった。
+前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは3件**（T-230〜T-232。T-229・T-233・T-234 は完了。**並行セッションは中止し、T-230 は未コミットのWIPを残したまま `todo` に戻してある**。`done` 10件は
+**未着手のタスクは1件**（T-232。着手中）。T-229〜T-231・T-233・T-234 は完了。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
@@ -38,6 +39,48 @@
   `TagSource` を受ける形になり、キャッシュキーに `tagFormat` を含める理由がJSDocに残った）。
   `docs/architecture.md` の型集計の再計算は main 側の成果を残してある（型の件数は両版で同じ）
 
+### 2026-09-13 最新タグの解決を step に切り出す
+
+- **T-230: 最新タグの解決を `resolve-tags` step に切り出し、重複排除をキャッシュから集合演算にした**。
+  `createResolveLatestTags()` が兼ねていた4つの「唯一」（`steps/`唯一の工場関数DI、唯一の手書き
+  キャッシュキー、サブステップが唯一バッチ寿命の状態を持つ場所、唯一「書き込み」を重複排除する
+  キャッシュ）がすべて消えた。`resolveTags()` は解決結果のマップだけを返す純粋な生産者で、
+  設定ユニットへの引き当てとERROR判定は `buildPlans()` の既存の `withHandling()` に残したため
+  **ERRORログの位置は変わっていない**。アプリ単位の失敗を値で持ち回る `settleApp()`／`AppOutcome` を
+  `steps/shared/step-outcome.ts` に追加（`withHandling()` と対。**ログは出さない**）。
+  1アプリの失敗は**そのアプリを含む全設定ユニットのERROR**になり、`getOrFetchShared()` 由来の
+  実行順依存の再試行は消えた（本命の再試行は `withRetry()` がクライアント層に持つ）。
+  `pnpm check` 通過: 40 Test Files / 493 Tests（494から-1。「アンカーが無いときタグを作らずERROR」の
+  1件のみ削除。前半の主張が新構造では build-plans から検証できないため）。
+  commit `b21a801` + `6201f14`、mainへは `f782774` でマージ
+- **引き当てを値キーにし、`buildTagSourceKey()` を `src/domain/tag-source.ts` に出した**
+  （タスクIDなし）。切り出し直後は `resolveTags()` の戻り値が `ReadonlyMap<AppConfig, ...>`
+  （オブジェクト参照キー）で、「`resolveTags()` と `buildPlans()` に同じ `targets` を渡すこと」が
+  JSDoc頼みの暗黙契約になっていた。**この改修の中心概念である「解決の単位の同一性」が
+  `groupByTagSource()` の中の匿名の式だった**のも問題で、`domain/` に名前付きで出した
+  （2軸で上段左＋複数stepにまたがる規則）。ブランド生成の `toTagSourceKey()`（`brand.ts`）と
+  同名衝突してエイリアスimportが必要になっていたので、合成する側を
+  `buildFeatureBranch`／`buildConfigUnitLocation`／`buildNewTag` に倣って `build` 始まりに改名。
+  commit `3892c7a` + `00bc5be`
+- **T-231: `LatestTagResolution` に `origin` を足し、新規作成予定のタグを計画のログに出した**。
+  `origin: "existing" | "created"`（dryRunの `"created"` は「作成予定」の意味）。それまで
+  `trackedHeadTagNames.size === 0` から導出できるだけで読む人には見えなかった。`AppUpdatePlan` にも
+  持たせ、`describePlan()` 経由で dry_run の SKIPPED ログと CREATED ログの両方に出る。
+  `pnpm check` 通過: 40 Test Files / 495 Tests。commit `346e122`
+
+### 2026-09-13 並行セッションとの衝突と worktree
+
+- **T-229 が2セッションで重複実装になった。** こちらのセッションが `develop/tasks.json` の
+  `status` を `doing` にする前にサブエージェントへ投げたのが原因。ユーザー判断でワークツリー側
+  （`3f3856d`）を正とし、main 側のコード4ファイルをそれと完全一致させて決着した
+- **以降は「着手マークを先に置いてから委譲する」運用にした。** `tasks.json` の `status` が
+  セッション間の唯一の調整手段になる（メッセージでは届かない相手だった）
+- T-230・T-231 はワークツリー `../helm-yadokari-resolve-tags`（ブランチ `work/resolve-tags`）で
+  進めてから main へマージし、**ワークツリーとブランチは削除済み**。マージ時に
+  `src/domain/types.ts` と `resolve-latest-tags.ts`（削除 vs 変更）で衝突したが、
+  main の `src`/`test` がマージ前に `3f3856d` と完全一致していることを確認したうえで
+  全てブランチ側を採用した（`f782774`）
+
 ## 次にやること
 
 **`src/types/` を `src/domain/` に吸収する2タスクを T-233・T-234 として登録した**（2026-09-13、
@@ -57,16 +100,13 @@
 `filterTargets → resolveTags → buildPlans → applyUpdates` にする。依存は直列:
 
 - ~~**T-229**~~（done）: `TagSource` を新設し、タグ解決まわりの型を `src/domain/types.ts` に集約する
-- **T-230**（`opus` / `Y`）: `resolve-tags` step への切り出し本体。重複排除をキャッシュから集合演算にする
-- **T-231**（`sonnet` / `Y`）: `LatestTagResolution` に `origin` を足し、新規作成予定のタグを計画のログに出す
-- **T-232**（`opus` / `Y`）: 軸交差の規則を `docs/architecture.md` に書き、README・glossary を追随させる
+- ~~**T-230**~~（done）: `resolve-tags` step への切り出し本体。重複排除をキャッシュから集合演算にする
+- ~~**T-231**~~（done）: `LatestTagResolution` に `origin` を足し、新規作成予定のタグを計画のログに出す
+- **T-232**（`opus` / `Y`）: 軸交差の規則を `docs/architecture.md` に書き、README・glossary を追随させる（**着手中**）
 
-**T-230 に未コミットのWIPが残っている。着手前に必ず確認すること。** 並行セッションが
-ワークツリー `../helm-yadokari-resolve-tags`（ブランチ `work/resolve-tags`）で T-230 に着手したまま
-中止になった。`src/steps/resolve-tags/` の新規作成・`resolve-latest-tags.ts` の削除・
-`main.ts`／`build-plans.ts`／`validate.ts`／`step-outcome.ts`／`test/helpers.ts` の変更が
-**コミットされずに残っている**。引き継ぐか破棄するかを決めてから着手する（破棄はユーザー承認が要る）。
-`loopable` は当初 `N` だったが、論点2件（`CONCURRENCY_LIMIT` の意味が step ごとに変わることの許容、
+**T-230 の未コミットWIPは解消済み**（ワークツリーの成果を main へマージし、ワークツリーと
+ブランチは削除した。上の「並行セッションとの衝突と worktree」参照）。
+T-232 の `loopable` は `Y`。T-230 の `loopable` は当初 `N` だったが、論点2件（`CONCURRENCY_LIMIT` の意味が step ごとに変わることの許容、
 `create_tag` のログがバッチ先頭に固まること）の決定が本文に入ったため `Y` になっている（`7ae8e87`）。
 指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13」。
 
