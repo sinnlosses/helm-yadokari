@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは1件**（T-241。`lookUpLatestTags()` のサブステップ化）。
+**未着手のタスクは0件**（T-238〜T-241 をすべて完了）。
 **T-229〜T-238 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は 59,620B → 8,570B）。完了タスクは
@@ -14,6 +14,23 @@
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-13 `lookUpLatestTags()` をサブステップにする
+
+- **T-241: `build-plans.ts` の非公開 `lookUpLatestTags()` を
+  `sub-steps/look-up-latest-tags.ts` へ移した**。`buildPlan()` の中で「ローカル関数の呼び出し」と
+  「サブステップの呼び出し」が同じ深さに並んでいた状態を解消。`build-plans.ts` は
+  `buildPlans()`・`buildPlan()` とimportだけになった
+- **「単発のヘルパーに1ファイルを与えない」との衝突の解き方**: この規約は「役割で括れて複数を
+  並べられる単位に達しない寄せ集めヘルパー」を対象にしており、**サブステップはパイプラインの
+  1段であってヘルパーではない**と読んだ。前例は `apply-updates/sub-steps/collect-mr-entries.ts`
+  （31行・公開関数1つ）で、**直接の単体テストを持っている**ことが「小さくても公開関数として
+  扱ってよい」先例になっている
+- **命名は `lookUp` のまま据え置いた**。他のサブステップに倣って `resolve-` にすると、
+  `resolve-tags/sub-steps/resolve-latest-tag.ts`（API越しの実解決）と紛れて「ネットワーク越しに
+  解決する」と誤読されかねない。実態は「解決済みの結果をマップから引き当てるだけ」
+- `sub-steps/` 直下の相互importが0件であることを `grep` で確認（原則1）
+- `pnpm check` 通過: 43 Test Files / 516 Tests（514→516）
 
 ### 2026-09-13 レポートを artifacts として回収する
 
@@ -206,7 +223,7 @@
 **`lookUpLatestTags()` のサブステップ化を T-241 として登録した**（2026-09-13、`/plan-tasks`）。
 他のタスクとは独立（T-240 とは触るファイルが重ならない）:
 
-- **T-241**（sonnet・loopable `Y`）: `build-plans.ts:112` の非公開 `lookUpLatestTags()` を
+- ~~**T-241**~~（done）: `build-plans.ts:112` の非公開 `lookUpLatestTags()` を
   `build-plans/sub-steps/` へ移し、`buildPlan()` の中で「ローカル関数の呼び出し」と
   「サブステップの呼び出し」が同じ深さに並んでいる状態を解消する
 
