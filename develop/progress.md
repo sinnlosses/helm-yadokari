@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは0件**（T-235〜T-237 をすべて完了）。`done` 10件は
+**未着手のタスクは3件**（T-238〜T-240。バッチ実行レポートのartifacts化。直列の依存）。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
@@ -147,6 +147,28 @@
 - 後片付け済み（`reset --apply` → `setup --apply`。オープンMR 0件、フィクスチャは初期状態）
 
 ## 次にやること
+
+**バッチ実行レポートのartifacts化を T-238〜T-240 として登録した**（2026-09-13、`/plan-tasks`）。
+**方針はタスク化の前にチャットで確定済み**なので、各タスクに残る判断は局所的。
+依存は直列で **T-238 → T-239 → T-240** の順に実行する:
+
+- **T-238**（opus・loopable `Y`）: 設定ユニット単位のレポート用レコード型を作り、
+  4stepの戻り値と `settle()` を通して `runProcess()` まで運ぶ。**挙動もログの出力も不変**。
+  `StepOutcome<T>` の `settled` と `summarizeResults()` の `Record<ConfigUnitUpdateResult, number>` に
+  触るのでここが一番重い
+- **T-239**（sonnet・loopable `Y`）: Markdown 1枚に整形して `src/lib/` から書き出し、
+  出力パスの環境変数を `src/lib/env.ts` に追加。`README.md` の環境変数表と
+  `docs/architecture.md` の `lib/` 責務表も追随
+- **T-240**（sonnet・loopable `N`）: `.gitlab-ci.yml` に `artifacts`（**`when: always` が必須**）を
+  足し、README・requirements を追随。**`/loop` に載せないのは、実際に回収されるかが
+  ローカルで検証できずCIを回す必要があるため**
+
+確定した方針（詳細は [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13（5回目）」）:
+
+- 集約は `src/` 側（ログを `scripts/` で整形する案と、`logger` に蓄積させる案は採らない）
+- 形式は Markdown 1枚、粒度は設定ユニット単位の1行、MRのURLは載せない
+- `FatalError` のときは出さない（`runProcess()` を貫通するので末尾の書き出しに到達しない）
+- `DRY_RUN=true` のときも出す（ヘッダに `dryRun` を明示）
 
 **`README.md` のプロジェクト構成のツリー展開を T-237 として登録した**（2026-09-13、`/plan-tasks`）。
 `src/` が1行にまとまっていて4区分がコメントの列挙でしか見えないため、`steps/`・`lib/`・
