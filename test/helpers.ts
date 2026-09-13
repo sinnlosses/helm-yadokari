@@ -102,8 +102,9 @@ export function mockBuildPlansAdapter(adapter: PlatformAdapter): void {
 }
 
 /**
- * `resolveTags()`が返す成功の解決結果。既定は追跡ブランチのHEADに`NEW_TAG`だけが付いている状態で、
- * HEADに別名のタグも付いている状態を作りたいテストだけ`trackedHeadTagNames`を渡す。
+ * `resolveTags()`が返す成功の解決結果。既定は追跡ブランチのHEADに`NEW_TAG`だけが付いている
+ * （＝`origin: "existing"`の）状態で、HEADに別名のタグも付いている状態を作りたいテストだけ
+ * `trackedHeadTagNames`を渡す。
  */
 export function resolvedAtHead(
   trackedHeadTagNames: ReadonlySet<TagName> = new Set([NEW_TAG]),
@@ -117,6 +118,7 @@ export function resolvedAtHead(
         taggedAt: new Date(Date.UTC(2026, 0, 1)),
       },
       trackedHeadTagNames,
+      origin: "existing",
     },
   }
 }
@@ -206,6 +208,7 @@ export function makePlan(
       branchName: toBranchName("main"),
       taggedAt: new Date(Date.UTC(2026, 0, 1)),
     },
+    origin: "existing",
     updates: overrides.updates ?? [
       {
         location: {

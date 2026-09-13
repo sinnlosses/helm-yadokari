@@ -104,12 +104,20 @@ export type HelmBranchRefUpdate = {
 }
 
 /**
+ * タグの由来。`"created"`は今回の実行で新規に作った（`DRY_RUN=true`のときは実際の作成は
+ * せず、作成予定であることを意味する）。追跡ブランチのHEADに既存タグがあり、それを再利用
+ * した場合は`"existing"`
+ */
+export type TagOrigin = "existing" | "created"
+
+/**
  * 1アプリの更新内容。`updates`は差分がある箇所だけを含み、空ならこのAppUpdatePlan自体を
  * 生成しない（＝そのアプリは全箇所が反映済み）
  */
 export type AppUpdatePlan = {
   readonly app: AppConfig
   readonly latestTag: ParsedTag
+  readonly origin: TagOrigin
   readonly updates: readonly ImageTagUpdate[]
 }
 
@@ -127,6 +135,7 @@ export type AppUpdatePlan = {
 export type LatestTagResolution = {
   readonly tag: ParsedTag
   readonly trackedHeadTagNames: ReadonlySet<TagName>
+  readonly origin: TagOrigin
 }
 
 /**

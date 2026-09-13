@@ -107,6 +107,21 @@ describe("run（DRY_RUN=true）", () => {
     )
   })
 
+  it("HEADにタグが無く新規作成予定のアプリは、計画のログでoriginがcreatedになる", async () => {
+    // makeFakeGitlab()はTags.allが空配列（＝HEADを指すタグが1件も無い）状態にしているため、
+    // resolveLatestTag()は新規タグ作成の経路に入る。dry-runなので実際の作成はしない
+    const { logger } = await import("../src/utils/logger.js")
+    await run(env)
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: "SKIPPED",
+        reason: "dry_run",
+        apps: expect.arrayContaining([expect.objectContaining({ origin: "created" })]),
+      }),
+    )
+  })
+
   it("同じ入力で DRY_RUN=false なら書き込みが起きる（上の検証が素通りでないことの裏付け）", async () => {
     await expect(run({ ...env, dryRun: false })).resolves.toBe("SUCCESS")
 

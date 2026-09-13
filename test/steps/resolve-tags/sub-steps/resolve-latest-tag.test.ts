@@ -27,6 +27,7 @@ describe("resolveLatestTag", () => {
 
     expect(resolution.tag.name).toBe(NEW_TAG)
     expect(adapter.createTag).not.toHaveBeenCalled()
+    expect(resolution.origin).toBe("existing")
   })
 
   it("追跡ブランチ由来のタグが見つからないとき、追跡ブランチに新しいタグを作成する", async () => {
@@ -39,6 +40,7 @@ describe("resolveLatestTag", () => {
     expect(adapter.createTag).toHaveBeenCalledOnce()
     expect(vi.mocked(adapter.createTag).mock.calls[0]?.[1]).toBe(resolution.tag.name)
     expect(vi.mocked(adapter.createTag).mock.calls[0]?.[2]).toBe("main")
+    expect(resolution.origin).toBe("created")
   })
 
   it("tagFormatに別の形式を渡すと、その形式で新しいタグを作成する", async () => {
@@ -113,6 +115,8 @@ describe("resolveLatestTag", () => {
 
     expect(adapter.createTag).not.toHaveBeenCalled()
     expect(resolution.tag.branchName).toBe("main")
+    // 実際には作っていないが、作成予定であることは"created"で表す
+    expect(resolution.origin).toBe("created")
   })
 
   it("追跡ブランチが存在しないとき、タグを作成せずエラーを投げる", async () => {

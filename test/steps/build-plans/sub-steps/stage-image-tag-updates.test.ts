@@ -197,6 +197,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
           taggedAt: new Date(Date.UTC(2026, 0, 1)),
         },
         trackedHeadTagNames: new Set(),
+        origin: "existing",
       },
     }
     const targets = [makeConfigUnit([makeApp({ branchToSync: toBranchName("release/2026-q2") })])]

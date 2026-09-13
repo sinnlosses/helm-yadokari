@@ -51,6 +51,7 @@ function makeTarget(): ConfigUnitUpdateTarget {
       {
         app: makeApp(),
         latestTag: NEW_TAG,
+        origin: "existing",
         updates: [
           {
             location: {
@@ -82,6 +83,17 @@ describe("applyUpdates", () => {
   it("成功したとき 'CREATED' を返す", async () => {
     expect(await applyUpdates(adapter, [makeTarget()], 3)).toEqual(["CREATED"])
     expect(submitMergeRequest).toHaveBeenCalledOnce()
+  })
+
+  it("成功時のログに、各アプリの計画のoriginを含める", async () => {
+    const { logger } = await import("../../../src/utils/logger.js")
+    await applyUpdates(adapter, [makeTarget()], 3)
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: "CREATED",
+        apps: expect.arrayContaining([expect.objectContaining({ origin: "existing" })]),
+      }),
+    )
   })
 
   it("collectMrEntriesの結果からbuildMrContentを呼び、その結果をMR送信に渡す", async () => {

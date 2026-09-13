@@ -72,7 +72,7 @@ async function stageAppImageTagUpdates(
     return { plans: result.plans, draft }
   }
 
-  const plan: AppUpdatePlan = { app, latestTag: tag, updates }
+  const plan: AppUpdatePlan = { app, latestTag: tag, origin: latestTag.origin, updates }
   return { plans: [...result.plans, plan], draft }
 }
 

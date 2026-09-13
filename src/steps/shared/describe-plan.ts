@@ -4,6 +4,7 @@ import type {
   HelmBranchRefUpdate,
   ProjectName,
   TagName,
+  TagOrigin,
   ValuesPath,
 } from "../../domain/types.js"
 
@@ -11,6 +12,7 @@ import type {
 export type PlanLogSummary = {
   readonly projectName: ProjectName
   readonly latestTag: TagName
+  readonly origin: TagOrigin
   readonly updates: readonly {
     readonly valuesPath: ValuesPath
     readonly currentTag: TagName
@@ -29,6 +31,7 @@ export function describePlan(plan: AppUpdatePlan): PlanLogSummary {
   return {
     projectName: plan.app.projectName,
     latestTag: plan.latestTag.name,
+    origin: plan.origin,
     updates: plan.updates.map((update) => ({
       valuesPath: update.location.valuesPath,
       currentTag: update.currentTag,

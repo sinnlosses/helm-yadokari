@@ -49,7 +49,7 @@ export async function resolveLatestTag(
     source.tagFormat,
   )
   if (latestAtHead) {
-    return { tag: latestAtHead, trackedHeadTagNames }
+    return { tag: latestAtHead, trackedHeadTagNames, origin: "existing" }
   }
 
   const newTag = buildNewTag(source.branchToSync, new Date(), source.tagFormat)
@@ -64,7 +64,7 @@ export async function resolveLatestTag(
     reason: "no_tag_at_branch_head",
     dryRun,
   })
-  return { tag: newTag, trackedHeadTagNames }
+  return { tag: newTag, trackedHeadTagNames, origin: "created" }
 }
 
 /**
