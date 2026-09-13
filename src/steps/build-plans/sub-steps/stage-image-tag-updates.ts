@@ -1,6 +1,7 @@
 import type {
   AnchorLocation,
   AppUpdatePlan,
+  AppWithLatestTag,
   ChartRepoConfig,
   ImageTagUpdate,
   ParsedTag,
@@ -12,7 +13,7 @@ import type { PlatformAdapterWithCachedReads } from "../../../lib/platform/cache
 import { logger } from "../../../utils/logger.js"
 import { reduceAsync } from "../../../utils/sequential.js"
 import { withAppContext } from "../../shared/step-outcome.js"
-import type { AppWithLatestTag, StageUpdatesAcc } from "./shared/types.js"
+import type { StageUpdatesAcc } from "./shared/types.js"
 import type { ValuesYamlDraft } from "./shared/values-yaml-draft.js"
 import { readValuesYamlDraft, writeValuesYamlDraft } from "./shared/values-yaml-draft.js"
 

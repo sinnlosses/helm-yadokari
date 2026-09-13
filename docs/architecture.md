@@ -301,7 +301,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 | ドメイン知識を持たない汎用処理の型                                                 | その`utils/`ファイル                             | `Sorted`                                                                   |
 | 複数のstepが共有する、ドメイン型にだけ依存する型                                   | `steps/shared/`                                  | `StepOutcome<T>`・`ConfigUnitLogContext`                                   |
 | 関数の内部の作業用の型（アキュムレータ・処理中の文脈・その関数の戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlansResult`・`ValuesYamlDraft`・`LabeledLocation`・`ChartRepoScope` |
-| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                          | `steps/<step名>/sub-steps/shared/types.ts`       | `LatestTagResolution`・`AppWithLatestTag`・`StageUpdatesAcc<U>`            |
+| 特定の1ファイルに帰属せず、複数のサブステップが共有する型                          | `steps/<step名>/sub-steps/shared/types.ts`       | `MrEntries`・`ImageTagEntry`・`StageUpdatesAcc<U>`                         |
 
 - **`domain/types.ts`は「ドメイン語彙の一覧」であって「型の物置」ではない。** 置き場所に困った型を
   ここへ集めると、どの型がこのツールの語彙でどの型が実装の都合かが読み分けられなくなる。
@@ -310,8 +310,8 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - `sub-steps/shared/types.ts`のような型だけのファイルは、**特定の1ファイルに帰属しない型**
   （複数のサブステップが共有する関数型インターフェースや共通のアキュムレータ基底）だけに使う。
   1ファイルからしか使われない型はそのファイルへ戻す
-- **上表の5行目と6行目は競合しうる**（`AppWithLatestTag` は `resolve-latest-tags.ts` が生み出す型
-  だが `stage-image-tag-updates.ts` も import する）。そのときは **`shared/` 側を優先する** —
+- **上表の5行目と6行目は競合しうる**（`MrEntries` は `collect-mr-entries.ts` が生み出す型
+  だが `build-mr-content.ts` も import する）。そのときは **`shared/` 側を優先する** —
   サブステップ同士が互いをimportしないという原則の方が、型と生成関数の同居より優先度が高い
 - **5行目は`steps/`だけの話ではない。** `lib/`のファイルの中にも、そのファイルの関数のためだけに
   ある作業用の型がある（`lib/config/load-config-unit.ts` の `ChartRepoScope`・`ConfigUnitScope`・
@@ -716,9 +716,10 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 
 #### 型の置き場所は`src/`全件と突き合わせて確かめてある
 
-「型の置き場所」の表は、`src/`の型定義73件を1件ずつ**表のどの行に当たるかまで**割り当てた
+「型の置き場所」の表は、`src/`の型定義74件を1件ずつ**表のどの行に当たるかまで**割り当てた
 うえでの形（2026-09-12に実施し、`src/types/`を`src/domain/`へ吸収したあと2026-09-13に
-数え直した）。**表の行のどれにも当たらない型は1件も無い。**
+数え直し、同日中に`TagSource`の新設と`LatestTagResolution`/`AppWithLatestTag`の
+`domain/types.ts`への移動でもう一度数え直した）。**表の行のどれにも当たらない型は1件も無い。**
 
 **数え方**（これを書いておかないと次に数え直したとき同じ数にならない）: `src/`配下の`.ts`で、
 **行頭から**始まる`type`／`interface`の宣言を1件と数える。`export`の有無は問わない
@@ -728,27 +729,27 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 `utils/errors.ts`の`class FatalError`も値なので数えない。
 
 ```bash
-grep -rhE '^(export )?(type|interface) ' --include='*.ts' src | wc -l   # 73
+grep -rhE '^(export )?(type|interface) ' --include='*.ts' src | wc -l   # 74
 ```
 
-**表の行ごとの内訳**（件数の裏付けになるのはこちら。合計73）:
+**表の行ごとの内訳**（件数の裏付けになるのはこちら。合計74）:
 
 | 表の行                            | 件数 | 実体                                                                    |
 | --------------------------------- | ---- | ----------------------------------------------------------------------- |
-| 1行目 ドメイン語彙                | 30   | `domain/types.ts` 16・`domain/brand.ts` 14                              |
+| 1行目 ドメイン語彙                | 33   | `domain/types.ts` 19・`domain/brand.ts` 14                              |
 | 2行目 `lib/`のインターフェース    | 13   | `config/`6・`platform/`3・`gitlab/`1・`github/`1・`env.ts`1・`helm.ts`1 |
 | 3行目 `utils/`                    | 3    | `partition.ts`・`cache.ts`・`retry.ts`                                  |
 | 4行目 `steps/shared/`             | 2    | `step-outcome.ts`                                                       |
 | 5行目 関数と同じファイル          | 19   | `steps/`10（`describe-plan.ts`2を含む）・`lib/`9                        |
-| 6行目 `sub-steps/shared/types.ts` | 6    | `build-plans/`3・`apply-updates/`3                                      |
+| 6行目 `sub-steps/shared/types.ts` | 4    | `build-plans/`1・`apply-updates/`3                                      |
 
 1・3・4・6行目は置き場所そのものが行の定義なので機械的に確かめられる:
 
 ```bash
-grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/domain/types.ts src/domain/brand.ts | wc -l  # 30（1行目）
+grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/domain/types.ts src/domain/brand.ts | wc -l  # 33（1行目）
 grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/utils | wc -l                 # 3（3行目）
 grep -hE  '^(export )?(type|interface) ' src/steps/shared/step-outcome.ts | wc -l           # 2（4行目）
-grep -rhE '^(export )?(type|interface) ' src/steps/*/sub-steps/shared/types.ts | wc -l      # 6（6行目）
+grep -rhE '^(export )?(type|interface) ' src/steps/*/sub-steps/shared/types.ts | wc -l      # 4（6行目）
 ```
 
 残り32件が2行目と5行目で、この2つは同じファイルに同居するため境目は人が読んで決める

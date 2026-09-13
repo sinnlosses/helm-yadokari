@@ -5,7 +5,7 @@
 ×技術を知っているか」の2軸になった。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは4件**（T-229〜T-232。T-233・T-234 は完了。`done` 10件は
+**未着手のタスクは3件**（T-230〜T-232。T-229・T-233・T-234 は完了。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
@@ -26,6 +26,12 @@
   （技術依存の `yaml.ts`・`fs.ts` もここ）と整理。`lib/config/validate.ts`・`steps/shared/describe-plan.ts`
   を `domain/` に動かさない理由を「概念のまとまりが優先」として規約化。集計表の既存ズレも再集計
   （合計 67→73）。CLAUDE.md の原則1〜5は無変更。`pnpm check` 通過: 39 Test Files / 494 Tests
+- **T-229: `TagSource` を新設し、タグ解決まわりの型を `src/domain/types.ts` に集約した**。
+  `resolveLatestTag()` が `AppConfig` を丸ごと受けて `imageTagLocations` を見ていなかったため、
+  キャッシュキーが引数の部分集合になっていた問題を解消。引数を `TagSource` に絞って
+  **キー＝入力の実質全体**（`projectId`+`branchToSync`+`tagFormat`、ヌル文字区切り）に戻した。
+  `LatestTagResolution`・`AppWithLatestTag` は T-230 で step 間を流れるため `domain/types.ts` へ移動。
+  型の集計も再計算（合計 73→74）。`pnpm check` 通過: 39 Test Files / 494 Tests（不変）
 
 ## 次にやること
 
@@ -45,7 +51,7 @@
 `createResolveLatestTags()` のキャッシュを廃し、パイプラインを
 `filterTargets → resolveTags → buildPlans → applyUpdates` にする。依存は直列:
 
-- **T-229**（`sonnet` / `Y`）: `TagSource` を新設し、タグ解決まわりの型を `src/domain/types.ts` に集約する（T-233 の後）
+- ~~**T-229**~~（done）: `TagSource` を新設し、タグ解決まわりの型を `src/domain/types.ts` に集約する
 - **T-230**（`opus` / **`N`**）: `resolve-tags` step への切り出し本体。重複排除をキャッシュから集合演算にする
 - **T-231**（`sonnet` / `Y`）: `LatestTagResolution` に `origin` を足し、新規作成予定のタグを計画のログに出す
 - **T-232**（`opus` / `Y`）: 軸交差の規則を `docs/architecture.md` に書き、README・glossary を追随させる

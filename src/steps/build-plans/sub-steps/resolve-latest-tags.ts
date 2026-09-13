@@ -1,18 +1,20 @@
 import { buildNewTag, findLatestParsedTag, parseTag } from "../../../domain/tag-format.js"
 import type {
   AppConfig,
+  AppWithLatestTag,
   BranchName,
   CommitSha,
+  LatestTagResolution,
   TagFormat,
   TagInfo,
   TagName,
+  TagSource,
 } from "../../../domain/types.js"
 import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
 import { getOrFetchShared } from "../../../utils/cache.js"
 import { logger } from "../../../utils/logger.js"
 import { reduceAsync } from "../../../utils/sequential.js"
 import { withAppContext } from "../../shared/step-outcome.js"
-import type { AppWithLatestTag, LatestTagResolution } from "./shared/types.js"
 
 /** 1つの設定ユニット配下の全アプリぶんの最新タグを解決する関数。バッチ全体で使い回す */
 export type ResolveLatestTags = (apps: readonly AppConfig[]) => Promise<readonly AppWithLatestTag[]>
@@ -40,17 +42,27 @@ export function createResolveLatestTags(
   const cache = new Map<string, Promise<LatestTagResolution>>()
   return (apps) => {
     const initial: readonly AppWithLatestTag[] = []
-    return reduceAsync(apps, initial, async (acc, app) => [
-      ...acc,
-      {
-        app,
-        latestTag: await withAppContext(adapter, app.projectName, () =>
-          getOrFetchShared(cache, `${app.projectId}:${app.branchToSync}`, () =>
-            resolveLatestTag(adapter, app, dryRun),
+    return reduceAsync(apps, initial, async (acc, app) => {
+      const source: TagSource = {
+        projectId: app.projectId,
+        projectName: app.projectName,
+        branchToSync: app.branchToSync,
+        tagFormat: app.tagFormat,
+      }
+      return [
+        ...acc,
+        {
+          app,
+          latestTag: await withAppContext(adapter, source.projectName, () =>
+            getOrFetchShared(
+              cache,
+              `${source.projectId}\0${source.branchToSync}\0${source.tagFormat}`,
+              () => resolveLatestTag(adapter, source, dryRun),
+            ),
           ),
-        ),
-      },
-    ])
+        },
+      ]
+    })
   }
 }
 
@@ -72,44 +84,44 @@ export function createResolveLatestTags(
  */
 async function resolveLatestTag(
   adapter: PlatformAdapter,
-  app: AppConfig,
+  source: TagSource,
   dryRun: boolean,
 ): Promise<LatestTagResolution> {
   const [tags, headSha] = await Promise.all([
-    adapter.listTags(app.projectId),
-    adapter.getBranchHeadSha(app.projectId, app.branchToSync),
+    adapter.listTags(source.projectId),
+    adapter.getBranchHeadSha(source.projectId, source.branchToSync),
   ])
   if (headSha === undefined) {
     throw new Error(
-      `追跡ブランチ "${app.branchToSync}" がプロジェクト "${app.projectName}" に見つかりません`,
+      `追跡ブランチ "${source.branchToSync}" がプロジェクト "${source.projectName}" に見つかりません`,
     )
   }
   const trackedHeadTagNames = resolveTrackedHeadTagNames(
     tags,
     headSha,
-    app.branchToSync,
-    app.tagFormat,
+    source.branchToSync,
+    source.tagFormat,
   )
 
   // HEADを指すタグはどれも同じコミットを指すため中身は同じだが、返す値を一意に決める
   // ためだけに、打刻日時が最も新しいものを選ぶ（決定性のための規則）。
   const latestAtHead = findLatestParsedTag(
     [...trackedHeadTagNames],
-    app.branchToSync,
-    app.tagFormat,
+    source.branchToSync,
+    source.tagFormat,
   )
   if (latestAtHead) {
     return { tag: latestAtHead, trackedHeadTagNames }
   }
 
-  const newTag = buildNewTag(app.branchToSync, new Date(), app.tagFormat)
+  const newTag = buildNewTag(source.branchToSync, new Date(), source.tagFormat)
   if (!dryRun) {
-    await adapter.createTag(app.projectId, newTag.name, app.branchToSync)
+    await adapter.createTag(source.projectId, newTag.name, source.branchToSync)
   }
   logger.info({
     event: "create_tag",
-    projectName: app.projectName,
-    branch: app.branchToSync,
+    projectName: source.projectName,
+    branch: source.branchToSync,
     tag: newTag.name,
     reason: "no_tag_at_branch_head",
     dryRun,
