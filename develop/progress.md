@@ -32,6 +32,12 @@
   **キー＝入力の実質全体**（`projectId`+`branchToSync`+`tagFormat`、ヌル文字区切り）に戻した。
   `LatestTagResolution`・`AppWithLatestTag` は T-230 で step 間を流れるため `domain/types.ts` へ移動。
   型の集計も再計算（合計 73→74）。`pnpm check` 通過: 39 Test Files / 494 Tests（不変）
+  **注意: T-229 は別セッションと重複実装になった。** 同時刻に別のワークツリー
+  （`../helm-yadokari-resolve-tags`、ブランチ `work/resolve-tags` の `3f3856d`）でも同じT-229が
+  実装され、共有の `develop/tasks.json` 経由で `doing`→`done` が記録されていた。main側（`fe4824c`）は
+  `docs/architecture.md` の型集計の再計算を含み、ブランチ側は `resolveTrackedHeadTagNames()` も
+  `TagSource` を受ける形にしてキャッシュキーに `tagFormat` を含める理由をJSDocに明記している。
+  **どちらを採るかはユーザー判断待ち**（ブランチ側の2点をmainへ取り込むのが素直）
 
 ## 次にやること
 
