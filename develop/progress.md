@@ -6,12 +6,22 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは2件**（T-236・T-237。`resolve-tags/` の構成の整理、README のツリー展開）。`done` 10件は
+**未着手のタスクは1件**（T-236。`resolve-tags/` の構成の整理。`loopable: "N"` なのでユーザーが `/next-task` を直接呼ぶ必要がある）。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-13 README のプロジェクト構成を1階層展開
+
+- **T-237: `README.md`「プロジェクト構成」のツリーで `src/` を4区分に展開した**。
+  `steps/`・`lib/`・`domain/`・`utils/` を枝に出し、コメントは `docs/architecture.md` の
+  `###` 見出しの要約に揃えた（責務の本体は正典に残し、README は名札の粒度に留める）。
+  `steps/` のコメントだけは、サブエージェントが正典から写した `runProcess()` が README 内に
+  定義の無い識別子で行き止まりの参照になっていたため「上記「仕組み」のパイプライン」に直した。
+  `index.ts`・`main.ts` は指示が「ディレクトリ」を指すため載せていない。
+  `pnpm check` 通過: 40 Test Files / 495 Tests
 
 ### 2026-09-13 `resolve-tags` の不変化
 
@@ -127,7 +137,7 @@
 `src/` が1行にまとまっていて4区分がコメントの列挙でしか見えないため、`steps/`・`lib/`・
 `domain/`・`utils/` を1階層だけ枝に出す。**2階層目（`src/steps/resolve-tags/` など）は出さない**:
 
-- **T-237**（sonnet・loopable `Y`）: 区分ごとの一行コメントは `docs/architecture.md` の
+- ~~**T-237**~~（done）: 区分ごとの一行コメントは `docs/architecture.md` の
   `###` 見出しの要約（T-234 で2軸に書き換えた定義）に沿わせる。責務の本体を README に
   書き写すと正典が二重になるので、名札の粒度を超えない
 

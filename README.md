@@ -385,7 +385,11 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
 
 ```
 .
-├── src/                    # steps/・lib/・domain/・utils/ の4区分（型は domain/ 内）
+├── src/
+│   ├── steps/              # 上記「仕組み」のパイプラインを構成するフラットな4ステップ
+│   ├── lib/                # 特定の技術・外部システム・ファイル形式に依存する処理
+│   ├── domain/             # このツールの語彙（型）と、その語彙に閉じた規則
+│   └── utils/              # ドメイン知識を一切持たない汎用ユーティリティ
 ├── test/                   # テスト（src/ と同じディレクトリ構成）
 ├── scripts/                # config/ の検証・スモークテスト用スクリプト
 ├── config/                 # 対象アプリ設定（定期実行の登録 ＋ 手動スモークテスト用の設定を同居）
