@@ -4,8 +4,15 @@ vi.mock("../../../../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-import { toAnchorName, toTagName, toValuesPath } from "../../../../src/domain/types.js"
+import type { LatestTagResolution } from "../../../../src/domain/types.js"
+import {
+  toAnchorName,
+  toBranchName,
+  toTagName,
+  toValuesPath,
+} from "../../../../src/domain/types.js"
 import { buildPlans } from "../../../../src/steps/build-plans/build-plans.js"
+import type { AppOutcome } from "../../../../src/steps/shared/step-outcome.js"
 import {
   NEW_TAG,
   OLD_TAG,
@@ -174,5 +181,52 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     )
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.plans[0]?.updates[0]?.currentTag).toBe("placeholder")
+  })
+
+  it("追跡ブランチを変更したとき、反映済みタグが変更後ブランチのHEADを指していても更新する（HEAD一致によるスキップの対象外）", async () => {
+    // 切り替え前後のブランチが同じコミットを指しているケース。反映済みタグ（main由来）は
+    // release/2026-q2 のHEADを指すので通常なら更新しないが、現在の追跡ブランチ由来ではなく
+    // trackedHeadTagNames に入らないため、追跡先が変わったことをvalues.yamlに反映する
+    const switchedTag = toTagName("release-2026-q2-build-at-20260101-000000")
+    const resolvedAfterSwitch: AppOutcome<LatestTagResolution> = {
+      status: "ok",
+      value: {
+        tag: {
+          name: switchedTag,
+          branchName: toBranchName("release/2026-q2"),
+          taggedAt: new Date(Date.UTC(2026, 0, 1)),
+        },
+        trackedHeadTagNames: new Set(),
+      },
+    }
+    const targets = [makeConfigUnit([makeApp({ branchToSync: toBranchName("release/2026-q2") })])]
+    const { toApply, settled } = await buildPlans(
+      makeAdapterWithCachedReads(adapter),
+      targets,
+      makeResolvedTags(targets, () => resolvedAfterSwitch),
+      3,
+      false,
+    )
+    expect(toApply).toHaveLength(1)
+    expect(toApply[0]?.plans[0]?.updates[0]?.currentTag).toBe(OLD_TAG)
+    expect(toApply[0]?.files[0]?.content).toMatch(/&appVersion release-2026-q2-build-at-/)
+    expect(settled).toEqual([])
+  })
+
+  it("旧タグが古いコミットを指すときは従来どおり更新する", async () => {
+    // 反映済みタグは追跡ブランチ由来だが、HEADではない古いコミットを指す（＝最新タグの
+    // trackedHeadTagNames に含まれない）ので、HEAD一致によるスキップにはならない
+    const targets = [makeConfigUnit([makeApp()])]
+    const { toApply, settled } = await buildPlans(
+      makeAdapterWithCachedReads(adapter),
+      targets,
+      makeResolvedTags(targets),
+      3,
+      false,
+    )
+    expect(toApply).toHaveLength(1)
+    expect(toApply[0]?.plans[0]?.updates[0]?.currentTag).toBe(OLD_TAG)
+    expect(toApply[0]?.files[0]?.content).toContain(`&appVersion ${NEW_TAG}`)
+    expect(settled).toEqual([])
   })
 })
