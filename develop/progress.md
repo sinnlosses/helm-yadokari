@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは2件**（T-240・T-241）。
+**未着手のタスクは1件**（T-241。`lookUpLatestTags()` のサブステップ化）。
 **T-229〜T-238 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は 59,620B → 8,570B）。完了タスクは
@@ -14,6 +14,21 @@
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-13 レポートを artifacts として回収する
+
+- **T-240: `.gitlab-ci.yml` の `update-app-versions` に `artifacts` を足した**。
+  `when: always`・`paths: [report/report.md]`・`expire_in: 7 days`。**`when: always` は必須**で、
+  `ERROR` が1件でもあると exit 1 になるため、既定の `on_success` だと一番レポートが欲しい
+  失敗時に回収されない
+- `paths` とコード側の `DEFAULT_REPORT_OUTPUT_PATH` の一致は、両ファイルから値を抜いて
+  突き合わせるスクリプトで確認した（片方だけ変えると静かに回収されなくなるため）
+- **`docs/requirements.md` は「2.1 対象とすること」ではなく「## 5. 実行環境・非機能要件」に
+  足した**（ユーザー判断）。レポートは「chartに何をするか」ではなく運用側の話で、同じ章に
+  既に **Dry-runモード** が並んでいるため。冒頭「節の索引」の5章の行も追随
+- **実機未検証**: artifacts が実際に回収されるかはCIを回さないと確かめられない。
+  ローカルで確かめられたのは `paths` の値の一致まで
+- `pnpm check` 通過: 42 Test Files / 514 Tests（不変）
 
 ### 2026-09-13 レポートをMarkdownで書き出す
 
@@ -219,7 +234,7 @@ importせず〜」の「アプリのループを各サブステップの内側�
 - ~~**T-239**~~（done）: Markdown 1枚に整形して `src/lib/` から書き出し、
   出力パスの環境変数を `src/lib/env.ts` に追加。`README.md` の環境変数表と
   `docs/architecture.md` の `lib/` 責務表も追随
-- **T-240**（sonnet・loopable `N`）: `.gitlab-ci.yml` に `artifacts`（**`when: always` が必須**）を
+- ~~**T-240**~~（done・実機未検証）: `.gitlab-ci.yml` に `artifacts`（**`when: always` が必須**）を
   足し、README・requirements を追随。**`/loop` に載せないのは、実際に回収されるかが
   ローカルで検証できずCIを回す必要があるため**
 

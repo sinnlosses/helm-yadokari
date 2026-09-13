@@ -319,6 +319,8 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
 
 `renovate` ジョブは`RENOVATE=true`のときのみ実行される、このCLI自体の依存パッケージ更新用ジョブです。本体の更新処理を実行する`update-app-versions`ジョブとは無関係な別機能ですが、名前が似ており紛らわしいので注意してください。
 
+`update-app-versions` ジョブはバッチ1回分の実行結果をまとめたレポート（既定 `report/report.md`）を artifacts として回収します（`when: always` のため、致命的エラー以外の失敗時にも取得可能）。ジョブ詳細画面の「Job artifacts」からダウンロードでき、7日で失効します。`REPORT_OUTPUT_PATH` で出力先を変更した場合は、`.gitlab-ci.yml` の `update-app-versions` ジョブの `artifacts.paths` も同じパスに合わせてください。
+
 ### セットアップ手順
 
 1. **Settings > CI/CD > Variables** に以下を登録する（管理対象がGitLabの場合。`.gitlab-ci.yml`

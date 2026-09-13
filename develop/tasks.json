@@ -17,9 +17,9 @@
     "dependencies": ["T-239"],
     "summary": "`.gitlab-ci.yml` にレポートの `artifacts`（`when: always`）を足し、README・requirements を追随させる",
     "task": "## 背景\n\n`runProcess()` が書き出すようになったレポート（前タスク）を、GitLab CI の artifacts として\n回収されるようにし、ドキュメントを追随させる。\n\n`.gitlab-ci.yml` の `update-app-versions` ジョブ（149行目付近）は現在 `pnpm start` を叩くだけで\n`artifacts` を持たない。\n\n**`when: always` が必須**という制約がある。`ERROR` が1件でもあると `src/index.ts` が\n`process.exit(1)` するため（`src/main.ts` の `run()` が `PARTIAL_FAILURE` を返す）、\nジョブは失敗扱いになる。`artifacts:` の既定は `when: on_success` なので、**そのままだと\n一番レポートが欲しい失敗時に回収されない**。\n\nそのほかの制約:\n\n- パスは `$CI_PROJECT_DIR` 配下でないと回収されない\n- `expire_in` を書かないとプロジェクト既定の保持期間で消える\n\n## 解くべき論点\n\n- `expire_in` をどれくらいにするか（実行間の比較をしたいなら長め、ストレージを気にするなら短め）\n- `docs/requirements.md` に機能として書き足すべきか。同ドキュメントの「2.2 対象外とすること」に\n  あるのは「専用の通知機能（Slack通知等）」であって artifacts は含まれないが、\n  **新しい外部インターフェースが増えたことを仕様の正典に書くかどうか**は判断が要る。\n  書くなら「節の索引」も追随させる\n\n## やること\n\n1. `.gitlab-ci.yml` の `update-app-versions` に `artifacts:` を足す。\n   `when: always` と `paths`（前タスクで決めた既定の出力パス）と `expire_in` を明示する\n2. `README.md`「## CI/CD」章に、レポートが artifacts として回収されることと、どこから\n   ダウンロードするかを1〜2文で足す\n3. `docs/requirements.md` に足すかどうかを判断し、足すなら「節の索引」も追随させる。\n   足さないと判断したらその理由を `evidence` に書く\n4. `.gitlab-ci.yml` の既存ジョブ（`check`・`validate-config-remote`・`renovate`）は触らない\n\n## 完了条件\n\n- `.gitlab-ci.yml` の `update-app-versions` に `artifacts:` があり、`when: always`・`paths`・\n  `expire_in` の3つが明示されている\n- `paths` の値が、前タスクで決めた出力パスの既定値と一致している\n- `README.md`「## CI/CD」章にレポートの回収について記述がある\n- `pnpm check` が通る（テスト件数は前タスク完了時点から減っていない）\n\n## 注意\n\n- **`.gitlab-ci.yml` を変更しても、実際に artifacts が回収されるかはCIを回さないと確かめられない。**\n  ローカルで検証できるのは `paths` の値と出力パスの既定値が一致していることまで。\n  実機での確認が必要ならその旨を `evidence` に書く\n- CI/CD Variables や pipeline schedules の設定変更は**しない**（ユーザーの承認が要る領域）\n- `git push` はしない\n",
-    "status": "todo",
-    "passes": false,
-    "evidence": ""
+    "status": "done",
+    "passes": true,
+    "evidence": "`update-app-versions` に `artifacts: {when: always, paths: [report/report.md], expire_in: 7 days}` を追加。`paths` と `DEFAULT_REPORT_OUTPUT_PATH`（`src/lib/report/write-report.ts`）の一致をスクリプトで確認済み。`docs/requirements.md` は 5章（実行環境・非機能要件）に追記し索引も追随、README は CI/CD 章に追記。**実機未検証**: artifacts が実際に回収されるかはCIを回さないと確かめられない。`pnpm check` 通過: 42 Test Files / 514 Tests（不変）。"
   },
   {
     "id": "T-241",

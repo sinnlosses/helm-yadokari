@@ -153,6 +153,11 @@ update-app-versions:
   needs: [check]
   script:
     - pnpm start
+  artifacts:
+    when: always
+    paths:
+      - report/report.md
+    expire_in: 7 days
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $RENOVATE != "true"'
     - if: '$CI_PIPELINE_SOURCE == "web"'
