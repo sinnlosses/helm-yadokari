@@ -6,12 +6,26 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは1件**（T-236。`resolve-tags/` の構成の整理。`loopable: "N"` なのでユーザーが `/next-task` を直接呼ぶ必要がある）。`done` 10件は
+**未着手のタスクは0件**（T-235〜T-237 をすべて完了）。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-13 `resolve-tags/` の構成は現状維持で決着
+
+- **T-236: `resolve-tags/` のサブステップ構成を「まとめる/分ける合図」に照らして評価し、
+  現状維持をユーザーが選択した**。コードもドキュメントも変更なし。
+  `resolve-latest-tag.ts`（90行・公開1・非公開1）は**分ける合図0/5・まとめる合図4/4**で、
+  リポジトリ自身の基準が一方的に同居を支持する。特に③（`origin: "existing" | "created"` が
+  探索と作成で1つの結果型を成し、探索だけのファイルは「見つからなかったら」を語れない）と
+  ②（割ると `resolveTrackedHeadTagNames()` か受け渡し型が `export` に昇格する）が効いた
+- **`sub-steps/` を畳む案を棄てた理由**: `filter-targets.ts`（公開1＋非公開1を同居）が示すとおり、
+  step直下に「サブステップでない兄弟ファイル」を置く形はこのリポジトリに前例が無い。
+  「1ファイルしか無いディレクトリ」を消す代わりに別の不揃いを1箇所作ることになる
+- **「1ファイルでガバッと」の体感の実体は行数ではなくJSDocの厚さだった**（90行中27行が設計意図の
+  説明で実コードは40行弱）。構成を変えても読みやすさは改善しない
 
 ### 2026-09-13 README のプロジェクト構成を1階層展開
 
@@ -151,7 +165,7 @@
 - ~~**T-235**~~（done）: `resolve-tags.ts` の `groupByTagSource()` を可変Mapの
   組み立てから不変な生成に書き換える。`src/` で生成後に `set()` でループしているのはここだけで、
   前例は `lib/config/load-config-unit.ts:133` の `new Map(xs.map(...))`
-- **T-236**（opus・loopable `N`）: `resolve-tags/` のサブステップ構成（`sub-steps/` に1ファイルだけ）を
+- ~~**T-236**~~（done・現状維持で決着）: `resolve-tags/` のサブステップ構成（`sub-steps/` に1ファイルだけ）を
   `docs/architecture.md`「1ファイルにまとめるか分けるか」の合図に照らして評価し、
   現状維持 / `sub-steps/` を畳む / 複数サブステップに割る の3案を比較して提案する。
   **どの案を採るかはユーザーが決めるため `/loop` には載せない**
