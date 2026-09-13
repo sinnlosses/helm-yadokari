@@ -8,7 +8,7 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 **`done` 11件をアーカイブ済み（`develop/tasks.json` は空）**。2026-09-11以前の記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある）
 
-**未着手のタスクは5件**（T-229〜T-232・T-234。T-233 は完了。`done` 10件は
+**未着手のタスクは4件**（T-229〜T-232。T-233・T-234 は完了。`done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
@@ -23,6 +23,12 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
   `git mv` 3件＋import追随65ファイル、挙動不変。`pnpm check` 通過: 39 Test Files / 494 Tests（不変）。
   `docs/requirements-grilling.md`・`docs/research/github-support.md` に残る旧パスは過去の記録として
   据え置き。`docs/architecture.md` の区分の定義（2軸化）と集計表の既存ズレは T-234 へ
+- **T-234: `docs/architecture.md` の `domain/` の定義を「ドメインを知っているか×技術を知っているか」の
+  2軸に書き換えた**。「`lib/`でも`utils/`でもない区分」という消去法の定義を消し、`domain/`＝語彙
+  （`types.ts`・`brand.ts`）＋その語彙に閉じた規則、`lib/`＝適応層、`utils/`＝ドメインを知らないもの
+  （技術依存の `yaml.ts`・`fs.ts` もここ）と整理。`lib/config/validate.ts`・`steps/shared/describe-plan.ts`
+  を `domain/` に動かさない理由を「概念のまとまりが優先」として規約化。集計表の既存ズレも再集計
+  （合計 67→73）。CLAUDE.md の原則1〜5は無変更。`pnpm check` 通過: 39 Test Files / 494 Tests
 
 ### 2026-09-12 config のサンプルとGitHub対応の調査
 
@@ -416,7 +422,7 @@ T-214〜T-218 で全件反映し、**clone 直後に Quick Start どおり動く
 （T-229 が T-233 に依存。T-232 は T-234 にも依存）:
 
 - ~~**T-233**~~（done）: `src/types/` を `src/domain/` に吸収し、import・テスト・ドキュメントのパスを追随させる
-- **T-234**（`opus` / `Y`）: `docs/architecture.md` の `domain/` の定義を「ドメイン×技術」の2軸に書き換える
+- ~~**T-234**~~（done）: `docs/architecture.md` の `domain/` の定義を「ドメイン×技術」の2軸に書き換える
 
 `lib/config/validate.ts`・`steps/shared/describe-plan.ts` は文面上「技術非依存＋ドメイン知識あり」
 だが動かさない（概念のまとまりを優先。T-234 で規約に書く）。`lib/` → `adapters/` 改名は採らない。
