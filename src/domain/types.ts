@@ -114,7 +114,7 @@ export type AppUpdatePlan = {
 }
 
 /**
- * 1アプリ分の「最新タグの判定結果」。`resolve-latest-tags.ts`が組み立て、イメージタグの
+ * 1アプリ分の「最新タグの判定結果」。`resolve-latest-tag.ts`が組み立て、イメージタグの
  * 差分判定（`stage-image-tag-updates.ts`）が使う。
  *
  * `trackedHeadTagNames`は、「現在の追跡ブランチ由来（＝現在の`branchToSync`と`tagFormat`で
@@ -130,7 +130,7 @@ export type LatestTagResolution = {
 }
 
 /**
- * アプリと、そのアプリについて解決済みの最新タグの対。`resolve-latest-tags.ts`が組み立て、
+ * アプリと、そのアプリについて解決済みの最新タグの対。`build-plans.ts`が組み立て、
  * `stage-image-tag-updates.ts`が受け取る。対にして渡すことで、後段はどのタグがどのアプリの
  * ものかを引き当て直さずに済む。
  */

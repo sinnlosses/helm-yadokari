@@ -10,9 +10,10 @@ import type { AnchorLocation, ConfigUnit, LocalPath, ProjectId, ProjectName, Tag
 /**
  * 同じ`projectId`のappが複数の設定ユニットに登録されているとき、`tagFormat`が食い違って
  * いないか検証する。タグ形式はソースリポジトリ側の性質であって設定ユニットごとに
- * 変わる値ではなく、食い違ったまま実行すると`createResolveLatestTags()`のキャッシュ
- * （キーは`projectId:branchToSync`）を通じて、同じアプリの最新タグが実行順序次第で
- * 違う形式で決まってしまう（詳細は`docs/architecture.md`のタグ形式の置き場所を扱う節）。
+ * 変わる値ではなく、食い違ったまま実行すると`resolve-tags` stepが解決の単位を一意化する
+ * キー（`projectId`+`branchToSync`+`tagFormat`）が設定ユニットごとに別々になり、同じアプリの
+ * 同じコミットに形式違いのタグが2つできる（詳細は`docs/architecture.md`のタグ形式の
+ * 置き場所を扱う節）。
  * `branchToSync`の食い違いは設定ユニット側の判断として正当なので検証しない。
  */
 export function validateTagFormatConsistency(configUnits: readonly ConfigUnit[]): void {

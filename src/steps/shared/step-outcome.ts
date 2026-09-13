@@ -26,12 +26,41 @@ export type StepOutcome<T> =
   | { readonly status: "ok"; readonly value: T }
   | { readonly status: "settled"; readonly result: ConfigUnitUpdateResult }
 
+/**
+ * アプリ1件分の処理結果。失敗を例外ではなく値として持つため、1回だけ実行した処理の結果を
+ * 成功・失敗のどちらでも複数の設定ユニットへ配れる（例外は最初の1つにしか届かない）。
+ * 設定ユニット単位の`ConfigUnitUpdateResult`を持たないのは、この失敗をどの設定ユニットの
+ * ERRORにするかを決めるのが受け取った側だから。
+ */
+export type AppOutcome<T> =
+  | { readonly status: "ok"; readonly value: T }
+  | { readonly status: "failed"; readonly error: Error }
+
 export function ok<T>(value: T): StepOutcome<T> {
   return { status: "ok", value }
 }
 
 export function settle<T>(result: ConfigUnitUpdateResult): StepOutcome<T> {
   return { status: "settled", result }
+}
+
+/**
+ * アプリ単位の処理を実行し、非fatalな失敗を`AppOutcome`として返す。`withHandling()`が
+ * 設定ユニット単位で行う封じ込めの、アプリ単位版にあたる。fatalなエラーは`withHandling()`と
+ * 同じく`FatalError`として投げ直し、実行全体を止める。
+ *
+ * ログは出さない。この失敗が何件の設定ユニットのERRORになるかは受け取った側が決めるため、
+ * ERRORとしての記録は`withHandling()`のまま1箇所に残す。
+ */
+export function settleApp<T>(
+  adapter: PlatformAdapter,
+  projectName: ProjectName,
+  fn: () => Promise<T>,
+): Promise<AppOutcome<T>> {
+  return withAppContext(adapter, projectName, fn).then(
+    (value): AppOutcome<T> => ({ status: "ok", value }),
+    (err: unknown) => failApp<T>(adapter, err),
+  )
 }
 
 /**
@@ -65,6 +94,16 @@ export function withHandling<T>(
 ): Promise<StepOutcome<T>> {
   const logContext = buildLogContext(configUnit)
   return fn(logContext).catch((err: unknown) => settle<T>(settleAsError(adapter, err, logContext)))
+}
+
+/**
+ * `settleApp()`が捕捉した例外を`AppOutcome`に変換する。fatalかどうかの判定は`settleAsError()`と
+ * 同じで、こちらは設定ユニットが決まっていないためログを出さない。`withAppContext()`が
+ * 例外でない値をそのまま投げうるので、`Error`に揃えてから値にする。
+ */
+function failApp<T>(adapter: PlatformAdapter, err: unknown): AppOutcome<T> {
+  if (adapter.isFatalError(err)) throw new FatalError(adapter.extractHttpStatus(err), err)
+  return { status: "failed", error: err instanceof Error ? err : new Error(toErrorMessage(err)) }
 }
 
 /**
