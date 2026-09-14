@@ -1,17 +1,21 @@
 import type {
   AccessToken,
+  AccessTokenEnvName,
   ConfigUnitReport,
   ConfigUnitUpdateResult,
   RunResult,
 } from "./domain/types.js"
 import { loadConfig } from "./lib/config/config.js"
 import type { EnvConfig } from "./lib/env.js"
+import { loadAccessTokens } from "./lib/env.js"
 import { createGithubAdapter } from "./lib/github/adapter.js"
 import { createClient as createGithubClient } from "./lib/github/github.js"
 import { createGitlabAdapter } from "./lib/gitlab/adapter.js"
 import { createClient as createGitlabClient } from "./lib/gitlab/gitlab.js"
 import type { PlatformAdapter } from "./lib/platform/adapter.js"
 import { withCachedReads } from "./lib/platform/cached-reads.js"
+import type { AdaptersByAccessToken } from "./lib/platform/routed-adapter.js"
+import { createRoutedAdapter } from "./lib/platform/routed-adapter.js"
 import { formatReport } from "./lib/report/format-report.js"
 import { writeReport } from "./lib/report/write-report.js"
 import { applyUpdates } from "./steps/apply-updates/apply-updates.js"
@@ -77,11 +81,13 @@ async function runProcess(env: EnvConfig): Promise<RunProcessResult> {
  * 4. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
  */
 async function runPipeline(env: EnvConfig): Promise<RunProcessResult> {
-  const adapter = withCachedReads(createPlatformAdapter(env))
-  const { configUnits } = loadConfig(env.configRootPath, {
+  const { configUnits, accessTokenEnvNames } = loadConfig(env.configRootPath, {
     chartDirName: env.targetChart,
     units: env.targetUnits,
   })
+  const adapter = withCachedReads(
+    createRoutedAdapter(configUnits, buildAdaptersByAccessToken(env, accessTokenEnvNames)),
+  )
 
   const { targets, settled: filtered } = await filterTargets(
     adapter,
@@ -102,24 +108,31 @@ async function runPipeline(env: EnvConfig): Promise<RunProcessResult> {
   return { counts: summarizeResults(reports), reports }
 }
 
+/**
+ * `accessTokenEnvNames`（宣言された環境変数名の一覧）それぞれについてトークンを読み、
+ * 名前ごとに`createPlatformAdapter()`でアダプタを組み立てる。`env.accessToken`
+ * （既定の`ACCESS_TOKEN`）が設定されていれば`fallback`も組み立てる
+ * （`createRoutedAdapter()`が、宣言の無いchartリポジトリがあるのに未設定なら例外を投げる）。
+ */
+function buildAdaptersByAccessToken(
+  env: EnvConfig,
+  accessTokenEnvNames: readonly AccessTokenEnvName[],
+): AdaptersByAccessToken {
+  const tokens = loadAccessTokens(accessTokenEnvNames)
+  return {
+    declared: new Map(
+      [...tokens].map(([name, token]) => [name, createPlatformAdapter(env, token)]),
+    ),
+    fallback:
+      env.accessToken === undefined ? undefined : createPlatformAdapter(env, env.accessToken),
+  }
+}
+
 /** `env.platform`（1回の実行でGitLab/GitHubを混在させない選択）に応じてPlatformAdapterを組み立てる */
-function createPlatformAdapter(env: EnvConfig): PlatformAdapter {
-  const accessToken = requireAccessToken(env)
+function createPlatformAdapter(env: EnvConfig, accessToken: AccessToken): PlatformAdapter {
   return env.platform === "github"
     ? createGithubAdapter(createGithubClient(env.platformUrl, accessToken))
     : createGitlabAdapter(createGitlabClient(env.platformUrl, accessToken))
-}
-
-/**
- * T-244（`accessTokenEnv`で宣言されたトークンへの振り分け）までの暫定処置。今はまだ
- * `createRoutedAdapter()`が無く常に既定の`ACCESS_TOKEN`だけを使うため、未設定なら
- * 従来どおり即座に例外を投げて終了する。
- */
-function requireAccessToken(env: EnvConfig): AccessToken {
-  if (env.accessToken === undefined) {
-    throw new Error("ACCESS_TOKEN が未設定です")
-  }
-  return env.accessToken
 }
 
 function summarizeResults(

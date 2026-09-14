@@ -11,8 +11,13 @@ vi.mock("../src/utils/logger.js", () => ({
 
 import {
   toAccessToken,
+  toAccessTokenEnvName,
+  toBranchName,
+  toChartDirName,
   toCommitSha,
   toPlatformUrl,
+  toProjectId,
+  toProjectName,
   toReportOutputPath,
   toTagName,
 } from "../src/domain/types.js"
@@ -139,6 +144,54 @@ describe("run", () => {
     })
     vi.mocked(listTags).mockRejectedValue(makeHttpError(403))
     await expect(run(env)).resolves.toBe("PARTIAL_FAILURE")
+  })
+
+  it("chartリポジトリが宣言したトークンの401はそのchartだけをERRORにし、既定トークンのchartはCREATEDになる", async () => {
+    const declaredEnvName = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_B")
+    process.env[declaredEnvName] = "team-b-token"
+    try {
+      const chartAProjectId = toProjectId("100")
+      const appAProjectId = toProjectId("1")
+      const chartBProjectId = toProjectId("200")
+      const appBProjectId = toProjectId("201")
+
+      const chartA = makeConfigUnit([makeApp({ projectId: appAProjectId })], {
+        chartRepo: {
+          projectId: chartAProjectId,
+          projectName: toProjectName("teamA-chart"),
+          mrTargetBranch: toBranchName("develop"),
+        },
+      })
+      const chartB = makeConfigUnit(
+        [makeApp({ projectId: appBProjectId, projectName: toProjectName("app-b") })],
+        {
+          chartDirName: toChartDirName("teamB-chart"),
+          chartRepo: {
+            projectId: chartBProjectId,
+            projectName: toProjectName("teamB-chart"),
+            mrTargetBranch: toBranchName("develop"),
+          },
+          accessTokenEnv: declaredEnvName,
+        },
+      )
+      vi.mocked(loadConfig).mockReturnValue({
+        configUnits: [chartA, chartB],
+        accessTokenEnvNames: [declaredEnvName],
+      })
+      vi.mocked(listTags).mockImplementation((_gitlab, projectId) =>
+        projectId === appBProjectId
+          ? Promise.reject(makeHttpError(401))
+          : Promise.resolve([{ name: NEW_TAG, commitSha: HEAD_SHA }]),
+      )
+
+      await expect(run(env)).resolves.toBe("PARTIAL_FAILURE")
+      await expect(summaryCounts()).resolves.toEqual({ CREATED: 1, SKIPPED: 0, ERROR: 1 })
+      // 既定ACCESS_TOKENと宣言トークンの両方でcreateClientが呼ばれる（トークンごとに1アダプタ）
+      expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
+      expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "team-b-token")
+    } finally {
+      delete process.env[declaredEnvName]
+    }
   })
 
   it("createClient に GITLAB_URL と ACCESS_TOKEN を渡す", async () => {

@@ -172,7 +172,9 @@ export function makeTagSource(overrides: Partial<TagSource> = {}): TagSource {
 
 export function makeConfigUnit(
   apps: AppConfig[],
-  overrides: Partial<Pick<ConfigUnit, "chartDirName" | "unitPath" | "helm">> = {},
+  overrides: Partial<
+    Pick<ConfigUnit, "chartDirName" | "unitPath" | "helm" | "chartRepo" | "accessTokenEnv">
+  > = {},
 ): ConfigUnit {
   return {
     chartDirName: toChartDirName("teamA-chart"),
