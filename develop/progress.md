@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは6件（T-242〜T-247、直列依存）**。T-238〜T-241 は完了。
+**未着手のタスクは5件（T-243〜T-247、直列依存）**。T-242 は完了。T-238〜T-241 は完了。
 **T-229〜T-238 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は 59,620B → 8,570B）。完了タスクは
@@ -14,6 +14,18 @@
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-14 複数グループ運用の設計を正典に書く
+
+- **T-242: chart 単位のアクセストークン宣言（`registry.yaml` の `accessTokenEnv`）と複数トークン実行の
+  設計を `docs/requirements.md`・`docs/architecture.md`・`docs/glossary.md` に書いた**（opus に委譲）。
+  6論点の結論: 環境変数名は `^ACCESS_TOKEN_[A-Z0-9_]+$` に限定（config から無関係な秘密を
+  読ませない）、既定 `ACCESS_TOKEN` は条件付き必須（`EnvConfig.accessToken` が `| undefined` に）、
+  振り分けは `lib/platform/routed-adapter.ts` の `createRoutedAdapter()` で `withCachedReads()` は
+  その外側、同一 `projectId` の別トークンは「形」の設定エラー、**宣言トークンの 401 は素の `Error` に
+  読み替えて chart 単位の ERROR**（ログの `httpStatus` は `undefined` になる制約を正典に明記）、
+  `--remote` はトークンごとに分解し1本でも未設定なら失敗
+- `pnpm check` 通過: 43 Test Files / 516 Tests（不変。ドキュメントのみ）
 
 ### 2026-09-13 `lookUpLatestTags()` をサブステップにする
 
@@ -224,7 +236,7 @@
 （2026-09-14、`/plan-tasks`）。依存は直列で **T-242 → T-243 → T-244 → T-245 → T-246 → T-247**。
 すべて `loopable: Y` なので `/loop /next-task` で回せる:
 
-- **T-242**（opus）: 設計を正典に書く。`registry.yaml` の新フィールド名・環境変数名の制約
+- ~~**T-242**~~（done）: 設計を正典に書く。`registry.yaml` の新フィールド名・環境変数名の制約
   （`ACCESS_TOKEN_` 接頭辞を必須にする案）・既定 `ACCESS_TOKEN` との関係・振り分けアダプタの形・
   **401 の方針（chart 宣言トークンの 401 はその chart の ERROR、既定トークンの 401 は fatal のまま）**・
   `validate-config-remote` の分解。コードは書かない

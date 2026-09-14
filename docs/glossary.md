@@ -31,7 +31,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 | ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / TagSource / タグの読み取り結果（ParsedTag） / タグ情報（TagInfo） / 打刻日時 / 最新タグ / 反映済みタグ / タグ自動作成 / タグの由来（TagOrigin）                                                                                                                  |
 | ## MR・リポジトリ操作関連   | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング                                                                                                                                                                                                                               |
 | ## 実行結果・処理単位関連   | アプリ更新計画 / イメージタグの更新 / 向き先ブランチの更新 / 設定ユニット更新対象 / 設定ユニット処理結果 / 実行結果                                                                                                                                                                                      |
-| ## 実行環境・運用関連       | Dry-runモード / TARGET_CHART・TARGET_UNITS / pipeline schedules / Platform / ACCESS_TOKEN                                                                                                                                                                                                                |
+| ## 実行環境・運用関連       | Dry-runモード / TARGET_CHART・TARGET_UNITS / pipeline schedules / Platform / ACCESS_TOKEN・accessTokenEnv                                                                                                                                                                                                |
 | ## その他の注記             | 「target」の意味は文脈で決まる / 「反映」「適用」「更新」の使い分け                                                                                                                                                                                                                                      |
 
 ## 設定・登録関連
@@ -61,7 +61,8 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 - **英語識別子**: なし（ファイル名そのもの）
 - **定義**: `config/<chart>/`配下に置く2つの設定ファイル。ファイルを分ける軸は
   「スコープ」（値が何の単位で決まるか）。`registry.yaml`はchartリポジトリ単位で、
-  MRの作成先（`chartToUpdate`）と、ソースリポジトリのタグ形式の台帳（`appSpecs[].tagFormat`）を持つ。
+  MRの作成先（`chartToUpdate`）、ソースリポジトリのタグ形式の台帳（`appSpecs[].tagFormat`）、
+  操作に使うアクセストークンの宣言（`accessTokenEnv`。任意）を持つ。
   `config.yaml`は設定ユニット単位で、「どのプロジェクトのどのブランチを追跡するか」という
   運用値（`projectId`/`projectName`/`branchToSync`、Helmの向き先ブランチの値
   `helm.branchRef`）と、「`values.yaml`のどこに書き込むか」というchart構造
@@ -404,15 +405,31 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   `docs/architecture.md`「GitLab/GitHubの2実装は関数テーブル型`PlatformAdapter`で受け渡す」
   「HTTPエラーの経路」節。
 
-### ACCESS_TOKEN
+### ACCESS_TOKEN・accessTokenEnv
 
-- **英語識別子**: 環境変数`ACCESS_TOKEN`（型は`AccessToken`ブランド型）
-- **定義**: GitLab・GitHub共通のアクセストークン用環境変数。`PLATFORM=gitlab`（既定）なら
-  `read_api` + `write_repository` + MR作成権限を持つGitLabのGroup/Project Access Token、
-  `PLATFORM=github`ならGitHubのPersonal Access Token（fine-grained推奨）を渡す。
-  **GitHub側はPersonal Access Tokenのみサポートする**（GitHub Appは短命なinstallation
-  access tokenの再発行が必要になるため採らなかった。理由は`docs/architecture.md`
-  「プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/`GITHUB_URL`のまま」節）。
+- **英語識別子**: 環境変数`ACCESS_TOKEN` / `ACCESS_TOKEN_<グループ>`（値の型は`AccessToken`
+  ブランド型）と、`registry.yaml`トップレベルの`accessTokenEnv`フィールド（型は
+  `AccessTokenEnvName`ブランド型。`ConfigUnit.accessTokenEnv`に載る）
+- **定義**: GitLab・GitHub共通のアクセストークンと、その**環境変数名の宣言**。トークンは1本では
+  なく**グループごとに1本**発行してプロジェクトのCI/CD変数`ACCESS_TOKEN_<グループ>`（Masked）に
+  置き、どれを使うかをchartリポジトリ単位に`registry.yaml`の`accessTokenEnv`で宣言する
+  （書くのは環境変数名であってトークンの値ではない。名前は`^ACCESS_TOKEN_[A-Z0-9_]+$`に限る）。
+  宣言の無いchartリポジトリは既定の`ACCESS_TOKEN`を使い、`ACCESS_TOKEN`が必須なのは宣言の無い
+  chartリポジトリが実行対象に含まれるときだけ。1回の実行は複数のトークンで動き、
+  どの`ProjectId`をどのトークンで呼ぶかは`createRoutedAdapter()`
+  （`src/lib/platform/routed-adapter.ts`）が振り分ける。
+- **トークンの中身**: `PLATFORM=gitlab`（既定）なら`read_api` + `write_repository` + MR作成権限を
+  持つGitLabのGroup Access Token（Developerロール・短い有効期限）、`PLATFORM=github`なら
+  GitHubのPersonal Access Token（fine-grained推奨）を渡す。**GitHub側はPersonal Access Tokenのみ
+  サポートする**（GitHub Appは短命なinstallation access tokenの再発行が必要になるため採らなかった。
+  理由は`docs/architecture.md`「プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/
+  `GITHUB_URL`のまま」節）。
+- **失敗したときの波及範囲**: 宣言したトークンの401（認証エラー）と、宣言した環境変数が未設定
+  だった場合は、そのchartリポジトリ配下の設定ユニットだけが`ERROR`になる。既定`ACCESS_TOKEN`の
+  401と、トークンに依らない5xx・ネットワーク障害は実行全体を即時終了する。
+- **今の挙動の制約**: 1つの`projectId`を別々のトークンに結びつける`config/`は設定エラーになる
+  （`docs/requirements.md` 4.4節）。同じソースリポジトリを別グループのchartリポジトリから追う
+  構成は、両者が同じ`accessTokenEnv`を宣言できるときだけ可能。
 
 ## その他の注記
 

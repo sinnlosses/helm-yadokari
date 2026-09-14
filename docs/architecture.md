@@ -101,6 +101,7 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 | #### Helmの向き先ブランチはapp単位に振り分けず設定ユニット単位で持つ          | 設定ユニット単位で持つ理由                                                           |
 | #### MRの単位は `(chartリポジトリ, 設定ユニット)`                             | MRの粒度の理由                                                                       |
 | #### プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/`GITHUB_URL`のまま | 環境変数の形と、GitHub側をPATのみにした理由                                          |
+| #### アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける   | グループごとのトークンの宣言・振り分けアダプタ・401の波及範囲                        |
 
 **既知の制約・注意点** — 踏みやすい落とし穴
 
@@ -453,6 +454,13 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
    `result: "ERROR"`としてログに出し、`ConfigUnitUpdateResult`の`"ERROR"`を返す
 5. `FatalError`は`src/index.ts`まで上がり、`event: "fatal_error"`をログに出して`exit(1)`
 
+**宣言トークンの401は1・2の外側で読み替わる。** `createRoutedAdapter()`
+（`lib/platform/routed-adapter.ts`）が`ProjectId`でアダプタを引き当てて呼び、`registry.yaml`の
+`accessTokenEnv`で宣言されたトークンのアダプタが401を返したときだけ、HTTPの構造を持たない素の
+`Error`に替えて投げ直す。3以降はそれを「fatalではない失敗」として運ぶので、そのchartリポジトリの
+設定ユニットが`ERROR`になり他は続く。既定`ACCESS_TOKEN`の401はそのまま上がって4でfatalになる
+（「アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける」節）。
+
 **`resolveTags()`の失敗だけは4に入るのが遅れる。** 3の後で`settleApp()`が捕まえて`AppOutcome`の
 `failed`にし、`buildPlans()`が引き当てのたびに投げ直してから4に入る。1回の解決の失敗を、その
 アプリを含む**すべての**設定ユニットのERRORにするための遠回りで、fatalかどうかの判定だけは
@@ -635,7 +643,9 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 実行1回（バッチ）を通して使い回す読み取りは`lib/platform/cached-reads.ts`の`CachedReads`に
 **列挙したものだけ**がキャッシュされる（明示的なオプトイン）。`runProcess()`が
 `withCachedReads(adapter)`を1回だけ呼び、返した`PlatformAdapterWithCachedReads`（`adapter`に
-`cached: CachedReads`を1つ足しただけの値）を全stepへ引数で渡す。キャッシュが必要になるたびに
+`cached: CachedReads`を1つ足しただけの値）を全stepへ引数で渡す。包む相手はトークンの振り分け
+アダプタ（`createRoutedAdapter()`）の戻り値で、キャッシュは常にその**外側**に重ねる
+（「アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける」節）。キャッシュが必要になるたびに
 その場で工場関数を書いていた頃は、新しい問い合わせを足す人がキャッシュの要否を毎回自分で
 気づく必要があり、素の関数を呼ぶほうが常に書きやすいぶん抜けるほうへ倒れていた。
 
@@ -1046,6 +1056,10 @@ GitLabとGitHubの**両方に対応する。ただし1回の実行で混在は�
   普通のオブジェクトを渡せばよい
 - 起動時に落ちる（fail fast）性質は変わらず、むしろ**エラーが構造化ログに乗るようになった**
   （トップレベルで投げていた頃は`index.ts`のcatchより前で投げるため素のスタックトレースだった）
+- **入口は`loadEnvConfig()`だけではない。** `registry.yaml`の`accessTokenEnv`で宣言された
+  トークンは名前が`config/`を読むまで決まらないので、同じファイルの`loadAccessTokens()`が
+  config読み込みのあとに読む。`process.env`に触れるのが`src/lib/env.ts`だけという点は変わらない
+  （「アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける」節）
 
 #### 設定ミスの検知は「形」と「実在」で2段に分ける
 
@@ -1054,6 +1068,11 @@ GitLabとGitHubの**両方に対応する。ただし1回の実行で混在は�
 lintスクリプトが問題の一覧を返す。前者は認証不要なので全パイプラインで、後者はトークンがある
 パイプラインでのみ実行する。2段に分ける前は、存在しないアンカー・valuesPath・ブランチ・
 projectIdが本番実行時にはじめて`ERROR`になっていた。
+
+chartリポジトリをまたいだ突き合わせ（`validateTagFormatConsistency()`・
+`validateAccessTokenEnvConsistency()`）もローカルのYAMLだけで分かるので前者に入る。後者の
+実在チェック側は、chartリポジトリごとに宣言されたトークンでクライアントを分けて行う
+（「アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける」節）。
 
 #### `config/`は「スコープ」で2ファイルに分け、変更頻度では分けない
 
@@ -1230,6 +1249,114 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
   Authorizeしないと使えない（fine-grained PATは作成時に済む）。また組織側がfine-grained PATの
   利用をブロックしている場合がある
 
+#### アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける
+
+複数チーム（＝複数グループ）が1つの`config/`を共用するため、トークンは**グループごとに1本**の
+Group Access Tokenにし、どれを使うかを`registry.yaml`の`accessTokenEnv`（環境変数名）で
+chartリポジトリごとに宣言する。1回の実行が複数のトークンで動き、各トークンは自分のグループにしか
+届かないので、1本漏れても他グループのchartリポジトリへはpushできない。仕様（フィールドの
+必須/任意・名前の制約・設定エラーの条件）は`docs/requirements.md` 4.4節、失敗の波及範囲は
+同4.3節が正典で、ここには**なぜその形なのか**と**どのファイルが何を担うか**だけを書く。
+
+**`config/`には環境変数名だけを書き、トークンの値は書かない。** `config/`は各チームがMRを送る
+セルフサービス方式なので、値を書けばリポジトリに平文の秘密が入る。名前を
+`^ACCESS_TOKEN_[A-Z0-9_]+$`に限るのも同じ理由で、任意の名前を書けると`RENOVATE_TOKEN`のような
+無関係なCI/CD変数をCLIに読み出させる経路になる（MRのレビューだけに頼らない）。検証は
+`toAccessTokenEnvName()`（`domain/brand.ts`）に封じ込め、ブランド型`AccessTokenEnvName`を
+作れるのはこの関数だけにする。
+
+**型の置き場所**: `accessTokenEnv`は`registry.yaml`のトップレベルのフィールドなので
+`RegistryYamlSchema`（`src/lib/config/schema.ts`）に`.optional()`で足し、`ConfigUnit`
+（`src/domain/types.ts`）へ`readonly accessTokenEnv: AccessTokenEnvName | undefined`として載せる。
+`ChartRepoConfig`（`chartToUpdate`の写し）には入れない — トークンは`chartToUpdate`への書き込みと
+`appSpecs[]`の読み取りの両方に効く`registry.yaml`全体のスコープの値だから。宣言された名前の
+一覧（`accessTokenEnvNames`）は`LoadedConfig`（`src/lib/config/config.ts`）に足す。chartリポジトリ
+横断のグローバルな値を持たせるためにこの型を残してあり、これがその最初の1つになる。
+
+**トークンはschedule変数ではなくプロジェクトのCI/CD変数（Masked）に置く。** pipeline scheduleの
+変数はマスクできない（GitLab側の未解決issue）ため、schedule側に置くと出力に混ざった瞬間に
+そのまま読める。「このスケジュールはこのグループだけ」と変数で絞れそうに見えるが、マスクを
+捨てる代償のほうが大きい。
+
+**読み込みの順序**: `loadEnvConfig()`は`config/`を読む前に走るので、宣言された名前のトークンは
+config読み込みのあとに読む。`loadConfig()`が`LoadedConfig.accessTokenEnvNames`（実行対象の
+設定ユニットが宣言した名前の一覧）を返し、`src/lib/env.ts`の`loadAccessTokens()`がその名前だけを
+`process.env`から読んで`ReadonlyMap<AccessTokenEnvName, AccessToken>`にする。**`process.env`に
+触れるのは`src/lib/env.ts`だけ**という規約は変えず、読み取りの入口が`loadEnvConfig()`と
+`loadAccessTokens()`の2つになる（`docs/coding-standards.md`「環境変数」とCLAUDE.mdの
+「読み取りは`loadEnvConfig()`を通す」は、実装と同時に「`src/lib/env.ts`の関数を通す」へ直す）。
+`TARGET_CHART`で絞れば、読むトークンもそのchartリポジトリの分だけになる。未設定の名前は
+`loadAccessTokens()`では失敗させずに表から落とす（1グループの付け替え漏れを実行全体の失敗に
+しないため。扱いは下の401と同じ）。
+
+**`EnvConfig.accessToken`は`AccessToken | undefined`になる。** 実行対象の全chartリポジトリが
+宣言している構成では既定トークンが要らず、そこに「どのグループにも属さない広い権限のトークン」を
+置かせるのはこの方針の目的に逆行する。宣言の無いchartリポジトリが実行対象にあるのに未設定
+だったときだけ、`createRoutedAdapter()`が組み立て時に例外を投げて即時終了する（`config/`の
+読み込みエラーと同じ経路。どのchartリポジトリが`ACCESS_TOKEN`を要求しているかを並べる）。
+
+**振り分けは`src/lib/platform/routed-adapter.ts`の`createRoutedAdapter()`が担い、`steps/`は
+触らない。** `PlatformAdapter`の各関数は第1引数に`ProjectId`を取るので、「`ProjectId`から使う
+アダプタを引き当てて委譲するだけの`PlatformAdapter`」を1枚かぶせれば、stepからは今までどおり
+1つのアダプタに見える。
+
+- 引数は`(configUnits, adapters)`。`adapters`（`AdaptersByAccessToken`。この関数の引数の形なので
+  同じファイルに置く）は、宣言された名前ごとの`PlatformAdapter`（`declared`）と既定トークンの
+  もの（`fallback`。無ければ`undefined`）の2つを持つ。GitLab/GitHubの選択は`main.ts`の
+  `createPlatformAdapter(env, accessToken)`に残す（`lib/platform/`は`lib/gitlab/`・`lib/github/`を
+  importしない、を保つため）
+- 組み立て時に`configUnits`から`ProjectId`→アダプタの表を作る。`chartToUpdate.projectId`と、
+  そのchartリポジトリの`appSpecs[]`の`projectId`が同じトークンに結びつく
+- `buildTagUrl`・`buildCompareUrl`・`isFatalError`・`extractHttpStatus`の4つは`ProjectId`を
+  取らず、どのトークンのアダプタでも同じ実装なので振り分けない（代表として`fallback`、無ければ
+  `declared`の先頭のものをそのまま載せる）
+
+**`withCachedReads()`は振り分けの外側に重ねる**（`withCachedReads(createRoutedAdapter(...))`）。
+キャッシュのキーは`ProjectId`で、1つの`projectId`は1つのトークンにしか結びつかない（後述の検証が
+保証する）ため、外側に1つ持てば足りる。逆順（トークンごとにキャッシュで包んでから振り分ける）に
+すると、`runProcess()`が持つ「バッチ1回＝キャッシュ1つ」という寿命の宣言がトークンの数だけ
+分かれてしまう。
+
+**1つの`projectId`が2つのトークンに結びつく構成は設定エラーにする。** 判定は
+`src/lib/config/validate.ts`の`validateAccessTokenEnvConsistency()`が持ち、`loadConfig()`が
+`validateTagFormatConsistency()`の隣で呼ぶ。chartリポジトリをまたぐ整合性という同じ性質で、
+GitLabに問い合わせずローカルのYAMLだけで分かる＝「形」の検証なので、`pnpm lint:validate-config`
+でもMR時点で止まる。最新タグの解決は`(ソースリポジトリ, 追跡ブランチ, タグ形式)`単位に1回だけ
+行い、読み取りのキャッシュも`projectId`をキーに持つので、同じ`projectId`に2つの答えがある状態は
+そもそも表現できない。振り分けアダプタはこの検証を通ったあとの`configUnits`だけを受け取る。
+
+**宣言トークンの401だけを、そのchartリポジトリの`ERROR`に落とす。** 読み替えるのは
+`createRoutedAdapter()`が包んだ呼び出しの中（`lib/<プラットフォーム>/`のリトライの外側、
+`withAppContext()`より内側）で、`errors.ts`側には置かない — `isFatalError()`に見えるのは例外だけで、
+どのトークンで呼んだかを知らないため。宣言トークンのアダプタが投げた例外の`extractHttpStatus()`が
+401なら、HTTPの構造を持たない素の`Error`（メッセージにchartディレクトリ名・環境変数名・`HTTP 401`を
+載せる）に替えて投げ直す。こうすると`isFatalError()`は自然に偽になり、`settleAsError()`がその設定
+ユニットを`ERROR`として記録して他のchartリポジトリは続く。`FatalError`へ昇格させるかの判定を
+2箇所に増やさないための形で、`rethrowWithAppContext()`がさらに包んでも（`cause`を1段しか
+辿らないため）結果は変わらない。宣言した環境変数が未設定だったときも同じく素の`Error`を投げる。
+既定`ACCESS_TOKEN`の401・5xx・ネットワーク障害は従来どおりそのまま上がって`FatalError`になる。
+この読み替えでログの`httpStatus`は`undefined`になる（`HTTP 401`はメッセージ側に残る）。
+`README.md`「エラーハンドリング」の401の行は、実装と同時に「既定`ACCESS_TOKEN`＝即時終了／
+chartリポジトリが宣言したトークン＝そのchartリポジトリの設定ユニットが`ERROR`」の2行へ分ける。
+
+**`validate-config --remote`はトークンごとに分解する。** `scripts/lint/validate-config.ts`が設定
+ユニットを`accessTokenEnv`（宣言なし＝既定）でグループ分けし、グループごとに`createClient()`と
+`validateRemoteExistence()`を呼んで問題を連結する。`validateRemoteExistence()`の引数は変えない
+（`RemoteCache`もグループごとに分かれるが、`projectId`は1つのトークンにしか属さないので同じ
+問い合わせが二重になることはない）。本体と違って、必要なトークンが1本でも未設定ならそこで失敗
+させる（どのchartリポジトリがどの環境変数を要求しているかを全件並べる）。このジョブの目的は
+「このMRをマージしてよいか」の判定で、検証できなかったchartリポジトリがある状態を成功にすると、
+存在しないアンカー・ブランチがそのままマージされてしまう。
+
+採らなかった案:
+
+- **設定ユニット単位（`config.yaml`）での宣言**: トークンの権限はグループ＝chartリポジトリ側の
+  性質で、設定ユニットごとには変わらない。`tagFormat`を`registry.yaml`に置いたのと同じ理由
+- **`appSpecs[]`ごと・`projectId`ごとの宣言**: 表現力は上がるが、同じ`projectId`に2つのトークンが
+  結びつく構成を招く（上のとおり解決の重複排除とキャッシュが成り立たなくなる）
+- **1本のトークンにまとめ、CLI側でグループを判別する**: グループとプロジェクトの対応をAPIで
+  引く必要があるうえ、「1本漏れると全グループへ届く」という採らなかった前提そのものが残る
+
 ## 既知の制約・注意点
 
 ### `CONCURRENCY_LIMIT`はGitLab/GitHub APIへの同時接続数の上限ではない
@@ -1260,6 +1387,12 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
 「chartリポジトリ間は失敗しても他は継続する」という記述は一般的なエラーを指しており、GitLab側の
 認証切れ・障害のような全chart共通の致命的エラーに対しては、無駄なAPI呼び出しを避けるため
 この例外を設けている（gitlab-watari-dori由来のパターン）。
+
+**401だけは「全chart共通」とは限らなくなった。** `registry.yaml`の`accessTokenEnv`で宣言された
+トークンの401は、そのchartリポジトリの設定ユニットの`ERROR`に読み替えられて実行は止まらない
+（読み替える場所と理由は「アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で
+振り分ける」節）。ここで言う即時終了に当たるのは、既定`ACCESS_TOKEN`の401と、トークンに
+依らない5xx・ネットワーク障害・タイムアウト。
 
 ### その他
 
