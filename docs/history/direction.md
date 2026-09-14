@@ -9,6 +9,42 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-14（7回目）
+
+生成したタスク: T-242（設計を正典に書く）・T-243（`registry.yaml` の宣言と `env.ts`）・T-244（振り分けアダプタと `runPipeline()` の配線・401方針）・T-245（`validate-config-remote` の分解）・T-246（README・`.gitlab-ci.yml`・`config.example/` の運用手順）・T-247（`maintain-docs` で追随漏れを洗う）。タスクにしなかった項目: メモの「コードは変えない」「schedule 変数で `ACCESS_TOKEN` を上書きする」は、タスク化前の裏取りで **schedule 変数はマスクできない**（GitLab issue #35439 未解決）こと、`validate-config-remote` が `config/` 全体を1本のトークンで検証していることが分かり、チャットで **(a) トークンはプロジェクト変数 `ACCESS_TOKEN_<GROUP>`（Masked）に置く、(b) chart ごとのトークンを `registry.yaml` で宣言して CLI が複数トークンで動く（案B。実装変更あり）** に改めた。区分は「チーム」ではなく **GitLab のグループ**（ユーザー指摘）。それ以外の方針（グループごとの Group Access Token・最小スコープ・Developer ロール・短い期限・横断トークンを採らない）はそのまま T-242/T-246 に入れた。
+
+## 2026-09-14 複数チーム運用の手順をドキュメント化する（最小権限で）
+
+GitLabで複数チームがこのリポジトリを共用する運用を README（と必要なら `docs/requirements.md` 5章）に
+書き足す。方針は会話で決定済み。**コードは変えない**（既存の `ACCESS_TOKEN` / `TARGET_CHART` と
+pipeline schedule の変数上書きだけで実現する）。
+
+決定した方針:
+
+- 最上位グループの Group Access Token や、全グループ横断の Service Account / 個人 PAT は
+  **採らない**（1本漏れると全チームに push できる「巨大な権限」になるため）
+- **チームごとに Group Access Token を発行し、チームごとに pipeline schedule を分ける**。
+  schedule 変数で `ACCESS_TOKEN` と `TARGET_CHART` をそのチームの値に上書きする。
+  1回の実行が触れる範囲はそのチームのグループに閉じる
+- トークンのスコープは `read_api` + `write_repository`、ロールは Developer。`api` スコープと
+  Maintainer は付けない。保護ブランチ・保護タグのパターンにツールの固定ブランチ名・タグ形式が
+  当たらないようにして Developer で済ませる（ロールを上げるより、パターン側を調整する）
+- トークン名は `yadokari-<team>` のように識別できる名前にする（監査ログ・MR作者で判別）
+- 有効期限は短め（90日目安）。更新期日と担当はチーム側の責任。期限切れはその schedule が
+  失敗するだけで他チームに波及しない
+- chart とアプリが別グループのチームは、両方に届く共通の親グループで発行する（1回の実行は
+  1本のトークン）。それが大きすぎるなら chart と app を同じサブグループに寄せる
+- 残る集中点はこのリポジトリ自身（Maintainer 以上は全チームの schedule 変数を読める）。
+  Maintainer をプラットフォーム担当の数名に絞る。将来案としてコンテナイメージ配布で
+  各チームのグループ内で走らせる形があるが、config の置き場所が変わる設計変更なので今回は
+  書くだけ（着手しない）
+
+書く場所の目安: README「CI/CD」章（既存の schedule 作成手順・`ACCESS_TOKEN` の Protected OFF の
+説明に続けて「複数チームで運用する」小節を足す）。既存のトークン説明（「Group/Project Access
+Token（スコープ: …）」の記述）と矛盾しないよう、必要なら同じ節で表現を揃える。
+`docs/requirements.md` 5章の認証の記述とも整合させる。ドキュメント規約（`maintain-docs` の検査
+観点：正典の二重化を避ける、節の索引に追随）に従う。
+
 ## 2026-09-13（6回目）
 
 生成したタスク: T-241（`lookUpLatestTags()` を `build-plans/sub-steps/` へ移す）。タスクにしなかった項目: なし。`lookUpLatestTags` は `src/steps/build-plans/build-plans.ts:112` に非公開関数として実在することを確認済み。

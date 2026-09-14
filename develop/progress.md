@@ -1,12 +1,12 @@
 # 現在の状態
 
-最終更新: 2026-09-13（**最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
+最終更新: 2026-09-14（`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
 `filterTargets → resolveTags → buildPlans → applyUpdates` の4stepにした**（T-229〜T-231）。
 `createResolveLatestTags()` のバッチ寿命キャッシュは消滅し、重複排除は集合演算になった。
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは0件**（T-238〜T-241 をすべて完了）。
+**未着手のタスクは6件（T-242〜T-247、直列依存）**。T-238〜T-241 は完了。
 **T-229〜T-238 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は 59,620B → 8,570B）。完了タスクは
@@ -219,6 +219,35 @@
 - 後片付け済み（`reset --apply` → `setup --apply`。オープンMR 0件、フィクスチャは初期状態）
 
 ## 次にやること
+
+**複数グループ運用（chart 単位のアクセストークン宣言）を T-242〜T-247 として登録した**
+（2026-09-14、`/plan-tasks`）。依存は直列で **T-242 → T-243 → T-244 → T-245 → T-246 → T-247**。
+すべて `loopable: Y` なので `/loop /next-task` で回せる:
+
+- **T-242**（opus）: 設計を正典に書く。`registry.yaml` の新フィールド名・環境変数名の制約
+  （`ACCESS_TOKEN_` 接頭辞を必須にする案）・既定 `ACCESS_TOKEN` との関係・振り分けアダプタの形・
+  **401 の方針（chart 宣言トークンの 401 はその chart の ERROR、既定トークンの 401 は fatal のまま）**・
+  `validate-config-remote` の分解。コードは書かない
+- **T-243**（sonnet）: `RegistryYamlSchema` の新フィールド、`ConfigUnit` への搭載、`env.ts` の読み取り関数
+- **T-244**（sonnet）: `src/lib/platform/` の振り分けアダプタ、`runPipeline()` の配線、401 方針。`steps/` は触らない
+- **T-245**（sonnet）: `scripts/lint/validate-config.ts --remote` を chart ごとのトークンで検証
+- **T-246**（sonnet）: README「CI/CD」に「複数グループで運用する」小節、環境変数表、`.gitlab-ci.yml` コメント、`config.example/`
+- **T-247**（sonnet）: `maintain-docs` で追随漏れを洗う
+
+**ユーザー決定済みの方針**（タスク化前にチャットで確定。詳細は
+[`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-14（7回目）」）:
+
+- 区分は「チーム」ではなく **GitLab のグループ**。グループごとに Group Access Token を1本
+  （`read_api` + `write_repository`、Developer、短い期限）。最上位グループのトークン・横断 Service
+  Account・個人 PAT は「1本漏れると全グループへ push できる」ため採らない
+- トークンは **プロジェクトの CI/CD 変数 `ACCESS_TOKEN_<GROUP>`（Masked）**。schedule 変数は
+  マスクできない（GitLab issue #35439 未解決）ので使わない
+- **chart ごとのトークンを `registry.yaml` で宣言し、CLI が1回の実行で複数トークンを扱う**（案B）。
+  CI 側の matrix で分解する案A（対応表が `.gitlab-ci.yml` と config に二重化しドリフトする）は採らない。
+  既存の単一 `ACCESS_TOKEN` は宣言の無い chart の既定として残す（互換）
+- 検証ジョブ `validate-config-remote` も chart ごとの宣言トークンで分解する（実装変更を許容）
+
+---
 
 **`lookUpLatestTags()` のサブステップ化を T-241 として登録した**（2026-09-13、`/plan-tasks`）。
 他のタスクとは独立（T-240 とは触るファイルが重ならない）:
