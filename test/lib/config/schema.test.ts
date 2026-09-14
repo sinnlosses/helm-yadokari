@@ -150,6 +150,63 @@ describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
   )
 })
 
+describe("loadConfig（registry.yamlのaccessTokenEnv）", () => {
+  const CONFIG_YAML = configYaml([
+    {
+      projectId: 1,
+      projectName: "app-1",
+      branchToSync: "main",
+      locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
+    },
+  ])
+
+  it("宣言した環境変数名がそのままConfigUnitまで届く", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml(
+        { projectId: 888, projectName: "teamA-chart", mrTargetBranch: "develop" },
+        [{ projectId: 1, projectName: "app-1" }],
+        "ACCESS_TOKEN_TEAM_A",
+      ),
+    )
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits[0]?.accessTokenEnv).toBe("ACCESS_TOKEN_TEAM_A")
+  })
+
+  it("省略したとき undefined になる（既定の ACCESS_TOKEN を使う）", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml(
+        { projectId: 888, projectName: "teamA-chart", mrTargetBranch: "develop" },
+        [{ projectId: 1, projectName: "app-1" }],
+      ),
+    )
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits[0]?.accessTokenEnv).toBeUndefined()
+  })
+
+  it.each(["ACCESS_TOKEN", "RENOVATE_TOKEN", "ACCESS_TOKEN_team_a", "ACCESS_TOKEN_"])(
+    "不正な名前 %s のとき例外をスローする",
+    (accessTokenEnv) => {
+      dir.writeRegistryYaml(
+        "teamA-chart",
+        registryYaml(
+          { projectId: 888, projectName: "teamA-chart", mrTargetBranch: "develop" },
+          [{ projectId: 1, projectName: "app-1" }],
+          accessTokenEnv,
+        ),
+      )
+      dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+
+      expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
+    },
+  )
+})
+
 describe("loadConfig（projectIdの数値/文字列両対応）", () => {
   it("registry.yaml と config.yaml の projectId が数値（GitLabのプロジェクトID）でも読める", () => {
     dir.writeRegistryYaml(

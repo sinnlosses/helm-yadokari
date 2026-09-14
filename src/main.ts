@@ -1,4 +1,9 @@
-import type { ConfigUnitReport, ConfigUnitUpdateResult, RunResult } from "./domain/types.js"
+import type {
+  AccessToken,
+  ConfigUnitReport,
+  ConfigUnitUpdateResult,
+  RunResult,
+} from "./domain/types.js"
 import { loadConfig } from "./lib/config/config.js"
 import type { EnvConfig } from "./lib/env.js"
 import { createGithubAdapter } from "./lib/github/adapter.js"
@@ -99,9 +104,22 @@ async function runPipeline(env: EnvConfig): Promise<RunProcessResult> {
 
 /** `env.platform`（1回の実行でGitLab/GitHubを混在させない選択）に応じてPlatformAdapterを組み立てる */
 function createPlatformAdapter(env: EnvConfig): PlatformAdapter {
+  const accessToken = requireAccessToken(env)
   return env.platform === "github"
-    ? createGithubAdapter(createGithubClient(env.platformUrl, env.accessToken))
-    : createGitlabAdapter(createGitlabClient(env.platformUrl, env.accessToken))
+    ? createGithubAdapter(createGithubClient(env.platformUrl, accessToken))
+    : createGitlabAdapter(createGitlabClient(env.platformUrl, accessToken))
+}
+
+/**
+ * T-244（`accessTokenEnv`で宣言されたトークンへの振り分け）までの暫定処置。今はまだ
+ * `createRoutedAdapter()`が無く常に既定の`ACCESS_TOKEN`だけを使うため、未設定なら
+ * 従来どおり即座に例外を投げて終了する。
+ */
+function requireAccessToken(env: EnvConfig): AccessToken {
+  if (env.accessToken === undefined) {
+    throw new Error("ACCESS_TOKEN が未設定です")
+  }
+  return env.accessToken
 }
 
 function summarizeResults(

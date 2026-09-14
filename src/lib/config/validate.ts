@@ -1,5 +1,13 @@
 import { buildConfigUnitLocation } from "../../domain/config-unit.js"
-import type { AnchorLocation, ConfigUnit, LocalPath, ProjectId, ProjectName, TagFormat } from "../../domain/types.js"
+import type {
+  AccessTokenEnvName,
+  AnchorLocation,
+  ConfigUnit,
+  LocalPath,
+  ProjectId,
+  ProjectName,
+  TagFormat,
+} from "../../domain/types.js"
 
 /**
  * `registry.yaml` / `config.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス
@@ -38,6 +46,46 @@ export function validateTagFormatConsistency(configUnits: readonly ConfigUnit[])
       }
     }
   }
+}
+
+/**
+ * 同じ`projectId`が別々の`accessTokenEnv`（省略＝既定の`ACCESS_TOKEN`も1つの値として数える）に
+ * 結びついていないか検証する。`chartRepo.projectId`と`apps[].projectId`の両方が対象で、
+ * どちらに書かれているかは問わない。最新タグの解決・キャッシュは`projectId`単位のため、
+ * 同じ`projectId`に2つのトークンが結びつく状態はそもそも表現できない
+ * （`docs/requirements.md` 4.4節）。
+ */
+export function validateAccessTokenEnvConsistency(configUnits: readonly ConfigUnit[]): void {
+  const seen = new Map<
+    ProjectId,
+    { readonly accessTokenEnv: AccessTokenEnvName | undefined; readonly location: string }
+  >()
+  for (const configUnit of configUnits) {
+    const location = buildConfigUnitLocation(configUnit.chartDirName, configUnit.unitPath)
+    const projectIds = [
+      configUnit.chartRepo.projectId,
+      ...configUnit.apps.map((app) => app.projectId),
+    ]
+    for (const projectId of projectIds) {
+      const prior = seen.get(projectId)
+      if (prior === undefined) {
+        seen.set(projectId, { accessTokenEnv: configUnit.accessTokenEnv, location })
+        continue
+      }
+      if (prior.accessTokenEnv !== configUnit.accessTokenEnv) {
+        throw new Error(
+          `projectId ${projectId} が複数の accessTokenEnv に結びついています` +
+            `（${prior.location}: ${describeAccessTokenEnv(prior.accessTokenEnv)} / ` +
+            `${location}: ${describeAccessTokenEnv(configUnit.accessTokenEnv)}）。` +
+            `1つの projectId は1つのアクセストークンにしか結びつけられません`,
+        )
+      }
+    }
+  }
+}
+
+function describeAccessTokenEnv(accessTokenEnv: AccessTokenEnvName | undefined): string {
+  return accessTokenEnv ?? "省略（既定の ACCESS_TOKEN）"
 }
 
 /**

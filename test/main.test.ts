@@ -58,7 +58,7 @@ const HEAD_SHA = toCommitSha("head-sha")
 describe("run", () => {
   beforeEach(() => {
     vi.mocked(createClient).mockReturnValue(mockGitlab)
-    vi.mocked(loadConfig).mockReturnValue({ configUnits: [] })
+    vi.mocked(loadConfig).mockReturnValue({ configUnits: [], accessTokenEnvNames: [] })
     vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
@@ -92,19 +92,26 @@ describe("run", () => {
   it("全件 CREATED のとき正しい件数を集計する", async () => {
     vi.mocked(loadConfig).mockReturnValue({
       configUnits: [makeConfigUnit([makeApp()]), makeConfigUnit([makeApp()])],
+      accessTokenEnvNames: [],
     })
     await expect(run(env)).resolves.toBe("SUCCESS")
     await expect(summaryCounts()).resolves.toEqual({ CREATED: 2, SKIPPED: 0, ERROR: 0 })
   })
 
   it("FatalErrorが発生したとき reject する", async () => {
-    vi.mocked(loadConfig).mockReturnValue({ configUnits: [makeConfigUnit([makeApp()])] })
+    vi.mocked(loadConfig).mockReturnValue({
+      configUnits: [makeConfigUnit([makeApp()])],
+      accessTokenEnvNames: [],
+    })
     vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
     await expect(run(env)).rejects.toThrow(FatalError)
   })
 
   it("FatalErrorが発生したときレポートを書き出さない", async () => {
-    vi.mocked(loadConfig).mockReturnValue({ configUnits: [makeConfigUnit([makeApp()])] })
+    vi.mocked(loadConfig).mockReturnValue({
+      configUnits: [makeConfigUnit([makeApp()])],
+      accessTokenEnvNames: [],
+    })
     vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
     await expect(run(env)).rejects.toThrow(FatalError)
     expect(existsSync(REPORT_OUTPUT_PATH)).toBe(false)
@@ -113,6 +120,7 @@ describe("run", () => {
   it("実行後、件数サマリと設定ユニット1件につき1行の表を含むMarkdownレポートを書き出す", async () => {
     vi.mocked(loadConfig).mockReturnValue({
       configUnits: [makeConfigUnit([makeApp()]), makeConfigUnit([makeApp()])],
+      accessTokenEnvNames: [],
     })
     await run(env)
 
@@ -125,7 +133,10 @@ describe("run", () => {
   })
 
   it('ERROR が1件以上あるとき "PARTIAL_FAILURE" を返す', async () => {
-    vi.mocked(loadConfig).mockReturnValue({ configUnits: [makeConfigUnit([makeApp()])] })
+    vi.mocked(loadConfig).mockReturnValue({
+      configUnits: [makeConfigUnit([makeApp()])],
+      accessTokenEnvNames: [],
+    })
     vi.mocked(listTags).mockRejectedValue(makeHttpError(403))
     await expect(run(env)).resolves.toBe("PARTIAL_FAILURE")
   })
@@ -160,7 +171,7 @@ describe("run", () => {
 
 describe("run（PLATFORMによる実装の切り替え）", () => {
   beforeEach(() => {
-    vi.mocked(loadConfig).mockReturnValue({ configUnits: [] })
+    vi.mocked(loadConfig).mockReturnValue({ configUnits: [], accessTokenEnvNames: [] })
   })
 
   afterEach(() => {

@@ -3,6 +3,7 @@ import { existsSync, statSync } from "node:fs"
 import { parseConfigUnitPath } from "../domain/config-unit.js"
 import type {
   AccessToken,
+  AccessTokenEnvName,
   ChartDirName,
   ConfigRootPath,
   ConfigUnitPath,
@@ -114,7 +115,12 @@ export function parseTargetUnits(raw: string | undefined): readonly ConfigUnitPa
 export type EnvConfig = {
   readonly platform: PlatformKind
   readonly platformUrl: PlatformUrl
-  readonly accessToken: AccessToken
+  /**
+   * 既定のアクセストークン（`ACCESS_TOKEN`）。宣言（`accessTokenEnv`）の無いchartリポジトリが
+   * 実行対象に含まれるときだけ必須で、それ以外は未設定でもよい
+   * （`docs/architecture.md`「アクセストークンはchartリポジトリ単位に宣言し…」節）
+   */
+  readonly accessToken: AccessToken | undefined
   readonly configRootPath: ConfigRootPath
   readonly reportOutputPath: ReportOutputPath
   readonly concurrencyLimit: number
@@ -137,7 +143,7 @@ export function loadEnvConfig(): EnvConfig {
   return {
     platform,
     platformUrl: loadPlatformUrl(platform),
-    accessToken: toAccessToken(loadEnv("ACCESS_TOKEN")),
+    accessToken: loadOptionalAccessToken(),
     configRootPath: parseConfigRootPath(loadOptionalEnv("CONFIG_ROOT_PATH")),
     reportOutputPath: parseReportOutputPath(loadOptionalEnv("REPORT_OUTPUT_PATH")),
     concurrencyLimit: parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT")),
@@ -147,11 +153,34 @@ export function loadEnvConfig(): EnvConfig {
   }
 }
 
+/**
+ * `accessTokenEnv`で宣言された環境変数名それぞれについて、値が設定されていればトークンを読む。
+ * 未設定の名前は例外にせず表から落とす（1グループのCI/CD変数の付け替え漏れを実行全体の失敗に
+ * しないため。宣言したトークンの401と同じ扱い。`docs/architecture.md`「アクセストークンは
+ * chartリポジトリ単位に宣言し…」節）。`loadConfig()`が`config/`を読んだあと、
+ * `LoadedConfig.accessTokenEnvNames`を渡して呼ぶ。
+ */
+export function loadAccessTokens(
+  names: readonly AccessTokenEnvName[],
+): ReadonlyMap<AccessTokenEnvName, AccessToken> {
+  const entries = names
+    .map((name) => [name, loadOptionalEnv(name)] as const)
+    .filter((entry): entry is readonly [AccessTokenEnvName, string] => entry[1] !== undefined)
+    .map(([name, value]) => [name, toAccessToken(value)] as const)
+  return new Map(entries)
+}
+
 /** 接続先URLは`PLATFORM`ごとに別の環境変数（`GITLAB_URL`/`GITHUB_URL`）で受ける */
 function loadPlatformUrl(platform: PlatformKind): PlatformUrl {
   return platform === "gitlab"
     ? validateGitlabUrl(loadEnv("GITLAB_URL"))
     : validateGithubUrl(loadEnv("GITHUB_URL"))
+}
+
+/** 既定の`ACCESS_TOKEN`は宣言（`accessTokenEnv`）の無いchartリポジトリだけが使うため、ここでは未設定を許す */
+function loadOptionalAccessToken(): AccessToken | undefined {
+  const value = loadOptionalEnv("ACCESS_TOKEN")
+  return value === undefined ? undefined : toAccessToken(value)
 }
 
 function parseTargetUnitEntry(entry: string): ConfigUnitPath {

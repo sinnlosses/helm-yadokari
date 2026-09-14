@@ -1,4 +1,4 @@
-import type { ConfigRootPath, ConfigUnit, LocalPath } from "../../domain/types.js"
+import type { AccessTokenEnvName, ConfigRootPath, ConfigUnit, LocalPath } from "../../domain/types.js"
 import { toConfigRootPath } from "../../domain/types.js"
 import { listSubdirectories } from "../../utils/fs.js"
 import type { ChartDirUnits } from "./find-config-units.js"
@@ -6,17 +6,20 @@ import { findConfigUnits } from "./find-config-units.js"
 import { loadConfigUnits } from "./load-config-unit.js"
 import type { ConfigTarget } from "./limit-to-target.js"
 import { NO_TARGET, assertTargetMatched, selectChartDirs, selectTargetConfigUnits } from "./limit-to-target.js"
-import { validateTagFormatConsistency } from "./validate.js"
+import { validateAccessTokenEnvConsistency, validateTagFormatConsistency } from "./validate.js"
 
 /** `CONFIG_ROOT_PATH`・コマンドライン引数のどちらも省略されたときに読む設定ディレクトリ */
 export const DEFAULT_CONFIG_ROOT_PATH: ConfigRootPath = toConfigRootPath("config")
 
 /**
- * `config/`配下を読み込んだ結果。`configUnits`だけを持つ形にしてあるのは、
- * chartリポジトリ横断のグローバル設定を将来足すときに戻り値の形を変えずに済ませるため。
+ * `config/`配下を読み込んだ結果。`configUnits`はchartリポジトリ横断のグローバル設定を
+ * 将来足すときに戻り値の形を変えずに済ませるため単独のフィールドにしてある。
+ * `accessTokenEnvNames`はその最初の1つ（実行対象の設定ユニットが宣言した`accessTokenEnv`の
+ * 一覧、重複なし）。
  */
 export type LoadedConfig = {
   readonly configUnits: readonly ConfigUnit[]
+  readonly accessTokenEnvNames: readonly AccessTokenEnvName[]
 }
 
 /**
@@ -30,9 +33,19 @@ export function loadConfig(configRootPath: ConfigRootPath, target: ConfigTarget 
   const targetUnits = selectTargetUnits(configRootPath, allChartDirs, target)
   const configUnits = targetUnits.flatMap(loadConfigUnits)
   validateTagFormatConsistency(configUnits)
+  validateAccessTokenEnvConsistency(configUnits)
   assertTargetMatched(target, allChartDirs, configUnits)
 
-  return { configUnits }
+  return { configUnits, accessTokenEnvNames: collectAccessTokenEnvNames(configUnits) }
+}
+
+function collectAccessTokenEnvNames(
+  configUnits: readonly ConfigUnit[],
+): readonly AccessTokenEnvName[] {
+  const names = configUnits
+    .map((configUnit) => configUnit.accessTokenEnv)
+    .filter((name): name is AccessTokenEnvName => name !== undefined)
+  return [...new Set(names)]
 }
 
 /**

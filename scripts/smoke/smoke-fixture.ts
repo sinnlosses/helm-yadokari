@@ -185,6 +185,13 @@ if (env.platform !== "gitlab") {
   )
   process.exit(1)
 }
+// T-244（accessTokenEnvで宣言されたトークンごとの分解）までの暫定処置。今はまだ
+// トークンごとにグループ分けしておらず常に既定のACCESS_TOKENだけを使うため、
+// 未設定なら理由を明示して終了する
+if (env.accessToken === undefined) {
+  console.error("smoke-fixture ERROR: ACCESS_TOKEN が未設定です")
+  process.exit(1)
+}
 const gitlab = createClient(env.platformUrl, env.accessToken)
 
 /**

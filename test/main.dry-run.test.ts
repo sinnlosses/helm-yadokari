@@ -87,6 +87,7 @@ describe("run（DRY_RUN=true）", () => {
     } as never)
     vi.mocked(loadConfig).mockReturnValue({
       configUnits: [makeConfigUnit([makeApp()])],
+      accessTokenEnvNames: [],
     })
   })
 

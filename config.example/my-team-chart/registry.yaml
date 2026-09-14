@@ -1,4 +1,10 @@
 # chartリポジトリ単位の設定。このディレクトリ配下の全設定ユニットで共有する。
+
+# このchartリポジトリの操作に使うアクセストークンの環境変数名（任意）。
+# 省略すると既定の ACCESS_TOKEN を使う。書けるのは "ACCESS_TOKEN_" で始まる名前だけで、
+# 値そのもの（トークン）はここには書かない
+accessTokenEnv: ACCESS_TOKEN_TEAM_A
+
 chartToUpdate:
   projectId: 1000 # values.yaml を更新する chartリポジトリの GitLab プロジェクトID
   projectName: my-team-chart

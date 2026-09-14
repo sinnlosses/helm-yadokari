@@ -236,6 +236,110 @@ describe("loadConfig（重複指定の検証）", () => {
   })
 })
 
+describe("loadConfig（複数のchartリポジトリにまたがるaccessTokenEnvの整合性）", () => {
+  const configYamlFor = (projectId: number, projectName: string): string =>
+    configYaml([
+      {
+        projectId,
+        projectName,
+        branchToSync: "main",
+        locations: [{ valuesPath: `${projectName}.yaml`, anchor: "appVersion" }],
+      },
+    ])
+
+  it("同じprojectIdのappが別々のchartリポジトリで違うaccessTokenEnvを宣言しているとき例外をスローする", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml(
+        { projectId: 888, projectName: "teamA-chart", mrTargetBranch: "develop" },
+        [{ projectId: 1, projectName: "my-app" }],
+        "ACCESS_TOKEN_TEAM_A",
+      ),
+    )
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYamlFor(1, "my-app"))
+    dir.writeRegistryYaml(
+      "teamB-chart",
+      registryYaml(
+        { projectId: 889, projectName: "teamB-chart", mrTargetBranch: "develop" },
+        [{ projectId: 1, projectName: "my-app" }],
+        "ACCESS_TOKEN_TEAM_B",
+      ),
+    )
+    dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYamlFor(1, "my-app"))
+
+    expect(() => loadConfig(dir.path)).toThrow("accessTokenEnv")
+  })
+
+  it("片方だけaccessTokenEnvを宣言（もう片方は省略）しているとき例外をスローする", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml(
+        { projectId: 888, projectName: "teamA-chart", mrTargetBranch: "develop" },
+        [{ projectId: 1, projectName: "my-app" }],
+        "ACCESS_TOKEN_TEAM_A",
+      ),
+    )
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYamlFor(1, "my-app"))
+    dir.writeRegistryYaml(
+      "teamB-chart",
+      registryYaml(
+        { projectId: 889, projectName: "teamB-chart", mrTargetBranch: "develop" },
+        [{ projectId: 1, projectName: "my-app" }],
+      ),
+    )
+    dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYamlFor(1, "my-app"))
+
+    expect(() => loadConfig(dir.path)).toThrow("accessTokenEnv")
+  })
+
+  it("同じaccessTokenEnvを宣言していれば複数のchartリポジトリにまたがっても読み込める", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml(
+        { projectId: 888, projectName: "teamA-chart", mrTargetBranch: "develop" },
+        [{ projectId: 1, projectName: "my-app" }],
+        "ACCESS_TOKEN_TEAM_A",
+      ),
+    )
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYamlFor(1, "my-app"))
+    dir.writeRegistryYaml(
+      "teamB-chart",
+      registryYaml(
+        { projectId: 889, projectName: "teamB-chart", mrTargetBranch: "develop" },
+        [{ projectId: 1, projectName: "my-app" }],
+        "ACCESS_TOKEN_TEAM_A",
+      ),
+    )
+    dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYamlFor(1, "my-app"))
+
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits).toHaveLength(2)
+  })
+
+  it("chartToUpdate.projectIdが別chartのappSpecs[].projectIdと衝突しているとき例外をスローする", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml(
+        { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
+        [],
+        "ACCESS_TOKEN_TEAM_A",
+      ),
+    )
+    dir.writeConfigYaml("teamA-chart", "central", configYaml())
+    dir.writeRegistryYaml(
+      "teamB-chart",
+      registryYaml(
+        { projectId: 889, projectName: "teamB-chart", mrTargetBranch: "develop" },
+        [{ projectId: 1, projectName: "shared-app" }],
+        "ACCESS_TOKEN_TEAM_B",
+      ),
+    )
+    dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYamlFor(1, "shared-app"))
+
+    expect(() => loadConfig(dir.path)).toThrow("accessTokenEnv")
+  })
+})
+
 describe("loadConfig（複数のchartリポジトリにまたがるtagFormatの食い違い）", () => {
   const configYamlFor = (branchToSync: string): string =>
     configYaml([

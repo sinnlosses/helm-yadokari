@@ -3,7 +3,9 @@ import { join } from "node:path"
 
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import { toAccessTokenEnvName } from "../../src/domain/types.js"
 import {
+  loadAccessTokens,
   loadEnv,
   loadEnvConfig,
   loadOptionalEnv,
@@ -272,6 +274,13 @@ describe("loadEnvConfig", () => {
     })
   })
 
+  it("ACCESS_TOKEN が未設定でも失敗せず、accessToken が undefined になる（accessTokenEnv宣言だけのchartリポジトリを実行対象にできるため）", () => {
+    vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
+    vi.stubEnv("ACCESS_TOKEN", undefined)
+
+    expect(loadEnvConfig().accessToken).toBeUndefined()
+  })
+
   it('DRY_RUN は文字列 "true" のときだけ dryRun を立てる', () => {
     vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
     vi.stubEnv("ACCESS_TOKEN", "token")
@@ -320,5 +329,41 @@ describe("loadEnvConfig", () => {
     vi.stubEnv("ACCESS_TOKEN", "token")
 
     expect(() => loadEnvConfig()).toThrow("PLATFORM")
+  })
+})
+
+describe("loadAccessTokens", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it("宣言された名前ごとに設定済みのトークンをMapに詰めて返す", () => {
+    vi.stubEnv("ACCESS_TOKEN_TEAM_A", "token-a")
+    vi.stubEnv("ACCESS_TOKEN_TEAM_B", "token-b")
+
+    const tokens = loadAccessTokens([
+      toAccessTokenEnvName("ACCESS_TOKEN_TEAM_A"),
+      toAccessTokenEnvName("ACCESS_TOKEN_TEAM_B"),
+    ])
+
+    expect(tokens.get(toAccessTokenEnvName("ACCESS_TOKEN_TEAM_A"))).toBe("token-a")
+    expect(tokens.get(toAccessTokenEnvName("ACCESS_TOKEN_TEAM_B"))).toBe("token-b")
+  })
+
+  it("未設定の名前は例外にせず表から落とす（1グループの付け替え漏れで実行全体を失敗させないため）", () => {
+    vi.stubEnv("ACCESS_TOKEN_TEAM_A", "token-a")
+    vi.stubEnv("ACCESS_TOKEN_TEAM_B", undefined)
+
+    const tokens = loadAccessTokens([
+      toAccessTokenEnvName("ACCESS_TOKEN_TEAM_A"),
+      toAccessTokenEnvName("ACCESS_TOKEN_TEAM_B"),
+    ])
+
+    expect(tokens.size).toBe(1)
+    expect(tokens.has(toAccessTokenEnvName("ACCESS_TOKEN_TEAM_B"))).toBe(false)
+  })
+
+  it("空配列を渡すと空のMapを返す", () => {
+    expect(loadAccessTokens([]).size).toBe(0)
   })
 })

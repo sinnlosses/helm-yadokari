@@ -1,6 +1,7 @@
 import { join } from "node:path"
 
 import type {
+  AccessTokenEnvName,
   AppConfig,
   ChartDirName,
   ChartRepoConfig,
@@ -28,12 +29,17 @@ import { validateNoDuplicateProjectIds, validateNoDuplicateLocations } from "./v
  */
 export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[] {
   const registryYamlPath = toLocalPath(join(chartUnits.chartDirPath, REGISTRY_YAML_FILE_NAME))
-  const { chartToUpdate: chart, appSpecs } = parseYamlFile(registryYamlPath, RegistryYamlSchema)
+  const {
+    chartToUpdate: chart,
+    appSpecs,
+    accessTokenEnv,
+  } = parseYamlFile(registryYamlPath, RegistryYamlSchema)
   validateNoDuplicateProjectIds(registryYamlPath, appSpecs)
   const chartRepoScope: ChartRepoScope = {
     chartDirName: chartUnits.chartDirName,
     chart,
     appSpecs,
+    accessTokenEnv,
     registryYamlPath,
   }
   return chartUnits.unitPaths.map((unitPath) =>
@@ -49,6 +55,7 @@ type ChartRepoScope = {
   readonly chartDirName: ChartDirName
   readonly chart: ChartRepoConfig
   readonly appSpecs: readonly AppSpec[]
+  readonly accessTokenEnv: AccessTokenEnvName | undefined
   readonly registryYamlPath: LocalPath
 }
 
@@ -70,7 +77,7 @@ function buildConfigUnit(
   chartRepoScope: ChartRepoScope,
   configUnitScope: ConfigUnitScope,
 ): ConfigUnit {
-  const { chartDirName, chart, appSpecs, registryYamlPath } = chartRepoScope
+  const { chartDirName, chart, appSpecs, accessTokenEnv, registryYamlPath } = chartRepoScope
   const { unitPath, configYamlPath } = configUnitScope
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
   validateNoDuplicateProjectIds(configYamlPath, apps)
@@ -102,6 +109,7 @@ function buildConfigUnit(
     chartRepo: chart,
     apps: appConfigs,
     helm: resolveHelmConfig(configYamlPath, helm, appConfigs),
+    accessTokenEnv,
   }
 }
 

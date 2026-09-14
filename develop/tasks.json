@@ -50,9 +50,9 @@
     "dependencies": ["T-242"],
     "summary": "`registry.yaml` にトークン宣言フィールドを足し、`loadConfig()` と `src/lib/env.ts` が chart ごとのトークンを読めるようにする",
     "task": "## 背景\n\nT-242 で `docs/requirements.md` 4.4節・5章と `docs/architecture.md`「設計判断」に確定した設計\n（chart 単位のアクセストークン宣言）を config 読み込みと環境変数読み込みに実装する。\n**フィールド名・環境変数名の制約・既定 `ACCESS_TOKEN` との関係は正典を読んで従う**（本文には\n書かない。正典が正）。\n\n現状:\n\n- `src/lib/config/schema.ts` の `RegistryYamlSchema` は `chartToUpdate` と `appSpecs[]` だけ\n- `src/lib/config/load-config-unit.ts` の `ChartRepoScope` が chart 単位の値を運び、\n  `buildConfigUnit()` が `ConfigUnit`（`src/domain/types.ts`）を組み立てる\n- `src/lib/config/validate.ts` に「GitLabへ問い合わせなくても分かる設定ミス」の検証がある\n- `src/lib/env.ts` の `loadEnvConfig()` が `ACCESS_TOKEN` を `toAccessToken()` で読む。\n  環境変数の読み取りはこのファイルの関数を通すのが規約（`docs/coding-standards.md`）\n\n## やること\n\n1. `docs/requirements.md` 4.4節・5章と `docs/architecture.md` の該当節を読み、フィールド名・\n   環境変数名の制約・既定トークンの扱い・同じ `projectId` が別トークンに結びつく場合の扱いを確認する\n2. `RegistryYamlSchema` にフィールドを足し、`ConfigUnit`（または正典が指定する型）に chart の\n   トークン宣言を載せる。環境変数名の形式検証は Zod スキーマか `validate.ts` のどちらか正典に\n   従った側に置く\n3. `src/lib/env.ts` に、宣言された環境変数名からトークンを読む関数を足す（正典が決めた形。\n   `process.env` に触れるのはこのファイルだけ、モジュールのトップレベルでは触れない）\n4. 単体テストを足す: スキーマ（宣言あり/なし/不正な名前）、config 全体の整合（同じ `projectId` の\n   衝突）、環境変数の読み取り（未設定のときのメッセージに環境変数名と chart が載る）\n5. `config.example/my-team-chart/registry.yaml` に宣言の例をコメント付きで足す\n   （`pnpm lint:validate-config:example` が通ること）\n\n## 完了条件\n\n- `registry.yaml` にトークン宣言を書いた config が `loadConfig()` で読め、宣言の無い config は\n  従来どおり読める（既存テストが変更なしで通る）\n- 正典が定めた不正な宣言（名前の形式違反、`projectId` の衝突）が設定エラーになるテストがある\n- `pnpm check` が通る（テスト件数を `evidence` に書く）\n\n## 注意\n\n- `src/main.ts`・`src/steps/`・`src/lib/platform/`・`scripts/` は触らない（T-244・T-245 の範囲）\n- 「無いかもしれない」値は `readonly x: T | undefined` で持つ（`?:` は使わない）\n",
-    "status": "todo",
-    "passes": false,
-    "evidence": ""
+    "status": "done",
+    "passes": true,
+    "evidence": "`src/domain/brand.ts` に `AccessTokenEnvName`/`toAccessTokenEnvName()`、`RegistryYamlSchema.accessTokenEnv`（optional）、`ConfigUnit.accessTokenEnv`、`validate.ts` の `validateAccessTokenEnvConsistency()`、`LoadedConfig.accessTokenEnvNames`、`env.ts` の `loadAccessTokens()` と `EnvConfig.accessToken: AccessToken | undefined`。`main.ts`/`validate-config.ts`/`smoke-fixture.ts` は未設定時に従来同等の例外を投げる最小対処のみ（振り分けは T-244）。`config.example` に宣言例を追加。pnpm check 通過: 43 Test Files / 538 Tests（516→538）"
   },
   {
     "id": "T-244",

@@ -3,6 +3,7 @@ import { z } from "zod"
 import { validateTagFormat } from "../../domain/tag-format.js"
 import type { AnchorLocation } from "../../domain/types.js"
 import {
+  toAccessTokenEnvName,
   toAnchorName,
   toBranchName,
   toProjectId,
@@ -78,7 +79,28 @@ const AppSpecSchema = z.object({
 
 export type AppSpec = z.infer<typeof AppSpecSchema>
 
+/**
+ * `registry.yaml`トップレベルの`accessTokenEnv`（任意）。名前の形式検証は
+ * `toAccessTokenEnvName()`（`domain/brand.ts`）に封じ込めてある
+ */
+const AccessTokenEnvNameSchema = z
+  .string()
+  .optional()
+  .transform((raw, ctx) => {
+    if (raw === undefined) return undefined
+    try {
+      return toAccessTokenEnvName(raw)
+    } catch (error) {
+      ctx.addIssue({
+        code: "custom",
+        message: error instanceof Error ? error.message : String(error),
+      })
+      return z.NEVER
+    }
+  })
+
 export const RegistryYamlSchema = z.object({
+  accessTokenEnv: AccessTokenEnvNameSchema,
   chartToUpdate: z.object({
     projectId: ProjectIdSchema,
     projectName: z.string().min(1).transform(toProjectName),

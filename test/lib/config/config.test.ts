@@ -69,6 +69,7 @@ describe("loadConfig（正常系）", () => {
           },
         ],
       },
+      accessTokenEnv: undefined,
     })
   })
 
@@ -170,7 +171,7 @@ describe("loadConfig（正常系）", () => {
   })
 
   it("configディレクトリが空のとき configUnits: [] を返す", () => {
-    expect(loadConfig(dir.path)).toEqual({ configUnits: [] })
+    expect(loadConfig(dir.path)).toEqual({ configUnits: [], accessTokenEnvNames: [] })
   })
 })
 
@@ -243,7 +244,7 @@ describe("loadConfig（設定ユニットの階層）", () => {
   it("registry.yamlが無いディレクトリの配下は走査しない（深さの検証もしない）", () => {
     dir.writeConfigYaml("not-a-chart", "tenant1/client1/extra", configYaml())
 
-    expect(loadConfig(dir.path)).toEqual({ configUnits: [] })
+    expect(loadConfig(dir.path)).toEqual({ configUnits: [], accessTokenEnvNames: [] })
   })
 })
 
@@ -445,7 +446,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
   it("target未指定でregistry.yamlが無いディレクトリしか無いとき、0件のまま正常終了する（現状仕様）", () => {
     dir.writeFile("not-a-chart/readme.txt", "hello")
 
-    expect(loadConfig(dir.path)).toEqual({ configUnits: [] })
+    expect(loadConfig(dir.path)).toEqual({ configUnits: [], accessTokenEnvNames: [] })
   })
 
   it("chartDirNameを指定した先にregistry.yamlが無いとき例外をスローする", () => {
@@ -762,5 +763,71 @@ describe("loadConfig（helm）", () => {
         { valuesPath: "batch.yaml", anchorName: "batchTargetBranch" },
       ],
     })
+  })
+})
+
+describe("loadConfig（accessTokenEnvNames）", () => {
+  it("宣言の無いchartリポジトリだけのとき空配列になる", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
+    )
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYaml())
+
+    expect(loadConfig(dir.path).accessTokenEnvNames).toEqual([])
+  })
+
+  it("実行対象の設定ユニットが宣言したaccessTokenEnvの一覧を重複無しで返す", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml(
+        { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
+        [],
+        "ACCESS_TOKEN_TEAM_A",
+      ),
+    )
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYaml())
+    dir.writeConfigYaml("teamA-chart", "tenant2/client2", configYaml())
+    dir.writeRegistryYaml(
+      "teamB-chart",
+      registryYaml(
+        { projectId: 2, projectName: "teamB-chart", mrTargetBranch: "develop" },
+        [],
+        "ACCESS_TOKEN_TEAM_B",
+      ),
+    )
+    dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYaml())
+
+    expect(loadConfig(dir.path).accessTokenEnvNames).toEqual([
+      "ACCESS_TOKEN_TEAM_A",
+      "ACCESS_TOKEN_TEAM_B",
+    ])
+  })
+
+  it("TARGET_CHARTで絞り込むと、絞り込んだ先が宣言した名前だけを返す", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml(
+        { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
+        [],
+        "ACCESS_TOKEN_TEAM_A",
+      ),
+    )
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYaml())
+    dir.writeRegistryYaml(
+      "teamB-chart",
+      registryYaml(
+        { projectId: 2, projectName: "teamB-chart", mrTargetBranch: "develop" },
+        [],
+        "ACCESS_TOKEN_TEAM_B",
+      ),
+    )
+    dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYaml())
+
+    const { accessTokenEnvNames } = loadConfig(dir.path, {
+      chartDirName: toChartDirName("teamA-chart"),
+      units: undefined,
+    })
+    expect(accessTokenEnvNames).toEqual(["ACCESS_TOKEN_TEAM_A"])
   })
 })

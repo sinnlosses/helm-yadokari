@@ -78,6 +78,14 @@ if (remote) {
   if (env.platform !== "gitlab") {
     fail(`実在チェック（--remote）は現時点で GitLab 専用です（PLATFORM=${env.platform}）`)
   }
+  // T-244（accessTokenEnvで宣言されたトークンごとの分解）までの暫定処置。今はまだ
+  // トークンごとにグループ分けしておらず常に既定のACCESS_TOKENだけを使うため、
+  // 未設定なら理由を明示して終了する
+  if (env.accessToken === undefined) {
+    fail(
+      "実在チェックを実行できません（ACCESS_TOKEN が未設定です）。GITLAB_URL と ACCESS_TOKEN を設定してください",
+    )
+  }
 
   const problems = await validateRemoteExistence(
     createClient(env.platformUrl, env.accessToken),
