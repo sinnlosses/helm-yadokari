@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-14以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは0件**（T-250・T-251 まで完了。パス5は実機で実施済み）。T-238〜T-241 は完了。
+**未着手のタスクは1件（T-252、`loopable: N`）**。T-238〜T-241 は完了。
 **T-239〜T-248 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は空の `[]`）。完了タスクは
@@ -125,6 +125,11 @@
 - `pnpm check` 通過: 43 Test Files / 538 Tests（516→538）
 
 ## 次にやること
+
+**パス5の CI 検証を T-252 として登録した**（2026-09-15、`loopable: N`。push・CI 変数・MR・パイプライン起動を
+手順ごとにユーザー承認のうえメインで行う）。
+
+- **T-252**（sonnet、N）: GitLab の MR パイプラインで `validate-config-remote`、web 実行で `update-app-versions`（`DRY_RUN=true`）
 
 **gitlab.com Free の制約への対応を T-250・T-251 として登録した**（2026-09-15、互いに独立）。
 `provision --apply` は API からのトップレベルグループ作成（403）と Group Access Token 発行（400、Free）で

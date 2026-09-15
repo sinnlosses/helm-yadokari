@@ -9,6 +9,18 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-15（11回目）
+
+生成したタスク: T-252（パス5の CI 検証。`loopable: N`）。タスクにしなかった項目: なし。
+
+## 2026-09-15 パス5を CI（GitLab の MR パイプライン）で検証する
+
+ローカルで通ったパス5を、GitLab 側プロジェクト `sinnlosses-group/helm-yadokari`（id 86060538）の CI で確かめる。
+CI 変数 `ACCESS_TOKEN_SMOKE_A` / `_B`（Masked・Protected OFF）を登録し、config の変更（chart B の2ファイル＋
+chart1/2 の宣言）をブランチに載せて MR を作り、`validate-config-remote` が通ること、同ブランチの web 実行
+（`DRY_RUN=true`）で `update-app-versions` が ERROR なしで終わりレポートが artifacts に出ることを見る。
+前提として、今日のコミット（複数トークン化）を GitLab の main に push する必要がある。
+
 ## 2026-09-15（10回目）
 
 生成したタスク: T-250（`provision-group.ts` の `--use-existing-group` / `--skip-token`）・T-251（README・requirements・glossary への gitlab.com Free 制約の注記）。タスクにしなかった項目: なし。
