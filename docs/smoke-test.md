@@ -202,11 +202,9 @@ npx tsx --env-file=.env scripts/smoke/provision-group.ts token --group-path sinn
 - `ACCESS_TOKEN_SMOKE_A` … グループA（chartリポジトリ1・chartリポジトリ2が使う）
 - `ACCESS_TOKEN_SMOKE_B` … グループB（chartリポジトリBが使う）
 
-パス5の最終形ではchartリポジトリ1・2・Bのすべてが`accessTokenEnv`を宣言するため、**CLI本体は
-既定の`ACCESS_TOKEN`を要求しなくなる**（宣言の無いchartが1つも無ければ既定トークンを要求しない
-実装 `assertFallbackAvailable()` の帰結。(d)で確かめる）。**`smoke-fixture.ts` は
-`ACCESS_TOKEN_SMOKE_A`を直接読んでGitLabに書く**ので、`.env`から既定の`ACCESS_TOKEN`を消しても
-`setup`/`reset`の呼び方を変える必要はない。
+**`smoke-fixture.ts` は`ACCESS_TOKEN_SMOKE_A`を直接読んでGitLabに書く**ので、CLI本体
+（`pnpm dev`）が`accessTokenEnv`の宣言経由で読むトークンとは独立しており、`setup`/`reset`の
+呼び方はCLI側のトークン構成に関わらず変わらない。
 
 ## 検証シナリオ
 
@@ -229,8 +227,9 @@ npx tsx --env-file=.env scripts/smoke/provision-group.ts token --group-path sinn
 ## 手順
 
 ```bash
-# 0. 認証情報（.env に GITLAB_URL / ACCESS_TOKEN / ACCESS_TOKEN_SMOKE_A）と対象プロジェクトを用意
-#    ACCESS_TOKENはCLI本体（pnpm dev）が、ACCESS_TOKEN_SMOKE_Aはsmoke-fixture.tsが使う
+# 0. 認証情報（.env に GITLAB_URL / ACCESS_TOKEN_SMOKE_A）と対象プロジェクトを用意
+#    ACCESS_TOKEN_SMOKE_AはCLI本体（pnpm dev）とsmoke-fixture.tsの両方が使う
+#    （chartリポジトリ1・2のregistry.yamlがトップレベルにaccessTokenEnv: ACCESS_TOKEN_SMOKE_Aを常設済み）
 export SMOKE_CHART_PROJECT_ID=86061211
 export SMOKE_CHART2_PROJECT_ID=86354445
 export SMOKE_QA_SPRINT_PROJECT_ID=82861978
@@ -320,12 +319,6 @@ ACCESS_TOKEN_SMOKE_B=glpat-bogus pnpm dev; echo "exit=$?"
 ACCESS_TOKEN_SMOKE_B= pnpm lint:validate-config:remote; echo "exit=$?"
 ACCESS_TOKEN_SMOKE_B= DRY_RUN=true pnpm dev
 ACCESS_TOKEN_SMOKE_B= pnpm dev; echo "exit=$?"
-```
-
-```bash
-# (d) 既定 ACCESS_TOKEN を消しても動く（全chartがaccessTokenEnvを宣言済みのため不要になる）
-ACCESS_TOKEN= DRY_RUN=true pnpm dev
-ACCESS_TOKEN= pnpm dev; echo "exit=$?"
 ```
 
 **CIで確かめる**場合は、このリポジトリのSettings > CI/CD > Variablesに
@@ -435,6 +428,8 @@ npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
   グループA側4ユニットは変わらず継続する
 - (d) 既定`ACCESS_TOKEN`を消す: 終了コード **0**。全chartが`accessTokenEnv`を宣言しているため
   既定トークンの不在は`assertFallbackAvailable()`に検知されず、通常どおり動く
+  （**このシナリオは現在の手順には無い**。既定`ACCESS_TOKEN`と`assertFallbackAvailable()`は
+  その後廃止され、`accessTokenEnv`が必須になったため。当時の記録としてそのまま残す）
 
 ## 繰り返し実行するときの注意
 

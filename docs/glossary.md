@@ -31,7 +31,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 | ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / TagSource / タグの読み取り結果（ParsedTag） / タグ情報（TagInfo） / 打刻日時 / 最新タグ / 反映済みタグ / タグ自動作成 / タグの由来（TagOrigin）                                                                                                                  |
 | ## MR・リポジトリ操作関連   | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング                                                                                                                                                                                                                               |
 | ## 実行結果・処理単位関連   | アプリ更新計画 / イメージタグの更新 / 向き先ブランチの更新 / 設定ユニット更新対象 / 設定ユニット処理結果 / 実行結果                                                                                                                                                                                      |
-| ## 実行環境・運用関連       | Dry-runモード / TARGET_CHART・TARGET_UNITS / pipeline schedules / Platform / ACCESS_TOKEN・accessTokenEnv                                                                                                                                                                                                |
+| ## 実行環境・運用関連       | Dry-runモード / `TARGET_CHART`・`TARGET_UNITS` / pipeline schedules / Platform / `ACCESS_TOKEN_<グループ>`・accessTokenEnv                                                                                                                                                                               |
 | ## その他の注記             | 「target」の意味は文脈で決まる / 「反映」「適用」「更新」の使い分け                                                                                                                                                                                                                                      |
 
 ## 設定・登録関連
@@ -405,7 +405,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   `docs/architecture.md`「GitLab/GitHubの2実装は関数テーブル型`PlatformAdapter`で受け渡す」
   「HTTPエラーの経路」節。
 
-### ACCESS_TOKEN・accessTokenEnv
+### `ACCESS_TOKEN_<グループ>`・accessTokenEnv
 
 - **英語識別子**: 環境変数`ACCESS_TOKEN_<グループ>`（値の型は`AccessToken`
   ブランド型）と、`registry.yaml`トップレベルの`accessTokenEnv`フィールド（型は

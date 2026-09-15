@@ -111,9 +111,10 @@ pnpm install
 
 # 2. .env を作成
 cp .env.example .env
-# → GitLabを使う場合（既定）: GITLAB_URL / ACCESS_TOKEN を編集する
-#   GitHubを使う場合: PLATFORM=github と GITHUB_URL / ACCESS_TOKEN を編集する（.env.example参照）
-#   （未設定だと `pnpm dev` が起動前に落ちる）
+# → GitLabを使う場合（既定）: GITLAB_URL を編集する
+#   GitHubを使う場合: PLATFORM=github と GITHUB_URL を編集する（.env.example参照）
+#   アクセストークンは手順3で registry.yaml に宣言する accessTokenEnv の名前に合わせて
+#   ACCESS_TOKEN_<グループ名> を追記する（未設定だと `pnpm dev` が起動前に落ちる）
 
 # 3. 設定ファイルを作成（config/ 配下の構成は下記「設定」を参照）
 cp -r config.example/my-team-chart config/my-team-chart   # 深さ1・深さ2の両方を含むサンプル
@@ -184,27 +185,25 @@ flowchart TD
 
 ### 環境変数
 
-| 変数名                 | 必須 | デフォルト         | 説明                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ---------------------- | :--: | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PLATFORM`             |      | `gitlab`           | 管理対象のchart/ソースリポジトリが置かれているプラットフォーム。`gitlab` または `github`（1回の実行で混在はしません）                                                                                                                                                                                                                                                                                                             |
-| `GITLAB_URL`           | ✓\*  | —                  | GitLab インスタンスの URL（`http://` または `https://` で始まる形式）。`PLATFORM=gitlab`（既定）のとき必須                                                                                                                                                                                                                                                                                                                        |
-| `GITHUB_URL`           | ✓\*  | —                  | GitHub REST APIのエンドポイントURL（github.comなら `https://api.github.com`、GHESなら `https://<host>/api/v3`）。`PLATFORM=github` のとき必須                                                                                                                                                                                                                                                                                     |
-| `ACCESS_TOKEN`         |  ✓†  | —                  | `registry.yaml`の`accessTokenEnv`を宣言していない chart の既定トークン。`PLATFORM=gitlab`なら `read_api` + `write_repository` + MR作成権限を持つ Group/Project Access Token（gitlab.com Freeでは発行できないためボットユーザーのPersonal Access Tokenで代替）、`PLATFORM=github`なら Personal Access Token（fine-grained推奨）のみサポート。最小権限で発行してください。実行対象の全chartが`accessTokenEnv`を宣言していれば省略可 |
-| `ACCESS_TOKEN_<GROUP>` |  ✓†  | —                  | `registry.yaml`の`accessTokenEnv`で宣言した名前（例: `ACCESS_TOKEN_TEAM_A`）。中身は`ACCESS_TOKEN`と同じ条件のトークンで、宣言した chart の分だけ必要（グループごとに1本。詳細は「[複数グループで運用する](#複数グループで運用する)」）                                                                                                                                                                                           |
-| `CONFIG_ROOT_PATH`     |      | `config`           | 設定ディレクトリの最上位のパス（作業ディレクトリ外を指すパスは拒否され、実在しないディレクトリを指定した場合もエラー終了します）                                                                                                                                                                                                                                                                                                  |
-| `REPORT_OUTPUT_PATH`   |      | `report/report.md` | バッチ1回分の実行結果（設定ユニット単位の件数・1件ごとの結果）をMarkdownで書き出す先のパス（作業ディレクトリ外を指すパスは拒否されます）。`FatalError`で即時終了した場合は書き出されません                                                                                                                                                                                                                                        |
-| `CONCURRENCY_LIMIT`    |      | `3`                | `(chartリポジトリ, 設定ユニット)`単位の同時処理数（1〜20の整数）。最新タグを解決するステップだけは、単位が設定ユニットではなくタグ解決の単位（ソースリポジトリ×追跡ブランチ×タグ形式）になります                                                                                                                                                                                                                                  |
-| `DRY_RUN`              |      | `false`            | `"true"` のときタグ作成・ブランチ作成・MR作成をスキップし、更新予定の内容のみログ出力します                                                                                                                                                                                                                                                                                                                                       |
-| `TARGET_CHART`         |      | —                  | 指定すると `config/` 配下の特定のchartディレクトリのみ処理対象にします（省略時は全chart）。存在しないディレクトリ名を指定した場合、または絞り込み結果が0件の場合はエラー終了します                                                                                                                                                                                                                                                |
-| `TARGET_UNITS`         |      | —                  | 指定すると特定の設定ユニットのみ処理対象にします。`unitPath`（`config/<chartディレクトリ>/` からの深さ1〜2の相対パス）を、カンマ区切りで複数指定可（省略時は全設定ユニット）。該当する設定ユニットが見つからない場合はエラー終了します                                                                                                                                                                                            |
+| 変数名                 | 必須 | デフォルト         | 説明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------- | :--: | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PLATFORM`             |      | `gitlab`           | 管理対象のchart/ソースリポジトリが置かれているプラットフォーム。`gitlab` または `github`（1回の実行で混在はしません）                                                                                                                                                                                                                                                                                                                                                                       |
+| `GITLAB_URL`           | ✓\*  | —                  | GitLab インスタンスの URL（`http://` または `https://` で始まる形式）。`PLATFORM=gitlab`（既定）のとき必須                                                                                                                                                                                                                                                                                                                                                                                  |
+| `GITHUB_URL`           | ✓\*  | —                  | GitHub REST APIのエンドポイントURL（github.comなら `https://api.github.com`、GHESなら `https://<host>/api/v3`）。`PLATFORM=github` のとき必須                                                                                                                                                                                                                                                                                                                                               |
+| `ACCESS_TOKEN_<GROUP>` |  ✓†  | —                  | `registry.yaml`の`accessTokenEnv`で宣言した名前（例: `ACCESS_TOKEN_TEAM_A`）。`PLATFORM=gitlab`なら `read_api` + `write_repository` + MR作成権限を持つ Group/Project Access Token（gitlab.com Freeでは発行できないためボットユーザーのPersonal Access Tokenで代替）、`PLATFORM=github`なら Personal Access Token（fine-grained推奨）のみサポート。最小権限で発行してください。宣言した chart の分だけ必要（グループごとに1本。詳細は「[複数グループで運用する](#複数グループで運用する)」） |
+| `CONFIG_ROOT_PATH`     |      | `config`           | 設定ディレクトリの最上位のパス（作業ディレクトリ外を指すパスは拒否され、実在しないディレクトリを指定した場合もエラー終了します）                                                                                                                                                                                                                                                                                                                                                            |
+| `REPORT_OUTPUT_PATH`   |      | `report/report.md` | バッチ1回分の実行結果（設定ユニット単位の件数・1件ごとの結果）をMarkdownで書き出す先のパス（作業ディレクトリ外を指すパスは拒否されます）。`FatalError`で即時終了した場合は書き出されません                                                                                                                                                                                                                                                                                                  |
+| `CONCURRENCY_LIMIT`    |      | `3`                | `(chartリポジトリ, 設定ユニット)`単位の同時処理数（1〜20の整数）。最新タグを解決するステップだけは、単位が設定ユニットではなくタグ解決の単位（ソースリポジトリ×追跡ブランチ×タグ形式）になります                                                                                                                                                                                                                                                                                            |
+| `DRY_RUN`              |      | `false`            | `"true"` のときタグ作成・ブランチ作成・MR作成をスキップし、更新予定の内容のみログ出力します                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `TARGET_CHART`         |      | —                  | 指定すると `config/` 配下の特定のchartディレクトリのみ処理対象にします（省略時は全chart）。存在しないディレクトリ名を指定した場合、または絞り込み結果が0件の場合はエラー終了します                                                                                                                                                                                                                                                                                                          |
+| `TARGET_UNITS`         |      | —                  | 指定すると特定の設定ユニットのみ処理対象にします。`unitPath`（`config/<chartディレクトリ>/` からの深さ1〜2の相対パス）を、カンマ区切りで複数指定可（省略時は全設定ユニット）。該当する設定ユニットが見つからない場合はエラー終了します                                                                                                                                                                                                                                                      |
 
 `*` `GITLAB_URL` / `GITHUB_URL` は択一必須です。`PLATFORM` が選んだ側のURLだけを読むため、
 使わない側は未設定のままで構いません。
 
-`†` `ACCESS_TOKEN` 系は宣言状況によって要否が変わります。`accessTokenEnv`を宣言していない
-chartが実行対象に1つでもあれば既定の`ACCESS_TOKEN`が必須です。`accessTokenEnv`を宣言した
-chartは、その名前の`ACCESS_TOKEN_<GROUP>`が必須です（全chartが宣言していれば`ACCESS_TOKEN`は
-不要）。
+`†` `accessTokenEnv`はchartリポジトリごとに必須なので、`ACCESS_TOKEN_<GROUP>`は
+実行対象のchartが宣言した名前の分だけ必要です（宣言していないchartがあると設定エラーに
+なります）。
 
 ### config/
 
@@ -224,9 +223,9 @@ config/
 
 - `registry.yaml` はchartリポジトリ単位で、MRの作成先
   （`chartToUpdate`）と、ソースリポジトリのタグ形式（`appSpecs[].tagFormat`。詳細は
-  「[タグ形式](#タグ形式)」参照）の台帳を持ちます。トップレベルの`accessTokenEnv`（任意）で、
-  このchartリポジトリの操作に使うアクセストークンの環境変数名を宣言できます。省略すると
-  既定の`ACCESS_TOKEN`を使います（詳細は「[複数グループで運用する](#複数グループで運用する)」）。
+  「[タグ形式](#タグ形式)」参照）の台帳を持ちます。トップレベルの`accessTokenEnv`（必須）で、
+  このchartリポジトリの操作に使うアクセストークンの環境変数名を宣言します（詳細は
+  「[複数グループで運用する](#複数グループで運用する)」）。
 - `config.yaml` は設定ユニット単位で、
   どのプロジェクトのどのブランチを追跡し `values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
   書き込むかを持ちます。
@@ -249,7 +248,7 @@ Helmの向き先ブランチとは、values.yaml のパラメータを受け取�
 
 ```yaml
 # registry.yaml
-# accessTokenEnv: ACCESS_TOKEN_TEAM_A # （任意）宣言すると既定の ACCESS_TOKEN の代わりにこちらを使う
+accessTokenEnv: ACCESS_TOKEN_TEAM_A # （必須）このchartリポジトリの操作に使うトークンの環境変数名
 chartToUpdate:
   projectId: 100
   projectName: my-team-chart
@@ -283,7 +282,8 @@ apps:
 pnpm lint:validate-config
 
 # 上記に加えて、projectId・ブランチ・valuesPath・アンカーが実在するかを検証
-# （読み取りのみ。タグ・ブランチ・MR は作りません。GitLab専用。GITLAB_URL / ACCESS_TOKEN が必要）
+# （読み取りのみ。タグ・ブランチ・MR は作りません。GitLab専用。
+#  GITLAB_URL と、各chartの accessTokenEnv が指すトークンが必要）
 pnpm lint:validate-config:remote
 
 # config.example/ のサンプルを同じ文法・整合性チェックにかける（pnpm check にも含まれる）
@@ -299,15 +299,13 @@ pnpm lint:validate-config:example
 CI/CD Variables の Protected を OFF にする必要があります（理由は下記「[CI/CD](#cicd)」参照）。
 
 `--remote` は chart リポジトリが `registry.yaml` で宣言したアクセストークンごとに分けて検証します。
-必要なトークン（宣言の無い chart が使う既定の `ACCESS_TOKEN` を含む）が1本でも未設定だと、
-検証済みとはみなさずそこで失敗させます。
+必要なトークンが1本でも未設定だと、検証済みとはみなさずそこで失敗させます。
 
 ## エラーハンドリング
 
 | ケース                                              | 対象   | 挙動                                                                                                                                                                   |
 | --------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 401 認証エラー（既定の `ACCESS_TOKEN`）             | 共通   | 即時 `exit(1)` でパイプライン失敗                                                                                                                                      |
-| 401 認証エラー（chartリポジトリが宣言したトークン） | 共通   | そのchartリポジトリ配下の設定ユニットを `ERROR` としてログ記録し処理継続（他のchartリポジトリは影響を受けない）                                                        |
+| 401 認証エラー                                      | 共通   | そのchartリポジトリ配下の設定ユニットを `ERROR` としてログ記録し処理継続（他のchartリポジトリは影響を受けない）                                                        |
 | 5xx サーバーエラー / ネットワーク障害               | 共通   | 即時 `exit(1)` でパイプライン失敗（どのトークンで呼んだかに関わらず）                                                                                                  |
 | 1リクエストが5分（`queryTimeout`）を超えた          | GitLab | 即時 `exit(1)` でパイプライン失敗（GitHub側にこの設定は無く、Node組み込みfetchの既定タイムアウトに委ねる）                                                             |
 | 503 / 504                                           | 共通   | 指数バックオフ（1秒→2秒待ち）で試行3回（リトライ2回）し、なお失敗したら5xxとして即時 `exit(1)`                                                                         |
@@ -345,11 +343,10 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
    `GITHUB_URL` を登録してください。`.gitlab-ci.yml` の`variables:`ブロックには載っていない
    任意のCI/CD変数ですが、Settings側に登録すれば読み込まれます）
 
-   | 変数名                 | Masked | Protected | 説明                                                                                                                                          |
-   | ---------------------- | :----: | :-------: | --------------------------------------------------------------------------------------------------------------------------------------------- |
-   | `GITLAB_URL`           |        |     —     | GitLab インスタンスの URL（`PLATFORM=gitlab`のとき。既定なので`PLATFORM`自体は省略可）                                                        |
-   | `ACCESS_TOKEN`         |   ✓    |     —     | 既定のGroup/Project Access Token（GitHubならPersonal Access Token）。`accessTokenEnv`を宣言していない chart の分。全chartが宣言していれば不要 |
-   | `ACCESS_TOKEN_<GROUP>` |   ✓    |     —     | `registry.yaml`の`accessTokenEnv`で宣言した名前。グループごとに1本登録する（詳細は「[複数グループで運用する](#複数グループで運用する)」）     |
+   | 変数名                 | Masked | Protected | 説明                                                                                                                                      |
+   | ---------------------- | :----: | :-------: | ----------------------------------------------------------------------------------------------------------------------------------------- |
+   | `GITLAB_URL`           |        |     —     | GitLab インスタンスの URL（`PLATFORM=gitlab`のとき。既定なので`PLATFORM`自体は省略可）                                                    |
+   | `ACCESS_TOKEN_<GROUP>` |   ✓    |     —     | `registry.yaml`の`accessTokenEnv`で宣言した名前。グループごとに1本登録する（詳細は「[複数グループで運用する](#複数グループで運用する)」） |
 
    **Masked で登録してください**（GitLabのバージョンによっては **Masked and hidden** も
    選べるので、使える場合はそちらを使ってください。値がUIログから見えなくなります）。
@@ -388,8 +385,8 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
    > （同じスコープ・短い有効期限）を代わりに使ってください。詳細・背景は
    > [`docs/requirements.md`](./docs/requirements.md) 5章「gitlab.com Freeでの代替」参照。
 2. **このリポジトリの Settings > CI/CD > Variables に `ACCESS_TOKEN_<GROUP>` として登録する。**
-   Masked（可能なら Masked and hidden）・Protected OFF は既定の `ACCESS_TOKEN` と同じ理由です
-   （上記「[セットアップ手順](#セットアップ手順)」参照）。
+   Masked（可能なら Masked and hidden）・Protected OFF は上記「[セットアップ手順](#セットアップ手順)」
+   と同じ理由です。
 3. **そのchartリポジトリの `registry.yaml` に `accessTokenEnv: ACCESS_TOKEN_<GROUP>` を宣言する**
    （書き方は「[config/](#config)」参照）。
 4. **schedule は1つのままで構いません。** 複数chartを1つのscheduleで回せます。cadence
@@ -451,7 +448,7 @@ pnpm test:coverage    # カバレッジ付きテスト
 
 # 本番ビルド後に実行
 pnpm build
-GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN=<token> pnpm start
+GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN_TEAM_A=<token> pnpm start
 ```
 
 ### プロジェクト構成

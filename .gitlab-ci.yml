@@ -24,18 +24,16 @@ spec:
 # ──────────────────────────────────────────────────────────────────
 # 【必須】Settings > CI/CD > Variables に以下を登録してください:
 #   GITLAB_URL           — GitLab の URL（例: https://gitlab.example.com）
-#                          ※ Protected: OFF（下記 ACCESS_TOKEN と同じ理由）
-#   ACCESS_TOKEN         — GitLab Group/Project Access Token
-#                          （read_api + write_repository + MR作成権限。最小権限で発行すること）
-#                          registry.yaml で accessTokenEnv を宣言していない chart があるときだけ必須
-#                          ※ Masked: ON / Protected: OFF
+#                          ※ Protected: OFF（下記 ACCESS_TOKEN_<GROUP> と同じ理由）
+#   ACCESS_TOKEN_<GROUP> — registry.yaml の accessTokenEnv で宣言した名前のトークン
+#                          （read_api + write_repository + MR作成権限。最小権限で発行すること。
+#                          グループごとに1本。accessTokenEnv は chart ごとに必須なので、
+#                          実行対象の chart が宣言した数だけ登録する。
+#                          README.md「複数グループで運用する」参照）
+#                          ※ Masked: ON（可能なら Masked and hidden） / Protected: OFF
 #                          Protected にすると保護ブランチ以外のパイプラインで空になり、
 #                          MR時の設定検証（validate-config-remote）が実行できなくなるため。
 #                          MRのたびに設定の実在チェックを確実に通す運用を優先している
-#   ACCESS_TOKEN_<GROUP> — registry.yaml の accessTokenEnv で宣言した名前のトークン
-#                          （グループごとに1本。複数グループで運用する場合のみ登録。
-#                          README.md「複数グループで運用する」参照）
-#                          ※ Masked: ON（可能なら Masked and hidden） / Protected: OFF
 # ──────────────────────────────────────────────────────────────────
 
 workflow:
@@ -128,13 +126,12 @@ check:
 
 # config/ に書かれた projectId・ブランチ・valuesPath・アンカーが GitLab 上に実在するかを
 # MR の時点で検証する（読み取りのみ。タグ・ブランチ・MR は作らない）。
-# 【必須】このジョブはトークンを chart リポジトリの宣言単位で分けて使う: 既定の ACCESS_TOKEN は
-#   accessTokenEnv の宣言が無い chart があるときだけ必須、registry.yaml が宣言した
-#   ACCESS_TOKEN_<...> はそれぞれ必須。いずれも GITLAB_URL とあわせて MR パイプラインから
-#   参照できるようにしておくこと（Protected: OFF。読み取りしか行わないため、どのトークンも
-#   read_api のみでよい）。必要なトークンが1本でも参照できない場合このジョブは
-#   「実在チェックを実行できません」で失敗する。設定ミスを確実に止めるため、条件付き
-#   スキップにはしていない。
+# 【必須】このジョブはトークンを chart リポジトリの宣言単位で分けて使う: registry.yaml が
+#   宣言した ACCESS_TOKEN_<...> はそれぞれ必須（accessTokenEnv は chart ごとに必須なため）。
+#   GITLAB_URL とあわせて MR パイプラインから参照できるようにしておくこと（Protected: OFF。
+#   読み取りしか行わないため、どのトークンも read_api のみでよい）。必要なトークンが1本でも
+#   参照できない場合このジョブは「実在チェックを実行できません」で失敗する。設定ミスを確実に
+#   止めるため、条件付きスキップにはしていない。
 # 定期実行（schedule）では実行しない: 1つの設定ユニットの設定ミスで全設定ユニットの更新が
 #   止まるのを避け、本体の実行時に該当する設定ユニットだけを ERROR にする従来どおりの挙動に任せる。
 validate-config-remote:

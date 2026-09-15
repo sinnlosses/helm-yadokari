@@ -1266,8 +1266,9 @@ MRタイトルの件数は「何が何件変わったか」を種別ごとに示
 1回の実行で混在させない以上、使う側は常に片方しか設定しないので、変数名で「どちらの値か」が
 読めるほうが得になる。
 
-`ACCESS_TOKEN`は両プラットフォームで共通。**GitHub側はPersonal Access Tokenのみをサポートする**
-（fine-grained推奨）。GitLabのGroup Access Tokenと同じく、ヘッダに載せるだけの静的な文字列で済む。
+アクセストークンの扱い（`accessTokenEnv`で宣言した環境変数を読む仕組み）は両プラットフォームで
+共通。**GitHub側はPersonal Access Tokenのみをサポートする**（fine-grained推奨）。GitLabの
+Group Access Tokenと同じく、ヘッダに載せるだけの静的な文字列で済む。
 
 - **GitHub Appを採らなかった**。GitHub自身は長期の連携にAppを推奨しているが、Appのinstallation
   access tokenは**1時間で失効する**ため、秘密鍵からJWTを作って都度発行する仕組みが要る。

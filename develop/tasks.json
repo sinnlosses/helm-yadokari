@@ -105,8 +105,8 @@
     "dependencies": ["T-257"],
     "summary": "`README.md`・`.env.example`・`.gitlab-ci.yml`・`config/README.md`・`config.example/`・`docs/smoke-test.md` を既定 `ACCESS_TOKEN` 廃止に追随させる",
     "task": "## 背景\n\nT-257 で `accessTokenEnv` が必須になり、既定の `ACCESS_TOKEN` がコードと正典\n（`docs/requirements.md`・`docs/architecture.md`）から消える。利用者向けのドキュメントには\nまだ「省略すると既定の `ACCESS_TOKEN` を使う」という前提が残っているので追随させる。\n\n## やること\n\n次のファイルから既定 `ACCESS_TOKEN` の記述を落とし、`accessTokenEnv` が必須である前提に直す。\n\n1. `README.md`\n   - 「設定」章の環境変数表（192-193行目付近）。`ACCESS_TOKEN` の行を削り、`†` の脚注\n     （204-206行目）も書き換える\n   - 229行目付近の「宣言が無ければ既定の `ACCESS_TOKEN` を使います」\n   - 252行目付近の `registry.yaml` の記述例のコメント（「（任意）」を外す）\n   - 302・309行目付近のエラー時の挙動の表（401の扱い）\n   - 「CI/CD」章の変数表（351-352行目）と「複数グループで運用する」章（390-393行目）\n   - 114-115行目のセットアップ手順\n2. `.env.example` の `ACCESS_TOKEN` の行を `ACCESS_TOKEN_<グループ名>` の説明に置き換える\n   （T-255 で足した `ACCESS_TOKEN_SMOKE_A` / `GITLAB_PROVISION_PAT` の行はそのまま残す）\n3. `.gitlab-ci.yml` のコメント（27-35行目、131-133行目）\n4. `config/README.md` と `config.example/my-team-chart/registry.yaml` のコメント\n   （`accessTokenEnv` の「（任意）」と「省略すると既定の ACCESS_TOKEN を使う」）\n5. `docs/smoke-test.md` に残る既定 `ACCESS_TOKEN` 前提の記述（198-205行目付近）\n6. 仕上げに `/maintain-docs` を使い、正典（`docs/requirements.md`・`docs/architecture.md`）との\n   ズレ・重複が残っていないか検査する\n\n## 完了条件\n\n- `pnpm check` が通る\n- `grep -rn 'ACCESS_TOKEN' README.md .env.example .gitlab-ci.yml config/README.md config.example/ docs/ | grep -v 'ACCESS_TOKEN_'`\n  が0件\n- README の環境変数表・CI/CD変数表に `accessTokenEnv` で宣言した名前のトークンだけが載っている\n\n## 注意\n\n- コードには手を入れない（T-257 で完了している）\n- 正典2ファイル（`docs/requirements.md`・`docs/architecture.md`）は T-257 で書き換え済み。\n  ここで二重に書かない。**通読せず、索引で節を特定して読む**\n",
-    "status": "todo",
-    "passes": false,
-    "evidence": ""
+    "status": "done",
+    "passes": true,
+    "evidence": "`README.md`（12箇所）・`.env.example`・`.gitlab-ci.yml`・`config.example/`・`docs/architecture.md` 1行・`docs/glossary.md` の用語名・`docs/smoke-test.md` を追随。`config/README.md` は T-257 で対応済みで変更なし。\n補正した grep（`docs/history/`・`docs/research/`・「接尾辞なしの」を除外）の残存は `docs/smoke-test.md` の2026-09-15実測ログ内の (d) のみ。手順側から (d) が消えて食い違うため「このシナリオは現在の手順には無い」注記を足した（記録本体は書き換えず）。\n`pnpm check` 成功（46ファイル / 557テスト）。"
   }
 ]
