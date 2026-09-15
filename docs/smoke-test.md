@@ -16,7 +16,7 @@
 | 節                            | 中身                                                  |
 | ----------------------------- | ----------------------------------------------------- |
 | ## 使うGitLabリソース         | projectIdと環境変数の対応表、フィクスチャに必要なもの |
-| ## 検証シナリオ               | 4つのパスと、それぞれで確認すること                   |
+| ## 検証シナリオ               | 5つのパスと、それぞれで確認すること                   |
 | ## 手順                       | パスごとのコマンド列                                  |
 | ## 期待する結果               | パスごとの終了コード・summary・MRの中身               |
 | ## 繰り返し実行するときの注意 | `SKIPPED`になる条件と、タグ新規作成の挙動             |
@@ -39,6 +39,9 @@ chartリポジトリ1と同じ設定にしてある（`sinnlosses-group` 配下�
 
 **`SMOKE_CHART2_PROJECT_ID` は省略できる。** 未設定ならchartリポジトリ2に関する処理をスキップ
 するので、chartリポジトリ1だけでパス1〜4を流すこともできる。
+
+**パス5（複数グループ）用の2グループ目は `smoke-fixture.ts` の対象外**で、手で用意する
+（理由・手順は下の「2グループ目（パス5）に必要なもの」）。
 
 ### chartリポジトリ 1 に必要なもの
 
@@ -97,20 +100,70 @@ chartリポジトリ2には `sample-qa-sprint` を登録する。**同じappが2
 置くと、CIの `validate-config-remote`（`.gitlab-ci.yml`）がMR時点で落ちる。これは意図した
 設計なので、壊すのはGitLab側に限る。
 
+### 2グループ目（パス5）に必要なもの
+
+**`smoke-fixture.ts` では作れない。** 手で用意する。理由:
+
+- 対象プロジェクトのprojectIdは固定の環境変数名（`SMOKE_CHART_PROJECT_ID` 等）でしか
+  受け取らないため、1回の実行でグループA・グループB両方のprojectIdを同時に持てない
+- 主スロット（`SMOKE_CHART_PROJECT_ID`・`SMOKE_QA_SPRINT_PROJECT_ID`・
+  `SMOKE_DEVELOP_CLIENT_PROJECT_ID`）を使い回すには、グループBにも
+  `tenant2/client1` と同じ形（3ファイル・複数アンカー・ソースリポジトリ2つ）を再現する必要があり、
+  パス5が確かめたい「複数グループ・複数トークン」に対して過剰
+- 予備スロット（`SMOKE_CHART2_PROJECT_ID`）を流用しようとしても、シード対象のタグは常に
+  `SMOKE_QA_SPRINT_PROJECT_ID`（グループAのソースリポジトリ）から取る実装になっており、
+  グループBのchartへ登録するappがグループAのソースリポジトリと同じprojectIdになってしまう。
+  これは「1つのprojectIdは1つのトークンにしか結びつけられない」（`docs/requirements.md`
+  4.4節）に反し、`accessTokenEnv`をグループAと分離できない
+
+したがって次を手で用意する:
+
+| 役割                      | プロジェクト（例）                      | 備考                               |
+| ------------------------- | --------------------------------------- | ---------------------------------- |
+| chartリポジトリ B         | `<group-b>/yadokari-smoke-test-chart-b` | private・デフォルトブランチ `main` |
+| ソースリポジトリ（app B） | `<group-b>/sample-smoke-b-app`          | **1つで足りる**（下記）            |
+
+- ソースリポジトリは**1つで足りる**。`apps[]`・`appSpecs[]`の重複禁止は1ファイル内の重複
+  （`validateNoDuplicateProjectIds()`）を指すだけで、グループBに複数appを揃える理由にならない。
+  パス5が確かめたいのは「別グループ・別トークンの設定ユニットが独立して成功/失敗する」ことで、
+  1app・1設定ユニットで示せる
+- ブランチ `release/2026-q1`（向き先ブランチの更新先）
+- `charts/smoke-b-app/values.yaml` … アンカー2つ（例: `smokeBAppVersion` / `smokeBHelmTargetBranch`）
+- ソースリポジトリのシードタグ1件 … 実在する、かつ最新より古いタグ（理由は上の
+  「chartリポジトリ1に必要なもの」と同じ）。タグ形式はグループAと同じ
+  `{branch}-build-at-{date}-{time}` で揃える（appごとに違えてよいが、揃えない理由が無いため）
+
+**トークン**は Group Access Token をグループA用・グループB用に1本ずつ発行する（発行場所・
+スコープ・ロール・有効期限の考え方はREADME
+「[複数グループで運用する](../README.md#複数グループで運用する)」参照）。`.env` には次の名前で置く:
+
+- `ACCESS_TOKEN_SMOKE_A` … グループA（chartリポジトリ1・chartリポジトリ2が使う）
+- `ACCESS_TOKEN_SMOKE_B` … グループB（chartリポジトリBが使う）
+
+パス5の最終形ではchartリポジトリ1・2・Bのすべてが`accessTokenEnv`を宣言するため、**CLI本体は
+既定の`ACCESS_TOKEN`を要求しなくなる**（宣言の無いchartが1つも無ければ既定トークンを要求しない
+実装 `assertFallbackAvailable()` の帰結。(d)で確かめる）。ただし **`smoke-fixture.ts` は既定の
+`ACCESS_TOKEN`でGitLabに書く**ので、`.env`から消すなら `setup`/`reset` は
+`ACCESS_TOKEN="$ACCESS_TOKEN_SMOKE_A" npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts …`
+のようにグループAのトークンを既定名で渡す。
+
 ## 検証シナリオ
 
-4つのパスを順に流す。パス1の結果をパス2〜4が利用するため、**この順序で実行する**。
+5つのパスがある。パス1〜4はパス1の結果をパス2〜4が利用するため**この順序で実行する**。
+パス5は2グループ目という独立したフィクスチャを使うため、この順序と無関係に単独で実行できる。
 
-| パス | 目的     | 確認すること                                                                    |
-| ---- | -------- | ------------------------------------------------------------------------------- |
-| 1    | 通常更新 | 複数chartリポジトリにMRが分かれる／1appが複数ファイルに書く／複数の追跡ブランチ |
-| 2    | 再実行   | オープン中のMRがある設定ユニットは `SKIPPED (mr_exists)` になる                 |
-| 3    | 部分失敗 | 1ユニットが `ERROR` でも他は継続し、`PARTIAL_FAILURE` で**終了コード1**         |
-| 4    | 差分なし | `values.yaml` が更新後のままなら `SKIPPED (no_diff)` になる                     |
+| パス | 目的                         | 確認すること                                                                                   |
+| ---- | ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| 1    | 通常更新                     | 複数chartリポジトリにMRが分かれる／1appが複数ファイルに書く／複数の追跡ブランチ                |
+| 2    | 再実行                       | オープン中のMRがある設定ユニットは `SKIPPED (mr_exists)` になる                                |
+| 3    | 部分失敗                     | 1ユニットが `ERROR` でも他は継続し、`PARTIAL_FAILURE` で**終了コード1**                        |
+| 4    | 差分なし                     | `values.yaml` が更新後のままなら `SKIPPED (no_diff)` になる                                    |
+| 5    | 複数グループ（宣言トークン） | 別グループ・別トークンの設定ユニットが独立して成功/失敗し、片方の401・未設定が他方へ波及しない |
 
-パス3が今回の主目的。**「該当chartリポジトリだけERRORとしてログ記録し処理継続する」**
-（`docs/architecture.md`「エラーは『fatalは例外・それ以外は戻り値』の2チャネル」）が
-実機で通る唯一の経路になる。
+パス3が単体では今回の主目的だったが、**「該当chartリポジトリだけERRORとしてログ記録し
+処理継続する」**（`docs/architecture.md`「エラーは『fatalは例外・それ以外は戻り値』の
+2チャネル」）は複数グループ構成で初めて「別グループには波及しない」ところまで実機で確かめられる
+（パス5）。
 
 ## 手順
 
@@ -166,12 +219,73 @@ pnpm dev
 
 マージしたユニットが `no_diff`、残りが `mr_exists` という**混在した SKIPPED** になる。
 
+### パス5: 複数グループ（宣言トークン）
+
+**前提**: 「2グループ目（パス5）に必要なもの」のとおりchartリポジトリB・ソースリポジトリB・
+シードタグ・`.env`の`ACCESS_TOKEN_SMOKE_A` / `ACCESS_TOKEN_SMOKE_B`を用意済みであること。
+その上で `config/` に一時的に以下を置く（実ファイルを置くかどうか＝常設するかの判断は
+[`config/README.md`](../config/README.md) 参照。ここでは検証のためだけに置く前提で書く）:
+
+- `config/yadokari-smoke-test-chart/registry.yaml` … トップレベルに
+  `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を追記
+- `config/yadokari-smoke-test-chart2/registry.yaml` … 同じく
+  `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を追記。**chart1とchart2は`sample-qa-sprint`を
+  共有しているため、片方だけ宣言する／別の名前を宣言すると「1つのprojectIdは1つのトークンにしか
+  結びつけられない」で設定エラーになり即時終了する。必ず同じ名前を宣言する**
+- `config/yadokari-smoke-test-chart-b/registry.yaml` … 新規。`chartToUpdate`にchartリポジトリB、
+  `appSpecs[]`にソースリポジトリB、トップレベルに `accessTokenEnv: ACCESS_TOKEN_SMOKE_B`
+- `config/yadokari-smoke-test-chart-b/smoke-b-app/config.yaml` … 新規。`helm.locations[]`と
+  `apps[].locations[]`に`smokeBHelmTargetBranch` / `smokeBAppVersion`を登録
+
+トークンを不正にする操作は`.env`を書き換えず**コマンド行で上書き**する
+（`tsx --env-file`は既に設定済みの環境変数を上書きしないため）。
+
+```bash
+# (a) 両グループ正常: 両方にMRができる
+npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply   # グループA分のみ
+npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply   # グループA分のみ
+# グループB分（手動シード）が初期状態であることを確認する
+DRY_RUN=true pnpm dev
+pnpm dev; echo "exit=$?"
+```
+
+```bash
+# (b) グループBのトークンを不正な値にする
+DRY_RUN=true ACCESS_TOKEN_SMOKE_B=glpat-bogus pnpm dev
+ACCESS_TOKEN_SMOKE_B=glpat-bogus pnpm dev; echo "exit=$?"
+```
+
+```bash
+# (c) グループBの環境変数を消す（空文字は未設定扱い）
+ACCESS_TOKEN_SMOKE_B= pnpm lint:validate-config:remote; echo "exit=$?"
+ACCESS_TOKEN_SMOKE_B= DRY_RUN=true pnpm dev
+ACCESS_TOKEN_SMOKE_B= pnpm dev; echo "exit=$?"
+```
+
+```bash
+# (d) 既定 ACCESS_TOKEN を消しても動く（全chartがaccessTokenEnvを宣言済みのため不要になる）
+ACCESS_TOKEN= DRY_RUN=true pnpm dev
+ACCESS_TOKEN= pnpm dev; echo "exit=$?"
+```
+
+**CIで確かめる**場合は、このリポジトリのSettings > CI/CD > Variablesに
+`ACCESS_TOKEN_SMOKE_A` / `ACCESS_TOKEN_SMOKE_B` をMasked and hidden・Protected OFFで登録した上で、
+上記の`config/`変更（`accessTokenEnv`3件の追記・`yadokari-smoke-test-chart-b/`新設）をMRにして
+`validate-config-remote`が通ること、そのMRからRun pipeline（`DRY_RUN=true`）を実行して
+`update-app-versions`が(a)相当の結果（`ERROR`無し）で終わることを見る。
+
 ### 後片付け
 
 ```bash
 npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts reset --apply
 npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
 ```
+
+グループB分は`smoke-fixture.ts`の対象外なので手動で片付ける: chartリポジトリBの
+オープン中MRをクローズし、固定ブランチ `feature/yadokari/smoke-b-app` を削除する
+（`main`の`values.yaml`はこのツールが書き換えないので戻す必要はない）。パス5専用に
+`config/`へ追記した`accessTokenEnv`・新設した`yadokari-smoke-test-chart-b/`は、常設しない
+と決めた場合は検証後に削除する（[`config/README.md`](../config/README.md)参照）。
 
 ## 期待する結果
 
@@ -221,6 +335,29 @@ npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
 
 - 終了コード **0**、`summary` が `{"CREATED":0,"SKIPPED":4,"ERROR":0}`
 - マージしたユニット（`anchor-app`）だけ `reason` が **`no_diff`**、残り3件は `mr_exists`
+
+### パス5: 複数グループ（宣言トークン）
+
+**このパスは本ドキュメント作成時点で未実施**（T-248は手順を書くところまでで、実機接続はしない）。
+以下は実装（`src/lib/platform/routed-adapter.ts`・
+`scripts/lint/remote-existence/access-token-groups.ts`）と、2026-09-15に単一グループ構成で
+実機確認済みの401・未設定の挙動（`develop/progress.md`）から導いた期待値。実施したら
+実測値に置き換える。
+
+- (a) 両グループ正常: 終了コード **0**。`summary`の`ERROR`は**0**。グループA側4ユニットと
+  `smoke-b-app`の両方にMRができる（初回。パス1〜4を経た直後の再実行なら、グループA側は
+  `SKIPPED`混じりになる）
+- (b) グループBのトークンを不正な値にする: 終了コード **1**。`ERROR`は`smoke-b-app`のみで
+  `reason`が
+  `httpStatus: undefined, message: [chart: yadokari-smoke-test-chart-b] 環境変数 ACCESS_TOKEN_SMOKE_B のトークンで HTTP 401 が返りました`。
+  グループA側4ユニットは`CREATED`または`SKIPPED`のまま変わらず、`fatal_error`にはならない
+- (c) グループBの環境変数を消す: `pnpm lint:validate-config:remote`が
+  `[chart: yadokari-smoke-test-chart-b] 環境変数 ACCESS_TOKEN_SMOKE_B が未設定です`を出して
+  終了コード**1**。`pnpm dev`も終了コード**1**で、`ERROR`は`smoke-b-app`のみ、`reason`は
+  `httpStatus: undefined, message: [chart: yadokari-smoke-test-chart-b] 環境変数 ACCESS_TOKEN_SMOKE_B が未設定です`。
+  グループA側4ユニットは変わらず継続する
+- (d) 既定`ACCESS_TOKEN`を消す: 終了コード **0**。全chartが`accessTokenEnv`を宣言しているため
+  既定トークンの不在は`assertFallbackAvailable()`に検知されず、通常どおり動く
 
 ## 繰り返し実行するときの注意
 

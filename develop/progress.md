@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-14以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは1件（T-248）**。T-242〜T-247 は完了。T-238〜T-241 は完了。
+**未着手のタスクは0件**（T-242〜T-248 をすべて完了）。T-238〜T-241 は完了。
 **T-229〜T-238 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は 59,620B → 8,570B）。完了タスクは
@@ -14,6 +14,16 @@
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-15 本物のグループ2つで検証する手順を書く
+
+- **T-248: `docs/smoke-test.md` に「パス5: 複数グループ（宣言トークン）」を足した**（sonnet に委譲）。
+  `smoke-fixture.ts` は環境変数名が固定で2グループ目を作れない（予備スロットを流用してもシードタグの
+  取得元がグループAの `SMOKE_QA_SPRINT_PROJECT_ID` に固定され、projectId がグループAと重なる）ため、
+  chart B・ソースリポジトリ1つ・向き先ブランチ・アンカー2つ・シードタグを手で用意する手順にした。
+  `config/` への常設はしない（`config/README.md` に理由）。**実機は未実施**。ユーザーが2グループ目と
+  Group Access Token 2本を用意してから流す
+- `pnpm check` 通過: 45 Test Files / 555 Tests（不変）
 
 ### 2026-09-15 実機スモーク（GitLab、宣言トークン、読み取りのみ）
 
@@ -81,7 +91,7 @@
 **本物のグループ2つでの実機検証手順を T-248 として登録した**（2026-09-15）。`docs/smoke-test.md` に
 パス5を書くだけで、`config/` の実ファイルはユーザーが2グループ目を作ってから足す。
 
-- **T-248**（sonnet）: パス5「複数グループ（宣言トークン）」の準備・手順・期待する結果
+- ~~**T-248**~~（done）: パス5「複数グループ（宣言トークン）」の準備・手順・期待する結果
 
 **複数グループ運用（chart 単位のアクセストークン宣言）を T-242〜T-247 として登録した**
 （2026-09-14、`/plan-tasks`）。依存は直列で **T-242 → T-243 → T-244 → T-245 → T-246 → T-247**。
