@@ -14,13 +14,16 @@ vi.mock("../src/utils/logger.js", () => ({
 
 import { Gitlab } from "@gitbeaker/rest"
 
-import { toAccessToken, toPlatformUrl, toReportOutputPath } from "../src/domain/types.js"
+import { toAccessTokenEnvName, toPlatformUrl, toReportOutputPath } from "../src/domain/types.js"
 import { DEFAULT_CONFIG_ROOT_PATH, loadConfig } from "../src/lib/config/config.js"
 import type { EnvConfig } from "../src/lib/env.js"
 import { run } from "../src/main.js"
 import { makeApp, makeConfigUnit } from "./helpers.js"
 
 const OLD_TAG = "main-build-at-20251231-000000"
+
+/** `makeConfigUnit()`の既定の宣言。`run()`はこの名前のCI/CD変数からトークンを読む */
+const TEAM_A = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_A")
 
 /** このファイル専用の一時出力先。`REPORT_OUTPUT_PATH`の実在チェックはcwd()配下限定のため相対パスにする */
 const REPORT_OUTPUT_DIR = "test-tmp-report-dry-run"
@@ -29,7 +32,6 @@ const REPORT_OUTPUT_PATH = toReportOutputPath(`${REPORT_OUTPUT_DIR}/report.md`)
 const env: EnvConfig = {
   platform: "gitlab",
   platformUrl: toPlatformUrl("https://gitlab.test"),
-  accessToken: toAccessToken("test-token"),
   configRootPath: DEFAULT_CONFIG_ROOT_PATH,
   reportOutputPath: REPORT_OUTPUT_PATH,
   concurrencyLimit: 3,
@@ -80,6 +82,7 @@ describe("run（DRY_RUN=true）", () => {
   let gitlab: ReturnType<typeof makeFakeGitlab>
 
   beforeEach(() => {
+    vi.stubEnv(TEAM_A, "test-token")
     gitlab = makeFakeGitlab()
     // アロー関数は `new` できないので、コンストラクタとして呼べる関数を渡す
     vi.mocked(Gitlab).mockImplementation(function () {
@@ -87,11 +90,12 @@ describe("run（DRY_RUN=true）", () => {
     } as never)
     vi.mocked(loadConfig).mockReturnValue({
       configUnits: [makeConfigUnit([makeApp()])],
-      accessTokenEnvNames: [],
+      accessTokenEnvNames: [TEAM_A],
     })
   })
 
   afterEach(() => {
+    vi.unstubAllEnvs()
     vi.clearAllMocks()
     rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
   })

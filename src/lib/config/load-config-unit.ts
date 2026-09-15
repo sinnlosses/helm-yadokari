@@ -55,7 +55,7 @@ type ChartRepoScope = {
   readonly chartDirName: ChartDirName
   readonly chart: ChartRepoConfig
   readonly appSpecs: readonly AppSpec[]
-  readonly accessTokenEnv: AccessTokenEnvName | undefined
+  readonly accessTokenEnv: AccessTokenEnvName
   readonly registryYamlPath: LocalPath
 }
 

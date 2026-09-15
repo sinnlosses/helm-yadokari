@@ -87,9 +87,9 @@ sed -n '/^### 消すかどうか/,/^#\{2,4\} /p' docs/coding-standards.md
 
 - HTTPエラーの判定は `src/lib/gitlab/errors.ts` の既存ユーティリティ（`isFatalError`等）を使う。
   ステータスコードの直書きを散らさないため
-- 既定の `ACCESS_TOKEN` の 401 / 5xx / ネットワーク障害は `FatalError` を投げて即時終了、
-  chartリポジトリが宣言したトークンの 401 とそれ以外のエラーは該当chartリポジトリを `ERROR`
-  としてログ記録し処理継続する（README「エラーハンドリング」参照）
+- 5xx / ネットワーク障害は `FatalError` を投げて即時終了、401 とそれ以外のエラーは該当chart
+  リポジトリを `ERROR` としてログ記録し処理継続する（README「エラーハンドリング」参照）。
+  401が全体を止めないのは、トークンが `accessTokenEnv` でchartリポジトリ単位に分かれているため
 - **`src/steps/` 配下に `try`/`catch` を書かない**。理由と、この規約の対象外になる箇所は
   `docs/architecture.md`「エラー方針は『fatalは例外・それ以外は戻り値』の2チャネル」参照
 
@@ -369,9 +369,8 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 
 未到達の行を全部は埋めない。埋めるのは次の2つに当たるものだけ。
 
-- エラー方針の分岐（既定の `ACCESS_TOKEN` の 401 / 5xx / ネットワーク障害は `FatalError` で
-  即時終了、chartリポジトリが宣言したトークンの 401 とそれ以外は該当chartリポジトリを
-  `ERROR` として記録し処理継続）
+- エラー方針の分岐（5xx / ネットワーク障害は `FatalError` で即時終了、401 とそれ以外は
+  該当chartリポジトリを `ERROR` として記録し処理継続）
 - `docs/requirements.md` が明示している振る舞い（終了コード、dry-run、
   `(chartリポジトリ, 設定ユニット)`単位のオールオアナッシングなど）
 

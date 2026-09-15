@@ -26,7 +26,6 @@ vi.mock("../src/utils/logger.js", () => ({
 import { Gitlab } from "@gitbeaker/rest"
 
 import {
-  toAccessToken,
   toConfigUnitPath,
   toPlatformUrl,
   toConfigRootPath,
@@ -108,7 +107,6 @@ const REPORT_OUTPUT_DIR = "test-tmp-report-e2e"
 const env: EnvConfig = {
   platform: "gitlab",
   platformUrl: toPlatformUrl("https://gitlab.test"),
-  accessToken: toAccessToken("test-token"),
   configRootPath: toConfigRootPath("config"),
   reportOutputPath: toReportOutputPath(`${REPORT_OUTPUT_DIR}/report.md`),
   concurrencyLimit: 3,

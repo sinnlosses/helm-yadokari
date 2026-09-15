@@ -20,7 +20,8 @@ Helm chart でバージョン管理されているアプリケーションのイ
 
 - Node.js 22.x, pnpm 11.x
 - `pnpm install` で依存関係をインストール
-- ローカル実行には `.env`（`.env.example` を参照）に `GITLAB_URL` / `ACCESS_TOKEN` を設定
+- ローカル実行には `.env`（`.env.example` を参照）に `GITLAB_URL` と、`config/` の各
+  `registry.yaml` が `accessTokenEnv` で宣言している `ACCESS_TOKEN_<グループ名>` を設定
   （`PLATFORM=github` にする場合は `GITLAB_URL` の代わりに `GITHUB_URL` を設定する）
 - タスク運用スキル（`/next-task` など）は別リポジトリ
   <https://github.com/sinnlosses/claude-skills> を clone し、その `skills/<名前>` を
@@ -85,7 +86,7 @@ pnpm build && pnpm start              # ビルドしてから実行
 必ず走る。現時点ではGitLab専用で、`PLATFORM=github`では未対応）。`renovate` ジョブは
 このCLI自体の依存パッケージ更新用（別スケジュールで `RENOVATE=true` を指定）。
 
-CI/CD Variables に `ACCESS_TOKEN` を **Protected: OFF** で登録する（理由と手順は
+CI/CD Variables に `ACCESS_TOKEN_<グループ名>` を **Protected: OFF** で登録する（理由と手順は
 [`README.md`](./README.md)「CI/CD」が正典）。
 
 ## コーディング規約・レビュー方針
@@ -99,9 +100,9 @@ CI/CD Variables に `ACCESS_TOKEN` を **Protected: OFF** で登録する（理�
 - 変数は基本 `const`。コレクションも不変（`ReadonlyMap`・`readonly`）に保つ
 - HTTP エラーの判定は `src/lib/gitlab/errors.ts` の既存ユーティリティ（`isFatalError` 等）を使う。
   gitbeakerのエラーの形を知ってよいのはこのファイルだけで、`src/utils/` には置かない（原則2）
-- 既定の `ACCESS_TOKEN` の 401 / 5xx / ネットワーク障害は `FatalError` を投げて即時終了、
-  chartリポジトリが宣言したトークンの 401 とそれ以外のエラーは該当chartリポジトリを `ERROR`
-  としてログ記録し処理継続する。`src/steps/` 配下に `try`/`catch` を書かない
+- 5xx / ネットワーク障害は `FatalError` を投げて即時終了、401 とそれ以外のエラーは該当chart
+  リポジトリを `ERROR` としてログ記録し処理継続する（401はトークンがchartリポジトリ単位に
+  分かれているため全体を止めない）。`src/steps/` 配下に `try`/`catch` を書かない
 - 環境変数はすべて `src/lib/env.ts` で管理し、読み取りは同ファイルの関数（`loadEnvConfig()` /
   `loadAccessTokens()`）を通す。モジュールのトップレベルでは `process.env` に触れない
 - コメントは**コードから読み取れないことだけ**を書く。型名・関数名の言い換えは書かない。

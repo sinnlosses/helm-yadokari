@@ -253,7 +253,6 @@ describe("loadEnvConfig", () => {
   it("必須の環境変数だけが設定されているとき、省略可能な項目に既定値を入れる", () => {
     vi.stubEnv("PLATFORM", undefined)
     vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
-    vi.stubEnv("ACCESS_TOKEN", "token")
     vi.stubEnv("CONFIG_ROOT_PATH", undefined)
     vi.stubEnv("REPORT_OUTPUT_PATH", undefined)
     vi.stubEnv("CONCURRENCY_LIMIT", undefined)
@@ -264,7 +263,6 @@ describe("loadEnvConfig", () => {
     expect(loadEnvConfig()).toEqual({
       platform: "gitlab",
       platformUrl: "https://gitlab.example.com",
-      accessToken: "token",
       configRootPath: "config",
       reportOutputPath: "report/report.md",
       concurrencyLimit: 3,
@@ -274,16 +272,8 @@ describe("loadEnvConfig", () => {
     })
   })
 
-  it("ACCESS_TOKEN が未設定でも失敗せず、accessToken が undefined になる（accessTokenEnv宣言だけのchartリポジトリを実行対象にできるため）", () => {
-    vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
-    vi.stubEnv("ACCESS_TOKEN", undefined)
-
-    expect(loadEnvConfig().accessToken).toBeUndefined()
-  })
-
   it('DRY_RUN は文字列 "true" のときだけ dryRun を立てる', () => {
     vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
-    vi.stubEnv("ACCESS_TOKEN", "token")
 
     vi.stubEnv("DRY_RUN", "true")
     expect(loadEnvConfig().dryRun).toBe(true)
@@ -296,7 +286,6 @@ describe("loadEnvConfig", () => {
     vi.stubEnv("PLATFORM", undefined)
     vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
     vi.stubEnv("GITHUB_URL", "https://github.example.com")
-    vi.stubEnv("ACCESS_TOKEN", "token")
 
     const env = loadEnvConfig()
     expect(env.platform).toBe("gitlab")
@@ -307,7 +296,6 @@ describe("loadEnvConfig", () => {
     vi.stubEnv("PLATFORM", "github")
     vi.stubEnv("GITHUB_URL", "https://github.example.com")
     vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
-    vi.stubEnv("ACCESS_TOKEN", "token")
 
     const env = loadEnvConfig()
     expect(env.platform).toBe("github")
@@ -318,7 +306,6 @@ describe("loadEnvConfig", () => {
     vi.stubEnv("PLATFORM", "github")
     vi.stubEnv("GITHUB_URL", undefined)
     vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
-    vi.stubEnv("ACCESS_TOKEN", "token")
 
     expect(() => loadEnvConfig()).toThrow("GITHUB_URL")
   })
@@ -326,7 +313,6 @@ describe("loadEnvConfig", () => {
   it("PLATFORM が未知の値のとき例外をスローする", () => {
     vi.stubEnv("PLATFORM", "bitbucket")
     vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
-    vi.stubEnv("ACCESS_TOKEN", "token")
 
     expect(() => loadEnvConfig()).toThrow("PLATFORM")
   })

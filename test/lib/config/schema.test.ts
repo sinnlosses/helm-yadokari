@@ -175,18 +175,21 @@ describe("loadConfig（registry.yamlのaccessTokenEnv）", () => {
     expect(configUnits[0]?.accessTokenEnv).toBe("ACCESS_TOKEN_TEAM_A")
   })
 
-  it("省略したとき undefined になる（既定の ACCESS_TOKEN を使う）", () => {
+  it("accessTokenEnv を書いていない registry.yaml は設定エラーになる（書き漏れが広い権限のトークンへ流れないようにするため）", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
-      registryYaml(
-        { projectId: 888, projectName: "teamA-chart", mrTargetBranch: "develop" },
-        [{ projectId: 1, projectName: "app-1" }],
-      ),
+      "chartToUpdate:\n" +
+        "  projectId: 888\n" +
+        "  projectName: teamA-chart\n" +
+        "  mrTargetBranch: develop\n" +
+        "appSpecs:\n" +
+        "  - projectId: 1\n" +
+        "    projectName: app-1\n" +
+        `    tagFormat: '${DEFAULT_TAG_FORMAT}'\n`,
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
-    const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.accessTokenEnv).toBeUndefined()
+    expect(() => loadConfig(dir.path)).toThrow("accessTokenEnv は必須です")
   })
 
   it.each(["ACCESS_TOKEN", "RENOVATE_TOKEN", "ACCESS_TOKEN_team_a", "ACCESS_TOKEN_"])(
@@ -236,7 +239,8 @@ describe("loadConfig（projectIdの数値/文字列両対応）", () => {
   it("registry.yaml と config.yaml の projectId が文字列（GitHubのowner/repo）でも読める", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
-      'chartToUpdate:\n  projectId: "owner/repo"\n  projectName: teamA-chart\n' +
+      'accessTokenEnv: ACCESS_TOKEN_TEAM_A\n' +
+        'chartToUpdate:\n  projectId: "owner/repo"\n  projectName: teamA-chart\n' +
         '  mrTargetBranch: develop\n' +
         'appSpecs:\n  - projectId: "owner/repo"\n    projectName: app-1\n' +
         `    tagFormat: '${DEFAULT_TAG_FORMAT}'\n`,

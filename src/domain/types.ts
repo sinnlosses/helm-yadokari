@@ -72,10 +72,9 @@ export type ConfigUnit = {
   /**
    * `registry.yaml`トップレベルの`accessTokenEnv`（同じchartリポジトリ配下の全設定ユニットで
    * 共通）。`chartRepo`に入れないのは、このトークンが`chartRepo`への書き込みと`apps`（ソース
-   * リポジトリ）の読み取りの両方に効く、`registry.yaml`全体のスコープの値だから。省略時は
-   * 既定の`ACCESS_TOKEN`を使う
+   * リポジトリ）の読み取りの両方に効く、`registry.yaml`全体のスコープの値だから
    */
-  readonly accessTokenEnv: AccessTokenEnvName | undefined
+  readonly accessTokenEnv: AccessTokenEnvName
 }
 
 /** タグ名から読み取れる情報。追跡ブランチと、タグ形式の`{date}`/`{time}`から読み取った打刻日時 */

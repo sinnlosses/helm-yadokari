@@ -149,16 +149,16 @@ declare const accessTokenEnvNameBrand: unique symbol
 const ACCESS_TOKEN_ENV_NAME_PATTERN = /^ACCESS_TOKEN_[A-Z0-9_]+$/
 /**
  * `registry.yaml`トップレベルの`accessTokenEnv`（アクセストークンが入っている環境変数名。
- * 値そのものではない）。`^ACCESS_TOKEN_[A-Z0-9_]+$`のみを許し、接尾辞なしの`ACCESS_TOKEN`
- * （既定トークン）も含めて任意の名前は許さない。`config/`は各チームがMRを送るセルフサービス
- * 方式なので、任意の環境変数名を書けると無関係な秘密をCLIに読み出させる経路になるため
+ * 値そのものではない）。`^ACCESS_TOKEN_[A-Z0-9_]+$`のみを許し、接尾辞なしの`ACCESS_TOKEN`も
+ * 含めて任意の名前は許さない。`config/`は各チームがMRを送るセルフサービス方式なので、任意の
+ * 環境変数名を書けると無関係な秘密をCLIに読み出させる経路になるため
  */
 export type AccessTokenEnvName = string & { readonly [accessTokenEnvNameBrand]: never }
 export function toAccessTokenEnvName(s: string): AccessTokenEnvName {
   if (!ACCESS_TOKEN_ENV_NAME_PATTERN.test(s)) {
     throw new Error(
       `accessTokenEnv は "ACCESS_TOKEN_" に続けて英大文字・数字・アンダースコアを ` +
-        `1文字以上書いた名前である必要があります（既定の "ACCESS_TOKEN" は省略で表します）: "${s}"`,
+        `1文字以上書いた名前である必要があります: "${s}"`,
     )
   }
   return s as AccessTokenEnvName

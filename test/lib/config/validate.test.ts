@@ -270,28 +270,6 @@ describe("loadConfig（複数のchartリポジトリにまたがるaccessTokenEn
     expect(() => loadConfig(dir.path)).toThrow("accessTokenEnv")
   })
 
-  it("片方だけaccessTokenEnvを宣言（もう片方は省略）しているとき例外をスローする", () => {
-    dir.writeRegistryYaml(
-      "teamA-chart",
-      registryYaml(
-        { projectId: 888, projectName: "teamA-chart", mrTargetBranch: "develop" },
-        [{ projectId: 1, projectName: "my-app" }],
-        "ACCESS_TOKEN_TEAM_A",
-      ),
-    )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYamlFor(1, "my-app"))
-    dir.writeRegistryYaml(
-      "teamB-chart",
-      registryYaml(
-        { projectId: 889, projectName: "teamB-chart", mrTargetBranch: "develop" },
-        [{ projectId: 1, projectName: "my-app" }],
-      ),
-    )
-    dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYamlFor(1, "my-app"))
-
-    expect(() => loadConfig(dir.path)).toThrow("accessTokenEnv")
-  })
-
   it("同じaccessTokenEnvを宣言していれば複数のchartリポジトリにまたがっても読み込める", () => {
     dir.writeRegistryYaml(
       "teamA-chart",

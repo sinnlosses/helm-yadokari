@@ -80,14 +80,18 @@ const AppSpecSchema = z.object({
 export type AppSpec = z.infer<typeof AppSpecSchema>
 
 /**
- * `registry.yaml`トップレベルの`accessTokenEnv`（任意）。名前の形式検証は
+ * `registry.yaml`トップレベルの`accessTokenEnv`。必須にしているのは、書き漏らしたchart
+ * リポジトリが黙ってより広い権限のトークンへ流れる形を残さないため（`config/`は各チームが
+ * MRを送るセルフサービス方式なので、書き漏れは設定エラーで落とす）。名前の形式検証は
  * `toAccessTokenEnvName()`（`domain/brand.ts`）に封じ込めてある
  */
 const AccessTokenEnvNameSchema = z
-  .string()
-  .optional()
+  .string({
+    error:
+      "accessTokenEnv は必須です。registry.yaml のトップレベルに、このchartリポジトリの操作に " +
+      "使うトークンが入っている環境変数名を書いてください（例: 'ACCESS_TOKEN_TEAM_A'）",
+  })
   .transform((raw, ctx) => {
-    if (raw === undefined) return undefined
     try {
       return toAccessTokenEnvName(raw)
     } catch (error) {

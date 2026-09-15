@@ -69,7 +69,7 @@ describe("loadConfig（正常系）", () => {
           },
         ],
       },
-      accessTokenEnv: undefined,
+      accessTokenEnv: "ACCESS_TOKEN_TEAM_A",
     })
   })
 
@@ -767,16 +767,6 @@ describe("loadConfig（helm）", () => {
 })
 
 describe("loadConfig（accessTokenEnvNames）", () => {
-  it("宣言の無いchartリポジトリだけのとき空配列になる", () => {
-    dir.writeRegistryYaml(
-      "teamA-chart",
-      registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
-    )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYaml())
-
-    expect(loadConfig(dir.path).accessTokenEnvNames).toEqual([])
-  })
-
   it("実行対象の設定ユニットが宣言したaccessTokenEnvの一覧を重複無しで返す", () => {
     dir.writeRegistryYaml(
       "teamA-chart",

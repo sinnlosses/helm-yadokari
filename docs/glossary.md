@@ -407,15 +407,14 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### ACCESS_TOKEN・accessTokenEnv
 
-- **英語識別子**: 環境変数`ACCESS_TOKEN` / `ACCESS_TOKEN_<グループ>`（値の型は`AccessToken`
+- **英語識別子**: 環境変数`ACCESS_TOKEN_<グループ>`（値の型は`AccessToken`
   ブランド型）と、`registry.yaml`トップレベルの`accessTokenEnv`フィールド（型は
   `AccessTokenEnvName`ブランド型。`ConfigUnit.accessTokenEnv`に載る）
 - **定義**: GitLab・GitHub共通のアクセストークンと、その**環境変数名の宣言**。トークンは1本では
   なく**グループごとに1本**発行してプロジェクトのCI/CD変数`ACCESS_TOKEN_<グループ>`（Masked）に
   置き、どれを使うかをchartリポジトリ単位に`registry.yaml`の`accessTokenEnv`で宣言する
   （書くのは環境変数名であってトークンの値ではない。名前は`^ACCESS_TOKEN_[A-Z0-9_]+$`に限る）。
-  宣言の無いchartリポジトリは既定の`ACCESS_TOKEN`を使い、`ACCESS_TOKEN`が必須なのは宣言の無い
-  chartリポジトリが実行対象に含まれるときだけ。1回の実行は複数のトークンで動き、
+  宣言は必須で、書かれていない`registry.yaml`は設定エラーになる。1回の実行は複数のトークンで動き、
   どの`ProjectId`をどのトークンで呼ぶかは`createRoutedAdapter()`
   （`src/lib/platform/routed-adapter.ts`）が振り分ける。
 - **トークンの中身**: `PLATFORM=gitlab`（既定）なら`read_api` + `write_repository` + MR作成権限を
@@ -425,8 +424,9 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   理由は`docs/architecture.md`「プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/
   `GITHUB_URL`のまま」節）。
 - **失敗したときの波及範囲**: 宣言したトークンの401（認証エラー）と、宣言した環境変数が未設定
-  だった場合は、そのchartリポジトリ配下の設定ユニットだけが`ERROR`になる。既定`ACCESS_TOKEN`の
-  401と、トークンに依らない5xx・ネットワーク障害は実行全体を即時終了する。
+  だった場合は、そのchartリポジトリ配下の設定ユニットだけが`ERROR`になる。トークンに依らない
+  5xx・ネットワーク障害は実行全体を即時終了する。宣言された環境変数が1つも読めずトークンが
+  1本も手に入らないときも即時終了する。
 - **今の挙動の制約**: 1つの`projectId`を別々のトークンに結びつける`config/`は設定エラーになる
   （`docs/requirements.md` 4.4節）。同じソースリポジトリを別グループのchartリポジトリから追う
   構成は、両者が同じ`accessTokenEnv`を宣言できるときだけ可能。GitLabのGroup Access Tokenか

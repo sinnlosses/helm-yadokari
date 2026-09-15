@@ -1,14 +1,13 @@
 import type { AccessToken, AccessTokenEnvName, ConfigUnit } from "../../../src/domain/types.js"
 
 /**
- * `accessTokenEnv`が同じ設定ユニットをまとめたグループ。`accessTokenEnv`が`undefined`のグループは
- * 宣言の無い設定ユニット（既定の`ACCESS_TOKEN`を使う）を表す。`validate-config.ts`の`--remote`が
+ * `accessTokenEnv`が同じ設定ユニットをまとめたグループ。`validate-config.ts`の`--remote`が
  * グループごとにクライアントを1つ作って`validateRemoteExistence()`を呼ぶために使う
  * （`docs/architecture.md`「アクセストークンはchartリポジトリ単位に宣言し…」節の
  * 「`validate-config --remote`はトークンごとに分解する」段落）。
  */
 export type AccessTokenGroup = {
-  readonly accessTokenEnv: AccessTokenEnvName | undefined
+  readonly accessTokenEnv: AccessTokenEnvName
   readonly configUnits: readonly ConfigUnit[]
 }
 
@@ -16,7 +15,7 @@ export type AccessTokenGroup = {
 export function groupByAccessTokenEnv(
   configUnits: readonly ConfigUnit[],
 ): readonly AccessTokenGroup[] {
-  const map = new Map<AccessTokenEnvName | undefined, ConfigUnit[]>()
+  const map = new Map<AccessTokenEnvName, ConfigUnit[]>()
   for (const configUnit of configUnits) {
     const group = map.get(configUnit.accessTokenEnv)
     if (group === undefined) {
@@ -32,18 +31,14 @@ export function groupByAccessTokenEnv(
 }
 
 /**
- * グループが必要とするアクセストークンを引く。宣言なし（`accessTokenEnv === undefined`）の
- * グループは`defaultAccessToken`、宣言ありのグループは`declaredAccessTokens`から引く。
- * 見つからなければ`undefined`を返す（本体の`loadAccessTokens()`と同じく、ここでは投げない）。
+ * グループが宣言した環境変数のアクセストークンを引く。見つからなければ`undefined`を返す
+ * （本体の`loadAccessTokens()`と同じく、ここでは投げない）。
  */
 export function lookupAccessToken(
   group: AccessTokenGroup,
-  defaultAccessToken: AccessToken | undefined,
   declaredAccessTokens: ReadonlyMap<AccessTokenEnvName, AccessToken>,
 ): AccessToken | undefined {
-  return group.accessTokenEnv === undefined
-    ? defaultAccessToken
-    : declaredAccessTokens.get(group.accessTokenEnv)
+  return declaredAccessTokens.get(group.accessTokenEnv)
 }
 
 /**
@@ -55,15 +50,13 @@ export function lookupAccessToken(
  */
 export function findMissingAccessTokenProblems(
   groups: readonly AccessTokenGroup[],
-  defaultAccessToken: AccessToken | undefined,
   declaredAccessTokens: ReadonlyMap<AccessTokenEnvName, AccessToken>,
 ): readonly string[] {
   return groups.flatMap((group) => {
-    if (lookupAccessToken(group, defaultAccessToken, declaredAccessTokens) !== undefined) return []
-    const envName = group.accessTokenEnv ?? "ACCESS_TOKEN"
+    if (lookupAccessToken(group, declaredAccessTokens) !== undefined) return []
     const chartDirNames = [...new Set(group.configUnits.map((unit) => unit.chartDirName))]
     return chartDirNames.map(
-      (chartDirName) => `[chart: ${chartDirName}] 環境変数 ${envName} が未設定です`,
+      (chartDirName) => `[chart: ${chartDirName}] 環境変数 ${group.accessTokenEnv} が未設定です`,
     )
   })
 }

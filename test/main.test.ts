@@ -10,7 +10,6 @@ vi.mock("../src/utils/logger.js", () => ({
 }))
 
 import {
-  toAccessToken,
   toAccessTokenEnvName,
   toBranchName,
   toChartDirName,
@@ -44,10 +43,12 @@ import { makeApp, makeConfigUnit, makeHttpError, mockGitlab } from "./helpers.js
 const REPORT_OUTPUT_DIR = "test-tmp-report-main"
 const REPORT_OUTPUT_PATH = toReportOutputPath(`${REPORT_OUTPUT_DIR}/report.md`)
 
+/** `makeConfigUnit()`の既定の宣言。`run()`はこの名前のCI/CD変数からトークンを読む */
+const TEAM_A = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_A")
+
 const env: EnvConfig = {
   platform: "gitlab",
   platformUrl: toPlatformUrl("https://gitlab.test"),
-  accessToken: toAccessToken("test-token"),
   configRootPath: DEFAULT_CONFIG_ROOT_PATH,
   reportOutputPath: REPORT_OUTPUT_PATH,
   concurrencyLimit: 3,
@@ -62,8 +63,9 @@ const HEAD_SHA = toCommitSha("head-sha")
 
 describe("run", () => {
   beforeEach(() => {
+    vi.stubEnv(TEAM_A, "test-token")
     vi.mocked(createClient).mockReturnValue(mockGitlab)
-    vi.mocked(loadConfig).mockReturnValue({ configUnits: [], accessTokenEnvNames: [] })
+    vi.mocked(loadConfig).mockReturnValue({ configUnits: [], accessTokenEnvNames: [TEAM_A] })
     vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
@@ -75,6 +77,7 @@ describe("run", () => {
   })
 
   afterEach(() => {
+    vi.unstubAllEnvs()
     vi.clearAllMocks()
     rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
   })
@@ -97,7 +100,7 @@ describe("run", () => {
   it("全件 CREATED のとき正しい件数を集計する", async () => {
     vi.mocked(loadConfig).mockReturnValue({
       configUnits: [makeConfigUnit([makeApp()]), makeConfigUnit([makeApp()])],
-      accessTokenEnvNames: [],
+      accessTokenEnvNames: [TEAM_A],
     })
     await expect(run(env)).resolves.toBe("SUCCESS")
     await expect(summaryCounts()).resolves.toEqual({ CREATED: 2, SKIPPED: 0, ERROR: 0 })
@@ -106,18 +109,18 @@ describe("run", () => {
   it("FatalErrorが発生したとき reject する", async () => {
     vi.mocked(loadConfig).mockReturnValue({
       configUnits: [makeConfigUnit([makeApp()])],
-      accessTokenEnvNames: [],
+      accessTokenEnvNames: [TEAM_A],
     })
-    vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
+    vi.mocked(listTags).mockRejectedValue(makeHttpError(500))
     await expect(run(env)).rejects.toThrow(FatalError)
   })
 
   it("FatalErrorが発生したときレポートを書き出さない", async () => {
     vi.mocked(loadConfig).mockReturnValue({
       configUnits: [makeConfigUnit([makeApp()])],
-      accessTokenEnvNames: [],
+      accessTokenEnvNames: [TEAM_A],
     })
-    vi.mocked(listTags).mockRejectedValue(makeHttpError(401))
+    vi.mocked(listTags).mockRejectedValue(makeHttpError(500))
     await expect(run(env)).rejects.toThrow(FatalError)
     expect(existsSync(REPORT_OUTPUT_PATH)).toBe(false)
   })
@@ -125,7 +128,7 @@ describe("run", () => {
   it("実行後、件数サマリと設定ユニット1件につき1行の表を含むMarkdownレポートを書き出す", async () => {
     vi.mocked(loadConfig).mockReturnValue({
       configUnits: [makeConfigUnit([makeApp()]), makeConfigUnit([makeApp()])],
-      accessTokenEnvNames: [],
+      accessTokenEnvNames: [TEAM_A],
     })
     await run(env)
 
@@ -140,13 +143,13 @@ describe("run", () => {
   it('ERROR が1件以上あるとき "PARTIAL_FAILURE" を返す', async () => {
     vi.mocked(loadConfig).mockReturnValue({
       configUnits: [makeConfigUnit([makeApp()])],
-      accessTokenEnvNames: [],
+      accessTokenEnvNames: [TEAM_A],
     })
     vi.mocked(listTags).mockRejectedValue(makeHttpError(403))
     await expect(run(env)).resolves.toBe("PARTIAL_FAILURE")
   })
 
-  it("chartリポジトリが宣言したトークンの401はそのchartだけをERRORにし、既定トークンのchartはCREATEDになる", async () => {
+  it("あるchartリポジトリが宣言したトークンの401は、そのchartだけをERRORにする（別のトークンのchartはCREATEDになる）", async () => {
     const declaredEnvName = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_B")
     process.env[declaredEnvName] = "team-b-token"
     try {
@@ -176,7 +179,7 @@ describe("run", () => {
       )
       vi.mocked(loadConfig).mockReturnValue({
         configUnits: [chartA, chartB],
-        accessTokenEnvNames: [declaredEnvName],
+        accessTokenEnvNames: [TEAM_A, declaredEnvName],
       })
       vi.mocked(listTags).mockImplementation((_gitlab, projectId) =>
         projectId === appBProjectId
@@ -186,7 +189,7 @@ describe("run", () => {
 
       await expect(run(env)).resolves.toBe("PARTIAL_FAILURE")
       await expect(summaryCounts()).resolves.toEqual({ CREATED: 1, SKIPPED: 0, ERROR: 1 })
-      // 既定ACCESS_TOKENと宣言トークンの両方でcreateClientが呼ばれる（トークンごとに1アダプタ）
+      // chartAとchartBが別々のトークンを宣言しているので、トークンごとに1アダプタ作られる
       expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
       expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "team-b-token")
     } finally {
@@ -194,7 +197,7 @@ describe("run", () => {
     }
   })
 
-  it("createClient に GITLAB_URL と ACCESS_TOKEN を渡す", async () => {
+  it("createClient に GITLAB_URL と、宣言された環境変数から読んだトークンを渡す", async () => {
     await run(env)
     expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
   })
@@ -224,10 +227,12 @@ describe("run", () => {
 
 describe("run（PLATFORMによる実装の切り替え）", () => {
   beforeEach(() => {
-    vi.mocked(loadConfig).mockReturnValue({ configUnits: [], accessTokenEnvNames: [] })
+    vi.stubEnv(TEAM_A, "test-token")
+    vi.mocked(loadConfig).mockReturnValue({ configUnits: [], accessTokenEnvNames: [TEAM_A] })
   })
 
   afterEach(() => {
+    vi.unstubAllEnvs()
     vi.clearAllMocks()
     rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
   })

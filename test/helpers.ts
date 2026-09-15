@@ -12,6 +12,7 @@ import type {
   TagSourceKey,
 } from "../src/domain/types.js"
 import {
+  toAccessTokenEnvName,
   toAnchorName,
   toBranchName,
   toChartDirName,
@@ -188,7 +189,7 @@ export function makeConfigUnit(
     // 既定は書き込み先が空＝向き先ブランチの更新が1件も積まれない状態。向き先ブランチそのものを
     // 検証するテストだけが`locations`を持つ値で上書きする
     helm: { branchRef: toBranchName("release/2026-q1"), locations: [] },
-    accessTokenEnv: undefined,
+    accessTokenEnv: toAccessTokenEnvName("ACCESS_TOKEN_TEAM_A"),
     ...overrides,
   }
 }

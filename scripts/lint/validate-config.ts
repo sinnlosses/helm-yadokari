@@ -63,7 +63,7 @@ const appCount = configUnits.reduce((sum, configUnit) => sum + configUnit.apps.l
 console.log(`config OK: ${configUnits.length} 設定ユニット, ${appCount} apps (${configRootPath})`)
 
 if (remote) {
-  // 環境変数（GITLAB_URL/ACCESS_TOKEN）を要求するのは --remote のときだけなので、
+  // 環境変数（GITLAB_URL と各グループのアクセストークン）を要求するのは --remote のときだけなので、
   // 読み込みもこの中で行う。認証情報が無いときは黙って成功させず、理由を明示して
   // 失敗させる（このチェックが素通りすると、存在しないアンカー・ブランチが
   // そのままマージされてしまうため）
@@ -73,7 +73,7 @@ if (remote) {
     } catch (err) {
       fail(
         `実在チェックを実行できません（${err instanceof Error ? err.message : String(err)}）。` +
-          `GITLAB_URL と ACCESS_TOKEN を設定してください`,
+          `GITLAB_URL と、config/ が宣言しているアクセストークンの環境変数を設定してください`,
       )
     }
   })()
@@ -90,11 +90,7 @@ if (remote) {
   // トークンごとに分解する」段落）
   const groups = groupByAccessTokenEnv(configUnits)
   const declaredAccessTokens = loadAccessTokens(accessTokenEnvNames)
-  const missingTokenProblems = findMissingAccessTokenProblems(
-    groups,
-    env.accessToken,
-    declaredAccessTokens,
-  )
+  const missingTokenProblems = findMissingAccessTokenProblems(groups, declaredAccessTokens)
   if (missingTokenProblems.length > 0) {
     fail(
       `実在チェックを実行できません。次のアクセストークンが未設定です:\n` +
@@ -104,12 +100,10 @@ if (remote) {
 
   const problemsPerGroup = await Promise.all(
     groups.map((group) => {
-      const token = lookupAccessToken(group, env.accessToken, declaredAccessTokens)
+      const token = lookupAccessToken(group, declaredAccessTokens)
       if (token === undefined) {
         // findMissingAccessTokenProblems() が事前に全件検出しているため到達しない防御的な分岐
-        throw new Error(
-          `アクセストークンが見つかりません（${group.accessTokenEnv ?? "ACCESS_TOKEN"}）`,
-        )
+        throw new Error(`アクセストークンが見つかりません（${group.accessTokenEnv}）`)
       }
       return validateRemoteExistence(
         createClient(env.platformUrl, token),

@@ -16,6 +16,19 @@ T-256・T-257 は `loopable: N` なので `/loop` では進まない。
 
 ## 完了したこと（このセッション）
 
+### 2026-09-16 accessTokenEnv を必須化し既定 ACCESS_TOKEN を廃止した（T-257）
+
+- **T-257: `registry.yaml` の `accessTokenEnv` を必須にし、既定 `ACCESS_TOKEN` の経路を丸ごと削った**。
+  `EnvConfig.accessToken`・`AdaptersByAccessToken`・`Route` の `fallback` バリアント・
+  `assertFallbackAvailable()`・`access-token-groups.ts` の既定グループが消え、**401は全て
+  chart単位 `ERROR` に一本化**（5xx・ネットワーク障害の即時終了は据え置き）
+- `createRoutedAdapter()` の第2引数は `ReadonlyMap<AccessTokenEnvName, PlatformAdapter>` に。
+  表が1つになり専用の型で包む理由が消えたため
+- **CLI本体・lintスクリプトは接尾辞なしの `ACCESS_TOKEN` を一切読まなくなった**。
+  CI/CD変数と `.env` からの削除はユーザー作業（未実施）
+- 受け入れ時に、どのタスクの担当範囲にも入っていなかった `CLAUDE.md`（3箇所）と
+  `docs/coding-standards.md`（2箇所）の401方針・環境変数の記述を追随させた
+
 ### 2026-09-16 `config/` の2chartに `accessTokenEnv` を常設した（T-256）
 
 - **T-256: `config/yadokari-smoke-test-chart` と `chart2` の `registry.yaml` に

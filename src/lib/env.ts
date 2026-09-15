@@ -115,12 +115,6 @@ export function parseTargetUnits(raw: string | undefined): readonly ConfigUnitPa
 export type EnvConfig = {
   readonly platform: PlatformKind
   readonly platformUrl: PlatformUrl
-  /**
-   * 既定のアクセストークン（`ACCESS_TOKEN`）。宣言（`accessTokenEnv`）の無いchartリポジトリが
-   * 実行対象に含まれるときだけ必須で、それ以外は未設定でもよい
-   * （`docs/architecture.md`「アクセストークンはchartリポジトリ単位に宣言し…」節）
-   */
-  readonly accessToken: AccessToken | undefined
   readonly configRootPath: ConfigRootPath
   readonly reportOutputPath: ReportOutputPath
   readonly concurrencyLimit: number
@@ -143,7 +137,6 @@ export function loadEnvConfig(): EnvConfig {
   return {
     platform,
     platformUrl: loadPlatformUrl(platform),
-    accessToken: loadOptionalAccessToken(),
     configRootPath: parseConfigRootPath(loadOptionalEnv("CONFIG_ROOT_PATH")),
     reportOutputPath: parseReportOutputPath(loadOptionalEnv("REPORT_OUTPUT_PATH")),
     concurrencyLimit: parseConcurrencyLimit(loadOptionalEnv("CONCURRENCY_LIMIT")),
@@ -175,12 +168,6 @@ function loadPlatformUrl(platform: PlatformKind): PlatformUrl {
   return platform === "gitlab"
     ? validateGitlabUrl(loadEnv("GITLAB_URL"))
     : validateGithubUrl(loadEnv("GITHUB_URL"))
-}
-
-/** 既定の`ACCESS_TOKEN`は宣言（`accessTokenEnv`）の無いchartリポジトリだけが使うため、ここでは未設定を許す */
-function loadOptionalAccessToken(): AccessToken | undefined {
-  const value = loadOptionalEnv("ACCESS_TOKEN")
-  return value === undefined ? undefined : toAccessToken(value)
 }
 
 function parseTargetUnitEntry(entry: string): ConfigUnitPath {

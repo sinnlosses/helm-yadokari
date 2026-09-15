@@ -14,7 +14,6 @@ import { createGitlabAdapter } from "./lib/gitlab/adapter.js"
 import { createClient as createGitlabClient } from "./lib/gitlab/api.js"
 import type { PlatformAdapter } from "./lib/platform/adapter.js"
 import { withCachedReads } from "./lib/platform/cached-reads.js"
-import type { AdaptersByAccessToken } from "./lib/platform/routed-adapter.js"
 import { createRoutedAdapter } from "./lib/platform/routed-adapter.js"
 import { formatReport } from "./lib/report/format-report.js"
 import { writeReport } from "./lib/report/write-report.js"
@@ -109,23 +108,17 @@ async function runPipeline(env: EnvConfig): Promise<RunProcessResult> {
 }
 
 /**
- * `accessTokenEnvNames`（宣言された環境変数名の一覧）それぞれについてトークンを読み、
- * 名前ごとに`createPlatformAdapter()`でアダプタを組み立てる。`env.accessToken`
- * （既定の`ACCESS_TOKEN`）が設定されていれば`fallback`も組み立てる
- * （`createRoutedAdapter()`が、宣言の無いchartリポジトリがあるのに未設定なら例外を投げる）。
+ * `accessTokenEnvNames`（宣言された環境変数名の一覧）のうち値が読めたものについて、名前ごとに
+ * `createPlatformAdapter()`でアダプタを組み立てる。値が未設定の名前は`loadAccessTokens()`が
+ * 表から落とすため、ここでも表に載らない（1本も載らなければ`createRoutedAdapter()`が例外を
+ * 投げる）。
  */
 function buildAdaptersByAccessToken(
   env: EnvConfig,
   accessTokenEnvNames: readonly AccessTokenEnvName[],
-): AdaptersByAccessToken {
+): ReadonlyMap<AccessTokenEnvName, PlatformAdapter> {
   const tokens = loadAccessTokens(accessTokenEnvNames)
-  return {
-    declared: new Map(
-      [...tokens].map(([name, token]) => [name, createPlatformAdapter(env, token)]),
-    ),
-    fallback:
-      env.accessToken === undefined ? undefined : createPlatformAdapter(env, env.accessToken),
-  }
+  return new Map([...tokens].map(([name, token]) => [name, createPlatformAdapter(env, token)]))
 }
 
 /** `env.platform`（1回の実行でGitLab/GitHubを混在させない選択）に応じてPlatformAdapterを組み立てる */

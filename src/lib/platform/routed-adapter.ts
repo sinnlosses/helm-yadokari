@@ -2,42 +2,28 @@ import type { AccessTokenEnvName, ChartDirName, ConfigUnit, ProjectId } from "..
 import type { PlatformAdapter } from "./adapter.js"
 
 /**
- * `createRoutedAdapter()`の第2引数。`registry.yaml`の`accessTokenEnv`で宣言された名前ごとの
- * `PlatformAdapter`（`declared`）と、宣言の無いchartリポジトリが使う既定トークンのもの
- * （`fallback`。未設定なら`undefined`）。GitLab/GitHubどちらのアダプタを組み立てるかは
- * `main.ts`の`createPlatformAdapter()`が決め、ここでは1つの表としてまとめるだけ
- * （`lib/platform/`が`lib/gitlab/`・`lib/github/`をimportしないため）。
- */
-export type AdaptersByAccessToken = {
-  readonly declared: ReadonlyMap<AccessTokenEnvName, PlatformAdapter>
-  readonly fallback: PlatformAdapter | undefined
-}
-
-/**
  * `configUnits`から`ProjectId`→使うべきアダプタの対応を組み立て、`ProjectId`を引数に取る
  * `PlatformAdapter`の各関数をその対応へ振り分けるだけの`PlatformAdapter`を1枚かぶせる。
- * `steps/`はこの戻り値を1つの`PlatformAdapter`として扱い、複数トークンで動いていることを
- * 意識しない。
+ * `adapters`は`registry.yaml`の`accessTokenEnv`で宣言された名前ごとの`PlatformAdapter`で、
+ * GitLab/GitHubどちらのアダプタを組み立てるかは`main.ts`の`createPlatformAdapter()`が決める
+ * （`lib/platform/`が`lib/gitlab/`・`lib/github/`をimportしないため）。`steps/`はこの戻り値を
+ * 1つの`PlatformAdapter`として扱い、複数トークンで動いていることを意識しない。
  *
- * 宣言された名前のアダプタへ委譲した呼び出しの401は、そのchartリポジトリの設定ユニットだけを
- * `ERROR`に留めるため、HTTPの構造を持たない素の`Error`に読み替えて投げ直す
- * （`docs/architecture.md`「アクセストークンはchartリポジトリ単位に宣言し…」節）。宣言した
- * 環境変数の値が未設定（`declared`に無い）だったときも同じく素の`Error`にする。`fallback`
- * 経由の呼び出しは読み替えず、そのまま投げる（従来どおり`isFatalError()`が401を`FatalError`に
- * 昇格させる）。
+ * 委譲した呼び出しの401は、そのchartリポジトリの設定ユニットだけを`ERROR`に留めるため、
+ * HTTPの構造を持たない素の`Error`に読み替えて投げ直す（`docs/architecture.md`
+ * 「アクセストークンはchartリポジトリ単位に宣言し…」節）。宣言した環境変数の値が未設定
+ * （`adapters`に無い）だったときも同じく素の`Error`にする。
  *
- * 宣言の無い設定ユニットがあるのに`fallback`が`undefined`のとき、または宣言された環境変数の
- * アダプタが1つも無く（`declared`が空）`fallback`も`undefined`のときは、組み立てたこの時点で
+ * 宣言された環境変数のアダプタが1つも無い（`adapters`が空）ときは、組み立てたこの時点で
  * 例外を投げる（`config/`の読み込みエラーと同じ、実行全体の即時終了の経路）。
  */
 export function createRoutedAdapter(
   configUnits: readonly ConfigUnit[],
-  adapters: AdaptersByAccessToken,
+  adapters: ReadonlyMap<AccessTokenEnvName, PlatformAdapter>,
 ): PlatformAdapter {
-  assertFallbackAvailable(configUnits, adapters.fallback)
-  assertDeclaredAdapterAvailable(configUnits, adapters)
+  assertAdapterAvailable(configUnits, adapters)
   const routes = buildRoutes(configUnits, adapters)
-  const representative = adapters.fallback ?? firstDeclared(adapters.declared)
+  const representative = firstAdapter(adapters)
 
   // `async`にするのは、`lookupRoute()`（表に無い`ProjectId`）の同期的な例外もPromiseの
   // rejectionにするため。`PlatformAdapter`の各関数はPromiseを返す契約なので、同期で
@@ -82,7 +68,6 @@ export function createRoutedAdapter(
 
 /** `ProjectId`1つが結びつくアダプタと、401・未設定を読み替えるために持ち回るchart側の情報 */
 type Route =
-  | { readonly kind: "fallback"; readonly adapter: PlatformAdapter }
   | {
       readonly kind: "declared"
       readonly adapter: PlatformAdapter
@@ -96,49 +81,19 @@ type Route =
     }
 
 /**
- * 宣言の無い（`accessTokenEnv === undefined`）設定ユニットが1つでもあるのに`fallback`が
- * `undefined`なら、どのchartディレクトリが既定`ACCESS_TOKEN`を要求しているかを全件並べて
- * 例外を投げる。
+ * 宣言された環境変数のアダプタが1つも無い（`adapters`が空）と、代表アダプタ（`buildTagUrl`等の
+ * 委譲先）を選べない。`registry.yaml`の`accessTokenEnv`の宣言自体はあるのに、その環境変数の値が
+ * 全chartで未設定というケース（CI/CD変数の設定漏れ）なので、どのchartディレクトリがどの
+ * 環境変数を要求しているかを全件並べて例外を投げる。chartリポジトリ単位の`ERROR`に落とせるのは、
+ * 他に1本でも読めるトークンがあるときだけ。
  */
-function assertFallbackAvailable(
+function assertAdapterAvailable(
   configUnits: readonly ConfigUnit[],
-  fallback: PlatformAdapter | undefined,
+  adapters: ReadonlyMap<AccessTokenEnvName, PlatformAdapter>,
 ): void {
-  if (fallback !== undefined) return
-  const chartDirNames = [
-    ...new Set(
-      configUnits
-        .filter((unit) => unit.accessTokenEnv === undefined)
-        .map((unit) => unit.chartDirName),
-    ),
-  ]
-  if (chartDirNames.length === 0) return
-  throw new Error(
-    `ACCESS_TOKEN が未設定です。次の chart ディレクトリは accessTokenEnv の宣言が無く、` +
-      `既定の ACCESS_TOKEN を必要とします: ${chartDirNames.join(", ")}`,
-  )
-}
-
-/**
- * `assertFallbackAvailable()`を通過した後（＝宣言の無い設定ユニットは無いか、`fallback`がある）
- * でも、宣言された環境変数のアダプタが1つも無く（`adapters.declared`が空）`fallback`も
- * `undefined`だと、代表アダプタ（`buildTagUrl`等の委譲先）を選べない。`registry.yaml`の
- * `accessTokenEnv`の宣言自体はあるのに、その環境変数の値が全chartで未設定というケース
- * （CI/CD変数の設定漏れ）なので、どのchartディレクトリがどの環境変数を要求しているかを
- * 全件並べて例外を投げる。
- */
-function assertDeclaredAdapterAvailable(
-  configUnits: readonly ConfigUnit[],
-  adapters: AdaptersByAccessToken,
-): void {
-  if (adapters.fallback !== undefined) return
-  if (adapters.declared.size > 0) return
+  if (adapters.size > 0) return
   const requirements = [
-    ...new Set(
-      configUnits.map(
-        (unit) => `[chart: ${unit.chartDirName}] ${unit.accessTokenEnv ?? "ACCESS_TOKEN"}`,
-      ),
-    ),
+    ...new Set(configUnits.map((unit) => `[chart: ${unit.chartDirName}] ${unit.accessTokenEnv}`)),
   ]
   throw new Error(
     "アクセストークンが1つも読めません。次の chart ディレクトリが要求する環境変数を " +
@@ -153,7 +108,7 @@ function assertDeclaredAdapterAvailable(
  */
 function buildRoutes(
   configUnits: readonly ConfigUnit[],
-  adapters: AdaptersByAccessToken,
+  adapters: ReadonlyMap<AccessTokenEnvName, PlatformAdapter>,
 ): ReadonlyMap<ProjectId, Route> {
   const routes = new Map<ProjectId, Route>()
   for (const configUnit of configUnits) {
@@ -165,20 +120,15 @@ function buildRoutes(
   return routes
 }
 
-function resolveRoute(configUnit: ConfigUnit, adapters: AdaptersByAccessToken): Route {
-  const { accessTokenEnv } = configUnit
-  if (accessTokenEnv === undefined) {
-    const { fallback } = adapters
-    // assertFallbackAvailable() が組み立て時に例外を投げているため到達しない防御的な分岐
-    if (fallback === undefined) {
-      throw new Error(`chart "${configUnit.chartDirName}" の既定アクセストークンが見つかりません`)
-    }
-    return { kind: "fallback", adapter: fallback }
-  }
-  const adapter = adapters.declared.get(accessTokenEnv)
+function resolveRoute(
+  configUnit: ConfigUnit,
+  adapters: ReadonlyMap<AccessTokenEnvName, PlatformAdapter>,
+): Route {
+  const { chartDirName, accessTokenEnv } = configUnit
+  const adapter = adapters.get(accessTokenEnv)
   return adapter === undefined
-    ? { kind: "missing", chartDirName: configUnit.chartDirName, accessTokenEnv }
-    : { kind: "declared", adapter, chartDirName: configUnit.chartDirName, accessTokenEnv }
+    ? { kind: "missing", chartDirName, accessTokenEnv }
+    : { kind: "declared", adapter, chartDirName, accessTokenEnv }
 }
 
 function projectIdsOf(configUnit: ConfigUnit): readonly ProjectId[] {
@@ -194,9 +144,8 @@ function lookupRoute(routes: ReadonlyMap<ProjectId, Route>, projectId: ProjectId
 }
 
 /**
- * `route`が指すアダプタへ委譲する。`declared`だけ401を読み替え、`missing`は呼び出し自体を
- * 素の`Error`に差し替える。`fallback`はそのまま投げるので、既定`ACCESS_TOKEN`の401は
- * 従来どおり`isFatalError()`で`FatalError`に昇格する。
+ * `route`が指すアダプタへ委譲し、401を素の`Error`に読み替える。`missing`（宣言した環境変数が
+ * 未設定）は呼び出し自体を素の`Error`に差し替える。
  */
 async function callRoute<T>(
   route: Route,
@@ -204,9 +153,6 @@ async function callRoute<T>(
 ): Promise<T> {
   if (route.kind === "missing") {
     throw new Error(`[chart: ${route.chartDirName}] 環境変数 ${route.accessTokenEnv} が未設定です`)
-  }
-  if (route.kind === "fallback") {
-    return invoke(route.adapter)
   }
   try {
     return await invoke(route.adapter)
@@ -219,12 +165,10 @@ async function callRoute<T>(
   }
 }
 
-// assertDeclaredAdapterAvailable() が組み立て時に空を弾いているため、以下のthrowには到達しない
+// assertAdapterAvailable() が組み立て時に空を弾いているため、以下のthrowには到達しない
 // 防御的な分岐
-function firstDeclared(
-  declared: ReadonlyMap<AccessTokenEnvName, PlatformAdapter>,
-): PlatformAdapter {
-  const first = declared.values().next().value
+function firstAdapter(adapters: ReadonlyMap<AccessTokenEnvName, PlatformAdapter>): PlatformAdapter {
+  const first = adapters.values().next().value
   if (first === undefined) {
     throw new Error("アクセストークンのアダプタが1つも指定されていません")
   }

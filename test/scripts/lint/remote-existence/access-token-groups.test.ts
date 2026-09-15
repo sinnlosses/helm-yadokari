@@ -15,19 +15,24 @@ const TEAM_B = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_B")
 const TEAM_C = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_C")
 
 describe("groupByAccessTokenEnv", () => {
-  it("宣言の無い設定ユニットはundefinedのグループにまとめる", () => {
-    const unit1 = makeConfigUnit([makeApp()], { chartDirName: toChartDirName("chart-1") })
-    const unit2 = makeConfigUnit([makeApp()], { chartDirName: toChartDirName("chart-2") })
+  it("同じ accessTokenEnv を宣言した設定ユニットを1つのグループにまとめる", () => {
+    const unit1 = makeConfigUnit([makeApp()], {
+      chartDirName: toChartDirName("chart-1"),
+      accessTokenEnv: TEAM_B,
+    })
+    const unit2 = makeConfigUnit([makeApp()], {
+      chartDirName: toChartDirName("chart-2"),
+      accessTokenEnv: TEAM_B,
+    })
 
     const groups = groupByAccessTokenEnv([unit1, unit2])
 
     expect(groups).toHaveLength(1)
-    expect(groups[0]?.accessTokenEnv).toBeUndefined()
+    expect(groups[0]?.accessTokenEnv).toBe(TEAM_B)
     expect(groups[0]?.configUnits).toEqual([unit1, unit2])
   })
 
-  it("宣言ありの2種類と宣言なしを別々のグループに分ける", () => {
-    const noDeclaration = makeConfigUnit([makeApp()], { chartDirName: toChartDirName("chart-1") })
+  it("別々の accessTokenEnv は別々のグループに分ける", () => {
     const teamB = makeConfigUnit([makeApp()], {
       chartDirName: toChartDirName("chart-2"),
       accessTokenEnv: TEAM_B,
@@ -37,11 +42,11 @@ describe("groupByAccessTokenEnv", () => {
       accessTokenEnv: TEAM_C,
     })
 
-    const groups = groupByAccessTokenEnv([noDeclaration, teamB, teamC])
+    const groups = groupByAccessTokenEnv([teamB, teamC])
 
-    expect(groups.map((group) => group.accessTokenEnv)).toEqual([undefined, TEAM_B, TEAM_C])
-    expect(groups[1]?.configUnits).toEqual([teamB])
-    expect(groups[2]?.configUnits).toEqual([teamC])
+    expect(groups.map((group) => group.accessTokenEnv)).toEqual([TEAM_B, TEAM_C])
+    expect(groups[0]?.configUnits).toEqual([teamB])
+    expect(groups[1]?.configUnits).toEqual([teamC])
   })
 })
 
@@ -51,27 +56,14 @@ describe("findMissingAccessTokenProblems", () => {
       chartDirName: toChartDirName("chart-2"),
       accessTokenEnv: TEAM_B,
     })
-    const groups = groupByAccessTokenEnv([makeConfigUnit([makeApp()]), teamB])
+    const groups = groupByAccessTokenEnv([teamB])
 
     const problems = findMissingAccessTokenProblems(
       groups,
-      toAccessToken("default-token"),
       new Map([[TEAM_B, toAccessToken("team-b-token")]]),
     )
 
     expect(problems).toEqual([])
-  })
-
-  it("既定のACCESS_TOKENが未設定なら、それを必要とするchart名を含めて報告する", () => {
-    const groups = groupByAccessTokenEnv([
-      makeConfigUnit([makeApp()], { chartDirName: toChartDirName("chart-1") }),
-    ])
-
-    const problems = findMissingAccessTokenProblems(groups, undefined, new Map())
-
-    expect(problems).toHaveLength(1)
-    expect(problems[0]).toContain("chart-1")
-    expect(problems[0]).toContain("ACCESS_TOKEN")
   })
 
   it("宣言された環境変数が未設定なら、chart名と環境変数名を含めて報告する", () => {
@@ -82,11 +74,7 @@ describe("findMissingAccessTokenProblems", () => {
       }),
     ])
 
-    const problems = findMissingAccessTokenProblems(
-      groups,
-      toAccessToken("default-token"),
-      new Map(),
-    )
+    const problems = findMissingAccessTokenProblems(groups, new Map())
 
     expect(problems).toHaveLength(1)
     expect(problems[0]).toContain("chart-2")
@@ -105,7 +93,7 @@ describe("findMissingAccessTokenProblems", () => {
       }),
     ])
 
-    const problems = findMissingAccessTokenProblems(groups, undefined, new Map())
+    const problems = findMissingAccessTokenProblems(groups, new Map())
 
     expect(problems.filter((problem) => problem.includes("ACCESS_TOKEN_TEAM_B"))).toHaveLength(2)
   })
