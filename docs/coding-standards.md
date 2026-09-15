@@ -31,7 +31,7 @@ sed -n '/^### 消すかどうか/,/^#\{2,4\} /p' docs/coding-standards.md
 | ## 変数は基本 `const`                                        | `let` が自然な例外と、コレクションまで不変にする理由                            |
 | ## エラーハンドリング                                        | `isFatalError`を使う理由、`FatalError`の範囲、`steps/`に`try`/`catch`を書かない |
 | ## `async`/`await` と `.then()`/`.catch()`                   | `.then()`を使ってよい3箇所の表と、全面禁止を採らなかった理由                    |
-| ## 環境変数                                                  | `loadEnvConfig()` を通す理由                                                    |
+| ## 環境変数                                                  | `loadEnvConfig()` を通す理由と、`scripts/` が対象外である理由                   |
 | ## コメント                                                  | コメント規約の全体。下の4小節を含む                                             |
 | ### 読者で書き分ける                                         | `/** */`は呼ぶ人向け・`//`は実装を読む人向け、という切り分け                    |
 | ### 残すかどうかは長さではなく種類で決める                   | **種類別**の判断表（写しは消す）と正典の対応表                                  |
@@ -131,10 +131,19 @@ top-level await が使えるため `await` + `try`/`catch` で書く。`try` が
 
 ## 環境変数
 
-すべて `src/lib/env.ts` で管理し、読み取りは同ファイルの関数（`loadEnvConfig()` /
-`loadAccessTokens()`）を通す。モジュールのトップレベルでは `process.env` に触れない。
-トップレベルで読んでいた頃に何が起きたかは
+`src/` の環境変数はすべて `src/lib/env.ts` で管理し、読み取りは同ファイルの関数
+（`loadEnvConfig()` / `loadAccessTokens()`）を通す。モジュールのトップレベルでは
+`process.env` に触れない。トップレベルで読んでいた頃に何が起きたかは
 `docs/architecture.md`「環境変数はモジュールのトップレベルではなく`loadEnvConfig()`で読む」参照。
+
+**`scripts/` はこの規約の対象外**で、そのスクリプトだけが使う環境変数は `process.env` から
+直接読んでよい（`smoke-fixture.ts` の `requireProjectId()`・`ACCESS_TOKEN_SMOKE_A`、
+`provision-group.ts` の `GITLAB_PROVISION_PAT`）。本体パイプラインの外にあるので
+（CLAUDE.md 原則3）、本体が使わない値を `EnvConfig` に載せる理由が無い。トップレベルで
+読んでよいのは、この2本が**どこからも import されない実行の入口**だから
+（テストが import するのは `group-fixture-content.ts` のような純粋なヘルパーだけで、
+上の「import しただけで検証が走る」弊害が起きない）。`loadEnvConfig()` 自体は
+`platformUrl`・`platform` を得るために引き続き使う。
 
 ## コメント
 
