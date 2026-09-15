@@ -11,6 +11,221 @@
 
 ## 完了したこと（アーカイブ）
 
+### 2026-09-14 複数グループ運用の設計を正典に書く
+
+- **T-242: chart 単位のアクセストークン宣言（`registry.yaml` の `accessTokenEnv`）と複数トークン実行の
+  設計を `docs/requirements.md`・`docs/architecture.md`・`docs/glossary.md` に書いた**（opus に委譲）。
+  6論点の結論: 環境変数名は `^ACCESS_TOKEN_[A-Z0-9_]+$` に限定（config から無関係な秘密を
+  読ませない）、既定 `ACCESS_TOKEN` は条件付き必須（`EnvConfig.accessToken` が `| undefined` に）、
+  振り分けは `lib/platform/routed-adapter.ts` の `createRoutedAdapter()` で `withCachedReads()` は
+  その外側、同一 `projectId` の別トークンは「形」の設定エラー、**宣言トークンの 401 は素の `Error` に
+  読み替えて chart 単位の ERROR**（ログの `httpStatus` は `undefined` になる制約を正典に明記）、
+  `--remote` はトークンごとに分解し1本でも未設定なら失敗
+- `pnpm check` 通過: 43 Test Files / 516 Tests（不変。ドキュメントのみ）
+
+### 2026-09-13 `lookUpLatestTags()` をサブステップにする
+
+- **T-241: `build-plans.ts` の非公開 `lookUpLatestTags()` を
+  `sub-steps/look-up-latest-tags.ts` へ移した**。`buildPlan()` の中で「ローカル関数の呼び出し」と
+  「サブステップの呼び出し」が同じ深さに並んでいた状態を解消。`build-plans.ts` は
+  `buildPlans()`・`buildPlan()` とimportだけになった
+- **「単発のヘルパーに1ファイルを与えない」との衝突の解き方**: この規約は「役割で括れて複数を
+  並べられる単位に達しない寄せ集めヘルパー」を対象にしており、**サブステップはパイプラインの
+  1段であってヘルパーではない**と読んだ。前例は `apply-updates/sub-steps/collect-mr-entries.ts`
+  （31行・公開関数1つ）で、**直接の単体テストを持っている**ことが「小さくても公開関数として
+  扱ってよい」先例になっている
+- **命名は `lookUp` のまま据え置いた**。他のサブステップに倣って `resolve-` にすると、
+  `resolve-tags/sub-steps/resolve-latest-tag.ts`（API越しの実解決）と紛れて「ネットワーク越しに
+  解決する」と誤読されかねない。実態は「解決済みの結果をマップから引き当てるだけ」
+- `sub-steps/` 直下の相互importが0件であることを `grep` で確認（原則1）
+- `pnpm check` 通過: 43 Test Files / 516 Tests（514→516）
+
+### 2026-09-13 レポートを artifacts として回収する
+
+- **T-240: `.gitlab-ci.yml` の `update-app-versions` に `artifacts` を足した**。
+  `when: always`・`paths: [report/report.md]`・`expire_in: 7 days`。**`when: always` は必須**で、
+  `ERROR` が1件でもあると exit 1 になるため、既定の `on_success` だと一番レポートが欲しい
+  失敗時に回収されない
+- `paths` とコード側の `DEFAULT_REPORT_OUTPUT_PATH` の一致は、両ファイルから値を抜いて
+  突き合わせるスクリプトで確認した（片方だけ変えると静かに回収されなくなるため）
+- **`docs/requirements.md` は「2.1 対象とすること」ではなく「## 5. 実行環境・非機能要件」に
+  足した**（ユーザー判断）。レポートは「chartに何をするか」ではなく運用側の話で、同じ章に
+  既に **Dry-runモード** が並んでいるため。冒頭「節の索引」の5章の行も追随
+- **実機未検証**: artifacts が実際に回収されるかはCIを回さないと確かめられない。
+  ローカルで確かめられたのは `paths` の値の一致まで
+- `pnpm check` 通過: 42 Test Files / 514 Tests（不変）
+
+### 2026-09-13 レポートをMarkdownで書き出す
+
+- **T-239: `REPORT_OUTPUT_PATH`（既定 `report/report.md`）を追加し、`src/lib/report/` から
+  Markdown 1枚を書き出すようにした**。`format-report.ts`（レコード配列→Markdown文字列の
+  純粋関数）と `write-report.ts`（`node:fs` での書き出し）に分けた（分ける合図①「責務が
+  『整形』と『書き出し』」・④「片方だけ外部I/Oを持つ」。`build-mr-content.ts`／
+  `submit-merge-request.ts` の前例に倣う）
+- **`runProcess()` が `runPipeline()` を包む形にした**。`runPipeline()` が `FatalError` で
+  reject すれば `runProcess()` もそのまま reject するため、**fatal時は書き出しに到達しない**
+  （方針どおり）。`DRY_RUN=true` では書き出す
+- 出力パスは新設のブランド型 `ReportOutputPath`。`CONFIG_ROOT_PATH` と違い**実在チェックは
+  しない**（これから書き出すファイルなので）。親ディレクトリは `mkdirSync(recursive)` で作る
+- **レビューで2点直した**: (1) ERRORの `reason` は例外のメッセージそのもので `|` や改行を
+  含みうるため、そのまま入れると表が崩れる。`toTableCell()` でエスケープし、テストを足した。
+  (2) テストヘルパーの `as ConfigUnitReport` を、本番の `toConfigUnitReport()` と同じ
+  「識別情報 + outcome」の組み立てに変えてキャストを消した
+- `pnpm check` 通過: 42 Test Files / 514 Tests（496→514）
+
+### 2026-09-13 レポート用レコード型を4stepの戻り値に通す
+
+- **T-238: `ConfigUnitReport` を新設し、4stepの戻り値と `settle()` を通して `runProcess()` まで
+  運んだ**。`ConfigUnitUpdateResult` は広げず据え置き（`summarizeResults()` の
+  `Record<ConfigUnitUpdateResult, number>` のキーとして使われているため）。かわりに
+  `ConfigUnitUpdateOutcome`（`result` で判別する合併。SKIPPEDの理由だけ閉じた集合、
+  ERRORは動的文字列、CREATEDは `reason: undefined`）と、識別情報との交差型 `ConfigUnitReport` を
+  `src/domain/types.ts` に置いた
+- `StepOutcome` の `settled` は `result` から `report` へ、`settle()` は
+  `(logContext, outcome)` の2引数に変わった。識別情報は `ConfigUnitLogContext` から取るため、
+  **ログとレポートで必ず同じ値になる**
+- **ログの出力は1文字も変えていない**（`README.md`「実行ログの例」が外部インターフェースのため）。
+  ログ検証テスト（`test/main.dry-run.test.ts`・`test/main.e2e.test.ts`・`test/main.test.ts`）は
+  無変更のまま通過
+- **レビューで1点直した**: スキップの `reason` がログとレコードで同じリテラルを2回書く形に
+  なっていたため、4箇所とも `const outcome` に括り出してログへは `...outcome` で spread した。
+  同じ差分の `settleAsError()` が既にこの形（`const reason` の括り出し）だったので揃えた。
+  あわせて `AppOutcome` のJSDocに残っていた旧型名も直した
+- `pnpm check` 通過: 40 Test Files / 496 Tests（495→496）
+
+### 2026-09-13 `resolve-tags/` の構成は現状維持で決着
+
+- **T-236: `resolve-tags/` のサブステップ構成を「まとめる/分ける合図」に照らして評価し、
+  現状維持をユーザーが選択した**。コードもドキュメントも変更なし。
+  `resolve-latest-tag.ts`（90行・公開1・非公開1）は**分ける合図0/5・まとめる合図4/4**で、
+  リポジトリ自身の基準が一方的に同居を支持する。特に③（`origin: "existing" | "created"` が
+  探索と作成で1つの結果型を成し、探索だけのファイルは「見つからなかったら」を語れない）と
+  ②（割ると `resolveTrackedHeadTagNames()` か受け渡し型が `export` に昇格する）が効いた
+- **`sub-steps/` を畳む案を棄てた理由**: `filter-targets.ts`（公開1＋非公開1を同居）が示すとおり、
+  step直下に「サブステップでない兄弟ファイル」を置く形はこのリポジトリに前例が無い。
+  「1ファイルしか無いディレクトリ」を消す代わりに別の不揃いを1箇所作ることになる
+- **「1ファイルでガバッと」の体感の実体は行数ではなくJSDocの厚さだった**（90行中27行が設計意図の
+  説明で実コードは40行弱）。構成を変えても読みやすさは改善しない
+
+### 2026-09-13 README のプロジェクト構成を1階層展開
+
+- **T-237: `README.md`「プロジェクト構成」のツリーで `src/` を4区分に展開した**。
+  `steps/`・`lib/`・`domain/`・`utils/` を枝に出し、コメントは `docs/architecture.md` の
+  `###` 見出しの要約に揃えた（責務の本体は正典に残し、README は名札の粒度に留める）。
+  `steps/` のコメントだけは、サブエージェントが正典から写した `runProcess()` が README 内に
+  定義の無い識別子で行き止まりの参照になっていたため「上記「仕組み」のパイプライン」に直した。
+  `index.ts`・`main.ts` は当初「ディレクトリ」という指示の文面に従って省いたが、
+  ユーザーの追加要望で枝に足した（`de753ed` の後）。
+  `pnpm check` 通過: 40 Test Files / 495 Tests
+
+### 2026-09-13 `resolve-tags` の不変化
+
+- **T-235: `groupByTagSource()` を可変Mapの組み立てから不変な生成に書き換えた**。
+  `new Map<TagSourceKey, TagSource>(targets.flatMap(...).map(...))` の形にし、
+  `lib/config/load-config-unit.ts:133` と揃えた。後勝ちの挙動は不変で、
+  `src/` から生成後に `set()` でループする箇所が無くなった。テストは無変更のまま通過。
+  `pnpm check` 通過: 40 Test Files / 495 Tests（件数不変）
+
+### 2026-09-13 `src/types/` を `src/domain/` に吸収
+
+- **T-233: `src/types/` を `src/domain/` に吸収し、import・テスト・ドキュメントのパスを追随させた**。
+  `domain/` が「ドメイン」を名乗りながら語彙（型）は全部 `types/` にあり、規則3ファイルだけの
+  区分になっていた分裂を解消。`src/` は `steps/`・`lib/`・`domain/`・`utils/` の4区分になった。
+  `git mv` 3件＋import追随65ファイル、挙動不変。`pnpm check` 通過: 39 Test Files / 494 Tests（不変）。
+  `docs/requirements-grilling.md`・`docs/research/github-support.md` に残る旧パスは過去の記録として
+  据え置き。`docs/architecture.md` の区分の定義（2軸化）と集計表の既存ズレは T-234 へ
+- **T-234: `docs/architecture.md` の `domain/` の定義を「ドメインを知っているか×技術を知っているか」の
+  2軸に書き換えた**。「`lib/`でも`utils/`でもない区分」という消去法の定義を消し、`domain/`＝語彙
+  （`types.ts`・`brand.ts`）＋その語彙に閉じた規則、`lib/`＝適応層、`utils/`＝ドメインを知らないもの
+  （技術依存の `yaml.ts`・`fs.ts` もここ）と整理。`lib/config/validate.ts`・`steps/shared/describe-plan.ts`
+  を `domain/` に動かさない理由を「概念のまとまりが優先」として規約化。集計表の既存ズレも再集計
+  （合計 67→73）。CLAUDE.md の原則1〜5は無変更。`pnpm check` 通過: 39 Test Files / 494 Tests
+- **T-229: `TagSource` を新設し、タグ解決まわりの型を `src/domain/types.ts` に集約した**。
+  `resolveLatestTag()` が `AppConfig` を丸ごと受けて `imageTagLocations` を見ていなかったため、
+  キャッシュキーが引数の部分集合になっていた問題を解消。引数を `TagSource` に絞って
+  **キー＝入力の実質全体**（`projectId`+`branchToSync`+`tagFormat`、ヌル文字区切り）に戻した。
+  `LatestTagResolution`・`AppWithLatestTag` は T-230 で step 間を流れるため `domain/types.ts` へ移動。
+  型の集計も再計算（合計 73→74）。`pnpm check` 通過: 39 Test Files / 494 Tests（不変）
+  **T-229 は別セッションと重複実装になり、ユーザー判断でブランチ側を正とした。**
+  別ワークツリー（`../helm-yadokari-resolve-tags`、ブランチ `work/resolve-tags` の `3f3856d`）の実装を
+  main へ取り込み、コード4ファイルは `3f3856d` と完全一致させた（`resolveTrackedHeadTagNames()` も
+  `TagSource` を受ける形になり、キャッシュキーに `tagFormat` を含める理由がJSDocに残った）。
+  `docs/architecture.md` の型集計の再計算は main 側の成果を残してある（型の件数は両版で同じ）
+
+### 2026-09-13 最新タグの解決を step に切り出す
+
+- **T-230: 最新タグの解決を `resolve-tags` step に切り出し、重複排除をキャッシュから集合演算にした**。
+  `createResolveLatestTags()` が兼ねていた4つの「唯一」（`steps/`唯一の工場関数DI、唯一の手書き
+  キャッシュキー、サブステップが唯一バッチ寿命の状態を持つ場所、唯一「書き込み」を重複排除する
+  キャッシュ）がすべて消えた。`resolveTags()` は解決結果のマップだけを返す純粋な生産者で、
+  設定ユニットへの引き当てとERROR判定は `buildPlans()` の既存の `withHandling()` に残したため
+  **ERRORログの位置は変わっていない**。アプリ単位の失敗を値で持ち回る `settleApp()`／`AppOutcome` を
+  `steps/shared/step-outcome.ts` に追加（`withHandling()` と対。**ログは出さない**）。
+  1アプリの失敗は**そのアプリを含む全設定ユニットのERROR**になり、`getOrFetchShared()` 由来の
+  実行順依存の再試行は消えた（本命の再試行は `withRetry()` がクライアント層に持つ）。
+  `pnpm check` 通過: 40 Test Files / 493 Tests（494から-1。「アンカーが無いときタグを作らずERROR」の
+  1件のみ削除。前半の主張が新構造では build-plans から検証できないため）。
+  commit `b21a801` + `6201f14`、mainへは `f782774` でマージ
+- **引き当てを値キーにし、`buildTagSourceKey()` を `src/domain/tag-source.ts` に出した**
+  （タスクIDなし）。切り出し直後は `resolveTags()` の戻り値が `ReadonlyMap<AppConfig, ...>`
+  （オブジェクト参照キー）で、「`resolveTags()` と `buildPlans()` に同じ `targets` を渡すこと」が
+  JSDoc頼みの暗黙契約になっていた。**この改修の中心概念である「解決の単位の同一性」が
+  `groupByTagSource()` の中の匿名の式だった**のも問題で、`domain/` に名前付きで出した
+  （2軸で上段左＋複数stepにまたがる規則）。ブランド生成の `toTagSourceKey()`（`brand.ts`）と
+  同名衝突してエイリアスimportが必要になっていたので、合成する側を
+  `buildFeatureBranch`／`buildConfigUnitLocation`／`buildNewTag` に倣って `build` 始まりに改名。
+  commit `3892c7a` + `00bc5be`
+- **T-231: `LatestTagResolution` に `origin` を足し、新規作成予定のタグを計画のログに出した**。
+  `origin: "existing" | "created"`（dryRunの `"created"` は「作成予定」の意味）。それまで
+  `trackedHeadTagNames.size === 0` から導出できるだけで読む人には見えなかった。`AppUpdatePlan` にも
+  持たせ、`describePlan()` 経由で dry_run の SKIPPED ログと CREATED ログの両方に出る。
+  `pnpm check` 通過: 40 Test Files / 495 Tests。commit `346e122`
+
+- **T-232: 軸交差の規則を `docs/architecture.md` に書き、README・glossary を追随させた**。
+  新設した節は「読み取りだけの軸交差は`CachedReads`で暗黙に、副作用を伴う軸交差はstepとして
+  明示的に」。交差3箇所（web URL解決／values.yaml読み込み／最新タグ解決）の表と、
+  「**読みのキャッシュは速度の約束であって正しさの約束ではない**」という分かれ目を置いた。
+  既存の3件は消さずに位置づけ直した——判断3は根拠を差し替え、「重複排除をキャッシュの外にも
+  置かない」は「**単一の読み取りの**重複排除は〜」に書き分け、「唯一の例外」は例外が消えた経緯に
+  書き換え。`README.md` のフロー図はタグ解決を設定ユニットの並列処理の外に出した3段構成に。
+  `docs/glossary.md` に `TagSource` と `タグの由来（TagOrigin）` を追加。波及で
+  `docs/coding-standards.md`・`docs/smoke-test.md` も追随。`pnpm check` 通過: 40 Test Files /
+  495 Tests。commit `ad71d0b`（節の索引の追随漏れ1件は `82db4bd` で修正。過去のコミット由来のズレ）
+- **`docs/research/github-support.md` の旧ファイル名は据え置いた**。時点を明記した調査記録で、
+  T-233 でも同じ判断（旧パスを過去の記録として据え置く）をしているため揃えた
+
+### 2026-09-13 並行セッションとの衝突と worktree
+
+- **T-229 が2セッションで重複実装になった。** こちらのセッションが `develop/tasks.json` の
+  `status` を `doing` にする前にサブエージェントへ投げたのが原因。ユーザー判断でワークツリー側
+  （`3f3856d`）を正とし、main 側のコード4ファイルをそれと完全一致させて決着した
+- **以降は「着手マークを先に置いてから委譲する」運用にした。** `tasks.json` の `status` が
+  セッション間の唯一の調整手段になる（メッセージでは届かない相手だった）
+- T-230・T-231 はワークツリー `../helm-yadokari-resolve-tags`（ブランチ `work/resolve-tags`）で
+  進めてから main へマージし、**ワークツリーとブランチは削除済み**。マージ時に
+  `src/domain/types.ts` と `resolve-latest-tags.ts`（削除 vs 変更）で衝突したが、
+  main の `src`/`test` がマージ前に `3f3856d` と完全一致していることを確認したうえで
+  全てブランチ側を採用した（`f782774`）
+
+### 2026-09-13 実機スモークテスト（GitLab、パス1〜3）
+
+- **`docs/smoke-test.md` のパス1〜3を gitlab.com の実機で通した**（パス4はMRの手動マージが
+  要るため今回は実施せず）。結果はすべて手順書の「期待する結果」と一致:
+  - パス1（通常更新）: 終了コード0、`{"CREATED":4,"SKIPPED":0,"ERROR":0}`。chart1に3件・
+    chart2に1件とプロジェクトをまたいでMRが分かれ、`tenant2/client1` だけ2ファイル＋
+    向き先ブランチ2件になった
+  - パス2（再実行）: 終了コード0、`{"CREATED":0,"SKIPPED":4,"ERROR":0}`。全件 `mr_exists`
+  - パス3（部分失敗）: **終了コード1**、`{"CREATED":3,"SKIPPED":0,"ERROR":1}`。ERRORは
+    `tenant2/client2` のみで、メッセージも期待値どおり
+    （`[アプリ: sample-qa-sprint] values.yaml にアンカー "t2c2QaSprintVersion" が見つかりません`）。
+    **残り3ユニットにはMRができており、「該当chartリポジトリだけERRORで処理継続」が実機で通った**
+- **今セッションの改修（T-229〜T-232）が実機で壊れていないことを確認できた。** 4stepの
+  パイプライン・`resolveTags` の一意化・`settleApp()` 経由のERROR伝播がすべて実データで動いた
+- **T-231 の `origin` が実機のログに出た**（今回は全件 `existing`）。`create_tag` は発生せず、
+  既存タグが再利用された（`docs/smoke-test.md`「2回目以降は作られたタグが再利用される」のとおり）
+- `pnpm lint:validate-config:remote` も通過（4設定ユニット / 6 apps、実在チェック済み）
+- 後片付け済み（`reset --apply` → `setup --apply`。オープンMR 0件、フィクスチャは初期状態）
+
 ### 2026-09-12 config のサンプルとGitHub対応の調査
 
 - **`ValuesYamlSource` を廃止し、`adapter` と `chart` を素の引数にした**（タスクIDなし、2026-09-13）。
