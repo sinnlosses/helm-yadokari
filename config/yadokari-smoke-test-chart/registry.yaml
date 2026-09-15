@@ -1,3 +1,5 @@
+accessTokenEnv: ACCESS_TOKEN_SMOKE_A
+
 chartToUpdate:
   projectId: "86061211"
   projectName: yadokari-smoke-test-chart

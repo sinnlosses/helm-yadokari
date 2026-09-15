@@ -285,15 +285,13 @@ pnpm dev
 
 **前提**: 「2グループ目（パス5）に必要なもの」のとおりchartリポジトリB・ソースリポジトリB・
 シードタグ・`.env`の`ACCESS_TOKEN_SMOKE_A` / `ACCESS_TOKEN_SMOKE_B`を用意済みであること。
+`config/yadokari-smoke-test-chart/registry.yaml` と `config/yadokari-smoke-test-chart2/registry.yaml`
+はトップレベルの `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を常設済み（**chart1とchart2は
+`sample-qa-sprint`を共有しているため、片方だけ宣言する／別の名前を宣言すると「1つのprojectIdは
+1つのトークンにしか結びつけられない」で設定エラーになり即時終了する。必ず同じ名前を宣言する**）。
 その上で `config/` に一時的に以下を置く（実ファイルを置くかどうか＝常設するかの判断は
 [`config/README.md`](../config/README.md) 参照。ここでは検証のためだけに置く前提で書く）:
 
-- `config/yadokari-smoke-test-chart/registry.yaml` … トップレベルに
-  `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を追記
-- `config/yadokari-smoke-test-chart2/registry.yaml` … 同じく
-  `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を追記。**chart1とchart2は`sample-qa-sprint`を
-  共有しているため、片方だけ宣言する／別の名前を宣言すると「1つのprojectIdは1つのトークンにしか
-  結びつけられない」で設定エラーになり即時終了する。必ず同じ名前を宣言する**
 - `config/yadokari-smoke-test-chart-b/registry.yaml` … 新規。`chartToUpdate`にchartリポジトリB、
   `appSpecs[]`にソースリポジトリB、トップレベルに `accessTokenEnv: ACCESS_TOKEN_SMOKE_B`
 - `config/yadokari-smoke-test-chart-b/smoke-b-app/config.yaml` … 新規。`helm.locations[]`と
@@ -332,7 +330,7 @@ ACCESS_TOKEN= pnpm dev; echo "exit=$?"
 
 **CIで確かめる**場合は、このリポジトリのSettings > CI/CD > Variablesに
 `ACCESS_TOKEN_SMOKE_A` / `ACCESS_TOKEN_SMOKE_B` をMasked and hidden・Protected OFFで登録した上で、
-上記の`config/`変更（`accessTokenEnv`3件の追記・`yadokari-smoke-test-chart-b/`新設）をMRにして
+上記の`config/`変更（`yadokari-smoke-test-chart-b/`新設・その`accessTokenEnv`の追記）をMRにして
 `validate-config-remote`が通ること、そのMRからRun pipeline（`DRY_RUN=true`）を実行して
 `update-app-versions`が(a)相当の結果（`ERROR`無し）で終わることを見る。
 
@@ -361,9 +359,10 @@ npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
 
 グループB分は`smoke-fixture.ts`の対象外なので手動で片付ける: chartリポジトリBの
 オープン中MRをクローズし、固定ブランチ `feature/yadokari/smoke-b-app` を削除する
-（`main`の`values.yaml`はこのツールが書き換えないので戻す必要はない）。パス5専用に
-`config/`へ追記した`accessTokenEnv`・新設した`yadokari-smoke-test-chart-b/`は、常設しない
-と決めた場合は検証後に削除する（[`config/README.md`](../config/README.md)参照）。
+（`main`の`values.yaml`はこのツールが書き換えないので戻す必要はない）。パス5専用に新設した
+`config/yadokari-smoke-test-chart-b/`は、常設しないと決めた場合は検証後に削除する
+（[`config/README.md`](../config/README.md)参照）。`yadokari-smoke-test-chart` /
+`yadokari-smoke-test-chart2`の`accessTokenEnv`は常設済みなので削除しない。
 
 ## 期待する結果
 

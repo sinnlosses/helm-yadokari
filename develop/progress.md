@@ -16,6 +16,17 @@ T-256・T-257 は `loopable: N` なので `/loop` では進まない。
 
 ## 完了したこと（このセッション）
 
+### 2026-09-16 `config/` の2chartに `accessTokenEnv` を常設した（T-256）
+
+- **T-256: `config/yadokari-smoke-test-chart` と `chart2` の `registry.yaml` に
+  `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を追加**した。T-257 で必須化しても `config/` が
+  設定エラーにならない状態を先に作る移行。CI/CD変数は API で登録済みを確認（protected=false / masked=true）
+- `config/` に宣言が入ると `test/main.e2e.test.ts` が「宣言した環境変数が未設定」で ERROR になるため、
+  `test/main.test.ts` と同じ形で `beforeEach`/`afterEach` に環境変数の出し入れを足した
+- **`config/` の `registry.yaml` にはフィールドの説明コメントを置かない**（受け入れ時に判断）。
+  実在の登録を置く場所で、説明は `config.example/` と `config/README.md` の役目。コピーすると
+  「（任意）省略すると既定の ACCESS_TOKEN を使う」が T-258 の追随対象外のまま腐る
+
 ### 2026-09-16 スモーク用スクリプトを既定トークンから切り離した（T-255）
 
 - **T-255: `scripts/smoke/smoke-fixture.ts` は `ACCESS_TOKEN_SMOKE_A`、`provision-group.ts` は

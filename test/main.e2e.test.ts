@@ -203,6 +203,11 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
   let gitlab: ReturnType<typeof makeFakeGitlab>
 
   beforeEach(() => {
+    // yadokari-smoke-test-chart / yadokari-smoke-test-chart2 の registry.yaml が
+    // `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を宣言しているため、`loadAccessTokens()`が
+    // 読めるようここで設定する（未設定だと該当chartの設定ユニットが「宣言した環境変数が
+    // 未設定」でERRORになる）
+    process.env["ACCESS_TOKEN_SMOKE_A"] = "test-token-smoke-a"
     gitlab = makeFakeGitlab()
     // アロー関数は `new` できないので、コンストラクタとして呼べる関数を渡す
     vi.mocked(Gitlab).mockImplementation(function () {
@@ -211,6 +216,7 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
   })
 
   afterEach(() => {
+    delete process.env["ACCESS_TOKEN_SMOKE_A"]
     rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
   })
 
