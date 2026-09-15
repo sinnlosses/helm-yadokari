@@ -26,7 +26,8 @@ export type AdaptersByAccessToken = {
  * 経由の呼び出しは読み替えず、そのまま投げる（従来どおり`isFatalError()`が401を`FatalError`に
  * 昇格させる）。
  *
- * 宣言の無い設定ユニットがあるのに`fallback`が`undefined`のときは、組み立てたこの時点で
+ * 宣言の無い設定ユニットがあるのに`fallback`が`undefined`のとき、または宣言された環境変数の
+ * アダプタが1つも無く（`declared`が空）`fallback`も`undefined`のときは、組み立てたこの時点で
  * 例外を投げる（`config/`の読み込みエラーと同じ、実行全体の即時終了の経路）。
  */
 export function createRoutedAdapter(
@@ -34,6 +35,7 @@ export function createRoutedAdapter(
   adapters: AdaptersByAccessToken,
 ): PlatformAdapter {
   assertFallbackAvailable(configUnits, adapters.fallback)
+  assertDeclaredAdapterAvailable(configUnits, adapters)
   const routes = buildRoutes(configUnits, adapters)
   const representative = adapters.fallback ?? firstDeclared(adapters.declared)
 
@@ -118,6 +120,33 @@ function assertFallbackAvailable(
 }
 
 /**
+ * `assertFallbackAvailable()`を通過した後（＝宣言の無い設定ユニットは無いか、`fallback`がある）
+ * でも、宣言された環境変数のアダプタが1つも無く（`adapters.declared`が空）`fallback`も
+ * `undefined`だと、代表アダプタ（`buildTagUrl`等の委譲先）を選べない。`registry.yaml`の
+ * `accessTokenEnv`の宣言自体はあるのに、その環境変数の値が全chartで未設定というケース
+ * （CI/CD変数の設定漏れ）なので、どのchartディレクトリがどの環境変数を要求しているかを
+ * 全件並べて例外を投げる。
+ */
+function assertDeclaredAdapterAvailable(
+  configUnits: readonly ConfigUnit[],
+  adapters: AdaptersByAccessToken,
+): void {
+  if (adapters.fallback !== undefined) return
+  if (adapters.declared.size > 0) return
+  const requirements = [
+    ...new Set(
+      configUnits.map(
+        (unit) => `[chart: ${unit.chartDirName}] ${unit.accessTokenEnv ?? "ACCESS_TOKEN"}`,
+      ),
+    ),
+  ]
+  throw new Error(
+    "アクセストークンが1つも読めません。次の chart ディレクトリが要求する環境変数を " +
+      `Settings > CI/CD > Variables（ローカルなら .env）に設定してください: ${requirements.join(", ")}`,
+  )
+}
+
+/**
  * `configUnits`（`chartRepo.projectId`と`apps[].projectId`）から`ProjectId`→`Route`の表を作る。
  * 同じ`ProjectId`が複数の設定ユニットから参照されても、`accessTokenEnv`は
  * `validateAccessTokenEnvConsistency()`が一致を保証しているため、先勝ちでよい。
@@ -190,6 +219,8 @@ async function callRoute<T>(
   }
 }
 
+// assertDeclaredAdapterAvailable() が組み立て時に空を弾いているため、以下のthrowには到達しない
+// 防御的な分岐
 function firstDeclared(
   declared: ReadonlyMap<AccessTokenEnvName, PlatformAdapter>,
 ): PlatformAdapter {

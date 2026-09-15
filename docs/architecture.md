@@ -1295,6 +1295,9 @@ config読み込みのあとに読む。`loadConfig()`が`LoadedConfig.accessToke
 置かせるのはこの方針の目的に逆行する。宣言の無いchartリポジトリが実行対象にあるのに未設定
 だったときだけ、`createRoutedAdapter()`が組み立て時に例外を投げて即時終了する（`config/`の
 読み込みエラーと同じ経路。どのchartリポジトリが`ACCESS_TOKEN`を要求しているかを並べる）。
+宣言された環境変数がすべて未設定で既定トークンも無いときも、同じ経路で組み立て時に即時終了する
+（代表となるアダプタが無いと`isFatalError()`等を載せられないため。chartリポジトリ単位の`ERROR`に
+落とせるのは、他に1本でも読めるトークンがあるときだけ）。
 
 **振り分けは`src/lib/platform/routed-adapter.ts`の`createRoutedAdapter()`が担い、`steps/`は
 触らない。** `PlatformAdapter`の各関数は第1引数に`ProjectId`を取るので、「`ProjectId`から使う

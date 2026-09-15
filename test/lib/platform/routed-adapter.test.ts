@@ -77,6 +77,26 @@ describe("createRoutedAdapter", () => {
     ).toThrow("no-token-chart")
   })
 
+  it("全chartがaccessTokenEnvを宣言していてもdeclaredが空でfallbackも無いと、chart名と環境変数名を並べた例外を組み立て時に投げる", () => {
+    const projectIdA = toProjectId("10")
+    const projectIdB = toProjectId("20")
+    const configUnitA = makeConfigUnit([makeApp({ projectId: projectIdA })], {
+      chartDirName: toChartDirName("yadokari-smoke-test-chart"),
+      chartRepo: chartRepoFor(projectIdA),
+      accessTokenEnv: toAccessTokenEnvName("ACCESS_TOKEN_SMOKE"),
+    })
+    const configUnitB = makeConfigUnit([makeApp({ projectId: projectIdB })], {
+      chartDirName: toChartDirName("yadokari-smoke-test-chart2"),
+      chartRepo: chartRepoFor(projectIdB),
+      accessTokenEnv: toAccessTokenEnvName("ACCESS_TOKEN_SMOKE"),
+    })
+    const adapters: AdaptersByAccessToken = { declared: new Map(), fallback: undefined }
+
+    expect(() => createRoutedAdapter([configUnitA, configUnitB], adapters)).toThrow(
+      /yadokari-smoke-test-chart\].*ACCESS_TOKEN_SMOKE.*yadokari-smoke-test-chart2\].*ACCESS_TOKEN_SMOKE/s,
+    )
+  })
+
   it("宣言トークンのアダプタが401を返すと、chart名・環境変数名・HTTP 401を含む素のErrorに読み替える", async () => {
     const teamBAdapter = makeAdapter()
     const projectId = toProjectId("2")

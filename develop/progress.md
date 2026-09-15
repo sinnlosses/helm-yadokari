@@ -15,6 +15,20 @@
 
 ## 完了したこと（このセッション）
 
+### 2026-09-15 実機スモーク（GitLab、宣言トークン、読み取りのみ）
+
+- `config/` の2 chart に一時的に `accessTokenEnv: ACCESS_TOKEN_SMOKE` を足し、`DRY_RUN=true pnpm dev` と
+  `pnpm lint:validate-config:remote` を流した（書き込みなし。config は `git checkout` で戻した）:
+  宣言なし → 実在チェック OK／chart1 だけ宣言 → ローカル検証で projectId 82861978 の衝突を検出／
+  両方宣言＋`ACCESS_TOKEN` 空 → 実在チェック OK・DRY_RUN は SKIPPED:4（宣言トークンだけで動く）／
+  宣言した変数が未設定 → 実在チェックは2 chart を列挙して失敗、DRY_RUN は組み立て時に即時終了
+  （上記メッセージ修正のきっかけ）／宣言トークンが不正 → DRY_RUN は `fatal_error` なしで ERROR:4・exit 1、
+  実在チェックは設定ユニットごとに `401 Unauthorized` を並べて exit 1／宣言なし＋既定トークン不正 →
+  従来どおり `fatal_error` httpStatus 401
+- **未実施**: 「宣言トークンの 401 が片方の chart だけ ERROR で、もう片方は続行」の実機確認。フィクスチャの
+  2 chart が同じソースリポジトリ（projectId 82861978）を共有しており、別トークンに分けると設定エラーに
+  なるため。単体テスト（`test/main.test.ts`）でのみ検証済み
+
 ### 2026-09-15 複数トークン化の追随漏れを洗う
 
 - **T-247: `maintain-docs` の7検査をかけ、`CLAUDE.md`・`docs/coding-standards.md`・`docs/architecture.md` の
@@ -45,9 +59,10 @@
   宣言トークンの 401 は `cause` 付きの素の `Error` に読み替える。`extractHttpStatus()` は
   `cause.response.status` を1段しか見ないため、包み直した例外からは 401 が拾われず fatal にならない
   （`test/main.test.ts` で実際の `errors.ts` を通して ERROR:1 / CREATED:1 を確認）
-- **既知のエッジ**: 実行対象が「宣言はあるが未設定」の chart だけで既定 `ACCESS_TOKEN` も無いと、
-  代表アダプタ不在で組み立て時に即時終了する（本来は chart 単位の ERROR）。実運用では起きにくい
-  組み合わせなので据え置き
+- **全トークン欠落時のメッセージ**: 実行対象が「宣言はあるが未設定」の chart だけで既定 `ACCESS_TOKEN` も
+  無いと、代表アダプタ不在で組み立て時に即時終了する。設計時は「起きにくい」と据え置いたが、実機の
+  スモークで初期セットアップの変数付け忘れとして普通に踏むと分かり、`assertDeclaredAdapterAvailable()` で
+  chart 名×環境変数名を全件並べたメッセージにした（タスクIDなし、2026-09-15）
 - サブエージェントは正典の「`withAppContext()` より内側」を読み違えて疑問を報告したが、
   アダプタ関数の中で読み替える実装は `withAppContext()` が包む呼び出しの内側なので正典どおり
 - `pnpm check` 通過: 44 Test Files / 548 Tests（538→548）
