@@ -1434,7 +1434,15 @@ GitLabに問い合わせずローカルのYAMLだけで分かる＝「形」の�
   ここだけは`scripts/`配下でテストを持つため、`vitest.config.ts`のcoverage対象に含めている
 - `scripts/smoke/smoke-fixture.ts`: `config/` を使った実機スモークテストの前準備・後片付け
   （`setup`/`reset`。既定はdry-runで、`--apply`を付けたときだけGitLabに書き込む）。
+  既存プロジェクトにしか書かない設計で、プロジェクト作成機能は持たない。
   手順とシナリオは `docs/smoke-test.md`
+- `scripts/smoke/provision-group.ts`: パス5（複数グループ）用の2グループ目
+  （グループ・chartリポジトリ・ソースリポジトリ・Group Access Token）を新規作成する
+  スクリプト。`smoke-fixture.ts`は既存プロジェクトにしか書かない設計のため、グループ・
+  プロジェクトの新規作成はここに隔離してあり、対象グループが既に存在すれば何もせず中止する
+  （`provision`）。既存グループへのトークン追加発行だけを行う`token`サブコマンドも持つ。
+  既定はdry-run。書き込む内容の組み立て（純粋関数）は`group-fixture-content.ts`に分離してあり、
+  テストはそこだけ（`test/scripts/smoke/`）
 - `dist/`: `pnpm build` の生成物。gitignore対象、手で編集しない
 - `docs/requirements.md`: 確定した要件。`docs/requirements-grilling.md`: 要件定義時のQ&Aログ
   （検討経緯の参照用、変更不要）。`docs/history/`: 完了タスク・過去セッションのアーカイブと、

@@ -33,15 +33,18 @@
 
 projectIdは別のGitLabインスタンス・別のフィクスチャで検証する場合に差し替えられるよう、
 `smoke-fixture.ts` はすべてこれらの環境変数から読み取る（ハードコードなし、未設定なら
-理由を出して終了する）。**chartリポジトリ2は `smoke-fixture.ts` の外で作る**（プロジェクト
-作成機能はスクリプトに足さない。事故時の影響を「既存プロジェクトへの書き込み」に留めるため）。
-chartリポジトリ1と同じ設定にしてある（`sinnlosses-group` 配下・private・デフォルトブランチ `main`）。
+理由を出して終了する）。**chartリポジトリ2は `smoke-fixture.ts` の外で作る**（`smoke-fixture.ts`
+自体にはプロジェクト作成機能を足さない。事故時の影響を「既存プロジェクトへの書き込み」に
+留めるため）。chartリポジトリ1と同じ設定にしてある（`sinnlosses-group` 配下・private・
+デフォルトブランチ `main`）。プロジェクト作成が要る場面（パス5の2グループ目）は
+`scripts/smoke/provision-group.ts` に隔離してあり、こちらは新規リソースしか作らない。
 
 **`SMOKE_CHART2_PROJECT_ID` は省略できる。** 未設定ならchartリポジトリ2に関する処理をスキップ
 するので、chartリポジトリ1だけでパス1〜4を流すこともできる。
 
-**パス5（複数グループ）用の2グループ目は `smoke-fixture.ts` の対象外**で、手で用意する
-（理由・手順は下の「2グループ目（パス5）に必要なもの」）。
+**パス5（複数グループ）用の2グループ目は `smoke-fixture.ts` の対象外**で、
+`scripts/smoke/provision-group.ts` で用意する（理由・手順は下の「2グループ目（パス5）に
+必要なもの」）。
 
 ### chartリポジトリ 1 に必要なもの
 
@@ -102,7 +105,7 @@ chartリポジトリ2には `sample-qa-sprint` を登録する。**同じappが2
 
 ### 2グループ目（パス5）に必要なもの
 
-**`smoke-fixture.ts` では作れない。** 手で用意する。理由:
+**`smoke-fixture.ts` では作れない。** 理由:
 
 - 対象プロジェクトのprojectIdは固定の環境変数名（`SMOKE_CHART_PROJECT_ID` 等）でしか
   受け取らないため、1回の実行でグループA・グループB両方のprojectIdを同時に持てない
@@ -116,9 +119,25 @@ chartリポジトリ2には `sample-qa-sprint` を登録する。**同じappが2
   これは「1つのprojectIdは1つのトークンにしか結びつけられない」（`docs/requirements.md`
   4.4節）に反し、`accessTokenEnv`をグループAと分離できない
 
-したがって次を手で用意する:
+したがって `scripts/smoke/provision-group.ts` で用意する（新規リソースしか作らない設計・
+安全策は同スクリプト冒頭のコメント参照）。`.env` の `ACCESS_TOKEN` を **`api` スコープの
+個人PAT**にしておくこと（グループ・プロジェクトの作成やGroup Access Tokenの発行は
+Group/Project Access Tokenでは行えないAPIのため）。
 
-| 役割                      | プロジェクト（例）                      | 備考                               |
+```bash
+# dry-run（既定）でまず何を作るか確認する
+npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path <group-b>
+
+# 問題なければ --apply を付けて実行する。最後に表示される内容を控える:
+#   グループID・chartプロジェクトID・ソースプロジェクトID・トークン値・
+#   .envに追記する行（ACCESS_TOKEN_SMOKE_B=...）・
+#   config/yadokari-smoke-test-chart-b/ に置くregistry.yaml・smoke-b-app/config.yamlの中身
+npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path <group-b> --apply
+```
+
+作られるもの（`<group-b>` はトップレベルグループとして新規作成される）:
+
+| 役割                      | プロジェクト                            | 備考                               |
 | ------------------------- | --------------------------------------- | ---------------------------------- |
 | chartリポジトリ B         | `<group-b>/yadokari-smoke-test-chart-b` | private・デフォルトブランチ `main` |
 | ソースリポジトリ（app B） | `<group-b>/sample-smoke-b-app`          | **1つで足りる**（下記）            |
@@ -128,14 +147,25 @@ chartリポジトリ2には `sample-qa-sprint` を登録する。**同じappが2
   パス5が確かめたいのは「別グループ・別トークンの設定ユニットが独立して成功/失敗する」ことで、
   1app・1設定ユニットで示せる
 - ブランチ `release/2026-q1`（向き先ブランチの更新先）
-- `charts/smoke-b-app/values.yaml` … アンカー2つ（例: `smokeBAppVersion` / `smokeBHelmTargetBranch`）
+- `charts/smoke-b-app/values.yaml` … アンカー2つ（`smokeBAppVersion` / `smokeBHelmTargetBranch`）
 - ソースリポジトリのシードタグ1件 … 実在する、かつ最新より古いタグ（理由は上の
   「chartリポジトリ1に必要なもの」と同じ）。タグ形式はグループAと同じ
   `{branch}-build-at-{date}-{time}` で揃える（appごとに違えてよいが、揃えない理由が無いため）
 
-**トークン**は Group Access Token をグループA用・グループB用に1本ずつ発行する（発行場所・
-スコープ・ロール・有効期限の考え方はREADME
-「[複数グループで運用する](../README.md#複数グループで運用する)」参照）。`.env` には次の名前で置く:
+表示された `config/yadokari-smoke-test-chart-b/registry.yaml` と
+`config/yadokari-smoke-test-chart-b/smoke-b-app/config.yaml` の中身をそのままそのパスに置く。
+
+**トークン**は Group Access Token をグループA用・グループB用に1本ずつ発行する（スコープ・
+ロール・有効期限の考え方はREADME
+「[複数グループで運用する](../README.md#複数グループで運用する)」参照。
+`provision-group.ts` はこの手順どおりの条件で発行する）。グループB用は上の`provision`が
+発行済みなので、**グループA用だけ`token`サブコマンドで追加発行**する:
+
+```bash
+npx tsx --env-file=.env scripts/smoke/provision-group.ts token --group-path sinnlosses-group --apply
+```
+
+`.env` には次の名前で置く:
 
 - `ACCESS_TOKEN_SMOKE_A` … グループA（chartリポジトリ1・chartリポジトリ2が使う）
 - `ACCESS_TOKEN_SMOKE_B` … グループB（chartリポジトリBが使う）

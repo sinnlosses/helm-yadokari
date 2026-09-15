@@ -11,8 +11,12 @@ export default defineConfig({
     },
     coverage: {
       provider: "v8",
-      // scripts/ で唯一テストを持つのが remote-existence なので、そこだけ対象に加える
-      include: ["src/**/*.ts", "scripts/lint/remote-existence/**/*.ts"],
+      // scripts/ 配下でテストを持つファイルだけを対象に加える
+      include: [
+        "src/**/*.ts",
+        "scripts/lint/remote-existence/**/*.ts",
+        "scripts/smoke/group-fixture-content.ts",
+      ],
     },
   },
 })

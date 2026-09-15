@@ -38,6 +38,12 @@ chartリポジトリと、定期実行が更新するchartリポジトリは**�
 2つ目のグループのGitLabリソース・トークン（`ACCESS_TOKEN_SMOKE_B`）を要求し続け、
 そのグループのトークンを他と同じように失効前に更新し続けるコストだけが増える。
 
+2グループ目のGitLab側のリソース（グループ・chartリポジトリB・ソースリポジトリ・
+Group Access Token）自体の作成は `scripts/smoke/smoke-fixture.ts` ではなく
+`scripts/smoke/provision-group.ts` に隔離してある。既存プロジェクトへは書き込まず、
+新規リソースしか作らない（`--group-path`が既に存在すれば何もせず中止する）。手順は
+`docs/smoke-test.md`「2グループ目（パス5）に必要なもの」参照。
+
 ## 登録が0件のときの挙動
 
 `loadConfig()` は `TARGET_CHART` / `TARGET_UNITS` を指定していない限り、対象0件でも

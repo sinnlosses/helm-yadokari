@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-14以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは1件（T-249）**。T-238〜T-241 は完了。
+**未着手のタスクは0件**（T-249 まで完了。パス5の実機実行はユーザー承認待ち）。T-238〜T-241 は完了。
 **T-239〜T-248 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は空の `[]`）。完了タスクは
@@ -14,6 +14,16 @@
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-15 グループB作成スクリプト
+
+- **T-249: `scripts/smoke/provision-group.ts` を足した**（sonnet に委譲）。`provision` はトップレベルグループ・
+  chart/ソースリポジトリ・向き先ブランチ・`values.yaml`・シードタグ＋1コミット・Group Access Token を作り、
+  `token` は既存グループ（グループA）にトークンを発行する。認証は `.env` の `ACCESS_TOKEN`（`api` スコープの
+  PAT、ユーザー決定）。純粋関数は `group-fixture-content.ts` に分離（初回は「テストのためだけの export」と
+  `import.meta.url` のエントリポイント判定があり、差し戻して直させた）
+- dry-run は実施済み（8手順を列挙）。**`--apply` はユーザー承認待ち**
+- `pnpm check` 通過: 46 Test Files / 563 Tests（555→563）
 
 ### 2026-09-15 本物のグループ2つで検証する手順を書く
 
@@ -91,7 +101,7 @@
 **パス5用のグループB作成スクリプトを T-249 として登録した**（2026-09-15）。ユーザー決定: グループBは
 トップレベル、`api` スコープの PAT を `.env` の `ACCESS_TOKEN` に置く。`--apply` はタスク外でユーザー承認のうえ実行する。
 
-- **T-249**（sonnet）: `scripts/smoke/provision-group.ts`（`provision` / `token`、既定 dry-run）
+- ~~**T-249**~~（done）: `scripts/smoke/provision-group.ts`（`provision` / `token`、既定 dry-run）
 
 **本物のグループ2つでの実機検証手順を T-248 として登録した**（2026-09-15）。`docs/smoke-test.md` に
 パス5を書くだけで、`config/` の実ファイルはユーザーが2グループ目を作ってから足す。
