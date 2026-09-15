@@ -26,3 +26,6 @@ coverage/
 
 # テストが cwd() 内に作る一時ディレクトリ（config.test.ts / env.test.ts）
 test-tmp-*/
+
+# バッチ実行レポート（REPORT_OUTPUT_PATH の既定の出力先。CI では artifacts として回収する）
+report/
