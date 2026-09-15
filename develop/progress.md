@@ -1,15 +1,15 @@
 # 現在の状態
 
-最終更新: 2026-09-15（T-242〜T-247 をすべて完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
+最終更新: 2026-09-16（`/plan-tasks` で T-253・T-254 を登録。前回: T-242〜T-252 をすべて完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
 `filterTargets → resolveTags → buildPlans → applyUpdates` の4stepにした**（T-229〜T-231）。
 `createResolveLatestTags()` のバッチ寿命キャッシュは消滅し、重複排除は集合演算になった。
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-14以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは0件**（T-252 まで完了）。T-238〜T-241 は完了。
+**未着手のタスクは2件**（T-253・T-254。2026-09-16 に `/plan-tasks` で登録。T-252 までは完了）。
 **T-239〜T-248 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
-（`develop/tasks.json` は空の `[]`）。完了タスクは
+（`develop/tasks.json` に残る `done` は T-249〜T-252 の4件）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
@@ -137,6 +137,22 @@
 - `pnpm check` 通過: 43 Test Files / 538 Tests（516→538）
 
 ## 次にやること
+
+**`lib/` のファイル名整理を T-253・T-254 として登録した**（2026-09-16、`/plan-tasks`）。
+互いに独立（触るファイルが重ならない。どちらも `docs/architecture.md` に追記するが別の節）:
+
+- **T-253**（`sonnet` / `loopable: Y`）: `src/lib/gitlab/gitlab.ts`・`src/lib/github/github.ts` を
+  同ディレクトリ内の `api.ts` へ改名し、`src/`・`scripts/`・`test/`（テストファイル名も）と
+  `docs/architecture.md`・`docs/coding-standards.md` を追随させる。**`src/lib/config/config.ts` は据え置き**
+  （ユーザー確認済み。`config/` の公開入口であって外部APIのラッパーではないため）。この判断は
+  `docs/architecture.md`「型と命名」に新しい `####` 節として残す
+- **T-254**（`opus` / `loopable: N`）: `src/lib/platform/routed-adapter.ts`（232行）を変更理由ごとに
+  分割すべきか判断し、分けるなら実施する。`docs/architecture.md`「1ファイルにまとめるか分けるか」は
+  **行数だけを理由に割らない**と明記しているため、分ける合図①〜④が成り立つことを確かめてから割り、
+  成り立たなければ `passes: false` で閉じる逃げ道を本文に書いてある。**ファイル構成の切り方
+  （1枚足すか `routed-adapter/` を作るか）をユーザーが決めるため `/loop` には載せない**
+
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-16（12回目）」。
 
 **パス5の CI 検証を T-252 として登録した**（2026-09-15、`loopable: N`。push・CI 変数・MR・パイプライン起動を
 手順ごとにユーザー承認のうえメインで行う）。

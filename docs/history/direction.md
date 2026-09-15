@@ -9,6 +9,17 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-16（12回目）
+
+生成したタスク: T-253（`lib/gitlab/gitlab.ts`・`lib/github/github.ts` を `api.ts` へ改名）、
+T-254（`lib/platform/routed-adapter.ts` の分割を検討し、分けるなら実施。`loopable: N`）。
+タスクにしなかった項目: なし。1項目目について「同じ形の `src/lib/config/config.ts` も揃えるか」を
+ユーザーに確認し、**据え置き**（`config/` の公開入口であって外部APIのラッパーではないため）に決めた。
+この判断は T-253 の「注意」と、T-253 で `docs/architecture.md` に足す節に記録する。
+
+- lib/github/github.ts と lib/gitlab/gitlab.ts ですが、名前を api.ts に統一してほしい。懸念があれば遠慮なく。
+- routed-adapter が200行を超えているのでリファクタを検討してほしい。別のファイルorディレクトリに仕分けたほうがいいならそうすべき。単一責任の原則(変更理由は単一であること)を意識して。
+
 ## 2026-09-15（11回目）
 
 生成したタスク: T-252（パス5の CI 検証。`loopable: N`）。タスクにしなかった項目: なし。
