@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-14以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは1件（T-252、`loopable: N`）**。T-238〜T-241 は完了。
+**未着手のタスクは0件**（T-252 まで完了）。T-238〜T-241 は完了。
 **T-239〜T-248 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は空の `[]`）。完了タスクは
@@ -14,6 +14,18 @@
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-15 パス5の CI 検証
+
+- **T-252: main を push し、CI 変数 `ACCESS_TOKEN_SMOKE_A/_B`（masked and hidden）を登録、MR !2 で
+  `validate-config-remote` の成功と否定系（変数B削除で chart B を列挙して失敗）を確認、MR クローズ後の schedule play で
+  `update-app-versions` の成功と artifacts のレポート回収を確認した**（メインで実施、手順ごとにユーザー承認）
+- 発見3つ: (1) `config/` を変えると `test/main.e2e.test.ts` も追随が要る（初回 MR で `check` が落ちた。ブランチ上で
+  fake と env を足して通した）→ `config/README.md` に節を追加。(2) オープン中の MR があるブランチは
+  `workflow.rules` で schedule 起動が抑止される。(3) schedule 変数 API が 403 で `DRY_RUN=true` が効かず本番モードで
+  走った（全ユニット `mr_exists` で書き込みなし）。手動検証は UI の Run pipeline を使う旨を `docs/smoke-test.md` に記録
+- 後片付け: MR !2 クローズ、リモートブランチ削除、一時 schedule 削除。CI 変数 A/B は残置。ローカルブランチ
+  `smoke/pass5-ci`（e2e の追随パッチ入り）は未 push のまま残してある
 
 ### 2026-09-15 実機スモーク パス5（複数グループ、gitlab.com）
 
@@ -129,7 +141,7 @@
 **パス5の CI 検証を T-252 として登録した**（2026-09-15、`loopable: N`。push・CI 変数・MR・パイプライン起動を
 手順ごとにユーザー承認のうえメインで行う）。
 
-- **T-252**（sonnet、N）: GitLab の MR パイプラインで `validate-config-remote`、web 実行で `update-app-versions`（`DRY_RUN=true`）
+- ~~**T-252**~~（done）: GitLab の MR パイプラインで `validate-config-remote`、web 実行で `update-app-versions`（`DRY_RUN=true`）
 
 **gitlab.com Free の制約への対応を T-250・T-251 として登録した**（2026-09-15、互いに独立）。
 `provision --apply` は API からのトップレベルグループ作成（403）と Group Access Token 発行（400、Free）で

@@ -332,6 +332,22 @@ ACCESS_TOKEN= pnpm dev; echo "exit=$?"
 `validate-config-remote`が通ること、そのMRからRun pipeline（`DRY_RUN=true`）を実行して
 `update-app-versions`が(a)相当の結果（`ERROR`無し）で終わることを見る。
 
+**CI での実測（2026-09-15、GitLab プロジェクト `sinnlosses-group/helm-yadokari`）**:
+
+- MR !2（ブランチ `smoke/pass5-ci`）の MR パイプライン: `validate-config-remote` が「5 設定ユニット」で成功
+  （ジョブ 16509706597）。変数 `ACCESS_TOKEN_SMOKE_B` を消して再実行すると
+  `[chart: yadokari-smoke-test-chart-b] 環境変数 ACCESS_TOKEN_SMOKE_B が未設定です` で失敗（ジョブ 16509780248）
+- **`config/` を変えると `test/main.e2e.test.ts` も追随が要る。** このテストは実物の `config/` を読み、fake の
+  GitLab 応答を projectId ごとに持つため、chart を足すと `check` が落ちる（初回の MR パイプラインで
+  `expected 'PARTIAL_FAILURE' to be 'SUCCESS'`）。宣言した環境変数もテスト内で設定する必要がある
+- **オープン中の MR があるブランチでは schedule 起動のパイプラインが作られない**（`.gitlab-ci.yml` の
+  `workflow.rules` が「ブランチにオープン中の MR があれば never」を先に評価するため）。`update-app-versions` を
+  試すときは MR をクローズしてから schedule を作って play する
+- **API で作った schedule に変数を足す `POST /pipeline_schedules/:id/variables` は 403 になった**ため、`DRY_RUN=true` が
+  効かず本番モードで走った（パイプライン 2850572787、ジョブ 16509821024）。全ユニットが `mr_exists` で `SKIPPED:5` だったので
+  書き込みは起きなかったが、**手で試すときは UI の Run pipeline で `DRY_RUN` を true にするか、schedule の変数を UI で
+  付けてから play する**。artifacts の `report/report.md` はこのジョブで回収できた（5行の表）
+
 ### 後片付け
 
 ```bash

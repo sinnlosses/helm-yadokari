@@ -51,3 +51,9 @@ Group Access Token）自体の作成は `scripts/smoke/smoke-fixture.ts` では�
 **何もせずに成功する**。これは意図した挙動で、0件を設定エラーとして落とす仕組みは入れない
 （登録が入るまでCIが赤のままになり、赤に慣れて本物の失敗を見逃すほうが害が大きいため）。
 そのぶん、**「CIが緑であること」は登録内容が正しいことを意味しない**点に注意する。
+
+## `config/` を変えたら `test/main.e2e.test.ts` も直す
+
+`test/main.e2e.test.ts` は実物の `config/` を読み、projectId ごとの fake 応答で全設定ユニットが `SUCCESS` になることを
+検証する。chart や app を足す・`accessTokenEnv` を宣言すると、fake にそのプロジェクトの応答を足し、宣言した環境変数を
+テスト内で設定しないと `pnpm check` が落ちる（`docs/smoke-test.md`「パス5」の CI 実測を参照）。
