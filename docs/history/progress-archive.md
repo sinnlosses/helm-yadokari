@@ -1,5 +1,14 @@
 # progress.md の過去ログ（〜T-063）
 
+### 2026-09-16 `lib/<プラットフォーム>/` のファイル名を `api.ts` に
+
+- **T-253: `src/lib/gitlab/gitlab.ts`・`src/lib/github/github.ts` を同ディレクトリの `api.ts` へ改名**し、
+  `src/` `scripts/` `test/` の import・`vi.mock()`・コメントと、`docs/architecture.md`・`docs/coding-standards.md` の
+  参照を追随させた。テストも `test/lib/{gitlab,github}/api.test.ts` に揃えた。公開関数名・型名は不変
+- 改名の理由（原則4「置き場所を名前にしたファイルは作らない」はディレクトリ名の繰り返しにも当てはまる）と、
+  `src/lib/config/config.ts` を据え置いた理由（`config/` の公開入口であって外部APIのラッパーではない）を
+  `docs/architecture.md`「型と命名」に `####` 節として残し、冒頭の索引にも足した
+
 ### 2026-09-15 パス5の CI 検証
 
 - **T-252: main を push し、CI 変数 `ACCESS_TOKEN_SMOKE_A/_B`（masked and hidden）を登録、MR !2 で
@@ -2918,3 +2927,252 @@ T-160・T-161・T-162・T-168）。`done` が9件・30,240バイトで基準（1
 - **`docs/history/tasks-archive.md` の冒頭は「節は `T-001` から昇順に並べる」と書いているが、
   実態は完了順の追記**（末尾は T-145 → T-149 → T-153 → T-155 → T-154 → …）。既存の実践に
   合わせて末尾に追記した。記述と実態のズレは `/maintain-docs` の検査対象
+
+## 廃止した「次にやること」節（2026-09-16 に退避、当時の記述のまま）
+
+**既定 `ACCESS_TOKEN` の廃止と `accessTokenEnv` の必須化を T-255〜T-258 として登録した**
+（2026-09-16、`/plan-tasks`）。きっかけは `buildAdaptersByAccessToken()` を読んだユーザーの
+「既定トークンは本当に必要か」という問い。調べた結果 **`fallback` は誤ったトークンで叩く経路では
+なかった**（宣言トークンが読めないときは `Route.kind === "missing"` で失敗する）が、
+「宣言の書き忘れが黙って権限の広い既定トークンに落ちる」という別のリスクが実在したため必須化する。
+依存は **T-255・T-256（並列） → T-257 → T-258**:
+
+- **T-255**（`sonnet` / `loopable: Y`）: `scripts/smoke/smoke-fixture.ts`・`provision-group.ts` を
+  `EnvConfig.accessToken` から切り離す。前者は `ACCESS_TOKEN_SMOKE_A`、後者は
+  `GITLAB_PROVISION_PAT`（api スコープの個人PAT）を `process.env` から直接読む。**先に切り離さないと
+  T-257 で型が壊れる**
+- **T-256**（`sonnet` / `loopable: N`）: `config/` の2つの `registry.yaml` に
+  `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を宣言する。**CI/CD変数 `ACCESS_TOKEN_SMOKE_A` の
+  登録確認はユーザーが行う**（未登録のまま push すると `validate-config-remote` が失敗する）
+- **T-257**（`opus` / `loopable: N`）: `accessTokenEnv` を必須化し、`EnvConfig.accessToken`・
+  `AdaptersByAccessToken.fallback`・`Route` の `fallback` バリアント・`assertFallbackAvailable()`・
+  `access-token-groups.ts` の既定グループを削る。**401の波及範囲を chart単位 `ERROR` に一本化**し、
+  `docs/requirements.md` 4.3・4.4節と `docs/architecture.md` の該当節を書き換える。
+  正典の仕様記述を変えるため `/loop` には載せない
+- **T-258**（`sonnet` / `loopable: Y`）: `README.md`・`.env.example`・`.gitlab-ci.yml`・
+  `config/README.md`・`config.example/`・`docs/smoke-test.md` を追随させる
+
+会話で決めた方針: **CLI が読むトークンは `ACCESS_TOKEN_<グループ名>` の1ルールに寄せる**。
+`^ACCESS_TOKEN_[A-Z0-9_]+$` の制約は残すが、理由は「既定は省略で表すから」ではなく
+「無関係な秘密をCLIに読み出させないため」だけになる。`provision-group.ts` は
+`ACCESS_TOKEN_SMOKE_B` を**発行する側**でその名前空間に乗らないため、`GITLAB_PROVISION_PAT` と
+いう別名にした。**CI/CD変数と `.env` からの `ACCESS_TOKEN` 削除はユーザーの作業**（T-257 完了後）。
+
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-16（13回目）」。
+
+**`lib/` のファイル名整理を T-253・T-254 として登録した**（2026-09-16、`/plan-tasks`）。
+互いに独立（触るファイルが重ならない。どちらも `docs/architecture.md` に追記するが別の節）:
+
+- ~~**T-253**~~（done）: `src/lib/gitlab/gitlab.ts`・`src/lib/github/github.ts` を
+  同ディレクトリ内の `api.ts` へ改名し、`src/`・`scripts/`・`test/`（テストファイル名も）と
+  `docs/architecture.md`・`docs/coding-standards.md` を追随させる。**`src/lib/config/config.ts` は据え置き**
+  （ユーザー確認済み。`config/` の公開入口であって外部APIのラッパーではないため）。この判断は
+  `docs/architecture.md`「型と命名」に新しい `####` 節として残す
+- ~~**T-254**~~（done）: `src/lib/platform/routed-adapter.ts`（232行）を変更理由ごとに
+  分割すべきか判断し、分けるなら実施する。`docs/architecture.md`「1ファイルにまとめるか分けるか」は
+  **行数だけを理由に割らない**と明記しているため、分ける合図①〜④が成り立つことを確かめてから割り、
+  成り立たなければ `passes: false` で閉じる逃げ道を本文に書いてある。**ファイル構成の切り方
+  （1枚足すか `routed-adapter/` を作るか）をユーザーが決めるため `/loop` には載せない**
+
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-16（12回目）」。
+
+**パス5の CI 検証を T-252 として登録した**（2026-09-15、`loopable: N`。push・CI 変数・MR・パイプライン起動を
+手順ごとにユーザー承認のうえメインで行う）。
+
+- ~~**T-252**~~（done）: GitLab の MR パイプラインで `validate-config-remote`、web 実行で `update-app-versions`（`DRY_RUN=true`）
+
+**gitlab.com Free の制約への対応を T-250・T-251 として登録した**（2026-09-15、互いに独立）。
+`provision --apply` は API からのトップレベルグループ作成（403）と Group Access Token 発行（400、Free）で
+失敗し何も作られなかった。ユーザー決定: グループBは UI で作る、スモークは手元の `api` PAT を A/B 両方に使う。
+
+- ~~**T-250**~~（done）: `--use-existing-group`（プロジェクト0件のときだけ）と `--skip-token`
+- ~~**T-251**~~（done）: Free では Group/Project Access Token を発行できない制約と、グループ単位のボットユーザー PAT の代替を注記
+
+**パス5用のグループB作成スクリプトを T-249 として登録した**（2026-09-15）。ユーザー決定: グループBは
+トップレベル、`api` スコープの PAT を `.env` の `ACCESS_TOKEN` に置く。`--apply` はタスク外でユーザー承認のうえ実行する。
+
+- ~~**T-249**~~（done）: `scripts/smoke/provision-group.ts`（`provision` / `token`、既定 dry-run）
+
+**本物のグループ2つでの実機検証手順を T-248 として登録した**（2026-09-15）。`docs/smoke-test.md` に
+パス5を書くだけで、`config/` の実ファイルはユーザーが2グループ目を作ってから足す。
+
+- ~~**T-248**~~（done）: パス5「複数グループ（宣言トークン）」の準備・手順・期待する結果
+
+**複数グループ運用（chart 単位のアクセストークン宣言）を T-242〜T-247 として登録した**
+（2026-09-14、`/plan-tasks`）。依存は直列で **T-242 → T-243 → T-244 → T-245 → T-246 → T-247**。
+すべて `loopable: Y` なので `/loop /next-task` で回せる:
+
+- ~~**T-242**~~（done）: 設計を正典に書く。`registry.yaml` の新フィールド名・環境変数名の制約
+  （`ACCESS_TOKEN_` 接頭辞を必須にする案）・既定 `ACCESS_TOKEN` との関係・振り分けアダプタの形・
+  **401 の方針（chart 宣言トークンの 401 はその chart の ERROR、既定トークンの 401 は fatal のまま）**・
+  `validate-config-remote` の分解。コードは書かない
+- ~~**T-243**~~（done）: `RegistryYamlSchema` の新フィールド、`ConfigUnit` への搭載、`env.ts` の読み取り関数
+- ~~**T-244**~~（done）: `src/lib/platform/` の振り分けアダプタ、`runPipeline()` の配線、401 方針。`steps/` は触らない
+- ~~**T-245**~~（done）: `scripts/lint/validate-config.ts --remote` を chart ごとのトークンで検証
+- ~~**T-246**~~（done）: README「CI/CD」に「複数グループで運用する」小節、環境変数表、`.gitlab-ci.yml` コメント、`config.example/`
+- ~~**T-247**~~（done）: `maintain-docs` で追随漏れを洗う
+
+**ユーザー決定済みの方針**（タスク化前にチャットで確定。詳細は
+[`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-14（7回目）」）:
+
+- 区分は「チーム」ではなく **GitLab のグループ**。グループごとに Group Access Token を1本
+  （`read_api` + `write_repository`、Developer、短い期限）。最上位グループのトークン・横断 Service
+  Account・個人 PAT は「1本漏れると全グループへ push できる」ため採らない
+- トークンは **プロジェクトの CI/CD 変数 `ACCESS_TOKEN_<GROUP>`（Masked）**。schedule 変数は
+  マスクできない（GitLab issue #35439 未解決）ので使わない
+- **chart ごとのトークンを `registry.yaml` で宣言し、CLI が1回の実行で複数トークンを扱う**（案B）。
+  CI 側の matrix で分解する案A（対応表が `.gitlab-ci.yml` と config に二重化しドリフトする）は採らない。
+  既存の単一 `ACCESS_TOKEN` は宣言の無い chart の既定として残す（互換）
+- 検証ジョブ `validate-config-remote` も chart ごとの宣言トークンで分解する（実装変更を許容）
+
+---
+
+**`lookUpLatestTags()` のサブステップ化を T-241 として登録した**（2026-09-13、`/plan-tasks`）。
+他のタスクとは独立（T-240 とは触るファイルが重ならない）:
+
+- ~~**T-241**~~（done）: `build-plans.ts:112` の非公開 `lookUpLatestTags()` を
+  `build-plans/sub-steps/` へ移し、`buildPlan()` の中で「ローカル関数の呼び出し」と
+  「サブステップの呼び出し」が同じ深さに並んでいる状態を解消する
+
+`docs/architecture.md` の記述は**2箇所とも移動を支持する側**（`#### build-plans/sub-steps/` の
+「サブステップは自分の関心事について全スコープを引き受ける」、「サブステップ同士は互いを
+importせず〜」の「アプリのループを各サブステップの内側へ入れる」）。`lookUpLatestTags()` は
+既に `apps.map(...)` で全アプリ分を引き受けているため、「1アプリ分の処理を独立した
+サブステップにしない」という但し書きには抵触しない。
+
+**ただし「単発のヘルパーに1ファイルを与えない」（同ドキュメント「1ファイルにまとめるか
+分けるか」の適用例）とは正面から衝突する。** 「ヘルパー」と「サブステップ」を別の概念として
+扱ってよいかを先に決める論点としてタスク本文に入れてある（前例は
+`apply-updates/sub-steps/collect-mr-entries.ts`＝31行・公開関数1つ）。成り立たないと判断したら
+移さずに閉じる逃げ道も書いてある。指示メモは
+[`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13（6回目）」。
+
+**バッチ実行レポートのartifacts化を T-238〜T-240 として登録した**（2026-09-13、`/plan-tasks`）。
+**方針はタスク化の前にチャットで確定済み**なので、各タスクに残る判断は局所的。
+依存は直列で **T-238 → T-239 → T-240** の順に実行する:
+
+- ~~**T-238**~~（done）: 設定ユニット単位のレポート用レコード型を作り、
+  4stepの戻り値と `settle()` を通して `runProcess()` まで運ぶ。**挙動もログの出力も不変**。
+  `StepOutcome<T>` の `settled` と `summarizeResults()` の `Record<ConfigUnitUpdateResult, number>` に
+  触るのでここが一番重い
+- ~~**T-239**~~（done）: Markdown 1枚に整形して `src/lib/` から書き出し、
+  出力パスの環境変数を `src/lib/env.ts` に追加。`README.md` の環境変数表と
+  `docs/architecture.md` の `lib/` 責務表も追随
+- ~~**T-240**~~（done・実機未検証）: `.gitlab-ci.yml` に `artifacts`（**`when: always` が必須**）を
+  足し、README・requirements を追随。**`/loop` に載せないのは、実際に回収されるかが
+  ローカルで検証できずCIを回す必要があるため**
+
+確定した方針（詳細は [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13（5回目）」）:
+
+- 集約は `src/` 側（ログを `scripts/` で整形する案と、`logger` に蓄積させる案は採らない）
+- 形式は Markdown 1枚、粒度は設定ユニット単位の1行、MRのURLは載せない
+- `FatalError` のときは出さない（`runProcess()` を貫通するので末尾の書き出しに到達しない）
+- `DRY_RUN=true` のときも出す（ヘッダに `dryRun` を明示）
+
+**`README.md` のプロジェクト構成のツリー展開を T-237 として登録した**（2026-09-13、`/plan-tasks`）。
+`src/` が1行にまとまっていて4区分がコメントの列挙でしか見えないため、`steps/`・`lib/`・
+`domain/`・`utils/` を1階層だけ枝に出す。**2階層目（`src/steps/resolve-tags/` など）は出さない**:
+
+- ~~**T-237**~~（done）: 区分ごとの一行コメントは `docs/architecture.md` の
+  `###` 見出しの要約（T-234 で2軸に書き換えた定義）に沿わせる。責務の本体を README に
+  書き写すと正典が二重になるので、名札の粒度を超えない
+
+他のタスクとは独立で、T-235・T-236 とは触るファイルが重ならない。
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13（4回目）」。
+
+**`resolve-tags/` まわりの2タスクを T-235・T-236 として登録した**（2026-09-13、`/plan-tasks`）。
+依存は直列で、**T-235 → T-236** の順に実行する（同じファイルを触るため）:
+
+- ~~**T-235**~~（done）: `resolve-tags.ts` の `groupByTagSource()` を可変Mapの
+  組み立てから不変な生成に書き換える。`src/` で生成後に `set()` でループしているのはここだけで、
+  前例は `lib/config/load-config-unit.ts:133` の `new Map(xs.map(...))`
+- ~~**T-236**~~（done・現状維持で決着）: `resolve-tags/` のサブステップ構成（`sub-steps/` に1ファイルだけ）を
+  `docs/architecture.md`「1ファイルにまとめるか分けるか」の合図に照らして評価し、
+  現状維持 / `sub-steps/` を畳む / 複数サブステップに割る の3案を比較して提案する。
+  **どの案を採るかはユーザーが決めるため `/loop` には載せない**
+
+**import の `.js` 拡張子を lint で塞ぐ指示はタスクにしなかった。** 前提が逆で、`.js` は必須。
+`tsc` は import 指定子を書き換えないため、`"type": "module"` の状態で `node dist/src/index.js` を
+動かすには拡張子が要る（`pnpm build` 後の `dist/src/steps/resolve-tags/resolve-tags.js` が
+`from "../../domain/tag-source.js"` のまま出ることを確認済み）。`tsconfig.json` の
+`moduleResolution: "bundler"` は `.js` を**許す**だけで、省略を前提にしていない。
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13（3回目）」。
+
+**`src/types/` を `src/domain/` に吸収する2タスクを T-233・T-234 として登録した**（2026-09-13、
+`/plan-tasks`）。`domain/` が「ドメイン」を名乗りながら語彙（型）は全部 `types/` にあり、
+規則3ファイルだけの区分になっている異物感を解消する。**T-229 より先に実行する**
+（T-229 が T-233 に依存。T-232 は T-234 にも依存）:
+
+- ~~**T-233**~~（done）: `src/types/` を `src/domain/` に吸収し、import・テスト・ドキュメントのパスを追随させる
+- ~~**T-234**~~（done）: `docs/architecture.md` の `domain/` の定義を「ドメイン×技術」の2軸に書き換える
+
+`lib/config/validate.ts`・`steps/shared/describe-plan.ts` は文面上「技術非依存＋ドメイン知識あり」
+だが動かさない（概念のまとまりを優先。T-234 で規約に書く）。`lib/` → `adapters/` 改名は採らない。
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13（2回目）」。
+
+**タグ解決の step 切り出しを T-229〜T-232 として登録した**（2026-09-13、`/plan-tasks`）。
+`createResolveLatestTags()` のキャッシュを廃し、パイプラインを
+`filterTargets → resolveTags → buildPlans → applyUpdates` にする。依存は直列:
+
+- ~~**T-229**~~（done）: `TagSource` を新設し、タグ解決まわりの型を `src/domain/types.ts` に集約する
+- ~~**T-230**~~（done）: `resolve-tags` step への切り出し本体。重複排除をキャッシュから集合演算にする
+- ~~**T-231**~~（done）: `LatestTagResolution` に `origin` を足し、新規作成予定のタグを計画のログに出す
+- ~~**T-232**~~（done）: 軸交差の規則を `docs/architecture.md` に書き、README・glossary を追随させる
+
+**T-230 の未コミットWIPは解消済み**（ワークツリーの成果を main へマージし、ワークツリーと
+ブランチは削除した。上の「並行セッションとの衝突と worktree」参照）。
+T-232 の `loopable` は `Y`。T-230 の `loopable` は当初 `N` だったが、論点2件（`CONCURRENCY_LIMIT` の意味が step ごとに変わることの許容、
+`create_tag` のログがバッチ先頭に固まること）の決定が本文に入ったため `Y` になっている（`7ae8e87`）。
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-13」。
+
+**GitHub対応の8タスク（T-220〜T-228）はすべて完了。**
+`PLATFORM=gitlab|github` で切り替わり、ドキュメントも追随済み。
+
+**GitLab側の実機スモークテストは2026-09-13に実施済み**（パス1〜3。上の「実機スモークテスト」参照）。
+**GitHub側は一度も実機に当てていない**（`scripts/smoke/smoke-fixture.ts` がGitLab APIしか呼ばないため、
+GitHub用のフィクスチャから作る必要がある）。新しい指示を出す場合は `develop/direction.md` に
+書いて `/plan-tasks` でタスク化する。
+
+前提（着手前にユーザーが決めた）:
+
+- **GitLab と GitHub の両方に対応するが、1回の実行で混在はさせない。** forge の選択は
+  環境変数1つで全体に効く（chartリポジトリ単位の指定にはしない）
+- `config` の `projectId` はスキーマで**数値と文字列の両方を受ける**（既存の `config/` を
+  書き換えない）
+- 検証範囲は **`pnpm check` まで**。GitHub実機のスモークは別途
+
+調査記録は [`docs/research/github-support.md`](../docs/research/github-support.md)、指示メモは
+[`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（4回目・5回目）」。
+
+T-212 の提案17件はすべて反映し終えた（T-214〜T-218。ユーザーが採否を決め、L-5はMIT・
+D-4は「npm配布しないので正典を実装に合わせる」で確定。残り15件は全件採用）。
+**README.md は clone 直後に Quick Start どおり動く状態になった。**
+実機スモークテストは2026-09-13に実施済み（パス1〜3）。
+
+T-213（`parseArgs` 化）は
+**「導入して良くなるライブラリはあるか」の問いから出たタスク**で、結論は「外部パッケージは増やさない」——本体3,784行に対し実行時依存は
+4つ（`@gitbeaker/rest`・`p-limit`・`yaml`・`zod`）で、手作りの `logger.ts` 35行・`retry.ts` 36行は
+どれも置き換える利が無い（pino はログ形式が `README.md` の外部インターフェースとして固定されて
+いるため、p-retry は `isRetryable` を注入する今の形が原則2に沿っているため、却下）。
+**唯一の実益が Node 標準の `parseArgs`** だった（依存を増やさずに引数のtypoを弾ける）。
+
+次にやることは、下の「未解決」に置いた **T-212 の提案17件の採否**がユーザー判断待ち。採ると決まった
+ものを反映タスクとして登録する（指示メモは
+[`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-12（3回目）」）。
+
+設定まわりの命名（T-208・T-209・T-210）と、その過程で見つかった型の置き場所の裏付け直し
+（T-211）は完了済み（指示メモは同ファイルの「2026-09-12（2回目）」）。
+
+- **`AnchorValueLookup`（`lib/helm.ts`、公開）と `AnchorLookup`（同ファイル、内部）が1文字違いで、
+  名前から公開・内部の区別が読めない。** T-211 の突き合わせ中に見つけたが、「型の置き場所」では
+  なく命名の話なのでその場では手を付けていない。気になったら命名タスクとして起こす
+
+**`ConfigUnit` の `unit` を外す案は検討して却下した**（ユーザー判断、2026-09-12）。`Config` が
+ルートの型で埋まっている・`ConfigUnitPath` が `ConfigRootPath` と同語になる・`unit` が
+「並列処理とMR発行の粒度」を表していて外すと `chartリポジトリ = config` と誤読される、の3点。
+識別子は約831箇所/62ファイルで T-203 の一括改名の直後でもある。**`ConfigUnit` 系は現状維持。**
+
+**実機スモークテストは2026-09-13に実施し、パス1〜3がすべて期待どおりだった**（上の
+「実機スモークテスト」参照）。`config.yaml` のキー変更（`chart[]`→`locations[]`、
+`helm.branchToSync`→`helm.branchRef`）が実機でも壊れていないことはこれで確認済み。
+**残っているのはパス4（`no_diff`）とGitHub側の実機検証。**

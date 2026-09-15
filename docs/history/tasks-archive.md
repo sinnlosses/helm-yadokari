@@ -10305,3 +10305,623 @@ CREATED」は未確認**。理由は `docs/smoke-test.md` のフィクスチャ�
 
 - コード・`config/` 配下の実ファイル・`docs/requirements.md`・`docs/architecture.md` は変えない
 - 実機への接続・書き込みはしない（手順を書くだけ）
+
+## T-249
+
+**タスク**: `scripts/smoke/provision-group.ts` を足し、パス5用のトップレベルグループB・プロジェクト2つ・フィクスチャ・Group Access Token を API で作れるようにする
+
+**difficulty**: sonnet / **loopable**: Y / **dependencies**: なし / **passes**: True
+
+**evidence**:
+
+`scripts/smoke/provision-group.ts`（`provision`/`token`、既定 dry-run、既存グループなら中止、削除機能なし）と純粋部分 `scripts/smoke/group-fixture-content.ts`（テスト8件）。gitbeaker の `GroupAccessTokens.create` をそのまま使用。初回はテストのためだけの export と import.meta ガードがあり差し戻して分離させた。docs/smoke-test.md「2グループ目」・config/README.md・docs/architecture.md・vitest.config.ts を追随。dry-run `provision --group-path yadokari-smoke-b` が8手順を列挙して exit 0。pnpm check 通過: 46 Test Files / 563 Tests（555→563）。--apply は未実行
+
+## 背景
+
+`docs/smoke-test.md`「パス5: 複数グループ（宣言トークン）」（T-248）は、2グループ目の chart リポジトリ・
+ソースリポジトリ・向き先ブランチ・`values.yaml`・シードタグ・Group Access Token を**手で用意する**
+手順になっている。`scripts/smoke/smoke-fixture.ts` は対象プロジェクトを固定の環境変数名で受け取り、
+既存プロジェクトにしか書かない設計（プロジェクト作成は「事故時の影響を既存プロジェクトへの書き込みに
+留めるため」足していない。`docs/smoke-test.md`「使うGitLabリソース」・`config/README.md`）。
+
+ユーザー決定: グループBは**トップレベル**に作る。認証は **`api` スコープの個人 PAT を `.env` の
+`ACCESS_TOKEN` に置く**（`loadEnvConfig()` の既定トークンとして読む。`smoke-fixture.ts` と同じ）。
+作成は新しい別スクリプトに隔離し、`smoke-fixture.ts` は変えない。
+
+`smoke-fixture.ts` の流儀（`parseArgs`、既定 dry-run・`--apply` で反映、`createClient(env.platformUrl,
+env.accessToken)` で gitbeaker を直接叩く、冒頭コメントに用途と安全策、`console.log` で計画を
+表示してから実行）に合わせる。`values.yaml` の形式（配列要素に YAML アンカーで名前を付ける）と
+シードタグの作り方は `smoke-fixture.ts` の `setup` の実装をそのまま参考にする。
+
+## 解くべき論点
+
+- ソースリポジトリBの初期状態。パス5(a) で `CREATED` にするには、`values.yaml` の初期値が
+  **実在する古いタグ**で、追跡ブランチ `main` の HEAD がそれより新しく HEAD にタグ形式のタグが
+  無い状態（CLI がタグを自動作成して更新する）が要る。README 初期化コミットにシードタグ
+  `main-build-at-20260101-000000` を打ち、その上にもう1コミット積んで HEAD にする、で成り立つか
+  確かめる（`docs/requirements.md` 4.1節「タグ自動作成」）
+- Group Access Token の API（`POST /groups/:id/access_tokens`）が gitbeaker にあるか
+  （`GroupAccessTokens.create`）。無ければ `requester` で直接呼ぶ。scopes は `read_api` +
+  `write_repository`、access_level は Developer（30）、expires_at は 90 日後
+- トークン値は**1回しか取れない**ので、標準出力に1回だけ表示して `.env` の
+  `ACCESS_TOKEN_SMOKE_B` に写すよう案内する（ファイルには書かない）
+
+## やること
+
+1. `scripts/smoke/provision-group.ts` を作る。サブコマンド:
+   - `provision --group-path <path> [--group-name <name>] [--apply]`: トップレベルグループ
+     `<path>` を作り、その下に chart リポジトリ `yadokari-smoke-test-chart-b` とソースリポジトリ
+     `sample-smoke-b-app`（どちらも private・`initialize_with_readme`・デフォルトブランチ `main`）を
+     作る。chart 側にブランチ `release/2026-q1` と `charts/smoke-b-app/values.yaml`（アンカー
+     `smokeBHelmTargetBranch`＝`release/2026-q1`、`smokeBAppVersion`＝シードタグ名）を `main` に
+     コミット。ソース側は README コミットにシードタグ `main-build-at-20260101-000000` を打ち、
+     その上に1コミット積む（論点1）。最後にグループの Group Access Token `yadokari-smoke-b` を発行し、
+     グループID・2つの projectId・トークン値・`.env` に足す行・`config/yadokari-smoke-test-chart-b/`
+     に置く `registry.yaml` と `smoke-b-app/config.yaml` の中身（`accessTokenEnv: ACCESS_TOKEN_SMOKE_B`
+     入り）を表示する
+   - `token --group-path <path> [--name <name>] [--apply]`: 既存グループ（グループA用）に同じ
+     条件の Group Access Token を発行して表示する
+   - 安全策: `provision` は `--group-path` のグループが**既に存在すれば何もせず中止**する
+     （既存リソースには書かない）。削除機能は持たない。dry-run では作る予定のリソースを列挙する
+2. 冒頭コメントに用途・`ACCESS_TOKEN` が `api` スコープの PAT であること・安全策を書く
+3. 純粋な部分（`values.yaml` の文字列、config 2ファイルの文字列、有効期限の計算）はテストできる形にし、
+   `test/scripts/smoke/` に最小限のテストを足す（`scripts/lint/remote-existence/` のテストの置き方に倣う。
+   テストのためだけの export はしない）
+4. ドキュメント追随: `docs/smoke-test.md`「2グループ目（パス5）に必要なもの」を「`provision-group.ts` で
+   作る」手順に置き換え（`.env` の `ACCESS_TOKEN` を `api` スコープの PAT にすること、グループA用の
+   トークンは `token` サブコマンドで発行すること、出力された YAML を `config/` に置くこと）。
+   「chartリポジトリ2は smoke-fixture.ts の外で作る（プロジェクト作成機能はスクリプトに足さない）」の
+   記述と `config/README.md` の同趣旨の記述を「作成は `provision-group.ts` に隔離し、新規リソースしか
+   作らない」に更新。`docs/architecture.md`「ディレクトリ構成の勘所」の `scripts/smoke/` の行に追記
+5. `pnpm format` → `pnpm check` を通す
+
+## 完了条件
+
+- `npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path <path>`（dry-run）が
+  作る予定のリソース一覧を表示して終了コード 0（実機に接続するので、`.env` が無い環境では
+  ロジックのテストだけで可）
+- 純粋部分のテストがあり、`pnpm check` が通る
+- `docs/smoke-test.md`・`config/README.md`・`docs/architecture.md` が新スクリプトと矛盾しない
+
+## 注意
+
+- **`--apply` は実行しない**（グループ・プロジェクト・トークンの作成はユーザー承認のうえメインで行う）
+- `smoke-fixture.ts`・`src/`・`config/` 配下の実ファイルは変えない
+- `as` を使わない、`?:` を使わない、`process.env` に触れるのは `src/lib/env.ts` の関数経由
+  （projectId 等はコマンドライン引数で受ける）
+
+## T-250
+
+**タスク**: `provision-group.ts` に既存の空グループを使う `--use-existing-group` と、トークン発行をスキップする `--skip-token` を足す
+
+**difficulty**: sonnet / **loopable**: Y / **dependencies**: なし / **passes**: True
+
+**evidence**:
+
+`provision` に `--use-existing-group`（既存かつプロジェクト0件のときだけ進む）と `--skip-token`（Free 向けの案内と .env ひな型を表示）、トークン発行が 400/403 のときも同じ案内で exit 1（作ったリソースは残す）。純粋部分 `buildTokenSkipGuidance()` は group-fixture-content.ts。docs/smoke-test.md「2グループ目」を gitlab.com の制約込みに更新。実機 dry-run: 存在しないグループ→見つかりません exit 1／プロジェクトを持つ既存グループ→既にプロジェクトがあります exit 1／既定の存在チェックは不変。空グループでの成功経路は未実行（グループ未作成）。pnpm check 通過: 46 Test Files / 564 Tests（563→564）
+
+## 背景
+
+`scripts/smoke/provision-group.ts provision --group-path yadokari-smoke-b --apply` を gitlab.com で実行した
+ところ、最初のグループ作成（`POST /groups`、`parent_id` なし）が `403 Forbidden` で失敗し、何も
+作られなかった。gitlab.com は API からのトップレベルグループ作成を許していない（サブグループは可）。
+さらに `token --group-path sinnlosses-group --apply` は `400 User does not have permission to create
+group access token` で失敗した。gitlab.com の **Free プランでは Group Access Token も Project Access
+Token も発行できない**（Premium 以上。self-managed は全ティア可）。`namespaces/sinnlosses-group` の
+`plan` は `free`。
+
+ユーザー決定: グループBは **gitlab.com の UI で空のトップレベルグループとして作る**。スモークの
+トークンは既存の `api` スコープ PAT を `ACCESS_TOKEN_SMOKE_A` / `ACCESS_TOKEN_SMOKE_B` の両方に使う。
+
+現状の `provision` は「`--group-path` のグループが既に存在すれば中止」する安全策を持ち、最後に
+Group Access Token を発行する（`issueToken()`、gitbeaker の `GroupAccessTokens.create`）。
+
+## やること
+
+1. `provision` に `--use-existing-group` を足す。指定時はグループを作らず既存のグループを使う。
+   ただし**そのグループにプロジェクトが1つも無いときだけ**進み、1つでもあれば中止する
+   （既存リソースに書かない安全策を保つ）。指定なしの挙動（存在すれば中止）は変えない
+2. `provision` に `--skip-token` を足す。指定時は Group Access Token の発行を飛ばし、代わりに
+   「Free では発行できないので、`.env` の `ACCESS_TOKEN_SMOKE_B` には代替のトークン（ボットユーザーの PAT、
+   またはスモーク用なら手元の PAT）を入れる」旨と、`.env` に足す行のひな型を表示する。`--skip-token`
+   なしで発行が 400/403 で失敗したときも同じ案内を出して**終了コード 1**にする（それまでに作った
+   グループ内のリソースはそのまま残す。作り直す必要が無いことをメッセージに書く）
+3. dry-run の計画表示にオプションの効果を反映する（「既存グループ … を使う（プロジェクト0件を確認）」
+   「トークン発行はスキップ」）
+4. `docs/smoke-test.md`「2グループ目（パス5）に必要なもの」を更新: gitlab.com ではトップレベルグループを
+   UI で作ってから `--use-existing-group` で続けること、gitlab.com Free では Group Access Token を
+   発行できないので `--skip-token` を付け、スモーク用には手元の `api` PAT を `ACCESS_TOKEN_SMOKE_A` /
+   `_B` の両方に入れてよい（検証できるのはルーティングと 401 の分離で、トークンの境界は Free では
+   検証できない）こと。`token` サブコマンドの説明にも Free 制約を1文添える
+5. `test/scripts/smoke/group-fixture-content.test.ts` は純粋関数のテストなので、新オプションで純粋な
+   部分（案内文の組み立てなど）を足したらそこにテストを足す。gitbeaker 呼び出しはテストしない
+6. `pnpm format` → `pnpm check`。dry-run（`--apply` なし）は実機に対して実行してよい
+
+## 完了条件
+
+- `provision --group-path <path> --use-existing-group --skip-token`（dry-run）が、既存グループの
+  利用とトークン発行スキップを含む計画を表示して終了コード 0（`.env` が無ければロジックのテストのみ）
+- `--use-existing-group` で、プロジェクトを持つグループを指定すると中止する分岐がある
+- `pnpm check` が通る
+
+## 注意
+
+- **`--apply` は実行しない**（メインセッションがユーザー承認のうえ行う）
+- `README.md`・`docs/requirements.md`・`docs/architecture.md`・`config/README.md` は触らない
+  （Free 制約の運用上の注記は T-251 が書く）。`smoke-fixture.ts`・`src/` も触らない
+
+## T-251
+
+**タスク**: gitlab.com Free では Group Access Token を発行できない制約と、ボットユーザーの PAT による代替を `README.md`・`docs/requirements.md` に注記する
+
+**difficulty**: sonnet / **loopable**: Y / **dependencies**: なし / **passes**: True
+
+**evidence**:
+
+docs/requirements.md 5章に「gitlab.com Freeでの代替」の項、README「複数グループで運用する」手順1に注記＋「採らなかった案」の個人PATを明確化、Quick Start と環境変数表に補足、glossary にトークン種別を CLI は区別しない旨。`grep -n Free` で4ファイル計7行に注記。oxfmt --check 通過（T-250 並行中のため pnpm check 全体は T-250 受け入れ時にまとめて実行）
+
+## 背景
+
+`README.md`「複数グループで運用する」と `docs/requirements.md` 5章「認証」は、グループごとに
+Group Access Token を1本発行する前提で書かれている（`read_api` + `write_repository`、Developer、
+短い期限）。しかし gitlab.com の **Free プランでは Group Access Token も Project Access Token も
+発行できない**（Premium 以上で可。self-managed と Dedicated は全ティアで可。公式ドキュメント
+`https://docs.gitlab.com/user/group/settings/group_access_tokens/` と
+`https://docs.gitlab.com/user/project/settings/project_access_tokens/`）。2026-09-15 に実機で
+`POST /groups/:id/access_tokens` が `400 User does not have permission to create group access token`
+になることを確認した（`namespaces/sinnlosses-group` の `plan` は `free`）。
+
+前提が崩れた環境での代替は、**グループごとにボットユーザー（専用の別アカウント）を作り、その
+グループにだけ Developer で招待して、そのユーザーの Personal Access Token（`read_api` +
+`write_repository`、短い期限）を使う**こと。README「複数グループで運用する」の「採らなかった案」に
+「個人の Personal Access Token」があるが、それは「1人の広い権限を持つ個人の PAT を全グループに
+使う」ことを指しており、グループ単位に権限を絞ったボットユーザーの PAT は同じ最小権限の考え方に
+沿う（1本漏れても届くのはそのグループだけ）。ただしボットユーザーはライセンスシートを消費しうる
+（ティアと環境で異なる）。
+
+## やること
+
+1. `docs/requirements.md` 5章「認証」の「トークンの単位はグループ」の項に、gitlab.com Free では
+   Group/Project Access Token を発行できないこと、その場合の代替（グループ単位のボットユーザーの
+   PAT）、代替でも最小権限の考え方は変わらないことを2〜3文で足す。self-managed では全ティアで
+   Group Access Token が使えることも明記する
+2. `README.md`「複数グループで運用する」の手順1（Group Access Token の発行）に、同じ内容の注記を
+   1段落足す（正典は requirements 5章へのリンク。重複は要約に留める）。「採らなかった案」の
+   「個人の Personal Access Token」を「1人の広い権限の PAT を全グループに使うこと」と明確化し、
+   ボットユーザーの PAT との違いが読み取れるようにする
+3. `README.md`「Quick Start」の前提条件にある「Group/Project Access Token（スコープ: …）」の行
+   （`grep -n "Group/Project Access Token" README.md`）と「設定 > 環境変数」表の `ACCESS_TOKEN` 行に、
+   「gitlab.com Free では PAT を使う」が読み取れる短い補足を足す（長くしない）
+4. `docs/glossary.md` の `ACCESS_TOKEN・accessTokenEnv` の項に、トークンの種類（Group Access Token /
+   ボットユーザーの PAT）は環境で変わり、CLI からは区別しないことを1文足す
+5. `pnpm format` → `pnpm check`
+
+## 完了条件
+
+- `grep -n "Free" README.md docs/requirements.md docs/glossary.md` で、上の4箇所に注記があることが
+  確認できる
+- README と requirements の記述が矛盾しない（README は要約＋リンク）
+- `pnpm check` が通る
+
+## 注意
+
+- `docs/smoke-test.md`・`scripts/`・`config/README.md`・`docs/architecture.md` は触らない（T-250 の範囲）
+- 実機には接続しない
+
+## T-252
+
+**タスク**: パス5（複数グループ）を GitLab の MR パイプラインと web 実行（`DRY_RUN=true`）で検証し、結果を `docs/smoke-test.md` に記録する
+
+**difficulty**: sonnet / **loopable**: N / **dependencies**: なし / **passes**: True
+
+**evidence**:
+
+main を GitHub/GitLab に push（main パイプライン 2850529327 成功）。CI 変数 ACCESS_TOKEN_SMOKE_A/\_B を masked_and_hidden で登録。MR !2 の validate-config-remote 成功（ジョブ 16509706597）／変数B削除で chart B を列挙して失敗（16509780248）。MR クローズ後に一時 schedule を play → update-app-versions 成功・artifacts 回収（パイプライン 2850572787）。schedule 変数 API が 403 で DRY_RUN が効かず本番モードだったが全ユニット mr_exists で書き込みなし。発見: config 変更には test/main.e2e.test.ts の追随が要る（config/README.md に追記）／MR オープン中のブランチは schedule 起動が workflow.rules で抑止。MR クローズ・リモートブランチ削除・schedule 削除済み
+
+## 背景
+
+パス5（`docs/smoke-test.md`）はローカルで実施済み（2026-09-15）。CI 経路は未検証:
+`validate-config-remote`（MR/push/web で実行。chart ごとの宣言トークンで分解、1本でも未設定なら失敗）と、
+`update-app-versions`（schedule/web で実行。`.gitlab-ci.yml`）。GitLab 側のプロジェクトは
+`sinnlosses-group/helm-yadokari`（id 86060538、`origin` の push 先の1つ。もう1つは GitHub）。
+現在の CI 変数は `ACCESS_TOKEN`（Masked）と `GITLAB_URL` のみ。pipeline schedule「yadokari test schedule」
+（毎日 9:00、main）が生きている。ローカル main は GitLab の main より先行している（複数トークン化の
+コミット群）。gitlab.com Free のため `ACCESS_TOKEN_SMOKE_A/_B` の値は既定 `ACCESS_TOKEN` と同じ PAT。
+
+## やること（各手順の外部反映はユーザー承認のうえ行う）
+
+1. ローカル main を `origin`（GitHub と GitLab の両方）へ push する。push 後、GitLab の main で
+   `check` パイプラインが通ることを見る（schedule は従来どおり `ACCESS_TOKEN` だけで動く）
+2. GitLab の CI/CD Variables に `ACCESS_TOKEN_SMOKE_A` / `ACCESS_TOKEN_SMOKE_B` を Masked（可能なら
+   masked_and_hidden）・Protected OFF で登録する（API `POST /projects/86060538/variables`）
+3. ブランチ `smoke/pass5-ci` を切り、`config/yadokari-smoke-test-chart-b/`（`provision-group.ts` の出力）と
+   chart1/2 の `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` をコミットして GitLab へ push、main 向けの MR を作る。
+   MR パイプラインで `validate-config-remote` が「5 設定ユニット」で通ることを確認する
+4. 同ブランチで web 実行（`POST /projects/86060538/pipeline` に `ref` と `DRY_RUN=true`）を起動し、
+   `update-app-versions` が `ERROR:0` で終わり、artifacts `report/report.md` が回収されることを確認する
+5. 否定系を1つ: 変数 `ACCESS_TOKEN_SMOKE_B` を一時的に消して（または名前を変えて）MR パイプラインを
+   再実行し、`validate-config-remote` が chart B を列挙して失敗することを見る。終わったら戻す
+6. MR をクローズし、ブランチを削除する。変数 `ACCESS_TOKEN_SMOKE_A/_B` は残す（次回のパス5で使う。
+   値は既定と同じ PAT なので権限は増えない）
+7. `docs/smoke-test.md`「手順 > パス5」の「CIで確かめる」段落を実測（パイプラインID・ジョブ結果）で
+   補い、`develop/progress.md` に記録する
+
+## 完了条件
+
+- MR パイプラインの `validate-config-remote` 成功／失敗（否定系）の両方のジョブ URL または ID が
+  `evidence` にある
+- web 実行の `update-app-versions` が `DRY_RUN=true` で成功し、artifacts にレポートがある
+- `docs/smoke-test.md` に実測が書かれ、`pnpm check` が通る
+
+## 注意
+
+- push・CI 変数の登録・MR 作成・パイプライン起動はすべて外部反映。**手順ごとにユーザー承認**を得る
+- `config/` の変更は main にマージしない（MR はクローズ）。`loopable: N` の理由は上記の承認
+
+## T-253
+
+**タスク**: `src/lib/gitlab/gitlab.ts` と `src/lib/github/github.ts` を同ディレクトリ内の `api.ts` へ改名し、import・テスト・docs の参照を追随させる
+
+**difficulty**: sonnet / **loopable**: Y / **dependencies**: なし / **passes**: True
+
+**evidence**:
+
+`git status` で `src/lib/{gitlab,github}/{gitlab,github}.ts` → `api.ts`、`test/lib/{gitlab,github}/*.test.ts` → `api.test.ts` の R（内容差分0）を確認。
+`grep -rn "gitlab/gitlab\\|github/github" src scripts test` が0件（`docs/research/github-support.md` は当時の記録なので未変更）。
+`docs/architecture.md` に `#### `lib/<プラットフォーム>/`はディレクトリ名と同じ名前のファイルを置かず`api.ts`にする` を追加し索引にも反映。`pnpm check` 成功（46ファイル / 564テスト）。
+
+## 背景
+
+`src/lib/gitlab/` は `adapter.ts` / `errors.ts` / `web-url.ts` / `gitlab.ts` の4ファイルで、最後の1つだけがディレクトリ名の繰り返しになっている（`src/lib/github/` も同じ形）。中身は `@gitbeaker/rest`・`@octokit/rest` のラッパー（`createClient()`・`listTags()`・`getFileContent()`・`withNotFoundFallback()` ほか）で、「そのプラットフォームのAPIを叩く場所」という概念は `api.ts` のほうが正確に表す。`docs/architecture.md`「1ファイルにまとめるか分けるか」が言う「ファイル名が概念になっているか」に沿った改名で、振る舞いは変えない。
+
+改名で追随が要る参照元:
+
+- `src/main.ts:12,14`
+- `scripts/smoke/smoke-fixture.ts:7` / `scripts/smoke/provision-group.ts:7` / `scripts/lint/validate-config.ts:8` / `scripts/lint/remote-existence/remote-existence.ts:9` / `scripts/lint/remote-existence/remote-cache.ts:7`
+- `test/helpers.ts:26,38` / `test/main.test.ts:5,6,27,38` / `test/main.dry-run.test.ts:5`（コメント） / `test/main.e2e.test.ts:10`（コメント） / `test/lib/gitlab/adapter.test.ts:3,21` / `test/lib/github/adapter.test.ts:3,21` / `test/lib/gitlab/gitlab.test.ts` / `test/lib/github/github.test.ts` / `test/scripts/lint/remote-existence/remote-existence.test.ts:3,14`
+- `docs/architecture.md`（`src/lib/` 責務表の181・182・185・186行、および335・401・414・421・423・581・965・975行あたりの本文）、`docs/coding-standards.md:125`
+
+## 解くべき論点
+
+- テストファイル名も対象ファイルと1対1になるよう `test/lib/gitlab/gitlab.test.ts` → `api.test.ts`、`test/lib/github/github.test.ts` → `api.test.ts` に合わせる（この方針で進めてよい）。
+- `docs/requirements-grilling.md` と `docs/history/` 配下は当時の記録なので**書き換えない**（アーカイブ全般と同じ扱い）。
+
+## やること
+
+1. `git mv src/lib/gitlab/gitlab.ts src/lib/gitlab/api.ts` と `git mv src/lib/github/github.ts src/lib/github/api.ts`。
+2. `git mv test/lib/gitlab/gitlab.test.ts test/lib/gitlab/api.test.ts` と `git mv test/lib/github/github.test.ts test/lib/github/api.test.ts`。
+3. `src/` `scripts/` `test/` の import パス・`vi.mock()` のパス・コメント中のパスをすべて `api.js` / `api.ts` に置換する。
+4. `docs/architecture.md` と `docs/coding-standards.md` の本文中のファイル名を追随させる。`src/lib/` 責務表は行の先頭セルも `gitlab/api.ts` / `github/api.ts` にする。
+5. `docs/architecture.md`「型と命名」の `#### \`steps/\`配下はファイル名＝公開関数名のケバブケース`の直後に`####`の節を1つ足し、(a)`lib/<プラットフォーム>/`の中にディレクトリ名と同じ名前のファイルを置かず`api.ts`にした理由、(b)`src/lib/config/config.ts`は`config/`の公開入口であって外部APIのラッパーではないため据え置いた、の2点を書く。あわせて冒頭「節の索引」の`### 型と命名` の表にその行を足す。
+6. `pnpm format` → `pnpm check`。
+
+## 完了条件
+
+- `grep -rn "gitlab/gitlab\|github/github" src scripts test` が0件。
+- `src/lib/gitlab/api.ts` と `src/lib/github/api.ts` が存在し、`gitlab.ts` / `github.ts` が存在しない。テスト側も `api.test.ts` になっている。
+- `docs/architecture.md` に上記の `####` 節が1つ増え、冒頭「節の索引」の `### 型と命名` の表にもその行がある。
+- `pnpm check` が成功する。
+
+## 注意
+
+- 公開関数名・型名（`createClient()` / `GitlabClient` / `GithubClient`）は変えない。**ファイル名だけ**の改名。
+- `src/lib/config/config.ts` は改名しない（ユーザー確認済み。役割が外部APIのラッパーではなく `config/` の公開入口のため）。
+- `docs/history/` 配下と `docs/requirements-grilling.md` は書き換えない。
+
+## T-254
+
+**タスク**: `src/lib/platform/routed-adapter.ts`（232行）を変更理由ごとに分割すべきか判断し、分けるなら実施する
+
+**difficulty**: opus / **loopable**: N / **dependencies**: なし / **passes**: False
+
+**evidence**:
+
+分割せずに閉じた（ユーザー承認済み）。成り立つ合図は⑤（232行）だけ: ①責務は「`ProjectId`から使うアダプタを決めて委譲する」の一言、②委譲テーブル(51〜80行)の変更は`platform/adapter.ts`・`gitlab/adapter.ts`・`github/adapter.ts`を必ず同時に開くので切り出しても開く枚数が減らない、③非公開8関数(`assertFallbackAvailable`/`assertDeclaredAdapterAvailable`/`buildRoutes`/`resolveRoute`/`projectIdsOf`/`lookupRoute`/`callRoute`/`firstDeclared`)は`Route`型と`AdaptersByAccessToken`を共有して1グループ、④依存は全員`domain/types.js`と`./adapter.js`のみで外部I/Oなし。
+まとめる合図②が効く: `resolveRoute():172`と`firstDeclared():222`の「到達しない」コメントは同居する2つのassertが根拠で、離すと`Route`・`buildRoutes`・`lookupRoute`・`callRoute`が`export`に昇格し公開面が2→6になる。
+`docs/architecture.md`「1ファイルにまとめるか分けるか」の適用例にこの判断を追記。コード変更なし、`pnpm check` 成功（46ファイル / 564テスト、`routed-adapter.test.ts` の件数も不変）。
+
+## 背景
+
+`src/lib/platform/routed-adapter.ts` は232行で、`docs/architecture.md`「1ファイルにまとめるか分けるか」の「分ける合図⑤（200行超、または公開関数が2語彙以上）」に掛かっている。中身は4つのまとまりに見える。
+
+- 公開: `AdaptersByAccessToken` 型と `createRoutedAdapter()`
+- 組み立て時の事前検証: `assertFallbackAvailable()` / `assertDeclaredAdapterAvailable()`
+- ルート表: `Route` 型 / `buildRoutes()` / `resolveRoute()` / `projectIdsOf()` / `lookupRoute()` / `firstDeclared()`
+- 委譲と401の読み替え: `callRoute()` と、`createRoutedAdapter()` の戻り値にある `PlatformAdapter` 15エントリの委譲テーブル（51〜80行）
+
+変更理由の違い: 委譲テーブルは `src/lib/platform/adapter.ts` の `PlatformAdapter` のエントリが増減したときだけ変わる。事前検証とルート表は `registry.yaml` の `accessTokenEnv` の解決規則が変わったときに変わる。
+
+テストは `test/lib/platform/routed-adapter.test.ts`（186行）1本。`src/main.ts:17,18` が `AdaptersByAccessToken` と `createRoutedAdapter` を import している唯一の呼び出し元。
+
+## 解くべき論点
+
+- 分ける合図は⑤以外に①〜④のどれが成り立つか。`docs/architecture.md` は**行数だけを理由に割らない**と明記しているので、①（責務を「〜と〜」でしか説明できない）②（変更理由が違う）③（非公開ヘルパーが2グループに割れている）のどれかが実際に成り立つことをコードで確かめてから割る。
+- 割る場合の粒度: `lib/platform/` にファイルを1枚足す（例: 事前検証・ルート表・`callRoute()` を1ファイルへ出し、`routed-adapter.ts` に `createRoutedAdapter()` と委譲テーブルだけ残す）か、`lib/platform/routed-adapter/` というディレクトリを作るか。`lib/platform/` は現在フラット（`adapter.ts` / `cached-reads.ts` / `routed-adapter.ts`）なので、ディレクトリを作るならその理由が要る。
+- 分割コスト: `Route` 型・`callRoute()`・`buildRoutes()` は現在すべて非公開で、分けると `export` に昇格する（`docs/architecture.md`「まとめる合図②」が言う最も見えにくいコスト）。昇格する識別子が最小になる切り方を選ぶ。
+- テストも分けるか、`routed-adapter.test.ts` 1本のまま公開API経由の検証を続けるか。
+
+## やること
+
+1. 上の論点を `docs/architecture.md`「1ファイルにまとめるか分けるか」の合図に照らして判断する。
+2. **①〜④のどれも成り立たない（＝行数だけが理由）と分かったら、分割せずに閉じる。** その場合は `status: "done"` / `passes: false` にし、どの合図がなぜ成り立たなかったかを関数名つきで `evidence` に書く。
+3. 分ける場合: 選んだ切り方でファイルを作り、`createRoutedAdapter()` の外から見える振る舞いは変えない（`src/main.ts` の import 行が変わらないこと）。
+4. `docs/architecture.md` の `src/lib/` 責務表に新しいファイルの行を足し、「1ファイルにまとめるか分けるか」の適用例（「239行で分けたファイルもある」が並ぶ箇所）に今回の判断を1行で追記する。
+5. `pnpm format` → `pnpm check`。
+
+## 完了条件
+
+- `pnpm check` が成功する。
+- 分けた場合: `src/lib/platform/routed-adapter.ts` が200行以下になり、`docs/architecture.md` の `src/lib/` 責務表に新しいファイルの行がある。`src/main.ts` の import 行は変わっていない。
+- 分けなかった場合: `evidence` に分ける合図①〜④が成り立たなかった理由がファイル名・関数名つきで書かれている。
+- どちらの場合も `test/lib/platform/routed-adapter.test.ts` の既存テストケースが1件も減っていない。
+
+## 注意
+
+- 401の読み替え規則（`declared` だけ素の `Error` に読み替え、`fallback` はそのまま投げる）と、組み立て時に例外を投げる2つの事前検証は**振る舞いを変えない**。分割は移動だけ。
+- `src/lib/platform/adapter.ts`（`PlatformAdapter` 型）と `src/lib/platform/cached-reads.ts` は触らない。
+- ファイル構成をどう切るかの設計判断そのものを含むため、ユーザーの承認が要る。
+
+## T-255
+
+**タスク**: `scripts/smoke/` の2本を `EnvConfig.accessToken` から切り離し、`ACCESS_TOKEN_SMOKE_A` と `GITLAB_PROVISION_PAT` を直接読ませる
+
+**difficulty**: sonnet / **loopable**: Y / **dependencies**: なし / **passes**: True
+
+**evidence**:
+
+`grep -rn 'env\.accessToken' scripts/smoke/` が0件。`smoke-fixture.ts` は `ACCESS_TOKEN_SMOKE_A`、`provision-group.ts` は `GITLAB_PROVISION_PAT` を `process.env` から直接読む（`toAccessToken()` でブランド型に変換）。
+`.env.example` に両方をスモークテスト専用として追記、`docs/smoke-test.md` の 123・148・204行付近を追随（旧回避策 `ACCESS_TOKEN="$ACCESS_TOKEN_SMOKE_A" npx tsx …` を削除）。
+受け入れ時に、`docs/coding-standards.md`「環境変数」に存在しない例外を参照していたコメント2箇所を CLAUDE.md 原則3 の参照に直した。`pnpm check` 成功（46ファイル / 564テスト）。
+
+## 背景
+
+`scripts/smoke/smoke-fixture.ts:177` と `scripts/smoke/provision-group.ts:137` はどちらも
+`loadEnvConfig()`（`src/lib/env.ts`）を呼び、`env.accessToken`（既定の `ACCESS_TOKEN`）で
+gitbeaker のクライアントを作っている（`smoke-fixture.ts:191`・`provision-group.ts:144`）。
+
+後続タスクで `EnvConfig.accessToken` を削除するため、その前にこの2本を切り離しておく。順序を
+逆にすると型が壊れた状態のコミットができる。
+
+この2本が要求する権限は互いに違う。
+
+- `smoke-fixture.ts` が叩くのは `Tags.all/create`・`Branches.all/create/remove`・`Commits.create`・
+  `RepositoryFiles.show`・`MergeRequests.all/edit`・`Projects.show` で、**すべてグループAの既存
+  プロジェクトの中で完結する**
+- `provision-group.ts` が叩くのは `Groups.create`（トップレベルグループの新規作成）と
+  `GroupAccessTokens.create` を含み、api スコープの個人PATが要る。しかもこのスクリプトは
+  `ACCESS_TOKEN_SMOKE_B` を**発行する側**なので、それを入力にできない
+
+## 解くべき論点
+
+`src/lib/env.ts` 以外で `process.env` に触れない規約（`docs/coding-standards.md`「環境変数」）との
+関係。`scripts/` は本体パイプラインではなく（CLAUDE.md 原則3）、`smoke-fixture.ts:41,60` が既に
+`process.env[envVarName]` を直接読んでいる前例がある。この前例に合わせる。
+
+## やること
+
+1. `scripts/smoke/smoke-fixture.ts` が `env.accessToken` ではなく `ACCESS_TOKEN_SMOKE_A` を
+   `process.env` から直接読むようにする。未設定なら今と同じくメッセージを出して `exit(1)`。
+   `smoke-fixture.ts:188-194` の「T-244までの暫定処置」コメントは役目を終えるので消す
+2. `scripts/smoke/provision-group.ts` が `GITLAB_PROVISION_PAT` を `process.env` から直接読む
+   ようにする。未設定時のメッセージは「api スコープの個人PATを設定してください」の主旨を残す
+3. どちらも `loadEnvConfig()` は引き続き使う（`platformUrl`・`platform` を読むため）。
+   消すのは `env.accessToken` への依存だけ
+4. `.env.example` に `ACCESS_TOKEN_SMOKE_A` と `GITLAB_PROVISION_PAT` の行を足す。どちらも
+   スモークテスト用で通常の実行には不要である旨をコメントに書く
+5. `docs/smoke-test.md` の該当箇所を追随させる。少なくとも次の3つ:
+   - 123行目付近の「`.env` の `ACCESS_TOKEN` を api スコープのPATにする」記述
+   - 202-205行目の「`smoke-fixture.ts` は既定の `ACCESS_TOKEN` で書くので
+     `ACCESS_TOKEN="$ACCESS_TOKEN_SMOKE_A" npx tsx ...` で呼べ」という回避策（不要になる）
+   - 149-160行目の `provision-group.ts` の実行例（`GITLAB_PROVISION_PAT` が要ることを書く）
+6. `test/scripts/smoke/` 配下のテストが壊れていれば追随させる
+
+## 完了条件
+
+- `pnpm check` が通る
+- `scripts/smoke/` のどちらのファイルにも `env.accessToken` が出てこない
+  （`grep -n 'env\.accessToken' scripts/smoke/` が空）
+- `.env.example` と `docs/smoke-test.md` に `GITLAB_PROVISION_PAT` が載っている
+
+## 注意
+
+- スモークテストの実行はしない（このタスクはコードとドキュメントの付け替えだけ）
+- `src/` には手を入れない。`EnvConfig.accessToken` の削除は後続タスクの担当
+
+## T-256
+
+**タスク**: `config/` の2つの `registry.yaml` に `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を宣言し、CI/CD変数の登録を確認する
+
+**difficulty**: sonnet / **loopable**: N / **dependencies**: なし / **passes**: True
+
+**evidence**:
+
+2つの `registry.yaml` の1行目に `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を追加。CI/CD変数は GitLab API で確認済み（`ACCESS_TOKEN_SMOKE_A` は protected=false / masked=true）。
+`config/` に宣言が入ったことで `test/main.e2e.test.ts` が ERROR で落ちたため、`test/main.test.ts` と同じ形で `beforeEach`/`afterEach` に環境変数の設定・削除を足した。
+`docs/smoke-test.md` のパス5手順を「常設済み」前提に書き換え。`pnpm check` 成功（46ファイル / 564テスト）。
+
+## 背景
+
+`config/yadokari-smoke-test-chart/registry.yaml` と
+`config/yadokari-smoke-test-chart2/registry.yaml` はどちらもトップレベルの `accessTokenEnv` を
+宣言しておらず、既定の `ACCESS_TOKEN` に依存している。後続タスクで `accessTokenEnv` を必須化
+するため、その前に宣言を入れておく。`accessTokenEnv` は現時点ではまだ任意フィールドなので、
+宣言を足しても動作は変わらない（先に宣言しても壊れない順序になっている）。
+
+書く値は `ACCESS_TOKEN_SMOKE_A`。`docs/smoke-test.md:288-290` に、パス5（複数グループ）の検証で
+この2つのchartに `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を追記する手順が既にあり、T-252 で
+実際に通してある。今回はそれを恒久化する。chart1 と chart2 は同じソースリポジトリ
+（`sample-qa-sprint`, projectId `82861978`）を共有しているので、**両方が同じ
+`accessTokenEnv` を宣言していないと `validateAccessTokenEnvConsistency()`
+（`src/lib/config/validate.ts:52`）が設定エラーにする**。
+
+## やること
+
+1. 2つの `registry.yaml` のトップレベル（`chartToUpdate` より前）に
+   `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を足す。`config.example/my-team-chart/registry.yaml`
+   と同じ位置・同じコメントの付け方に揃える
+2. ローカルの `.env` に `ACCESS_TOKEN_SMOKE_A` が設定されているかユーザーに確認する
+3. GitLab の Settings > CI/CD > Variables に `ACCESS_TOKEN_SMOKE_A` が
+   **Protected: OFF・Masked** で登録されているかをユーザーに確認する。未登録のまま push すると
+   MR パイプラインの `validate-config-remote` ジョブが失敗する
+
+## 完了条件
+
+- `pnpm check` が通る（`pnpm lint` の `validate-config` がローカル検証を含む）
+- 2つの `registry.yaml` に `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` がある
+- CI/CD変数 `ACCESS_TOKEN_SMOKE_A` が登録済みであることをユーザーが確認済み
+
+## 注意
+
+- **CI/CD変数の登録・確認はユーザーが行う。** モデルは何を登録すればよいかを提示するだけ
+- 既定の `ACCESS_TOKEN` のCI/CD変数はこの時点ではまだ消さない（本体がまだ必須化されていない）
+
+## T-257
+
+**タスク**: `registry.yaml` の `accessTokenEnv` を必須化し、既定 `ACCESS_TOKEN` の経路と401の非対称分岐を削る
+
+**difficulty**: opus / **loopable**: N / **dependencies**: T-255, T-256 / **passes**: True
+
+**evidence**:
+
+`grep -rn 'ACCESS_TOKEN' src/ scripts/lint/ | grep -v 'ACCESS_TOKEN_'` が0件。`EnvConfig.accessToken`・`AdaptersByAccessToken`・`Route` の `fallback`・`assertFallbackAvailable()` を削除し、401は全て chart単位 `ERROR` に一本化。
+`createRoutedAdapter()` の第2引数は `ReadonlyMap<AccessTokenEnvName, PlatformAdapter>` に。`accessTokenEnv` 未記載の `registry.yaml` が設定エラーになることを `test/lib/config/schema.test.ts` で検証。`pnpm check` 成功（46ファイル / 557テスト、7件純減）。
+受け入れ時に、担当タスクの無かった `CLAUDE.md`・`docs/coding-standards.md` の401方針の記述（3箇所）も追随させた。`docs/glossary.md` はサブエージェントが追随済み。
+
+## 背景
+
+`registry.yaml` の `accessTokenEnv` は現状**任意**で、宣言の無いchartリポジトリは既定の
+`ACCESS_TOKEN` を使う。`config/` は各チームがMRを送るセルフサービス方式なので、宣言を書き忘れた
+chartが設定エラーにならず、黙って**いちばん権限の広いトークン**に流れる。既存の検証
+（`validateAccessTokenEnvConsistency()`）が弾くのは「同じ `projectId` が別々の `accessTokenEnv` に
+結びつく」ケースだけで、新規chartの単なる書き漏れは通る。`docs/architecture.md`
+「アクセストークンはchartリポジトリ単位に宣言し…」節が「どのグループにも属さない広い権限の
+トークンを置かせるのは方針の目的に逆行する」と書いているのに、書き漏れがそこへ落ちる。
+
+`accessTokenEnv` を必須化して既定トークンの経路を丸ごと削る（ユーザー判断、2026-09-16）。
+
+## 解くべき論点
+
+- **401の波及範囲を統一する。** 現状は宣言トークンの401が chart単位 `ERROR`、既定トークンの401が
+  `FatalError` で実行全体を即時終了（`docs/requirements.md` 4.3節）。既定トークンが無くなるので
+  chart単位 `ERROR` に一本化する。5xx・ネットワーク障害・タイムアウトが `FatalError` で即時終了
+  するのは**変えない**（プラットフォーム側の障害でトークンの問題ではないため）
+- **`^ACCESS_TOKEN_[A-Z0-9_]+$` の規則は残す。** 接尾辞なしの `ACCESS_TOKEN` を設定エラーにする
+  のも残すが、理由が「既定は省略で表すから」から「無関係な秘密をCLIに読み出させないため」だけに
+  変わる。`src/domain/brand.ts:159` のエラーメッセージから「既定の "ACCESS_TOKEN" は省略で
+  表します」を落とす
+- `createRoutedAdapter()` の代表アダプタ（`buildTagUrl` 等の委譲先）は `fallback` が無くなるので
+  `firstDeclared()` 一択になる。`assertDeclaredAdapterAvailable()` の前段にあった
+  `assertFallbackAvailable()` が消えることで、2つあった assert が1つになる
+
+## やること
+
+1. **型とスキーマを必須にする**
+   - `src/lib/config/schema.ts:86` の `AccessTokenEnvNameSchema` から `.optional()` を外し、
+     未設定を検証エラーにする（メッセージに「`accessTokenEnv` は必須」の主旨を入れる）
+   - `src/domain/types.ts:76` の `ConfigUnit.accessTokenEnv` を
+     `readonly accessTokenEnv: AccessTokenEnvName`（`| undefined` を外す）にし、JSDoc から
+     「省略時は既定の `ACCESS_TOKEN` を使う」を落とす
+   - `src/lib/config/load-config-unit.ts` の該当する型も追随させる
+2. **既定トークンの経路を削る**
+   - `src/lib/env.ts`: `EnvConfig.accessToken` と `loadOptionalAccessToken()` を削除
+   - `src/main.ts`: `buildAdaptersByAccessToken()` を `declared` だけにする。戻り値の形も
+     `AdaptersByAccessToken` から `ReadonlyMap<AccessTokenEnvName, PlatformAdapter>` に
+     変えてよいか検討する（`fallback` が消えると2フィールドのオブジェクトである理由が無くなる）
+   - `src/lib/platform/routed-adapter.ts`: `AdaptersByAccessToken.fallback`、`Route` の
+     `fallback` バリアント、`assertFallbackAvailable()`、`callRoute()` の `fallback` 分岐、
+     `resolveRoute()` の `accessTokenEnv === undefined` 分岐を削除。401はすべて素の `Error` に
+     読み替える
+3. **`src/lib/config/validate.ts`** の `validateAccessTokenEnvConsistency()` から
+   `describeAccessTokenEnv()`（`?? "省略（既定の ACCESS_TOKEN）"`）を削る。宣言が必須になれば
+   `undefined` は来ない
+4. **`scripts/lint/remote-existence/access-token-groups.ts`** の既定グループを削る。
+   `AccessTokenGroup.accessTokenEnv` を `AccessTokenEnvName` にし、`lookupAccessToken()` の
+   `defaultAccessToken` 引数と `findMissingAccessTokenProblems()` の `?? "ACCESS_TOKEN"` を
+   落とす。`scripts/lint/validate-config.ts:111` の呼び出し側も追随させる
+5. **テストを追随させる**
+   - `test/lib/env.test.ts:277` の「`ACCESS_TOKEN` が未設定でも失敗しない」テストは前提が
+     消えるので削除する
+   - `test/lib/platform/routed-adapter.test.ts` の `fallback` を使うケース（29箇所）を
+     declared 中心に組み替える。「宣言の無い設定ユニットがあるのに `ACCESS_TOKEN` が未設定」の
+     ケースは「`accessTokenEnv` を書いていない `registry.yaml` はスキーマ検証で落ちる」に置き換える
+   - `test/lib/config/schema.test.ts`・`test/main.test.ts`・
+     `test/scripts/lint/remote-existence/access-token-groups.test.ts` も追随させる
+   - 削除したテストと同じ件数を足す必要はない（`docs/coding-standards.md`「テスト」節に従う）
+6. **正典2ファイルを書き換える**
+   - `docs/requirements.md` 4.3節（401の波及範囲。既定トークンの行を落とし、トークン起因の失敗は
+     すべて chart単位 `ERROR` にする）と 4.4節（`accessTokenEnv` は任意／省略で既定を表す、の
+     記述を必須に改める）。**節の索引から該当節を特定して、その節だけを読んで直す**
+   - `docs/architecture.md`「アクセストークンはchartリポジトリ単位に宣言し…」節。必須化した
+     理由（書き漏れが権限の拡大になる形を残さない）を残し、`fallback`・既定トークンの段落を
+     落とす。**冒頭の索引で節を特定し、`sed -n` でその節だけを読む**
+
+## 完了条件
+
+- `pnpm check` が通る
+- `grep -rn 'ACCESS_TOKEN' src/ scripts/lint/ | grep -v 'ACCESS_TOKEN_'` が
+  `^ACCESS_TOKEN_[A-Z0-9_]+$` のパターン定義（`src/domain/brand.ts`）以外に一致しない
+- `accessTokenEnv` を書いていない `registry.yaml` を読ませると設定エラーで即時終了することを
+  テストで示している
+- `docs/requirements.md` 4.3・4.4節と `docs/architecture.md` の該当節に「既定の `ACCESS_TOKEN`」
+  「省略すると既定を使う」という記述が残っていない
+
+## 注意
+
+- **`scripts/smoke/` には手を入れない**（T-255 で `EnvConfig.accessToken` から切り離し済み）
+- `README.md`・`.env.example`・`.gitlab-ci.yml`・`config/README.md`・`config.example/`・
+  `docs/smoke-test.md` の追随は T-258 の担当。このタスクでは触らない
+- **CI/CD変数と `.env` から `ACCESS_TOKEN` を削除するのはユーザーの作業**。モデルは削除して
+  よくなった旨を報告するだけで、削除を代行しない
+- 5xx・ネットワーク障害の `FatalError` 即時終了は変えない
+
+## T-258
+
+**タスク**: `README.md`・`.env.example`・`.gitlab-ci.yml`・`config/README.md`・`config.example/`・`docs/smoke-test.md` を既定 `ACCESS_TOKEN` 廃止に追随させる
+
+**difficulty**: sonnet / **loopable**: Y / **dependencies**: T-257 / **passes**: True
+
+**evidence**:
+
+`README.md`（12箇所）・`.env.example`・`.gitlab-ci.yml`・`config.example/`・`docs/architecture.md` 1行・`docs/glossary.md` の用語名・`docs/smoke-test.md` を追随。`config/README.md` は T-257 で対応済みで変更なし。
+補正した grep（`docs/history/`・`docs/research/`・「接尾辞なしの」を除外）の残存は `docs/smoke-test.md` の2026-09-15実測ログ内の (d) のみ。手順側から (d) が消えて食い違うため「このシナリオは現在の手順には無い」注記を足した（記録本体は書き換えず）。
+`pnpm check` 成功（46ファイル / 557テスト）。
+
+## 背景
+
+T-257 で `accessTokenEnv` が必須になり、既定の `ACCESS_TOKEN` がコードと正典
+（`docs/requirements.md`・`docs/architecture.md`）から消える。利用者向けのドキュメントには
+まだ「省略すると既定の `ACCESS_TOKEN` を使う」という前提が残っているので追随させる。
+
+## やること
+
+次のファイルから既定 `ACCESS_TOKEN` の記述を落とし、`accessTokenEnv` が必須である前提に直す。
+
+1. `README.md`
+   - 「設定」章の環境変数表（192-193行目付近）。`ACCESS_TOKEN` の行を削り、`†` の脚注
+     （204-206行目）も書き換える
+   - 229行目付近の「宣言が無ければ既定の `ACCESS_TOKEN` を使います」
+   - 252行目付近の `registry.yaml` の記述例のコメント（「（任意）」を外す）
+   - 302・309行目付近のエラー時の挙動の表（401の扱い）
+   - 「CI/CD」章の変数表（351-352行目）と「複数グループで運用する」章（390-393行目）
+   - 114-115行目のセットアップ手順
+2. `.env.example` の `ACCESS_TOKEN` の行を `ACCESS_TOKEN_<グループ名>` の説明に置き換える
+   （T-255 で足した `ACCESS_TOKEN_SMOKE_A` / `GITLAB_PROVISION_PAT` の行はそのまま残す）
+3. `.gitlab-ci.yml` のコメント（27-35行目、131-133行目）
+4. `config/README.md` と `config.example/my-team-chart/registry.yaml` のコメント
+   （`accessTokenEnv` の「（任意）」と「省略すると既定の ACCESS_TOKEN を使う」）
+5. `docs/smoke-test.md` に残る既定 `ACCESS_TOKEN` 前提の記述（198-205行目付近）
+6. 仕上げに `/maintain-docs` を使い、正典（`docs/requirements.md`・`docs/architecture.md`）との
+   ズレ・重複が残っていないか検査する
+
+## 完了条件
+
+- `pnpm check` が通る
+- `grep -rn 'ACCESS_TOKEN' README.md .env.example .gitlab-ci.yml config/README.md config.example/ docs/ | grep -v 'ACCESS_TOKEN_'`
+  が0件
+- README の環境変数表・CI/CD変数表に `accessTokenEnv` で宣言した名前のトークンだけが載っている
+
+## 注意
+
+- コードには手を入れない（T-257 で完了している）
+- 正典2ファイル（`docs/requirements.md`・`docs/architecture.md`）は T-257 で書き換え済み。
+  ここで二重に書かない。**通読せず、索引で節を特定して読む**
