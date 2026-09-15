@@ -99,10 +99,11 @@ CI/CD Variables に `ACCESS_TOKEN` を **Protected: OFF** で登録する（理�
 - 変数は基本 `const`。コレクションも不変（`ReadonlyMap`・`readonly`）に保つ
 - HTTP エラーの判定は `src/lib/gitlab/errors.ts` の既存ユーティリティ（`isFatalError` 等）を使う。
   gitbeakerのエラーの形を知ってよいのはこのファイルだけで、`src/utils/` には置かない（原則2）
-- 401 / 5xx / ネットワーク障害は `FatalError` を投げて即時終了、それ以外は該当chartリポジトリを
-  `ERROR` としてログ記録し処理継続する。`src/steps/` 配下に `try`/`catch` を書かない
-- 環境変数はすべて `src/lib/env.ts` で管理し、読み取りは `loadEnvConfig()` を通す。モジュールの
-  トップレベルでは `process.env` に触れない
+- 既定の `ACCESS_TOKEN` の 401 / 5xx / ネットワーク障害は `FatalError` を投げて即時終了、
+  chartリポジトリが宣言したトークンの 401 とそれ以外のエラーは該当chartリポジトリを `ERROR`
+  としてログ記録し処理継続する。`src/steps/` 配下に `try`/`catch` を書かない
+- 環境変数はすべて `src/lib/env.ts` で管理し、読み取りは同ファイルの関数（`loadEnvConfig()` /
+  `loadAccessTokens()`）を通す。モジュールのトップレベルでは `process.env` に触れない
 - コメントは**コードから読み取れないことだけ**を書く。型名・関数名の言い換えは書かない。
   `/** */` は**その関数を呼ぶ人**向け、`//` は**実装を読む人**向けに書き分ける。残すかどうかは
   長さではなく種類で決める（今の挙動の制約・前提は残す、本体や呼び先の写しは消す、

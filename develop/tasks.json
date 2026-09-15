@@ -94,8 +94,8 @@
     "dependencies": ["T-246"],
     "summary": "`maintain-docs` の7検査を `docs/`・`README.md`・`CLAUDE.md` にかけ、複数トークン化に伴う追随漏れを直す",
     "task": "## 背景\n\nT-242〜T-246 で `docs/requirements.md`・`docs/architecture.md`・`docs/glossary.md`・`README.md`・\n`.gitlab-ci.yml`・`config.example/` を段階的に書き換えた。「1回の実行＝1トークン」を前提にした\n記述（`CLAUDE.md` の「HTTP エラーの判定」「401 / 5xx は FatalError」の行、\n`docs/architecture.md`「FatalErrorは後続ステップも止める」、`docs/smoke-test.md` の `.env` の説明、\n`docs/coding-standards.md` の環境変数の節など）が残っている可能性がある。\n\n## やること\n\n1. このリポジトリのスキル `.claude/skills/maintain-docs/` の手順に従い、7つの検査を\n   `docs/`（`history/` 以外）・`README.md`・`CLAUDE.md` にかける\n2. 見つけたズレは正典（`docs/requirements.md`・`docs/architecture.md`）に合わせて直す。\n   正典同士が矛盾していたら、ユーザー決定（グループごとのトークン、config での宣言、\n   chart 宣言トークンの 401 は該当 chart の ERROR）に近い方を残し、理由を `evidence` に書く\n3. `grep -rn \"ACCESS_TOKEN\\|401\" docs README.md CLAUDE.md .gitlab-ci.yml` の全行を読み、\n   複数トークンの前提と食い違う行が無いことを確認する\n\n## 完了条件\n\n- 上の `grep` の各行が新しい前提と矛盾していない（確認した行数を `evidence` に書く）\n- `maintain-docs` の各検査の結果（該当なし／直した箇所）を `evidence` に列挙する\n- `pnpm check` が通る\n\n## 注意\n\n- `docs/history/` は触らない\n- `CLAUDE.md` の規約の文言を変えるときは、規約そのものを変えるのではなく複数トークンの前提に\n  合わせた表現だけを直す\n",
-    "status": "todo",
-    "passes": false,
-    "evidence": ""
+    "status": "done",
+    "passes": true,
+    "evidence": "maintain-docs の7検査: 確定群（通読ガード・タスク番号・リンク切れ・索引→本文）0件、候補群（本文→索引2件・識別子12件・見出し重複6件）は多重トークン化と無関係の既存事項で据え置き。修正: CLAUDE.md（401の行と環境変数の行）、docs/coding-standards.md（3箇所）、docs/architecture.md（責務表に routed-adapter.ts/loadAccessTokens()、勘所に access-token-groups.ts、前方参照の文言2箇所）。`grep ACCESS_TOKEN|401` の76行を目視確認し食い違いなし。pnpm check 通過: 45 Test Files / 554 Tests（不変）"
   }
 ]

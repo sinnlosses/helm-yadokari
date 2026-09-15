@@ -177,6 +177,7 @@ importせず〜」の節を参照）。
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `platform/adapter.ts`         | `PlatformAdapter`型（GitLab/GitHubの15エントリを並べた関数テーブル。`steps/`はこれだけを受け取り、クライアントの型を知らない）。API呼び出しに加えエラー分類（`isFatalError`等）も持つ           |
 | `platform/cached-reads.ts`    | `CachedReads`と`withCachedReads()`。バッチ1回を通して使い回す`PlatformAdapter`読み取りのキャッシュを`PlatformAdapterWithCachedReads.cached`として入れ子にする。キャッシュしてよい読み取りの一覧 |
+| `platform/routed-adapter.ts`  | `createRoutedAdapter()`。`ProjectId`ごとに宣言されたトークンのアダプタへ振り分け、宣言トークンの401だけをそのchartリポジトリの設定ユニットの`ERROR`に読み替える                                 |
 | `gitlab/gitlab.ts`            | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitLab専用**                                                                                                     |
 | `gitlab/adapter.ts`           | `createGitlabAdapter()`。`gitlab.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                           |
 | `gitlab/web-url.ts`           | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                                                                                |
@@ -192,7 +193,7 @@ importせず〜」の節を参照）。
 | `config/schema.ts`            | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                                                               |
 | `config/validate.ts`          | projectId重複・書き込み先重複・chartリポジトリをまたぐtagFormat食い違いの検証                                                                                                                   |
 | `helm.ts`                     | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                                                  |
-| `env.ts`                      | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）                                                                                                                            |
+| `env.ts`                      | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）。`loadEnvConfig()`に加え、`registry.yaml`が宣言したトークンを読む`loadAccessTokens()`を持つ                                |
 | `report/format-report.ts`     | 設定ユニット単位のレコード配列をMarkdown1枚（ヘッダ＋表）に整形する。外部I/Oを持たない同期の純粋関数                                                                                            |
 | `report/write-report.ts`      | `format-report.ts`が組み立てたMarkdownを`REPORT_OUTPUT_PATH`へ書き出す。親ディレクトリが無ければ作る                                                                                            |
 
@@ -1283,8 +1284,8 @@ config読み込みのあとに読む。`loadConfig()`が`LoadedConfig.accessToke
 設定ユニットが宣言した名前の一覧）を返し、`src/lib/env.ts`の`loadAccessTokens()`がその名前だけを
 `process.env`から読んで`ReadonlyMap<AccessTokenEnvName, AccessToken>`にする。**`process.env`に
 触れるのは`src/lib/env.ts`だけ**という規約は変えず、読み取りの入口が`loadEnvConfig()`と
-`loadAccessTokens()`の2つになる（`docs/coding-standards.md`「環境変数」とCLAUDE.mdの
-「読み取りは`loadEnvConfig()`を通す」は、実装と同時に「`src/lib/env.ts`の関数を通す」へ直す）。
+`loadAccessTokens()`の2つになる（`docs/coding-standards.md`「環境変数」とCLAUDE.mdは
+「`src/lib/env.ts`の関数（`loadEnvConfig()`・`loadAccessTokens()`）を通す」と書いてある）。
 `TARGET_CHART`で絞れば、読むトークンもそのchartリポジトリの分だけになる。未設定の名前は
 `loadAccessTokens()`では失敗させずに表から落とす（1グループの付け替え漏れを実行全体の失敗に
 しないため。扱いは下の401と同じ）。
@@ -1336,8 +1337,9 @@ GitLabに問い合わせずローカルのYAMLだけで分かる＝「形」の�
 辿らないため）結果は変わらない。宣言した環境変数が未設定だったときも同じく素の`Error`を投げる。
 既定`ACCESS_TOKEN`の401・5xx・ネットワーク障害は従来どおりそのまま上がって`FatalError`になる。
 この読み替えでログの`httpStatus`は`undefined`になる（`HTTP 401`はメッセージ側に残る）。
-`README.md`「エラーハンドリング」の401の行は、実装と同時に「既定`ACCESS_TOKEN`＝即時終了／
-chartリポジトリが宣言したトークン＝そのchartリポジトリの設定ユニットが`ERROR`」の2行へ分ける。
+`README.md`「エラーハンドリング」の401の行は「既定`ACCESS_TOKEN`＝即時終了／chartリポジトリが
+宣言したトークン＝そのchartリポジトリの設定ユニットが`ERROR`」の2行に分けてある
+（`CLAUDE.md`・`docs/coding-standards.md`「エラーハンドリング」も同じ区別で書いてある）。
 
 **`validate-config --remote`はトークンごとに分解する。** `scripts/lint/validate-config.ts`が設定
 ユニットを`accessTokenEnv`（宣言なし＝既定）でグループ分けし、グループごとに`createClient()`と
@@ -1423,7 +1425,9 @@ chartリポジトリが宣言したトークン＝そのchartリポジトリの�
   GitLabへ問い合わせて projectId・ブランチ・valuesPath・アンカーの実在も検証する
   （`pnpm lint:validate-config:remote`、CIの`validate-config-remote`ジョブが実行）
 - `scripts/lint/remote-existence/`: 上記`--remote`の実装本体。`remote-existence.ts`が実在チェック、
-  `remote-cache.ts`がその問い合わせ（project/branch/values.yaml）のキャッシュ層。
+  `remote-cache.ts`がその問い合わせ（project/branch/values.yaml）のキャッシュ層、
+  `access-token-groups.ts`が設定ユニットを`accessTokenEnv`でグループ分けする
+  （グループごとにクライアントを1つ作って実在チェックするため）。
   ここだけは`scripts/`配下でテストを持つため、`vitest.config.ts`のcoverage対象に含めている
 - `scripts/smoke/smoke-fixture.ts`: `config/` を使った実機スモークテストの前準備・後片付け
   （`setup`/`reset`。既定はdry-runで、`--apply`を付けたときだけGitLabに書き込む）。

@@ -1,12 +1,12 @@
 # 現在の状態
 
-最終更新: 2026-09-15（T-242〜T-246 完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
+最終更新: 2026-09-15（T-242〜T-247 をすべて完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
 `filterTargets → resolveTags → buildPlans → applyUpdates` の4stepにした**（T-229〜T-231）。
 `createResolveLatestTags()` のバッチ寿命キャッシュは消滅し、重複排除は集合演算になった。
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは1件（T-247）**。T-242〜T-246 は完了。T-238〜T-241 は完了。
+**未着手のタスクは0件**（T-242〜T-247 をすべて完了）。T-238〜T-241 は完了。
 **T-229〜T-238 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は 59,620B → 8,570B）。完了タスクは
@@ -14,6 +14,13 @@
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-15 複数トークン化の追随漏れを洗う
+
+- **T-247: `maintain-docs` の7検査をかけ、`CLAUDE.md`・`docs/coding-standards.md`・`docs/architecture.md` の
+  「1回の実行＝1トークン」前提の記述を直した**（sonnet に委譲）。候補群の指摘（`coding-standards.md` が
+  参照する `test/utils/{fs,partition,timer}.test.ts` の実在など）は今回と無関係の既存ドリフトなので据え置き
+- `pnpm check` 通過: 45 Test Files / 554 Tests（不変）
 
 ### 2026-09-15 複数グループ運用の手順を README に書く
 
@@ -283,7 +290,7 @@
 - ~~**T-244**~~（done）: `src/lib/platform/` の振り分けアダプタ、`runPipeline()` の配線、401 方針。`steps/` は触らない
 - ~~**T-245**~~（done）: `scripts/lint/validate-config.ts --remote` を chart ごとのトークンで検証
 - ~~**T-246**~~（done）: README「CI/CD」に「複数グループで運用する」小節、環境変数表、`.gitlab-ci.yml` コメント、`config.example/`
-- **T-247**（sonnet）: `maintain-docs` で追随漏れを洗う
+- ~~**T-247**~~（done）: `maintain-docs` で追随漏れを洗う
 
 **ユーザー決定済みの方針**（タスク化前にチャットで確定。詳細は
 [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-14（7回目）」）:
