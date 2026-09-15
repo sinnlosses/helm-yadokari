@@ -120,9 +120,10 @@ chartリポジトリ2には `sample-qa-sprint` を登録する。**同じappが2
   4.4節）に反し、`accessTokenEnv`をグループAと分離できない
 
 したがって `scripts/smoke/provision-group.ts` で用意する（新規リソースしか作らない設計・
-安全策は同スクリプト冒頭のコメント参照）。`.env` の `ACCESS_TOKEN` を **`api` スコープの
+安全策は同スクリプト冒頭のコメント参照）。`.env` の `GITLAB_PROVISION_PAT` を **`api` スコープの
 個人PAT**にしておくこと（グループ・プロジェクトの作成やGroup Access Tokenの発行は
-Group/Project Access Tokenでは行えないAPIのため）。
+Group/Project Access Tokenでは行えないAPIのため。このスクリプトは
+`ACCESS_TOKEN_SMOKE_B`を発行する側なので、それ自身の認証には使えない）。
 
 **gitlab.com では2点、この手順のまま動かない**（self-managedならそのまま動く）:
 
@@ -143,6 +144,9 @@ Group/Project Access Tokenでは行えないAPIのため）。
   リソース（プロジェクト・ブランチ・コミット・タグ）はそのまま残るため、
   `--skip-token`を付けて同じ`--group-path`・`--use-existing-group`で再実行すればよく、
   作り直す必要はない
+
+実行には `.env` の `GITLAB_PROVISION_PAT`（`api` スコープの個人PAT）が要る
+（未設定ならその旨を出して終了する）。
 
 ```bash
 # dry-run（既定）でまず何を作るか確認する
@@ -200,10 +204,9 @@ npx tsx --env-file=.env scripts/smoke/provision-group.ts token --group-path sinn
 
 パス5の最終形ではchartリポジトリ1・2・Bのすべてが`accessTokenEnv`を宣言するため、**CLI本体は
 既定の`ACCESS_TOKEN`を要求しなくなる**（宣言の無いchartが1つも無ければ既定トークンを要求しない
-実装 `assertFallbackAvailable()` の帰結。(d)で確かめる）。ただし **`smoke-fixture.ts` は既定の
-`ACCESS_TOKEN`でGitLabに書く**ので、`.env`から消すなら `setup`/`reset` は
-`ACCESS_TOKEN="$ACCESS_TOKEN_SMOKE_A" npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts …`
-のようにグループAのトークンを既定名で渡す。
+実装 `assertFallbackAvailable()` の帰結。(d)で確かめる）。**`smoke-fixture.ts` は
+`ACCESS_TOKEN_SMOKE_A`を直接読んでGitLabに書く**ので、`.env`から既定の`ACCESS_TOKEN`を消しても
+`setup`/`reset`の呼び方を変える必要はない。
 
 ## 検証シナリオ
 
@@ -226,7 +229,8 @@ npx tsx --env-file=.env scripts/smoke/provision-group.ts token --group-path sinn
 ## 手順
 
 ```bash
-# 0. 認証情報（.env に GITLAB_URL / ACCESS_TOKEN）と対象プロジェクトを用意
+# 0. 認証情報（.env に GITLAB_URL / ACCESS_TOKEN / ACCESS_TOKEN_SMOKE_A）と対象プロジェクトを用意
+#    ACCESS_TOKENはCLI本体（pnpm dev）が、ACCESS_TOKEN_SMOKE_Aはsmoke-fixture.tsが使う
 export SMOKE_CHART_PROJECT_ID=86061211
 export SMOKE_CHART2_PROJECT_ID=86354445
 export SMOKE_QA_SPRINT_PROJECT_ID=82861978

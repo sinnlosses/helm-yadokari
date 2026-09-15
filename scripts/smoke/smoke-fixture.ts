@@ -2,7 +2,7 @@ import { parseArgs } from "node:util"
 
 import { isFeatureBranch } from "../../src/domain/feature-branch.js"
 import { findLatestParsedTag, parseTag, validateTagFormat } from "../../src/domain/tag-format.js"
-import { toBranchName, toTagName } from "../../src/domain/types.js"
+import { toAccessToken, toBranchName, toTagName } from "../../src/domain/types.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/api.js"
 import { toErrorMessage } from "../../src/utils/errors.js"
@@ -185,14 +185,16 @@ if (env.platform !== "gitlab") {
   )
   process.exit(1)
 }
-// T-244（accessTokenEnvで宣言されたトークンごとの分解）までの暫定処置。今はまだ
-// トークンごとにグループ分けしておらず常に既定のACCESS_TOKENだけを使うため、
-// 未設定なら理由を明示して終了する
-if (env.accessToken === undefined) {
-  console.error("smoke-fixture ERROR: ACCESS_TOKEN が未設定です")
+// このスクリプトはグループAの既存プロジェクトの中で完結する操作しか行わないため、
+// CLI本体が読むトークンとは独立したスモークテスト専用トークンを使う。`src/lib/env.ts` を
+// 通さず process.env を直接読めるのは、本体パイプラインの外にあるスクリプトだから
+// （CLAUDE.md 原則3。同じ理由でrequireProjectId/optionalProjectIdも直接読んでいる）
+const accessTokenRaw = process.env.ACCESS_TOKEN_SMOKE_A
+if (!accessTokenRaw?.trim()) {
+  console.error("smoke-fixture ERROR: ACCESS_TOKEN_SMOKE_A が未設定です")
   process.exit(1)
 }
-const gitlab = createClient(env.platformUrl, env.accessToken)
+const gitlab = createClient(env.platformUrl, toAccessToken(accessTokenRaw))
 
 /**
  * シード値に使うタグがソースリポジトリに実在することを保証する。無い場合は追跡ブランチの

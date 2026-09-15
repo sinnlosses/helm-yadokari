@@ -2,6 +2,7 @@ import { parseArgs } from "node:util"
 
 import { AccessLevel } from "@gitbeaker/rest"
 
+import { toAccessToken } from "../../src/domain/types.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/api.js"
 import { extractHttpStatus } from "../../src/lib/gitlab/errors.js"
@@ -39,8 +40,9 @@ import {
 //     既存グループ（グループA用を想定）に同じ条件のGroup Access Tokenを発行して表示する
 //
 // 既定はdry-run（何をするかを表示するだけ）。実際に反映するには --apply を付ける。
-// `ACCESS_TOKEN`（.env）には `api` スコープの個人PATを使うこと。グループ作成・トークン発行が
-// `api` スコープでしかできないAPIのため（Group/Project Access Tokenでは操作できない）。
+// `GITLAB_PROVISION_PAT`（.env）には `api` スコープの個人PATを使うこと。グループ作成・
+// トークン発行が `api` スコープでしかできないAPIのため（Group/Project Access Tokenでは
+// 操作できない）。
 //
 // 安全策: provision は --group-path のグループが既に存在すれば何もせず中止する
 // （既存リソースには書き込まない）。--use-existing-group 指定時はこれを反転し、グループが
@@ -142,13 +144,18 @@ if (env.platform !== "gitlab") {
   )
   process.exit(1)
 }
-if (env.accessToken === undefined) {
+// グループ・プロジェクトの新規作成とGroup Access Tokenの発行はapiスコープの個人PATでしか
+// 呼べないAPIで、しかもこのスクリプトはACCESS_TOKEN_SMOKE_Bを発行する側なので、それを
+// 入力にはできない。ACCESS_TOKEN_<グループ名>の名前空間に載せないのはこのため。
+// process.env を直接読める理由はsmoke-fixture.tsと同じ（CLAUDE.md 原則3）
+const provisionPatRaw = process.env.GITLAB_PROVISION_PAT
+if (!provisionPatRaw?.trim()) {
   console.error(
-    "provision-group ERROR: ACCESS_TOKEN が未設定です（api スコープの個人PATを設定してください）",
+    "provision-group ERROR: GITLAB_PROVISION_PAT が未設定です（api スコープの個人PATを設定してください）",
   )
   process.exit(1)
 }
-const gitlab = createClient(env.platformUrl, env.accessToken)
+const gitlab = createClient(env.platformUrl, toAccessToken(provisionPatRaw))
 
 /** グループが実在するか。取得できなければ理由を問わず「無い」として扱う */
 async function groupExists(groupPath: string): Promise<boolean> {
