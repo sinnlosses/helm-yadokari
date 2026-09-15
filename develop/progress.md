@@ -1,12 +1,12 @@
 # 現在の状態
 
-最終更新: 2026-09-15（T-242〜T-244 完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
+最終更新: 2026-09-15（T-242〜T-245 完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
 `filterTargets → resolveTags → buildPlans → applyUpdates` の4stepにした**（T-229〜T-231）。
 `createResolveLatestTags()` のバッチ寿命キャッシュは消滅し、重複排除は集合演算になった。
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-12以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは3件（T-245〜T-247、直列依存）**。T-242〜T-244 は完了。T-238〜T-241 は完了。
+**未着手のタスクは2件（T-246〜T-247、直列依存）**。T-242〜T-245 は完了。T-238〜T-241 は完了。
 **T-229〜T-238 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は 59,620B → 8,570B）。完了タスクは
@@ -14,6 +14,14 @@
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-15 `validate-config-remote` をトークンごとに分解
+
+- **T-245: `scripts/lint/validate-config.ts --remote` を `accessTokenEnv` でグループ分けし、グループごとに
+  `createClient()` + `validateRemoteExistence()` を呼ぶ形にした**（sonnet に委譲）。グループ分けと欠落判定は
+  `scripts/lint/remote-existence/access-token-groups.ts`。本体と違い必要トークンが1本でも未設定なら
+  全件並べて失敗（MR をマージしてよいかの判定なので、検証できない chart を成功にしない）
+- `pnpm check` 通過: 45 Test Files / 554 Tests（548→554）。実機での `pnpm lint:validate-config:remote` は未実施
 
 ### 2026-09-15 `ProjectId` でトークンを振り分けるアダプタ
 
@@ -266,7 +274,7 @@
   `validate-config-remote` の分解。コードは書かない
 - ~~**T-243**~~（done）: `RegistryYamlSchema` の新フィールド、`ConfigUnit` への搭載、`env.ts` の読み取り関数
 - ~~**T-244**~~（done）: `src/lib/platform/` の振り分けアダプタ、`runPipeline()` の配線、401 方針。`steps/` は触らない
-- **T-245**（sonnet）: `scripts/lint/validate-config.ts --remote` を chart ごとのトークンで検証
+- ~~**T-245**~~（done）: `scripts/lint/validate-config.ts --remote` を chart ごとのトークンで検証
 - **T-246**（sonnet）: README「CI/CD」に「複数グループで運用する」小節、環境変数表、`.gitlab-ci.yml` コメント、`config.example/`
 - **T-247**（sonnet）: `maintain-docs` で追随漏れを洗う
 

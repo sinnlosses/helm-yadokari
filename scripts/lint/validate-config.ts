@@ -4,8 +4,13 @@ import type { ConfigRootPath } from "../../src/domain/types.js"
 import { toConfigRootPath } from "../../src/domain/types.js"
 import type { LoadedConfig } from "../../src/lib/config/config.js"
 import { DEFAULT_CONFIG_ROOT_PATH, loadConfig } from "../../src/lib/config/config.js"
-import { loadEnvConfig } from "../../src/lib/env.js"
+import { loadAccessTokens, loadEnvConfig } from "../../src/lib/env.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
+import {
+  findMissingAccessTokenProblems,
+  groupByAccessTokenEnv,
+  lookupAccessToken,
+} from "./remote-existence/access-token-groups.js"
 import { validateRemoteExistence } from "./remote-existence/remote-existence.js"
 
 // config/ の検証スクリプト。2つのモードを持つ:
@@ -53,7 +58,7 @@ function loadLocally(): LoadedConfig {
   }
 }
 
-const { configUnits } = loadLocally()
+const { configUnits, accessTokenEnvNames } = loadLocally()
 const appCount = configUnits.reduce((sum, configUnit) => sum + configUnit.apps.length, 0)
 console.log(`config OK: ${configUnits.length} 設定ユニット, ${appCount} apps (${configRootPath})`)
 
@@ -78,20 +83,42 @@ if (remote) {
   if (env.platform !== "gitlab") {
     fail(`実在チェック（--remote）は現時点で GitLab 専用です（PLATFORM=${env.platform}）`)
   }
-  // T-244（accessTokenEnvで宣言されたトークンごとの分解）までの暫定処置。今はまだ
-  // トークンごとにグループ分けしておらず常に既定のACCESS_TOKENだけを使うため、
-  // 未設定なら理由を明示して終了する
-  if (env.accessToken === undefined) {
+  // chartリポジトリが宣言したトークン（accessTokenEnv）ごとにグループ分けし、グループごとに
+  // クライアントを1つ作って検証する（本体の`createRoutedAdapter()`と同じ分解）。ただし本体と
+  // 違い、このジョブの目的は「このMRをマージしてよいか」の判定なので、必要なトークンが1本でも
+  // 欠けたら検証できたことにせず打ち切る（`docs/architecture.md`「`validate-config --remote`は
+  // トークンごとに分解する」段落）
+  const groups = groupByAccessTokenEnv(configUnits)
+  const declaredAccessTokens = loadAccessTokens(accessTokenEnvNames)
+  const missingTokenProblems = findMissingAccessTokenProblems(
+    groups,
+    env.accessToken,
+    declaredAccessTokens,
+  )
+  if (missingTokenProblems.length > 0) {
     fail(
-      "実在チェックを実行できません（ACCESS_TOKEN が未設定です）。GITLAB_URL と ACCESS_TOKEN を設定してください",
+      `実在チェックを実行できません。次のアクセストークンが未設定です:\n` +
+        missingTokenProblems.map((problem) => `  - ${problem}`).join("\n"),
     )
   }
 
-  const problems = await validateRemoteExistence(
-    createClient(env.platformUrl, env.accessToken),
-    configUnits,
-    env.concurrencyLimit,
+  const problemsPerGroup = await Promise.all(
+    groups.map((group) => {
+      const token = lookupAccessToken(group, env.accessToken, declaredAccessTokens)
+      if (token === undefined) {
+        // findMissingAccessTokenProblems() が事前に全件検出しているため到達しない防御的な分岐
+        throw new Error(
+          `アクセストークンが見つかりません（${group.accessTokenEnv ?? "ACCESS_TOKEN"}）`,
+        )
+      }
+      return validateRemoteExistence(
+        createClient(env.platformUrl, token),
+        group.configUnits,
+        env.concurrencyLimit,
+      )
+    }),
   )
+  const problems = problemsPerGroup.flat()
   if (problems.length > 0) {
     console.error(`config ERROR: GitLab上に存在しない設定が ${problems.length} 件あります`)
     for (const problem of problems) console.error(`  - ${problem}`)

@@ -288,6 +288,10 @@ pnpm lint:validate-config:example
 ジョブとして**必ず実行**しています（MR・push・手動実行時）。このジョブが動くには
 CI/CD Variables の Protected を OFF にする必要があります（理由は下記「[CI/CD](#cicd)」参照）。
 
+`--remote` は chart リポジトリが `registry.yaml` で宣言したアクセストークンごとに分けて検証します。
+必要なトークン（宣言の無い chart が使う既定の `ACCESS_TOKEN` を含む）が1本でも未設定だと、
+検証済みとはみなさずそこで失敗させます。
+
 ## エラーハンドリング
 
 | ケース                                              | 対象   | 挙動                                                                                                                                                                   |
