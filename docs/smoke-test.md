@@ -127,9 +127,12 @@ Group/Project Access Tokenでは行えないAPIのため）。
 **gitlab.com では2点、この手順のまま動かない**（self-managedならそのまま動く）:
 
 - **トップレベルグループをAPIから作れない**（`POST /groups` が403）。`<group-b>` は先に
-  gitlab.comのUIで空のトップレベルグループとして作り、`provision`に`--use-existing-group`を
-  付けて続ける。このオプションは指定したグループにプロジェクトが1つも無いことを確認してから
-  進み、1つでもあれば中止する（新規作成時の「既に存在すれば中止」と対になる安全策）
+  gitlab.comのUIでトップレベルグループとして作り、`provision`に`--use-existing-group`を
+  付けて続ける。このオプションはグループの存在を確認したうえで、これから作る2プロジェクト
+  （`yadokari-smoke-test-chart-b` / `sample-smoke-b-app`）と同じpathのプロジェクトがそのグループ
+  直下に無いことを確認してから進む（衝突すれば中止する）。このスクリプトは既存プロジェクトに
+  一切書き込まないため、**グループが空である必要はなく**、無関係な既存プロジェクトがあっても
+  かまわない（新規作成時の「既に存在すれば中止」と対になる安全策）
 - **Free プランでは Group Access Token / Project Access Token を発行できない**（Premium以上限定）。
   `provision`に`--skip-token`を付けてトークン発行を飛ばし、案内に従って`.env`の
   `ACCESS_TOKEN_SMOKE_B`には**手元の`api`スコープPAT**（グループA用と同じものでよい）を入れる。
@@ -145,7 +148,7 @@ Group/Project Access Tokenでは行えないAPIのため）。
 # dry-run（既定）でまず何を作るか確認する
 npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path <group-b>
 
-# gitlab.com: 先にUIで<group-b>を空のトップレベルグループとして作ってから、
+# gitlab.com: 先にUIで<group-b>をトップレベルグループとして作ってから（空でなくてよい）、
 # 既存グループを使う・トークン発行を飛ばす想定でdry-run確認する
 npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path <group-b> \
   --use-existing-group --skip-token

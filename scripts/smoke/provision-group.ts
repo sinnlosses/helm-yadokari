@@ -44,8 +44,10 @@ import {
 //
 // 安全策: provision は --group-path のグループが既に存在すれば何もせず中止する
 // （既存リソースには書き込まない）。--use-existing-group 指定時はこれを反転し、グループが
-// 存在しない、またはプロジェクトを1つでも持つ場合に中止する（空のグループにしか書かない）。
-// 削除機能は持たない。
+// 存在しない場合に中止する。このスクリプトは既存プロジェクトに一切書き込まず、新しい
+// プロジェクトを名前（yadokari-smoke-test-chart-b / sample-smoke-b-app）で作るだけなので、
+// 安全策として足りるのはその2名との衝突確認であり、グループに無関係な既存プロジェクトが
+// あっても中止しない（衝突すれば中止する）。削除機能は持たない。
 //
 // gitlab.com はAPIからのトップレベルグループ作成を許可しない（403）。また gitlab.com の
 // Free プランでは Group/Project Access Token を発行できない（Premium以上限定。self-managedは
@@ -159,11 +161,14 @@ async function groupExists(groupPath: string): Promise<boolean> {
 }
 
 /**
- * `--use-existing-group`向け。グループが存在し、かつプロジェクトを1つも持たないことを確認して
- * groupIdを返す。存在しない、またはプロジェクトを1つでも持つ場合は中止する
- * （既存リソースには書き込まない安全策。新規作成時の`groupExists()`チェックと対になる）
+ * `--use-existing-group`向け。グループが存在し、かつこれから作る2プロジェクト
+ * （`CHART_PROJECT_NAME`・`SOURCE_PROJECT_NAME`）と同じpathのプロジェクトを直下に
+ * 持たないことを確認してgroupIdを返す。存在しない、または名前が衝突する場合は中止する。
+ * このスクリプトは既存プロジェクトに一切書き込まず新しいプロジェクトを名前で作るだけなので、
+ * 安全策として足りるのはこの2名との衝突確認であり、無関係な既存プロジェクトの有無は問わない
+ * （サブグループ配下までは見ない。新規作成時の`groupExists()`チェックと対になる）
  */
-async function requireExistingEmptyGroup(groupPath: string): Promise<number> {
+async function requireExistingGroupWithoutProjectNameConflict(groupPath: string): Promise<number> {
   const group = await gitlab.Groups.show(groupPath).catch(() => undefined)
   if (group === undefined) {
     console.error(
@@ -173,11 +178,14 @@ async function requireExistingEmptyGroup(groupPath: string): Promise<number> {
     process.exit(1)
   }
 
-  const projects = await gitlab.Groups.allProjects(groupPath, { perPage: 1 })
-  if (projects.length > 0) {
+  const projects = await gitlab.Groups.allProjects(groupPath, { simple: true })
+  const conflict = projects.find(
+    (project) => project.path === CHART_PROJECT_NAME || project.path === SOURCE_PROJECT_NAME,
+  )
+  if (conflict !== undefined) {
     console.error(
-      `provision-group ERROR: グループ ${groupPath} には既にプロジェクトがあります。` +
-        `既存リソースには書き込まないため中止します`,
+      `provision-group ERROR: グループ ${groupPath} には既に ${conflict.path}` +
+        `（id: ${conflict.id}）があります。既存プロジェクトには書き込まないため中止します`,
     )
     process.exit(1)
   }
@@ -198,10 +206,13 @@ async function provision(
   useExistingGroup: boolean,
   skipToken: boolean,
 ): Promise<void> {
-  const existingGroupId = useExistingGroup ? await requireExistingEmptyGroup(groupPath) : undefined
+  const existingGroupId = useExistingGroup
+    ? await requireExistingGroupWithoutProjectNameConflict(groupPath)
+    : undefined
   if (existingGroupId !== undefined) {
     console.log(
-      `- 既存グループ ${groupPath}（id: ${existingGroupId}）を使う（プロジェクト0件を確認）`,
+      `- 既存グループ ${groupPath}（id: ${existingGroupId}）を使う` +
+        `（同名プロジェクトが無いことを確認）`,
     )
   } else {
     if (await groupExists(groupPath)) {
