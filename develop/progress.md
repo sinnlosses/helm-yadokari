@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-14以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは0件**（T-250・T-251 まで完了。パス5の実機実行はグループB作成とユーザー承認待ち）。T-238〜T-241 は完了。
+**未着手のタスクは0件**（T-250・T-251 まで完了。パス5は実機で実施済み）。T-238〜T-241 は完了。
 **T-239〜T-248 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は空の `[]`）。完了タスクは
@@ -14,6 +14,21 @@
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-15 実機スモーク パス5（複数グループ、gitlab.com）
+
+- **`provision-group.ts provision --group-path sinnlosses-other-group --use-existing-group --skip-token --apply` で
+  chart B（86489420）とソースB（86489421）を作り、パス5 (a)〜(d) を流した**。config/ に chart B の2ファイルと
+  chart1/2 の `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を一時配置（検証後に戻した）。`.env` の `ACCESS_TOKEN_SMOKE_A/_B` は
+  同じ `api` PAT（Free のため）
+- 実測: (a) CREATED:5・exit 0（ソースB にタグ自動作成、chart B に MR !1）／(b) B のトークン不正 → `smoke-b-app` だけ
+  ERROR（`HTTP 401` のメッセージ）、A は SKIPPED(mr_exists)、`fatal_error` なし、exit 1／(c) B の変数未設定 → 実在チェックは
+  chart B を列挙して失敗、`pnpm dev` は B だけ ERROR で exit 1／(d) 既定 `ACCESS_TOKEN` 空 → SKIPPED:5・exit 0。
+  **「片方の 401 が他方を止めない」を実機で確認できた**。トークンの境界（別トークンが別グループに届かないこと）は
+  Free では検証できない
+- gitlab.com の制約: API からトップレベルグループを作れない（403）、Free では Group/Project Access Token を
+  発行できない（400）。`docs/smoke-test.md`「期待する結果 > パス5」を実測に置き換えた
+- 後片付けは未実施（グループA/B の MR はオープンのまま。次回は `reset` から始める）
 
 ### 2026-09-15 `provision-group.ts` に既存グループ利用とトークンスキップ
 

@@ -396,11 +396,11 @@ npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
 
 ### パス5: 複数グループ（宣言トークン）
 
-**このパスは本ドキュメント作成時点で未実施**（T-248は手順を書くところまでで、実機接続はしない）。
-以下は実装（`src/lib/platform/routed-adapter.ts`・
-`scripts/lint/remote-existence/access-token-groups.ts`）と、2026-09-15に単一グループ構成で
-実機確認済みの401・未設定の挙動（`develop/progress.md`）から導いた期待値。実施したら
-実測値に置き換える。
+**2026-09-15 に gitlab.com で実施済み**（グループB＝`sinnlosses-other-group`、chart B projectId 86489420・
+ソースB projectId 86489421。Free プランのため `ACCESS_TOKEN_SMOKE_A` / `_B` は同じ `api` PAT）。以下は
+その実測で、(a) は `CREATED:5`（グループA 4件＋`smoke-b-app`。ソースB には `main-build-at-20260915-203949` が
+自動作成され、chart B に MR !1 ができた）、(b)・(c) は `SKIPPED:4 / ERROR:1` で終了コード 1、(d) は
+`SKIPPED:5` で終了コード 0。`fatal_error` はどのケースでも出なかった。
 
 - (a) 両グループ正常: 終了コード **0**。`summary`の`ERROR`は**0**。グループA側4ユニットと
   `smoke-b-app`の両方にMRができる（初回。パス1〜4を経た直後の再実行なら、グループA側は
