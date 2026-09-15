@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-14以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは0件**（T-249 まで完了。パス5の実機実行はユーザー承認待ち）。T-238〜T-241 は完了。
+**未着手のタスクは2件（T-250・T-251）**。T-238〜T-241 は完了。
 **T-239〜T-248 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は空の `[]`）。完了タスクは
@@ -97,6 +97,13 @@
 - `pnpm check` 通過: 43 Test Files / 538 Tests（516→538）
 
 ## 次にやること
+
+**gitlab.com Free の制約への対応を T-250・T-251 として登録した**（2026-09-15、互いに独立）。
+`provision --apply` は API からのトップレベルグループ作成（403）と Group Access Token 発行（400、Free）で
+失敗し何も作られなかった。ユーザー決定: グループBは UI で作る、スモークは手元の `api` PAT を A/B 両方に使う。
+
+- **T-250**（sonnet）: `--use-existing-group`（プロジェクト0件のときだけ）と `--skip-token`
+- **T-251**（sonnet）: Free では Group/Project Access Token を発行できない制約と、グループ単位のボットユーザー PAT の代替を注記
 
 **パス5用のグループB作成スクリプトを T-249 として登録した**（2026-09-15）。ユーザー決定: グループBは
 トップレベル、`api` スコープの PAT を `.env` の `ACCESS_TOKEN` に置く。`--apply` はタスク外でユーザー承認のうえ実行する。

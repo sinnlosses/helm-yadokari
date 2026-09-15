@@ -9,6 +9,19 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-15（10回目）
+
+生成したタスク: T-250（`provision-group.ts` の `--use-existing-group` / `--skip-token`）・T-251（README・requirements・glossary への gitlab.com Free 制約の注記）。タスクにしなかった項目: なし。
+
+## 2026-09-15 gitlab.com Free の制約への対応（グループ作成・トークン発行）
+
+`provision --apply` が gitlab.com で失敗した。原因は2つとも Free プランの制約: (1) API からトップレベル
+グループを作れない（403。サブグループは可）、(2) Free では Group/Project Access Token を発行できない
+（400。Premium 以上。self-managed は全ティア可）。ユーザー決定: グループBは **UI で空のトップレベル
+グループを作る**ので、スクリプトに既存の空グループを使うオプションを足す。スモークのトークンは
+**今の `api` PAT を `ACCESS_TOKEN_SMOKE_A` / `_B` の両方に使う**。README・要件定義に「gitlab.com Free では
+Group Access Token が使えず、代替はグループごとのボットユーザー（別アカウント）の PAT」を注記する。
+
 ## 2026-09-15（9回目）
 
 生成したタスク: T-249（`scripts/smoke/provision-group.ts`）。タスクにしなかった項目: なし。`--apply` での実作成はタスク外でメインセッションがユーザー承認のうえ行う。
