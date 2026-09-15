@@ -429,7 +429,10 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   401と、トークンに依らない5xx・ネットワーク障害は実行全体を即時終了する。
 - **今の挙動の制約**: 1つの`projectId`を別々のトークンに結びつける`config/`は設定エラーになる
   （`docs/requirements.md` 4.4節）。同じソースリポジトリを別グループのchartリポジトリから追う
-  構成は、両者が同じ`accessTokenEnv`を宣言できるときだけ可能。
+  構成は、両者が同じ`accessTokenEnv`を宣言できるときだけ可能。GitLabのGroup Access Tokenか
+  グループ単位のボットユーザーのPersonal Access Tokenか（gitlab.com Freeでは後者のみ）は
+  環境（プラン・self-managed/Dedicated）で変わるが、CLIはどちらも同じ`AccessToken`として
+  扱い区別しない（`docs/requirements.md` 5章「gitlab.com Freeでの代替」）。
 
 ## その他の注記
 

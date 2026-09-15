@@ -470,6 +470,13 @@ apps:
   同じ範囲に絞ったPersonal Access Tokenを発行する）。最上位グループ1本の
   トークン・全グループを横断するService Account・個人のPersonal Access Tokenは、**1本漏れると
   全グループのchartリポジトリへpushできてしまう**ため採らない
+- **gitlab.com Freeでの代替**: gitlab.com の Free プランでは Group Access Token・Project
+  Access Tokenのいずれも発行できない（self-managed・Dedicatedは全ティアで発行できる。
+  2026-09-15に実機で`POST /groups/:id/access_tokens`が`400`で拒否されることを確認済み）。
+  その場合はグループごとに専用のボットユーザーを作り、そのグループにだけDeveloperで招待して、
+  ボットユーザーのPersonal Access Token（`read_api` + `write_repository`・短い有効期限）を
+  代わりに使う。トークンをグループ単位に分ける最小権限の考え方は変わらない。ただしボット
+  ユーザーはライセンスシートを消費しうる（ティアと環境で異なる）
 - **トークンの置き場所**: 各トークンは、このCLIのリポジトリの**プロジェクトのCI/CD変数**
   `ACCESS_TOKEN_<グループ>`（Masked）に登録する。pipeline scheduleの変数はマスクできないため、
   トークンをschedule側の変数に置くことはしない
