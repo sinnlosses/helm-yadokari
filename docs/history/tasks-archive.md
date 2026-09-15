@@ -9631,3 +9631,677 @@ MRのURLも載せない（`adapter.createMergeRequest()` は `Promise<void>` の
 - `src/steps/` 配下に `try`/`catch` を書かない（CLAUDE.md）
 - `adapter.createMergeRequest()` の戻り値（`Promise<void>`）は変えない
 - 「無いかもしれない」プロパティは `readonly x: T | undefined` で書き、`?:` は使わない
+
+## T-239
+
+**タスク**: レポートをMarkdown 1枚に整形して `src/lib/` から書き出し、出力パスの環境変数を追加する
+
+**dependencies**: T-238
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: `REPORT_OUTPUT_PATH`（既定 `report/report.md`、ブランド型 `ReportOutputPath` でパストラバーサルのみ検証。実在チェックはしない）を追加。`src/lib/report/format-report.ts`（純粋関数）と `write-report.ts`（`node:fs`）に分割（分ける合図①④）。`runProcess()` が `runPipeline()` を包んで書き出す形にし、`FatalError` では到達しない。`pnpm check` 通過: 42 Test Files / 514 Tests（496→514）。
+
+## 背景
+
+`runProcess()` が持つようになった設定ユニット単位のレコード（前タスク）を、Markdown 1枚に
+整形してファイルに書き出す。GitLab の artifacts は「ジョブ終了時にそのパスにファイルが在れば
+回収する」だけの仕組みなので、**このタスクの成果物はファイルを1つ書くこと**。
+`.gitlab-ci.yml` への `artifacts:` の追加は次のタスク。
+
+方針はユーザーと確定済み（`docs/history/direction.md` の該当日付）:
+
+- **形式は Markdown 1枚**（JSONは出さない）
+- **粒度は設定ユニット単位の1行**（chart / unit / 結果 / 理由）
+- **`FatalError` のときは出さない**。fatal は `runProcess()` を貫通して `src/index.ts` の
+  `catch` に飛ぶため、`runProcess()` 末尾の書き出しには到達しない。**それが期待する挙動**
+- **`DRY_RUN=true` のときも出す**。ヘッダに `dryRun` を明示し、MRが作られていないことが
+  レポートだけで分かるようにする
+
+置き場所は原則から決まっている:
+
+| 何を                                | どこに                                            | 根拠                                                  |
+| ----------------------------------- | ------------------------------------------------- | ----------------------------------------------------- |
+| 出力パスの環境変数                  | `src/lib/env.ts` の `EnvConfig` に1フィールド追加 | CLAUDE.md「環境変数はすべて `src/lib/env.ts` で管理」 |
+| Markdown への整形とファイル書き出し | `src/lib/` に新規                                 | 原則2（`node:fs` と Markdown 形式に依存する）         |
+| 書き出しの呼び出し                  | `src/main.ts` の `runProcess()` 末尾              | `summarizeResults()` の隣                             |
+
+表の組み立ての前例は `src/steps/apply-updates/sub-steps/build-mr-content.ts`（MR本文の
+Markdownテーブルを配列 `join` で組む）。パス検証の前例は `src/lib/env.ts` の
+`parseConfigRootPath()`（`toConfigRootPath()` がパストラバーサルを弾き、実在チェックは
+`parseConfigRootPath()` が行う）。
+
+## 解くべき論点
+
+- 出力パスの環境変数名と既定値。GitLab の artifacts は `$CI_PROJECT_DIR` 配下のパスしか
+  回収しないため、既定値は作業ディレクトリからの相対パスにする
+- パスの検証をどこまでやるか。`CONFIG_ROOT_PATH` は「作業ディレクトリ外を拒否」＋「実在する
+  ディレクトリであること」を検証しているが、こちらは**これから作るファイル**なので実在チェックは
+  できない。親ディレクトリを作るのか、無ければエラーにするのか
+- 整形（レコード配列 → Markdown文字列）と書き出し（`node:fs`）を1ファイルにするか分けるか。
+  判断は `docs/architecture.md`「1ファイルにまとめるか分けるか」の合図で行う。
+  `build-mr-content.ts` は外部I/Oを持たない同期の純粋関数として分離されている前例がある
+
+## やること
+
+1. `src/lib/env.ts` に出力パスの環境変数を足す（`EnvConfig` に1フィールド、`loadEnvConfig()` に
+   1行、パース関数1つ）
+2. `src/lib/` にレコード配列を Markdown に整形して書き出すコードを置く。ヘッダには実行時刻・
+   所要時間・`dryRun`・件数サマリ（CREATED / SKIPPED / ERROR）を載せ、本体は
+   chart / unit / 結果 / 理由 の表にする
+3. `src/main.ts` の `runProcess()` 末尾から呼ぶ
+4. `README.md`「### 環境変数」の表に新しい変数の行を足す
+5. `docs/architecture.md`「### `src/lib/`」の責務表に新しいファイルの行を足す
+6. テストを書く（整形が純粋関数なら文字列の突き合わせ、書き出しは一時ディレクトリで確認）
+7. `DRY_RUN=true` でも書き出されること、`FatalError` のときは書き出されないことをテストで守る
+
+## 完了条件
+
+- `pnpm dev` 相当の実行後、指定したパスに Markdown ファイルが1つできている
+- そのファイルに、実行時刻・`dryRun`・件数サマリと、設定ユニット1件につき1行の表がある
+- `DRY_RUN=true` でもファイルが書き出されるテストがある
+- `FatalError` が投げられたときはファイルが書き出されないテストがある
+- `README.md`「### 環境変数」の表に新しい変数の行がある
+- `docs/architecture.md`「### `src/lib/`」の責務表に新しいファイルの行がある
+- `pnpm check` が通り、テスト件数が前タスク完了時点から増えている
+
+## 注意
+
+- `.gitlab-ci.yml` は**このタスクでは触らない**（次のタスク）
+- ログの出力内容は変えない
+- `src/steps/` 配下に `try`/`catch` を書かない
+- モジュールのトップレベルで `process.env` に触れない（`loadEnvConfig()` を通す）
+
+## T-240
+
+**タスク**: `.gitlab-ci.yml` にレポートの `artifacts`（`when: always`）を足し、README・requirements を追随させる
+
+**dependencies**: T-239
+
+**difficulty**: sonnet / **loopable**: N
+
+**evidence**: `update-app-versions` に `artifacts: {when: always, paths: [report/report.md], expire_in: 7 days}` を追加。`paths` と `DEFAULT_REPORT_OUTPUT_PATH`（`src/lib/report/write-report.ts`）の一致をスクリプトで確認済み。`docs/requirements.md` は 5章（実行環境・非機能要件）に追記し索引も追随、README は CI/CD 章に追記。**実機未検証**: artifacts が実際に回収されるかはCIを回さないと確かめられない。`pnpm check` 通過: 42 Test Files / 514 Tests（不変）。
+
+## 背景
+
+`runProcess()` が書き出すようになったレポート（前タスク）を、GitLab CI の artifacts として
+回収されるようにし、ドキュメントを追随させる。
+
+`.gitlab-ci.yml` の `update-app-versions` ジョブ（149行目付近）は現在 `pnpm start` を叩くだけで
+`artifacts` を持たない。
+
+**`when: always` が必須**という制約がある。`ERROR` が1件でもあると `src/index.ts` が
+`process.exit(1)` するため（`src/main.ts` の `run()` が `PARTIAL_FAILURE` を返す）、
+ジョブは失敗扱いになる。`artifacts:` の既定は `when: on_success` なので、**そのままだと
+一番レポートが欲しい失敗時に回収されない**。
+
+そのほかの制約:
+
+- パスは `$CI_PROJECT_DIR` 配下でないと回収されない
+- `expire_in` を書かないとプロジェクト既定の保持期間で消える
+
+## 解くべき論点
+
+- `expire_in` をどれくらいにするか（実行間の比較をしたいなら長め、ストレージを気にするなら短め）
+- `docs/requirements.md` に機能として書き足すべきか。同ドキュメントの「2.2 対象外とすること」に
+  あるのは「専用の通知機能（Slack通知等）」であって artifacts は含まれないが、
+  **新しい外部インターフェースが増えたことを仕様の正典に書くかどうか**は判断が要る。
+  書くなら「節の索引」も追随させる
+
+## やること
+
+1. `.gitlab-ci.yml` の `update-app-versions` に `artifacts:` を足す。
+   `when: always` と `paths`（前タスクで決めた既定の出力パス）と `expire_in` を明示する
+2. `README.md`「## CI/CD」章に、レポートが artifacts として回収されることと、どこから
+   ダウンロードするかを1〜2文で足す
+3. `docs/requirements.md` に足すかどうかを判断し、足すなら「節の索引」も追随させる。
+   足さないと判断したらその理由を `evidence` に書く
+4. `.gitlab-ci.yml` の既存ジョブ（`check`・`validate-config-remote`・`renovate`）は触らない
+
+## 完了条件
+
+- `.gitlab-ci.yml` の `update-app-versions` に `artifacts:` があり、`when: always`・`paths`・
+  `expire_in` の3つが明示されている
+- `paths` の値が、前タスクで決めた出力パスの既定値と一致している
+- `README.md`「## CI/CD」章にレポートの回収について記述がある
+- `pnpm check` が通る（テスト件数は前タスク完了時点から減っていない）
+
+## 注意
+
+- **`.gitlab-ci.yml` を変更しても、実際に artifacts が回収されるかはCIを回さないと確かめられない。**
+  ローカルで検証できるのは `paths` の値と出力パスの既定値が一致していることまで。
+  実機での確認が必要ならその旨を `evidence` に書く
+- CI/CD Variables や pipeline schedules の設定変更は**しない**（ユーザーの承認が要る領域）
+- `git push` はしない
+
+## T-241
+
+**タスク**: `build-plans.ts` の非公開 `lookUpLatestTags()` を `build-plans/sub-steps/` へ移し、`buildPlan()` の呼び出しの粒度を揃える
+
+**dependencies**: なし
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: `lookUpLatestTags()` を `src/steps/build-plans/sub-steps/look-up-latest-tags.ts` へ移し `export`。`build-plans.ts` は `buildPlans()`・`buildPlan()` とimportだけになった。命名は据え置き（`resolve-` は `resolve-tags/sub-steps/resolve-latest-tag.ts` がAPI越しの実解決で使用済みのため誤読を避けた）。「単発のヘルパーに1ファイルを与えない」との衝突は、前例 `collect-mr-entries.ts`（31行・公開1・直接単体テストあり）を根拠に「サブステップはパイプラインの段であってヘルパーではない」と解いた。`sub-steps/` 直下の相互importは0件。`pnpm check` 通過: 43 Test Files / 516 Tests（514→516）。
+
+## 背景
+
+`lookUpLatestTags()` は `src/steps/build-plans/build-plans.ts:112` にある**非公開関数**で、
+`resolveTags()` が解決済みの `ReadonlyMap<TagSourceKey, AppOutcome<LatestTagResolution>>` から
+その設定ユニットのapp分を引き当てて `readonly AppWithLatestTag[]` を返す（19行、JSDoc込み）。
+`buildPlan()`（同66行）が先頭で呼んでいる:
+
+```ts
+const appsWithLatestTag = lookUpLatestTags(configUnit.apps, resolvedTags)
+const { plans, draft: draftAfterApps } = await stageImageTagUpdates(...)
+const { draft, updates: helmBranchRefUpdates } = await stageHelmBranchRefUpdates(...)
+```
+
+`buildPlan()` の中で、**非公開のローカル関数の呼び出しとサブステップの呼び出しが同じ深さに
+並んでいる**状態。`src/steps/build-plans/sub-steps/` の中身は現在
+`stage-image-tag-updates.ts`・`stage-helm-branch-ref-updates.ts`・`shared/types.ts`・
+`shared/values-yaml-draft.ts` の4つ。
+
+`docs/architecture.md` に、この形についての記述が2箇所ある。**どちらも移動を支持する側**:
+
+- 「### `src/steps/`」節の `#### build-plans/sub-steps/` — 「**サブステップは自分の関心事に
+  ついて全スコープを引き受ける**ため、`buildPlan()`はサブステップを順に呼んで下書きを
+  受け渡すだけになる」
+- 「#### サブステップ同士は互いをimportせず、共有物は`sub-steps/shared/`に置く」 —
+  「1アプリ分の処理を独立したサブステップにしない（中略）代わりに**アプリのループを各
+  サブステップの内側へ入れる**」。`lookUpLatestTags()` は既に `apps.map(...)` で全アプリ分を
+  引き受けているので、この但し書き（1アプリ分にするな）には抵触しない
+
+## 解くべき論点
+
+- **「単発のヘルパーに1ファイルを与えない」との衝突をどう解くか。**
+  `docs/architecture.md`「### 1ファイルにまとめるか分けるか」の適用例に
+  「**単発のヘルパーに1ファイルを与えない**。（中略）1関数だけのヘルパーはそこに達しない」と
+  ある。一方で `apply-updates/sub-steps/collect-mr-entries.ts` は31行・公開関数1つの
+  サブステップとして存在する。**「ヘルパー」と「サブステップ」は別の概念として扱ってよいか**を
+  先に決める（サブステップはパイプラインの段であって、寄せ集めのヘルパーではない、と読めるか）
+- ファイル名と公開関数名。`steps/`配下はファイル名＝公開関数名のケバブケース（`look-up-latest-tags.ts`）。
+  他のサブステップは `stage-` / `collect-` / `build-` / `submit-` の動詞で始まっているので、
+  `lookUp` のままでよいか、揃えた別の動詞にするか
+- `lookUpLatestTags()` は解決に失敗したappの例外を `throw` して親の `withHandling()` に
+  ERROR判定を任せている（`build-plans.ts:121` のコメント）。サブステップに移してもこの経路は
+  変わらないが、**`src/steps/` 配下に `try`/`catch` を書かない**規約は維持すること
+- テストを新しいファイルに分けるか。現在は `test/steps/build-plans/build-plans.test.ts` が
+  間接的に検証している。`test/steps/build-plans/sub-steps/` には既に2ファイルある
+
+## やること
+
+1. `src/steps/build-plans/build-plans.ts` と `sub-steps/` 配下、
+   `docs/architecture.md` の上記2節（`sed` で節単位に読む）を確認する
+2. 上の「単発のヘルパー」との衝突を判断する。**サブステップにすべきでないと結論したら、
+   移さずにその根拠を `evidence` に書いて閉じる**
+3. 移すと決めたら `lookUpLatestTags()` を `src/steps/build-plans/sub-steps/` の新しいファイルへ
+   移し、`export` する。`buildPlan()` からは他のサブステップと同じ形で呼ぶ
+4. JSDoc（「`resolveTags()`が解決済みの最新タグから〜」）と、`throw` の意図を説明する
+   行コメントはそのまま移す
+5. `docs/architecture.md`「### `src/steps/`」節の `#### build-plans/sub-steps/` の責務表に
+   新しいファイルの行を足す
+6. テストの置き場所を上の論点どおりに決め、`test/steps/build-plans/` 配下を追随させる
+
+## 完了条件
+
+- `lookUpLatestTags()`（または改名後の名前）が `src/steps/build-plans/sub-steps/` 配下の
+  ファイルにあり、`build-plans.ts` からそれを import して呼んでいる
+- `build-plans.ts` に、サブステップ以外の非公開関数が残っていない
+  （`buildPlans()`・`buildPlan()` の2つと import だけになる）
+- `sub-steps/` 直下のファイル同士を import していない（原則1。`grep` で確認する）
+- `docs/architecture.md` の `#### build-plans/sub-steps/` の責務表と、実際の
+  `src/steps/build-plans/sub-steps/` の中身が一致している
+- `pnpm check` が通り、テスト件数が現状（42 Test Files / 514 Tests）から減っていない
+- 挙動不変（`test/steps/build-plans/build-plans.test.ts` の既存の検証内容を変えない）
+
+## 注意
+
+- `src/steps/` 配下に `try`/`catch` を書かない
+- `AppWithLatestTag`（`src/domain/types.ts:146`）の定義は変えない。型の置き場所も動かさない
+- `stage-image-tag-updates.ts`・`stage-helm-branch-ref-updates.ts` の中身は変えない
+- コード・ドキュメントにタスク番号（`T-` + 3桁）を書かない
+
+## T-242
+
+**タスク**: chart単位のアクセストークン宣言（`registry.yaml`）と複数トークン実行の設計を `docs/requirements.md`・`docs/architecture.md`・`docs/glossary.md` に書く
+
+**dependencies**: なし
+
+**difficulty**: opus / **loopable**: Y
+
+**evidence**: docs/requirements.md（4.3・4.4・5章・節の索引）/ docs/architecture.md（新節「アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける」＋既存4節の追随）/ docs/glossary.md（`ACCESS_TOKEN・accessTokenEnv`）に6論点の結論を記述。結論: フィールド `accessTokenEnv`（任意・環境変数名・`^ACCESS_TOKEN_[A-Z0-9_]+$`）、既定 `ACCESS_TOKEN` は条件付き必須、`lib/platform/routed-adapter.ts` の `createRoutedAdapter()`＋外側に `withCachedReads()`、同一projectIdの別トークンは設定エラー、宣言トークンの401は素のErrorに読み替えてchart単位ERROR（ログのhttpStatusはundefinedになる制約を明記）、`--remote` はトークンごとに分解。pnpm check 通過: 43 Test Files / 516 Tests（不変）。コード変更なし
+
+## 背景
+
+GitLabで複数チーム（＝複数グループ）がこのリポジトリを共用する運用にする。方針はユーザーと決定済み:
+**グループごとに Group Access Token を1本発行し、chart ごとに「どのトークンを使うか」を
+`config/<chart>/registry.yaml` で宣言する**。1回の実行が複数トークンで動き、各トークンは自分の
+グループにしか届かないので、1本漏れても他グループへ push されない（最上位グループのトークンや
+横断 Service Account は「巨大な権限」なので採らない）。トークンはプロジェクトの CI/CD 変数
+`ACCESS_TOKEN_<GROUP>`（Masked + hidden）に置く。pipeline schedule の変数はマスクできない
+（GitLab issue #35439 が未解決）ため schedule 変数には置かない。
+
+現状のコードは「1回の実行＝1トークン」を前提にしている:
+
+- `src/lib/env.ts` の `loadEnvConfig()` が `ACCESS_TOKEN` を1つ読み、`EnvConfig.accessToken` に持つ
+- `src/main.ts` の `runPipeline()` が `createPlatformAdapter(env)` で `PlatformAdapter` を1つ作り、
+  `withCachedReads()` で包んで4つの step（`filterTargets`→`resolveTags`→`buildPlans`→`applyUpdates`）
+  に渡す。`PlatformAdapter`（`src/lib/platform/adapter.ts`）の各関数は第1引数に `ProjectId` を取る
+- `scripts/lint/validate-config.ts` の `--remote` は `createClient(env.platformUrl, env.accessToken)`
+  1つで `config/` 全体（全 chart）を実在チェックする。MR/push のたびに走る
+  （`.gitlab-ci.yml` の `validate-config-remote`）
+- `registry.yaml` のスキーマは `src/lib/config/schema.ts` の `RegistryYamlSchema`
+  （`chartToUpdate` + `appSpecs[]`）。chart 単位の値は `src/lib/config/load-config-unit.ts` の
+  `ChartRepoScope` を経由して各 `ConfigUnit`（`src/domain/types.ts`）に載る
+- 401 は `isFatalError()`（`src/lib/gitlab/errors.ts` / `src/lib/github/errors.ts`）で fatal 扱いで、
+  `FatalError` が実行全体を止める（`docs/architecture.md`「FatalErrorは後続ステップも止める」）。
+  その根拠は「トークンが1本で全 chart 共通だから」
+
+このタスクは**コードを書かず**、設計を決めて正典に書くところまで。実装は T-243〜T-245。
+
+## 解くべき論点
+
+1. **`registry.yaml` の新フィールドの名前と意味**。候補は `accessTokenEnv`（値は環境変数名）。
+   `docs/requirements.md` 4.4節（スキーマの正典）に、必須/任意・省略時の挙動を書く
+2. **環境変数名の制約**。config から任意の環境変数を読めると `RENOVATE_TOKEN` 等の無関係な
+   秘密を読み出せてしまう。`^ACCESS_TOKEN_[A-Z0-9_]+$` のような接頭辞を必須にする案を検討し、
+   採否と理由を書く
+3. **既定トークンとの関係**。宣言の無い chart は従来どおり `ACCESS_TOKEN` を使う（互換）。
+   全 chart が宣言しているとき `ACCESS_TOKEN` を必須のままにするか任意にするか決める
+   （`loadEnvConfig()` は config を読む前に走るので、「必要なトークンだけを読む」には
+   読み込みの順序か形を変える必要がある。`loadEnvConfig()` の責務をどこまで広げるか）
+4. **`steps/` を触らずに複数トークンを扱う形**。`ProjectId` → `PlatformAdapter` を引き当てる
+   振り分けアダプタを `src/lib/platform/` に置く案を検討する（`chartToUpdate.projectId` と
+   `appSpecs[].projectId` を、その chart の宣言したトークンに結びつける）。
+   `withCachedReads()` との重ね順（キャッシュは `ProjectId` をキーに持つので振り分けの外側でよいか）。
+   同じ `projectId` が別 chart で別トークンに結びつく場合の扱い（設定エラーにするか、
+   どちらかを採るか）
+5. **401 の扱い**。chart 宣言のトークンが 401 なら「そのトークンの chart の設定ユニットだけ ERROR、
+   他 chart は続行」にする（1グループの期限切れを他グループに波及させないのが目的）。
+   既定 `ACCESS_TOKEN` の 401 は従来どおり fatal。5xx・ネットワーク障害は従来どおり fatal。
+   これを `isFatalError()` の判定に組み込む場所（振り分けアダプタ側か `errors.ts` 側か）を決め、
+   `docs/requirements.md` 4.3節と `README.md`「エラーハンドリング」の表をどう直すかまで決める
+6. **`validate-config-remote` の分解**。chart ごとに宣言されたトークンでクライアントを作って
+   実在チェックする。宣言された環境変数が未設定のときのメッセージ（どの chart が何を要求しているか）
+
+## やること
+
+1. 上の論点に答えを出し、`docs/requirements.md` を更新する: 4.4節（`registry.yaml` の新フィールド、
+   制約、例）、4.3節（401 の波及範囲）、5章「認証」（グループごとのトークン・`ACCESS_TOKEN_<GROUP>`・
+   既定 `ACCESS_TOKEN` との関係）。冒頭「節の索引」も追随させる
+2. `docs/architecture.md`「設計判断」に節を1つ足す（振り分けアダプタの形と置き場所、401 の
+   方針変更の理由、schedule 変数を使わない理由）。冒頭「節の索引」も追随させる
+3. `docs/glossary.md`「実行環境・運用関連」の `ACCESS_TOKEN` の項を複数トークンの語彙に合わせて直す
+4. 決めた設計を T-243〜T-245 の `task` 本文が参照できるよう、フィールド名・関数名・置き場所を
+   確定した語で書く（後続タスクは本文を読み直さず正典を見に行く）
+
+## 完了条件
+
+- `docs/requirements.md` 4.3・4.4・5章、`docs/architecture.md`「設計判断」、`docs/glossary.md` に
+  上の6論点の結論が書かれている（未決のまま「検討する」と書かれた論点が無い）
+- 各ドキュメントの冒頭「節の索引」が追加・変更した節と一致している
+- `pnpm check` が通る（ドキュメントのみの変更でも実行する）
+
+## 注意
+
+- コード（`src/`・`scripts/`・`.gitlab-ci.yml`・`config.example/`）は変更しない
+- 方針の大枠（グループごとのトークン、config での宣言、プロジェクト変数 `ACCESS_TOKEN_<GROUP>`）は
+  ユーザー決定済み。覆さず、その中の設計だけを決める
+- 検討経緯の記録先は `docs/architecture.md`「設計判断」。`docs/requirements-grilling.md` には足さない
+
+## T-243
+
+**タスク**: `registry.yaml` にトークン宣言フィールドを足し、`loadConfig()` と `src/lib/env.ts` が chart ごとのトークンを読めるようにする
+
+**dependencies**: T-242
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: `src/domain/brand.ts` に `AccessTokenEnvName`/`toAccessTokenEnvName()`、`RegistryYamlSchema.accessTokenEnv`（optional）、`ConfigUnit.accessTokenEnv`、`validate.ts` の `validateAccessTokenEnvConsistency()`、`LoadedConfig.accessTokenEnvNames`、`env.ts` の `loadAccessTokens()` と `EnvConfig.accessToken: AccessToken | undefined`。`main.ts`/`validate-config.ts`/`smoke-fixture.ts` は未設定時に従来同等の例外を投げる最小対処のみ（振り分けは T-244）。`config.example` に宣言例を追加。pnpm check 通過: 43 Test Files / 538 Tests（516→538）
+
+## 背景
+
+T-242 で `docs/requirements.md` 4.4節・5章と `docs/architecture.md`「設計判断」に確定した設計
+（chart 単位のアクセストークン宣言）を config 読み込みと環境変数読み込みに実装する。
+**フィールド名・環境変数名の制約・既定 `ACCESS_TOKEN` との関係は正典を読んで従う**（本文には
+書かない。正典が正）。
+
+現状:
+
+- `src/lib/config/schema.ts` の `RegistryYamlSchema` は `chartToUpdate` と `appSpecs[]` だけ
+- `src/lib/config/load-config-unit.ts` の `ChartRepoScope` が chart 単位の値を運び、
+  `buildConfigUnit()` が `ConfigUnit`（`src/domain/types.ts`）を組み立てる
+- `src/lib/config/validate.ts` に「GitLabへ問い合わせなくても分かる設定ミス」の検証がある
+- `src/lib/env.ts` の `loadEnvConfig()` が `ACCESS_TOKEN` を `toAccessToken()` で読む。
+  環境変数の読み取りはこのファイルの関数を通すのが規約（`docs/coding-standards.md`）
+
+## やること
+
+1. `docs/requirements.md` 4.4節・5章と `docs/architecture.md` の該当節を読み、フィールド名・
+   環境変数名の制約・既定トークンの扱い・同じ `projectId` が別トークンに結びつく場合の扱いを確認する
+2. `RegistryYamlSchema` にフィールドを足し、`ConfigUnit`（または正典が指定する型）に chart の
+   トークン宣言を載せる。環境変数名の形式検証は Zod スキーマか `validate.ts` のどちらか正典に
+   従った側に置く
+3. `src/lib/env.ts` に、宣言された環境変数名からトークンを読む関数を足す（正典が決めた形。
+   `process.env` に触れるのはこのファイルだけ、モジュールのトップレベルでは触れない）
+4. 単体テストを足す: スキーマ（宣言あり/なし/不正な名前）、config 全体の整合（同じ `projectId` の
+   衝突）、環境変数の読み取り（未設定のときのメッセージに環境変数名と chart が載る）
+5. `config.example/my-team-chart/registry.yaml` に宣言の例をコメント付きで足す
+   （`pnpm lint:validate-config:example` が通ること）
+
+## 完了条件
+
+- `registry.yaml` にトークン宣言を書いた config が `loadConfig()` で読め、宣言の無い config は
+  従来どおり読める（既存テストが変更なしで通る）
+- 正典が定めた不正な宣言（名前の形式違反、`projectId` の衝突）が設定エラーになるテストがある
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- `src/main.ts`・`src/steps/`・`src/lib/platform/`・`scripts/` は触らない（T-244・T-245 の範囲）
+- 「無いかもしれない」値は `readonly x: T | undefined` で持つ（`?:` は使わない）
+
+## T-244
+
+**タスク**: `ProjectId` でトークンを振り分ける `PlatformAdapter` を `src/lib/platform/` に足し、`runPipeline()` を複数トークンで動かす
+
+**dependencies**: T-243
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: `src/lib/platform/routed-adapter.ts` の `createRoutedAdapter()`（ProjectId→Route の表。declared の401とdeclaredに無い宣言名は素の Error に読み替え、fallback は素通し）、`main.ts` の `buildAdaptersByAccessToken()` で配線し `withCachedReads()` を外側に。README「エラーハンドリング」の401行を2行に分割。`test/lib/platform/routed-adapter.test.ts` 9件、`test/main.test.ts` に2chart別トークンで片方401→ERROR:1/CREATED:1 のケース。`git diff --stat src/steps` は空。読み替え後の Error は cause に元例外を持つが `extractHttpStatus()` は cause.response を見るため401は拾われず fatal にならないことを確認。pnpm check 通過: 44 Test Files / 548 Tests（538→548）
+
+## 背景
+
+T-242 の設計（`docs/architecture.md`「設計判断」の該当節）に従い、1回の実行を chart ごとの
+トークンで動かす。`steps/` は触らない。
+
+現状:
+
+- `src/main.ts` の `runPipeline()` が `createPlatformAdapter(env)` で `PlatformAdapter` を1つ作り、
+  `withCachedReads()` で包んで4 step に渡す。`createPlatformAdapter()` は `env.platform` で
+  `createGitlabAdapter(createGitlabClient(url, token))` / `createGithubAdapter(...)` を選ぶ
+- `PlatformAdapter`（`src/lib/platform/adapter.ts`）の API 関数はすべて第1引数に `ProjectId` を取る。
+  `buildTagUrl`・`buildCompareUrl`・`isFatalError`・`extractHttpStatus` は取らない
+- `src/lib/platform/cached-reads.ts` の `withCachedReads()` は `ProjectId` を含むキーでキャッシュする
+- 401 は `isFatalError()` で fatal。`src/steps/shared/step-outcome.ts` が `adapter.isFatalError(err)` に
+  尋ねて `FatalError` を投げる
+- T-243 で `ConfigUnit` に chart のトークン宣言が載り、`src/lib/env.ts` に宣言名からトークンを
+  読む関数がある
+
+## やること
+
+1. 正典を読み、振り分けアダプタの形（`ProjectId` → どのトークンのアダプタか）、`withCachedReads()`
+   との重ね順、401 の方針（chart 宣言のトークンの 401 はその chart の設定ユニットだけ ERROR、
+   既定トークンの 401 は fatal のまま）を確認する
+2. `src/lib/platform/` に振り分けアダプタを実装する（ファイル名は概念にする。`helpers.ts` のような
+   置き場所名にしない）。`ProjectId` → アダプタの対応は `loadConfig()` の結果
+   （`chartToUpdate.projectId`・`appSpecs[].projectId` と各 chart の宣言）から組み立てる
+3. `runPipeline()` の配線を変える: config を読んでから必要なトークンを読み、トークンごとに
+   `createPlatformAdapter` 相当でアダプタを作り、振り分けアダプタにまとめて `withCachedReads()` で包む
+4. 401 の方針を正典が指定した場所に実装する。`FatalError` の経路
+   （`docs/architecture.md`「HTTPエラーの経路」）を壊さない
+5. テスト: 振り分けアダプタの単体テスト（対応表に無い `ProjectId` の扱いを含む）、
+   `test/main.test.ts` / `test/main.e2e.test.ts` に「2 chart が別トークンで動き、片方の 401 が
+   もう片方を止めない」ケースを足す。`README.md`「実行ログの例」のログ出力は変えない
+6. `src/index.ts` の fatal ログ・`README.md`「エラーハンドリング」の表を正典に合わせて直す
+
+## 完了条件
+
+- 宣言の無い config だけの実行は従来と同じ経路（アダプタ1つ）で動き、既存テストが変更なしで通る
+- 2 chart が別トークンで動くテストと、chart 宣言トークンの 401 が該当 chart の ERROR に留まる
+  テストがある
+- `src/steps/` に差分が無い（`git diff --stat src/steps` が空）
+- `pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- `scripts/lint/validate-config.ts` は触らない（T-245）
+- `steps/` に `try`/`catch` を書かない。fatal 判定は `PlatformAdapter.isFatalError` 経由のまま
+
+## T-245
+
+**タスク**: `validate-config-remote`（`scripts/lint/validate-config.ts --remote`）を chart ごとに宣言されたトークンで実在チェックするようにする
+
+**dependencies**: T-244
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: `scripts/lint/remote-existence/access-token-groups.ts`（`groupByAccessTokenEnv()`/`lookupAccessToken()`/`findMissingAccessTokenProblems()`）を足し、`validate-config.ts --remote` はグループごとに `createClient()`+`validateRemoteExistence()`（引数不変）。必要トークンが1本でも未設定なら chart 名×環境変数名を全件並べて `fail()`。`.gitlab-ci.yml` の `validate-config-remote` コメントと README「設定ファイルの検証」を追随。テスト6件追加。pnpm check 通過: 45 Test Files / 554 Tests（548→554）。実機接続は未実施
+
+## 背景
+
+MR/push のたびに走る `validate-config-remote`（`.gitlab-ci.yml`）は
+`scripts/lint/validate-config.ts` の `--remote` で、`createClient(env.platformUrl, env.accessToken)`
+1つを `validateRemoteExistence(client, configUnits, concurrencyLimit)` に渡して `config/` 全体を
+検証している。複数グループ運用では「全 chart を読める1本のトークン」を持たないので、
+chart ごとに `registry.yaml` で宣言されたトークン（T-243）でクライアントを分けて検証する。
+`loadEnvConfig()` が失敗したときの `fail()` メッセージは「`GITLAB_URL` と `ACCESS_TOKEN` を
+設定してください」で、宣言されたトークンが未設定のケースを案内できない。
+
+## やること
+
+1. `docs/requirements.md` 5章と `docs/architecture.md` の該当節で、検証ジョブがどのトークンを
+   どう使うか（既定 `ACCESS_TOKEN` の要否を含む）を確認する
+2. `validateRemoteExistence()`（`scripts/lint/` 配下）が chart ごとのクライアントで検証する形に
+   直す。トークンごとにクライアントを1つ作り、同じトークンの chart で共有する
+3. 宣言された環境変数が未設定のときは、どの chart がどの環境変数を要求しているかを `fail()` の
+   メッセージに載せる（黙って成功させない。既存コメントの方針どおり）
+4. 既存の GitLab 専用チェック（`env.platform !== "gitlab"` で止める）は維持する
+5. テストがあれば直し、無ければ `scripts/` の既存テストの置き方に倣って最小限足す
+6. `.gitlab-ci.yml` の `validate-config-remote` のコメント（「read_api のみのトークンでよい」の行）を
+   複数トークンの前提に合わせて直す。`README.md`「設定ファイルの検証」節も同様
+
+## 完了条件
+
+- 宣言の無い config だけなら従来どおり `ACCESS_TOKEN` 1本で検証が通る
+- 宣言ありの config で、宣言された環境変数が未設定のときに chart 名と環境変数名を含むメッセージで
+  失敗する（テストまたは `evidence` に貼る実行ログで示す）
+- `pnpm lint` が通り、`pnpm check` が通る（テスト件数を `evidence` に書く）
+
+## 注意
+
+- 実機（GitLab）に対する検証は行わない。`pnpm lint:validate-config:remote` の実行は `.env` と
+  実在の projectId が要るためユーザーに預ける
+
+## T-246
+
+**タスク**: 複数グループ運用の手順（グループごとの Group Access Token・`ACCESS_TOKEN_<GROUP>`・schedule）を `README.md`・`.gitlab-ci.yml` のコメント・`config.example/` に書く
+
+**dependencies**: T-245
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: README「CI/CD」に「### 複数グループで運用する」（手順4＋注意点8）、CI/CD 変数表・環境変数表に `ACCESS_TOKEN_<GROUP>` を追加し `ACCESS_TOKEN` を条件付き必須に、「config/」の registry.yaml 説明と例に `accessTokenEnv`。`.gitlab-ci.yml` 冒頭コメント・`config.example/README.md` も追随。`grep -n ACCESS_TOKEN README.md .gitlab-ci.yml` の25行を読んで既定/グループごとの説明に矛盾なし。pnpm check 通過: 45 Test Files / 554 Tests（不変）
+
+## 背景
+
+コード側（T-243〜T-245）で chart 単位のトークン宣言が動くようになったので、運用者向けの手順を
+書く。ユーザーと決めた運用方針（正典は `docs/requirements.md` 5章。本文はその要約）:
+
+- グループごとに Group Access Token を1本発行する。スコープ `read_api` + `write_repository`、
+  ロール Developer。`api` スコープと Maintainer は付けない。保護ブランチ・保護タグのパターンに
+  ツールの固定ブランチ名（`feature/yadokari/<unitPath>`）とタグ形式が当たらないようにして
+  Developer で済ませる（ロールを上げるより、パターン側を調整する）
+- トークン名は `yadokari-<group>` のように識別できる名前にする（監査ログ・MR作者で判別）
+- 有効期限は短め（90日目安）。更新期日と担当はグループ側の責任。期限切れはその chart の
+  設定ユニットが ERROR になるだけで他グループに波及しない（T-244 の 401 方針）
+- トークンはこのリポジトリの **Settings > CI/CD > Variables** に `ACCESS_TOKEN_<GROUP>` として
+  Masked（可能なら hidden）・Protected OFF で登録し、`registry.yaml` で宣言する。
+  pipeline schedule の変数には置かない（マスクできないため。GitLab issue #35439）
+- schedule は1つで全 chart を回せる。cadence を分けたいときだけ `TARGET_CHART` で分ける
+- chart とアプリが別グループなら、両方に届く共通の親グループで発行する。それが大きすぎるなら
+  chart とアプリを同じサブグループに寄せる
+- 残る集中点はこのリポジトリ自身（Maintainer 以上は全グループの CI/CD 変数を扱える）。
+  Maintainer をプラットフォーム担当の数名に絞る。将来案としてコンテナイメージ配布で各グループ内で
+  走らせる形があるが、config の置き場所が変わる設計変更なので「将来案」として1文だけ書く
+- 採らなかった案（最上位グループのトークン、横断 Service Account、個人 PAT）は「1本漏れると
+  全グループへ push できるため採らない」と理由付きで短く書く
+
+現状の `README.md`:
+
+- 「設定 > 環境変数」表の `ACCESS_TOKEN` 行、「設定 > config/」の `registry.yaml` の説明と最小構成の例
+- 「CI/CD > セットアップ手順」に CI/CD 変数の表（`GITLAB_URL`・`ACCESS_TOKEN`）と Protected OFF の
+  理由、schedule 作成の手順
+- `.gitlab-ci.yml` 冒頭のコメントブロックに CI/CD 変数の登録案内
+- `config.example/README.md` は `registry.yaml` の役割を表で説明している
+
+## やること
+
+1. `docs/requirements.md` 5章・4.4節を読み、用語とフィールド名を揃える
+2. `README.md`「CI/CD」章に「複数グループで運用する」小節を足す（上の方針を手順の形で。
+   トークンの発行 → CI/CD 変数の登録 → `registry.yaml` の宣言 → schedule）。既存の
+   `ACCESS_TOKEN` の説明は「宣言の無い chart の既定」として残し、矛盾しないよう表現を揃える
+3. 「設定 > 環境変数」表に `ACCESS_TOKEN_<GROUP>`（`registry.yaml` で宣言した名前）の行を足す。
+   「設定 > config/」の `registry.yaml` 説明と例に新フィールドを足す
+4. `.gitlab-ci.yml` 冒頭コメントと `validate-config-remote` のコメントを揃える
+5. `config.example/README.md` の表に新フィールドの例示を足す（T-243 で例は入っている前提。
+   無ければ足す）
+
+## 完了条件
+
+- `README.md` に「複数グループで運用する」小節があり、上の方針の各項目が手順または注意として
+  書かれている。正典（`docs/requirements.md`）と重複する説明は要約に留め、リンクで正典を指す
+- `README.md` 内で `ACCESS_TOKEN` の説明が「既定」と「グループごと」で矛盾していない
+  （`grep -n ACCESS_TOKEN README.md` の全行を読んで確認する）
+- `pnpm check` が通る
+
+## 注意
+
+- コードは変えない。`docs/requirements.md`・`docs/architecture.md` は T-242 で書いてあるので、
+  ズレを見つけたら README 側を正典に合わせる（正典を書き換えない）
+- GitLab の UI 名（Settings > CI/CD > Variables、Masked and hidden、Group access tokens）は
+  現行の名称で書く
+
+## T-247
+
+**タスク**: `maintain-docs` の7検査を `docs/`・`README.md`・`CLAUDE.md` にかけ、複数トークン化に伴う追随漏れを直す
+
+**dependencies**: T-246
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: maintain-docs の7検査: 確定群（通読ガード・タスク番号・リンク切れ・索引→本文）0件、候補群（本文→索引2件・識別子12件・見出し重複6件）は多重トークン化と無関係の既存事項で据え置き。修正: CLAUDE.md（401の行と環境変数の行）、docs/coding-standards.md（3箇所）、docs/architecture.md（責務表に routed-adapter.ts/loadAccessTokens()、勘所に access-token-groups.ts、前方参照の文言2箇所）。`grep ACCESS_TOKEN|401` の76行を目視確認し食い違いなし。pnpm check 通過: 45 Test Files / 554 Tests（不変）
+
+## 背景
+
+T-242〜T-246 で `docs/requirements.md`・`docs/architecture.md`・`docs/glossary.md`・`README.md`・
+`.gitlab-ci.yml`・`config.example/` を段階的に書き換えた。「1回の実行＝1トークン」を前提にした
+記述（`CLAUDE.md` の「HTTP エラーの判定」「401 / 5xx は FatalError」の行、
+`docs/architecture.md`「FatalErrorは後続ステップも止める」、`docs/smoke-test.md` の `.env` の説明、
+`docs/coding-standards.md` の環境変数の節など）が残っている可能性がある。
+
+## やること
+
+1. このリポジトリのスキル `.claude/skills/maintain-docs/` の手順に従い、7つの検査を
+   `docs/`（`history/` 以外）・`README.md`・`CLAUDE.md` にかける
+2. 見つけたズレは正典（`docs/requirements.md`・`docs/architecture.md`）に合わせて直す。
+   正典同士が矛盾していたら、ユーザー決定（グループごとのトークン、config での宣言、
+   chart 宣言トークンの 401 は該当 chart の ERROR）に近い方を残し、理由を `evidence` に書く
+3. `grep -rn "ACCESS_TOKEN\|401" docs README.md CLAUDE.md .gitlab-ci.yml` の全行を読み、
+   複数トークンの前提と食い違う行が無いことを確認する
+
+## 完了条件
+
+- 上の `grep` の各行が新しい前提と矛盾していない（確認した行数を `evidence` に書く）
+- `maintain-docs` の各検査の結果（該当なし／直した箇所）を `evidence` に列挙する
+- `pnpm check` が通る
+
+## 注意
+
+- `docs/history/` は触らない
+- `CLAUDE.md` の規約の文言を変えるときは、規約そのものを変えるのではなく複数トークンの前提に
+  合わせた表現だけを直す
+
+## T-248
+
+**タスク**: `docs/smoke-test.md` に「パス5: 複数グループ（宣言トークン）」の準備・手順・期待する結果を書く
+
+**dependencies**: なし
+
+**difficulty**: sonnet / **loopable**: Y
+
+**evidence**: docs/smoke-test.md: 目次・「2グループ目（パス5）に必要なもの」（smoke-fixture.ts では作れない理由3点、chart B＋ソースリポジトリ1つ、トークン `ACCESS_TOKEN_SMOKE_A/B`）・検証シナリオ表・「パス5」の手順(a)〜(d)＋CI確認・期待する結果・後片付け。config/README.md に「パス5用のフィクスチャは常設しない」節。メインで1点修正: smoke-fixture.ts は既定 ACCESS_TOKEN で書くため「.env から消してよい」を「fixture 実行時はグループAのトークンを既定名で渡す」に。pnpm check 通過: 45 Test Files / 555 Tests（不変）。実機は未実施（手順のみ）
+
+## 背景
+
+T-242〜T-247 で chart ごとに `registry.yaml` の `accessTokenEnv` でトークンを宣言し、1回の実行が
+複数トークンで動くようにした。宣言トークンの 401 と環境変数の未設定は、その chart の設定ユニット
+だけ `ERROR` になり他は続行する（正典: `docs/requirements.md` 4.3節、`docs/architecture.md`
+「アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける」）。
+
+実機では 2026-09-15 に「宣言トークンだけで動く」「未設定なら実在チェックが chart を列挙して失敗」
+「宣言トークンが不正なら fatal にならず ERROR」までを読み取りのみで確認した（`develop/progress.md`
+「実機スモーク（GitLab、宣言トークン、読み取りのみ）」）。**「片方の chart だけ ERROR で、もう片方は
+CREATED」は未確認**。理由は `docs/smoke-test.md` のフィクスチャが1グループ（`sinnlosses-group`）で、
+`config/yadokari-smoke-test-chart` と `config/yadokari-smoke-test-chart2` が同じソースリポジトリ
+（`sample-qa-sprint`、projectId 82861978）を共有しており、`validateAccessTokenEnvConsistency()`
+（`src/lib/config/validate.ts`）が別トークンへの結びつけを設定エラーにするため。
+
+`scripts/smoke/smoke-fixture.ts` は対象プロジェクトを `SMOKE_CHART_PROJECT_ID` /
+`SMOKE_CHART2_PROJECT_ID`（任意）/ `SMOKE_QA_SPRINT_PROJECT_ID` / `SMOKE_DEVELOP_CLIENT_PROJECT_ID`
+から読み、`loadEnvConfig()` の既定 `ACCESS_TOKEN` で GitLab に書く（`setup` / `reset`、`--apply`）。
+`setup` は chart リポジトリに向き先ブランチ・`values.yaml`（固定のアンカー名）を作り、ソース
+リポジトリにシードタグを打つ。`config/README.md` はスモーク用のフィクスチャも `config/` に置く
+（分けない）と決めている。
+
+## 解くべき論点
+
+- 2グループ目のフィクスチャを `smoke-fixture.ts` で作れるか（環境変数を2グループ目のプロジェクト
+  IDに差し替えて `ACCESS_TOKEN=<グループBのトークン>` で `setup` する）。作れないなら、何を手で
+  用意するかを列挙する
+- 2グループ目の chart ディレクトリを `config/` に**常設**するか（CI の `validate-config-remote` と
+  定期実行が常に2トークンを要求するようになる）、検証のときだけ置くか。`config/README.md` の
+  「分けない」判断と整合させる
+
+## やること
+
+1. `docs/smoke-test.md`、`scripts/smoke/smoke-fixture.ts`、`config/yadokari-smoke-test-chart/`
+   配下、`config/README.md`、`README.md`「複数グループで運用する」、`docs/requirements.md` 4.4節の
+   `accessTokenEnv` の規則を読む
+2. `docs/smoke-test.md` に次を足す（既存の節構成・目次・文体に合わせる）:
+   - 「使うGitLabリソース」に2グループ目（例: グループ `sinnlosses-group-b`、chart リポジトリ
+     `yadokari-smoke-test-chart-b`、ソースリポジトリ）と、グループごとの Group Access Token
+     （グループA用・グループB用。発行場所は Group > Settings > Access tokens、ロール Developer、
+     スコープ `read_api` + `write_repository`、有効期限）、`.env` に置く環境変数名
+     （`ACCESS_TOKEN_SMOKE_A` / `ACCESS_TOKEN_SMOKE_B`。既定 `ACCESS_TOKEN` は不要になること）を足す
+   - 「検証シナリオ」の表に**パス5: 複数グループ（宣言トークン）**を足す。確認すること:
+     (a) 両グループ正常で両方に MR ができる、(b) グループBのトークンを不正な値にすると B の設定ユニット
+     だけ `ERROR`・A は `CREATED`/`SKIPPED`・`fatal_error` は出ず終了コード1、(c) B の環境変数を
+     消すと同じく B だけ `ERROR` で、`pnpm lint:validate-config:remote` は B の chart を列挙して失敗、
+     (d) 既定 `ACCESS_TOKEN` を `.env` から消しても動く
+   - 「手順」に「### パス5」を足す: 2グループ目のフィクスチャ準備（`smoke-fixture.ts` を使えるなら
+     その環境変数とコマンド、使えないなら手順）、`config/yadokari-smoke-test-chart-b/`（`registry.yaml`
+     に `accessTokenEnv: ACCESS_TOKEN_SMOKE_B`、既存 chart1/chart2 の `registry.yaml` には
+     `accessTokenEnv: ACCESS_TOKEN_SMOKE_A`。chart1 と chart2 はソースリポジトリを共有するため
+     **同じ名前**を宣言しないと設定エラーになる旨を明記）、(a)〜(d) のコマンド列
+     （`DRY_RUN=true` で先に見る → `pnpm dev`）。トークンを不正にする操作は `.env` を書き換えず
+     `ACCESS_TOKEN_SMOKE_B=glpat-bogus pnpm dev` のように**コマンド行で上書き**する
+     （`tsx --env-file` は既に設定済みの環境変数を上書きしないため）
+   - 「期待する結果」にパス5の (a)〜(d) の終了コード・summary・ログの見え方（`ERROR` の `reason` に
+     `[chart: …] 環境変数 ACCESS_TOKEN_SMOKE_B のトークンで HTTP 401 が返りました` が載ること、
+     `httpStatus` は `undefined` になること）を足す
+   - 「後片付け」に2グループ目の `reset` を足す
+   - CI で確かめる手順を1段落: このリポジトリの Settings > CI/CD > Variables に
+     `ACCESS_TOKEN_SMOKE_A` / `ACCESS_TOKEN_SMOKE_B` を Masked and hidden・Protected OFF で登録し、
+     `config/` の変更を MR にして `validate-config-remote` が通ること、Run pipeline（`DRY_RUN=true`）が
+     通ることを見る
+3. 論点2の結論を `config/README.md` に1段落で足す（常設するなら「CI は2トークンを要求する」、
+   検証時だけなら「検証後に消す」）。`config/` 配下の実ファイルは**このタスクでは足さない**
+   （2グループ目のプロジェクトIDはユーザーが作ってから決まるため。手順中は `<projectId>` の
+   プレースホルダで書く）
+4. `pnpm check` を通す
+
+## 完了条件
+
+- `docs/smoke-test.md` の目次・「使うGitLabリソース」・「検証シナリオ」・「手順」・「期待する結果」・
+  「後片付け」にパス5が揃っている
+- 手順に出てくる環境変数名・フィールド名・ログの文言が、実装（`src/lib/platform/routed-adapter.ts`
+  の例外メッセージ、`scripts/lint/remote-existence/access-token-groups.ts`）と一致している
+- `pnpm check` が通る
+
+## 注意
+
+- コード・`config/` 配下の実ファイル・`docs/requirements.md`・`docs/architecture.md` は変えない
+- 実機への接続・書き込みはしない（手順を書くだけ）

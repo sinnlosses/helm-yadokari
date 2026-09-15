@@ -7,9 +7,9 @@
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
 **未着手のタスクは0件**（T-242〜T-248 をすべて完了）。T-238〜T-241 は完了。
-**T-229〜T-238 の `done` 10件は
+**T-239〜T-248 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
-（`develop/tasks.json` は 59,620B → 8,570B）。完了タスクは
+（`develop/tasks.json` は空の `[]`）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
