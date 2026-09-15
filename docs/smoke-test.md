@@ -124,15 +124,38 @@ chartリポジトリ2には `sample-qa-sprint` を登録する。**同じappが2
 個人PAT**にしておくこと（グループ・プロジェクトの作成やGroup Access Tokenの発行は
 Group/Project Access Tokenでは行えないAPIのため）。
 
+**gitlab.com では2点、この手順のまま動かない**（self-managedならそのまま動く）:
+
+- **トップレベルグループをAPIから作れない**（`POST /groups` が403）。`<group-b>` は先に
+  gitlab.comのUIで空のトップレベルグループとして作り、`provision`に`--use-existing-group`を
+  付けて続ける。このオプションは指定したグループにプロジェクトが1つも無いことを確認してから
+  進み、1つでもあれば中止する（新規作成時の「既に存在すれば中止」と対になる安全策）
+- **Free プランでは Group Access Token / Project Access Token を発行できない**（Premium以上限定）。
+  `provision`に`--skip-token`を付けてトークン発行を飛ばし、案内に従って`.env`の
+  `ACCESS_TOKEN_SMOKE_B`には**手元の`api`スコープPAT**（グループA用と同じものでよい）を入れる。
+  この場合、検証できるのは「別グループ・別トークン名の設定ユニットが独立してルーティングされ、
+  片方の401が他方へ波及しない」ところまでで、**トークンの権限境界そのもの**（グループBのPATが
+  グループA配下に書けないこと）はFreeでは検証できない。`--skip-token`を付けずに発行が
+  400/403で失敗した場合も同じ案内が出て終了コード1になる。その時点までに作ったグループ内の
+  リソース（プロジェクト・ブランチ・コミット・タグ）はそのまま残るため、
+  `--skip-token`を付けて同じ`--group-path`・`--use-existing-group`で再実行すればよく、
+  作り直す必要はない
+
 ```bash
 # dry-run（既定）でまず何を作るか確認する
 npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path <group-b>
 
+# gitlab.com: 先にUIで<group-b>を空のトップレベルグループとして作ってから、
+# 既存グループを使う・トークン発行を飛ばす想定でdry-run確認する
+npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path <group-b> \
+  --use-existing-group --skip-token
+
 # 問題なければ --apply を付けて実行する。最後に表示される内容を控える:
-#   グループID・chartプロジェクトID・ソースプロジェクトID・トークン値・
-#   .envに追記する行（ACCESS_TOKEN_SMOKE_B=...）・
+#   グループID・chartプロジェクトID・ソースプロジェクトID・
+#   （--skip-tokenを付けない場合のみ）トークン値・.envに追記する行（ACCESS_TOKEN_SMOKE_B=...）・
 #   config/yadokari-smoke-test-chart-b/ に置くregistry.yaml・smoke-b-app/config.yamlの中身
-npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path <group-b> --apply
+npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path <group-b> \
+  --use-existing-group --skip-token --apply
 ```
 
 作られるもの（`<group-b>` はトップレベルグループとして新規作成される）:
@@ -159,7 +182,9 @@ npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path 
 ロール・有効期限の考え方はREADME
 「[複数グループで運用する](../README.md#複数グループで運用する)」参照。
 `provision-group.ts` はこの手順どおりの条件で発行する）。グループB用は上の`provision`が
-発行済みなので、**グループA用だけ`token`サブコマンドで追加発行**する:
+発行済みなので、**グループA用だけ`token`サブコマンドで追加発行**する。
+**gitlab.com Free ではこの`token`サブコマンドも400で失敗する**ため、その場合はグループA用にも
+手元の`api`スコープPATを`ACCESS_TOKEN_SMOKE_A`にそのまま使う:
 
 ```bash
 npx tsx --env-file=.env scripts/smoke/provision-group.ts token --group-path sinnlosses-group --apply

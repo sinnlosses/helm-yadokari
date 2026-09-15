@@ -79,3 +79,18 @@ export function computeExpiresAt(now: Date): string {
   const day = String(expires.getUTCDate()).padStart(2, "0")
   return `${year}-${month}-${day}`
 }
+
+/**
+ * gitlab.com Free プランでは Group Access Token（Project Access Tokenも同様）を発行できない
+ * （Premium以上限定。self-managedは全ティアで発行可）。`provision-group.ts`は`--skip-token`
+ * 指定時と、指定なしで発行が400/403で失敗したときの両方でこの案内を表示する
+ */
+export function buildTokenSkipGuidance(): string {
+  return (
+    "gitlab.com の Free プランでは Group Access Token を発行できません（Premium 以上限定）。\n" +
+    `代わりに手元のトークン（ボットユーザーの個人アクセストークン、` +
+    `またはスモーク用途なら手元の個人アクセストークン）を ${ACCESS_TOKEN_ENV_NAME} に設定してください。\n` +
+    ".env に追記する行のひな型:\n" +
+    `${ACCESS_TOKEN_ENV_NAME}=<read_api+write_repositoryスコープ以上のPAT>`
+  )
+}

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   buildAppConfigYamlContent,
   buildRegistryYamlContent,
+  buildTokenSkipGuidance,
   buildValuesYamlContent,
   computeExpiresAt,
   defaultTokenName,
@@ -66,6 +67,16 @@ describe("computeExpiresAt", () => {
 
   it("年をまたぐ場合も繰り上がる", () => {
     expect(computeExpiresAt(new Date("2026-12-01T00:00:00Z"))).toBe("2027-03-01")
+  })
+})
+
+describe("buildTokenSkipGuidance", () => {
+  it("Free プランの制約と.envに足す行のひな型を含む", () => {
+    const guidance = buildTokenSkipGuidance()
+
+    expect(guidance).toContain("Free")
+    expect(guidance).toContain("ACCESS_TOKEN_SMOKE_B")
+    expect(guidance).toContain("ACCESS_TOKEN_SMOKE_B=<read_api+write_repositoryスコープ以上のPAT>")
   })
 })
 

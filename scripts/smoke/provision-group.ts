@@ -3,12 +3,14 @@ import { parseArgs } from "node:util"
 import { AccessLevel } from "@gitbeaker/rest"
 
 import { loadEnvConfig } from "../../src/lib/env.js"
+import { extractHttpStatus } from "../../src/lib/gitlab/errors.js"
 import { createClient } from "../../src/lib/gitlab/gitlab.js"
 import { toErrorMessage } from "../../src/utils/errors.js"
 import {
   ACCESS_TOKEN_ENV_NAME,
   buildAppConfigYamlContent,
   buildRegistryYamlContent,
+  buildTokenSkipGuidance,
   buildValuesYamlContent,
   CHART_DIR_NAME,
   CHART_PROJECT_NAME,
@@ -29,7 +31,7 @@ import {
 // 新規作成はここに隔離し、smoke-fixture.ts 自体は変更しない。書き込む内容（values.yaml・
 // config/の2ファイル・トークン名の組み立て）は group-fixture-content.ts にある。
 //
-//   provision --group-path <path> [--group-name <name>] [--apply]
+//   provision --group-path <path> [--group-name <name>] [--use-existing-group] [--skip-token] [--apply]
 //     トップレベルグループ<path>を作り、その下にchartリポジトリ（yadokari-smoke-test-chart-b）と
 //     ソースリポジトリ（sample-smoke-b-app）を作成する。最後にGroup Access Tokenを発行し、
 //     グループID・projectId・トークン値・config/へ置くYAMLの中身を表示する
@@ -41,11 +43,19 @@ import {
 // `api` スコープでしかできないAPIのため（Group/Project Access Tokenでは操作できない）。
 //
 // 安全策: provision は --group-path のグループが既に存在すれば何もせず中止する
-// （既存リソースには書き込まない）。削除機能は持たない。
+// （既存リソースには書き込まない）。--use-existing-group 指定時はこれを反転し、グループが
+// 存在しない、またはプロジェクトを1つでも持つ場合に中止する（空のグループにしか書かない）。
+// 削除機能は持たない。
+//
+// gitlab.com はAPIからのトップレベルグループ作成を許可しない（403）。また gitlab.com の
+// Free プランでは Group/Project Access Token を発行できない（Premium以上限定。self-managedは
+// 全ティア可）。この2点により、gitlab.com では UI でグループを作ったうえで
+// --use-existing-group --skip-token を付けて実行する運用になる（詳細は docs/smoke-test.md
+// 「2グループ目（パス5）に必要なもの」）。
 
 const USAGE =
   "usage: tsx scripts/smoke/provision-group.ts provision --group-path <path> " +
-  "[--group-name <name>] [--apply]\n" +
+  "[--group-name <name>] [--use-existing-group] [--skip-token] [--apply]\n" +
   "       tsx scripts/smoke/provision-group.ts token --group-path <path> " +
   "[--name <name>] [--apply]"
 
@@ -54,6 +64,8 @@ type ParsedArgs =
       readonly command: "provision"
       readonly groupPath: string
       readonly groupName: string
+      readonly useExistingGroup: boolean
+      readonly skipToken: boolean
       readonly apply: boolean
     }
   | {
@@ -75,6 +87,8 @@ function parseCliArgs(argv: readonly string[]): ParsedArgs {
         "group-path": { type: "string" },
         "group-name": { type: "string" },
         name: { type: "string" },
+        "use-existing-group": { type: "boolean", default: false },
+        "skip-token": { type: "boolean", default: false },
         apply: { type: "boolean", default: false },
       },
       allowPositionals: true,
@@ -93,7 +107,14 @@ function parseCliArgs(argv: readonly string[]): ParsedArgs {
     if (command === "provision") {
       const groupNameRaw = values["group-name"]
       const groupName = groupNameRaw?.trim() ? groupNameRaw : groupPath
-      return { command, groupPath, groupName, apply }
+      return {
+        command,
+        groupPath,
+        groupName,
+        useExistingGroup: values["use-existing-group"],
+        skipToken: values["skip-token"],
+        apply,
+      }
     }
     if (command === "token") {
       const nameRaw = values.name
@@ -137,16 +158,62 @@ async function groupExists(groupPath: string): Promise<boolean> {
   }
 }
 
-async function provision(groupPath: string, groupName: string, apply: boolean): Promise<void> {
-  if (await groupExists(groupPath)) {
+/**
+ * `--use-existing-group`向け。グループが存在し、かつプロジェクトを1つも持たないことを確認して
+ * groupIdを返す。存在しない、またはプロジェクトを1つでも持つ場合は中止する
+ * （既存リソースには書き込まない安全策。新規作成時の`groupExists()`チェックと対になる）
+ */
+async function requireExistingEmptyGroup(groupPath: string): Promise<number> {
+  const group = await gitlab.Groups.show(groupPath).catch(() => undefined)
+  if (group === undefined) {
     console.error(
-      `provision-group ERROR: グループ ${groupPath} は既に存在します。既存リソースには書き込まないため中止します`,
+      `provision-group ERROR: --use-existing-group が指定されましたが、` +
+        `グループ ${groupPath} が見つかりません`,
     )
     process.exit(1)
   }
 
+  const projects = await gitlab.Groups.allProjects(groupPath, { perPage: 1 })
+  if (projects.length > 0) {
+    console.error(
+      `provision-group ERROR: グループ ${groupPath} には既にプロジェクトがあります。` +
+        `既存リソースには書き込まないため中止します`,
+    )
+    process.exit(1)
+  }
+
+  return Number(group.id)
+}
+
+/** GroupAccessTokenの発行がgitlab.com Freeプランの制約で拒否されたときの応答か */
+function isTokenPermissionError(error: unknown): boolean {
+  const status = extractHttpStatus(error)
+  return status === 400 || status === 403
+}
+
+async function provision(
+  groupPath: string,
+  groupName: string,
+  apply: boolean,
+  useExistingGroup: boolean,
+  skipToken: boolean,
+): Promise<void> {
+  const existingGroupId = useExistingGroup ? await requireExistingEmptyGroup(groupPath) : undefined
+  if (existingGroupId !== undefined) {
+    console.log(
+      `- 既存グループ ${groupPath}（id: ${existingGroupId}）を使う（プロジェクト0件を確認）`,
+    )
+  } else {
+    if (await groupExists(groupPath)) {
+      console.error(
+        `provision-group ERROR: グループ ${groupPath} は既に存在します。既存リソースには書き込まないため中止します`,
+      )
+      process.exit(1)
+    }
+    console.log(`- グループ ${groupPath}（name: ${groupName}, visibility: private）を作成`)
+  }
+
   const expiresAt = computeExpiresAt(new Date())
-  console.log(`- グループ ${groupPath}（name: ${groupName}, visibility: private）を作成`)
   console.log(
     `- chartリポジトリ ${groupPath}/${CHART_PROJECT_NAME} を作成（private・main・README初期化）`,
   )
@@ -160,15 +227,20 @@ async function provision(groupPath: string, groupName: string, apply: boolean): 
   )
   console.log(`- [source] README初期化コミット（main）にシードタグ ${SEED_TAG} を作成`)
   console.log(`- [source] main にもう1コミット積み、HEADをシードタグより先に進める`)
-  console.log(
-    `- Group Access Token ${GROUP_TOKEN_NAME} を発行` +
-      `（scopes: ${TOKEN_SCOPES.join(",")} / role: Developer / 有効期限: ${expiresAt}）`,
-  )
+  if (skipToken) {
+    console.log("- Group Access Token の発行はスキップ（--skip-token）")
+  } else {
+    console.log(
+      `- Group Access Token ${GROUP_TOKEN_NAME} を発行` +
+        `（scopes: ${TOKEN_SCOPES.join(",")} / role: Developer / 有効期限: ${expiresAt}）`,
+    )
+  }
 
   if (!apply) return
 
-  const group = await gitlab.Groups.create(groupName, groupPath, { visibility: "private" })
-  const groupId = Number(group.id)
+  const groupId =
+    existingGroupId ??
+    Number((await gitlab.Groups.create(groupName, groupPath, { visibility: "private" })).id)
 
   const chartProject = await gitlab.Projects.create({
     name: CHART_PROJECT_NAME,
@@ -207,28 +279,55 @@ async function provision(groupPath: string, groupName: string, apply: boolean): 
     },
   ])
 
-  const token = await gitlab.GroupAccessTokens.create(
-    groupId,
-    GROUP_TOKEN_NAME,
-    [...TOKEN_SCOPES],
-    expiresAt,
-    { accessLevel: AccessLevel.DEVELOPER },
-  )
-
   console.log("")
   console.log("=== 作成結果 ===")
   console.log(`グループID: ${groupId}`)
   console.log(`chartプロジェクトID: ${chartProjectId}`)
   console.log(`ソースプロジェクトID: ${sourceProjectId}`)
-  console.log(`トークン値（この場でしか取得できません。すぐに控えてください）: ${token.token}`)
-  console.log("")
-  console.log(".env に追記する行:")
-  console.log(`${ACCESS_TOKEN_ENV_NAME}=${token.token}`)
+
+  if (skipToken) {
+    console.log("")
+    console.log(buildTokenSkipGuidance())
+  } else {
+    const token = await issueGroupAccessToken(groupId, expiresAt)
+    console.log(`トークン値（この場でしか取得できません。すぐに控えてください）: ${token.token}`)
+    console.log("")
+    console.log(".env に追記する行:")
+    console.log(`${ACCESS_TOKEN_ENV_NAME}=${token.token}`)
+  }
+
   console.log("")
   console.log(`config/${CHART_DIR_NAME}/registry.yaml:`)
   console.log(buildRegistryYamlContent(chartProjectId, sourceProjectId))
   console.log(`config/${CHART_DIR_NAME}/${CONFIG_UNIT_DIR}/config.yaml:`)
   console.log(buildAppConfigYamlContent(sourceProjectId))
+}
+
+/**
+ * 発行が400/403（gitlab.com Freeプランの制約）で失敗した場合は、それまでに作成した
+ * グループ・プロジェクトを残したまま案内を表示して終了コード1で終わる（作り直しは不要）。
+ * それ以外のエラーはmain()側の共通ハンドラに委ねる。
+ */
+async function issueGroupAccessToken(groupId: number, expiresAt: string) {
+  try {
+    return await gitlab.GroupAccessTokens.create(
+      groupId,
+      GROUP_TOKEN_NAME,
+      [...TOKEN_SCOPES],
+      expiresAt,
+      { accessLevel: AccessLevel.DEVELOPER },
+    )
+  } catch (err) {
+    if (!isTokenPermissionError(err)) throw err
+    console.error("")
+    console.error(buildTokenSkipGuidance())
+    console.error("")
+    console.error(
+      "これまでに作成したグループ・プロジェクトはそのまま残っています。作り直す必要はありません。" +
+        "--skip-token を付けて再実行すれば、このグループを --use-existing-group で使い続けられます。",
+    )
+    process.exit(1)
+  }
 }
 
 async function issueToken(groupPath: string, name: string, apply: boolean): Promise<void> {
@@ -271,7 +370,13 @@ async function main(): Promise<void> {
   )
 
   if (parsedArgs.command === "provision") {
-    await provision(parsedArgs.groupPath, parsedArgs.groupName, parsedArgs.apply)
+    await provision(
+      parsedArgs.groupPath,
+      parsedArgs.groupName,
+      parsedArgs.apply,
+      parsedArgs.useExistingGroup,
+      parsedArgs.skipToken,
+    )
   } else {
     await issueToken(parsedArgs.groupPath, parsedArgs.name, parsedArgs.apply)
   }
