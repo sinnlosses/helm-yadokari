@@ -6,7 +6,7 @@
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-14以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは0件**（T-242〜T-248 をすべて完了）。T-238〜T-241 は完了。
+**未着手のタスクは1件（T-249）**。T-238〜T-241 は完了。
 **T-239〜T-248 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` は空の `[]`）。完了タスクは
@@ -87,6 +87,11 @@
 - `pnpm check` 通過: 43 Test Files / 538 Tests（516→538）
 
 ## 次にやること
+
+**パス5用のグループB作成スクリプトを T-249 として登録した**（2026-09-15）。ユーザー決定: グループBは
+トップレベル、`api` スコープの PAT を `.env` の `ACCESS_TOKEN` に置く。`--apply` はタスク外でユーザー承認のうえ実行する。
+
+- **T-249**（sonnet）: `scripts/smoke/provision-group.ts`（`provision` / `token`、既定 dry-run）
 
 **本物のグループ2つでの実機検証手順を T-248 として登録した**（2026-09-15）。`docs/smoke-test.md` に
 パス5を書くだけで、`config/` の実ファイルはユーザーが2グループ目を作ってから足す。
