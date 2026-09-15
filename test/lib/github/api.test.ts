@@ -9,7 +9,7 @@ import {
   toTagName,
   toValuesPath,
 } from "../../../src/domain/types.js"
-import type { GithubClient } from "../../../src/lib/github/github.js"
+import type { GithubClient } from "../../../src/lib/github/api.js"
 import {
   branchExists,
   commitFileUpdates,
@@ -23,7 +23,7 @@ import {
   getProjectWebUrl,
   listTags,
   openMergeRequestExists,
-} from "../../../src/lib/github/github.js"
+} from "../../../src/lib/github/api.js"
 
 type MockFn = ReturnType<typeof vi.fn>
 

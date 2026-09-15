@@ -1,19 +1,29 @@
 # 現在の状態
 
-最終更新: 2026-09-16（`/plan-tasks` で T-253・T-254 を登録。前回: T-242〜T-252 をすべて完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
+最終更新: 2026-09-16（T-253 完了。`/plan-tasks` で T-253・T-254 を登録。前回: T-242〜T-252 をすべて完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
 `filterTargets → resolveTags → buildPlans → applyUpdates` の4stepにした**（T-229〜T-231）。
 `createResolveLatestTags()` のバッチ寿命キャッシュは消滅し、重複排除は集合演算になった。
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-14以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは2件**（T-253・T-254。2026-09-16 に `/plan-tasks` で登録。T-252 までは完了）。
+**未着手のタスクは1件**（T-254 のみ。`loopable: "N"` なので `/loop` では進まず、ユーザーが直接
+`/next-task` を呼ぶ必要がある）。
 **T-239〜T-248 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
-（`develop/tasks.json` に残る `done` は T-249〜T-252 の4件）。完了タスクは
+（`develop/tasks.json` に残る `done` は T-249〜T-253 の5件）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-16 `lib/<プラットフォーム>/` のファイル名を `api.ts` に
+
+- **T-253: `src/lib/gitlab/gitlab.ts`・`src/lib/github/github.ts` を同ディレクトリの `api.ts` へ改名**し、
+  `src/` `scripts/` `test/` の import・`vi.mock()`・コメントと、`docs/architecture.md`・`docs/coding-standards.md` の
+  参照を追随させた。テストも `test/lib/{gitlab,github}/api.test.ts` に揃えた。公開関数名・型名は不変
+- 改名の理由（原則4「置き場所を名前にしたファイルは作らない」はディレクトリ名の繰り返しにも当てはまる）と、
+  `src/lib/config/config.ts` を据え置いた理由（`config/` の公開入口であって外部APIのラッパーではない）を
+  `docs/architecture.md`「型と命名」に `####` 節として残し、冒頭の索引にも足した
 
 ### 2026-09-15 パス5の CI 検証
 

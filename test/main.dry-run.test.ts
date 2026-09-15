@@ -2,7 +2,7 @@ import { existsSync, readFileSync, rmSync } from "node:fs"
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-// GitLabクライアントの生成そのものを通したいので、`src/lib/gitlab/gitlab.js` ではなく
+// GitLabクライアントの生成そのものを通したいので、`src/lib/gitlab/api.js` ではなく
 // **gitbeaker の境界**でモックする（`main.test.ts` と同居できないのはモックの範囲が違うため）。
 // こうすると「新しい書き込みAPIを足したのに dry-run を考え忘れた」ケースも、
 // 個々のラッパ関数を列挙し直さずに検知できる。

@@ -68,16 +68,17 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 
 `### 型と命名` の中:
 
-| 節                                                                                  | 中身                                                  |
-| ----------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| #### ブランド型にするのは「同じ`string`の別物と取り違えうる識別子」                 | ブランド型を作る基準                                  |
-| #### 型の置き場所は`src/`全件と突き合わせて確かめてある                             | 上の判断表の裏付け                                    |
-| #### ブランド型のフィールド名は、修飾語があれば型の語を落とし、無ければ持つ         | 命名（逆則）                                          |
-| #### 用途別の型エイリアスを作らない                                                 | 構造的型付けゆえ別名に効果が無い                      |
-| #### 配列の非空を型で保証するより、生成経路を1つに保つ（`AppUpdatePlan.updates`）   | 非空タプル型を見送った理由                            |
-| #### 1つの語を2つの意味に使ってよいのは、包含する型名・キー名が用途を与える場合だけ | 命名（`chart`のような語を避ける、但し書きの判定基準） |
-| #### 検証の動詞は`validate`に統一し、`verify`は使わない                             | 命名（`verify`を使わない理由）                        |
-| #### `steps/`配下はファイル名＝公開関数名のケバブケース                             | ファイル名の付け方                                    |
+| 節                                                                                       | 中身                                                  |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| #### ブランド型にするのは「同じ`string`の別物と取り違えうる識別子」                      | ブランド型を作る基準                                  |
+| #### 型の置き場所は`src/`全件と突き合わせて確かめてある                                  | 上の判断表の裏付け                                    |
+| #### ブランド型のフィールド名は、修飾語があれば型の語を落とし、無ければ持つ              | 命名（逆則）                                          |
+| #### 用途別の型エイリアスを作らない                                                      | 構造的型付けゆえ別名に効果が無い                      |
+| #### 配列の非空を型で保証するより、生成経路を1つに保つ（`AppUpdatePlan.updates`）        | 非空タプル型を見送った理由                            |
+| #### 1つの語を2つの意味に使ってよいのは、包含する型名・キー名が用途を与える場合だけ      | 命名（`chart`のような語を避ける、但し書きの判定基準） |
+| #### 検証の動詞は`validate`に統一し、`verify`は使わない                                  | 命名（`verify`を使わない理由）                        |
+| #### `steps/`配下はファイル名＝公開関数名のケバブケース                                  | ファイル名の付け方                                    |
+| #### `lib/<プラットフォーム>/`はディレクトリ名と同じ名前のファイルを置かず`api.ts`にする | ファイル名を「置き場所」ではなく概念にする例          |
 
 `### ディレクトリ配置` の中:
 
@@ -178,12 +179,12 @@ importせず〜」の節を参照）。
 | `platform/adapter.ts`         | `PlatformAdapter`型（GitLab/GitHubの15エントリを並べた関数テーブル。`steps/`はこれだけを受け取り、クライアントの型を知らない）。API呼び出しに加えエラー分類（`isFatalError`等）も持つ           |
 | `platform/cached-reads.ts`    | `CachedReads`と`withCachedReads()`。バッチ1回を通して使い回す`PlatformAdapter`読み取りのキャッシュを`PlatformAdapterWithCachedReads.cached`として入れ子にする。キャッシュしてよい読み取りの一覧 |
 | `platform/routed-adapter.ts`  | `createRoutedAdapter()`。`ProjectId`ごとに宣言されたトークンのアダプタへ振り分け、宣言トークンの401だけをそのchartリポジトリの設定ユニットの`ERROR`に読み替える                                 |
-| `gitlab/gitlab.ts`            | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitLab専用**                                                                                                     |
-| `gitlab/adapter.ts`           | `createGitlabAdapter()`。`gitlab.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                           |
+| `gitlab/api.ts`               | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitLab専用**                                                                                                     |
+| `gitlab/adapter.ts`           | `createGitlabAdapter()`。`api.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                              |
 | `gitlab/web-url.ts`           | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                                                                                |
 | `gitlab/errors.ts`            | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所**                                                  |
-| `github/github.ts`            | `@octokit/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitHub専用**                                                                                                       |
-| `github/adapter.ts`           | `createGithubAdapter()`。`github.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                           |
+| `github/api.ts`               | `@octokit/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitHub専用**                                                                                                       |
+| `github/adapter.ts`           | `createGithubAdapter()`。`api.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                              |
 | `github/web-url.ts`           | GitHubのページURL（タグ→リリースページ・比較）のパス組み立て。外部I/Oを持たない                                                                                                                 |
 | `github/errors.ts`            | Octokitのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否・`retry-after`の読み取り）。**Octokit固有のエラー構造を知ってよい唯一の場所**                             |
 | `config/config.ts`            | 公開API `loadConfig()`。絞り込み（`limit-to-target.ts`）→設定ユニットの発見（`find-config-units.ts`）→読み込み・結合（`load-config-unit.ts`）の段を順に呼ぶだけの入口                           |
@@ -332,7 +333,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
   サブステップ同士が互いをimportしないという原則の方が、型と生成関数の同居より優先度が高い
 - **5行目は`steps/`だけの話ではない。** `lib/`のファイルの中にも、そのファイルの関数のためだけに
   ある作業用の型がある（`lib/config/load-config-unit.ts` の `ChartRepoScope`・`ConfigUnitScope`・
-  `LinkedApp`、`lib/helm.ts` の `AnchorLookup`、`lib/gitlab/gitlab.ts` の `CommitAction`）。
+  `LinkedApp`、`lib/helm.ts` の `AnchorLookup`、`lib/gitlab/api.ts` の `CommitAction`）。
   **2行目と5行目の境目は「そのアダプタを外から呼ぶ人が見る形かどうか」**で、置き場所は
   どちらも同じファイルなので実務上の差は出ない。効くのは「`domain/types.ts`へ上げるべきか」を
   考えるときだけで、5行目のものは上げない
@@ -398,7 +399,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
   `isRetryableError()`には渡さない。gitbeakerが既に10回試したあとで、こちらから追加で叩く相手では
   ないため（429で30リクエストになるのを避ける）。メッセージが読めないときは`undefined`を返し、
   fatalに昇格させない安全側に倒す
-- **`queryTimeout`の値をgitbeakerの既定値に委ねず`lib/gitlab/gitlab.ts`で明示する**。
+- **`queryTimeout`の値をgitbeakerの既定値に委ねず`lib/gitlab/api.ts`で明示する**。
   値自体は既定値と同じだが、既定値がバージョンアップで黙って変わると気づけないため。
   gitbeakerが429/502に対して行う内部リトライ（最大10回）も同じsignalを共有するので、
   この5分は**リトライ込みの総予算**になる
@@ -411,16 +412,16 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 （なぜその方針なのかは上の節）。
 
 **GitLabとGitHubで同じ形・同じ順序**で、違うのは`lib/<プラットフォーム>/`側の中身だけ。以下の表の
-`errors.ts`・`gitlab.ts`は、GitHubで動かすときは`lib/github/errors.ts`・`lib/github/github.ts`に
+`errors.ts`・`api.ts`は、GitHubで動かすときは`lib/github/errors.ts`・`lib/github/api.ts`に
 読み替える（`withGitlabRetry()`↔`withGithubRetry()`、`createGitlabAdapter()`↔`createGithubAdapter()`）。
 
 **登場人物**（`*` はファイル内からのみ呼ぶ非公開の関数）
 
 | 関数                         | 置き場所                           | 役割                                                                                  |
 | ---------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------- |
-| `withNotFoundFallback()` `*` | `src/lib/gitlab/gitlab.ts`         | 404のときだけ既定値を返し、それ以外は再スローする                                     |
+| `withNotFoundFallback()` `*` | `src/lib/gitlab/api.ts`            | 404のときだけ既定値を返し、それ以外は再スローする                                     |
 | `isNotFoundError()`          | `src/lib/gitlab/errors.ts`         | ステータスが404か                                                                     |
-| `withGitlabRetry()` `*`      | `src/lib/gitlab/gitlab.ts`         | `lib/gitlab/`の全リクエストに同じリトライ方針を当てる                                 |
+| `withGitlabRetry()` `*`      | `src/lib/gitlab/api.ts`            | `lib/gitlab/`の全リクエストに同じリトライ方針を当てる                                 |
 | `withRetry()`                | `src/utils/retry.ts`               | 待って呼び直す仕組みだけを持ち、再試行の可否も待ち時間の上書きも引数で受け取る        |
 | `isRetryableError()`         | `src/lib/gitlab/errors.ts`         | 再試行してよいステータスか（プラットフォームごとに集合が違う。下記）                  |
 | `retryAfterMs()`             | `src/lib/github/errors.ts`         | `retry-after`ヘッダの秒数（GitHubのみ。`withRetry()`に渡す）                          |
@@ -578,7 +579,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
   ほとんど無い
 
 **代わりに、分岐が漏れたことを検知できるようにしてある。** `test/main.dry-run.test.ts` は
-`src/lib/gitlab/gitlab.ts` ではなく**gitbeakerの境界**（`@gitbeaker/rest` の `Gitlab`）で
+`src/lib/gitlab/api.ts` ではなく**gitbeakerの境界**（`@gitbeaker/rest` の `Gitlab`）で
 モックし、`DRY_RUN=true` の実行で `Tags.create` / `Branches.remove` / `Commits.create` /
 `MergeRequests.create` が1回も呼ばれないことを固定している。ラッパ関数を列挙して確かめるのでは
 なくAPI境界で見ているので、**新しい書き込みを足した人がdry-runを考え忘れても落ちる**。
@@ -949,6 +950,25 @@ values.yamlの書き込み位置は用途を問わず`AnchorLocation`1つ。Type
 （`filter-targets.ts`↔`filterTargets()`）。サブステップも同じで、親stepが呼ぶ1ステップだけを
 公開し、その内部関数は並べて公開しない。
 
+#### `lib/<プラットフォーム>/`はディレクトリ名と同じ名前のファイルを置かず`api.ts`にする
+
+`lib/gitlab/`・`lib/github/`にはそれぞれ`gitlab.ts`・`github.ts`という、ディレクトリ名を
+そのまま繰り返しただけのファイルがあった。CLAUDE.mdの原則4「置き場所を名前にしたファイルは
+作らない」はファイル名の話で、ディレクトリ名の繰り返しも同じ失敗の一種になる
+（`helpers.ts`が「このディレクトリに置くもの」としか言わないのと同じで、
+`gitlab.ts`も「`lib/gitlab/`に置くもの」以上の概念を名乗っていない）。中身は
+`@gitbeaker/rest`・`@octokit/rest` のラッパー（`createClient()`・`listTags()`・
+`getFileContent()`・`withNotFoundFallback()`ほか）で、「そのプラットフォームのAPIを叩く場所」
+という概念を`api.ts`のほうが正確に表すため改名した。公開関数名・型名
+（`createClient()`・`GitlabClient`・`GithubClient`）は変えていない。
+
+`src/lib/config/config.ts`は同じ形（`config/`というディレクトリ名を繰り返すファイル名）だが
+据え置いた。こちらは外部APIのラッパーではなく`config/`配下（`limit-to-target.ts`・
+`find-config-units.ts`・`load-config-unit.ts`等）を束ねて`loadConfig()`だけを公開する
+**入口**で、ファイル名が指しているのは「`config/`に置くもの」ではなく「`config/`の公開窓口」
+という概念。ディレクトリ名と同じ名前になっているのは偶然で、`gitlab.ts`／`github.ts`とは
+理由が違う。
+
 ### ディレクトリ配置
 
 #### `lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く
@@ -962,7 +982,7 @@ values.yamlの書き込み位置は用途を問わず`AnchorLocation`1つ。Type
 - **自前のタグ形式は`lib/`ではない**。`lib/`の判断軸は外部システム・外部で形が決まっている形式への
   依存で、このツール自身が定義したテンプレートはそこに当てはまらない
 - GitLab固有のURLパス形式（`/-/tags/`・`/-/compare/`）に依存する部分だけは`lib/gitlab/`に残す。
-  「外部I/Oは`gitlab.ts`だけ」を保つため、I/Oを持たないURL組み立ては別ファイルにしている
+  「外部I/Oは`api.ts`だけ」を保つため、I/Oを持たないURL組み立ては別ファイルにしている
 - **gitbeakerのエラーの形を読む処理も同じ理由で`lib/gitlab/errors.ts`に置く**。以前は
   `utils/http.ts`にあったが、`cause.response.status`という構造依存に加えて、
   クラス名（`GitbeakerTimeoutError`・`GitbeakerRetryError`）とメッセージの書式
@@ -972,7 +992,7 @@ values.yamlの書き込み位置は用途を問わず`AnchorLocation`1つ。Type
 - **再試行の仕組み（`utils/retry.ts`）と、再試行してよいかの判断（`lib/gitlab/errors.ts`の
   `isRetryableError()`）は分ける**。429/502/503/504という選定はGitLab APIに対する方針で、
   指数バックオフそのものは技術非依存。`withRetry()`は判定を引数で受け取り、
-  `lib/gitlab/gitlab.ts`の非公開`withGitlabRetry()`が両者を束ねる。
+  `lib/gitlab/api.ts`の非公開`withGitlabRetry()`が両者を束ねる。
   採らなかった案は`utils/retry.ts`ごと`lib/gitlab/`へ移すことで、**バックオフの仕組みまで
   GitLab専用にしてしまう**ため見送った（利用者が1ファイルしかないことは`utils/`から
   出す理由にならない。原則2は依存対象だけで決める）

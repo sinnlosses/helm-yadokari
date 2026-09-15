@@ -1,5 +1,4 @@
 import type { PlatformAdapter } from "../platform/adapter.js"
-import { extractHttpStatus, isFatalError } from "./errors.js"
 import {
   type GithubClient,
   branchExists,
@@ -13,11 +12,12 @@ import {
   getProjectWebUrl,
   listTags,
   openMergeRequestExists,
-} from "./github.js"
+} from "./api.js"
+import { extractHttpStatus, isFatalError } from "./errors.js"
 import { buildCompareUrl, buildTagUrl } from "./web-url.js"
 
 /**
- * GitHubクライアントを`PlatformAdapter`の形に組み立てる。`github.ts`の各関数は第1引数に
+ * GitHubクライアントを`PlatformAdapter`の形に組み立てる。`api.ts`の各関数は第1引数に
  * クライアントを取るが、ここで束ねることでクライアントは閉じ込められ、`PlatformAdapter`の
  * 呼び出し側（`steps/`）には見えなくなる（`lib/gitlab/adapter.ts`と同じ形）。
  */

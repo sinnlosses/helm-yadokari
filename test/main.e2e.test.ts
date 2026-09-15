@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 // 「通し（e2e）で守るのは『実ファイル → MRの中身』の連結だけ」参照）。
 //
 // `test/main.dry-run.test.ts` と同じく **gitbeaker（@gitbeaker/rest）の境界**でモックする。
-// `lib/gitlab/gitlab.js` をモックする境界だと、`lib/gitlab/` 自身が組み立てるコミットの
+// `lib/gitlab/api.js` をモックする境界だと、`lib/gitlab/` 自身が組み立てるコミットの
 // actions・MRのパラメータまでは固定できないため。
 //
 // `src/lib/config/config.js` は意図的にモックしない。これがこのファイル固有の存在理由で、

@@ -3,8 +3,8 @@ import { parseArgs } from "node:util"
 import { AccessLevel } from "@gitbeaker/rest"
 
 import { loadEnvConfig } from "../../src/lib/env.js"
+import { createClient } from "../../src/lib/gitlab/api.js"
 import { extractHttpStatus } from "../../src/lib/gitlab/errors.js"
-import { createClient } from "../../src/lib/gitlab/gitlab.js"
 import { toErrorMessage } from "../../src/utils/errors.js"
 import {
   ACCESS_TOKEN_ENV_NAME,

@@ -9,7 +9,7 @@ import {
   toTagName,
   toValuesPath,
 } from "../../../src/domain/types.js"
-import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
+import type { GitlabClient } from "../../../src/lib/gitlab/api.js"
 import {
   branchExists,
   commitFileUpdates,
@@ -24,7 +24,7 @@ import {
   listTags,
   openMergeRequestExists,
   projectExists,
-} from "../../../src/lib/gitlab/gitlab.js"
+} from "../../../src/lib/gitlab/api.js"
 import { makeHttpError } from "../../helpers.js"
 
 function makeClient(

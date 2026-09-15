@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../src/lib/gitlab/gitlab.js")
+vi.mock("../../../src/lib/gitlab/api.js")
 
 import { toBranchName, toProjectId, toTagName, toValuesPath } from "../../../src/domain/types.js"
 import { createGitlabAdapter } from "../../../src/lib/gitlab/adapter.js"
-import { extractHttpStatus, isFatalError } from "../../../src/lib/gitlab/errors.js"
 import {
   type GitlabClient,
   branchExists,
@@ -18,7 +17,8 @@ import {
   getProjectWebUrl,
   listTags,
   openMergeRequestExists,
-} from "../../../src/lib/gitlab/gitlab.js"
+} from "../../../src/lib/gitlab/api.js"
+import { extractHttpStatus, isFatalError } from "../../../src/lib/gitlab/errors.js"
 import { buildCompareUrl, buildTagUrl } from "../../../src/lib/gitlab/web-url.js"
 
 const gitlab = {} as unknown as GitlabClient

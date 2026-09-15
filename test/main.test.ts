@@ -2,8 +2,8 @@ import { existsSync, readFileSync, rmSync } from "node:fs"
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../src/lib/gitlab/gitlab.js")
-vi.mock("../src/lib/github/github.js")
+vi.mock("../src/lib/gitlab/api.js")
+vi.mock("../src/lib/github/api.js")
 vi.mock("../src/lib/config/config.js")
 vi.mock("../src/utils/logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -24,7 +24,7 @@ import {
 import { loadConfig } from "../src/lib/config/config.js"
 import { DEFAULT_CONFIG_ROOT_PATH } from "../src/lib/config/config.js"
 import type { EnvConfig } from "../src/lib/env.js"
-import { createClient as createGithubClient } from "../src/lib/github/github.js"
+import { createClient as createGithubClient } from "../src/lib/github/api.js"
 import {
   commitFileUpdates,
   createClient,
@@ -35,7 +35,7 @@ import {
   getProjectWebUrl,
   listTags,
   openMergeRequestExists,
-} from "../src/lib/gitlab/gitlab.js"
+} from "../src/lib/gitlab/api.js"
 import { run } from "../src/main.js"
 import { FatalError } from "../src/utils/errors.js"
 import { makeApp, makeConfigUnit, makeHttpError, mockGitlab } from "./helpers.js"

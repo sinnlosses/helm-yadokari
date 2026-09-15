@@ -4,7 +4,7 @@ import {
   branchExists,
   getFileContent,
   projectExists,
-} from "../../../src/lib/gitlab/gitlab.js"
+} from "../../../src/lib/gitlab/api.js"
 import { cacheByArgs } from "../../../src/utils/cache.js"
 
 /**

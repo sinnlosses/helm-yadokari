@@ -4,7 +4,7 @@ import { isFeatureBranch } from "../../src/domain/feature-branch.js"
 import { findLatestParsedTag, parseTag, validateTagFormat } from "../../src/domain/tag-format.js"
 import { toBranchName, toTagName } from "../../src/domain/types.js"
 import { loadEnvConfig } from "../../src/lib/env.js"
-import { createClient } from "../../src/lib/gitlab/gitlab.js"
+import { createClient } from "../../src/lib/gitlab/api.js"
 import { toErrorMessage } from "../../src/utils/errors.js"
 
 // 実機スモークテスト（docs/smoke-test.md）用のフィクスチャ操作スクリプト。

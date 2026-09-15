@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../../src/lib/gitlab/gitlab.js")
+vi.mock("../../../../src/lib/gitlab/api.js")
 
 import { validateRemoteExistence } from "../../../../scripts/lint/remote-existence/remote-existence.js"
 import {
@@ -11,7 +11,7 @@ import {
   toProjectName,
   toValuesPath,
 } from "../../../../src/domain/types.js"
-import { branchExists, getFileContent, projectExists } from "../../../../src/lib/gitlab/gitlab.js"
+import { branchExists, getFileContent, projectExists } from "../../../../src/lib/gitlab/api.js"
 import { makeApp, makeConfigUnit, mockGitlab } from "../../../helpers.js"
 
 const VALUES_YAML = `variables:\n  - &appVersion main-build-at-20260101-000000\n  - &targetBranch main\n`

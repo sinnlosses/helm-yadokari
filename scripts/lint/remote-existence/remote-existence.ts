@@ -6,7 +6,7 @@ import type {
   ConfigUnit,
   HelmConfig,
 } from "../../../src/domain/types.js"
-import type { GitlabClient } from "../../../src/lib/gitlab/gitlab.js"
+import type { GitlabClient } from "../../../src/lib/gitlab/api.js"
 import { lookupValueAtAnchor } from "../../../src/lib/helm.js"
 import { toErrorMessage } from "../../../src/utils/errors.js"
 import { mapWithConcurrency } from "../../../src/utils/parallel.js"

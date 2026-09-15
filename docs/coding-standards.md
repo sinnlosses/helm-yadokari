@@ -122,7 +122,7 @@ sed -n '/^### 消すかどうか/,/^#\{2,4\} /p' docs/coding-standards.md
   `try`/`catch` でしか書けなくなり、`steps/`の規約と正面から衝突する。`sequential.ts` も
   `const` の規約と衝突する。**既存の2つの規約を壊してまで得られるのは書き方の統一だけ**
 - **規約にしない（どちらでもよい）**: 判断が読み手ごとに割れる。実例として、
-  `scripts/smoke/smoke-fixture.ts` のファイル存在確認は `src/lib/gitlab/gitlab.ts` の
+  `scripts/smoke/smoke-fixture.ts` のファイル存在確認は `src/lib/gitlab/api.ts` の
   `withNotFoundFallback()` と同じ意図なのに書き方が違っていた
 
 `src/index.ts` の起動チェーンは、`"type": "module"` + `module: ESNext` + Node 22 で
@@ -246,7 +246,7 @@ top-level await が使えるため `await` + `try`/`catch` で書く。`try` が
 - テストは `test/` 以下に、テスト対象と同じディレクトリ構成で置く（`src/` 配下は
   `test/<srcからの相対パス>`、`scripts/` 配下は `test/scripts/<...>`）
 - GitLab API クライアント（`@gitbeaker/rest`）は `vi.mock` でモックする
-  （`test/lib/gitlab/gitlab.test.ts` 参照）。各ステップのテストは `lib/gitlab/gitlab.js` を
+  （`test/lib/gitlab/api.test.ts` 参照）。各ステップのテストは `lib/gitlab/api.js` を
   モックする
 - 非公開関数（`buildPlan()` 等）は、エクスポートされた関数の振る舞いを通して検証する。
   テストのためだけの `export` を足さない（上の「関数の並び順」節と同じ規約。例外もそちら）
@@ -284,7 +284,7 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
   「単独形はいずれも設定エラーになる」ことは`docs/requirements.md` 4.1節が定める仕様なので
   削除はせず、`it.each`で1件の表形式テストに畳んで意図だけ残した（アサーションは1つも
   減らしていない）
-- `test/lib/gitlab/gitlab.test.ts`「createClient > Gitlab インスタンスを返す」: 薄いラッパの
+- `test/lib/gitlab/api.test.ts`「createClient > Gitlab インスタンスを返す」: 薄いラッパの
   確認に見えるが、skip すると `createClient` の唯一の守り手を失う（下の削除の手続き2番目の
   基準に引っかかる）
 - `test/lib/config/schema.test.ts` 全6件と

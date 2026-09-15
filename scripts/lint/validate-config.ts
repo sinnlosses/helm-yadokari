@@ -5,7 +5,7 @@ import { toConfigRootPath } from "../../src/domain/types.js"
 import type { LoadedConfig } from "../../src/lib/config/config.js"
 import { DEFAULT_CONFIG_ROOT_PATH, loadConfig } from "../../src/lib/config/config.js"
 import { loadAccessTokens, loadEnvConfig } from "../../src/lib/env.js"
-import { createClient } from "../../src/lib/gitlab/gitlab.js"
+import { createClient } from "../../src/lib/gitlab/api.js"
 import {
   findMissingAccessTokenProblems,
   groupByAccessTokenEnv,

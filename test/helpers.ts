@@ -22,8 +22,8 @@ import {
   toTagName,
   toValuesPath,
 } from "../src/domain/types.js"
+import type { GitlabClient } from "../src/lib/gitlab/api.js"
 import { extractHttpStatus, isFatalError } from "../src/lib/gitlab/errors.js"
-import type { GitlabClient } from "../src/lib/gitlab/gitlab.js"
 import type { PlatformAdapter } from "../src/lib/platform/adapter.js"
 import type { PlatformAdapterWithCachedReads } from "../src/lib/platform/cached-reads.js"
 import { withCachedReads } from "../src/lib/platform/cached-reads.js"
@@ -35,7 +35,7 @@ export const makeHttpError = (status: number): Error =>
 /**
  * `vi.mock()`でモックしたGitLabクライアントの置き換え先。実体は使われないため空オブジェクトで
  * 足りる。`as`を使う箇所をここ1つに閉じ込めるためテスト側では組み立てない。
- * `main.test.ts`のように`lib/gitlab/gitlab.js`ごとモックする層のテストでのみ使う
+ * `main.test.ts`のように`lib/gitlab/api.js`ごとモックする層のテストでのみ使う
  * （`createClient`の戻り値の置き換え先）。`steps/`のテストは`PlatformAdapter`を直接偽装する
  * `makeAdapter()`を使うため、`GitlabClient`を組み立てる必要が無い。
  */
