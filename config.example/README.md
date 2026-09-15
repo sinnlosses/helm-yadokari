@@ -26,11 +26,11 @@ pnpm lint:validate-config:remote   # 実在チェック（要 .env、読み取�
 
 ## 何を例示しているか
 
-| ファイル                                       | 例示している構成                                                     |
-| ---------------------------------------------- | -------------------------------------------------------------------- |
-| `my-team-chart/registry.yaml`                  | chartリポジトリ単位の設定と、ソースリポジトリのタグ形式の台帳        |
-| `my-team-chart/my-unit/config.yaml`            | 深さ1の設定ユニット。1app・1箇所だけの最小構成                       |
-| `my-team-chart/my-tenant/client-a/config.yaml` | 深さ2の設定ユニット。複数app・1appから複数 `valuesPath` への書き込み |
+| ファイル                                       | 例示している構成                                                                              |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `my-team-chart/registry.yaml`                  | chartリポジトリ単位の設定（`accessTokenEnv`の宣言を含む）と、ソースリポジトリのタグ形式の台帳 |
+| `my-team-chart/my-unit/config.yaml`            | 深さ1の設定ユニット。1app・1箇所だけの最小構成                                                |
+| `my-team-chart/my-tenant/client-a/config.yaml` | 深さ2の設定ユニット。複数app・1appから複数 `valuesPath` への書き込み                          |
 
 ## chartリポジトリ側の `values.yaml`
 

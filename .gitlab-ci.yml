@@ -23,14 +23,19 @@ spec:
 ---
 # ──────────────────────────────────────────────────────────────────
 # 【必須】Settings > CI/CD > Variables に以下を登録してください:
-#   GITLAB_URL    — GitLab の URL（例: https://gitlab.example.com）
-#                   ※ Protected: OFF（下記 ACCESS_TOKEN と同じ理由）
-#   ACCESS_TOKEN  — GitLab Group/Project Access Token
-#                   （read_api + write_repository + MR作成権限。最小権限で発行すること）
-#                   ※ Masked: ON / Protected: OFF
-#                   Protected にすると保護ブランチ以外のパイプラインで空になり、
-#                   MR時の設定検証（validate-config-remote）が実行できなくなるため。
-#                   MRのたびに設定の実在チェックを確実に通す運用を優先している
+#   GITLAB_URL           — GitLab の URL（例: https://gitlab.example.com）
+#                          ※ Protected: OFF（下記 ACCESS_TOKEN と同じ理由）
+#   ACCESS_TOKEN         — GitLab Group/Project Access Token
+#                          （read_api + write_repository + MR作成権限。最小権限で発行すること）
+#                          registry.yaml で accessTokenEnv を宣言していない chart があるときだけ必須
+#                          ※ Masked: ON / Protected: OFF
+#                          Protected にすると保護ブランチ以外のパイプラインで空になり、
+#                          MR時の設定検証（validate-config-remote）が実行できなくなるため。
+#                          MRのたびに設定の実在チェックを確実に通す運用を優先している
+#   ACCESS_TOKEN_<GROUP> — registry.yaml の accessTokenEnv で宣言した名前のトークン
+#                          （グループごとに1本。複数グループで運用する場合のみ登録。
+#                          README.md「複数グループで運用する」参照）
+#                          ※ Masked: ON（可能なら Masked and hidden） / Protected: OFF
 # ──────────────────────────────────────────────────────────────────
 
 workflow:
