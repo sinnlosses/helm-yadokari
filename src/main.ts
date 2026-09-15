@@ -123,9 +123,9 @@ function buildAdaptersByAccessToken(
 
 /** `env.platform`（1回の実行でGitLab/GitHubを混在させない選択）に応じてPlatformAdapterを組み立てる */
 function createPlatformAdapter(env: EnvConfig, accessToken: AccessToken): PlatformAdapter {
-  return env.platform === "github"
-    ? createGithubAdapter(createGithubClient(env.platformUrl, accessToken))
-    : createGitlabAdapter(createGitlabClient(env.platformUrl, accessToken))
+  return env.platform === "gitlab"
+    ? createGitlabAdapter(createGitlabClient(env.platformUrl, accessToken))
+    : createGithubAdapter(createGithubClient(env.platformUrl, accessToken))
 }
 
 function summarizeResults(
