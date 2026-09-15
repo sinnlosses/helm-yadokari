@@ -3,7 +3,7 @@
 最終更新: 2026-09-16（T-253 完了。`/plan-tasks` で T-253・T-254 を登録。前回: T-242〜T-252 をすべて完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
 `filterTargets → resolveTags → buildPlans → applyUpdates` の4stepにした**（T-229〜T-231）。
 `createResolveLatestTags()` のバッチ寿命キャッシュは消滅し、重複排除は集合演算になった。
-前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-14以前の「完了したこと」は
+前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-15以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
 **未着手のタスクは1件**（T-254 のみ。`loopable: "N"` なので `/loop` では進まず、ユーザーが直接
@@ -24,127 +24,6 @@
 - 改名の理由（原則4「置き場所を名前にしたファイルは作らない」はディレクトリ名の繰り返しにも当てはまる）と、
   `src/lib/config/config.ts` を据え置いた理由（`config/` の公開入口であって外部APIのラッパーではない）を
   `docs/architecture.md`「型と命名」に `####` 節として残し、冒頭の索引にも足した
-
-### 2026-09-15 パス5の CI 検証
-
-- **T-252: main を push し、CI 変数 `ACCESS_TOKEN_SMOKE_A/_B`（masked and hidden）を登録、MR !2 で
-  `validate-config-remote` の成功と否定系（変数B削除で chart B を列挙して失敗）を確認、MR クローズ後の schedule play で
-  `update-app-versions` の成功と artifacts のレポート回収を確認した**（メインで実施、手順ごとにユーザー承認）
-- 発見3つ: (1) `config/` を変えると `test/main.e2e.test.ts` も追随が要る（初回 MR で `check` が落ちた。ブランチ上で
-  fake と env を足して通した）→ `config/README.md` に節を追加。(2) オープン中の MR があるブランチは
-  `workflow.rules` で schedule 起動が抑止される。(3) schedule 変数 API が 403 で `DRY_RUN=true` が効かず本番モードで
-  走った（全ユニット `mr_exists` で書き込みなし）。手動検証は UI の Run pipeline を使う旨を `docs/smoke-test.md` に記録
-- 後片付け: MR !2 クローズ、リモートブランチ削除、一時 schedule 削除。CI 変数 A/B は残置。ローカルブランチ
-  `smoke/pass5-ci`（e2e の追随パッチ入り）は未 push のまま残してある
-
-### 2026-09-15 実機スモーク パス5（複数グループ、gitlab.com）
-
-- **`provision-group.ts provision --group-path sinnlosses-other-group --use-existing-group --skip-token --apply` で
-  chart B（86489420）とソースB（86489421）を作り、パス5 (a)〜(d) を流した**。config/ に chart B の2ファイルと
-  chart1/2 の `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を一時配置（検証後に戻した）。`.env` の `ACCESS_TOKEN_SMOKE_A/_B` は
-  同じ `api` PAT（Free のため）
-- 実測: (a) CREATED:5・exit 0（ソースB にタグ自動作成、chart B に MR !1）／(b) B のトークン不正 → `smoke-b-app` だけ
-  ERROR（`HTTP 401` のメッセージ）、A は SKIPPED(mr_exists)、`fatal_error` なし、exit 1／(c) B の変数未設定 → 実在チェックは
-  chart B を列挙して失敗、`pnpm dev` は B だけ ERROR で exit 1／(d) 既定 `ACCESS_TOKEN` 空 → SKIPPED:5・exit 0。
-  **「片方の 401 が他方を止めない」を実機で確認できた**。トークンの境界（別トークンが別グループに届かないこと）は
-  Free では検証できない
-- gitlab.com の制約: API からトップレベルグループを作れない（403）、Free では Group/Project Access Token を
-  発行できない（400）。`docs/smoke-test.md`「期待する結果 > パス5」を実測に置き換えた
-- 後片付けは未実施（グループA/B の MR はオープンのまま。次回は `reset` から始める）
-
-### 2026-09-15 `provision-group.ts` に既存グループ利用とトークンスキップ
-
-- **T-250: `--use-existing-group`（プロジェクト0件のときだけ）と `--skip-token` を足した**（sonnet に委譲）。
-  gitlab.com は API からトップレベルグループを作れず（403）、Free では Group Access Token も発行できない（400）
-  ため。UI で空グループを作ってから `--use-existing-group --skip-token --apply` で続ける手順に
-- `pnpm check` 通過: 46 Test Files / 564 Tests（563→564）。**空グループでの `--apply` はユーザー承認待ち**
-
-### 2026-09-15 gitlab.com Free の制約を注記
-
-- **T-251: gitlab.com Free では Group/Project Access Token を発行できない制約と、グループ単位のボットユーザー PAT に
-  よる代替を `docs/requirements.md` 5章・`README.md`・`docs/glossary.md` に注記した**（sonnet に委譲）。実機で
-  `POST /groups/:id/access_tokens` が 400 になることと `plan: free` を確認したうえでの追記
-
-### 2026-09-15 グループB作成スクリプト
-
-- **T-249: `scripts/smoke/provision-group.ts` を足した**（sonnet に委譲）。`provision` はトップレベルグループ・
-  chart/ソースリポジトリ・向き先ブランチ・`values.yaml`・シードタグ＋1コミット・Group Access Token を作り、
-  `token` は既存グループ（グループA）にトークンを発行する。認証は `.env` の `ACCESS_TOKEN`（`api` スコープの
-  PAT、ユーザー決定）。純粋関数は `group-fixture-content.ts` に分離（初回は「テストのためだけの export」と
-  `import.meta.url` のエントリポイント判定があり、差し戻して直させた）
-- dry-run は実施済み（8手順を列挙）。**`--apply` はユーザー承認待ち**
-- `pnpm check` 通過: 46 Test Files / 563 Tests（555→563）
-
-### 2026-09-15 本物のグループ2つで検証する手順を書く
-
-- **T-248: `docs/smoke-test.md` に「パス5: 複数グループ（宣言トークン）」を足した**（sonnet に委譲）。
-  `smoke-fixture.ts` は環境変数名が固定で2グループ目を作れない（予備スロットを流用してもシードタグの
-  取得元がグループAの `SMOKE_QA_SPRINT_PROJECT_ID` に固定され、projectId がグループAと重なる）ため、
-  chart B・ソースリポジトリ1つ・向き先ブランチ・アンカー2つ・シードタグを手で用意する手順にした。
-  `config/` への常設はしない（`config/README.md` に理由）。**実機は未実施**。ユーザーが2グループ目と
-  Group Access Token 2本を用意してから流す
-- `pnpm check` 通過: 45 Test Files / 555 Tests（不変）
-
-### 2026-09-15 実機スモーク（GitLab、宣言トークン、読み取りのみ）
-
-- `config/` の2 chart に一時的に `accessTokenEnv: ACCESS_TOKEN_SMOKE` を足し、`DRY_RUN=true pnpm dev` と
-  `pnpm lint:validate-config:remote` を流した（書き込みなし。config は `git checkout` で戻した）:
-  宣言なし → 実在チェック OK／chart1 だけ宣言 → ローカル検証で projectId 82861978 の衝突を検出／
-  両方宣言＋`ACCESS_TOKEN` 空 → 実在チェック OK・DRY_RUN は SKIPPED:4（宣言トークンだけで動く）／
-  宣言した変数が未設定 → 実在チェックは2 chart を列挙して失敗、DRY_RUN は組み立て時に即時終了
-  （上記メッセージ修正のきっかけ）／宣言トークンが不正 → DRY_RUN は `fatal_error` なしで ERROR:4・exit 1、
-  実在チェックは設定ユニットごとに `401 Unauthorized` を並べて exit 1／宣言なし＋既定トークン不正 →
-  従来どおり `fatal_error` httpStatus 401
-- **未実施**: 「宣言トークンの 401 が片方の chart だけ ERROR で、もう片方は続行」の実機確認。フィクスチャの
-  2 chart が同じソースリポジトリ（projectId 82861978）を共有しており、別トークンに分けると設定エラーに
-  なるため。単体テスト（`test/main.test.ts`）でのみ検証済み
-
-### 2026-09-15 複数トークン化の追随漏れを洗う
-
-- **T-247: `maintain-docs` の7検査をかけ、`CLAUDE.md`・`docs/coding-standards.md`・`docs/architecture.md` の
-  「1回の実行＝1トークン」前提の記述を直した**（sonnet に委譲）。候補群の指摘（`coding-standards.md` が
-  参照する `test/utils/{fs,partition,timer}.test.ts` の実在など）は今回と無関係の既存ドリフトなので据え置き
-- `pnpm check` 通過: 45 Test Files / 554 Tests（不変）
-
-### 2026-09-15 複数グループ運用の手順を README に書く
-
-- **T-246: README「CI/CD」に「複数グループで運用する」小節を足し、CI/CD 変数表・環境変数表・`config/` 節・
-  `.gitlab-ci.yml` 冒頭コメント・`config.example/README.md` を `accessTokenEnv` と `ACCESS_TOKEN_<GROUP>` の
-  前提に揃えた**（sonnet に委譲）。正典（requirements 5章・4.4節、architecture）へのリンクで指し、手順と注意点だけを書く
-- `pnpm check` 通過: 45 Test Files / 554 Tests（不変。ドキュメントのみ）
-
-### 2026-09-15 `validate-config-remote` をトークンごとに分解
-
-- **T-245: `scripts/lint/validate-config.ts --remote` を `accessTokenEnv` でグループ分けし、グループごとに
-  `createClient()` + `validateRemoteExistence()` を呼ぶ形にした**（sonnet に委譲）。グループ分けと欠落判定は
-  `scripts/lint/remote-existence/access-token-groups.ts`。本体と違い必要トークンが1本でも未設定なら
-  全件並べて失敗（MR をマージしてよいかの判定なので、検証できない chart を成功にしない）
-- `pnpm check` 通過: 45 Test Files / 554 Tests（548→554）。実機での `pnpm lint:validate-config:remote` は未実施
-
-### 2026-09-15 `ProjectId` でトークンを振り分けるアダプタ
-
-- **T-244: `src/lib/platform/routed-adapter.ts` の `createRoutedAdapter()` を足し、`runPipeline()` を
-  `loadConfig()` → `loadAccessTokens()` → 名前ごとの `createPlatformAdapter(env, token)` →
-  `withCachedReads(createRoutedAdapter(...))` に配線し直した**（sonnet に委譲）。`steps/` は無変更。
-  宣言トークンの 401 は `cause` 付きの素の `Error` に読み替える。`extractHttpStatus()` は
-  `cause.response.status` を1段しか見ないため、包み直した例外からは 401 が拾われず fatal にならない
-  （`test/main.test.ts` で実際の `errors.ts` を通して ERROR:1 / CREATED:1 を確認）
-- **全トークン欠落時のメッセージ**: 実行対象が「宣言はあるが未設定」の chart だけで既定 `ACCESS_TOKEN` も
-  無いと、代表アダプタ不在で組み立て時に即時終了する。設計時は「起きにくい」と据え置いたが、実機の
-  スモークで初期セットアップの変数付け忘れとして普通に踏むと分かり、`assertDeclaredAdapterAvailable()` で
-  chart 名×環境変数名を全件並べたメッセージにした（タスクIDなし、2026-09-15）
-- サブエージェントは正典の「`withAppContext()` より内側」を読み違えて疑問を報告したが、
-  アダプタ関数の中で読み替える実装は `withAppContext()` が包む呼び出しの内側なので正典どおり
-- `pnpm check` 通過: 44 Test Files / 548 Tests（538→548）
-
-### 2026-09-15 `registry.yaml` のトークン宣言を読めるようにする
-
-- **T-243: `accessTokenEnv` を `RegistryYamlSchema` → `ConfigUnit` に通し、`validateAccessTokenEnvConsistency()` と
-  `LoadedConfig.accessTokenEnvNames`、`env.ts` の `loadAccessTokens()` を足した**（sonnet に委譲）。
-  `EnvConfig.accessToken` は `| undefined` になり、`main.ts`・`validate-config.ts`・`smoke-fixture.ts` は
-  未設定時に従来同等の例外を投げる最小対処だけ（振り分けは T-244）。既知の限界: どの `config.yaml` からも
-  参照されない `appSpecs[]` の項目は整合性検証の対象外（`validateTagFormatConsistency()` と同じ前提）
-- `pnpm check` 通過: 43 Test Files / 538 Tests（516→538）
 
 ## 次にやること
 
