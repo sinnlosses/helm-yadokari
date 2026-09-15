@@ -9,6 +9,68 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-16（13回目）
+
+生成したタスク: T-255（`scripts/smoke/` の2本を `EnvConfig.accessToken` から切り離す）、
+T-256（`config/` の2つの `registry.yaml` に `accessTokenEnv` を宣言。`loopable: N`）、
+T-257（`accessTokenEnv` の必須化と既定 `ACCESS_TOKEN` 経路の削除。`opus` / `loopable: N`）、
+T-258（利用者向けドキュメントの追随）。タスクにしなかった項目: なし。
+きっかけは `buildAdaptersByAccessToken()` を読んだユーザーの「既定のアクセストークンは本当に
+必要か、フォールバックがあると間違ったトークンでアクセスしないか」という問い。調べた結果、
+`fallback` はリトライの退避先ではなく「未宣言ルート」で、宣言トークンが読めないときは
+`Route.kind === "missing"` で失敗するため**誤ったトークンで叩く経路は無い**と確認した。
+一方で「宣言の書き忘れが黙って権限の広い既定トークンに落ちる」という別のリスクが実在したため、
+必須化に進めることをユーザーが決めた。トークン名を `ACCESS_TOKEN_<グループ名>` の1ルールに
+寄せる方針と、その名前空間に乗らない `provision-group.ts` 用PATを `GITLAB_PROVISION_PAT` に
+することも会話で決めて、下のメモに反映済み。
+
+## `registry.yaml` の `accessTokenEnv` を必須化し、既定の `ACCESS_TOKEN` を廃止する
+
+（2026-09-16 ユーザー判断）
+
+**動機**: `accessTokenEnv` が任意フィールドなので、chartリポジトリが宣言を書き忘れると設定エラーに
+ならず、黙って既定 `ACCESS_TOKEN`（未宣言chart全部に届く＝いちばん権限の広いトークン）に流れる。
+`config/` は各チームがMRを送るセルフサービス方式なので、「書き漏れ＝権限の拡大」になる形を残す
+理由が薄い。`validate.ts` の既存検証が弾くのは「同じ `projectId` が別々の `accessTokenEnv` に
+結びつく」ケースだけで、新規chartの単なる書き漏れは通る。
+
+**やること**: `accessTokenEnv` を必須にし、既定トークンの経路を丸ごと削る。
+
+- `EnvConfig.accessToken` と `loadOptionalAccessToken()`（`src/lib/env.ts`）
+- `AdaptersByAccessToken.fallback`、`Route` の `fallback` バリアント、`assertFallbackAvailable()`
+  （`src/lib/platform/routed-adapter.ts`）。`buildAdaptersByAccessToken()`（`src/main.ts`）も
+  `declared` だけになる
+- 401 の非対称分岐（宣言トークンは chart単位 `ERROR`、既定トークンは `FatalError` で即時終了）を
+  なくし、chart単位 `ERROR` に統一する
+- `scripts/lint/remote-existence/access-token-groups.ts` の既定グループ
+- `domain/brand.ts` の「既定の `ACCESS_TOKEN` は省略で表す」という説明とエラーメッセージ。
+  `ACCESS_TOKEN`（接尾辞なし）を設定エラーにする規則自体は残す
+
+**移行**: `config/` の `yadokari-smoke-test-chart` / `yadokari-smoke-test-chart2` はどちらも
+宣言なしなので、両方に `accessTokenEnv` を書き、対応するCI/CD変数（およびローカルの `.env`）を
+付け替える。**CI/CD変数の登録・付け替えはユーザーが行う**（`ACCESS_TOKEN` の削除タイミングを
+含め、作業前に何を登録すればよいか提示すること）。
+
+**追随が要るドキュメント**: `docs/requirements.md` 4.3節（401の波及範囲）・4.4節
+（`accessTokenEnv` は任意／省略で既定を表す）、`docs/architecture.md`「アクセストークンは
+chartリポジトリ単位に宣言し…」節、`README.md` の環境変数一覧と CI/CD 章、`.env.example`、
+`.gitlab-ci.yml` のコメント、`config/README.md`・`config.example/`。
+
+**トークンの名前は `ACCESS_TOKEN_<グループ名>` の1ルールに寄せる**（会話で決定）。既定の
+`ACCESS_TOKEN`（接尾辞なし）はリポジトリから消す。`accessTokenEnv` に書ける名前を
+`^ACCESS_TOKEN_[A-Z0-9_]+$` に限る規則は残すが、理由は「既定は省略で表すから」ではなく
+「無関係な秘密をCLIに読み出させないため」だけになる。
+
+**`scripts/smoke/` の2本は `EnvConfig.accessToken` から切り離す**（会話で決定）。どちらも
+`loadEnvConfig()` の `env.accessToken` を読んでいるので、フィールドを消すと壊れる。
+
+- `smoke-fixture.ts` … 叩くAPIが `Tags`/`Branches`/`Commits`/`MergeRequests`/`Projects.show` と
+  グループAの既存プロジェクト内で完結するため、`ACCESS_TOKEN_SMOKE_A` をそのまま読む
+- `provision-group.ts` … `Groups.create`（トップレベルグループの新規作成）と
+  `GroupAccessTokens.create` を叩き、`ACCESS_TOKEN_SMOKE_B` を**発行する側**なのでそれを
+  入力にできない。`ACCESS_TOKEN_<グループ名>` の名前空間の外に出し、`GITLAB_PROVISION_PAT`
+  （api スコープの個人PAT）という名前にする
+
 ## 2026-09-16（12回目）
 
 生成したタスク: T-253（`lib/gitlab/gitlab.ts`・`lib/github/github.ts` を `api.ts` へ改名）、

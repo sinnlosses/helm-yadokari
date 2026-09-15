@@ -1,13 +1,13 @@
 # 現在の状態
 
-最終更新: 2026-09-16（T-253・T-254 完了で**登録済みのタスクは全件 done**。`/plan-tasks` で T-253・T-254 を登録。前回: T-242〜T-252 をすべて完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
+最終更新: 2026-09-16（`/plan-tasks` で T-255〜T-258 を登録。前回: T-253・T-254 を完了。前回: T-242〜T-252 をすべて完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
 `filterTargets → resolveTags → buildPlans → applyUpdates` の4stepにした**（T-229〜T-231）。
 `createResolveLatestTags()` のバッチ寿命キャッシュは消滅し、重複排除は集合演算になった。
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-15以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは0件**（次に進めるものが無いので、`develop/direction.md` に指示を書いて
-`/plan-tasks` にかけるところから）。
+**未着手のタスクは4件**（T-255〜T-258。既定 `ACCESS_TOKEN` の廃止と `accessTokenEnv` の必須化）。
+T-256・T-257 は `loopable: N` なので `/loop` では進まない。
 **T-239〜T-248 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
 （`develop/tasks.json` に残る `done` は T-249〜T-254 の6件）。完了タスクは
@@ -35,15 +35,45 @@
 
 ## 次にやること
 
+**既定 `ACCESS_TOKEN` の廃止と `accessTokenEnv` の必須化を T-255〜T-258 として登録した**
+（2026-09-16、`/plan-tasks`）。きっかけは `buildAdaptersByAccessToken()` を読んだユーザーの
+「既定トークンは本当に必要か」という問い。調べた結果 **`fallback` は誤ったトークンで叩く経路では
+なかった**（宣言トークンが読めないときは `Route.kind === "missing"` で失敗する）が、
+「宣言の書き忘れが黙って権限の広い既定トークンに落ちる」という別のリスクが実在したため必須化する。
+依存は **T-255・T-256（並列） → T-257 → T-258**:
+
+- **T-255**（`sonnet` / `loopable: Y`）: `scripts/smoke/smoke-fixture.ts`・`provision-group.ts` を
+  `EnvConfig.accessToken` から切り離す。前者は `ACCESS_TOKEN_SMOKE_A`、後者は
+  `GITLAB_PROVISION_PAT`（api スコープの個人PAT）を `process.env` から直接読む。**先に切り離さないと
+  T-257 で型が壊れる**
+- **T-256**（`sonnet` / `loopable: N`）: `config/` の2つの `registry.yaml` に
+  `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を宣言する。**CI/CD変数 `ACCESS_TOKEN_SMOKE_A` の
+  登録確認はユーザーが行う**（未登録のまま push すると `validate-config-remote` が失敗する）
+- **T-257**（`opus` / `loopable: N`）: `accessTokenEnv` を必須化し、`EnvConfig.accessToken`・
+  `AdaptersByAccessToken.fallback`・`Route` の `fallback` バリアント・`assertFallbackAvailable()`・
+  `access-token-groups.ts` の既定グループを削る。**401の波及範囲を chart単位 `ERROR` に一本化**し、
+  `docs/requirements.md` 4.3・4.4節と `docs/architecture.md` の該当節を書き換える。
+  正典の仕様記述を変えるため `/loop` には載せない
+- **T-258**（`sonnet` / `loopable: Y`）: `README.md`・`.env.example`・`.gitlab-ci.yml`・
+  `config/README.md`・`config.example/`・`docs/smoke-test.md` を追随させる
+
+会話で決めた方針: **CLI が読むトークンは `ACCESS_TOKEN_<グループ名>` の1ルールに寄せる**。
+`^ACCESS_TOKEN_[A-Z0-9_]+$` の制約は残すが、理由は「既定は省略で表すから」ではなく
+「無関係な秘密をCLIに読み出させないため」だけになる。`provision-group.ts` は
+`ACCESS_TOKEN_SMOKE_B` を**発行する側**でその名前空間に乗らないため、`GITLAB_PROVISION_PAT` と
+いう別名にした。**CI/CD変数と `.env` からの `ACCESS_TOKEN` 削除はユーザーの作業**（T-257 完了後）。
+
+指示メモは [`docs/history/direction.md`](../docs/history/direction.md) の「2026-09-16（13回目）」。
+
 **`lib/` のファイル名整理を T-253・T-254 として登録した**（2026-09-16、`/plan-tasks`）。
 互いに独立（触るファイルが重ならない。どちらも `docs/architecture.md` に追記するが別の節）:
 
-- **T-253**（`sonnet` / `loopable: Y`）: `src/lib/gitlab/gitlab.ts`・`src/lib/github/github.ts` を
+- ~~**T-253**~~（done）: `src/lib/gitlab/gitlab.ts`・`src/lib/github/github.ts` を
   同ディレクトリ内の `api.ts` へ改名し、`src/`・`scripts/`・`test/`（テストファイル名も）と
   `docs/architecture.md`・`docs/coding-standards.md` を追随させる。**`src/lib/config/config.ts` は据え置き**
   （ユーザー確認済み。`config/` の公開入口であって外部APIのラッパーではないため）。この判断は
   `docs/architecture.md`「型と命名」に新しい `####` 節として残す
-- **T-254**（`opus` / `loopable: N`）: `src/lib/platform/routed-adapter.ts`（232行）を変更理由ごとに
+- ~~**T-254**~~（done）: `src/lib/platform/routed-adapter.ts`（232行）を変更理由ごとに
   分割すべきか判断し、分けるなら実施する。`docs/architecture.md`「1ファイルにまとめるか分けるか」は
   **行数だけを理由に割らない**と明記しているため、分ける合図①〜④が成り立つことを確かめてから割り、
   成り立たなければ `passes: false` で閉じる逃げ道を本文に書いてある。**ファイル構成の切り方
