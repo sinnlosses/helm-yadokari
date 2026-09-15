@@ -303,6 +303,15 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - **140行でも230行でも分けなかったファイルがある**。どちらも「1つの理由で全関数が一緒に
   書き換わる」「非公開ヘルパーを全員が共有している」に当てはまり（まとめる合図①②）、
   行数だけを理由に割るとその共有が壊れる
+- **232行でも分けなかった実例が`lib/platform/routed-adapter.ts`**。合図⑤しか成り立たず、
+  ①責務は「`ProjectId`から使うアダプタを決めて委譲する」の一言、②委譲テーブルの変更は
+  `platform/adapter.ts`・`gitlab/adapter.ts`・`github/adapter.ts`を必ず同時に開くので切り出しても
+  開く枚数は減らない、③非公開8関数は`Route`型と`AdaptersByAccessToken`を共有して1グループ、
+  ④依存は全員`domain/types.js`と`./adapter.js`だけ。加えて`resolveRoute()`と`firstDeclared()`の
+  「到達しない防御的な分岐」というコメントは、同居する`assertFallbackAvailable()`／
+  `assertDeclaredAdapterAvailable()`が組み立て時に弾くことを根拠にしている。離すとこの根拠が
+  読者から見えなくなり、`Route`・`buildRoutes()`・`lookupRoute()`・`callRoute()`が`export`に昇格して
+  公開面が2つから6つに増える
 - **239行で分けたファイルもある**。変更理由が別で、非公開ヘルパーも2グループに割れていた
   （分ける合図②③）。**行数は分けた理由ではない**
 - **単発のヘルパーに1ファイルを与えない**。「役割で括れて複数を並べられる」単位が別ファイルに

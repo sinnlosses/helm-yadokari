@@ -1,20 +1,28 @@
 # 現在の状態
 
-最終更新: 2026-09-16（T-253 完了。`/plan-tasks` で T-253・T-254 を登録。前回: T-242〜T-252 をすべて完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
+最終更新: 2026-09-16（T-253・T-254 完了で**登録済みのタスクは全件 done**。`/plan-tasks` で T-253・T-254 を登録。前回: T-242〜T-252 をすべて完了。`/plan-tasks` で T-242〜T-247 を登録。前回まで: **最新タグの解決を `resolve-tags` step に切り出し、パイプラインを
 `filterTargets → resolveTags → buildPlans → applyUpdates` の4stepにした**（T-229〜T-231）。
 `createResolveLatestTags()` のバッチ寿命キャッシュは消滅し、重複排除は集合演算になった。
 前半は `src/types/` の `src/domain/` への吸収（T-233・T-234）。**2026-09-15以前の「完了したこと」は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) へアーカイブ済み**）
 
-**未着手のタスクは1件**（T-254 のみ。`loopable: "N"` なので `/loop` では進まず、ユーザーが直接
-`/next-task` を呼ぶ必要がある）。
+**未着手のタスクは0件**（次に進めるものが無いので、`develop/direction.md` に指示を書いて
+`/plan-tasks` にかけるところから）。
 **T-239〜T-248 の `done` 10件は
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**
-（`develop/tasks.json` に残る `done` は T-249〜T-253 の5件）。完了タスクは
+（`develop/tasks.json` に残る `done` は T-249〜T-254 の6件）。完了タスクは
 [`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md)、過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-16 `routed-adapter.ts` は分けないと判断
+
+- **T-254: `src/lib/platform/routed-adapter.ts`(232行) を分割しないと決めた**（ユーザー承認済み）。
+  `docs/architecture.md`「1ファイルにまとめるか分けるか」の分ける合図は⑤（行数）しか成り立たず、
+  ①〜④はいずれも不成立。非公開8関数が `Route` 型を共有し、`resolveRoute()`・`firstDeclared()` の
+  「到達しない」根拠が同居する2つの assert にあるため、離すと公開面が2→6に増える
+- 判断を `docs/architecture.md` の適用例に1項目として残した。コード変更なし
 
 ### 2026-09-16 `lib/<プラットフォーム>/` のファイル名を `api.ts` に
 
