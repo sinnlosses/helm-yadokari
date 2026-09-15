@@ -12,8 +12,10 @@
 過去セッションの記録は
 [`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
 
-**ユーザーの宿題**: GitLab の CI/CD Variables と手元の `.env` から、接尾辞なしの `ACCESS_TOKEN`
-を削除してよい（CLI本体・lintスクリプトのどちらも読まなくなった）。**未実施**。
+接尾辞なしの `ACCESS_TOKEN` は **GitLab の CI/CD Variables と手元の `.env` の両方から削除済み**
+（2026-09-16、ユーザーが実施。API で確認したCI/CD変数は `GITLAB_URL` / `ACCESS_TOKEN_SMOKE_A` /
+`ACCESS_TOKEN_SMOKE_B` の3つだけ）。手元の `.env` に `GITLAB_PROVISION_PAT` はまだ無いので、
+`scripts/smoke/provision-group.ts` を動かすときに追加が要る（T-255 で名前を変えたため）。
 
 ## 完了したこと（このセッション）
 
