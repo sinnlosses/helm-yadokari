@@ -8,7 +8,7 @@ import {
   toProjectName,
 } from "../../../src/domain/types.js"
 import type { ChartRepoConfig } from "../../../src/domain/types.js"
-import { createRoutedAdapter } from "../../../src/lib/platform/routed-adapter.js"
+import { createTokenRoutedAdapter } from "../../../src/lib/platform/token-routed-adapter.js"
 import { makeAdapter, makeApp, makeConfigUnit, makeHttpError } from "../../helpers.js"
 
 const TEAM_B = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_B")
@@ -19,7 +19,7 @@ function chartRepoFor(projectId: ReturnType<typeof toProjectId>): ChartRepoConfi
   return { projectId, projectName: toProjectName("chart"), mrTargetBranch: toBranchName("develop") }
 }
 
-describe("createRoutedAdapter", () => {
+describe("createTokenRoutedAdapter", () => {
   it("設定ユニットのProjectIdを、それが宣言したaccessTokenEnvのアダプタへ振り分ける", async () => {
     const teamBAdapter = makeAdapter()
     const teamCAdapter = makeAdapter()
@@ -35,7 +35,7 @@ describe("createRoutedAdapter", () => {
       accessTokenEnv: TEAM_C,
     })
 
-    const adapter = createRoutedAdapter(
+    const adapter = createTokenRoutedAdapter(
       [configUnitB, configUnitC],
       new Map([
         [TEAM_B, teamBAdapter],
@@ -54,7 +54,7 @@ describe("createRoutedAdapter", () => {
       chartRepo: chartRepoFor(projectId),
       accessTokenEnv: TEAM_B,
     })
-    const adapter = createRoutedAdapter([configUnit], new Map([[TEAM_B, makeAdapter()]]))
+    const adapter = createTokenRoutedAdapter([configUnit], new Map([[TEAM_B, makeAdapter()]]))
 
     await expect(adapter.listTags(toProjectId("999"))).rejects.toThrow("999")
   })
@@ -73,7 +73,7 @@ describe("createRoutedAdapter", () => {
       accessTokenEnv: toAccessTokenEnvName("ACCESS_TOKEN_SMOKE"),
     })
 
-    expect(() => createRoutedAdapter([configUnitA, configUnitB], new Map())).toThrow(
+    expect(() => createTokenRoutedAdapter([configUnitA, configUnitB], new Map())).toThrow(
       /yadokari-smoke-test-chart\].*ACCESS_TOKEN_SMOKE.*yadokari-smoke-test-chart2\].*ACCESS_TOKEN_SMOKE/s,
     )
   })
@@ -87,7 +87,7 @@ describe("createRoutedAdapter", () => {
       chartRepo: chartRepoFor(projectId),
       accessTokenEnv: TEAM_B,
     })
-    const adapter = createRoutedAdapter([configUnit], new Map([[TEAM_B, teamBAdapter]]))
+    const adapter = createTokenRoutedAdapter([configUnit], new Map([[TEAM_B, teamBAdapter]]))
 
     const err: unknown = await adapter.listTags(projectId).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(Error)
@@ -107,7 +107,7 @@ describe("createRoutedAdapter", () => {
       chartRepo: chartRepoFor(projectId),
       accessTokenEnv: TEAM_B,
     })
-    const adapter = createRoutedAdapter([configUnit], new Map([[TEAM_B, teamBAdapter]]))
+    const adapter = createTokenRoutedAdapter([configUnit], new Map([[TEAM_B, teamBAdapter]]))
 
     const err: unknown = await adapter.listTags(projectId).catch((e: unknown) => e)
     expect(adapter.extractHttpStatus(err)).toBe(503)
@@ -128,7 +128,7 @@ describe("createRoutedAdapter", () => {
       chartRepo: chartRepoFor(projectIdC),
       accessTokenEnv: TEAM_C,
     })
-    const adapter = createRoutedAdapter(
+    const adapter = createTokenRoutedAdapter(
       [configUnitB, configUnitC],
       new Map([[TEAM_B, makeAdapter()]]),
     )
@@ -147,7 +147,7 @@ describe("createRoutedAdapter", () => {
       chartRepo: chartRepoFor(projectId),
       accessTokenEnv: TEAM_B,
     })
-    const adapter = createRoutedAdapter(
+    const adapter = createTokenRoutedAdapter(
       [configUnit],
       new Map([
         [TEAM_B, teamBAdapter],

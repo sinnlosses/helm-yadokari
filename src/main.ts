@@ -14,7 +14,7 @@ import { createGitlabAdapter } from "./lib/gitlab/adapter.js"
 import { createClient as createGitlabClient } from "./lib/gitlab/api.js"
 import type { PlatformAdapter } from "./lib/platform/adapter.js"
 import { withCachedReads } from "./lib/platform/cached-reads.js"
-import { createRoutedAdapter } from "./lib/platform/routed-adapter.js"
+import { createTokenRoutedAdapter } from "./lib/platform/token-routed-adapter.js"
 import { formatReport } from "./lib/report/format-report.js"
 import { writeReport } from "./lib/report/write-report.js"
 import { applyUpdates } from "./steps/apply-updates/apply-updates.js"
@@ -85,7 +85,7 @@ async function runPipeline(env: EnvConfig): Promise<RunProcessResult> {
     units: env.targetUnits,
   })
   const adapter = withCachedReads(
-    createRoutedAdapter(configUnits, buildAdaptersByAccessToken(env, accessTokenEnvNames)),
+    createTokenRoutedAdapter(configUnits, buildAdaptersByAccessToken(env, accessTokenEnvNames)),
   )
 
   const { targets, settled: filtered } = await filterTargets(
@@ -110,7 +110,7 @@ async function runPipeline(env: EnvConfig): Promise<RunProcessResult> {
 /**
  * `accessTokenEnvNames`（宣言された環境変数名の一覧）のうち値が読めたものについて、名前ごとに
  * `createPlatformAdapter()`でアダプタを組み立てる。値が未設定の名前は`loadAccessTokens()`が
- * 表から落とすため、ここでも表に載らない（1本も載らなければ`createRoutedAdapter()`が例外を
+ * 表から落とすため、ここでも表に載らない（1本も載らなければ`createTokenRoutedAdapter()`が例外を
  * 投げる）。
  */
 function buildAdaptersByAccessToken(

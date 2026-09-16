@@ -174,29 +174,29 @@ importせず〜」の節を参照）。
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
-| ファイル                      | 責務                                                                                                                                                                                            |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `platform/adapter.ts`         | `PlatformAdapter`型（GitLab/GitHubの15エントリを並べた関数テーブル。`steps/`はこれだけを受け取り、クライアントの型を知らない）。API呼び出しに加えエラー分類（`isFatalError`等）も持つ           |
-| `platform/cached-reads.ts`    | `CachedReads`と`withCachedReads()`。バッチ1回を通して使い回す`PlatformAdapter`読み取りのキャッシュを`PlatformAdapterWithCachedReads.cached`として入れ子にする。キャッシュしてよい読み取りの一覧 |
-| `platform/routed-adapter.ts`  | `createRoutedAdapter()`。`ProjectId`ごとに宣言されたトークンのアダプタへ振り分け、宣言トークンの401だけをそのchartリポジトリの設定ユニットの`ERROR`に読み替える                                 |
-| `gitlab/api.ts`               | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitLab専用**                                                                                                     |
-| `gitlab/adapter.ts`           | `createGitlabAdapter()`。`api.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                              |
-| `gitlab/web-url.ts`           | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                                                                                |
-| `gitlab/errors.ts`            | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所**                                                  |
-| `github/api.ts`               | `@octokit/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitHub専用**                                                                                                       |
-| `github/adapter.ts`           | `createGithubAdapter()`。`api.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                              |
-| `github/web-url.ts`           | GitHubのページURL（タグ→リリースページ・比較）のパス組み立て。外部I/Oを持たない                                                                                                                 |
-| `github/errors.ts`            | Octokitのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否・`retry-after`の読み取り）。**Octokit固有のエラー構造を知ってよい唯一の場所**                             |
-| `config/config.ts`            | 公開API `loadConfig()`。絞り込み（`limit-to-target.ts`）→設定ユニットの発見（`find-config-units.ts`）→読み込み・結合（`load-config-unit.ts`）の段を順に呼ぶだけの入口                           |
-| `config/limit-to-target.ts`   | `TARGET_CHART`/`TARGET_UNITS`（`ConfigTarget`）の解釈。絞り込み（`selectChartDirs`/`selectTargetConfigUnits`）と絞り込み結果0件の検出（`assertTargetMatched`）                                  |
-| `config/find-config-units.ts` | 1つのchartディレクトリから設定ユニットを見つける（`findConfigUnits()`）。`registry.yaml`の有無を見て、階層の検証（深さ・入れ子）込みで`ChartDirUnits`にする                                     |
-| `config/load-config-unit.ts`  | 走査で見つかった設定ユニットごとに `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を読み込み・結合し `ConfigUnit` にする                                                  |
-| `config/schema.ts`            | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                                                               |
-| `config/validate.ts`          | projectId重複・書き込み先重複・chartリポジトリをまたぐtagFormat食い違いの検証                                                                                                                   |
-| `helm.ts`                     | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                                                  |
-| `env.ts`                      | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）。`loadEnvConfig()`に加え、`registry.yaml`が宣言したトークンを読む`loadAccessTokens()`を持つ                                |
-| `report/format-report.ts`     | 設定ユニット単位のレコード配列をMarkdown1枚（ヘッダ＋表）に整形する。外部I/Oを持たない同期の純粋関数                                                                                            |
-| `report/write-report.ts`      | `format-report.ts`が組み立てたMarkdownを`REPORT_OUTPUT_PATH`へ書き出す。親ディレクトリが無ければ作る                                                                                            |
+| ファイル                           | 責務                                                                                                                                                                                            |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform/adapter.ts`              | `PlatformAdapter`型（GitLab/GitHubの15エントリを並べた関数テーブル。`steps/`はこれだけを受け取り、クライアントの型を知らない）。API呼び出しに加えエラー分類（`isFatalError`等）も持つ           |
+| `platform/cached-reads.ts`         | `CachedReads`と`withCachedReads()`。バッチ1回を通して使い回す`PlatformAdapter`読み取りのキャッシュを`PlatformAdapterWithCachedReads.cached`として入れ子にする。キャッシュしてよい読み取りの一覧 |
+| `platform/token-routed-adapter.ts` | `createTokenRoutedAdapter()`。`ProjectId`ごとに宣言されたトークンのアダプタへ振り分け、宣言トークンの401だけをそのchartリポジトリの設定ユニットの`ERROR`に読み替える                            |
+| `gitlab/api.ts`                    | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitLab専用**                                                                                                     |
+| `gitlab/adapter.ts`                | `createGitlabAdapter()`。`api.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                              |
+| `gitlab/web-url.ts`                | GitLabのページURL（タグ・比較）のパス組み立て。外部I/Oを持たない                                                                                                                                |
+| `gitlab/errors.ts`                 | gitbeakerのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否）。**gitbeaker固有のエラー構造を知ってよい唯一の場所**                                                  |
+| `github/api.ts`                    | `@octokit/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitHub専用**                                                                                                       |
+| `github/adapter.ts`                | `createGithubAdapter()`。`api.ts`の各関数をクライアントごと束ねて`PlatformAdapter`の形に組み立てる                                                                                              |
+| `github/web-url.ts`                | GitHubのページURL（タグ→リリースページ・比較）のパス組み立て。外部I/Oを持たない                                                                                                                 |
+| `github/errors.ts`                 | Octokitのエラーの形をこのツールのエラー方針に翻訳する（fatal判定・404判定・再試行可否・`retry-after`の読み取り）。**Octokit固有のエラー構造を知ってよい唯一の場所**                             |
+| `config/config.ts`                 | 公開API `loadConfig()`。絞り込み（`limit-to-target.ts`）→設定ユニットの発見（`find-config-units.ts`）→読み込み・結合（`load-config-unit.ts`）の段を順に呼ぶだけの入口                           |
+| `config/limit-to-target.ts`        | `TARGET_CHART`/`TARGET_UNITS`（`ConfigTarget`）の解釈。絞り込み（`selectChartDirs`/`selectTargetConfigUnits`）と絞り込み結果0件の検出（`assertTargetMatched`）                                  |
+| `config/find-config-units.ts`      | 1つのchartディレクトリから設定ユニットを見つける（`findConfigUnits()`）。`registry.yaml`の有無を見て、階層の検証（深さ・入れ子）込みで`ChartDirUnits`にする                                     |
+| `config/load-config-unit.ts`       | 走査で見つかった設定ユニットごとに `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を読み込み・結合し `ConfigUnit` にする                                                  |
+| `config/schema.ts`                 | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                                                               |
+| `config/validate.ts`               | projectId重複・書き込み先重複・chartリポジトリをまたぐtagFormat食い違いの検証                                                                                                                   |
+| `helm.ts`                          | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                                                  |
+| `env.ts`                           | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）。`loadEnvConfig()`に加え、`registry.yaml`が宣言したトークンを読む`loadAccessTokens()`を持つ                                |
+| `report/format-report.ts`          | 設定ユニット単位のレコード配列をMarkdown1枚（ヘッダ＋表）に整形する。外部I/Oを持たない同期の純粋関数                                                                                            |
+| `report/write-report.ts`           | `format-report.ts`が組み立てたMarkdownを`REPORT_OUTPUT_PATH`へ書き出す。親ディレクトリが無ければ作る                                                                                            |
 
 ### `src/domain/` — このツールの語彙（型）と、その語彙に閉じた規則
 
@@ -303,7 +303,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - **140行でも230行でも分けなかったファイルがある**。どちらも「1つの理由で全関数が一緒に
   書き換わる」「非公開ヘルパーを全員が共有している」に当てはまり（まとめる合図①②）、
   行数だけを理由に割るとその共有が壊れる
-- **232行でも分けなかった実例が`lib/platform/routed-adapter.ts`**。合図⑤しか成り立たず、
+- **232行でも分けなかった実例が`lib/platform/token-routed-adapter.ts`**。合図⑤しか成り立たず、
   ①責務は「`ProjectId`から使うアダプタを決めて委譲する」の一言、②委譲テーブルの変更は
   `platform/adapter.ts`・`gitlab/adapter.ts`・`github/adapter.ts`を必ず同時に開くので切り出しても
   開く枚数は減らない、③非公開の各関数は`Route`型とアダプタの表を共有して1グループ、
@@ -464,8 +464,8 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
    `result: "ERROR"`としてログに出し、`ConfigUnitUpdateResult`の`"ERROR"`を返す
 5. `FatalError`は`src/index.ts`まで上がり、`event: "fatal_error"`をログに出して`exit(1)`
 
-**401は1・2の外側で読み替わる。** `createRoutedAdapter()`
-（`lib/platform/routed-adapter.ts`）が`ProjectId`でアダプタを引き当てて呼び、そのアダプタが
+**401は1・2の外側で読み替わる。** `createTokenRoutedAdapter()`
+（`lib/platform/token-routed-adapter.ts`）が`ProjectId`でトークンのアダプタを引き当てて呼び、そのアダプタが
 401を返したときは、HTTPの構造を持たない素の`Error`に替えて投げ直す。3以降はそれを
 「fatalではない失敗」として運ぶので、そのchartリポジトリの設定ユニットが`ERROR`になり他は続く
 （「アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける」節）。
@@ -653,7 +653,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 **列挙したものだけ**がキャッシュされる（明示的なオプトイン）。`runProcess()`が
 `withCachedReads(adapter)`を1回だけ呼び、返した`PlatformAdapterWithCachedReads`（`adapter`に
 `cached: CachedReads`を1つ足しただけの値）を全stepへ引数で渡す。包む相手はトークンの振り分け
-アダプタ（`createRoutedAdapter()`）の戻り値で、キャッシュは常にその**外側**に重ねる
+アダプタ（`createTokenRoutedAdapter()`）の戻り値で、キャッシュは常にその**外側**に重ねる
 （「アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける」節）。キャッシュが必要になるたびに
 その場で工場関数を書いていた頃は、新しい問い合わせを足す人がキャッシュの要否を毎回自分で
 気づく必要があり、素の関数を呼ぶほうが常に書きやすいぶん抜けるほうへ倒れていた。
@@ -1329,15 +1329,26 @@ config読み込みのあとに読む。`loadConfig()`が`LoadedConfig.accessToke
 **`EnvConfig`はアクセストークンを持たない。** CLIが読むトークンは`accessTokenEnv`で宣言された
 `ACCESS_TOKEN_<グループ>`だけで、`loadEnvConfig()`が読む値ではなく`loadAccessTokens()`が
 config読み込みのあとに引く値になる。宣言された環境変数がすべて未設定でトークンが1本も読めない
-ときは、`createRoutedAdapter()`が組み立て時に例外を投げて即時終了する（`config/`の読み込み
+ときは、`createTokenRoutedAdapter()`が組み立て時に例外を投げて即時終了する（`config/`の読み込み
 エラーと同じ経路。どのchartリポジトリがどの環境変数を要求しているかを並べる）。代表となる
 アダプタが無いと`isFatalError()`等を載せられないためで、chartリポジトリ単位の`ERROR`に
 落とせるのは他に1本でも読めるトークンがあるときだけ。
 
-**振り分けは`src/lib/platform/routed-adapter.ts`の`createRoutedAdapter()`が担い、`steps/`は
-触らない。** `PlatformAdapter`の各関数は第1引数に`ProjectId`を取るので、「`ProjectId`から使う
-アダプタを引き当てて委譲するだけの`PlatformAdapter`」を1枚かぶせれば、stepからは今までどおり
-1つのアダプタに見える。
+**振り分けは`src/lib/platform/token-routed-adapter.ts`の`createTokenRoutedAdapter()`が担い、`steps/`は
+触らない。** `PlatformAdapter`の各関数は第1引数に`ProjectId`を取るので、「`ProjectId`から**そのプロジェクトを
+読めるトークンのアダプタ**を引き当てて委譲するだけの`PlatformAdapter`」を1枚かぶせれば、stepからは
+今までどおり1つのアダプタに見える。
+
+**振り分ける軸はトークンであって、GitLab/GitHubの違いではない。** プラットフォームは`env.platform`で
+実行ごとに1つに決まる（`main.ts`の`createPlatformAdapter()`）ため、表に並ぶアダプタは全部同じ
+プラットフォームのもの。それでも複数あるのは、上の「グループごとに1本」という権限分離の要件が先に
+あり、トークンが分かれるとクライアントも分かれるから（gitbeakerの`new Gitlab({ host, token })`も
+Octokitの`new Octokit({ auth })`もコンストラクタでトークンを受け取る形で、この点は両プラットフォーム
+同じ）。**GitHub対応が無かったとしてもこの振り分けは要る。**
+
+設定ユニットごとにアダプタを配って持ち回る形は取れない。`resolveTags`が設定ユニットをまたいで
+タグ解決を重複排除する（ソースリポジトリ×追跡ブランチ×タグ形式の単位に畳む）ため、呼ぶ時点で
+「どの設定ユニットの分か」が決まっていない。引けるのは`ProjectId`だけ。
 
 - 引数は`(configUnits, adapters)`。`adapters`は宣言された名前ごとの`PlatformAdapter`を引く
   `ReadonlyMap<AccessTokenEnvName, PlatformAdapter>`（表が1つだけになったので、専用の型で包まず
@@ -1348,7 +1359,7 @@ config読み込みのあとに引く値になる。宣言された環境変数�
 - `buildTagUrl`・`buildCompareUrl`・`isFatalError`・`extractHttpStatus`の4つは`ProjectId`を
   取らず、どのトークンのアダプタでも同じ実装なので振り分けない（表の先頭のものをそのまま載せる）
 
-**`withCachedReads()`は振り分けの外側に重ねる**（`withCachedReads(createRoutedAdapter(...))`）。
+**`withCachedReads()`は振り分けの外側に重ねる**（`withCachedReads(createTokenRoutedAdapter(...))`）。
 キャッシュのキーは`ProjectId`で、1つの`projectId`は1つのトークンにしか結びつかない（後述の検証が
 保証する）ため、外側に1つ持てば足りる。逆順（トークンごとにキャッシュで包んでから振り分ける）に
 すると、`runProcess()`が持つ「バッチ1回＝キャッシュ1つ」という寿命の宣言がトークンの数だけ
@@ -1362,7 +1373,7 @@ GitLabに問い合わせずローカルのYAMLだけで分かる＝「形」の�
 行い、読み取りのキャッシュも`projectId`をキーに持つので、同じ`projectId`に2つの答えがある状態は
 そもそも表現できない。振り分けアダプタはこの検証を通ったあとの`configUnits`だけを受け取る。
 
-**401は、そのchartリポジトリの`ERROR`に落とす。** 読み替えるのは`createRoutedAdapter()`が
+**401は、そのchartリポジトリの`ERROR`に落とす。** 読み替えるのは`createTokenRoutedAdapter()`が
 包んだ呼び出しの中（`lib/<プラットフォーム>/`のリトライの外側、
 `withAppContext()`より内側）で、`errors.ts`側には置かない — `isFatalError()`に見えるのは例外だけで、
 どのトークンで呼んだかを知らないため。委譲先のアダプタが投げた例外の`extractHttpStatus()`が

@@ -415,8 +415,8 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   置き、どれを使うかをchartリポジトリ単位に`registry.yaml`の`accessTokenEnv`で宣言する
   （書くのは環境変数名であってトークンの値ではない。名前は`^ACCESS_TOKEN_[A-Z0-9_]+$`に限る）。
   宣言は必須で、書かれていない`registry.yaml`は設定エラーになる。1回の実行は複数のトークンで動き、
-  どの`ProjectId`をどのトークンで呼ぶかは`createRoutedAdapter()`
-  （`src/lib/platform/routed-adapter.ts`）が振り分ける。
+  どの`ProjectId`をどのトークンで呼ぶかは`createTokenRoutedAdapter()`
+  （`src/lib/platform/token-routed-adapter.ts`）が振り分ける。
 - **トークンの中身**: `PLATFORM=gitlab`（既定）なら`read_api` + `write_repository` + MR作成権限を
   持つGitLabのGroup Access Token（Developerロール・短い有効期限）、`PLATFORM=github`なら
   GitHubのPersonal Access Token（fine-grained推奨）を渡す。**GitHub側はPersonal Access Tokenのみ

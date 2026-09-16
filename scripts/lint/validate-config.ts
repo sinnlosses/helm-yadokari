@@ -84,7 +84,7 @@ if (remote) {
     fail(`実在チェック（--remote）は現時点で GitLab 専用です（PLATFORM=${env.platform}）`)
   }
   // chartリポジトリが宣言したトークン（accessTokenEnv）ごとにグループ分けし、グループごとに
-  // クライアントを1つ作って検証する（本体の`createRoutedAdapter()`と同じ分解）。ただし本体と
+  // クライアントを1つ作って検証する（本体の`createTokenRoutedAdapter()`と同じ分解）。ただし本体と
   // 違い、このジョブの目的は「このMRをマージしてよいか」の判定なので、必要なトークンが1本でも
   // 欠けたら検証できたことにせず打ち切る（`docs/architecture.md`「`validate-config --remote`は
   // トークンごとに分解する」段落）
