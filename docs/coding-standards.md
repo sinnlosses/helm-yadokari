@@ -30,7 +30,7 @@ sed -n '/^### 消すかどうか/,/^#\{2,4\} /p' docs/coding-standards.md
 | ## `as` キャストを使わない                                   | ブランド型の生成をfactory関数に封じ込める理由                                   |
 | ## 変数は基本 `const`                                        | `let` が自然な例外と、コレクションまで不変にする理由                            |
 | ## エラーハンドリング                                        | `isFatalError`を使う理由、`FatalError`の範囲、`steps/`に`try`/`catch`を書かない |
-| ## `async`/`await` と `.then()`/`.catch()`                   | `.then()`を使ってよい3箇所の表と、全面禁止を採らなかった理由                    |
+| ## `async`/`await` と `.then()`/`.catch()`                   | `.then()`を使ってよい基準と、当てはまる3箇所の表                                |
 | ## 環境変数                                                  | `loadEnvConfig()` を通す理由と、`scripts/` が対象外である理由                   |
 | ## コメント                                                  | コメント規約の全体。下の6小節を含む                                             |
 | ### 読者で書き分ける                                         | `/** */`は呼ぶ人向け・`//`は実装を読む人向け、という切り分け                    |
@@ -44,8 +44,8 @@ sed -n '/^### 消すかどうか/,/^#\{2,4\} /p' docs/coding-standards.md
 | ## テスト                                                    | テスト規約の全体。下の5小節を含む                                               |
 | ### 置き場所とモック                                         | `test/` の構成規約と `vi.mock` を当てる境界                                     |
 | ### カバレッジに閾値を設けない                               | 数値目標を置かない理由                                                          |
-| ### 消すかどうか                                             | 冗長テストの判定表、消す前の手続き、実施済みの個別判断                          |
-| ### 足すかどうか                                             | 埋める穴/埋めない穴の基準と、埋めないと決めた3件                                |
+| ### 消すかどうか                                             | 冗長テストの判定表と、消す前に踏む2つの手続き                                   |
+| ### 足すかどうか                                             | 埋める穴/埋めない穴の基準                                                       |
 | ### 通し（e2e）で守るのは「実ファイル → MRの中身」の連結だけ | e2eの範囲・境界・入口をここに限る理由                                           |
 | ## タスク番号を書かない                                      | `T-`番号を書かない理由と、対象外（コミットメッセージ）                          |
 
@@ -117,15 +117,6 @@ sed -n '/^### 消すかどうか/,/^#\{2,4\} /p' docs/coding-standards.md
   必要になり「変数は基本 `const`」と衝突するため**
 - **この規約は `scripts/` にも同じく適用する**（`pnpm lint` / `pnpm format` が `src` と同じく
   `scripts` を対象にしているのと揃える）
-
-採らなかった立場:
-
-- **`.then()`/`.catch()` を全面禁止して `await` に統一する**: `step-outcome.ts` の2箇所が
-  `try`/`catch` でしか書けなくなり、`steps/`の規約と正面から衝突する。`sequential.ts` も
-  `const` の規約と衝突する。**既存の2つの規約を壊してまで得られるのは書き方の統一だけ**
-- **規約にしない（どちらでもよい）**: 判断が読み手ごとに割れる。実例として、
-  `scripts/smoke/smoke-fixture.ts` のファイル存在確認は `src/lib/gitlab/api.ts` の
-  `withNotFoundFallback()` と同じ意図なのに書き方が違っていた
 
 `src/index.ts` の起動チェーンは、`"type": "module"` + `module: ESNext` + Node 22 で
 top-level await が使えるため `await` + `try`/`catch` で書く。`try` が
@@ -345,91 +336,6 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 この表の5行目に当たる。MR本文はこのツールの主要な成果物で、レビュアーが読む唯一の出力なので、
 書式変更のたびに壊れることは冗長さの証拠にしない。
 
-**個別の判断（実施済み）**:
-
-- `test/domain/tag-format.test.ts` の「テンプレートのプレースホルダの並び順・区切り文字は
-  任意（回帰テスト）」2件: skip してもカバレッジは変わらないが、過去の不具合の再発防止として
-  書かれた回帰テストなので残す（表の「回帰テスト」行）
-- `test/domain/tag-format.test.ts` の「{branch}/{time}/{date} 単独のフォーマットは例外を
-  スローする」3件: 「{branch}がないとき」「{date}がないとき」と同じ分岐
-  （`REQUIRED_PLACEHOLDERS`の出現回数が1でない）しか通っておらず表の1行目に当たるが、
-  「単独形はいずれも設定エラーになる」ことは`docs/requirements.md` 4.1節が定める仕様なので
-  削除はせず、`it.each`で1件の表形式テストに畳んで意図だけ残した（アサーションは1つも
-  減らしていない）
-- `test/lib/gitlab/api.test.ts`「createClient > Gitlab インスタンスを返す」: 薄いラッパの
-  確認に見えるが、skip すると `createClient` の唯一の守り手を失う（下の削除の手続き2番目の
-  基準に引っかかる）
-- `test/lib/config/schema.test.ts` 全6件と
-  `test/steps/build-plans/sub-steps/stage-image-tag-updates.test.ts` 全体: ファイルごと
-  除外してもカバレッジは1行も減らないが、拒否される設定の内容という別の振る舞いを固定して
-  いるので残す（カバレッジ不変は単独では削除理由にしない、の実例）
-- `test/steps/build-plans/build-plans.test.ts` 全件: 除外しても減るカバレッジは
-  `sub-steps/` の3ファイルと重なる1文・1分岐だけだったが、SKIPPED/ERRORの振り分け・
-  オールオアナッシング・`FatalError`の伝播・アプリ名付きのエラーメッセージという
-  ステップ自身の契約を固定しているため残す
-
-**`src/utils/` の単体テストの整理（実施済み）**。全36テストファイルを1つずつ除外して
-カバレッジの差分を測り、丸ごと外しても1行も減らないファイルを洗い出したうえで、上の表の
-1〜3行目に当たる**積極的な理由があるものだけ**を消した（28件）。汎用ユーティリティは
-呼び出し元のテストが同じ性質を上位で固定していることが多く、ここが冗長の主な在り処だった。
-
-| 消したもの                                              | 上位の守り手                                                                                                 |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `test/utils/cache.test.ts` 全2件                        | `cached-reads.test.ts`（同時呼び出しで1回・失敗はキャッシュに残さない）                                      |
-| `test/utils/partition.test.ts` 全4件                    | `filter-targets`・`apply-updates` の振り分けと入力順のテスト。「入力配列を変更しない」は `readonly` 型が保証 |
-| `test/utils/fs.test.ts` 全10件                          | `config.test.ts` のパストラバーサル3件・実ディレクトリ走査、`env.test.ts` の `CONFIG_ROOT_PATH` 検証         |
-| `test/utils/timer.test.ts` 全1件                        | `main.test.ts`（`run_end` の `durationMs` ログ）                                                             |
-| `test/utils/sequential.test.ts` 2件（引き継ぎ・空配列） | 引き継ぎは `build-plans.test.ts`。空配列は `imageTagLocations` が1件以上とスキーマで保証され実行時に来ない   |
-| `test/utils/yaml.test.ts` 3件                           | `schema.test.ts` 全6件が「形式が不正です」を固定                                                             |
-| `test/domain/config-unit.test.ts` 6件                   | `env.test.ts` の `parseTargetUnits` 8件（唯一の呼び出し元が `parseTargetUnitEntry`）                         |
-
-**敵対的に検討したうえで残したもの**:
-
-- `test/utils/sequential.test.ts`「順番に処理する（並列化しない）」「例外時に以降の要素を
-  処理しない」: `docs/architecture.md`「アプリ単位は逐次のまま」の決定と、1アプリの失敗で
-  以降のアプリの書き換えが止まることの唯一の守り手
-- `test/utils/yaml.test.ts`「ファイルパスを含む例外」: 設定ユニットが多いとき、どのファイルが
-  壊れているかを示すのはこれだけ（`schema.test.ts` はパスまでは固定していない）
-- `test/domain/config-unit.test.ts`「空白を含んでも受け入れる」: 文字種を検証しないという
-  `docs/requirements.md` 4.2節の決定を固定する唯一のテスト
-- `test/lib/platform/cached-reads.test.ts` 全6件（`branchExists`が生とキャッシュ済みの両方を
-  同じ値の上に持つことの確認1件を含む）・`test/lib/gitlab/web-url.test.ts` 全4件・
-  `test/steps/apply-updates/sub-steps/collect-mr-entries.test.ts` 全5件・
-  `submit-merge-request.test.ts` 全4件: いずれも丸ごと外してもカバレッジは減らないが、
-  falsy値のキャッシュ・サブパス設置のURL組み立て・問い合わせの1回収束・固定ブランチの
-  作り直し順という、上位に守り手がいない振る舞いを固定している
-
-**この整理で見つかったコード側の問題**: `assertSafePath` の `label = "パス"` は、呼び出し元
-2箇所がどちらも `"CONFIG_ROOT_PATH"` を渡すため実行時に使われないデフォルトだった（`isFatalStatus`
-と同じパターン）。テストを消すのではなく、デフォルトを外して `label` を必須にした。
-
-**残り32ファイルの中身の精査（実施済み）**。ファイル単位では消せなかったものについて、
-各ファイルが「唯一守っている行」を測ったうえで中身を読み、上位のテストが同じ入力分岐を
-固定しているものだけを消した（8件）。
-
-| 消したもの                                                           | 上位の守り手                                                                  |
-| -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `tag-format`「組み立てたタグ名は parseTag でパースし直せる」         | 「ミリ秒を含む now でも一致する」が同じラウンドトリップの上位互換             |
-| `tag-format`「フォーマットを変えると、その形式でタグ名を組み立てる」 | 回帰テスト`{date}-{time}-{branch}`の1行目が同一のアサーション                 |
-| `parallel`「空配列のとき空配列を返す」                               | `main.test.ts`「configUnitsがないとき」                                       |
-| `parallel`「入力順を保った配列で返す」                               | `filter-targets`「判定順に振り分ける」・`apply-updates`「入力順を保った配列」 |
-| `parallel`「FatalErrorが発生したとき reject する」                   | 3stepと`main`の「401エラーのとき FatalError」計4件                            |
-| `helm`「getRequiredValueAtAnchor がアンカーの値を返す」              | `lookupValueAtAnchor` の同一入力のテストと `stage-image-tag-updates` 全件     |
-| `feature-branch`「buildFeatureBranch」2件                            | `main.e2e.test.ts` が深さ1・深さ2の固定ブランチ名を実文字列で固定             |
-
-**この精査で残したもの**（カバレッジは減らないが上位に守り手がいない）:
-
-- `parallel`「concurrencyLimitを超えて同時実行しない」「FatalError後に未着手を呼ばない」:
-  `CONCURRENCY_LIMIT` と `limit.clearQueue()` の唯一の守り手
-- `tag-format` の残り37件・`config.test.ts` 全44件・`env.test.ts` 全32件・`validate.test.ts`
-  全11件: いずれも `docs/requirements.md` 4.1〜4.4節の設定ルールと1対1で、同じ入力分岐を
-  他が通していても**別の入力を拒否／受理する仕様**を固定している（表の1行目に当たらない）
-- `gitlab.test.ts` の残り: `main.e2e.test.ts` はMR作成とコミットの引数を固定しているが、
-  404/403フォールバックと `action: "update"`・起点ブランチまでは通らない
-- `resolve-tags.test.ts`・`resolve-latest-tag.test.ts`: 固有カバレッジは1行だが、タグの再利用・
-  追跡ブランチの切り替え・dry-run・403の扱い・解決の単位での一意化という、
-  `docs/architecture.md` に記録した判断ごとの振る舞いを1件ずつ固定している
-
 **削除の手続き**。次の2つを両方満たしたものだけ消す。片方でも満たさなければ残す。
 
 1. 候補を `it.skip` にして `pnpm check` が落ちないことを確認する（落ちるなら、他のテストが
@@ -448,21 +354,6 @@ MR本文（`test/steps/apply-updates/sub-steps/build-mr-content.test.ts`）の�
 
 到達不能な防御的コード（`internal error:` を投げる分岐など）と、エラーメッセージの文面だけが
 変わる分岐は埋めない。
-
-**埋めないと決めた穴は、理由を添えて書き残す**。次にカバレッジを見た人が同じ調査を
-繰り返さずに済むようにするため。現時点で埋めないと決めているのは次の2件（元になった調査は
-`docs/history/test-inventory.md`）:
-
-| 未到達                                                                                        | 埋めない理由                                                                                                                                                                        |
-| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/config/config.ts` の `formatChartDirs` の `"(なし)"`                                 | エラーメッセージの文面だけが変わる分岐で、判断は変わらない                                                                                                                          |
-| `src/steps/shared/describe-plan.ts` の `describeHelmBranchRefUpdates` 内の `map` コールバック | Helmの向き先ブランチ更新のログサマリが空配列でしか組み立てられていない。更新そのものの振る舞いは `stage-helm-branch-ref-updates.test.ts` が確かめており、未到達なのはログの文面だけ |
-
-（同種の分岐が2件、テストではなくコード側の問題として解消済み。どちらも上の「避ける`undefined`」
-節の1つ目のパターン「実行時には到達しないのに型に残っている`undefined`」の実例。
-`src/lib/gitlab/errors.ts` の `isFatalStatus` は引数の型を `number` に狭めて分岐ごと削除。
-`src/lib/config/load-config-unit.ts` の `internal error:` は、紐づけの検証が結果を捨てていたため
-同じ突き合わせを2回していたのが原因で、`resolveProjectLinkage()` が組を返すようにして削除）
 
 ### 通し（e2e）で守るのは「実ファイル → MRの中身」の連結だけ
 
