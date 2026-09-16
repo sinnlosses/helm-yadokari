@@ -3,32 +3,16 @@ import type { PlatformAdapter } from "./adapter.js"
 
 /**
  * `ProjectId`から「そのプロジェクトを読めるトークンのアダプタ」を引き当てて委譲するだけの
- * `PlatformAdapter`を1枚かぶせる。`steps/`はこの戻り値を1つの`PlatformAdapter`として扱い、
+ * `PlatformAdapter`を1枚かぶせる。`steps/`は戻り値を1つの`PlatformAdapter`として扱い、
  * 複数トークンで動いていることを意識しない。
  *
- * **振り分ける軸はアクセストークンであって、GitLab/GitHubの違いではない。** プラットフォームは
- * 実行ごとに1つに決まる（`main.ts`の`createPlatformAdapter()`）ので、`adapters`に並ぶのは全部
- * 同じプラットフォームのアダプタになる。それでも複数あるのは、複数チームが1つの`config/`を
- * 共用するためにトークンをグループごとに1本へ分ける、という要件が先にあるから
- * （`docs/architecture.md`「アクセストークンはchartリポジトリ単位に宣言し…」節）。トークンが
- * 分かれるとクライアントも分かれる（gitbeaker・Octokitのどちらもコンストラクタでトークンを
- * 受け取る）ので、アダプタがトークンの数だけできる。
+ * **振り分ける軸はトークンで、GitLab/GitHubの違いではない**（プラットフォームは実行ごとに1つに
+ * 決まり、`adapters`の中身の選択は`main.ts`がする。`lib/platform/`は`lib/gitlab/`・`lib/github/`を
+ * importしない）。トークンで分かれる理由と、設定ユニット単位にアダプタを配る形を採らない理由は
+ * `docs/architecture.md`「アクセストークンはchartリポジトリ単位に宣言し…」節。
  *
- * `ProjectId`で引くのは、`PlatformAdapter`の各関数が第1引数に`ProjectId`しか取らず、`steps/`に
- * トークンを持ち回らせないため。設定ユニットごとにアダプタを配る形は取れない——`resolveTags`は
- * 設定ユニットをまたいでタグ解決を重複排除するので、呼ぶ時点で「どの設定ユニットの分か」が
- * 決まっていない。
- *
- * `adapters`は`registry.yaml`の`accessTokenEnv`で宣言された名前ごとの`PlatformAdapter`で、
- * GitLab/GitHubどちらを組み立てるかは`main.ts`が決める（`lib/platform/`が`lib/gitlab/`・
- * `lib/github/`をimportしないため）。
- *
- * 委譲した呼び出しの401は、そのchartリポジトリの設定ユニットだけを`ERROR`に留めるため、
- * HTTPの構造を持たない素の`Error`に読み替えて投げ直す。宣言した環境変数の値が未設定
- * （`adapters`に無い）だったときも同じく素の`Error`にする。
- *
- * 宣言された環境変数のアダプタが1つも無い（`adapters`が空）ときは、組み立てたこの時点で
- * 例外を投げる（`config/`の読み込みエラーと同じ、実行全体の即時終了の経路）。
+ * 401と未設定トークンは素の`Error`に読み替えて該当chartリポジトリだけを`ERROR`に留める。
+ * 1本も読めないときは組み立て時に例外を投げる。
  */
 export function createTokenRoutedAdapter(
   configUnits: readonly ConfigUnit[],
