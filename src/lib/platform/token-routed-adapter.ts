@@ -2,17 +2,15 @@ import type { AccessTokenEnvName, ChartDirName, ConfigUnit, ProjectId } from "..
 import type { PlatformAdapter } from "./adapter.js"
 
 /**
- * `ProjectId`から「そのプロジェクトを読めるトークンのアダプタ」を引き当てて委譲するだけの
+ * `ProjectId`から、そのプロジェクトを読めるトークンのアダプタを引き当てて委譲するだけの
  * `PlatformAdapter`を1枚かぶせる。`steps/`は戻り値を1つの`PlatformAdapter`として扱い、
  * 複数トークンで動いていることを意識しない。
  *
- * **振り分ける軸はトークンで、GitLab/GitHubの違いではない**（プラットフォームは実行ごとに1つに
- * 決まり、`adapters`の中身の選択は`main.ts`がする。`lib/platform/`は`lib/gitlab/`・`lib/github/`を
- * importしない）。トークンで分かれる理由と、設定ユニット単位にアダプタを配る形を採らない理由は
- * `docs/architecture.md`「アクセストークンはchartリポジトリ単位に宣言し…」節。
+ * `adapters`はトークン1本につき1つで、それぞれそのトークンで作ったAPIクライアントを内側に持つ
+ * （組み立ては`main.ts`）。分けてあるのは権限分離のため——トークンはグループごとに1本で、自分の
+ * グループにしか届かない（`docs/architecture.md`「アクセストークンはchartリポジトリ単位に…」節）。
  *
- * 401と未設定トークンは素の`Error`に読み替えて該当chartリポジトリだけを`ERROR`に留める。
- * 1本も読めないときは組み立て時に例外を投げる。
+ * 401と未設定トークンは素の`Error`に読み替え、該当chartリポジトリだけを`ERROR`に留める。
  */
 export function createTokenRoutedAdapter(
   configUnits: readonly ConfigUnit[],
