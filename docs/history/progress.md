@@ -1,5 +1,15 @@
 # progress.md の過去ログ（〜T-063）
 
+### 2026-09-16 スモーク用スクリプトを既定トークンから切り離した（T-255）
+
+- **T-255: `scripts/smoke/smoke-fixture.ts` は `ACCESS_TOKEN_SMOKE_A`、`provision-group.ts` は
+  `GITLAB_PROVISION_PAT` を `process.env` から直接読むようにした**（どちらも `loadEnvConfig()` は
+  `platformUrl`/`platform` のために残す）。T-257 で `EnvConfig.accessToken` を消しても型が壊れない状態にする布石
+- `provision-group.ts` のPATを `ACCESS_TOKEN_<グループ名>` の名前空間に載せないのは、このスクリプトが
+  `ACCESS_TOKEN_SMOKE_B` を**発行する側**で、それを自分の認証に使えないため
+- `.env.example` と `docs/smoke-test.md` を追随。既定 `ACCESS_TOKEN` を `.env` から消しても
+  `smoke-fixture.ts` の呼び方を変えなくてよくなり、旧回避策の段落を削除した
+
 ### 2026-09-16 `routed-adapter.ts` は分けないと判断
 
 - **T-254: `src/lib/platform/routed-adapter.ts`(232行) を分割しないと決めた**（ユーザー承認済み）。

@@ -72,16 +72,6 @@ T-259・T-260 を完了**。二重になっていた本文を1つに戻し、JSD
   実在の登録を置く場所で、説明は `config.example/` と `config/README.md` の役目。コピーすると
   「（任意）省略すると既定の ACCESS_TOKEN を使う」が T-258 の追随対象外のまま腐る
 
-### 2026-09-16 スモーク用スクリプトを既定トークンから切り離した（T-255）
-
-- **T-255: `scripts/smoke/smoke-fixture.ts` は `ACCESS_TOKEN_SMOKE_A`、`provision-group.ts` は
-  `GITLAB_PROVISION_PAT` を `process.env` から直接読むようにした**（どちらも `loadEnvConfig()` は
-  `platformUrl`/`platform` のために残す）。T-257 で `EnvConfig.accessToken` を消しても型が壊れない状態にする布石
-- `provision-group.ts` のPATを `ACCESS_TOKEN_<グループ名>` の名前空間に載せないのは、このスクリプトが
-  `ACCESS_TOKEN_SMOKE_B` を**発行する側**で、それを自分の認証に使えないため
-- `.env.example` と `docs/smoke-test.md` を追随。既定 `ACCESS_TOKEN` を `.env` から消しても
-  `smoke-fixture.ts` の呼び方を変えなくてよくなり、旧回避策の段落を削除した
-
 ## 未解決
 
 - **`CLAUDE.md` の「関連リンク」が存在しないファイルを指している**（2026-09-16 に発見）。
