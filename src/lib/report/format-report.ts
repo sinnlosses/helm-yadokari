@@ -2,7 +2,7 @@ import type { ConfigUnitReport, ConfigUnitUpdateResult } from "../../domain/type
 
 /**
  * レポートのヘッダに載せる、`reports`本体とは別に持ち回る実行時メタ情報。
- * `counts`は`main.ts`の`summarizeResults()`が集計した値をそのまま渡す。
+ * `counts`は呼び出し側が集計済みの値をそのまま渡す。
  */
 export type ReportMeta = {
   readonly startedAt: Date

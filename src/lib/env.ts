@@ -73,7 +73,7 @@ export function parseConfigRootPath(raw: string | undefined): ConfigRootPath {
 }
 
 /**
- * REPORT_OUTPUT_PATH は `runProcess()` 末尾が書き出すレポートの出力先。GitLabの
+ * REPORT_OUTPUT_PATH は実行の末尾に書き出すレポートの出力先。GitLabの
  * artifactsは`$CI_PROJECT_DIR`配下のパスしか回収しないため、既定値は作業ディレクトリからの
  * 相対パスにする。
  *

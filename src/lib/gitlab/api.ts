@@ -125,10 +125,10 @@ type CommitAction = { action: "update"; filePath: ValuesPath; content: string }
  * `featureBranch` が既に存在する場合の扱い（削除して作り直すか）は呼び出し元の判断で、
  * ここでは行わない。
  *
- * ファイルごとの action は常に `update`。呼び出し元がここへ渡すのは、`baseBranch` 時点の内容を
- * 読み込めたファイルだけを書き換えた結果で、読み込めなければその時点で例外になる
- * （`steps/build-plans/sub-steps/shared/values-yaml-draft.ts`）。つまり `baseBranch` に
- * 存在しないファイルは渡ってこない。この前提は`lib/gitlab/`からは見えないためここに書く。
+ * ファイルごとの action は常に `update`。ここへ渡してよいのは、`baseBranch` 時点の内容を
+ * 読み込めたファイルを書き換えた結果だけ（読み込めなければ渡す前に例外になっている）という
+ * 事前条件を置いている。つまり `baseBranch` に存在しないファイルは渡ってこない。
+ * この前提は`lib/gitlab/`からは見えないためここに書く。
  */
 export async function commitFileUpdates(
   gitlab: GitlabClient,

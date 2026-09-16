@@ -16,7 +16,7 @@ export type StageHelmBranchRefUpdatesAcc = StageUpdatesAcc<HelmBranchRefUpdate>
 
 /**
  * 1設定ユニットの`helm.locations`（1件以上）を先頭から順に`stageHelmBranchRefUpdate()`へ
- * 渡す。複数箇所を扱うのはこの関数の責務で、呼び出し元（`build-plans.ts`）は
+ * 渡す。複数箇所を扱うのはこの関数の責務で、呼び出し元は
  * 「Helmの向き先ブランチを適用する」という1つの操作として呼ぶだけでよい。
  */
 export async function stageHelmBranchRefUpdates(

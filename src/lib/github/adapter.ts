@@ -19,7 +19,7 @@ import { buildCompareUrl, buildTagUrl } from "./web-url.js"
 /**
  * GitHubクライアントを`PlatformAdapter`の形に組み立てる。`api.ts`の各関数は第1引数に
  * クライアントを取るが、ここで束ねることでクライアントは閉じ込められ、`PlatformAdapter`の
- * 呼び出し側（`steps/`）には見えなくなる（`lib/gitlab/adapter.ts`と同じ形）。
+ * 呼び出し側には見えなくなる（`lib/gitlab/adapter.ts`と同じ形）。
  */
 export function createGithubAdapter(github: GithubClient): PlatformAdapter {
   return {

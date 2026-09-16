@@ -11,17 +11,18 @@ import type {
 } from "../../domain/types.js"
 
 /**
- * GitLab・GitHubのどちらでチャートリポジトリを管理していても`steps/`が同じ形で呼べるようにする
- * 関数テーブル。`lib/gitlab/`・`lib/github/`がそれぞれこの形の値を組み立てて渡す
+ * GitLab・GitHubのどちらでチャートリポジトリを管理していても呼び出し側が同じ形で呼べるように
+ * する関数テーブル。`lib/gitlab/`・`lib/github/`がそれぞれこの形の値を組み立てて渡す
  * （`lib/gitlab/adapter.ts`の`createGitlabAdapter()`）。1回の実行でGitLab・GitHubの混在は
- * させないため、`steps/`はどちらの実装が渡ってきたかを気にしない。
+ * させないため、呼び出し側はどちらの実装が渡ってきたかを気にしない。
  *
  * 各関数はプロジェクトやアクセストークンを結びつけたクライアントを内側に閉じ込めた状態で渡る
- * ため、`steps/`の引数にはクライアントの型が一切出てこない。
+ * ため、呼び出し側の引数にはクライアントの型が一切出てこない。
  *
  * **API呼び出しだけの表ではない。** URLの組み立て（`buildTagUrl`）とエラーの分類
- * （`isFatalError`）も、プラットフォームごとに違って`steps/`が必要とするものなのでここに並べる。
- * 表を1つに保つことで、API呼び出しはGitHub・エラー分類はGitLab、という取り違えが起こらない。
+ * （`isFatalError`）も、プラットフォームごとに違って本体パイプラインが必要とするものなので
+ * ここに並べる。表を1つに保つことで、API呼び出しはGitHub・エラー分類はGitLab、という
+ * 取り違えが起こらない。
  */
 export type PlatformAdapter = {
   /** タグ名とそれが指すコミットSHAの一覧を返す */
@@ -90,7 +91,7 @@ export type PlatformAdapter = {
   /**
    * 捕捉した例外が実行全体を止めるべきものか（401 / 5xx / ネットワーク障害）。エラーの形は
    * プラットフォームごとに違う（gitbeakerは`cause.response.status`、Octokitは`status`）ため、
-   * `steps/shared/step-outcome.ts`は判定そのものを持たずこの関数に尋ねる。
+   * 呼び出し側は判定そのものを持たずこの関数に尋ねる。
    */
   readonly isFatalError: (error: unknown) => boolean
 

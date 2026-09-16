@@ -19,11 +19,11 @@ import { buildCompareUrl, buildTagUrl } from "./web-url.js"
 /**
  * GitLabクライアントを`PlatformAdapter`の形に組み立てる。`api.ts`の各関数は第1引数に
  * クライアントを取るが、ここで束ねることでクライアントは閉じ込められ、`PlatformAdapter`の
- * 呼び出し側（`steps/`）には見えなくなる。
+ * 呼び出し側には見えなくなる。
  *
- * `projectExists`はここに含めない。`steps/`のどのファイルからも呼ばれておらず
+ * `projectExists`はここに含めない。本体パイプラインが呼ばず
  * （`scripts/lint/remote-existence/`だけが使う、本体パイプライン外の読み取り専用チェック）、
- * `PlatformAdapter`は`steps/`が必要とする関数だけを並べる。
+ * `PlatformAdapter`は本体パイプラインが必要とする関数だけを並べるため。
  */
 export function createGitlabAdapter(gitlab: GitlabClient): PlatformAdapter {
   return {

@@ -3,11 +3,11 @@ import type { PlatformAdapter } from "./adapter.js"
 
 /**
  * `ProjectId`から、そのプロジェクトを読めるトークンのアダプタを引き当てて委譲するだけの
- * `PlatformAdapter`を1枚かぶせる。`steps/`は戻り値を1つの`PlatformAdapter`として扱い、
+ * `PlatformAdapter`を1枚かぶせる。呼び出し側は戻り値を1つの`PlatformAdapter`として扱い、
  * 複数トークンで動いていることを意識しない。
  *
- * `adapters`はトークン1本につき1つで、それぞれそのトークンで作ったAPIクライアントを内側に持つ
- * （組み立ては`main.ts`）。分けてあるのは権限分離のため——トークンはグループごとに1本で、自分の
+ * `adapters`は渡される時点でトークン1本につき1つで、それぞれそのトークンで作ったAPIクライアント
+ * を内側に持つ。分けてあるのは権限分離のため——トークンはグループごとに1本で、自分の
  * グループにしか届かない（`docs/architecture.md`「アクセストークンはchartリポジトリ単位に…」節）。
  *
  * 401と未設定トークンは素の`Error`に読み替え、該当chartリポジトリだけを`ERROR`に留める。
@@ -22,7 +22,7 @@ export function createTokenRoutedAdapter(
 
   // `async`にするのは、`lookupRoute()`（表に無い`ProjectId`）の同期的な例外もPromiseの
   // rejectionにするため。`PlatformAdapter`の各関数はPromiseを返す契約なので、同期で
-  // throwすると呼び出し側（`steps/`）の`.catch()`をすり抜けてしまう。
+  // throwすると呼び出し側の`.catch()`をすり抜けてしまう。
   const call = async <T>(
     projectId: ProjectId,
     invoke: (adapter: PlatformAdapter) => Promise<T>,

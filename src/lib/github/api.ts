@@ -228,7 +228,7 @@ export async function createMergeRequest(
  * GitLabの`Tags.create`はrefにブランチ名を渡せるが、GitHubの`git.createRef`は**コミットSHA
  * 必須**なので、ここでブランチのHEADを引いてから作る（1関数あたり2呼び出しになる唯一の理由）。
  * 呼び出し元も同じSHAを持っているが、その受け渡しのためにシグネチャを変えるとGitLab側と
- * `steps/`にも波及するため、差はこのファイルの中に閉じ込める。
+ * 呼び出し側にも波及するため、差はこのファイルの中に閉じ込める。
  */
 export async function createTag(
   github: GithubClient,

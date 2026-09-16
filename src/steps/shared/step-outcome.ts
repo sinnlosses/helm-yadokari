@@ -12,7 +12,7 @@ import { FatalError, toErrorMessage } from "../../utils/errors.js"
 import { logger } from "../../utils/logger.js"
 
 /**
- * 設定ユニット1件分の処理結果ログに共通で載せる識別情報。3つのstepが`withHandling()`から
+ * 設定ユニット1件分の処理結果ログに共通で載せる識別情報。呼び出し側が`withHandling()`から
  * 受け取り、自分の`result`/`reason`を足してログに出す。
  */
 export type ConfigUnitLogContext = {
@@ -160,7 +160,7 @@ function rethrowWithAppContext(
  *   `FatalError`として投げ直し、実行全体を即時終了させる（この関数は値を返さない）
  * - それ以外は該当設定ユニットのみ`ERROR`として記録し、他の設定ユニットの処理は続行する
  *
- * 方針そのものを1箇所に置くための関数。3つのstepからは直接ではなく`withHandling()`経由で呼ぶ。
+ * 方針そのものを1箇所に置くための関数。外からは直接ではなく`withHandling()`経由で呼ぶ。
  */
 function settleAsError(
   adapter: PlatformAdapter,

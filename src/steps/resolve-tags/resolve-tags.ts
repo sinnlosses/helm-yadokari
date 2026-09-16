@@ -14,7 +14,7 @@ import { resolveLatestTag } from "./sub-steps/resolve-latest-tag.js"
 /**
  * 全設定ユニットのappを最新タグの解決単位（`TagSource`）へ一意化し、単位ごとに1回だけ解決する。
  * このstepはappの失敗も`AppOutcome`として返すだけで、設定ユニット単位の結果（`settled`）は
- * 持たない。どの設定ユニットのERRORにするかは受け取った側（`buildPlans()`）が決める。
+ * 持たない。どの設定ユニットのERRORにするかは受け取った側が決める。
  *
  * **一意化はこのstepの効率化ではなく正しさのためにある。** 同じappは複数の設定ユニットに
  * 登録されうるが、解決は「HEADを指すタグが無ければ作る」という**書き込み**を含むため、

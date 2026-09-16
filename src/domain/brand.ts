@@ -102,7 +102,7 @@ export function toConfigRootPath(s: string, label = "CONFIG_ROOT_PATH"): ConfigR
 
 declare const reportOutputPathBrand: unique symbol
 /**
- * `runProcess()`が書き出すレポートの出力先（`REPORT_OUTPUT_PATH`由来）。`LocalPath`の部分型
+ * 実行の末尾に書き出すレポートの出力先（`REPORT_OUTPUT_PATH`由来）。`LocalPath`の部分型
  * なので`writeFileSync`等にそのまま渡せる。`ConfigRootPath`と違い、これから作るファイルを指すため
  * 実在チェックはしない（パストラバーサル検証のみ）。
  */
