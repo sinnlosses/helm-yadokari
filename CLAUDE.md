@@ -126,7 +126,8 @@ Spec軸（`docs/requirements.md`）を参照。
 スキルは**ユーザー単位**（`~/.claude/skills/`）に置いてあり、このリポジトリには含まれない
 （導入方法は上の「セットアップ / 環境構築」。一覧は毎セッションのスキル案内を参照）。
 ユーザー単位スキルはプロジェクト単位の同名スキルより優先されるので、このリポジトリ側で
-同名スキルを置いて上書きすることはできない。プロジェクト差分は `develop/workflow.json` で表す。
+同名スキルを置いて上書きすることはできない。プロジェクト差分は CLAUDE.md の
+「タスク運用」節で表す。
 
 - [mattpocock/skills](https://github.com/mattpocock/skills) 由来のコア開発スキル（日本語化済み）。
   `code-review` のみ、issueトラッカー連携を前提とする元の記述を未設定でも動くよう汎用化してある
@@ -152,13 +153,22 @@ Spec軸（`docs/requirements.md`）を参照。
 いるならまずブランチを切る」という一般的な既定挙動より、このルールを優先する。レビューのために
 差分を分けたいときなど、必要な場合だけ明示的に指示する。
 
+## タスク運用
+
+- 検証コマンド: `pnpm check`(変更後は必ずこれを通す。受け入れ判定に使う)
+- 整形コマンド: `pnpm format`
+- ブランチ: 切らない。直接 main にコミットする（理由は上の「Git運用」）
+
+`develop/tasks.json`・`develop/progress.md`・`develop/direction.md` で管理する。
+指示は `develop/direction.md` に溜め、`/plan-tasks` でタスク化して `/next-task` で進める。
+
 ## 進捗管理とHandoff
 
 会話やセッションが切れても再開できるよう、状態はチャットではなく `develop/` 配下の
 `tasks.json` / `progress.md` に記録する。ユーザーからの指示も同様に `direction.md` に書く。**各手順の詳細（フィールド定義・difficultyの基準と
 委譲の書き方・evidenceの粒度・アーカイブのトリガーと手順）は、ユーザー単位スキル
-`task-workflow` の `WORKFLOW.md` が正典。** このプロジェクト固有の値（検証コマンドなど）は
-`develop/workflow.json` に置き、その説明と経緯は [`docs/workflow.md`](./docs/workflow.md) に書く。
+`task-workflow` の `WORKFLOW.md` が正典。** このプロジェクト固有の値は上の「タスク運用」節、
+経緯は [`docs/workflow.md`](./docs/workflow.md) に書く。
 
 1. セッション開始時に `develop/progress.md` と `develop/tasks.json` を読み、アーカイブすべき
    タイミングなら作業前にアーカイブする（**両方が判定の対象**。基準は `task-workflow` の
