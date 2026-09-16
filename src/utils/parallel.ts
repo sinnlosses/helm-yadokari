@@ -4,9 +4,11 @@ import { FatalError } from "./errors.js"
 
 /**
  * items の各要素に対して fn を並列実行する（同時実行数は concurrencyLimit で制御）。
- * fn が FatalError をスローした場合は、その時点でキューをクリアして未着手の要素の
- * 実行を防いだ上で reject する。それ以外の例外はそのまま reject する。
+ *
+ * fn が FatalError をスローした場合は、その時点でキューをクリアして未着手の要素の実行を防いだ上でre
+ * ject する。それ以外の例外はそのまま reject する。
  */
+
 export async function mapWithConcurrency<T, R>(
   items: readonly T[],
   concurrencyLimit: number,

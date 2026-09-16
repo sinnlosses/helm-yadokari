@@ -2,8 +2,9 @@ import { readdirSync } from "node:fs"
 import { resolve, sep } from "node:path"
 
 /**
- * 指定パスが cwd() 配下に収まっているかを検証する。`..` を含む相対パスや
- * cwd() 外を指す絶対パスなど、パストラバーサルを試みるパスは例外をスローする。
+ * 指定パスが cwd() 配下に収まっているかを検証する。
+ *
+ * `..` を含む相対パスやcwd() 外を指す絶対パスなど、パストラバーサルを試みるパスは例外をスローする。
  * label はエラーメッセージ内でそのパスを何と呼ぶか（呼び出し元の環境変数名など）を指定する。
  */
 export function assertSafePath(inputPath: string, label: string): void {

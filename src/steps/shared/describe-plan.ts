@@ -40,9 +40,10 @@ export function describePlan(plan: AppUpdatePlan): PlanLogSummary {
 }
 
 /**
- * Helmの向き先ブランチの更新をログ用のサマリに変換する。設定ユニット単位なのでアプリ名は持たない。
- * `branchRef`（`ConfigUnit.helm.branchRef`）は全箇所で共通の書き込み後の値で、
- * 1行だけで前→後が読めるようサマリの各件にも入れる。
+ * Helmの向き先ブランチの更新をログ用のサマリに変換する。
+ *
+ * 設定ユニット単位なのでアプリ名は持たない。`branchRef`（`ConfigUnit.helm.branchRef`）
+ * は全箇所で共通の書き込み後の値で、1行だけで前→後が読めるようサマリの各件にも入れる。
  */
 export function describeHelmBranchRefUpdates(
   updates: readonly HelmBranchRefUpdate[],

@@ -15,10 +15,12 @@ import { readValuesYamlDraft, writeValuesYamlDraft } from "./shared/values-yaml-
 export type StageHelmBranchRefUpdatesAcc = StageUpdatesAcc<HelmBranchRefUpdate>
 
 /**
- * 1設定ユニットの`helm.locations`（1件以上）を先頭から順に`stageHelmBranchRefUpdate()`へ
- * 渡す。複数箇所を扱うのはこの関数の責務で、呼び出し元は
- * 「Helmの向き先ブランチを適用する」という1つの操作として呼ぶだけでよい。
+ * 1設定ユニットの`helm.locations`（1件以上）を先頭から順に`stageHelmBranchRefUpdate()`へ渡す。
+ *
+ * 複数箇所を扱うのはこの関数の責務で、呼び出し元は「Helmの向き先ブランチを適用する」
+ * という1つの操作として呼ぶだけでよい。
  */
+
 export async function stageHelmBranchRefUpdates(
   adapter: PlatformAdapterWithCachedReads,
   chart: ChartRepoConfig,
@@ -34,12 +36,13 @@ export async function stageHelmBranchRefUpdates(
 /**
  * `helm.locations`のうち1箇所分について、現在の値を設定値（`branchRef`）と比較する。
  *
- * 差分があれば、書き込み前にそのブランチがchartリポジトリ上に実在するか検証したうえで
- * 書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ`updates`に含めない）。
+ * 差分があれば、書き込み前にそのブランチがchartリポジトリ上に実在するか検証したうえで書き換え内容を
+ * 下書きに積み、`updates`にも積む（差分が無ければ`updates`に含めない）。
  *
- * 実在確認は`adapter.cached`越しに行う。値の読み込み（`readValuesYamlDraft()`）と
- * 同じ`adapter`・`chart`を使うので、問い合わせ先を決める情報がこの関数の中で1つに揃う。
+ * 実在確認は`adapter.cached`越しに行う。値の読み込み（`readValuesYamlDraft()`）と同じ`adapter`・
+ * `chart`を使うので、問い合わせ先を決める情報がこの関数の中で1つに揃う。
  */
+
 async function stageHelmBranchRefUpdate(
   adapter: PlatformAdapterWithCachedReads,
   chart: ChartRepoConfig,

@@ -51,10 +51,12 @@ type RunProcessResult = {
 }
 
 /**
- * `runPipeline()`を実行し、その所要時間込みでレポートをMarkdownに整形して
- * `env.reportOutputPath`へ書き出す。`runPipeline()`が`FatalError`を投げたときはこの関数も
- * reject するため書き出しには到達しない（fatalなバッチはレポートを残さないのが期待する挙動）。
+ * `runPipeline()`を実行し、所要時間込みでレポートを`env.reportOutputPath`へ書き出す。
+ *
+ * `runPipeline()`が`FatalError`を投げたときはこの関数も rejectするため書き出しには到達しない（fatal
+ * なバッチはレポートを残さないのが期待する挙動）。
  */
+
 async function runProcess(env: EnvConfig): Promise<RunProcessResult> {
   const startedAt = new Date()
   const { value: result, durationMs } = await timed(() => runPipeline(env))
@@ -72,14 +74,15 @@ async function runProcess(env: EnvConfig): Promise<RunProcessResult> {
  * config/ を読み込み、以下のステップを順に呼び出して全chartリポジトリを更新する。
  *
  * dryRun のときはブランチ作成・MR作成をせず、更新予定の内容のみログ出力する。
- * targetChart / targetUnits が設定されている場合は、該当するchart・設定ユニットのみに
- * 絞り込んで実行する。
+ * targetChart / targetUnits が設定されている場合は、該当するchart・
+ * 設定ユニットのみに絞り込んで実行する。
  *
- * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがある設定ユニットを除外する
- * 2. resolveTags: 残った設定ユニットの全アプリの最新タグを、解決の単位ごとに1回だけ解決する
- * 3. buildPlans: 設定ユニットそれぞれの更新計画（差分）を構築する
- * 4. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
+ * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがある設定ユニットを除外する2. resolve
+ * Tags: 残った設定ユニットの全アプリの最新タグを、
+ * 解決の単位ごとに1回だけ解決する3. buildPlans: 設定ユニットそれぞれの更新計画（差分）
+ * を構築する4. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
  */
+
 async function runPipeline(env: EnvConfig): Promise<RunProcessResult> {
   const { configUnits, accessTokenEnvNames } = loadConfig(env.configRootPath, {
     chartDirName: env.targetChart,
@@ -109,11 +112,13 @@ async function runPipeline(env: EnvConfig): Promise<RunProcessResult> {
 }
 
 /**
- * `accessTokenEnvNames`（宣言された環境変数名の一覧）のうち値が読めたものについて、名前ごとに
- * `createPlatformAdapter()`でアダプタを組み立てる。値が未設定の名前は`loadAccessTokens()`が
- * 表から落とすため、ここでも表に載らない（1本も載らなければ`createTokenRoutedAdapter()`が例外を
- * 投げる）。
+ * 値が読めた環境変数名それぞれについて、アダプタを組み立てる。
+ *
+ * `accessTokenEnvNames`は宣言された環境変数名の一覧で、
+ * 値が未設定の名前は`loadAccessTokens()`が表から落とすため、ここでも表に載らない（1本も載らなければ
+ * `createTokenRoutedAdapter()`が例外を投げる）。
  */
+
 function buildAdaptersByAccessToken(
   env: EnvConfig,
   accessTokenEnvNames: readonly AccessTokenEnvName[],

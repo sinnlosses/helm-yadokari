@@ -1,12 +1,16 @@
-// gitbeakerが投げるエラーを、このツールのエラー方針（`docs/architecture.md`「エラーは
-// 『fatalは例外・それ以外は戻り値』の2チャネル」）に翻訳する。**gitbeakerのエラーの形を
-// 知っているのはこのファイルだけ**で、`utils/`にはこの知識を置かない（原則2）。
-//
-// @gitbeaker/rest がスローするエラー構造 (Error → cause.response.status)、その内部の fetch が
-// ネットワーク障害時に投げる構造 (TypeError: fetch failed → cause.code)、タイムアウト時の
-// エラー名 (GitbeakerTimeoutError)、内部リトライを使い切ったときのエラー名と
-// そのメッセージ (GitbeakerRetryError → "last status code: N") に依存している。
-// ライブラリのメジャーバージョンアップ時はこれらが変わる可能性がある。
+/**
+ * gitbeakerが投げるエラーを、このツールのエラー方針に翻訳する。
+ *
+ * **gitbeakerのエラーの形を知っているのはこのファイルだけ**で、
+ * `utils/`にはこの知識を置かない（原則2）。方針は`docs/architecture.md`「エラーは『fatalは例外・
+ * それ以外は戻り値』の2チャネル」節。
+ *
+ * @gitbeaker/rest がスローするエラー構造 (Error → cause.response.status)、
+ * その内部の fetch がネットワーク障害時に投げる構造 (TypeError: fetch failed → cause.code)、
+ * タイムアウト時のエラー名 (GitbeakerTimeoutError)、
+ * 内部リトライを使い切ったときのエラー名とそのメッセージ (GitbeakerRetryError → "last status code:N
+ * ") に依存している。ライブラリのメジャーバージョンアップ時はこれらが変わる可能性がある。
+ */
 
 // gitbeaker が queryTimeout の超過時に投げるエラーの名前。クラスの `instanceof` ではなく名前で
 // 判定するのは、@gitbeaker/requester-utils の実体が二重に解決されると `instanceof` が偽になる
@@ -55,13 +59,15 @@ export function isFatalError(error: unknown): boolean {
 /**
  * このエラーを再試行してよいか。
  *
- * 混雑・一時的なゲートウェイ障害を表すステータスだけを対象にする。選定はGitLab APIに対する
- * 方針なので、汎用の`utils/retry.ts`ではなくここが持つ（`withRetry()`にはこの関数を渡す）。
+ * 混雑・一時的なゲートウェイ障害を表すステータスだけを対象にする。
+ * 選定はGitLab APIに対する方針なので、汎用の`utils/retry.ts`ではなくここが持つ（`withRetry()`にはこ
+ * の関数を渡す）。
  *
  * `GitbeakerRetryError`（gitbeakerが429/502を内部で10回試して使い切った状態）は**対象外**。
- * こちらから追加で叩く相手ではないため、`extractHttpStatus()`が`undefined`を返すことで
- * 自然に除外される。
+ * こちらから追加で叩く相手ではないため、`extractHttpStatus()`が`undefined`を返すことで自然に除外さ
+ * れる。
  */
+
 export function isRetryableError(error: unknown): boolean {
   const status = extractHttpStatus(error)
   return status !== undefined && RETRYABLE_STATUSES.has(status)
@@ -78,12 +84,15 @@ function isFatalStatus(status: number): boolean {
 }
 
 /**
- * エラー自身の `code`、無ければ `cause` の `code` を返す。fetch はネットワーク障害を
- * `TypeError: fetch failed` として投げ、`ENOTFOUND` などの実際の `code` は `cause` に入れるため。
- * `extractHttpStatus()` と同様に `cause` は1段だけ辿る。これで足りるのは、致命的エラーを包み直さない
- * ことを `rethrowWithAppContext()` が保証しているため。際限なく辿ると、無関係な内側のエラーの
- * `code` で実行全体を止める危険がある。
+ * エラー自身の `code`、無ければ `cause` の `code` を返す。
+ *
+ * fetch はネットワーク障害を`TypeError: fetch failed` として投げ、
+ * `ENOTFOUND` などの実際の `code`は `cause` に入れるため。
+ * `extractHttpStatus()` と同様に `cause` は1段だけ辿る。これで足りるのは、
+ * 致命的エラーを包み直さないことを `rethrowWithAppContext()` が保証しているため。際限なく辿ると、
+ * 無関係な内側のエラーの`code` で実行全体を止める危険がある。
  */
+
 function extractErrorCode(error: Error): string | undefined {
   return readCode(error) ?? readCode(error.cause)
 }
@@ -98,15 +107,16 @@ function readCode(value: unknown): string | undefined {
 /**
  * gitbeakerが内部リトライを使い切ったときのエラーから、最後のHTTPステータスを読む。
  *
- * このエラーは`cause`を持たずメッセージにしかステータスが残らないため、文字列から読む。
- * 読めなければ`undefined`を返す（fatalに昇格させない安全側に倒す）。
+ * このエラーは`cause`を持たずメッセージにしかステータスが残らないため、文字列から読む。読めなければ
+ * `undefined`を返す（fatalに昇格させない安全側に倒す）。
  *
  * gitbeakerが内部リトライするのは429と502だけなので、ここで拾えるのは実質その2つ。
  * 502は5xxとして即時終了になり、429は該当設定ユニットの`ERROR`のままになる。
  *
- * **この値は`isFatalError()`の判定にだけ使い、`isRetryableError()`には渡さない。**
- * gitbeakerが既に10回試したあとなので、こちらから追加で叩く相手ではない。
+ * **この値は`isFatalError()`の判定にだけ使い、`isRetryableError()`には渡さない。
+ * **gitbeakerが既に10回試したあとなので、こちらから追加で叩く相手ではない。
  */
+
 function extractExhaustedRetryStatus(error: Error): number | undefined {
   if (error.name !== GITBEAKER_RETRY_ERROR_NAME) return undefined
   const digits = EXHAUSTED_RETRY_STATUS_PATTERN.exec(error.message)?.[1]

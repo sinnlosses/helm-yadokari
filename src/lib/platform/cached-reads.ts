@@ -12,18 +12,19 @@ import type { PlatformAdapter } from "./adapter.js"
 /**
  * `PlatformAdapter`への読み取りのキャッシュ。
  *
- * バッチの最初に`withCachedReads()`で1回だけ包み、同じインスタンスを最後まで持ち回る
- * （寿命＝バッチ1回）。キャッシュ済みは`adapter.cached.*`、生は`adapter.*`として同じ値に
- * 同居するので、どちらを呼んでいるかは`.cached`の有無で読める。
+ * バッチの最初に`withCachedReads()`で1回だけ包み、
+ * 同じインスタンスを最後まで持ち回る（寿命＝バッチ1回）。キャッシュ済みは`adapter.cached.*`、生は
+ * `adapter.*`として同じ値に同居するので、どちらを呼んでいるかは`.cached`の有無で読める。
  *
- * **載せてよいのは、このツール自身の書き込み（タグ作成・コミット・MR作成・ブランチ削除）で
- * バッチ中に値が変わらない読み取りだけ。** `listTags`は`createTag`で、`openMergeRequestExists`
- * は`createMergeRequest`で、固定ブランチの存在確認は削除と再作成で変わるので載せられない。
+ * **載せてよいのは、このツール自身の書き込み（タグ作成・コミット・MR作成・ブランチ削除）
+ * でバッチ中に値が変わらない読み取りだけ。** `listTags`は`createTag`で、`openMergeRequestExists`は
+ * `createMergeRequest`で、固定ブランチの存在確認は削除と再作成で変わるので載せられない。
  * 判断の経緯は`docs/architecture.md`「PlatformAdapterへの問い合わせのキャッシュは〜」節。
  *
- * `branchExists`だけは両方に並ぶ。削除と再作成をまたぐ確認は生、バッチ中不変な向き先ブランチの
- * 実在確認はキャッシュ済みを呼ぶ。
+ * `branchExists`だけは両方に並ぶ。削除と再作成をまたぐ確認は生、
+ * バッチ中不変な向き先ブランチの実在確認はキャッシュ済みを呼ぶ。
  */
+
 export type CachedReads = {
   /**
    * このツールが作り直すのは固定ブランチ（`feature/yadokari/...`）だけで、問い合わせ対象の
@@ -47,9 +48,10 @@ export type CachedReads = {
   readonly getProjectWebUrl: (projectId: ProjectId) => Promise<PlatformUrl>
 
   /**
-   * このツールが書き込むのは固定ブランチだけで、読み先の`mrTargetBranch`はバッチ中に変わらない
-   * ため載せている。返すのは**常にリモート上の内容**で、書き換え中の内容は設定ユニット単位の
-   * 下書き（`ValuesYamlDraft`）にしか載らない。
+   * 読み先の`mrTargetBranch`はバッチ中に変わらないため載せている。
+   *
+   * このツールが書き込むのは固定ブランチだけ。返すのは**常にリモート上の内容**で、
+   * 書き換え中の内容は設定ユニット単位の下書き（`ValuesYamlDraft`）にしか載らない。
    */
   readonly getFileContent: (
     projectId: ProjectId,

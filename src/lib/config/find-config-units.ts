@@ -18,9 +18,10 @@ export type ChartDirUnits = {
 type UnitSegments = readonly string[]
 
 /**
- * 1つのchartディレクトリを走査し、`config.yaml`を持つディレクトリ（＝設定ユニット）の
- * `unitPath`一覧を集める（階層に問題があれば例外をスローする）。`registry.yaml`が無い
- * ディレクトリは配下ごと無視する（走査対象のchartとみなさない）。
+ * 1つのchartディレクトリを走査し、設定ユニットの`unitPath`一覧を集める。
+ *
+ * 設定ユニットは`config.yaml`を持つディレクトリ。階層に問題があれば例外をスローする。
+ * `registry.yaml`が無いディレクトリは配下ごと無視する（走査対象のchartとみなさない）。
  */
 export function findConfigUnits(configRootPath: LocalPath, chartDir: string): readonly ChartDirUnits[] {
   const chartDirPath = toLocalPath(join(configRootPath, chartDir))
@@ -35,10 +36,12 @@ export function findConfigUnits(configRootPath: LocalPath, chartDir: string): re
 }
 
 /**
- * 1つのchartディレクトリ配下から、`config.yaml`を持つディレクトリ（＝設定ユニット）の
- * `unitPath`を集める。深さ0・深さ3以上・入れ子はいずれも設定エラーとして例外をスローする
- * （`docs/requirements.md` 4.4節。なぜ走査を深さで打ち切らないかは`docs/architecture.md`）。
+ * 1つのchartディレクトリ配下から、設定ユニットの`unitPath`を集める。
+ *
+ * 深さ0・深さ3以上・入れ子はいずれも設定エラーとして例外をスローする（`docs/requirements.md`4.4節。
+ * なぜ走査を深さで打ち切らないかは`docs/architecture.md`）。
  */
+
 function findUnitPaths(chartDirPath: LocalPath): readonly ConfigUnitPath[] {
   const unitSegmentsList = collectUnitSegments(chartDirPath, [])
 
@@ -72,10 +75,12 @@ function findUnitPaths(chartDirPath: LocalPath): readonly ConfigUnitPath[] {
 }
 
 /**
- * `config.yaml`を持つディレクトリを、深さの上限を設けず再帰的に集める。上限で打ち切らないのは、
- * 深すぎる位置に置かれた`config.yaml`を「見つからなかった」ではなく設定エラーとして
- * 報告するため。YAMLは読まず`config.yaml`の有無だけを見る。
+ * `config.yaml`を持つディレクトリを、深さの上限を設けず再帰的に集める。
+ *
+ * 上限で打ち切らないのは、深すぎる位置に置かれた`config.yaml`を「見つからなかった」
+ * ではなく設定エラーとして報告するため。YAMLは読まず`config.yaml`の有無だけを見る。
  */
+
 function collectUnitSegments(dirPath: LocalPath, segments: UnitSegments): readonly UnitSegments[] {
   const here = existsSync(join(dirPath, CONFIG_YAML_FILE_NAME)) ? [segments] : []
   const deeper = listSubdirectories(dirPath).flatMap((childDir) =>

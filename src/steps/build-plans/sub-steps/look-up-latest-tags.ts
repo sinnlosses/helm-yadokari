@@ -9,9 +9,11 @@ import type { AppOutcome } from "../../shared/step-outcome.js"
 
 /**
  * `resolveTags()`が解決済みの最新タグから、この設定ユニットのappぶんを引き当てる。
- * 解決は設定ユニットをまたいで一意化されているため、1つのappの失敗はそのappを含む
- * すべての設定ユニットのERRORになる。
+ *
+ * 解決は設定ユニットをまたいで一意化されているため、
+ * 1つのappの失敗はそのappを含むすべての設定ユニットのERRORになる。
  */
+
 export function lookUpLatestTags(
   apps: readonly AppConfig[],
   resolvedTags: ReadonlyMap<TagSourceKey, AppOutcome<LatestTagResolution>>,

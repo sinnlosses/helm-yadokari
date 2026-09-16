@@ -43,11 +43,13 @@ export function validateGithubUrl(raw: string): PlatformUrl {
 }
 
 /**
- * PLATFORM は接続先（GitLab/GitHub）の選択。1回の実行で混在させないため全体に効く
- * （`docs/architecture.md`「プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/
- * `GITHUB_URL`のまま」節）。未指定は`"gitlab"`（既存の`.env`・GitLab CI/CD Variablesが
- * そのまま動き続けるようにするための既定値）。
+ * PLATFORM は接続先（GitLab/GitHub）の選択。
+ *
+ * 1回の実行で混在させないため全体に効く（`docs/architecture.md`「プラットフォームの選択は`PLATFORM`、
+ * URLは`GITLAB_URL`/`GITHUB_URL`のまま」節）。未指定は`"gitlab"`（既存の`.env`・
+ * GitLab CI/CDVariablesがそのまま動き続けるようにするための既定値）。
  */
+
 export function parsePlatform(raw: string | undefined): PlatformKind {
   if (raw === undefined) return "gitlab"
   if (raw === "gitlab" || raw === "github") return raw
@@ -61,10 +63,11 @@ export function parsePlatform(raw: string | undefined): PlatformKind {
  * `config.yaml` があるディレクトリ（設定ユニットのディレクトリ）と紛れないよう、フィールド名・
  * 変数名は `config/` の最上位だと分かる `configRootPath` を使う。
  *
- * パストラバーサル検証は`toConfigRootPath()`が行う。ディレクトリとして実在することは
- * そちらでは見ないのでここで検証する。無いままだと後段の`listSubdirectories()`が
- * 生の`ENOENT`を投げるだけで、どの環境変数が原因か分からないため。
+ * パストラバーサル検証は`toConfigRootPath()`が行う。
+ * ディレクトリとして実在することはそちらでは見ないのでここで検証する。無いままだと後段の
+ * `listSubdirectories()`が生の`ENOENT`を投げるだけで、どの環境変数が原因か分からないため。
  */
+
 export function parseConfigRootPath(raw: string | undefined): ConfigRootPath {
   const configRootPath = toConfigRootPath(raw ?? DEFAULT_CONFIG_ROOT_PATH)
   if (!existsSync(configRootPath) || !statSync(configRootPath).isDirectory()) {
@@ -76,12 +79,13 @@ export function parseConfigRootPath(raw: string | undefined): ConfigRootPath {
 /**
  * REPORT_OUTPUT_PATH は実行の末尾に書き出すレポートの出力先。
  *
- * GitLabのartifactsは`$CI_PROJECT_DIR`配下のパスしか回収しないため、既定値は作業ディレクトリ
- * からの相対パスにする。
+ * GitLabのartifactsは`$CI_PROJECT_DIR`配下のパスしか回収しないため、
+ * 既定値は作業ディレクトリからの相対パスにする。
  *
  * パストラバーサル検証は`toReportOutputPath()`が行う。`CONFIG_ROOT_PATH`と違い、
  * 実在チェックはしない（これから書き出すファイルなので存在するはずがない）。
  */
+
 export function parseReportOutputPath(raw: string | undefined): ReportOutputPath {
   return toReportOutputPath(raw ?? DEFAULT_REPORT_OUTPUT_PATH)
 }
@@ -100,9 +104,10 @@ export function parseTargetChart(raw: string | undefined): ChartDirName | undefi
 }
 
 /**
- * TARGET_UNITS は `unitPath`（`config/<chartディレクトリ>/` からの深さ1〜2の相対パス）を
- * カンマ区切りで複数指定できる。config/ のディレクトリ階層に
- * 対応する設定ユニットを、1変数でまとめて渡すため。
+ * TARGET_UNITS は `unitPath` をカンマ区切りで複数指定できる。
+ *
+ * `unitPath`は`config/<chartディレクトリ>/`からの深さ1〜2の相対パス。
+ * config/のディレクトリ階層に対応する設定ユニットを、1変数でまとめて渡すため。
  */
 export function parseTargetUnits(raw: string | undefined): readonly ConfigUnitPath[] | undefined {
   if (raw === undefined) return undefined
@@ -110,10 +115,12 @@ export function parseTargetUnits(raw: string | undefined): readonly ConfigUnitPa
 }
 
 /**
- * 環境変数から読み取った実行時設定。`loadEnvConfig()`だけが生成する。`platformUrl`と
- * 名付けているのは、`platform`に応じて`GITLAB_URL`/`GITHUB_URL`のどちらかを読んでいるため
- * （どちらの値が入っているかは`platform`を見ないと分からない）
+ * 環境変数から読み取った実行時設定。
+ *
+ * `loadEnvConfig()`だけが生成する。`platformUrl`と名付けているのは、`platform`に応じて`GITLAB_URL`/
+ * `GITHUB_URL`のどちらかを読んでいるため（どちらの値が入っているかは`platform`を見ないと分からない）
  */
+
 export type EnvConfig = {
   readonly platform: PlatformKind
   readonly platformUrl: PlatformUrl
@@ -128,12 +135,13 @@ export type EnvConfig = {
 /**
  * 全環境変数を読んで検証する。未設定・不正な値があればここで例外を投げる。
  *
- * モジュールのトップレベルではなく関数にしてあるのは、`process.env`に触れるのを
- * 呼び出した瞬間だけに限定するため。トップレベルの定数にすると、このファイルを
- * import しただけで（＝環境変数を必要としない`pnpm lint:validate-config`や、
- * 各テストからも）検証が走ってしまう。`parseConfigRootPath()`のディレクトリ存在チェック
- * （ファイルシステムへのアクセス）も同じ理由でここでしか走らせない。
+ * モジュールのトップレベルではなく関数にしてあるのは、
+ * `process.env`に触れるのを呼び出した瞬間だけに限定するため。トップレベルの定数にすると、
+ * このファイルをimport しただけで（＝環境変数を必要としない`pnpm lint:validate-config`や、
+ * 各テストからも）検証が走ってしまう。`parseConfigRootPath()`のディレクトリ存在チェック（ファイルシ
+ * ステムへのアクセス）も同じ理由でここでしか走らせない。
  */
+
 export function loadEnvConfig(): EnvConfig {
   const platform = parsePlatform(loadOptionalEnv("PLATFORM"))
   return {
@@ -150,11 +158,13 @@ export function loadEnvConfig(): EnvConfig {
 
 /**
  * `accessTokenEnv`で宣言された環境変数名それぞれについて、値が設定されていればトークンを読む。
- * 未設定の名前は例外にせず表から落とす（1グループのCI/CD変数の付け替え漏れを実行全体の失敗に
- * しないため。宣言したトークンの401と同じ扱い。`docs/architecture.md`「アクセストークンは
- * chartリポジトリ単位に宣言し…」節）。`loadConfig()`が`config/`を読んだあと、
+ *
+ * 未設定の名前は例外にせず表から落とす（1グループのCI/CD変数の付け替え漏れを実行全体の失敗にしない
+ * ため。宣言したトークンの401と同じ扱い。`docs/architecture.md`「アクセストークンはchartリポジトリ
+ * 単位に宣言し…」節）。`loadConfig()`が`config/`を読んだあと、
  * `LoadedConfig.accessTokenEnvNames`を渡して呼ぶ。
  */
+
 export function loadAccessTokens(
   names: readonly AccessTokenEnvName[],
 ): ReadonlyMap<AccessTokenEnvName, AccessToken> {

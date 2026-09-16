@@ -1,14 +1,19 @@
+/**
+ * Helm chart の values.yaml を操作するための処理を置く。
+ *
+ * Chart.yaml の読み込みなど、Helm chart 固有の処理もここに入る。
+ */
+
 import { type Document, type Scalar, isScalar, parseDocument, visit } from "yaml"
 
 import type { AnchorName, ValuesPath } from "../domain/types.js"
 
-// Helm chart の values.yaml を操作するための処理を置く。Chart.yaml の読み込みなど、
-// Helm chart 固有の処理もここに入る。
-
 /**
- * アンカーの値を引いた結果。`docs/requirements.md` 4.4節は values.yaml の
- * アンカーをスカラー値に付ける構成を前提としており、それ以外（マッピング・シーケンスに
- * 付いている）は前提が崩れた設定ミスとして「アンカー自体が無い」場合と区別する。
+ * アンカーの値を引いた結果。
+ *
+ * `docs/requirements.md` 4.4節は values.yaml のアンカーをスカラー値に付ける構成を前提としており、
+ * それ以外（マッピング・シーケンスに付いている）は前提が崩れた設定ミスとして「アンカー自体が無い」
+ * 場合と区別する。
  */
 export type AnchorValueLookup =
   | { readonly kind: "not_found" }
@@ -16,10 +21,11 @@ export type AnchorValueLookup =
   | { readonly kind: "scalar"; readonly value: string }
 
 /**
- * YAML文字列から、指定したアンカー名を持つスカラー値を引く。値が取れない理由（アンカー自体が
- * 無い / スカラー以外に付いている）を呼び出し元が区別できるよう、値そのものではなく
- * `AnchorValueLookup`を返す。`config/`側の設定ミスを1件目で止めず、理由ごとに違う文言で
- * 全問題を集めたい `remote-existence.ts` 向け。
+ * YAML文字列から、指定したアンカー名を持つスカラー値を引く。
+ *
+ * 値が取れない理由（アンカー自体が無い / スカラー以外に付いている）を呼び出し元が区別できるよう、
+ * 値そのものではなく`AnchorValueLookup`を返す。`config/`側の設定ミスを1件目で止めず、
+ * 理由ごとに違う文言で全問題を集めたい `remote-existence.ts` 向け。
  */
 export function lookupValueAtAnchor(
   yamlContent: string,
@@ -31,11 +37,13 @@ export function lookupValueAtAnchor(
 
 /**
  * YAML文字列から、指定したアンカー名を持つスカラー値を取得する。
- * 該当するアンカーが存在しない場合、およびアンカーがスカラー以外（マッピング・シーケンス）に
- * 付いている場合は例外を投げる（メッセージで区別する）。chartリポジトリ側のvalues.yamlから
- * アンカーが消えた・想定と違う位置に付け直されたケース向けで、config/側の設定ミス検知には
- * `lookupValueAtAnchor()`を使う。
+ *
+ * 該当するアンカーが存在しない場合、およびアンカーがスカラー以外（マッピング・シーケンス）
+ * に付いている場合は例外を投げる（メッセージで区別する）。
+ * chartリポジトリ側のvalues.yamlからアンカーが消えた・想定と違う位置に付け直されたケース向けで、
+ * config/側の設定ミス検知には`lookupValueAtAnchor()`を使う。
  */
+
 export function getRequiredValueAtAnchor(
   yamlContent: string,
   anchorName: AnchorName,
@@ -55,9 +63,11 @@ export function getRequiredValueAtAnchor(
 
 /**
  * YAML文字列内の、指定したアンカー名を持つスカラー値だけを書き換え、更新後のYAML文字列を返す。
- * ASTノードを直接書き換えて再シリアライズするため、他の要素・インデント・アンカー記法自体は
- * そのまま維持される。
+ *
+ * ASTノードを直接書き換えて再シリアライズするため、他の要素・インデント・
+ * アンカー記法自体はそのまま維持される。
  */
+
 export function setValueAtAnchor(
   yamlContent: string,
   anchorName: AnchorName,
@@ -88,10 +98,12 @@ type AnchorLookup =
 
 /**
  * 配列要素にYAMLアンカーで名前を付けた構成（例: `variables: [&anchorName value, ...]`）向け。
+ *
  * ネストの深さやキー名に関わらずドキュメント全体を探索し、指定したアンカー名を持つノードを探す。
  * スカラー以外のノード種別（マッピング・シーケンス）も見つけたうえで区別できるよう、
- * `Scalar` に限定せず全ノード種別を対象に探索する。
+ * `Scalar`に限定せず全ノード種別を対象に探索する。
  */
+
 function findAnchorNode(doc: Document, anchorName: AnchorName): AnchorLookup {
   let result: AnchorLookup = { kind: "not_found" }
   visit(doc, {

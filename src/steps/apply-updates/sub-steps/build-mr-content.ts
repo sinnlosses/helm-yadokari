@@ -39,10 +39,13 @@ function buildMrDescription(adapter: PlatformAdapter, entries: MrEntries): strin
 }
 
 /**
- * イメージタグの更新をテーブルにする。1アプリが複数箇所を書き換える場合は同じリポジトリの
- * 行が箇所の数だけ並ぶため、ファイル・アンカーの列で区別する。比較・パイプラインは
- * リンクテキストを付けずURLをそのまま載せ（GitLabが自動リンクする）、値が無いセルは `-` で埋める。
+ * イメージタグの更新をテーブルにする。
+ *
+ * 1アプリが複数箇所を書き換える場合は同じリポジトリの行が箇所の数だけ並ぶため、ファイル・
+ * アンカーの列で区別する。比較・パイプラインはリンクテキストを付けずURLをそのまま載せ（GitLabが自動
+ * リンクする）、値が無いセルは `-` で埋める。
  */
+
 function buildImageTagSection(adapter: PlatformAdapter, entries: readonly ImageTagEntry[]): string {
   return [
     "## イメージタグ",
@@ -67,10 +70,12 @@ function buildImageTagSection(adapter: PlatformAdapter, entries: readonly ImageT
 
 /**
  * Helmの向き先ブランチの更新をテーブルにする。
+ *
  * 向き先ブランチは設定ユニット単位で共通の値なので、イメージタグとは別のセクションに置く。
- * 書き込み先はイメージタグの表と同じくファイル・アンカーの2列に分ける。
- * 新ブランチの列は全行が同じ`branchRef`になる。
+ * 書き込み先はイメージタグの表と同じくファイル・アンカーの2列に分ける。新ブランチの列は全行が同じ
+ * `branchRef`になる。
  */
+
 function buildHelmBranchRefSection(
   updates: readonly HelmBranchRefUpdate[],
   branchRef: BranchName,

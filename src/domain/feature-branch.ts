@@ -5,8 +5,9 @@ const FEATURE_BRANCH_PREFIX = "feature/yadokari/"
 
 /**
  * 1つの`(chartリポジトリ, 設定ユニット)`分の更新に使う固定ブランチ名。
- * 同じGitLabプロジェクト内で複数の設定ユニットのMRが共存するため、unitPathをブランチ名に
- * 含めて分離する。
+ *
+ * 同じGitLabプロジェクト内で複数の設定ユニットのMRが共存するため、
+ * unitPathをブランチ名に含めて分離する。
  */
 export function buildFeatureBranch(unitPath: ConfigUnitPath): BranchName {
   return toBranchName(`${FEATURE_BRANCH_PREFIX}${unitPath}`)

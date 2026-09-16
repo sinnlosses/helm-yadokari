@@ -4,9 +4,11 @@ import type { ChartDirUnits } from "./find-config-units.js"
 
 /**
  * 特定のchartディレクトリ・特定の設定ユニット（複数可）に処理対象を絞り込むためのフィルタ。
- * 手動トリガー時に全chart/全設定ユニットではなく一部だけを実行したい場合に使う
- * （`TARGET_CHART` / `TARGET_UNITS` 環境変数由来）。
+ *
+ * 手動トリガー時に全chart/全設定ユニットではなく一部だけを実行したい場合に使う（`TARGET_CHART` /
+ * `TARGET_UNITS` 環境変数由来）。
  */
+
 export type ConfigTarget = {
   readonly chartDirName: ChartDirName | undefined
   readonly units: readonly ConfigUnitPath[] | undefined
@@ -31,10 +33,13 @@ export function selectChartDirs(chartDirs: readonly string[], target: ConfigTarg
 }
 
 /**
- * `target.units`（`TARGET_UNITS`）で設定ユニットを絞り込む。階層の検証（`findConfigUnits()`）は
- * 対象外の設定ユニットも含めて既に済んでいるため、ここでは走査結果の`unitPath`との照合だけを行う。
+ * `target.units`（`TARGET_UNITS`）で設定ユニットを絞り込む。
+ *
+ * 階層の検証（`findConfigUnits()`）は対象外の設定ユニットも含めて既に済んでいるため、
+ * ここでは走査結果の`unitPath`との照合だけを行う。
  * 指定した`unitPath`が1件でも見つからなければ例外をスローする。
  */
+
 export function selectTargetConfigUnits(
   chartUnitsList: readonly ChartDirUnits[],
   target: ConfigTarget,

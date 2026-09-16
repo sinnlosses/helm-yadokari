@@ -4,10 +4,13 @@ import { withAppContext } from "../../shared/step-outcome.js"
 import type { MrEntries } from "./shared/types.js"
 
 /**
- * 1つのMRに載せる項目を抽出する。イメージタグはリンクに使うURLと最新パイプラインを解決して
- * 添える。向き先ブランチは設定ユニット単位で確定済みなのでそのまま渡す。
- * `helmBranchRef`は`ConfigUnit.helm.branchRef`（全箇所で共通の書き込み後の値）。
+ * 1つのMRに載せる項目を抽出する。
+ *
+ * イメージタグはリンクに使うURLと最新パイプラインを解決して添える。
+ * 向き先ブランチは設定ユニット単位で確定済みなのでそのまま渡す。`helmBranchRef`は
+ * `ConfigUnit.helm.branchRef`（全箇所で共通の書き込み後の値）。
  */
+
 export async function collectMrEntries(
   adapter: PlatformAdapterWithCachedReads,
   plans: readonly AppUpdatePlan[],

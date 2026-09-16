@@ -45,9 +45,10 @@ export async function stageImageTagUpdates(
 }
 
 /**
- * 1アプリの`app.imageTagLocations`（1件以上）を先頭から順に`stageImageTagUpdate()`へ渡し、
- * 差分が1件でもあれば`AppUpdatePlan`を1件積む。差分が無ければ理由をログに出し、下書きだけを
- * 引き継ぐ（読み込んだvalues.yamlは次のアプリで使い回せる）。
+ * 1アプリの`app.imageTagLocations`を順に処理し、差分があれば`AppUpdatePlan`を1件積む。
+ *
+ * `stageImageTagUpdate()`へ先頭から順に渡す。差分が無ければ理由をログに出し、
+ * 下書きだけを引き継ぐ（読み込んだvalues.yamlは次のアプリで使い回せる）。
  */
 async function stageAppImageTagUpdates(
   adapter: PlatformAdapterWithCachedReads,
@@ -79,12 +80,13 @@ async function stageAppImageTagUpdates(
 /**
  * `app.imageTagLocations`のうち1箇所分について、下書き上の現在値と最新タグを比較する。
  *
- * 差分があれば書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ読み込んだ
- * values.yamlを下書きに残すだけで`updates`には含めない）。
+ * 差分があれば書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ読み込んだvalues.yamlを
+ * 下書きに残すだけで`updates`には含めない）。
  *
- * 現在値が「追跡ブランチの現在のHEADを指すタグ」の場合も更新しない。タグ名は
- * 違ってもデプロイされる中身は同じで、更新しても意味が無いMRになるため。
+ * 現在値が「追跡ブランチの現在のHEADを指すタグ」の場合も更新しない。
+ * タグ名は違ってもデプロイされる中身は同じで、更新しても意味が無いMRになるため。
  */
+
 async function stageImageTagUpdate(
   adapter: PlatformAdapterWithCachedReads,
   chart: ChartRepoConfig,

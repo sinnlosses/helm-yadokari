@@ -12,10 +12,11 @@ import { validateAccessTokenEnvConsistency, validateTagFormatConsistency } from 
 export const DEFAULT_CONFIG_ROOT_PATH: ConfigRootPath = toConfigRootPath("config")
 
 /**
- * `config/`配下を読み込んだ結果。`configUnits`はchartリポジトリ横断のグローバル設定を
- * 将来足すときに戻り値の形を変えずに済ませるため単独のフィールドにしてある。
- * `accessTokenEnvNames`はその最初の1つ（実行対象の設定ユニットが宣言した`accessTokenEnv`の
- * 一覧、重複なし）。
+ * `config/`配下を読み込んだ結果。
+ *
+ * `configUnits`はchartリポジトリ横断のグローバル設定を将来足すときに戻り値の形を変えずに済ませるた
+ * め単独のフィールドにしてある。`accessTokenEnvNames`はその最初の1つ（実行対象の設定ユニットが宣言
+ * した`accessTokenEnv`の一覧、重複なし）。
  */
 export type LoadedConfig = {
   readonly configUnits: readonly ConfigUnit[]
@@ -23,10 +24,13 @@ export type LoadedConfig = {
 }
 
 /**
- * `config/<chartディレクトリ>/registry.yaml` + `config/<chartディレクトリ>/<unitPath>/config.yaml`
- * というディレクトリ構成を読み込む。`target`（`TARGET_CHART` / `TARGET_UNITS`）を明示的に
- * 指定したときだけ、該当が無ければ例外をスローする（未指定時は0件でもエラーにしない）。
+ * `config/`配下のディレクトリ構成を読み込む。
+ *
+ * 読むのは`config/<chartディレクトリ>/registry.yaml` +
+ * `config/<chartディレクトリ>/<unitPath>/config.yaml`。`target`（`TARGET_CHART` / `TARGET_UNITS`）
+ * を明示的に指定したときだけ、該当が無ければ例外をスローする（未指定時は0件でもエラーにしない）。
  */
+
 export function loadConfig(configRootPath: ConfigRootPath, target: ConfigTarget = NO_TARGET): LoadedConfig {
   const allChartDirs = listSubdirectories(configRootPath)
 
@@ -50,8 +54,9 @@ function collectAccessTokenEnvNames(
 
 /**
  * `config/`配下を走査して見つけた設定ユニットのうち、`target`に合致するものだけを返す。
- * `allChartDirs`を呼び出し側から受け取るのは、絞り込む前の一覧が`assertTargetMatched()`の
- * エラーメッセージにも要るため。
+ *
+ * `allChartDirs`を呼び出し側から受け取るのは、絞り込む前の一覧が`assertTargetMatched()`のエラーメッ
+ * セージにも要るため。
  */
 function selectTargetUnits(
   configRootPath: LocalPath,

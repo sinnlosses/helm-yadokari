@@ -17,10 +17,11 @@ import type {
  * 1回の実行で混在させないので、呼び出し側はどちらの実装が渡ってきたかを気にしない。
  * クライアントは各関数の内側に閉じ込めた状態で渡るため、呼び出し側の引数に型は出てこない。
  *
- * **API呼び出しだけの表ではない。** URLの組み立て（`buildTagUrl`）とエラーの分類
- * （`isFatalError`）も、プラットフォームごとに違って本体パイプラインが必要とするのでここに
- * 並べる。表を1つに保つと、API呼び出しはGitHub・エラー分類はGitLab、という取り違えが起きない。
+ * **API呼び出しだけの表ではない。** URLの組み立て（`buildTagUrl`）とエラーの分類（`isFatalError`）
+ * も、プラットフォームごとに違って本体パイプラインが必要とするのでここに並べる。表を1つに保つと、
+ * API呼び出しはGitHub・エラー分類はGitLab、という取り違えが起きない。
  */
+
 export type PlatformAdapter = {
   /** タグ名とそれが指すコミットSHAの一覧を返す */
   readonly listTags: (projectId: ProjectId) => Promise<TagInfo[]>
@@ -86,9 +87,10 @@ export type PlatformAdapter = {
   readonly buildCompareUrl: (webUrl: PlatformUrl, from: TagName, to: TagName) => PlatformUrl
 
   /**
-   * 捕捉した例外が実行全体を止めるべきものか（401 / 5xx / ネットワーク障害）。エラーの形は
-   * プラットフォームごとに違う（gitbeakerは`cause.response.status`、Octokitは`status`）ため、
-   * 呼び出し側は判定そのものを持たずこの関数に尋ねる。
+   * 捕捉した例外が実行全体を止めるべきものか（401 / 5xx / ネットワーク障害）。
+   *
+   * エラーの形はプラットフォームごとに違う（gitbeakerは`cause.response.status`、Octokitは`status`）
+   * ため、呼び出し側は判定そのものを持たずこの関数に尋ねる。
    */
   readonly isFatalError: (error: unknown) => boolean
 

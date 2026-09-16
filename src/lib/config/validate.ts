@@ -10,20 +10,24 @@ import type {
 } from "../../domain/types.js"
 
 /**
- * `registry.yaml` / `config.yaml` を読み込んだ後に、GitLabへ問い合わせなくても分かる設定ミス
- * （紐づけの矛盾・重複）を検証する。実体の有無（projectIdやブランチの実在）は
- * `scripts/lint/remote-existence/` の担当。
+ * GitLabへ問い合わせなくても分かる設定ミス（紐づけの矛盾・重複）を検証する。
+ *
+ * `registry.yaml` / `config.yaml` を読み込んだ後に走らせる。実体の有無（projectIdやブランチの実在）
+ * は`scripts/lint/remote-existence/` の担当。
  */
 
 /**
- * 同じ`projectId`のappが複数の設定ユニットに登録されているとき、`tagFormat`が食い違って
- * いないか検証する。タグ形式はソースリポジトリ側の性質であって設定ユニットごとに
- * 変わる値ではなく、食い違ったまま実行すると`resolve-tags` stepが解決の単位を一意化する
- * キー（`projectId`+`branchToSync`+`tagFormat`）が設定ユニットごとに別々になり、同じアプリの
- * 同じコミットに形式違いのタグが2つできる（詳細は`docs/architecture.md`のタグ形式の
- * 置き場所を扱う節）。
+ * 同じ`projectId`のappで`tagFormat`が食い違っていないか検証する。
+ *
+ * タグ形式はソースリポジトリ側の性質であって設定ユニットごとに変わる値ではなく、
+ * 食い違ったまま実行すると`resolve-tags` stepが解決の単位を一意化するキー（`projectId`+
+ * `branchToSync`+`tagFormat`）が設定ユニットごとに別々になり、
+ * 同じアプリの同じコミットに形式違いのタグが2つできる（詳細は`docs/architecture.md`のタグ形式の置き
+ * 場所を扱う節）。
+ *
  * `branchToSync`の食い違いは設定ユニット側の判断として正当なので検証しない。
  */
+
 export function validateTagFormatConsistency(configUnits: readonly ConfigUnit[]): void {
   const seen = new Map<
     ProjectId,
@@ -49,11 +53,13 @@ export function validateTagFormatConsistency(configUnits: readonly ConfigUnit[])
 }
 
 /**
- * 同じ`projectId`が別々の`accessTokenEnv`に結びついていないか検証する。`chartRepo.projectId`と
- * `apps[].projectId`の両方が対象で、どちらに書かれているかは問わない。最新タグの解決・キャッシュは`projectId`単位のため、
- * 同じ`projectId`に2つのトークンが結びつく状態はそもそも表現できない
- * （`docs/requirements.md` 4.4節）。
+ * 同じ`projectId`が別々の`accessTokenEnv`に結びついていないか検証する。
+ *
+ * `chartRepo.projectId`と`apps[].projectId`の両方が対象で、どちらに書かれているかは問わない。
+ * 最新タグの解決・キャッシュは`projectId`単位のため、
+ * 同じ`projectId`に2つのトークンが結びつく状態はそもそも表現できない（`docs/requirements.md` 4.4節）。
  */
+
 export function validateAccessTokenEnvConsistency(configUnits: readonly ConfigUnit[]): void {
   const seen = new Map<
     ProjectId,
@@ -84,8 +90,9 @@ export function validateAccessTokenEnvConsistency(configUnits: readonly ConfigUn
 }
 
 /**
- * 同じ`projectId`のappが1ファイル内に複数書かれていないか検証する。CLIは`projectId`を
- * キーに2ファイルを突き合わせるため、重複していると片方の設定が黙って無視され、
+ * 同じ`projectId`のappが1ファイル内に複数書かれていないか検証する。
+ *
+ * CLIは`projectId`をキーに2ファイルを突き合わせるため、重複していると片方の設定が黙って無視され、
  * 同じ書き込み先へ別々のタグを順番に書いて最後の値だけが残る。
  */
 export function validateNoDuplicateProjectIds(
@@ -108,11 +115,14 @@ export function validateNoDuplicateProjectIds(
 export type LabeledLocation = { readonly location: AnchorLocation; readonly label: string }
 
 /**
- * 1つの設定ユニット内で、同じ`valuesPath`+`anchorName`（＝values.yamlの同じ1箇所）を複数の設定が
- * 書き込み先にしていないか検証する。重複していると後から処理した側の値だけが残り、
- * MRには両方を更新したように表示されるため、静かに誤った結果になる。
- * イメージタグ用（`apps[].locations[]`）と向き先ブランチ用（`helm.locations[]`）の衝突も対象にする。
+ * values.yamlの同じ1箇所を複数の設定が書き込み先にしていないか検証する。
+ *
+ * 1つの設定ユニット内の同じ`valuesPath`+`anchorName`が対象。
+ * 重複していると後から処理した側の値だけが残り、MRには両方を更新したように表示されるため、
+ * 静かに誤った結果になる。イメージタグ用（`apps[].locations[]`）と
+ * 向き先ブランチ用（`helm.locations[]`）の衝突も対象にする。
  */
+
 export function validateNoDuplicateLocations(
   filePath: LocalPath,
   locations: readonly LabeledLocation[],

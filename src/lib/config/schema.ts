@@ -43,10 +43,11 @@ const ProjectIdSchema = z
   .transform((v) => toProjectId(String(v)))
 
 /**
- * `registry.yaml`の`appSpecs[].tagFormat`のZodスキーマ。既定値は持たせず必須にしているのは、
- * ソースリポジトリごとに実際のタグ形式が違い、既定に当てはまらないappを黙って取りこぼすより
- * 明示させるほうが安全なため。テンプレート文字列そのものの妥当性検証（プレースホルダの
- * 過不足）は`validateTagFormat()`に委ねる。
+ * `registry.yaml`の`appSpecs[].tagFormat`のZodスキーマ。
+ *
+ * 既定値は持たせず必須にしているのは、ソースリポジトリごとに実際のタグ形式が違い、
+ * 既定に当てはまらないappを黙って取りこぼすより明示させるほうが安全なため。
+ * テンプレート文字列そのものの妥当性検証（プレースホルダの過不足）は`validateTagFormat()`に委ねる。
  */
 const TagFormatSchema = z
   .string({
@@ -67,10 +68,13 @@ const TagFormatSchema = z
   })
 
 /**
- * registry.yaml側の1app分。ソースリポジトリのタグ形式（`tagFormat`）の台帳で、
- * `projectId`をキーに`config.yaml`側の`apps[]`と結合する。`projectName`は
- * `config.yaml`側と食い違っていないかの検証用に重複して持つ
+ * registry.yaml側の1app分。
+ *
+ * ソースリポジトリのタグ形式（`tagFormat`）の台帳で、
+ * `projectId`をキーに`config.yaml`側の`apps[]`と結合する。
+ * `projectName`は`config.yaml`側と食い違っていないかの検証用に重複して持つ
  */
+
 const AppSpecSchema = z.object({
   projectId: ProjectIdSchema,
   projectName: z.string().min(1).transform(toProjectName),
@@ -80,10 +84,11 @@ const AppSpecSchema = z.object({
 export type AppSpec = z.infer<typeof AppSpecSchema>
 
 /**
- * `registry.yaml`トップレベルの`accessTokenEnv`。必須にしているのは、書き漏らしたchart
- * リポジトリが黙ってより広い権限のトークンへ流れる形を残さないため（`config/`は各チームが
- * MRを送るセルフサービス方式なので、書き漏れは設定エラーで落とす）。名前の形式検証は
- * `toAccessTokenEnvName()`（`domain/brand.ts`）に封じ込めてある
+ * `registry.yaml`トップレベルの`accessTokenEnv`。
+ *
+ * 必須にしているのは、書き漏らしたchartリポジトリが黙ってより広い権限のトークンへ流れる形を残さない
+ * ため（`config/`は各チームがMRを送るセルフサービス方式なので、書き漏れは設定エラーで落とす）。
+ * 名前の形式検証は`toAccessTokenEnvName()`（`domain/brand.ts`）に封じ込めてある
  */
 const AccessTokenEnvNameSchema = z
   .string({
@@ -127,11 +132,14 @@ const AppSchema = z.object({
 export type ConfigApp = z.infer<typeof AppSchema>
 
 /**
- * chartリポジトリは「値を定義するブランチ」と「値を受け取ってk8sリソースを構築するブランチ」の
- * 2ブランチ構成である、という前提のため`helm`自体を必須にする。書き込む値（`branchRef`）と
- * 書き込み先（`locations[]`）も両方揃って初めて意味を持つので、片方だけの指定はここで設定エラーに
- * なる（`docs/requirements.md` 4.4節）。
+ * config.yamlの`helm`のZodスキーマ（必須）。
+ *
+ * chartリポジトリは「値を定義するブランチ」と「値を受け取ってk8sリソースを構築するブランチ」
+ * の2ブランチ構成である、という前提のため`helm`自体を必須にする。書き込む値（`branchRef`）
+ * と書き込み先（`locations[]`）も両方揃って初めて意味を持つので、
+ * 片方だけの指定はここで設定エラーになる（`docs/requirements.md` 4.4節）。
  */
+
 const HelmSchema = z.object(
   {
     branchRef: z

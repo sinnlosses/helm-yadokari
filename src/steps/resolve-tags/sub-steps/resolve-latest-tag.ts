@@ -15,17 +15,17 @@ import { logger } from "../../../utils/logger.js"
  * タグ形式は`source.tagFormat`（`registry.yaml`の`appSpecs[].tagFormat`由来）に従う。
  *
  * このツールの目的は「追跡ブランチの最新コミットの中身をデプロイさせること」なので、
- * 「タグ名が最も新しいものを選んでからHEADと比較する」のではなく、**HEADを指すタグを
- * 直接探す**。こうすることで、HEADに既にタグが付いているのに、別の（古い）コミットを
- * 指すより新しい名前のタグがあるせいで無駄な新規タグを作ってしまう問題を避けられる。
+ * 「タグ名が最も新しいものを選んでからHEADと比較する」のではなく、**HEADを指すタグを直接探す**。
+ * こうすることで、HEADに既にタグが付いているのに、別の（古い）
+ * コミットを指すより新しい名前のタグがあるせいで無駄な新規タグを作ってしまう問題を避けられる。
  *
- * 追跡ブランチを切り替えた場合も特別扱いはしない。切り替え先のHEADにタグがあればそれを
- * 再利用する。タグ名には`{branch}`が必ず含まれるため、そのタグを`values.yaml`に書けば
- * 追跡先が変わったことは名前から読み取れる。「切り替えを明示するため」だけに新しいタグを
- * 作る必要はない。
+ * 追跡ブランチを切り替えた場合も特別扱いはしない。切り替え先のHEADにタグがあればそれを再利用する。
+ * タグ名には`{branch}`が必ず含まれるため、そのタグを`values.yaml`に書けば追跡先が変わったことは名前
+ * から読み取れる。「切り替えを明示するため」だけに新しいタグを作る必要はない。
  *
  * あわせて`trackedHeadTagNames`を返す（意味は`LatestTagResolution`のJSDoc参照）。
  */
+
 export async function resolveLatestTag(
   adapter: PlatformAdapter,
   source: TagSource,
@@ -69,10 +69,11 @@ export async function resolveLatestTag(
 }
 
 /**
- * 「現在の追跡ブランチ由来（＝`source.branchToSync`と`source.tagFormat`でパースできる）で、
- * かつ`headSha`と同じコミットを指すタグ名」の集合を組み立てる。追跡ブランチを切り替えた場合、
- * 切り替え前のタグ名は現在の`source.branchToSync`ではパースできないためこの集合には含まれない。
- * 結果として、HEADと同じコミットを指していても更新をスキップしない。
+ * `headSha`と同じコミットを指す、現在の追跡ブランチ由来のタグ名の集合を組み立てる。
+ *
+ * 「現在の追跡ブランチ由来」は`source.branchToSync`と`source.tagFormat`でパースできること。
+ * 追跡ブランチを切り替えた場合、切り替え前のタグ名は現在の`source.branchToSync`ではパースできないた
+ * めこの集合には含まれない。結果として、HEADと同じコミットを指していても更新をスキップしない。
  */
 function resolveTrackedHeadTagNames(
   tags: readonly TagInfo[],

@@ -4,14 +4,15 @@ import type { PlatformAdapter } from "./adapter.js"
 /**
  * `ProjectId`から、そのプロジェクトを読めるトークンのアダプタを引き当てて委譲する1枚。
  *
- * 呼び出し側は戻り値を1つの`PlatformAdapter`として扱い、複数トークンで動いていることを
- * 意識しない。`adapters`は渡される時点でトークン1本につき1つで、それぞれそのトークンで作った
- * APIクライアントを内側に持つ。分けてあるのは権限分離のため——トークンはグループごとに1本で、
- * 自分のグループにしか届かない（`docs/architecture.md`「アクセストークンはchartリポジトリ
- * 単位に…」節）。
+ * 呼び出し側は戻り値を1つの`PlatformAdapter`として扱い、複数トークンで動いていることを意識しない。
+ * `adapters`は渡される時点でトークン1本につき1つで、
+ * それぞれそのトークンで作ったAPIクライアントを内側に持つ。
+ * 分けてあるのは権限分離のため——トークンはグループごとに1本で、自分のグループにしか届かない
+ * （`docs/architecture.md`「アクセストークンはchartリポジトリ単位に…」節）。
  *
  * 401と未設定トークンは素の`Error`に読み替え、該当chartリポジトリだけを`ERROR`に留める。
  */
+
 export function createTokenRoutedAdapter(
   configUnits: readonly ConfigUnit[],
   adapters: ReadonlyMap<AccessTokenEnvName, PlatformAdapter>,
@@ -76,12 +77,14 @@ type Route =
     }
 
 /**
- * 宣言された環境変数のアダプタが1つも無い（`adapters`が空）と、代表アダプタ（`buildTagUrl`等の
- * 委譲先）を選べない。`registry.yaml`の`accessTokenEnv`の宣言自体はあるのに、その環境変数の値が
- * 全chartで未設定というケース（CI/CD変数の設定漏れ）なので、どのchartディレクトリがどの
- * 環境変数を要求しているかを全件並べて例外を投げる。chartリポジトリ単位の`ERROR`に落とせるのは、
- * 他に1本でも読めるトークンがあるときだけ。
+ * アダプタが1つも無いとき、要求されている環境変数を全件並べて例外を投げる。
+ *
+ * `adapters`が空だと代表アダプタ（`buildTagUrl`等の委譲先）を選べない。`registry.yaml`の
+ * `accessTokenEnv`の宣言自体はあるのに、その環境変数の値が全chartで未設定というケース（CI/CD変数の
+ * 設定漏れ）なので、どのchartディレクトリがどの環境変数を要求しているかを並べる。
+ * chartリポジトリ単位の`ERROR`に落とせるのは、他に1本でも読めるトークンがあるときだけ。
  */
+
 function assertAdapterAvailable(
   configUnits: readonly ConfigUnit[],
   adapters: ReadonlyMap<AccessTokenEnvName, PlatformAdapter>,
@@ -98,6 +101,7 @@ function assertAdapterAvailable(
 
 /**
  * `configUnits`（`chartRepo.projectId`と`apps[].projectId`）から`ProjectId`→`Route`の表を作る。
+ *
  * 同じ`ProjectId`が複数の設定ユニットから参照されても、`accessTokenEnv`は
  * `validateAccessTokenEnvConsistency()`が一致を保証しているため、先勝ちでよい。
  */

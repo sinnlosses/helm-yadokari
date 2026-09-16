@@ -13,8 +13,9 @@ const JST_OFFSET_MS = 9 * 60 * 60 * 1000
 
 /**
  * タグ形式のテンプレート文字列（`registry.yaml`の`appSpecs[].tagFormat`）の妥当性を検証する。
- * `{branch}`/`{date}`/`{time}` をちょうど1回ずつ含む必要があり、それ以外のプレースホルダは
- * 許可しない。並び順と区切り文字は自由。
+ *
+ * `{branch}`/`{date}`/`{time}` をちょうど1回ずつ含む必要があり、
+ * それ以外のプレースホルダは許可しない。並び順と区切り文字は自由。
  */
 export function validateTagFormat(raw: string): TagFormat {
   const unknownPlaceholders = [...raw.matchAll(ANY_PLACEHOLDER_PATTERN)]
@@ -66,11 +67,13 @@ export function parseTag(
 }
 
 /**
- * 渡されたタグ名のうち、指定ブランチ由来（＝`branch`と`format`でパースできる）のものの中から、
- * 最も新しい taggedAt を持つものを返す。該当するタグがひとつもない場合は undefined を返す。
- * 呼び出し元は「タグ一覧全体」だけでなく、「HEADを指すタグの集合」のような絞り込み済みの
- * タグ名リストを渡すこともある。
+ * 指定ブランチ由来のタグ名のうち、最も新しい taggedAt を持つものを返す。
+ *
+ * 「指定ブランチ由来」は`branch`と`format`でパースできること。
+ * 該当するタグがひとつもない場合はundefined を返す。呼び出し元は「タグ一覧全体」だけでなく、
+ * 「HEADを指すタグの集合」のような絞り込み済みのタグ名リストを渡すこともある。
  */
+
 export function findLatestParsedTag(
   tagNames: readonly TagName[],
   branch: BranchName,
@@ -103,10 +106,11 @@ export function buildNewTag(branch: BranchName, now: Date, format: TagFormat): P
 }
 
 /**
- * `format`と`branch`から、タグ名をパースするための正規表現を組み立てる。`{branch}`は
- * `branch`をタグ名の中での表現に変換した値（`toBranchLiteralInTag()`）へのリテラル一致、
- * `{date}`/`{time}`は名前付きキャプチャグループにする。プレースホルダ以外の部分は
- * リテラルとしてエスケープする。
+ * `format`と`branch`から、タグ名をパースするための正規表現を組み立てる。
+ *
+ * `{branch}`は`branch`をタグ名の中での表現に変換した値（`toBranchLiteralInTag()`）へのリテラル一致、
+ * `{date}`/`{time}`は名前付きキャプチャグループにする。
+ * プレースホルダ以外の部分はリテラルとしてエスケープする。
  */
 function compileTagPattern(format: TagFormat, branch: BranchName): RegExp {
   const branchLiteral = toBranchLiteralInTag(branch)
@@ -134,9 +138,10 @@ function compileTagPattern(format: TagFormat, branch: BranchName): RegExp {
 }
 
 /**
- * `format`のプレースホルダを埋めてタグ名を組み立てる。`{branch}`はタグ名の中での表現
- * （`toBranchLiteralInTag()`。`compileTagPattern()`と同じもの）に変換して埋め、
- * `{date}`/`{time}`は呼び出し元が渡した値にそのまま置換する。
+ * `format`のプレースホルダを埋めてタグ名を組み立てる。
+ *
+ * `{branch}`はタグ名の中での表現（`toBranchLiteralInTag()`。`compileTagPattern()`と同じもの）
+ * に変換して埋め、`{date}`/`{time}`は呼び出し元が渡した値にそのまま置換する。
  */
 function fillTagFormat(
   format: TagFormat,

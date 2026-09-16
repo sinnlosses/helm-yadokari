@@ -21,10 +21,14 @@ export type AnchorLocation = {
 }
 
 /**
- * Helmの向き先ブランチを扱うための設定。`branchRef`はconfig.yamlの`helm.branchRef`由来、
- * `locations`は同じconfig.yamlの`helm.locations[]`のうち、設定ユニット内のいずれかのappが書き込む
- * valuesPathを指すもの。向き先ブランチは設定ユニット内のapps全体で共通なので設定ユニット単位で持つ
+ * Helmの向き先ブランチを扱うための設定。
+ *
+ * `branchRef`はconfig.yamlの`helm.branchRef`由来、
+ * `locations`は同じconfig.yamlの`helm.locations[]`のうち、
+ * 設定ユニット内のいずれかのappが書き込むvaluesPathを指すもの。
+ * 向き先ブランチは設定ユニット内のapps全体で共通なので設定ユニット単位で持つ
  */
+
 export type HelmConfig = {
   readonly branchRef: BranchName
   readonly locations: readonly AnchorLocation[]
@@ -70,9 +74,10 @@ export type ConfigUnit = {
   /** `locations`は`helm.locations[]`のうちapps側が実際に書き込むvaluesPathを指す要素だけになる（空もありうる） */
   readonly helm: HelmConfig
   /**
-   * `registry.yaml`トップレベルの`accessTokenEnv`（同じchartリポジトリ配下の全設定ユニットで
-   * 共通）。`chartRepo`に入れないのは、このトークンが`chartRepo`への書き込みと`apps`（ソース
-   * リポジトリ）の読み取りの両方に効く、`registry.yaml`全体のスコープの値だから
+   * `registry.yaml`トップレベルの`accessTokenEnv`（同じchartリポジトリ配下の全設定ユニットで共通）。
+   *
+   * `chartRepo`に入れないのは、このトークンが`chartRepo`への書き込みと`apps`（ソースリポジトリ）
+   * の読み取りの両方に効く、`registry.yaml`全体のスコープの値だから。
    */
   readonly accessTokenEnv: AccessTokenEnvName
 }
@@ -111,10 +116,13 @@ export type HelmBranchRefUpdate = {
 }
 
 /**
- * タグの由来。`"created"`は今回の実行で新規に作った（`DRY_RUN=true`のときは実際の作成は
- * せず、作成予定であることを意味する）。追跡ブランチのHEADに既存タグがあり、それを再利用
- * した場合は`"existing"`
+ * タグの由来。
+ *
+ * `"created"`は今回の実行で新規に作った（`DRY_RUN=true`のときは実際の作成はせず、
+ * 作成予定であることを意味する）。追跡ブランチのHEADに既存タグがあり、それを再利用した場合は
+ * `"existing"`
  */
+
 export type TagOrigin = "existing" | "created"
 
 /**
@@ -131,13 +139,14 @@ export type AppUpdatePlan = {
 /**
  * 1アプリ分の「最新タグの判定結果」。
  *
- * `trackedHeadTagNames`は、「現在の追跡ブランチ由来（＝現在の`branchToSync`と`tagFormat`で
- * パースできる）で、かつ追跡ブランチの現在のHEADコミットを指すタグ名」の集合。values.yamlに
- * 書かれている現在値がこの集合に含まれるなら、たとえより新しい名前のタグが存在しても
- * デプロイされる中身は変わらないため更新しない。追跡ブランチを切り替えた直後は、
- * 切り替え前のタグ名がこの集合に含まれない（現在の追跡ブランチ由来ではないため）ので、
- * HEADと同じコミットを指していてもスキップされない。
+ * `trackedHeadTagNames`は、「現在の追跡ブランチ由来（＝現在の`branchToSync`と`tagFormat`でパースで
+ * きる）で、かつ追跡ブランチの現在のHEADコミットを指すタグ名」の集合。
+ * values.yamlに書かれている現在値がこの集合に含まれるなら、
+ * たとえより新しい名前のタグが存在してもデプロイされる中身は変わらないため更新しない。
+ * 追跡ブランチを切り替えた直後は、切り替え前のタグ名がこの集合に含まれない（現在の追跡ブランチ由来
+ * ではないため）ので、HEADと同じコミットを指していてもスキップされない。
  */
+
 export type LatestTagResolution = {
   readonly tag: ParsedTag
   readonly trackedHeadTagNames: ReadonlySet<TagName>
@@ -165,9 +174,10 @@ export type ConfigUnitUpdateResult = "CREATED" | "SKIPPED" | "ERROR"
 export type ConfigUnitSkipReason = "no_apps" | "mr_exists" | "no_diff" | "dry_run"
 
 /**
- * 設定ユニット1件の処理結果と、その理由。`result`で判別する合併で、SKIPPEDの理由だけが
- * 閉じた集合になる。ERRORの理由は捕捉した例外から組み立てるため任意の文字列で、CREATEDには
- * 理由が無い
+ * 設定ユニット1件の処理結果と、その理由。
+ *
+ * `result`で判別する合併で、SKIPPEDの理由だけが閉じた集合になる。
+ * ERRORの理由は捕捉した例外から組み立てるため任意の文字列で、CREATEDには理由が無い
  */
 export type ConfigUnitUpdateOutcome =
   | { readonly result: "CREATED"; readonly reason: undefined }
@@ -193,9 +203,11 @@ export type FileUpdate = {
 
 /**
  * 差分が確定し、コミット・MR作成の対象になった1設定ユニット分の更新内容。
- * `helmBranchRefUpdates`がapp単位でなくここにあるのは、向き先ブランチが設定ユニット内の
- * apps全体で共通だから（`plans`が空でもこちらに差分があればMRを作る）
+ *
+ * `helmBranchRefUpdates`がapp単位でなくここにあるのは、
+ * 向き先ブランチが設定ユニット内のapps全体で共通だから（`plans`が空でもこちらに差分があればMRを作る）
  */
+
 export type ConfigUnitUpdateTarget = {
   readonly configUnit: ConfigUnit
   readonly plans: readonly AppUpdatePlan[]

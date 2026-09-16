@@ -74,11 +74,14 @@ export function toValuesPath(s: string): ValuesPath {
 
 declare const localPathBrand: unique symbol
 /**
- * ローカルのファイルシステム上のパス（`config/`配下のディレクトリ・`registry.yaml`・
- * `config.yaml`など）。`readFileSync`・`existsSync`・`readdirSync`に渡る値が対象。
- * `ValuesPath`（GitLab上のchart内での相対パス）・`ConfigUnitPath`（識別子）とは別概念で、
- * これらが`join()`で同じ式に並ぶため取り違え防止でブランド型にしている。
+ * ローカルのファイルシステム上のパス。
+ *
+ * `config/`配下のディレクトリ・`registry.yaml`・`config.yaml`など、`readFileSync`・`existsSync`・
+ * `readdirSync`に渡る値が対象。`ValuesPath`（GitLab上のchart内での相対パス）・
+ * `ConfigUnitPath`（識別子）とは別概念で、これらが`join()`で同じ式に並ぶため取り違え防止でブランド
+ * 型にしている。
  */
+
 export type LocalPath = string & { readonly [localPathBrand]: never }
 export function toLocalPath(s: string): LocalPath {
   return s as LocalPath
@@ -91,10 +94,13 @@ declare const configRootPathBrand: unique symbol
  */
 export type ConfigRootPath = LocalPath & { readonly [configRootPathBrand]: never }
 /**
- * `ConfigRootPath`の唯一の生成経路。cwd()配下に収まっていることをここで検証するので、
- * パストラバーサルを含むパスが`ConfigRootPath`になることはない。label はエラーメッセージ内で
- * そのパスを何と呼ぶか（既定は環境変数名の`CONFIG_ROOT_PATH`）。
+ * `ConfigRootPath`の唯一の生成経路。
+ *
+ * cwd()配下に収まっていることをここで検証するので、
+ * パストラバーサルを含むパスが`ConfigRootPath`になることはない。
+ * label はエラーメッセージ内でそのパスを何と呼ぶか（既定は環境変数名の`CONFIG_ROOT_PATH`）。
  */
+
 export function toConfigRootPath(s: string, label = "CONFIG_ROOT_PATH"): ConfigRootPath {
   assertSafePath(s, label)
   return s as ConfigRootPath
@@ -102,9 +108,10 @@ export function toConfigRootPath(s: string, label = "CONFIG_ROOT_PATH"): ConfigR
 
 declare const reportOutputPathBrand: unique symbol
 /**
- * 実行の末尾に書き出すレポートの出力先（`REPORT_OUTPUT_PATH`由来）。`LocalPath`の部分型
- * なので`writeFileSync`等にそのまま渡せる。`ConfigRootPath`と違い、これから作るファイルを指すため
- * 実在チェックはしない（パストラバーサル検証のみ）。
+ * 実行の末尾に書き出すレポートの出力先（`REPORT_OUTPUT_PATH`由来）。
+ *
+ * `LocalPath`の部分型なので`writeFileSync`等にそのまま渡せる。`ConfigRootPath`と違い、
+ * これから作るファイルを指すため実在チェックはしない（パストラバーサル検証のみ）。
  */
 export type ReportOutputPath = LocalPath & { readonly [reportOutputPathBrand]: never }
 /** `ReportOutputPath`の唯一の生成経路。label はエラーメッセージ内でそのパスを何と呼ぶか（既定は環境変数名の`REPORT_OUTPUT_PATH`） */
@@ -123,8 +130,9 @@ export function toChartDirName(s: string): ChartDirName {
 declare const configUnitPathBrand: unique symbol
 /**
  * `config/<chartDir>/`から設定ユニットのディレクトリまでの相対パス（深さ1〜2）。
- * `ChartDirName`・`BranchName`・`ValuesPath`と同じ`string`表現を持つ別概念であり、取り違えを
- * 防ぐためブランド型にしている。MRを作成する単位・固定ブランチ名の可変部になる。
+ *
+ * `ChartDirName`・`BranchName`・`ValuesPath`と同じ`string`表現を持つ別概念であり、
+ * 取り違えを防ぐためブランド型にしている。MRを作成する単位・固定ブランチ名の可変部になる。
  */
 export type ConfigUnitPath = string & { readonly [configUnitPathBrand]: never }
 export function toConfigUnitPath(s: string): ConfigUnitPath {
@@ -149,10 +157,13 @@ declare const accessTokenEnvNameBrand: unique symbol
 const ACCESS_TOKEN_ENV_NAME_PATTERN = /^ACCESS_TOKEN_[A-Z0-9_]+$/
 /**
  * `registry.yaml`トップレベルの`accessTokenEnv`（アクセストークンが入っている環境変数名。
- * 値そのものではない）。`^ACCESS_TOKEN_[A-Z0-9_]+$`のみを許し、接尾辞なしの`ACCESS_TOKEN`も
- * 含めて任意の名前は許さない。`config/`は各チームがMRを送るセルフサービス方式なので、任意の
- * 環境変数名を書けると無関係な秘密をCLIに読み出させる経路になるため
+ *
+ * 値そのものではない）。`^ACCESS_TOKEN_[A-Z0-9_]+$`のみを許し、
+ * 接尾辞なしの`ACCESS_TOKEN`も含めて任意の名前は許さない。
+ * `config/`は各チームがMRを送るセルフサービス方式なので、
+ * 任意の環境変数名を書けると無関係な秘密をCLIに読み出させる経路になるため
  */
+
 export type AccessTokenEnvName = string & { readonly [accessTokenEnvNameBrand]: never }
 export function toAccessTokenEnvName(s: string): AccessTokenEnvName {
   if (!ACCESS_TOKEN_ENV_NAME_PATTERN.test(s)) {
@@ -166,12 +177,14 @@ export function toAccessTokenEnvName(s: string): AccessTokenEnvName {
 
 declare const accessTokenBrand: unique symbol
 /**
- * GitLab/GitHubのアクセストークン（`createClient`の認証情報。GitLabはGroup/Project Access
- * Token、GitHubはPersonal Access Token）。`PlatformUrl`と同じ関数呼び出しに並ぶため、
- * 取り違え防止でブランド型にしている。空でないことは`loadEnv()`が既に保証している。
- * 接頭辞や長さでの形式検証はしない（GitLabの`glpat-`・GitHubの`ghp_`はいずれも慣習であり、
- * Group Access TokenやCI変数経由の値では前提にできないため）
+ * GitLab/GitHubのアクセストークン（`createClient`の認証情報。
+ *
+ * GitLabはGroup/Project AccessToken、GitHubはPersonal Access Token）。
+ * `PlatformUrl`と同じ関数呼び出しに並ぶため、取り違え防止でブランド型にしている。空でないことは
+ * `loadEnv()`が既に保証している。接頭辞や長さでの形式検証はしない（GitLabの`glpat-`・
+ * GitHubの`ghp_`はいずれも慣習であり、Group Access TokenやCI変数経由の値では前提にできないため）
  */
+
 export type AccessToken = string & { readonly [accessTokenBrand]: never }
 export function toAccessToken(s: string): AccessToken {
   return s as AccessToken

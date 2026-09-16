@@ -23,10 +23,13 @@ import type { ChartDirUnits } from "./find-config-units.js"
 import { validateNoDuplicateProjectIds, validateNoDuplicateLocations } from "./validate.js"
 
 /**
- * 1つのchartディレクトリの`registry.yaml`を読み、`chartUnits.unitPaths`（走査＋`TARGET_UNITS`の
- * 絞り込み済み）それぞれを設定ユニット単位の`ConfigUnit`にする。`registry.yaml`の`appSpecs[]`
- * （タグ形式の台帳）は1つのchartディレクトリで共有されるため、重複チェックもここで1回だけ行う。
+ * 1つのchartディレクトリを、設定ユニット単位の`ConfigUnit`一覧にする。
+ *
+ * `registry.yaml`を読み、`chartUnits.unitPaths`（走査＋`TARGET_UNITS`の絞り込み済み）それぞれを
+ * `ConfigUnit`にする。`appSpecs[]`は1つのchartディレクトリで共有されるため、
+ * 重複チェックもここで1回だけ行う。
  */
+
 export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[] {
   const registryYamlPath = toLocalPath(join(chartUnits.chartDirPath, REGISTRY_YAML_FILE_NAME))
   const {
@@ -66,11 +69,12 @@ type ConfigUnitScope = {
 }
 
 /**
- * 1つの設定ユニットのディレクトリ（`<chartDir>/<unitPath>/`）の`config.yaml`（運用値＋chart構造）を
- * 読み込み、`appSpecs`（`registry.yaml`の`appSpecs[]`、`projectId`をキーにしたタグ形式の台帳）と
- * `projectId`で結合して`ConfigUnit`（MRを作成する単位）1件にする。`config.yaml`が実在する
- * ディレクトリだけが渡ってくる前提（どのディレクトリが設定ユニットかは`find-config-units.ts`の
- * 走査が決める）。`unitPath`は識別子（ログ・`TARGET_UNITS`・固定ブランチ名に使う）、
+ * 1つの設定ユニットのディレクトリを読み、`ConfigUnit`（MRを作成する単位）1件にする。
+ *
+ * `<chartDir>/<unitPath>/`の`config.yaml`を読み込み、`appSpecs`（`registry.yaml`の`appSpecs[]`、
+ * `projectId`をキーにしたタグ形式の台帳）と`projectId`で結合する。
+ * `config.yaml`が実在するディレクトリだけが渡ってくる前提（どのディレクトリが設定ユニットかは走査が
+ * 決める）。`unitPath`は識別子（ログ・`TARGET_UNITS`・固定ブランチ名に使う）、
  * `*YamlPath`はローカルの実ファイルパス。
  */
 function buildConfigUnit(
@@ -126,9 +130,10 @@ type LinkedApp = {
  * - 両方にあって`projectName`が食い違えば例外（コピペミスの検知）
  * - `appSpecs[]`にだけあって参照されないappはエラーにしない（一時的に更新対象から外せるように）
  *
- * 検証だけして捨てず組を返すのは、呼び出し元が同じ突き合わせを繰り返さずに済ませるため。
- * 2回引くと、ここを通った時点で起こりえない「見つからない」を型と分岐に持つことになる。
+ * 検証だけして捨てず組を返すのは、呼び出し元が同じ突き合わせを繰り返さずに済ませるため。2回引くと、
+ * ここを通った時点で起こりえない「見つからない」を型と分岐に持つことになる。
  */
+
 function resolveProjectLinkage(
   configYamlPath: LocalPath,
   registryYamlPath: LocalPath,
@@ -153,13 +158,15 @@ function resolveProjectLinkage(
 }
 
 /**
- * config.yamlの`helm`（`branchRef`＝書き込む値、`locations[]`＝書き込み先の`valuesPath`+
- * `anchor`一覧）から、設定ユニット単位の`HelmConfig`を作る。Helmの向き先ブランチは
- * 「1設定ユニット内のapps全体で共通」という前提なので、appごとに振り分けず設定ユニット単位で
- * 1つだけ持つ。そのconfig.yaml配下の全アプリの全`locations[].valuesPath`が`helm.locations[]`で
- * カバーされている必要がある（1つでも漏れていれば、そのvaluesPathだけ更新対象から漏れてしまう
- * 設定ミスとして例外をスローする）。
- * 逆にどのappも書き込まないvaluesPathを指す`helm.locations[]`の要素は`locations`に含めない。
+ * config.yamlの`helm`から、設定ユニット単位の`HelmConfig`を作る。
+ *
+ * `branchRef`＝書き込む値、`locations[]`＝書き込み先の`valuesPath`+`anchor`一覧。
+ * Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提なので、
+ * appごとに振り分けず設定ユニット単位で1つだけ持つ。
+ *
+ * そのconfig.yaml配下の全アプリの全`locations[].valuesPath`が`helm.locations[]`でカバーされている必
+ * 要がある（1つでも漏れていれば、そのvaluesPathだけ更新対象から漏れてしまう設定ミスとして例外をスロー
+ * する）。逆にどのappも書き込まないvaluesPathを指す`helm.locations[]`の要素は`locations`に含めない。
  */
 function resolveHelmConfig(
   configYamlPath: LocalPath,

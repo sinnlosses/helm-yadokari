@@ -1,14 +1,17 @@
-// Octokitが投げるエラーを、このツールのエラー方針（`docs/architecture.md`「エラーは
-// 『fatalは例外・それ以外は戻り値』の2チャネル」）に翻訳する。**Octokitのエラーの形を
-// 知っているのはこのファイルだけ**で、`utils/`にはこの知識を置かない（原則2）。
-//
-// @octokit/request-error の `RequestError` は HTTP ステータスを `status` プロパティに、
-// レスポンスヘッダを `response.headers`（キーは小文字）に持つ。gitbeakerは
-// `cause.response.status` の位置に持つため、`lib/gitlab/errors.ts` は流用できない。
-//
-// ネットワーク障害は @octokit/request が `RequestError`（status 500）に包み直すため、
-// 5xxの経路でfatalになる。包まれない素の `TypeError: fetch failed` が出てくる場合に備えて
-// `code` も見る（GitLab側と同じ判定）。
+/**
+ * Octokitが投げるエラーを、このツールのエラー方針に翻訳する。
+ *
+ * **Octokitのエラーの形を知っているのはこのファイルだけ**で、`utils/`にはこの知識を置かない（原則2）。
+ * 方針は`docs/architecture.md`「エラーは『fatalは例外・それ以外は戻り値』の2チャネル」節。
+ *
+ * @octokit/request-error の `RequestError` は HTTP ステータスを `status` プロパティに、
+ * レスポンスヘッダを `response.headers`（キーは小文字）に持つ。
+ * gitbeakerは`cause.response.status` の位置に持つため、`lib/gitlab/errors.ts` は流用できない。
+ *
+ * ネットワーク障害は @octokit/request が `RequestError`（status 500）に包み直すため、
+ * 5xxの経路でfatalになる。包まれない素の `TypeError: fetch failed` が出てくる場合に備えて`code` も
+ * 見る（GitLab側と同じ判定）。
+ */
 
 // 一時的なゲートウェイ障害を表すステータス。待てば直る相手なので指数バックオフで再試行する。
 const RETRYABLE_STATUSES = new Set([502, 503, 504])
@@ -35,11 +38,12 @@ export function extractHttpStatus(error: unknown): number | undefined {
 /**
  * 対象が存在しないことを表すエラーか。
  *
- * **GitHubはトークンに権限が無いリソースも404で返す**ため、この判定が true でも「存在しない」と
- * 「見えない」は区別できない。実装では吸収せず（区別するには権限の問い合わせを別途足すことになり、
+ * **GitHubはトークンに権限が無いリソースも404で返す**ため、この判定が true でも「存在しない」
+ * と「見えない」は区別できない。実装では吸収せず（区別するには権限の問い合わせを別途足すことになり、
  * 1関数＝1 API呼び出しの形が崩れる）、404を既定値に読み替えた後の書き込みが403/404で失敗し、
  * その設定ユニットが`ERROR`としてメッセージ付きでログに残ることに委ねる。
  */
+
 export function isNotFoundError(error: unknown): boolean {
   return extractHttpStatus(error) === 404
 }
@@ -63,14 +67,15 @@ export function isFatalError(error: unknown): boolean {
 /**
  * このエラーを再試行してよいか。
  *
- * 判定に使うステータスの選定はGitHub APIに対する方針なので、汎用の`utils/retry.ts`ではなく
- * ここが持つ（`withRetry()`にはこの関数を渡す）。
+ * 判定に使うステータスの選定はGitHub APIに対する方針なので、
+ * 汎用の`utils/retry.ts`ではなくここが持つ（`withRetry()`にはこの関数を渡す）。
  *
- * 403と429は**`retry-after`が付いているかどうか**でレート制限と権限不足を分ける。付いていない403は
- * 権限不足とみなして再試行しない。一次レート制限の枯渇（`x-ratelimit-remaining: 0`）もここに
- * 落ちるが、リセットは数分〜1時間先で`MAX_RETRY_AFTER_MS`を超えるため、そのヘッダを読んでも
- * 行き先は同じ`ERROR`になる。判定の分岐を増やさないために読まない。
+ * 403と429は**`retry-after`が付いているかどうか**でレート制限と権限不足を分ける。
+ * 付いていない403は権限不足とみなして再試行しない。一次レート制限の枯渇（`x-ratelimit-remaining: 0`）
+ * もここに落ちるが、リセットは数分〜1時間先で`MAX_RETRY_AFTER_MS`を超えるため、
+ * そのヘッダを読んでも行き先は同じ`ERROR`になる。判定の分岐を増やさないために読まない。
  */
+
 export function isRetryableError(error: unknown): boolean {
   const status = extractHttpStatus(error)
   if (status === undefined) return false
@@ -104,10 +109,13 @@ function isFatalStatus(status: number): boolean {
 }
 
 /**
- * エラー自身の `code`、無ければ `cause` の `code` を返す。fetch はネットワーク障害を
- * `TypeError: fetch failed` として投げ、`ENOTFOUND` などの実際の `code` は `cause` に入れるため。
- * `cause`は1段だけ辿る。際限なく辿ると、無関係な内側のエラーの`code`で実行全体を止める危険がある。
+ * エラー自身の `code`、無ければ `cause` の `code` を返す。
+ *
+ * fetch はネットワーク障害を`TypeError: fetch failed` として投げ、
+ * `ENOTFOUND` などの実際の `code`は `cause` に入れるため。`cause`は1段だけ辿る。際限なく辿ると、
+ * 無関係な内側のエラーの`code`で実行全体を止める危険がある。
  */
+
 function extractErrorCode(error: unknown): string | undefined {
   if (!(error instanceof Error)) return undefined
   return readCode(error) ?? readCode(error.cause)
