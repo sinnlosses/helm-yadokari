@@ -32,9 +32,10 @@ export async function stageHelmBranchRefUpdates(
 }
 
 /**
- * `helm.locations`のうち1箇所分について、現在の値を読み取り設定値（`branchRef`）と
- * 比較する。差分があれば、書き込み前にそのブランチがchartリポジトリ上に実在するか検証した
- * うえで書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ`updates`に含めない）。
+ * `helm.locations`のうち1箇所分について、現在の値を設定値（`branchRef`）と比較する。
+ *
+ * 差分があれば、書き込み前にそのブランチがchartリポジトリ上に実在するか検証したうえで
+ * 書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ`updates`に含めない）。
  *
  * 実在確認は`adapter.cached`越しに行う。値の読み込み（`readValuesYamlDraft()`）と
  * 同じ`adapter`・`chart`を使うので、問い合わせ先を決める情報がこの関数の中で1つに揃う。

@@ -77,7 +77,8 @@ async function stageAppImageTagUpdates(
 }
 
 /**
- * `app.imageTagLocations`のうち1箇所分について、下書き上の現在値（反映済みタグ）と最新タグを比較する。
+ * `app.imageTagLocations`のうち1箇所分について、下書き上の現在値と最新タグを比較する。
+ *
  * 差分があれば書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ読み込んだ
  * values.yamlを下書きに残すだけで`updates`には含めない）。
  *

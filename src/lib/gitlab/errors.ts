@@ -53,9 +53,10 @@ export function isFatalError(error: unknown): boolean {
 }
 
 /**
- * このエラーを再試行してよいか。混雑・一時的なゲートウェイ障害を表すステータスだけを対象にする。
- * 判定に使うステータスの選定はGitLab APIに対する方針なので、汎用の`utils/retry.ts`ではなく
- * ここが持つ（`withRetry()`にはこの関数を渡す）。
+ * このエラーを再試行してよいか。
+ *
+ * 混雑・一時的なゲートウェイ障害を表すステータスだけを対象にする。選定はGitLab APIに対する
+ * 方針なので、汎用の`utils/retry.ts`ではなくここが持つ（`withRetry()`にはこの関数を渡す）。
  *
  * `GitbeakerRetryError`（gitbeakerが429/502を内部で10回試して使い切った状態）は**対象外**。
  * こちらから追加で叩く相手ではないため、`extractHttpStatus()`が`undefined`を返すことで
@@ -96,6 +97,7 @@ function readCode(value: unknown): string | undefined {
 
 /**
  * gitbeakerが内部リトライを使い切ったときのエラーから、最後のHTTPステータスを読む。
+ *
  * このエラーは`cause`を持たずメッセージにしかステータスが残らないため、文字列から読む。
  * 読めなければ`undefined`を返す（fatalに昇格させない安全側に倒す）。
  *

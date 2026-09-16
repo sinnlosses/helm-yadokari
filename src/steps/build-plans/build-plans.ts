@@ -30,8 +30,10 @@ export type BuildPlansResult = {
 }
 
 /**
- * 各設定ユニットの更新計画を並列に構築する。差分がないもの・dryRunのものは
- * settled（SKIPPED）に、実際に適用が必要なものは toApply にまとめて返す。
+ * 各設定ユニットの更新計画を並列に構築する。
+ *
+ * 差分がないもの・dryRunのものは settled（SKIPPED）に、実際に適用が必要なものは toApply に
+ * まとめて返す。
  *
  * いずれか1つのアプリの処理が失敗した場合、その設定ユニット全体をオールオアナッシングで
  * settled（ERROR）に含める（`buildPlan()` 参照）。最新タグの解決の失敗も同じ扱いになる。

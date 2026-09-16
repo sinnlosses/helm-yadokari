@@ -2,9 +2,10 @@ import type { PlatformUrl, TagName } from "../../domain/types.js"
 import { toPlatformUrl } from "../../domain/types.js"
 
 /**
- * リポジトリのweb URL配下のページURLを組み立てる。`webUrl`はオリジンではなく
- * **リポジトリのパスまで含んだURL**（`https://github.com/owner/repo`、GHESなら
- * `https://ghe.example.com/owner/repo`）なので、`new URL(path, webUrl)`ではなく連結で
+ * リポジトリのweb URL配下のページURLを組み立てる。
+ *
+ * `webUrl`はオリジンではなく**リポジトリのパスまで含んだURL**（`https://github.com/owner/repo`、
+ * GHESなら`https://ghe.example.com/owner/repo`）なので、`new URL(path, webUrl)`ではなく連結で
  * 組み立てる（前者はベースのパスを捨ててしまう）。タグ名のエスケープもここに閉じ込め、
  * 呼び出し側が`encodeURIComponent`を書かなくて済むようにする。
  *

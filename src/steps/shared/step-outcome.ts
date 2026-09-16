@@ -70,9 +70,10 @@ export function toConfigUnitReport(
 }
 
 /**
- * アプリ単位の処理を実行し、非fatalな失敗を`AppOutcome`として返す。`withHandling()`が
- * 設定ユニット単位で行う封じ込めの、アプリ単位版にあたる。fatalなエラーは`withHandling()`と
- * 同じく`FatalError`として投げ直し、実行全体を止める。
+ * アプリ単位の処理を実行し、非fatalな失敗を`AppOutcome`として返す。
+ *
+ * `withHandling()`が設定ユニット単位で行う封じ込めの、アプリ単位版にあたる。fatalなエラーは
+ * `withHandling()`と同じく`FatalError`として投げ直し、実行全体を止める。
  *
  * ログは出さない。この失敗が何件の設定ユニットのERRORになるかは受け取った側が決めるため、
  * ERRORとしての記録は`withHandling()`のまま1箇所に残す。
@@ -101,9 +102,10 @@ export function withAppContext<T>(
 }
 
 /**
- * 設定ユニット単位の並列処理1件分を実行する高階関数。捕捉した例外はこのツールのエラー方針に
- * 従って処理され、fatalなら`FatalError`として投げ直され（実行全体が止まる）、それ以外は
- * `ERROR`のsettled outcomeになる。
+ * 設定ユニット単位の並列処理1件分を実行する高階関数。
+ *
+ * 捕捉した例外はこのツールのエラー方針に従って処理され、fatalなら`FatalError`として投げ直され
+ * （実行全体が止まる）、それ以外は`ERROR`のsettled outcomeになる。
  *
  * 各stepでは`mapWithConcurrency()`の直下で呼び、「並列に実行する」ことと「1件ずつ失敗を
  * 封じ込める」ことがstepの入口に並んで見えるようにしている。
@@ -135,6 +137,7 @@ function failApp<T>(adapter: PlatformAdapter, err: unknown): AppOutcome<T> {
 
 /**
  * アプリ単位の処理で捕捉した例外に「どのアプリで起きたか」を付け足して投げ直す。
+ *
  * オールオアナッシングで設定ユニット全体がERRORになるため、原因のアプリがログから特定できないと
  * 調査できないことへの対策。`withAppContext()`の内部実装であり、外からは直接呼ばない。
  *

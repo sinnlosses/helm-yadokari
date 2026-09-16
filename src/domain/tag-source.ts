@@ -2,8 +2,10 @@ import type { TagSource, TagSourceKey } from "./types.js"
 import { toTagSourceKey } from "./types.js"
 
 /**
- * `TagSource`の同一性を表す値キーを組み立てる。同じ解決単位（`projectId`+`branchToSync`+
- * `tagFormat`がすべて一致）なら同じキーになるため、複数の設定ユニットにまたがるappの重複排除に使える。
+ * `TagSource`の同一性を表す値キーを組み立てる。
+ *
+ * 同じ解決単位（`projectId`+`branchToSync`+`tagFormat`がすべて一致）なら同じキーになるため、
+ * 複数の設定ユニットにまたがるappの重複排除に使える。
  *
  * `tagFormat`まで含めるのは、`projectId`ごとの`tagFormat`一致は`validateTagFormatConsistency()`が
  * 保証しており通常は`projectId`+`branchToSync`だけで一意になるが、その保証が将来外れたときに

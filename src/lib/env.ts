@@ -55,10 +55,11 @@ export function parsePlatform(raw: string | undefined): PlatformKind {
 }
 
 /**
- * CONFIG_ROOT_PATH は `loadConfig()`（`lib/config/config.ts`）が読む設定ディレクトリの
- * ルートパス（`<configRootPath>/<chartディレクトリ>/registry.yaml` という2階層固定の構成を
- * 走査する起点）。`config.yaml` があるディレクトリ（設定ユニットのディレクトリ）と紛れないよう、
- * フィールド名・変数名は `config/` の最上位だと分かる `configRootPath` を使う。
+ * CONFIG_ROOT_PATH は設定ディレクトリのルートパス。
+ *
+ * `<configRootPath>/<chartディレクトリ>/registry.yaml` という2階層固定の構成を走査する起点。
+ * `config.yaml` があるディレクトリ（設定ユニットのディレクトリ）と紛れないよう、フィールド名・
+ * 変数名は `config/` の最上位だと分かる `configRootPath` を使う。
  *
  * パストラバーサル検証は`toConfigRootPath()`が行う。ディレクトリとして実在することは
  * そちらでは見ないのでここで検証する。無いままだと後段の`listSubdirectories()`が
@@ -73,9 +74,10 @@ export function parseConfigRootPath(raw: string | undefined): ConfigRootPath {
 }
 
 /**
- * REPORT_OUTPUT_PATH は実行の末尾に書き出すレポートの出力先。GitLabの
- * artifactsは`$CI_PROJECT_DIR`配下のパスしか回収しないため、既定値は作業ディレクトリからの
- * 相対パスにする。
+ * REPORT_OUTPUT_PATH は実行の末尾に書き出すレポートの出力先。
+ *
+ * GitLabのartifactsは`$CI_PROJECT_DIR`配下のパスしか回収しないため、既定値は作業ディレクトリ
+ * からの相対パスにする。
  *
  * パストラバーサル検証は`toReportOutputPath()`が行う。`CONFIG_ROOT_PATH`と違い、
  * 実在チェックはしない（これから書き出すファイルなので存在するはずがない）。

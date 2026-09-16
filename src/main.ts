@@ -70,6 +70,7 @@ async function runProcess(env: EnvConfig): Promise<RunProcessResult> {
 
 /**
  * config/ を読み込み、以下のステップを順に呼び出して全chartリポジトリを更新する。
+ *
  * dryRun のときはブランチ作成・MR作成をせず、更新予定の内容のみログ出力する。
  * targetChart / targetUnits が設定されている場合は、該当するchart・設定ユニットのみに
  * 絞り込んで実行する。

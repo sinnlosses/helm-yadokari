@@ -10,24 +10,19 @@ import { cacheByArgs } from "../../utils/cache.js"
 import type { PlatformAdapter } from "./adapter.js"
 
 /**
- * 実行1回（バッチ）を通して使い回す、`PlatformAdapter`への読み取りのキャッシュ。バッチの最初に
- * `withCachedReads()`で1回だけ包み、同じインスタンスを最後まで持ち回る
- * （寿命＝バッチ1回ぶん）。キャッシュ済みの読み取りは`adapter.cached.*`、生の読み取りは
- * `adapter.*`として同じ値の上に同居するため、呼び出し側はどちらを呼んでいるかを変数名では
- * なく`.cached`の有無で読める。
+ * `PlatformAdapter`への読み取りのキャッシュ。
  *
- * **ここに並べた読み取りだけがキャッシュされる。** 載せてよいのは「このツール自身の書き込み
- * （タグ作成・コミット・MR作成・ブランチ削除）ではバッチ中に値が変わらない読み取り」だけで、
- * `listTags`（`createTag`で変わる）・`openMergeRequestExists`（`createMergeRequest`で
- * 変わる）・固定ブランチを作り直すときの存在確認（削除と再作成をまたぐ）
- * は載せられない。それらは`PlatformAdapter`の生の関数を直接呼ぶ。判断の経緯は`docs/architecture.md`
- * 「PlatformAdapterへの問い合わせのキャッシュは〜」節。
+ * バッチの最初に`withCachedReads()`で1回だけ包み、同じインスタンスを最後まで持ち回る
+ * （寿命＝バッチ1回）。キャッシュ済みは`adapter.cached.*`、生は`adapter.*`として同じ値に
+ * 同居するので、どちらを呼んでいるかは`.cached`の有無で読める。
  *
- * 生とキャッシュ済みの両方が要るのは`branchExists`。固定ブランチの削除と再作成を
- * またぐ確認は`adapter.branchExists`（生）を、バッチ中不変な向き先ブランチの実在確認は
- * `adapter.cached.branchExists`を呼ぶ。同じ名前の関数が`PlatformAdapter`本体とこの
- * `CachedReads`の両方に並ぶのは意図的で、生とキャッシュ済みのどちらを求めているかを
- * 呼び出し側の1行で示す。
+ * **載せてよいのは、このツール自身の書き込み（タグ作成・コミット・MR作成・ブランチ削除）で
+ * バッチ中に値が変わらない読み取りだけ。** `listTags`は`createTag`で、`openMergeRequestExists`
+ * は`createMergeRequest`で、固定ブランチの存在確認は削除と再作成で変わるので載せられない。
+ * 判断の経緯は`docs/architecture.md`「PlatformAdapterへの問い合わせのキャッシュは〜」節。
+ *
+ * `branchExists`だけは両方に並ぶ。削除と再作成をまたぐ確認は生、バッチ中不変な向き先ブランチの
+ * 実在確認はキャッシュ済みを呼ぶ。
  */
 export type CachedReads = {
   /**

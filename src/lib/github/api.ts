@@ -23,9 +23,11 @@ export type GithubClient = InstanceType<typeof Octokit>
 const PER_PAGE = 100
 
 /**
- * `baseUrl`は**APIのエンドポイント**（github.comなら`https://api.github.com`、GHESなら
- * `https://<host>/api/v3`）で、リポジトリのweb URLではない。末尾のスラッシュを落とすのは、
- * Octokitが`baseUrl`とパスを単純連結するため、付いたままだと`//repos/...`になってしまうから。
+ * `baseUrl`は**APIのエンドポイント**で、リポジトリのweb URLではない。
+ *
+ * github.comなら`https://api.github.com`、GHESなら`https://<host>/api/v3`。末尾のスラッシュを
+ * 落とすのは、Octokitが`baseUrl`とパスを単純連結するため、付いたままだと`//repos/...`に
+ * なってしまうから。
  *
  * gitbeakerの`queryTimeout`にあたる設定はOctokitに無い。コンストラクタで
  * `request.signal`を渡すとクライアント1つにつき1本の`AbortSignal`を全リクエストが共有し、
@@ -136,6 +138,7 @@ type TreeEntry = {
 
 /**
  * `baseBranch` を起点に `featureBranch` を作り、渡したファイルを1コミットで積む。
+ *
  * `featureBranch` が既に存在する場合の扱い（削除して作り直すか）は呼び出し元の判断で、
  * ここでは行わない。
  *

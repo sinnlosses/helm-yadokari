@@ -120,17 +120,14 @@ type LinkedApp = {
 }
 
 /**
- * `config.yaml`（運用値＋chart構造）の各appを、同じchartリポジトリの`registry.yaml`の`appSpecs[]`
- * （タグ形式の台帳）と`projectId`で突き合わせ、組にして返す。どちらのファイルも`projectId`を持つため、
- * 単純な存在チェックに加えて`projectName`の食い違い（コピペミス等）も検知できる
- * - config.yamlの各appに対応するprojectIdがregistry.yamlの`appSpecs[]`に無ければ、`tagFormat`が
- *   引けず最新タグを判定できない設定ミスとして例外をスローする
- * - 両方に存在するprojectIdについて、projectNameが一致しなければ例外をスローする
- * - `registry.yaml`の`appSpecs[]`にだけあってどの設定ユニットからも参照されないappは
- *   エラーにしない（そのchartリポジトリで一時的に更新対象から外している状態を許すため）
+ * `config.yaml`の各appと`registry.yaml`の`appSpecs[]`を`projectId`で突き合わせ、組にして返す。
  *
- * 検証だけして捨てるのではなく組を返すのは、呼び出し元が同じ突き合わせをもう一度やらずに
- * 済ませるため。2回引くと、ここを通った時点で起こりえない「見つからない」を型と分岐に持つことになる。
+ * - `appSpecs[]`に対応する`projectId`が無ければ例外（`tagFormat`が引けず最新タグを判定できない）
+ * - 両方にあって`projectName`が食い違えば例外（コピペミスの検知）
+ * - `appSpecs[]`にだけあって参照されないappはエラーにしない（一時的に更新対象から外せるように）
+ *
+ * 検証だけして捨てず組を返すのは、呼び出し元が同じ突き合わせを繰り返さずに済ませるため。
+ * 2回引くと、ここを通った時点で起こりえない「見つからない」を型と分岐に持つことになる。
  */
 function resolveProjectLinkage(
   configYamlPath: LocalPath,

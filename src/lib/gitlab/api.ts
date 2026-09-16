@@ -19,9 +19,10 @@ import { extractHttpStatus, isNotFoundError, isRetryableError } from "./errors.j
 export type GitlabClient = InstanceType<typeof Gitlab>
 
 /**
- * GitLab APIへの1リクエストあたりの上限時間（ミリ秒）。gitbeakerはこの値を
- * `AbortSignal.timeout()`として全リクエストに載せる。gitbeakerが429/502で行う内部リトライも
- * 同じsignalを共有するため、これは**リトライ込みの総予算**になる。
+ * GitLab APIへの1リクエストあたりの上限時間（ミリ秒）。
+ *
+ * gitbeakerはこの値を`AbortSignal.timeout()`として全リクエストに載せる。gitbeakerが429/502で
+ * 行う内部リトライも同じsignalを共有するため、これは**リトライ込みの総予算**になる。
  *
  * 値はgitbeakerの既定値と同じだが、明示しているのは既定値がバージョンアップで黙って変わっても
  * 気づけないため。超過時の`GitbeakerTimeoutError`は`isFatalError()`が致命的エラーとして扱う。
@@ -122,6 +123,7 @@ type CommitAction = { action: "update"; filePath: ValuesPath; content: string }
 
 /**
  * `baseBranch` を起点に `featureBranch` を作り、渡したファイルを1コミットで積む。
+ *
  * `featureBranch` が既に存在する場合の扱い（削除して作り直すか）は呼び出し元の判断で、
  * ここでは行わない。
  *

@@ -7,9 +7,11 @@ type RetryPolicy = {
 }
 
 /**
- * 指数バックオフ付きの再試行。**どのエラーを再試行してよいかはこのファイルが決めない**
- * （`isRetryable`で受け取る）。特定の技術・外部システムに依存しないための形で、
- * 各APIに対する判定は`lib/gitlab/errors.ts`・`lib/github/errors.ts`の`isRetryableError()`が持つ。
+ * 指数バックオフ付きの再試行。
+ *
+ * **どのエラーを再試行してよいかはこのファイルが決めない**（`isRetryable`で受け取る）。特定の
+ * 技術・外部システムに依存しないための形で、各APIに対する判定は`lib/gitlab/errors.ts`・
+ * `lib/github/errors.ts`の`isRetryableError()`が持つ。
  *
  * `retryDelayMs`を渡すと、エラーが待ち時間を指定してきた回だけ指数バックオフの代わりに
  * その値を使う（GitHubの`retry-after`のように、サーバー側が待つべき秒数を伝えてくる場合）。

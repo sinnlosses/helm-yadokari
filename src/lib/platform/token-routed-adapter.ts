@@ -2,13 +2,13 @@ import type { AccessTokenEnvName, ChartDirName, ConfigUnit, ProjectId } from "..
 import type { PlatformAdapter } from "./adapter.js"
 
 /**
- * `ProjectId`から、そのプロジェクトを読めるトークンのアダプタを引き当てて委譲するだけの
- * `PlatformAdapter`を1枚かぶせる。呼び出し側は戻り値を1つの`PlatformAdapter`として扱い、
- * 複数トークンで動いていることを意識しない。
+ * `ProjectId`から、そのプロジェクトを読めるトークンのアダプタを引き当てて委譲する1枚。
  *
- * `adapters`は渡される時点でトークン1本につき1つで、それぞれそのトークンで作ったAPIクライアント
- * を内側に持つ。分けてあるのは権限分離のため——トークンはグループごとに1本で、自分の
- * グループにしか届かない（`docs/architecture.md`「アクセストークンはchartリポジトリ単位に…」節）。
+ * 呼び出し側は戻り値を1つの`PlatformAdapter`として扱い、複数トークンで動いていることを
+ * 意識しない。`adapters`は渡される時点でトークン1本につき1つで、それぞれそのトークンで作った
+ * APIクライアントを内側に持つ。分けてあるのは権限分離のため——トークンはグループごとに1本で、
+ * 自分のグループにしか届かない（`docs/architecture.md`「アクセストークンはchartリポジトリ
+ * 単位に…」節）。
  *
  * 401と未設定トークンは素の`Error`に読み替え、該当chartリポジトリだけを`ERROR`に留める。
  */
