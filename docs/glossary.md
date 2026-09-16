@@ -175,7 +175,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 - **英語識別子**: `branchToSync` / `BranchName`
 - **定義**: アプリごとに設定する、最新タグの判定対象とするソースリポジトリ側のブランチ。
-- **表記ゆれ**: 要件定義の初期検討段階（`docs/requirements-grilling.md`）では「追跡対象ブランチ」という表記もあったが、確定版の`docs/requirements.md`では「追跡ブランチ」に統一されている。
+- **表記ゆれ**: 要件定義の初期検討段階（`docs/history/requirements-grilling.md`）では「追跡対象ブランチ」という表記もあったが、確定版の`docs/requirements.md`では「追跡ブランチ」に統一されている。
 - **`apps[].branchToSync`という名前を据え置く理由**: YAMLキーとコード上のフィールド名（`AppConfig.branchToSync`）が
   一致しており、「YAMLキーと型フィールドで語幹を違えない」という規約に違反していない。`helm.branchRef`とは
   キー名が異なるため、同じキー名を別の意味に使う衝突も無い。

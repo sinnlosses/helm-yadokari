@@ -14,12 +14,10 @@ description: "docs/（history/ 以外）・README.md・CLAUDE.md を検査して
 
 ## 対象
 
-`docs/*.md`（`docs/requirements-grilling.md` を除く）と `README.md`・`CLAUDE.md` の8ファイル。
+`docs/*.md` と `README.md`・`CLAUDE.md` の7ファイル。
 
 - **`docs/history/` 配下は対象外。** 当時の記述をそのまま残す規約があるため、整備しない
-  （`test-inventory.md` も `history/` 配下なので対象外）
-- **`docs/requirements-grilling.md` も対象外。** 要件検討時のQ&Aログで、`history/` と同じく
-  当時の記述をそのまま残すもの
+  （`test-inventory.md` と `requirements-grilling.md` も `history/` 配下なので対象外）
 - 検査1（通読ガード）だけは `docs/*.md` のみを見る。`README.md` と `CLAUDE.md` は
   **通読される前提の入口**なので「通読しない」宣言がそぐわない
 
@@ -54,7 +52,7 @@ description: "docs/（history/ 以外）・README.md・CLAUDE.md を検査して
 
 ```sh
 sh <<'EOS'
-targets() { for f in docs/*.md README.md CLAUDE.md; do case "$f" in *requirements-grilling.md) continue;; esac; echo "$f"; done; }
+targets() { for f in docs/*.md README.md CLAUDE.md; do echo "$f"; done; }
 indexed() { echo docs/architecture.md docs/coding-standards.md docs/glossary.md docs/requirements.md; }
 
 echo "== 検査1 通読ガード =="

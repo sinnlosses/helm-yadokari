@@ -1,7 +1,7 @@
 # helm-yadokari 要件定義
 
 最終更新: 2026-09-13
-ステータス: 確定（詳細な検討経緯は `docs/requirements-grilling.md` を参照）
+ステータス: 確定（詳細な検討経緯は `docs/history/requirements-grilling.md` を参照）
 
 ## このドキュメントの読み方
 
@@ -493,4 +493,4 @@ apps:
 
 ## 6. 参照
 
-- 検討経緯・質疑応答の詳細ログ: `docs/requirements-grilling.md`
+- 検討経緯・質疑応答の詳細ログ: `docs/history/requirements-grilling.md`

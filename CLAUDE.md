@@ -12,7 +12,7 @@ Helm chart でバージョン管理されているアプリケーションのイ
 定期実行し、chart リポジトリ単位で1つの MR（GitHubでは Pull Request）を作成する。クラスタへの
 直接デプロイ（`helm upgrade`）は行わない。詳細な要件・検討経緯は
 [`docs/requirements.md`](./docs/requirements.md) と
-[`docs/requirements-grilling.md`](./docs/requirements-grilling.md) を参照。
+[`docs/history/requirements-grilling.md`](./docs/history/requirements-grilling.md) を参照。
 
 対象ユーザーはチーム内限定。スコープ外のことは `docs/requirements.md` の「2.2 対象外とすること」参照。
 
@@ -190,12 +190,12 @@ Spec軸（`docs/requirements.md`）を参照。
 - コーディング規約の詳細（各ルールの理由・例外）: `docs/coding-standards.md`
 - 進捗管理の詳細（`develop/` の tasks.json・progress.md・direction.md のフィールド定義・evidenceの粒度・アーカイブ運用）:
   ユーザー単位スキル `task-workflow` の `WORKFLOW.md`。このプロジェクト固有の値と経緯は `docs/workflow.md`
-- 完了タスク・過去セッションの詳細な記録: `docs/history/tasks-archive.md` / `docs/history/progress-archive.md`
+- 完了タスク・過去セッションの詳細な記録: `docs/history/tasks.md` / `docs/history/progress.md`
   （セッション開始時に読む必要はない。過去の判断の経緯をたどりたいときだけ、`grep`で
   該当する `## T-XXX` を見つけてその節だけ参照する。どちらも100KB超あるため通読しない）
 - 要件定義: `docs/requirements.md`（30KB超。**通読しない**。冒頭の「節の索引」で節を1つ特定して読む。
   4.4節はYAMLの実例を含むため、sedの終端は `^#\{2,4\}` にする）
-- 要件定義の検討経緯（Q&Aログ）: `docs/requirements-grilling.md`
+- 要件定義の検討経緯（Q&Aログ）: `docs/history/requirements-grilling.md`
 - 用語集（ドメイン用語とコード上の識別子の対応、表記ゆれの注記）: `docs/glossary.md`
   （20KB超。**通読しない**。冒頭の「用語の索引」で用語を1つ特定し、その見出しだけを読む）
 - 実機スモークテストの手順（フィクスチャ・シナリオ・繰り返し方）: `docs/smoke-test.md`
