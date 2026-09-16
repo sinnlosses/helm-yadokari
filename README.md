@@ -27,28 +27,6 @@ chart リポジトリ単位に更新をまとめた MR 作成を自動化しま�
 
 要件・設計の詳細は [`docs/requirements.md`](./docs/requirements.md) を参照してください。
 
-## 目次
-
-- [目次](#目次)
-- [Features](#features)
-- [タグ形式](#タグ形式)
-  - [タグの自動作成](#タグの自動作成)
-- [Quick Start](#quick-start)
-- [仕組み](#仕組み)
-  - [実行ログの例](#実行ログの例)
-- [設定](#設定)
-  - [環境変数](#環境変数)
-  - [config/](#config)
-  - [設定ファイルの検証](#設定ファイルの検証)
-- [エラーハンドリング](#エラーハンドリング)
-- [CI/CD](#cicd)
-  - [セットアップ手順](#セットアップ手順)
-  - [複数グループで運用する](#複数グループで運用する)
-  - [手動実行時のオプション（Pipeline inputs）](#手動実行時のオプションpipeline-inputs)
-- [開発](#開発)
-  - [プロジェクト構成](#プロジェクト構成)
-- [License](#license)
-
 ## Features
 
 - **複数チーム・複数chart・複数プロジェクトに対応**
@@ -379,11 +357,9 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
    `write_repository`、ロールは Developer（`api` スコープ・Maintainer は付けない）。名前は
    `yadokari-<group>` のように識別できるものにする（監査ログ・MR作者で判別するため）。
    有効期限は短め（90日目安）にし、更新期日と担当はそのグループ側の責任とする。
-   > gitlab.com の Free プランでは Group/Project Access Token を発行できません
-   > （self-managed・Dedicatedは全ティアで発行可）。その場合はグループごとに専用の
-   > ボットユーザーを作り、Developerで招待した上でそのユーザーの Personal Access Token
-   > （同じスコープ・短い有効期限）を代わりに使ってください。詳細・背景は
-   > [`docs/requirements.md`](./docs/requirements.md) 5章「gitlab.com Freeでの代替」参照。
+   gitlab.com の Free プランでは発行できないため、代わりにグループ専用のボットユーザーを作り、
+   そのユーザーの Personal Access Token を同じスコープ・短い有効期限で使います
+   （[`docs/requirements.md`](./docs/requirements.md) 5章「gitlab.com Freeでの代替」参照）。
 2. **このリポジトリの Settings > CI/CD > Variables に `ACCESS_TOKEN_<GROUP>` として登録する。**
    Masked（可能なら Masked and hidden）・Protected OFF は上記「[セットアップ手順](#セットアップ手順)」
    と同じ理由です。
@@ -408,13 +384,6 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
   即時終了します）。
 - 残る集中点はこのリポジトリ自身です。Maintainer 以上は全グループの CI/CD 変数を扱えるため、
   Maintainer はプラットフォーム担当の数名に絞ってください。
-- pipeline schedule の変数はマスクできないため、トークンは schedule 側の変数には置かず、
-  必ずこのリポジトリの Settings > CI/CD > Variables に登録してください。
-- 採らなかった案: 最上位グループ1本のトークン・全グループを横断する Service Account・
-  1人の広い権限を持つ個人の Personal Access Token を全グループに使い回すことは、1本漏れると
-  全グループのchartリポジトリへpushできてしまうため採っていません（上記のグループ単位に
-  権限を絞ったボットユーザーの Personal Access Token とは異なり、同じ最小権限の考え方には
-  沿いません）。
 - 将来案: コンテナイメージ配布で各グループ内でCIを走らせる形も検討していますが、`config/` の
   置き場所が変わる設計変更のため未着手です。
 
@@ -424,13 +393,9 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
 しない限り実際にMRが作られるため、設定の実在チェック（`validate-config-remote`）や `check` だけを
 回したい場合も `DRY_RUN` に `true` を指定してください。
 
-| input               | 型      | デフォルト | 説明                                                                         |
-| ------------------- | ------- | ---------- | ---------------------------------------------------------------------------- |
-| `DRY_RUN`           | boolean | `false`    | [環境変数](#環境変数)の `DRY_RUN` と同じ                                     |
-| `CONCURRENCY_LIMIT` | string  | `3`        | [環境変数](#環境変数)の `CONCURRENCY_LIMIT` と同じ                           |
-| `CONFIG_ROOT_PATH`  | string  | `""`       | [環境変数](#環境変数)の `CONFIG_ROOT_PATH` と同じ（`""` は未指定を意味する） |
-| `TARGET_CHART`      | string  | `""`       | [環境変数](#環境変数)の `TARGET_CHART` と同じ（`""` は未指定を意味する）     |
-| `TARGET_UNITS`      | string  | `""`       | [環境変数](#環境変数)の `TARGET_UNITS` と同じ（`""` は未指定を意味する）     |
+Run pipeline の画面で指定できる input は `DRY_RUN`（boolean・既定 `false`）と
+`CONCURRENCY_LIMIT`・`CONFIG_ROOT_PATH`・`TARGET_CHART`・`TARGET_UNITS`（いずれも string）の5つで、
+意味は同名の[環境変数](#環境変数)と同じです（string の既定値 `""` は未指定を意味します）。
 
 ## 開発
 
