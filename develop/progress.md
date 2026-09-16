@@ -72,14 +72,6 @@ T-262 はその2件の完了待ち。一覧は `/list-tasks`）。
 - `.env.example` と `docs/smoke-test.md` を追随。既定 `ACCESS_TOKEN` を `.env` から消しても
   `smoke-fixture.ts` の呼び方を変えなくてよくなり、旧回避策の段落を削除した
 
-### 2026-09-16 `routed-adapter.ts` は分けないと判断
-
-- **T-254: `src/lib/platform/routed-adapter.ts`(232行) を分割しないと決めた**（ユーザー承認済み）。
-  `docs/architecture.md`「1ファイルにまとめるか分けるか」の分ける合図は⑤（行数）しか成り立たず、
-  ①〜④はいずれも不成立。非公開8関数が `Route` 型を共有し、`resolveRoute()`・`firstDeclared()` の
-  「到達しない」根拠が同居する2つの assert にあるため、離すと公開面が2→6に増える
-- 判断を `docs/architecture.md` の適用例に1項目として残した。コード変更なし
-
 ## 未解決
 
 - **`CLAUDE.md` の「関連リンク」が存在しないファイルを指している**（2026-09-16 に発見）。

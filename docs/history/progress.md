@@ -1,5 +1,13 @@
 # progress.md の過去ログ（〜T-063）
 
+### 2026-09-16 `routed-adapter.ts` は分けないと判断
+
+- **T-254: `src/lib/platform/routed-adapter.ts`(232行) を分割しないと決めた**（ユーザー承認済み）。
+  `docs/architecture.md`「1ファイルにまとめるか分けるか」の分ける合図は⑤（行数）しか成り立たず、
+  ①〜④はいずれも不成立。非公開8関数が `Route` 型を共有し、`resolveRoute()`・`firstDeclared()` の
+  「到達しない」根拠が同居する2つの assert にあるため、離すと公開面が2→6に増える
+- 判断を `docs/architecture.md` の適用例に1項目として残した。コード変更なし
+
 ### 2026-09-16 `lib/<プラットフォーム>/` のファイル名を `api.ts` に
 
 - **T-253: `src/lib/gitlab/gitlab.ts`・`src/lib/github/github.ts` を同ディレクトリの `api.ts` へ改名**し、
