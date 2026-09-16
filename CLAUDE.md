@@ -84,7 +84,7 @@ pnpm build && pnpm start              # ビルドしてから実行
 （pipeline schedule / 手動実行時のみ本体を実行）という構成。`validate-config-remote` は
 `config/` の値が実在するかをMR時点で検証するジョブ（読み取りのみ。MR/push/手動実行で
 必ず走る。現時点ではGitLab専用で、`PLATFORM=github`では未対応）。`renovate` ジョブは
-このCLI自体の依存パッケージ更新用（別スケジュールで `RENOVATE=true` を指定）。
+本体の更新処理とは無関係な別機能（説明は [`README.md`](./README.md)「CI/CD」が正典）。
 
 CI/CD Variables に `ACCESS_TOKEN_<グループ名>` を **Protected: OFF** で登録する（理由と手順は
 [`README.md`](./README.md)「CI/CD」が正典）。
@@ -187,5 +187,6 @@ Spec軸（`docs/requirements.md`）を参照。
 - 用語集（ドメイン用語とコード上の識別子の対応、表記ゆれの注記）: `docs/glossary.md`
   （20KB超。**通読しない**。冒頭の「用語の索引」で用語を1つ特定し、その見出しだけを読む）
 - 実機スモークテストの手順（フィクスチャ・シナリオ・繰り返し方）: `docs/smoke-test.md`
+  （30KB超。**通読しない**。冒頭の「節の索引」で節を1つ特定して読む）
 - 調査記録（一次情報の出典と、採らなかった案）: `docs/research/`
 - Issueトラッカー・外部の設計ドキュメントは未設定（今後追加され次第ここに記載する）
