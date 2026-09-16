@@ -140,14 +140,14 @@ type TreeEntry = {
  * ここでは行わない。
  *
  * GitHubにはGitLabの`POST /projects/:id/repository/commits`にあたる「複数ファイルの更新と
- * ブランチ作成を1呼び出しで行う」エンドポイントが無いため、Git Data APIの4呼び出しに分解する。
+ * ブランチ作成を1呼び出しで行う」エンドポイントが無いため、Git Data APIの複数呼び出しに分解する。
  * 内容はtreeのentryにインラインの`content`で載せる（GitHubがblobを書き出すので
- * ファイルごとの`createBlob`は要らず、ファイルが何個でもAPI呼び出しは4回のまま）。
+ * ファイルごとの`createBlob`は要らず、ファイルが何個でも呼び出しの回数は変わらない）。
  * `PUT /repos/{owner}/{repo}/contents/{path}`は1ファイル＝1コミットになるため使えない。
  *
  * 起点の取得に`git.getRef`ではなく`repos.getBranch`を使うのは、`createTree`の`base_tree`が
  * **コミットではなくtreeのSHA**を要求するため。`getRef`だとコミットSHAしか得られず
- * `git.getCommit`を足して5呼び出しになるが、`getBranch`なら親コミットとそのtreeが1回で揃う。
+ * `git.getCommit`を足すことになるが、`getBranch`なら親コミットとそのtreeが1回で揃う。
  *
  * ファイルごとの扱いが常に「既存ファイルの更新」である前提は`lib/gitlab/`の同名関数と同じ
  * （呼び出し元が渡すのは`baseBranch`時点の内容を読み込めたファイルだけ）。modeを`100644`に
@@ -174,7 +174,7 @@ export async function commitFileUpdates(
     type: "blob",
     content: file.content,
   }))
-  // 4呼び出しをまとめて1つのリトライ単位にする（複数呼び出しを1単位にするのは
+  // 一連の呼び出しをまとめて1つのリトライ単位にする（複数呼び出しを1単位にするのは
   // `getLatestPipelineForRef`と同じ形）。同じ内容から作り直したtreeは内容で決まる同じSHAに
   // なるので重複せず、やり直しても状態は増えない。
   await withGithubRetry(async () => {
@@ -226,7 +226,7 @@ export async function createMergeRequest(
  * 追跡ブランチの最新コミットに対して、指定した名前のタグを作成する。
  *
  * GitLabの`Tags.create`はrefにブランチ名を渡せるが、GitHubの`git.createRef`は**コミットSHA
- * 必須**なので、ここでブランチのHEADを引いてから作る（1関数あたり2呼び出しになる唯一の理由）。
+ * 必須**なので、ここでブランチのHEADを引いてから作る（この関数が1 API呼び出しに収まらない理由）。
  * 呼び出し元も同じSHAを持っているが、その受け渡しのためにシグネチャを変えるとGitLab側と
  * 呼び出し側にも波及するため、差はこのファイルの中に閉じ込める。
  */

@@ -174,7 +174,7 @@ function settleAsError(
 }
 
 /**
- * 3つのstepすべてが同じキー・同じ値で出力するよう、ここ1箇所で組み立てる。
+ * どのstepも同じキー・同じ値で出力するよう、ここ1箇所で組み立てる。
  */
 function buildLogContext(configUnit: ConfigUnit): ConfigUnitLogContext {
   return {

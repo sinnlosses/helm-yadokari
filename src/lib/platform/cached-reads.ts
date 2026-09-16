@@ -23,7 +23,7 @@ import type { PlatformAdapter } from "./adapter.js"
  * は載せられない。それらは`PlatformAdapter`の生の関数を直接呼ぶ。判断の経緯は`docs/architecture.md`
  * 「PlatformAdapterへの問い合わせのキャッシュは〜」節。
  *
- * `branchExists`は生とキャッシュ済みの両方が要る唯一のメンバー。固定ブランチの削除と再作成を
+ * 生とキャッシュ済みの両方が要るのは`branchExists`。固定ブランチの削除と再作成を
  * またぐ確認は`adapter.branchExists`（生）を、バッチ中不変な向き先ブランチの実在確認は
  * `adapter.cached.branchExists`を呼ぶ。同じ名前の関数が`PlatformAdapter`本体とこの
  * `CachedReads`の両方に並ぶのは意図的で、生とキャッシュ済みのどちらを求めているかを
