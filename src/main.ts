@@ -77,10 +77,10 @@ async function runProcess(env: EnvConfig): Promise<RunProcessResult> {
  * targetChart / targetUnits が設定されている場合は、該当するchart・
  * 設定ユニットのみに絞り込んで実行する。
  *
- * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがある設定ユニットを除外する2. resolve
- * Tags: 残った設定ユニットの全アプリの最新タグを、
- * 解決の単位ごとに1回だけ解決する3. buildPlans: 設定ユニットそれぞれの更新計画（差分）
- * を構築する4. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
+ * 1. filterTargets: 登録アプリが0件、または既にオープン中のMRがある設定ユニットを除外する
+ * 2. resolveTags: 残った設定ユニットの全アプリの最新タグを、解決の単位ごとに1回だけ解決する
+ * 3. buildPlans: 設定ユニットそれぞれの更新計画（差分）を構築する
+ * 4. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
  */
 
 async function runPipeline(env: EnvConfig): Promise<RunProcessResult> {
