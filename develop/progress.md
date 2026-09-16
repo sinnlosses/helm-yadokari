@@ -1,11 +1,11 @@
 # 現在の状態
 
 最終更新: 2026-09-16（**`docs/coding-standards.md` を整理する指示を T-259〜T-262 にタスク化し、
-T-259・T-260 を完了**。二重になっていた本文を1つに戻し、JSDocのブロックタグ禁止規約を廃止した。
+T-259〜T-261 を完了**。二重になっていた本文を1つに戻し、JSDocのブロックタグ禁止規約を廃止した
+（関数の並び順の lint は既製ルールが無く見送り）。
 前回: 既定 `ACCESS_TOKEN` を廃止し `accessTokenEnv` を必須化、T-255〜T-258 を完了）
 
-**未着手のタスクは2件**（T-261・T-262。いま着手できるのは T-261 だけで、T-262 はその完了待ち。
-一覧は `/list-tasks`）。
+**未着手のタスクは1件**（T-262。着手できる状態。一覧は `/list-tasks`）。
 
 **T-249〜T-258 の `done` 10件は
 [`docs/history/tasks.md`](../docs/history/tasks.md) へアーカイブ済み**。
@@ -18,6 +18,15 @@ T-259・T-260 を完了**。二重になっていた本文を1つに戻し、JSD
 `scripts/smoke/provision-group.ts` を動かすときに追加が要る（T-255 で名前を変えたため）。
 
 ## 完了したこと（このセッション）
+
+### 2026-09-16 関数の並び順の lint 化は見送った（T-261）
+
+- **T-261: oxlint に「export された関数を上・非公開ヘルパーを下」を見るルールは無い**と確認し、
+  `status: done` / `passes: false` で閉じた（ユーザー判断により、既製ルールが無ければ見送り）。
+  `docs/coding-standards.md`「## 関数の並び順」と CLAUDE.md の該当ルールはそのまま残っている
+- **`no-use-before-define` は方向が逆**なので今後も採れない。この規約どおりに並べると
+  「定義前に使っている」として必ず落ちる（最小例で実測）。`typescript/member-ordering` は
+  oxlint に存在しない（設定すると `Rule 'member-ordering' not found in plugin 'typescript'`）
 
 ### 2026-09-16 JSDocのブロックタグ禁止規約を廃止した（T-260）
 
