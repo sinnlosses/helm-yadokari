@@ -1,16 +1,16 @@
 # 現在の状態
 
-最終更新: 2026-09-16（**既定 `ACCESS_TOKEN` を廃止し、`registry.yaml` の `accessTokenEnv` を
-必須化した**。T-255〜T-258 を登録して全件完了。CLI が読むトークンは `ACCESS_TOKEN_<グループ名>`
-の1ルールだけになり、401の波及範囲も chart単位 `ERROR` に一本化された。前回: T-253・T-254 を完了）
+最終更新: 2026-09-16（**`docs/coding-standards.md` を整理する指示をタスク化した**。
+T-259〜T-262 を登録（実行は未着手）。前回: 既定 `ACCESS_TOKEN` を廃止し `accessTokenEnv` を
+必須化、T-255〜T-258 を完了）
 
-**未着手のタスクは0件**（`develop/tasks.json` は空。次に進めるものが無いので、
-`develop/direction.md` に指示を書いて `/plan-tasks` にかけるところから）。
+**未着手のタスクは4件**（T-259〜T-262。いま着手できるのは T-259 だけで、残り3件は
+すべて T-259 に依存する。一覧は `/list-tasks`）。
 
 **T-249〜T-258 の `done` 10件は
-[`docs/history/tasks-archive.md`](../docs/history/tasks-archive.md) へアーカイブ済み**。
+[`docs/history/tasks.md`](../docs/history/tasks.md) へアーカイブ済み**。
 過去セッションの記録は
-[`docs/history/progress-archive.md`](../docs/history/progress-archive.md) にある。
+[`docs/history/progress.md`](../docs/history/progress.md) にある。
 
 接尾辞なしの `ACCESS_TOKEN` は **GitLab の CI/CD Variables と手元の `.env` の両方から削除済み**
 （2026-09-16、ユーザーが実施。API で確認したCI/CD変数は `GITLAB_URL` / `ACCESS_TOKEN_SMOKE_A` /
@@ -73,6 +73,11 @@
 - 判断を `docs/architecture.md` の適用例に1項目として残した。コード変更なし
 
 ## 未解決
+
+- **`CLAUDE.md` の「関連リンク」が存在しないファイルを指している**（2026-09-16 に発見）。
+  `docs/history/tasks-archive.md` / `docs/history/progress-archive.md` と書いてあるが、
+  abcf502 の改名で実物は `docs/history/tasks.md` / `docs/history/progress.md`。
+  `/maintain-docs` か次に CLAUDE.md を触るタスクで直す
 
 - **GitHub側の実機検証が未実施**（2026-09-13）。`PLATFORM=github` の経路はユニットテストと
   型でしか確かめていない。特に次の3つはモックでは検証しきれない:
@@ -165,6 +170,11 @@
     2回引く。影響が小さいので見送り
 
 ## 注意
+
+- **`docs/coding-standards.md` は本文が二重になっている**（T-259 で直すまで）。53〜208行が
+  `## 関数の並び順`〜`### 1行目は要約、空けてから詳細` と索引表後半の重複コピーで、
+  **JSDoc の規約は重複側が新しく、正規の本文（210行目以降）が古い**。この正典を
+  `sed -n '/^### 見出し/,/^#\{1,4\} /p'` で節読みすると古いほうを引くことがある
 
 - **改名の確認 grep は単語境界 `\b` を使わない。** 日本語に挟まれた識別子
   （「1つのchartAndAppsを処理する」など）を単語境界として認識せず見逃す。T-204 で19件の
