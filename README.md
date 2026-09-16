@@ -356,10 +356,6 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
 1. **グループごとに Group Access Token を1本発行する。** スコープは `read_api` +
    `write_repository`、ロールは Developer（`api` スコープ・Maintainer は付けない）。名前は
    `yadokari-<group>` のように識別できるものにする（監査ログ・MR作者で判別するため）。
-   有効期限は短め（90日目安）にし、更新期日と担当はそのグループ側の責任とする。
-   gitlab.com の Free プランでは発行できないため、代わりにグループ専用のボットユーザーを作り、
-   そのユーザーの Personal Access Token を同じスコープ・短い有効期限で使います
-   （[`docs/requirements.md`](./docs/requirements.md) 5章「gitlab.com Freeでの代替」参照）。
 2. **このリポジトリの Settings > CI/CD > Variables に `ACCESS_TOKEN_<GROUP>` として登録する。**
    Masked（可能なら Masked and hidden）・Protected OFF は上記「[セットアップ手順](#セットアップ手順)」
    と同じ理由です。
@@ -372,18 +368,13 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
 注意点:
 
 - 保護ブランチ・保護タグのパターンに、このツールが使う固定ブランチ名
-  （`feature/yadokari/<unitPath>`）とタグ形式が当たらないようにしておくと、ロールを上げずに
-  Developer のまま運用できます（当たってしまう場合は、ロールを上げるのではなくパターン側を
-  調整してください）。
+  （`feature/yadokari/<unitPath>`）を使わないでください
 - トークンの期限切れ・401はそのchartリポジトリ配下の設定ユニットが `ERROR` になるだけで、
   他グループには波及しません（「[エラーハンドリング](#エラーハンドリング)」参照）。
 - chartリポジトリとアプリ（ソースリポジトリ）が別グループにまたがる場合は、両方に届く共通の
-  親グループでトークンを発行してください。親グループが大きすぎる場合は、chartとアプリを
-  同じサブグループに寄せることを検討してください。
+  親グループでトークンを発行してください。
 - 同じ `projectId` を複数のグループのトークンに結びつけることはできません（設定エラーで
   即時終了します）。
-- 残る集中点はこのリポジトリ自身です。Maintainer 以上は全グループの CI/CD 変数を扱えるため、
-  Maintainer はプラットフォーム担当の数名に絞ってください。
 
 ### 手動実行時のオプション（Pipeline inputs）
 
