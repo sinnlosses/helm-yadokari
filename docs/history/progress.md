@@ -1,5 +1,16 @@
 # progress.md の過去ログ（〜T-063）
 
+### 2026-09-16 利用者向けドキュメントを既定 ACCESS_TOKEN 廃止に追随させた（T-258）
+
+- **T-258: `README.md`・`.env.example`・`.gitlab-ci.yml`・`config.example/`・`docs/smoke-test.md` と、
+  T-257 で残った `docs/architecture.md` 1行・`docs/glossary.md` の用語名を追随させた**。
+  README の環境変数表・CI/CD変数表に載るトークンは `ACCESS_TOKEN_<GROUP>` だけになり、
+  エラーハンドリング表の401は2行から1行に統合された
+- `docs/glossary.md` の用語名を `ACCESS_TOKEN・accessTokenEnv` →
+  `` `ACCESS_TOKEN_<グループ>`・accessTokenEnv `` に改名（索引行と見出しの両方）
+- **`docs/smoke-test.md` のシナリオ (d)「既定 `ACCESS_TOKEN` を消しても動く」は手順から削除**。
+  2026-09-15の実測ログ側の (d) は記録として残し、「現在の手順には無い」注記を足して整合させた
+
 ### 2026-09-16 accessTokenEnv を必須化し既定 ACCESS_TOKEN を廃止した（T-257）
 
 - **T-257: `registry.yaml` の `accessTokenEnv` を必須にし、既定 `ACCESS_TOKEN` の経路を丸ごと削った**。

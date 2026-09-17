@@ -76,17 +76,6 @@ T-259〜T-262 を全件完了**。二重になっていた本文を1つに戻し
 - **`oxfmt` は太字 `**…**` の中のコードスパン `` `/** \*/` `` を壊す\*\*ことが分かったため
   （下の「注意」）、追加した段落は太字を外して平文で書いた。文言の意味は変えていない
 
-### 2026-09-16 利用者向けドキュメントを既定 ACCESS_TOKEN 廃止に追随させた（T-258）
-
-- **T-258: `README.md`・`.env.example`・`.gitlab-ci.yml`・`config.example/`・`docs/smoke-test.md` と、
-  T-257 で残った `docs/architecture.md` 1行・`docs/glossary.md` の用語名を追随させた**。
-  README の環境変数表・CI/CD変数表に載るトークンは `ACCESS_TOKEN_<GROUP>` だけになり、
-  エラーハンドリング表の401は2行から1行に統合された
-- `docs/glossary.md` の用語名を `ACCESS_TOKEN・accessTokenEnv` →
-  `` `ACCESS_TOKEN_<グループ>`・accessTokenEnv `` に改名（索引行と見出しの両方）
-- **`docs/smoke-test.md` のシナリオ (d)「既定 `ACCESS_TOKEN` を消しても動く」は手順から削除**。
-  2026-09-15の実測ログ側の (d) は記録として残し、「現在の手順には無い」注記を足して整合させた
-
 ## 未解決
 
 - **`CLAUDE.md` の「関連リンク」が存在しないファイルを指している**（2026-09-16 に発見）。
@@ -218,7 +207,8 @@ T-259〜T-262 を全件完了**。二重になっていた本文を1つに戻し
   `gitlab.com/sinnlosses-group/helm-yadokari` の2つの push URL を持つ。
   `git push`/`git fetch` は両方に対して行われる
 - gitlab.com 上に検証用の `sinnlosses-group/yadokari-smoke-test-chart` プロジェクトが存在する
-  （削除せず残置）
+  （削除せず残置）。**グループ `sinnlosses-group` の数値IDは `133749373`**
+  （ユーザー提供、2026-09-18。`config/` の `registry.yaml` に書く値）
 - **`RENOVATE=true` を持つ pipeline schedule が存在しないため、`renovate` ジョブは一度も
   動いていない**（このCLI自体の依存パッケージ更新が止まっている状態）。`.gitlab-ci.yml` は
   そのスケジュールの作成を必須と書いているが、**現時点では対応しない判断**（ユーザー判断、
