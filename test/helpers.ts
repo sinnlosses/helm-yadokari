@@ -18,7 +18,8 @@ import {
   toChartDirName,
   toCommitSha,
   toConfigUnitPath,
-  toGroupPath,
+  toGroupId,
+  toGroupName,
   toProjectId,
   toProjectName,
   toTagName,
@@ -177,7 +178,13 @@ export function makeConfigUnit(
   overrides: Partial<
     Pick<
       ConfigUnit,
-      "chartDirName" | "unitPath" | "helm" | "chartRepo" | "accessTokenEnv" | "groupPath"
+      | "chartDirName"
+      | "unitPath"
+      | "helm"
+      | "chartRepo"
+      | "accessTokenEnv"
+      | "groupId"
+      | "groupName"
     >
   > = {},
 ): ConfigUnit {
@@ -194,7 +201,8 @@ export function makeConfigUnit(
     // 検証するテストだけが`locations`を持つ値で上書きする
     helm: { branchRef: toBranchName("release/2026-q1"), locations: [] },
     accessTokenEnv: toAccessTokenEnvName("ACCESS_TOKEN_TEAM_A"),
-    groupPath: toGroupPath("team-a-group"),
+    groupId: toGroupId("10"),
+    groupName: toGroupName("team-a-group"),
     ...overrides,
   }
 }

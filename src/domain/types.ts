@@ -6,7 +6,8 @@ import type {
   CommitSha,
   ChartDirName,
   ConfigUnitPath,
-  GroupPath,
+  GroupId,
+  GroupName,
   PlatformUrl,
   ProjectId,
   ProjectName,
@@ -82,12 +83,15 @@ export type ConfigUnit = {
    */
   readonly accessTokenEnv: AccessTokenEnvName
   /**
-   * `registry.yaml`トップレベルの`group`（同じchartリポジトリ配下の全設定ユニットで共通）。
+   * `registry.yaml`トップレベルの`group.groupId`（同じchartリポジトリ配下の全設定ユニットで共通）。
    *
    * `chartRepo`・`apps`のプロジェクトがこのグループの内側にあるかを照合するための宣言で、
    * 本体パイプラインは使わない（`config/`の実在チェックだけが参照する）。
+   * 名前ではなくIDで宣言するのは、グループ名は変わってもIDは変わらないため。
    */
-  readonly groupPath: GroupPath
+  readonly groupId: GroupId
+  /** `groupId`が指すグループのフルパスを人が読むために書き写した値。GitLab上の現在の値とのズレは実在チェックが報告する */
+  readonly groupName: GroupName
 }
 
 /** タグ名から読み取れる情報。追跡ブランチと、タグ形式の`{date}`/`{time}`から読み取った打刻日時 */

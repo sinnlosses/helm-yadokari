@@ -23,11 +23,13 @@ describe("buildValuesYamlContent", () => {
 
 describe("buildRegistryYamlContent", () => {
   it("accessTokenEnv・group・chartToUpdate・appSpecsを含むregistry.yamlを返す", () => {
-    const content = buildRegistryYamlContent("smoke-b-group", 111, 222)
+    const content = buildRegistryYamlContent(333, "smoke-b-group", 111, 222)
 
     expect(content).toBe(
       "accessTokenEnv: ACCESS_TOKEN_SMOKE_B\n" +
-        "group: smoke-b-group\n" +
+        "group:\n" +
+        "  groupId: 333\n" +
+        "  groupName: smoke-b-group\n" +
         "chartToUpdate:\n" +
         '  projectId: "111"\n' +
         "  projectName: yadokari-smoke-test-chart-b\n" +

@@ -1,8 +1,15 @@
-import type { BranchName, GroupPath, ProjectId, ValuesPath } from "../../../src/domain/types.js"
+import type {
+  BranchName,
+  GroupId,
+  GroupPath,
+  ProjectId,
+  ValuesPath,
+} from "../../../src/domain/types.js"
 import {
   type GitlabClient,
   branchExists,
   getFileContent,
+  getGroupPath,
   getProjectGroupPath,
 } from "../../../src/lib/gitlab/api.js"
 import { cacheByArgs } from "../../../src/utils/cache.js"
@@ -14,6 +21,13 @@ import { cacheByArgs } from "../../../src/utils/cache.js"
  */
 
 export type RemoteCache = {
+  /**
+   * 宣言されたグループIDのフルパス（存在しない・参照できないときは`undefined`）。
+   *
+   * `registry.yaml`単位の値なので、同じchartディレクトリ配下の設定ユニットが何件あっても
+   * 問い合わせは1回で済む
+   */
+  readonly lookupGroupPath: (groupId: GroupId) => Promise<GroupPath | undefined>
   /** プロジェクトが属するグループ（存在しない・参照できないときは`undefined`） */
   readonly lookupProjectGroupPath: (projectId: ProjectId) => Promise<GroupPath | undefined>
   /** 指定プロジェクトに指定ブランチが存在するか */
@@ -28,6 +42,7 @@ export type RemoteCache = {
 
 export function newRemoteCache(gitlab: GitlabClient): RemoteCache {
   return {
+    lookupGroupPath: cacheByArgs((groupId: GroupId) => getGroupPath(gitlab, groupId)),
     lookupProjectGroupPath: cacheByArgs((projectId: ProjectId) =>
       getProjectGroupPath(gitlab, projectId),
     ),

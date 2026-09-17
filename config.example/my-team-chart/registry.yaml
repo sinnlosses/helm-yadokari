@@ -4,10 +4,14 @@
 # 書けるのは "ACCESS_TOKEN_" で始まる名前だけで、値そのもの（トークン）はここには書かない
 accessTokenEnv: ACCESS_TOKEN_TEAM_A
 
-# このchartリポジトリとソースリポジトリが属するGitLabグループのフルパス（必須）。
+# このchartリポジトリとソースリポジトリが属するGitLabグループ（必須）。
 # 上の accessTokenEnv のトークンがここより外のプロジェクトへ届いていないかを
-# `pnpm lint:validate-config:remote` が照合する（サブグループ配下は属している扱い）
-group: my-team-group
+# `pnpm lint:validate-config:remote` が照合する（サブグループ配下は属している扱い）。
+# グループを特定するのは groupId だけで、groupName は人が読むためのラベル
+# （GitLab上の現在のフルパスとズレていると実在チェックが知らせる）
+group:
+  groupId: 2000 # グループのトップページに表示されるグループID
+  groupName: my-team-group # groupId が指すグループのフルパス
 
 chartToUpdate:
   projectId: 1000 # values.yaml を更新する chartリポジトリの GitLab プロジェクトID

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 import {
   toAccessToken,
   toBranchName,
+  toGroupId,
   toPlatformUrl,
   toProjectId,
   toTagName,
@@ -19,6 +20,7 @@ import {
   deleteBranch,
   getBranchHeadSha,
   getFileContent,
+  getGroupPath,
   getLatestPipelineForRef,
   getProjectGroupPath,
   getProjectWebUrl,
@@ -36,6 +38,7 @@ function makeClient(
     Commits: { create: ReturnType<typeof vi.fn> }
     Pipelines: { showLatest: ReturnType<typeof vi.fn> }
     Projects: { show: ReturnType<typeof vi.fn> }
+    Groups: { show: ReturnType<typeof vi.fn> }
   }>,
 ): GitlabClient {
   return {
@@ -46,6 +49,7 @@ function makeClient(
     Commits: { create: vi.fn(), ...overrides.Commits },
     Pipelines: { showLatest: vi.fn(), ...overrides.Pipelines },
     Projects: { show: vi.fn(), ...overrides.Projects },
+    Groups: { show: vi.fn(), ...overrides.Groups },
   } as unknown as GitlabClient
 }
 
@@ -84,6 +88,24 @@ describe("listTags", () => {
       { name: "main-build-at-20260101-000000", commitSha: "sha1" },
       { name: "main-build-at-20260201-000000", commitSha: "sha2" },
     ])
+  })
+})
+
+describe("getGroupPath", () => {
+  it("グループIDから引いたフルパス（full_path）を返す", async () => {
+    const client = makeClient({
+      Groups: {
+        show: vi
+          .fn()
+          .mockResolvedValue({ id: 42, path: "sub-group", full_path: "my-group/sub-group" }),
+      },
+    })
+    expect(await getGroupPath(client, toGroupId("42"))).toBe("my-group/sub-group")
+  })
+
+  it("404 のとき undefined を返す", async () => {
+    const client = makeClient({ Groups: { show: vi.fn().mockRejectedValue(makeHttpError(404)) } })
+    expect(await getGroupPath(client, toGroupId("42"))).toBeUndefined()
   })
 })
 

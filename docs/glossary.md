@@ -31,7 +31,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 | ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / TagSource / タグの読み取り結果（ParsedTag） / タグ情報（TagInfo） / 打刻日時 / 最新タグ / 反映済みタグ / タグ自動作成 / タグの由来（TagOrigin）                                                                                                                  |
 | ## MR・リポジトリ操作関連   | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング                                                                                                                                                                                                                               |
 | ## 実行結果・処理単位関連   | アプリ更新計画 / イメージタグの更新 / 向き先ブランチの更新 / 設定ユニット更新対象 / 設定ユニット処理結果 / 実行結果                                                                                                                                                                                      |
-| ## 実行環境・運用関連       | Dry-runモード / `TARGET_CHART`・`TARGET_UNITS` / pipeline schedules / Platform / `ACCESS_TOKEN_<グループ>`・accessTokenEnv / グループ（group・GroupPath）                                                                                                                                                |
+| ## 実行環境・運用関連       | Dry-runモード / `TARGET_CHART`・`TARGET_UNITS` / pipeline schedules / Platform / `ACCESS_TOKEN_<グループ>`・accessTokenEnv / グループ（group・groupId・groupName）                                                                                                                                       |
 | ## その他の注記             | 「target」の意味は文脈で決まる / 「反映」「適用」「更新」の使い分け                                                                                                                                                                                                                                      |
 
 ## 設定・登録関連
@@ -434,22 +434,28 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   環境（プラン・self-managed/Dedicated）で変わるが、CLIはどちらも同じ`AccessToken`として
   扱い区別しない（`docs/requirements.md` 5章「gitlab.com Freeでの代替」）。
 
-### グループ（group・GroupPath）
+### グループ（group・groupId・groupName）
 
-- **英語識別子**: `registry.yaml`トップレベルの`group`フィールド（型は`GroupPath`ブランド型。
-  `ConfigUnit.groupPath`に載る）
-- **定義**: chartリポジトリとそのソースリポジトリが属するGitLabのグループ（namespace）の
-  **フルパス**（例: `team-a-group`・`team-a-group/sub-group`）。`accessTokenEnv`が
-  「どのトークンを使うか」の宣言なのに対し、`group`は「そのトークンがどこまで届いてよいか」の
-  宣言にあたる。宣言は必須で、書かれていない`registry.yaml`は設定エラーになる。
+- **英語識別子**: `registry.yaml`トップレベルの`group`フィールド（`groupId`（`GroupId`
+  ブランド型）と`groupName`（`GroupName`ブランド型）を持ち、`ConfigUnit.groupId`/
+  `ConfigUnit.groupName`に載る）
+- **定義**: chartリポジトリとそのソースリポジトリが属するGitLabのグループ（namespace）の宣言。
+  `accessTokenEnv`が「どのトークンを使うか」の宣言なのに対し、`group`は「そのトークンが
+  どこまで届いてよいか」の宣言にあたる。両フィールドとも必須で、欠けている`registry.yaml`は
+  設定エラーになる。
+- **`groupName`をキーに入れない**: `groupId`と1:1のラベルで、同一性の判定には効かないため
+  （`projectName`と同じ扱い）。グループは名前（フルパス）が変わってもIDは変わらないので、
+  特定は`groupId`だけで行う。
 - **どこで使うか**: 突き合わせるのは`validate-config --remote`（実在チェック）だけで、本体の
-  更新処理は参照しない。GitLabが返すプロジェクトの所属（`namespace.full_path`）が`group`そのものか
-  そのサブグループ配下であることを確認し、外れていればプロジェクト不在とは別の文言で報告する。
-  照合はセグメント単位なので`team-a-group`は`team-a-group-2`に一致しない
-  （`docs/requirements.md` 4.4節）。
-- **表記ゆれの注記**: YAMLのキー名は`group`、コード上の識別子は`groupPath`/`GroupPath`。
-  「グループ」はGitLabのグループそのもの（トークンの発行単位）を指すこともあるため、
-  設定値としての意味で使うときは`group`フィールドと書き分ける。
+  更新処理は参照しない。`groupId`から引いたグループのフルパス（`GroupPath`）に対して、GitLabが
+  返すプロジェクトの所属（`namespace.full_path`）がそれそのものかそのサブグループ配下であることを
+  確認し、外れていればプロジェクト不在とは別の文言で報告する。照合はセグメント単位なので
+  `team-a-group`は`team-a-group-2`に一致しない。引いたフルパスが`groupName`と食い違っていれば、
+  グループのリネームとしてさらに別の文言で報告する（`docs/requirements.md` 4.4節）。
+- **表記ゆれの注記**: YAMLのキー名は`group`（その下が`groupId`/`groupName`）、GitLab APIが返す
+  グループやプロジェクトのフルパスはコード上`GroupPath`型。「グループ」はGitLabのグループ
+  そのもの（トークンの発行単位）を指すこともあるため、設定値としての意味で使うときは
+  `group`フィールドと書き分ける。
 
 ## その他の注記
 

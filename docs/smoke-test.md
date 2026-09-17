@@ -308,7 +308,7 @@ pnpm dev
 
 - `config/yadokari-smoke-test-chart-b/registry.yaml` … 新規。`chartToUpdate`にchartリポジトリB、
   `appSpecs[]`にソースリポジトリB、トップレベルに `accessTokenEnv: ACCESS_TOKEN_SMOKE_B` と
-  `group: <グループBのフルパス>`（中身は`provision-group.ts`が最後に表示する）
+  `group`（`groupId` + `groupName`。中身は`provision-group.ts`が最後に表示する）
 - `config/yadokari-smoke-test-chart-b/smoke-b-app/config.yaml` … 新規。`helm.locations[]`と
   `apps[].locations[]`に`smokeBHelmTargetBranch` / `smokeBAppVersion`を登録
 

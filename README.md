@@ -225,7 +225,9 @@ Helmの向き先ブランチとは、values.yaml のパラメータを受け取�
 ```yaml
 # registry.yaml
 accessTokenEnv: ACCESS_TOKEN_GROUP_A # （必須）このchartリポジトリの操作に使うトークンの環境変数名
-group: group-a # （必須）このchartリポジトリとソースリポジトリが属するGitLabグループのフルパス
+group: # （必須）このchartリポジトリとソースリポジトリが属するGitLabグループ
+  groupId: 2000 # グループのトップページに表示されるグループID（特定に使うのはこちら）
+  groupName: group-a # groupId が指すグループのフルパス（人が読むためのラベル）
 chartToUpdate:
   projectId: 100
   projectName: my-team-chart
@@ -360,10 +362,12 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
    Masked（可能なら Masked and hidden）・Protected OFF は上記「[セットアップ手順](#セットアップ手順)」
    と同じ理由です。
 3. **そのchartリポジトリの `registry.yaml` に `accessTokenEnv: ACCESS_TOKEN_<GROUP>` と
-   `group: <グループのフルパス>` を宣言する**（書き方は「[config/](#config)」参照）。
-   `pnpm lint:validate-config:remote` は、そのchartリポジトリの projectId が宣言した
-   グループ（サブグループ配下を含む）に属しているかを照合します。親グループのトークンや
-   ボットの個人アクセストークンに差し替わって被害範囲が広がった状態は、これで検出できます。
+   `group`（`groupId` + `groupName`）を宣言する**（書き方は「[config/](#config)」参照）。
+   `pnpm lint:validate-config:remote` は、`groupId` から引いたグループのフルパスと、
+   そのchartリポジトリの projectId の所属（サブグループ配下を含む）を照合します。親グループの
+   トークンやボットの個人アクセストークンに差し替わって被害範囲が広がった状態は、これで
+   検出できます。グループ名が変わって `groupName` が古くなった場合も、所属違いとは別の文言で
+   報告します。
 4. **schedule は1つのままで構いません。** 複数chartを1つのscheduleで回せます。cadence
    （実行頻度）をグループごとに分けたいときだけ、`TARGET_CHART` を指定した別scheduleに
    分けてください。

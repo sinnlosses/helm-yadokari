@@ -153,16 +153,37 @@ export function toTagSourceKey(s: string): TagSourceKey {
   return s as TagSourceKey
 }
 
+declare const groupIdBrand: unique symbol
+const GROUP_ID_PATTERN = /^[1-9][0-9]*$/
+/**
+ * GitLabのグループ（namespace）の数値ID（`registry.yaml`の`group.groupId`）。
+ *
+ * 数値表記のYAMLも受けるため`String()`した値になる。`ProjectId`と違って形式を検証するのは、
+ * グループの宣言がGitLab専用（`PLATFORM=github`では検査しない）で数値IDしか取らず、
+ * ここにフルパスを書けてしまうと「名前は変わるがIDは変わらない」という特定の前提が崩れるため。
+ */
+
+export type GroupId = string & { readonly [groupIdBrand]: never }
+/** `GroupId`の唯一の生成経路 */
+export function toGroupId(s: string): GroupId {
+  if (!GROUP_ID_PATTERN.test(s)) {
+    throw new Error(
+      `group.groupId は GitLab のグループID（1以上の整数）である必要があります: "${s}"`,
+    )
+  }
+  return s as GroupId
+}
+
 declare const groupPathBrand: unique symbol
 const GROUP_PATH_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:\/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$/
 /**
  * GitLabのグループ（namespace）のフルパス（例: `my-group`・`my-group/sub-group`）。
  *
- * `registry.yaml`トップレベルの`group`と、GitLab APIが返すプロジェクトの`namespace.full_path`が
- * どちらもこの型になり、実在チェックはこの2つを突き合わせる。
+ * GitLab APIが返すグループの`full_path`とプロジェクトの`namespace.full_path`がどちらもこの型に
+ * なり、実在チェックはこの2つを突き合わせる。
  * 空文字・前後や連続の`/`を許さないのは、突き合わせがセグメント単位の前方一致
- * （`group`そのものか、`group + "/"`で始まるか）で行われ、末尾に`/`が付いた値は常に外れ、
- * 空文字は照合の意味を失うため。
+ * （宣言したグループのフルパスそのものか、それ＋`"/"`で始まるか）で行われ、末尾に`/`が付いた値は
+ * 常に外れ、空文字は照合の意味を失うため。
  */
 
 export type GroupPath = string & { readonly [groupPathBrand]: never }
@@ -175,6 +196,22 @@ export function toGroupPath(s: string, label = "group"): GroupPath {
     )
   }
   return s as GroupPath
+}
+
+declare const groupNameBrand: unique symbol
+/**
+ * `registry.yaml`の`group.groupName`（`groupId`が指すグループのフルパスを人が読むために
+ * 書き写した値）。
+ *
+ * `projectName`と同じく`groupId`と1:1のラベルで、所属の照合そのものには使わない。
+ * `GroupPath`の部分型にしているのは、`groupId`から引いた`full_path`と直接突き合わせて
+ * グループのリネームを検出するため（形式の条件も同じ）。
+ */
+
+export type GroupName = GroupPath & { readonly [groupNameBrand]: never }
+/** `GroupName`の唯一の生成経路。フルパスとしての形式検証は`toGroupPath()`と共通 */
+export function toGroupName(s: string): GroupName {
+  return toGroupPath(s, "group.groupName") as GroupName
 }
 
 declare const accessTokenEnvNameBrand: unique symbol

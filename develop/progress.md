@@ -20,6 +20,22 @@ T-259〜T-262 を全件完了**。二重になっていた本文を1つに戻し
 
 ## 完了したこと（このセッション）
 
+### 2026-09-18 registry.yaml の group を groupId での特定に変えた（T-264）
+
+- T-263 が入れた `group: <フルパス>` は**名前で特定していて規約違反**だった。`projectId`/
+  `projectName` と同じく **`group.groupId` で特定し、`group.groupName` はラベル**に改めた。
+  `docs/glossary.md` に既にあった「`projectName`をキーに入れない」と同じ項を `groupName` にも足した
+- **`GroupName` は `GroupPath` の部分型**（`GroupPath & { brand }`。`ConfigRootPath = LocalPath & {...}`
+  の前例）。TypeScript は独立したブランド型同士の `!==` を「型に重なりがない」としてエラーに
+  するので、独立ブランドだと `groupName` と API 由来の `full_path` のズレ検出が書けない
+- `groupId` → フルパスの解決は `RemoteCache.lookupGroupPath`（`cacheByArgs`）。registry.yaml 1件に
+  つき1回で、**projectId ごとの API 呼び出しは1回も増えていない**
+- 報告の文言は3つに分かれる: 不在は「見つかりません」、所属違いは「属していません」、
+  リネームは「現在のフルパスと食い違っています」。`groupId` 自体が引けないときは所属の照合だけを
+  畳み、実在チェックは続ける
+- `GroupId` は `/^[1-9][0-9]*$/` を検証する。`ProjectId` が素通しなのは GitHub の `owner/repo` を
+  兼ねるためで、グループは GitLab 専用。ここにフルパスを書けると「IDは変わらない」前提が崩れる
+
 ### 2026-09-17 registry.yaml に group を必須で足し、--remote で所属を検証するようにした（T-263）
 
 - `registry.yaml` トップレベルに **`group`（必須）** を足し、`validate-config --remote` が

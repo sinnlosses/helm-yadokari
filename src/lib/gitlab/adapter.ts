@@ -22,7 +22,7 @@ import { buildCompareUrl, buildTagUrl } from "./web-url.js"
  * `api.ts`の各関数は第1引数にクライアントを取るが、ここで束ねることでクライアントは
  * 閉じ込められ、呼び出し側には見えなくなる。
  *
- * `getProjectGroupPath`はここに含めない。本体パイプラインが呼ばず
+ * `getGroupPath`・`getProjectGroupPath`はここに含めない。本体パイプラインが呼ばず
  * （`scripts/lint/remote-existence/`だけが使う、本体パイプライン外の読み取り専用チェック）、
  * `PlatformAdapter`は本体パイプラインが必要とする関数だけを並べるため。
  */

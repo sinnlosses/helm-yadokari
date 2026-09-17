@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { loadConfig } from "../../../src/lib/config/config.js"
+import type { GroupFixture } from "./fixture.js"
 import { DEFAULT_TAG_FORMAT, configYaml, registryYaml, useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
@@ -220,58 +221,96 @@ describe("loadConfig（registry.yamlのgroup）", () => {
     },
   ])
 
-  it("宣言したグループがそのままConfigUnitまで届く", () => {
+  /** `group`だけを差し替えたregistry.yamlを書き、`loadConfig()`にかけられる状態にする */
+  function writeRegistryWithGroup(group: GroupFixture): void {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
         { projectId: 888, projectName: "teamA-chart", mrTargetBranch: "develop" },
         [{ projectId: 1, projectName: "app-1" }],
         "ACCESS_TOKEN_TEAM_A",
-        "team-a-group/sub",
+        group,
       ),
     )
     dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+  }
+
+  it("宣言したgroupIdとgroupNameがそのままConfigUnitまで届く", () => {
+    writeRegistryWithGroup({ groupId: 4242, groupName: "team-a-group/sub" })
 
     const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.groupPath).toBe("team-a-group/sub")
+    expect(configUnits[0]?.groupId).toBe("4242")
+    expect(configUnits[0]?.groupName).toBe("team-a-group/sub")
+  })
+
+  it("groupId を文字列で書いても読める", () => {
+    writeRegistryWithGroup({ groupId: '"4242"', groupName: "team-a-group" })
+
+    const { configUnits } = loadConfig(dir.path)
+    expect(configUnits[0]?.groupId).toBe("4242")
   })
 
   it("group を書いていない registry.yaml は設定エラーになる（所属の照合を黙ってすり抜けないようにするため）", () => {
-    dir.writeRegistryYaml(
-      "teamA-chart",
-      "accessTokenEnv: ACCESS_TOKEN_TEAM_A\n" +
-        "chartToUpdate:\n" +
-        "  projectId: 888\n" +
-        "  projectName: teamA-chart\n" +
-        "  mrTargetBranch: develop\n" +
-        "appSpecs:\n" +
-        "  - projectId: 1\n" +
-        "    projectName: app-1\n" +
-        `    tagFormat: '${DEFAULT_TAG_FORMAT}'\n`,
-    )
+    dir.writeRegistryYaml("teamA-chart", registryYamlWithoutGroupBlock(""))
     dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
     expect(() => loadConfig(dir.path)).toThrow("group は必須です")
   })
 
+  it("groupId を書いていない registry.yaml は設定エラーになる", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYamlWithoutGroupBlock("group:\n  groupName: team-a-group\n"),
+    )
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+
+    expect(() => loadConfig(dir.path)).toThrow("group.groupId は必須です")
+  })
+
+  it("groupName を書いていない registry.yaml は設定エラーになる", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYamlWithoutGroupBlock("group:\n  groupId: 4242\n"),
+    )
+    dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+
+    expect(() => loadConfig(dir.path)).toThrow("group.groupName は必須です")
+  })
+
+  it.each(["team-a-group", "0", "-1", "42abc"])(
+    "groupId が数値のIDでない（%s）とき例外をスローする",
+    (groupId) => {
+      writeRegistryWithGroup({ groupId: `"${groupId}"`, groupName: "team-a-group" })
+
+      expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
+    },
+  )
+
   it.each(["/team-a-group", "team-a-group/", "team-a-group//sub", "team a group"])(
-    "不正なグループ %s のとき例外をスローする",
-    (group) => {
-      dir.writeRegistryYaml(
-        "teamA-chart",
-        registryYaml(
-          { projectId: 888, projectName: "teamA-chart", mrTargetBranch: "develop" },
-          [{ projectId: 1, projectName: "app-1" }],
-          "ACCESS_TOKEN_TEAM_A",
-          group,
-        ),
-      )
-      dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+    "groupName が不正なフルパス（%s）のとき例外をスローする",
+    (groupName) => {
+      writeRegistryWithGroup({ groupId: 4242, groupName: `"${groupName}"` })
 
       expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
     },
   )
 })
+
+/** `group`ブロックだけを差し替えられるregistry.yaml。書き漏らしそのものを検証するテスト専用 */
+function registryYamlWithoutGroupBlock(groupBlock: string): string {
+  return (
+    "accessTokenEnv: ACCESS_TOKEN_TEAM_A\n" +
+    groupBlock +
+    "chartToUpdate:\n" +
+    "  projectId: 888\n" +
+    "  projectName: teamA-chart\n" +
+    "  mrTargetBranch: develop\n" +
+    "appSpecs:\n" +
+    "  - projectId: 1\n" +
+    "    projectName: app-1\n" +
+    `    tagFormat: '${DEFAULT_TAG_FORMAT}'\n`
+  )
+}
 
 describe("loadConfig（projectIdの数値/文字列両対応）", () => {
   it("registry.yaml と config.yaml の projectId が数値（GitLabのプロジェクトID）でも読める", () => {
@@ -303,7 +342,7 @@ describe("loadConfig（projectIdの数値/文字列両対応）", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       'accessTokenEnv: ACCESS_TOKEN_TEAM_A\n' +
-        'group: team-a-group\n' +
+        'group:\n  groupId: 10\n  groupName: team-a-group\n' +
         'chartToUpdate:\n  projectId: "owner/repo"\n  projectName: teamA-chart\n' +
         '  mrTargetBranch: develop\n' +
         'appSpecs:\n  - projectId: "owner/repo"\n    projectName: app-1\n' +

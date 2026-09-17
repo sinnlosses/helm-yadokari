@@ -1033,13 +1033,16 @@ GitLab APIと`config/`形式に依存するので`lib/`の条件（原則2）は
 置くか否か」を決めない。本体パイプラインからの参照は0なので、`src/`に置くと`dist/`に本体が
 使わないコードが混ざり、「本体から呼ばれない」という一番効く事実が構成に現れない。
 
-所属グループの照合（`registry.yaml`の`group`と`namespace.full_path`の突き合わせ）もこの線引きに
-従い、判定そのもの（セグメント単位の前方一致）は`scripts/lint/remote-existence/`に置く。
-`src/`側にあるのは`GroupPath`（`domain/brand.ts`。`config/`のスキーマが使うため）と、
-所属を取ってくる`getProjectGroupPath()`（`lib/gitlab/api.ts`。GitLab APIを知ってよいのはここだけ
-という原則2）の2つだけ。所属を返す関数は実在だけを見ていた旧`projectExists()`を置き換えた形で、
-実在確認と所属の取得を同じ1回の`Projects.show`で兼ねるのでAPI呼び出しは増えない。`PlatformAdapter`には
-載せない（本体パイプラインが呼ばないため。「GitLab/GitHub の2実装は〜」節）。
+所属グループの照合（`registry.yaml`の`group.groupId`が指すフルパスと`namespace.full_path`の
+突き合わせ）もこの線引きに従い、判定そのもの（セグメント単位の前方一致・`groupName`のズレの
+検出）は`scripts/lint/remote-existence/`に置く。`src/`側にあるのは`GroupId`/`GroupName`/
+`GroupPath`（`domain/brand.ts`。`config/`のスキーマが使うため）と、値を取ってくる
+`getGroupPath()`・`getProjectGroupPath()`（`lib/gitlab/api.ts`。GitLab APIを知ってよいのは
+ここだけという原則2）だけ。所属を返す関数は実在だけを見ていた旧`projectExists()`を置き換えた形で、
+実在確認と所属の取得を同じ1回の`Projects.show`で兼ねるのでAPI呼び出しは増えない。宣言された
+`groupId`→フルパスの解決は`RemoteCache`（`remote-existence/remote-cache.ts`）が`groupId`をキーに
+キャッシュするので、`registry.yaml`1件につき1回で済み、projectIdごとの呼び出しは増えない。
+`PlatformAdapter`には載せない（本体パイプラインが呼ばないため。「GitLab/GitHub の2実装は〜」節）。
 
 #### GitLab/GitHub の2実装は関数テーブル型`PlatformAdapter`で受け渡す
 

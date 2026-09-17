@@ -7,6 +7,7 @@ import {
   toAnchorName,
   toBranchName,
   toConfigUnitPath,
+  toGroupName,
   toGroupPath,
   toProjectId,
   toProjectName,
@@ -15,17 +16,19 @@ import {
 import {
   branchExists,
   getFileContent,
+  getGroupPath,
   getProjectGroupPath,
 } from "../../../../src/lib/gitlab/api.js"
 import { makeApp, makeConfigUnit, mockGitlab } from "../../../helpers.js"
 
 const VALUES_YAML = `variables:\n  - &appVersion main-build-at-20260101-000000\n  - &targetBranch main\n`
 
-/** `makeConfigUnit()`が既定で宣言するグループ（＝registry.yamlの`group`） */
+/** `makeConfigUnit()`が既定で宣言するグループ（`group.groupId`から引けるフルパス） */
 const DECLARED_GROUP = toGroupPath("team-a-group")
 
 describe("validateRemoteExistence", () => {
   beforeEach(() => {
+    vi.mocked(getGroupPath).mockResolvedValue(DECLARED_GROUP)
     vi.mocked(getProjectGroupPath).mockResolvedValue(DECLARED_GROUP)
     vi.mocked(branchExists).mockResolvedValue(true)
     vi.mocked(getFileContent).mockResolvedValue(VALUES_YAML)
@@ -121,6 +124,41 @@ describe("validateRemoteExistence", () => {
     const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
     expect(problems.filter((problem) => problem.includes("属していません"))).toHaveLength(2)
+  })
+
+  it("groupName がGitLab上の現在のフルパスとズレているとき、所属違い・不在とは違う文言で返す", async () => {
+    const configUnit = makeConfigUnit([makeApp()], { groupName: toGroupName("team-a-group-old") })
+
+    const problems = await validateRemoteExistence(mockGitlab, [configUnit], 3)
+
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain("食い違っています")
+    expect(problems[0]).toContain("team-a-group-old")
+    expect(problems[0]).not.toContain("属していません")
+    expect(problems[0]).not.toContain("見つかりません")
+  })
+
+  it("groupId のグループを参照できないとき、所属の照合を行わず専用の文言で返す", async () => {
+    vi.mocked(getGroupPath).mockResolvedValue(undefined)
+    vi.mocked(getProjectGroupPath).mockResolvedValue(toGroupPath("other-group"))
+
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
+
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain("group.groupId 10")
+    expect(problems[0]).toContain("参照できません")
+    expect(problems.join("\n")).not.toContain("属していません")
+  })
+
+  it("同じgroupIdは1回だけ問い合わせる（設定ユニットの数だけ増やさない）", async () => {
+    const configUnits = [
+      makeConfigUnit([makeApp()]),
+      makeConfigUnit([makeApp()], { unitPath: toConfigUnitPath("tenant1/client2") }),
+    ]
+
+    await validateRemoteExistence(mockGitlab, configUnits, 3)
+
+    expect(vi.mocked(getGroupPath)).toHaveBeenCalledTimes(1)
   })
 
   it("mrTargetBranchが存在しないとき問題として返す", async () => {

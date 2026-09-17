@@ -52,6 +52,12 @@ export function useConfigDir(): ConfigDir {
 export const DEFAULT_TAG_FORMAT = "{branch}-build-at-{date}-{time}"
 
 /** `registry.yaml`の`appSpecs[]`1件分（タグ形式の台帳） */
+/** `registry.yaml`トップレベルの`group`。`groupId`は数値・文字列の両方の書き方を試せるようにしている */
+export type GroupFixture = {
+  readonly groupId: number | string
+  readonly groupName: string
+}
+
 export type AppSpecFixture = {
   readonly projectId: number
   readonly projectName: string
@@ -79,9 +85,11 @@ export function registryYaml(
   },
   appSpecs: readonly AppSpecFixture[] = [],
   accessTokenEnv: string = "ACCESS_TOKEN_TEAM_A",
-  group: string = "team-a-group",
+  group: GroupFixture = { groupId: 10, groupName: "team-a-group" },
 ): string {
-  const accessTokenEnvBlock = `accessTokenEnv: ${accessTokenEnv}\ngroup: ${group}\n`
+  const accessTokenEnvBlock =
+    `accessTokenEnv: ${accessTokenEnv}\n` +
+    `group:\n  groupId: ${group.groupId}\n  groupName: ${group.groupName}\n`
   const chartToUpdateBlock =
     `chartToUpdate:\n  projectId: ${chartToUpdate.projectId}\n  projectName: ${chartToUpdate.projectName}\n` +
     `  mrTargetBranch: ${chartToUpdate.mrTargetBranch}\n`

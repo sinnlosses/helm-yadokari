@@ -4,6 +4,8 @@ import type {
   AppConfig,
   ChartRepoConfig,
   ConfigUnit,
+  GroupId,
+  GroupName,
   GroupPath,
   HelmConfig,
 } from "../../../src/domain/types.js"
@@ -21,20 +23,23 @@ import { type RemoteCache, newRemoteCache } from "./remote-cache.js"
 /**
  * 1つの設定ユニットを検証する間ずっと変わらない値をまとめたもの。
  * `where` は問題を報告するときの位置表示（`<chartDir>/<unitPath>`）、
+ * `declaredGroupPath` は`groupId`から引いたグループのフルパス（引けなければ`undefined`で、
+ * このとき所属の照合は行わない）、
  * `reportedPaths` は同じvalues.yamlの不在を何度も報告しないための記録。
  */
 type ValidateContext = {
   readonly cache: RemoteCache
   readonly where: string
   readonly chart: ChartRepoConfig
-  readonly groupPath: GroupPath
+  readonly groupId: GroupId
+  readonly declaredGroupPath: GroupPath | undefined
   readonly reportedPaths: Set<string>
 }
 
 /**
  * `config/` に書かれた projectId・ブランチ・valuesPath・アンカーがGitLab上に実在するか、
- * および projectId が `registry.yaml` の `group` に属しているかを検証し、見つかった問題を
- * 人が読める文字列の配列で返す（1件目で止めず全件集める）。
+ * および projectId が `registry.yaml` の `group.groupId` が指すグループに属しているかを検証し、
+ * 見つかった問題を人が読める文字列の配列で返す（1件目で止めず全件集める）。
  * 問題が無ければ空配列を返す。GitLabへの問い合わせは読み取りのみで、タグ・ブランチ・MRは
  * 一切作らない。
  *
@@ -71,15 +76,18 @@ export async function validateRemoteExistence(
  * 行わず、原因となる1件だけを報告する。
  */
 async function validateConfigUnit(cache: RemoteCache, configUnit: ConfigUnit): Promise<string[]> {
-  const { chartRepo, apps, helm, groupPath } = configUnit
+  const { chartRepo, apps, helm, groupId, groupName } = configUnit
+  const declaredGroupPath = await cache.lookupGroupPath(groupId)
   const context: ValidateContext = {
     cache,
     where: buildConfigUnitLocation(configUnit.chartDirName, configUnit.unitPath),
     chart: chartRepo,
-    groupPath,
+    groupId,
+    declaredGroupPath,
     reportedPaths: new Set<string>(),
   }
   const { where } = context
+  const groupProblems = describeGroupProblems(context, groupName)
 
   const chartGroupPath = await cache.lookupProjectGroupPath(chartRepo.projectId)
   const chartProjectFound = chartGroupPath !== undefined
@@ -105,7 +113,33 @@ async function validateConfigUnit(cache: RemoteCache, configUnit: ConfigUnit): P
   ])
   const helmProblems = baseBranchFound ? await validateHelmConfig(context, helm) : []
 
-  return [...chartProblems, ...baseBranchProblems, ...appProblems, ...helmProblems]
+  return [
+    ...groupProblems,
+    ...chartProblems,
+    ...baseBranchProblems,
+    ...appProblems,
+    ...helmProblems,
+  ]
+}
+
+/**
+ * `registry.yaml`が宣言したグループ自体を検証する。引けなければグループの問題を1件返し、
+ * 引けた場合は`groupName`がGitLab上の現在のフルパスとズレていないか（グループのリネーム）を見る。
+ * どちらもプロジェクトの不在・所属違いとは直す手が違うので、別の文言にしてある。
+ */
+function describeGroupProblems(
+  { where, groupId, declaredGroupPath }: ValidateContext,
+  groupName: GroupName,
+): string[] {
+  if (declaredGroupPath === undefined) {
+    return [
+      `${where}: registry.yaml の group.groupId ${groupId} のグループを参照できません（存在しないか、アクセストークンの権限が届いていません）。この設定ユニットでは所属の照合を行いません`,
+    ]
+  }
+  if (declaredGroupPath === groupName) return []
+  return [
+    `${where}: registry.yaml の group.groupName "${groupName}" が groupId ${groupId} の現在のフルパス "${declaredGroupPath}" と食い違っています（グループがリネームされた可能性があります。groupName を書き換えてください）`,
+  ]
 }
 
 /**
@@ -163,19 +197,21 @@ async function validateHelmConfig(context: ValidateContext, helm: HelmConfig): P
 
 /**
  * プロジェクト1件の実在と所属をまとめて報告する。`projectGroupPath`が`undefined`なら不在
- * （またはトークンで参照できない）、`registry.yaml`の`group`の外にあれば所属違いとして、
+ * （またはトークンで参照できない）、宣言されたグループの外にあれば所属違いとして、
  * それぞれ別の文言を返す（不在・権限不足と所属違いでは直す手が違うため）。
+ * 宣言されたグループ自体を引けていないときは所属を判定できないので、実在だけを見る。
  * `label`は対象を指す言い回し（例: `app "my-app" の projectId 1`）。
  */
 function describeProjectProblems(
-  { where, groupPath }: ValidateContext,
+  { where, groupId, declaredGroupPath }: ValidateContext,
   projectGroupPath: GroupPath | undefined,
   label: string,
 ): string[] {
   if (projectGroupPath === undefined) return [`${where}: ${label} が見つかりません`]
-  if (isWithinGroup(projectGroupPath, groupPath)) return []
+  if (declaredGroupPath === undefined) return []
+  if (isWithinGroup(projectGroupPath, declaredGroupPath)) return []
   return [
-    `${where}: ${label} は registry.yaml の group "${groupPath}" に属していません（実際の所属: ${projectGroupPath}）`,
+    `${where}: ${label} は registry.yaml の group.groupId ${groupId}（${declaredGroupPath}）に属していません（実際の所属: ${projectGroupPath}）`,
   ]
 }
 
@@ -187,8 +223,10 @@ function describeProjectProblems(
  * サブグループ配下は属している扱いにする。グループのトークンはサブグループのプロジェクトにも
  * 届くので、サブグループは宣言したトークンの被害範囲の内側にあるため。
  */
-function isWithinGroup(projectGroupPath: GroupPath, groupPath: GroupPath): boolean {
-  return projectGroupPath === groupPath || projectGroupPath.startsWith(`${groupPath}/`)
+function isWithinGroup(projectGroupPath: GroupPath, declaredGroupPath: GroupPath): boolean {
+  return (
+    projectGroupPath === declaredGroupPath || projectGroupPath.startsWith(`${declaredGroupPath}/`)
+  )
 }
 
 /** 複数の書き込み先を同じラベルで検証する */

@@ -5,6 +5,7 @@ import type {
   BranchName,
   CommitSha,
   FileUpdate,
+  GroupId,
   GroupPath,
   PlatformUrl,
   PipelineInfo,
@@ -40,6 +41,26 @@ export function createClient(host: PlatformUrl, token: AccessToken): GitlabClien
 export async function listTags(gitlab: GitlabClient, projectId: ProjectId): Promise<TagInfo[]> {
   const tags = await withGitlabRetry(() => gitlab.Tags.all(projectId))
   return tags.map((tag) => ({ name: toTagName(tag.name), commitSha: toCommitSha(tag.commit.id) }))
+}
+
+/**
+ * `registry.yaml`が宣言したグループIDのフルパスを返す。グループが存在しないか、
+ * アクセストークンで参照できないときは undefined（GitLabは権限の無いグループにも404を返す）。
+ *
+ * IDで引いてフルパスを得るのは、宣言（ID）とプロジェクトの所属（`namespace.full_path`）を
+ * 同じ土俵に乗せるため。`namespace.id`同士の比較ではサブグループ配下かどうかを判定できない
+ * （`namespace`が持つ`parent_id`は1階層ぶんしか遡れない）。
+ */
+export async function getGroupPath(
+  gitlab: GitlabClient,
+  groupId: GroupId,
+): Promise<GroupPath | undefined> {
+  return withGitlabRetry(() =>
+    withNotFoundFallback(async () => {
+      const group = await gitlab.Groups.show(groupId)
+      return toGroupPath(String(group.full_path), "GitLab APIが返したグループの full_path")
+    }, undefined),
+  )
 }
 
 /**
