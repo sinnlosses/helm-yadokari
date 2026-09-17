@@ -39,9 +39,14 @@ export function buildValuesYamlContent(seedTag: string): string {
 }
 
 /** config/<CHART_DIR_NAME>/registry.yaml の中身（docs/requirements.md 4.4節のスキーマに従う） */
-export function buildRegistryYamlContent(chartProjectId: number, sourceProjectId: number): string {
+export function buildRegistryYamlContent(
+  groupPath: string,
+  chartProjectId: number,
+  sourceProjectId: number,
+): string {
   return (
     `accessTokenEnv: ${ACCESS_TOKEN_ENV_NAME}\n` +
+    `group: ${groupPath}\n` +
     `chartToUpdate:\n` +
     `  projectId: "${chartProjectId}"\n` +
     `  projectName: ${CHART_PROJECT_NAME}\n` +

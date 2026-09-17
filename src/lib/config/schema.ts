@@ -6,6 +6,7 @@ import {
   toAccessTokenEnvName,
   toAnchorName,
   toBranchName,
+  toGroupPath,
   toProjectId,
   toProjectName,
   toValuesPath,
@@ -108,8 +109,36 @@ const AccessTokenEnvNameSchema = z
     }
   })
 
+/**
+ * `registry.yaml`トップレベルの`group`（このchartリポジトリと、その配下の設定ユニットが追跡する
+ * ソースリポジトリが属するGitLabのグループのフルパス）。
+ *
+ * 必須にしているのは`accessTokenEnv`と同じ理由で、書き漏らしたchartリポジトリが黙って
+ * 所属の照合をすり抜ける形を残さないため。`accessTokenEnv`が「どのトークンを使うか」の宣言なのに
+ * 対し、こちらは「そのトークンがどこまで届いてよいか」の宣言にあたる。
+ * 名前の形式検証は`toGroupPath()`（`domain/brand.ts`）に封じ込めてある
+ */
+const GroupPathSchema = z
+  .string({
+    error:
+      "group は必須です。registry.yaml のトップレベルに、このchartリポジトリとソースリポジトリが " +
+      "属する GitLab グループのフルパスを書いてください（例: 'my-group' / 'my-group/sub-group'）",
+  })
+  .transform((raw, ctx) => {
+    try {
+      return toGroupPath(raw)
+    } catch (error) {
+      ctx.addIssue({
+        code: "custom",
+        message: error instanceof Error ? error.message : String(error),
+      })
+      return z.NEVER
+    }
+  })
+
 export const RegistryYamlSchema = z.object({
   accessTokenEnv: AccessTokenEnvNameSchema,
+  group: GroupPathSchema,
   chartToUpdate: z.object({
     projectId: ProjectIdSchema,
     projectName: z.string().min(1).transform(toProjectName),

@@ -20,10 +20,10 @@ import {
   getBranchHeadSha,
   getFileContent,
   getLatestPipelineForRef,
+  getProjectGroupPath,
   getProjectWebUrl,
   listTags,
   openMergeRequestExists,
-  projectExists,
 } from "../../../src/lib/gitlab/api.js"
 import { makeHttpError } from "../../helpers.js"
 
@@ -87,15 +87,23 @@ describe("listTags", () => {
   })
 })
 
-describe("projectExists", () => {
-  it("プロジェクトが存在するとき true を返す", async () => {
-    const client = makeClient({ Projects: { show: vi.fn().mockResolvedValue({ id: 1 }) } })
-    expect(await projectExists(client, toProjectId("1"))).toBe(true)
+describe("getProjectGroupPath", () => {
+  it("プロジェクトが属するグループ（namespace.full_path）を返す", async () => {
+    const client = makeClient({
+      Projects: {
+        show: vi.fn().mockResolvedValue({
+          id: 1,
+          path_with_namespace: "my-group/sub-group/my-app",
+          namespace: { full_path: "my-group/sub-group" },
+        }),
+      },
+    })
+    expect(await getProjectGroupPath(client, toProjectId("1"))).toBe("my-group/sub-group")
   })
 
-  it("404 のとき false を返す", async () => {
+  it("404 のとき undefined を返す", async () => {
     const client = makeClient({ Projects: { show: vi.fn().mockRejectedValue(makeHttpError(404)) } })
-    expect(await projectExists(client, toProjectId("1"))).toBe(false)
+    expect(await getProjectGroupPath(client, toProjectId("1"))).toBeUndefined()
   })
 })
 

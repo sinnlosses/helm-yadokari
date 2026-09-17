@@ -67,9 +67,9 @@ export type AnchorLocationFixture = {
 /**
  * `registry.yaml`のYAML文字列を組み立てる。`appSpecs`を省略すると`appSpecs: []`になる
  * （`RegistryYamlSchema`が`appSpecs`を必須キーとして要求するため、空でも明示が要る）。
- * `accessTokenEnv`は必須フィールドなので、省略時も既定の名前を書き出す（トークンが主題でない
- * テストが毎回同じ行を書かずに済むようにするため）。`accessTokenEnv`が書かれていない状態
- * そのものを検証したいテストは、YAML文字列を直接書く。
+ * `accessTokenEnv`と`group`は必須フィールドなので、省略時も既定の値を書き出す（トークンや
+ * グループが主題でないテストが毎回同じ行を書かずに済むようにするため）。これらが書かれて
+ * いない状態そのものを検証したいテストは、YAML文字列を直接書く。
  */
 export function registryYaml(
   chartToUpdate: {
@@ -79,8 +79,9 @@ export function registryYaml(
   },
   appSpecs: readonly AppSpecFixture[] = [],
   accessTokenEnv: string = "ACCESS_TOKEN_TEAM_A",
+  group: string = "team-a-group",
 ): string {
-  const accessTokenEnvBlock = `accessTokenEnv: ${accessTokenEnv}\n`
+  const accessTokenEnvBlock = `accessTokenEnv: ${accessTokenEnv}\ngroup: ${group}\n`
   const chartToUpdateBlock =
     `chartToUpdate:\n  projectId: ${chartToUpdate.projectId}\n  projectName: ${chartToUpdate.projectName}\n` +
     `  mrTargetBranch: ${chartToUpdate.mrTargetBranch}\n`

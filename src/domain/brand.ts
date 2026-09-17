@@ -153,6 +153,30 @@ export function toTagSourceKey(s: string): TagSourceKey {
   return s as TagSourceKey
 }
 
+declare const groupPathBrand: unique symbol
+const GROUP_PATH_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:\/[A-Za-z0-9_][A-Za-z0-9_.-]*)*$/
+/**
+ * GitLabのグループ（namespace）のフルパス（例: `my-group`・`my-group/sub-group`）。
+ *
+ * `registry.yaml`トップレベルの`group`と、GitLab APIが返すプロジェクトの`namespace.full_path`が
+ * どちらもこの型になり、実在チェックはこの2つを突き合わせる。
+ * 空文字・前後や連続の`/`を許さないのは、突き合わせがセグメント単位の前方一致
+ * （`group`そのものか、`group + "/"`で始まるか）で行われ、末尾に`/`が付いた値は常に外れ、
+ * 空文字は照合の意味を失うため。
+ */
+
+export type GroupPath = string & { readonly [groupPathBrand]: never }
+/** `GroupPath`の唯一の生成経路。label はエラーメッセージ内でその値を何と呼ぶか */
+export function toGroupPath(s: string, label = "group"): GroupPath {
+  if (!GROUP_PATH_PATTERN.test(s)) {
+    throw new Error(
+      `${label} は英数字・アンダースコア・ドット・ハイフンからなるセグメントを "/" でつないだ ` +
+        `GitLabのグループのフルパスである必要があります（例: "my-group/sub-group"）: "${s}"`,
+    )
+  }
+  return s as GroupPath
+}
+
 declare const accessTokenEnvNameBrand: unique symbol
 const ACCESS_TOKEN_ENV_NAME_PATTERN = /^ACCESS_TOKEN_[A-Z0-9_]+$/
 /**

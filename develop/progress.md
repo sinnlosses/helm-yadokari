@@ -20,6 +20,23 @@ T-259〜T-262 を全件完了**。二重になっていた本文を1つに戻し
 
 ## 完了したこと（このセッション）
 
+### 2026-09-17 registry.yaml に group を必須で足し、--remote で所属を検証するようにした（T-263）
+
+- `registry.yaml` トップレベルに **`group`（必須）** を足し、`validate-config --remote` が
+  `chartToUpdate.projectId` と `apps[].projectId` の所属を照合するようにした。`accessTokenEnv` が
+  「どのトークンを使うか」なのに対し、`group` は「そのトークンがどこまで届いてよいか」の宣言
+- `projectExists()` を **`getProjectGroupPath()`**（`GroupPath | undefined`、404 は `undefined`）に
+  置き換えた。戻り値を捨てていた同じ `Projects.show` 1回で実在確認と所属取得を兼ねるので
+  **API 呼び出し回数は増えていない**。`RemoteCache` も `hasProject` → `lookupProjectGroupPath`
+- 照合は**セグメント単位の前方一致**（`group` そのもの、または `group + "/"` 始まり）。素の
+  `startsWith` だと `team-a-group` が `team-a-group-2` にも一致して隣のグループを通してしまう。
+  **サブグループ配下は属している扱い**——グループのトークンはサブグループにも届くので、
+  宣言したトークンの被害範囲の内側にあるため
+- 所属違いは不在と**別の文言**にし（直す手が違うため）、プロジェクト自体は参照できているので
+  報告したうえで branch / values.yaml の検証を続ける
+- `pnpm lint:validate-config:remote` は未実行（実トークンとネットワークが要る）。`config/` の
+  2件に書いた `sinnlosses-group` は `docs/smoke-test.md` のプロジェクト表と一致する実在グループ
+
 ### 2026-09-16 coding-standards.md から対応記録を落とした（T-262）
 
 - **T-262: `docs/coding-standards.md` を 509行 → 400行**に。`### 消すかどうか` の実施記録

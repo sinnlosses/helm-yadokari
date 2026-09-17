@@ -316,7 +316,7 @@ async function provision(
 
   console.log("")
   console.log(`config/${CHART_DIR_NAME}/registry.yaml:`)
-  console.log(buildRegistryYamlContent(chartProjectId, sourceProjectId))
+  console.log(buildRegistryYamlContent(groupPath, chartProjectId, sourceProjectId))
   console.log(`config/${CHART_DIR_NAME}/${CONFIG_UNIT_DIR}/config.yaml:`)
   console.log(buildAppConfigYamlContent(sourceProjectId))
 }

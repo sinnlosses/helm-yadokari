@@ -451,7 +451,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 **判定の順序**（`lib/<プラットフォーム>/`の関数1回ぶんの失敗が落ち着くまで）
 
-1. `withNotFoundFallback()`（`projectExists()`・`branchExists()`などこれで包んだ呼び出しだけ）が
+1. `withNotFoundFallback()`（`getProjectGroupPath()`・`branchExists()`などこれで包んだ呼び出しだけ）が
    `isNotFoundError()`に尋ね、404なら既定値を返してここで終わる。この包みは
    `withGitlabRetry()`の**内側**にあるので、404はリトライ判定まで届かない
 2. `withGitlabRetry()`→`withRetry()`が`isRetryableError()`に尋ねる。真なら待って再試行し、
@@ -1033,6 +1033,14 @@ GitLab APIと`config/`形式に依存するので`lib/`の条件（原則2）は
 置くか否か」を決めない。本体パイプラインからの参照は0なので、`src/`に置くと`dist/`に本体が
 使わないコードが混ざり、「本体から呼ばれない」という一番効く事実が構成に現れない。
 
+所属グループの照合（`registry.yaml`の`group`と`namespace.full_path`の突き合わせ）もこの線引きに
+従い、判定そのもの（セグメント単位の前方一致）は`scripts/lint/remote-existence/`に置く。
+`src/`側にあるのは`GroupPath`（`domain/brand.ts`。`config/`のスキーマが使うため）と、
+所属を取ってくる`getProjectGroupPath()`（`lib/gitlab/api.ts`。GitLab APIを知ってよいのはここだけ
+という原則2）の2つだけ。所属を返す関数は実在だけを見ていた旧`projectExists()`を置き換えた形で、
+実在確認と所属の取得を同じ1回の`Projects.show`で兼ねるのでAPI呼び出しは増えない。`PlatformAdapter`には
+載せない（本体パイプラインが呼ばないため。「GitLab/GitHub の2実装は〜」節）。
+
 #### GitLab/GitHub の2実装は関数テーブル型`PlatformAdapter`で受け渡す
 
 GitLabとGitHubの**両方に対応する。ただし1回の実行で混在はさせない**（ユーザー判断、2026-09-12）。
@@ -1092,10 +1100,11 @@ GitLabとGitHubの**両方に対応する。ただし1回の実行で混在は�
 #### 設定ミスの検知は「形」と「実在」で2段に分ける
 
 ローカルのYAMLだけで分かること（型・対応関係・重複）は`loadConfig()`時に例外を投げ、GitLabに
-問い合わせないと分からないこと（projectId・ブランチ・valuesPath・アンカーの実在）は
-lintスクリプトが問題の一覧を返す。前者は認証不要なので全パイプラインで、後者はトークンがある
-パイプラインでのみ実行する。2段に分ける前は、存在しないアンカー・valuesPath・ブランチ・
-projectIdが本番実行時にはじめて`ERROR`になっていた。
+問い合わせないと分からないこと（projectId・ブランチ・valuesPath・アンカーの実在と、
+projectIdが`registry.yaml`の`group`に属しているか）はlintスクリプトが問題の一覧を返す。
+前者は認証不要なので全パイプラインで、後者はトークンがあるパイプラインでのみ実行する。2段に
+分ける前は、存在しないアンカー・valuesPath・ブランチ・projectIdが本番実行時にはじめて
+`ERROR`になっていた。
 
 chartリポジトリをまたいだ突き合わせ（`validateTagFormatConsistency()`・
 `validateAccessTokenEnvConsistency()`）もローカルのYAMLだけで分かるので前者に入る。後者の
@@ -1453,8 +1462,9 @@ GitLabに問い合わせずローカルのYAMLだけで分かる＝「形」の�
   として正しく保存される（誤動作ではない）。読み取り側（`lookupValueAtAnchor()`。
   `getRequiredValueAtAnchor()`もこれを通す）も`String(node.value)`で文字列化しているため、クォートの
   有無に関わらず読み取り値は一貫して文字列になり、読み取り→比較→書き戻しの往復は壊れない
-- タグに紐づくGitLabプロジェクトのURLは `Projects.show` で取得している（`config/`に
-  namespace slugを持たせていないため。GitHubは`repos.get()`の`html_url`で同じ役割を果たす）。
+- タグに紐づくGitLabプロジェクトのURLは `Projects.show` で取得している（`config/`が持つのは
+  所属グループ（`group`）だけで、プロジェクト自身のpathを持たせていないためURLを組み立てられない。
+  GitHubは`repos.get()`の`html_url`で同じ役割を果たす）。
   バッチ1回につきprojectIdごとに1回で、それ以降は`adapter.cached.getProjectWebUrl` が返す
 - Helm CLI（`helm lint` / `helm template` 等）は呼び出さない。`values.yaml`のテキスト更新のみ行う
 

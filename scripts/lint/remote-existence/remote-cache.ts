@@ -1,9 +1,9 @@
-import type { BranchName, ProjectId, ValuesPath } from "../../../src/domain/types.js"
+import type { BranchName, GroupPath, ProjectId, ValuesPath } from "../../../src/domain/types.js"
 import {
   type GitlabClient,
   branchExists,
   getFileContent,
-  projectExists,
+  getProjectGroupPath,
 } from "../../../src/lib/gitlab/api.js"
 import { cacheByArgs } from "../../../src/utils/cache.js"
 
@@ -14,8 +14,8 @@ import { cacheByArgs } from "../../../src/utils/cache.js"
  */
 
 export type RemoteCache = {
-  /** プロジェクトが存在し参照できるか */
-  readonly hasProject: (projectId: ProjectId) => Promise<boolean>
+  /** プロジェクトが属するグループ（存在しない・参照できないときは`undefined`） */
+  readonly lookupProjectGroupPath: (projectId: ProjectId) => Promise<GroupPath | undefined>
   /** 指定プロジェクトに指定ブランチが存在するか */
   readonly hasBranch: (projectId: ProjectId, branch: BranchName) => Promise<boolean>
   /** 指定ブランチ時点の values.yaml の内容（存在しなければ `undefined`） */
@@ -28,7 +28,9 @@ export type RemoteCache = {
 
 export function newRemoteCache(gitlab: GitlabClient): RemoteCache {
   return {
-    hasProject: cacheByArgs((projectId: ProjectId) => projectExists(gitlab, projectId)),
+    lookupProjectGroupPath: cacheByArgs((projectId: ProjectId) =>
+      getProjectGroupPath(gitlab, projectId),
+    ),
     hasBranch: cacheByArgs((projectId: ProjectId, branch: BranchName) =>
       branchExists(gitlab, projectId, branch),
     ),

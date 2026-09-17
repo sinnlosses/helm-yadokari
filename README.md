@@ -199,7 +199,8 @@ config/
 
 - `registry.yaml` はchartリポジトリ単位で、MRの作成先と、ソースリポジトリのタグ形式。詳細は
   「[タグ形式](#タグ形式)」参照）の台帳を持ちます。トップレベルの`accessTokenEnv`（必須）で、
-  このchartリポジトリの操作に使うアクセストークンの環境変数名を宣言します（詳細は
+  このchartリポジトリの操作に使うアクセストークンの環境変数名を、`group`（必須）で
+  このchartリポジトリとソースリポジトリが属するGitLabグループのフルパスを宣言します（詳細は
   「[複数グループで運用する](#複数グループで運用する)」）。
 - `config.yaml` は設定ユニット単位で、
   どのプロジェクトのどのブランチを追跡し `values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
@@ -224,6 +225,7 @@ Helmの向き先ブランチとは、values.yaml のパラメータを受け取�
 ```yaml
 # registry.yaml
 accessTokenEnv: ACCESS_TOKEN_GROUP_A # （必須）このchartリポジトリの操作に使うトークンの環境変数名
+group: group-a # （必須）このchartリポジトリとソースリポジトリが属するGitLabグループのフルパス
 chartToUpdate:
   projectId: 100
   projectName: my-team-chart
@@ -256,7 +258,8 @@ apps:
 # 文法・整合性のチェック（GitLab/GitHubへの接続不要。pnpm check にも含まれる）
 pnpm lint:validate-config
 
-# 上記に加えて、projectId・ブランチ・valuesPath・アンカーが実在するかを検証
+# 上記に加えて、projectId・ブランチ・valuesPath・アンカーが実在するか、
+# 各 projectId が registry.yaml の group に属しているかを検証
 # （読み取りのみ。タグ・ブランチ・MR は作りません。GitLab専用。
 #  GITLAB_URL と、各chartの accessTokenEnv が指すトークンが必要）
 pnpm lint:validate-config:remote
@@ -356,8 +359,11 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
 2. **このリポジトリの Settings > CI/CD > Variables に `ACCESS_TOKEN_<GROUP>` として登録する。**
    Masked（可能なら Masked and hidden）・Protected OFF は上記「[セットアップ手順](#セットアップ手順)」
    と同じ理由です。
-3. **そのchartリポジトリの `registry.yaml` に `accessTokenEnv: ACCESS_TOKEN_<GROUP>` を宣言する**
-   （書き方は「[config/](#config)」参照）。
+3. **そのchartリポジトリの `registry.yaml` に `accessTokenEnv: ACCESS_TOKEN_<GROUP>` と
+   `group: <グループのフルパス>` を宣言する**（書き方は「[config/](#config)」参照）。
+   `pnpm lint:validate-config:remote` は、そのchartリポジトリの projectId が宣言した
+   グループ（サブグループ配下を含む）に属しているかを照合します。親グループのトークンや
+   ボットの個人アクセストークンに差し替わって被害範囲が広がった状態は、これで検出できます。
 4. **schedule は1つのままで構いません。** 複数chartを1つのscheduleで回せます。cadence
    （実行頻度）をグループごとに分けたいときだけ、`TARGET_CHART` を指定した別scheduleに
    分けてください。
@@ -369,7 +375,8 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
 - トークンの期限切れ・401はそのchartリポジトリ配下の設定ユニットが `ERROR` になるだけで、
   他グループには波及しません（「[エラーハンドリング](#エラーハンドリング)」参照）。
 - chartリポジトリとアプリ（ソースリポジトリ）が別グループにまたがる場合は、両方に届く共通の
-  親グループでトークンを発行してください。
+  親グループでトークンを発行し、`group` にもその親グループを書いてください（`group` は
+  `registry.yaml` に1つで、chartリポジトリとソースリポジトリで分けられません）。
 - 同じ `projectId` を複数のグループのトークンに結びつけることはできません（設定エラーで
   即時終了します）。
 

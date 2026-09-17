@@ -5,6 +5,7 @@ import type {
   BranchName,
   CommitSha,
   FileUpdate,
+  GroupPath,
   PlatformUrl,
   PipelineInfo,
   ProjectId,
@@ -12,7 +13,7 @@ import type {
   TagName,
   ValuesPath,
 } from "../../domain/types.js"
-import { toCommitSha, toPlatformUrl, toTagName } from "../../domain/types.js"
+import { toCommitSha, toGroupPath, toPlatformUrl, toTagName } from "../../domain/types.js"
 import { withRetry } from "../../utils/retry.js"
 import { extractHttpStatus, isNotFoundError, isRetryableError } from "./errors.js"
 
@@ -42,15 +43,25 @@ export async function listTags(gitlab: GitlabClient, projectId: ProjectId): Prom
 }
 
 /**
- * プロジェクトが存在し、アクセストークンで参照できるかを返す（404のときのみ false）。
- * 設定ファイルに書かれた projectId の実在確認に使う。
+ * プロジェクトが属するグループ（namespaceのフルパス）を返す。プロジェクトが存在しないか、
+ * アクセストークンで参照できないときは undefined（GitLabは権限の無いプロジェクトにも404を返す）。
+ *
+ * 設定ファイルに書かれた projectId の実在確認と、宣言したグループに属しているかの照合を
+ * 同じ1回の`Projects.show`で兼ねる。見るのは`namespace.full_path`（プロジェクト自身のpathを
+ * 含まない、そのプロジェクトが属するグループのフルパス）で、`path_with_namespace`ではない。
  */
-export async function projectExists(gitlab: GitlabClient, projectId: ProjectId): Promise<boolean> {
+export async function getProjectGroupPath(
+  gitlab: GitlabClient,
+  projectId: ProjectId,
+): Promise<GroupPath | undefined> {
   return withGitlabRetry(() =>
     withNotFoundFallback(async () => {
-      await gitlab.Projects.show(projectId)
-      return true
-    }, false),
+      const project = await gitlab.Projects.show(projectId)
+      return toGroupPath(
+        String(project.namespace.full_path),
+        "GitLab APIが返したプロジェクトの namespace.full_path",
+      )
+    }, undefined),
   )
 }
 

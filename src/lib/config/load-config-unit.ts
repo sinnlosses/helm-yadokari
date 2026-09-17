@@ -7,6 +7,7 @@ import type {
   ChartRepoConfig,
   ConfigUnit,
   ConfigUnitPath,
+  GroupPath,
   HelmConfig,
   LocalPath,
 } from "../../domain/types.js"
@@ -36,6 +37,7 @@ export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[
     chartToUpdate: chart,
     appSpecs,
     accessTokenEnv,
+    group: groupPath,
   } = parseYamlFile(registryYamlPath, RegistryYamlSchema)
   validateNoDuplicateProjectIds(registryYamlPath, appSpecs)
   const chartRepoScope: ChartRepoScope = {
@@ -43,6 +45,7 @@ export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[
     chart,
     appSpecs,
     accessTokenEnv,
+    groupPath,
     registryYamlPath,
   }
   return chartUnits.unitPaths.map((unitPath) =>
@@ -59,6 +62,7 @@ type ChartRepoScope = {
   readonly chart: ChartRepoConfig
   readonly appSpecs: readonly AppSpec[]
   readonly accessTokenEnv: AccessTokenEnvName
+  readonly groupPath: GroupPath
   readonly registryYamlPath: LocalPath
 }
 
@@ -81,7 +85,8 @@ function buildConfigUnit(
   chartRepoScope: ChartRepoScope,
   configUnitScope: ConfigUnitScope,
 ): ConfigUnit {
-  const { chartDirName, chart, appSpecs, accessTokenEnv, registryYamlPath } = chartRepoScope
+  const { chartDirName, chart, appSpecs, accessTokenEnv, groupPath, registryYamlPath } =
+    chartRepoScope
   const { unitPath, configYamlPath } = configUnitScope
   const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
   validateNoDuplicateProjectIds(configYamlPath, apps)
@@ -114,6 +119,7 @@ function buildConfigUnit(
     apps: appConfigs,
     helm: resolveHelmConfig(configYamlPath, helm, appConfigs),
     accessTokenEnv,
+    groupPath,
   }
 }
 

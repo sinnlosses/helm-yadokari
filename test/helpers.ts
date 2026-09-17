@@ -18,6 +18,7 @@ import {
   toChartDirName,
   toCommitSha,
   toConfigUnitPath,
+  toGroupPath,
   toProjectId,
   toProjectName,
   toTagName,
@@ -174,7 +175,10 @@ export function makeTagSource(overrides: Partial<TagSource> = {}): TagSource {
 export function makeConfigUnit(
   apps: AppConfig[],
   overrides: Partial<
-    Pick<ConfigUnit, "chartDirName" | "unitPath" | "helm" | "chartRepo" | "accessTokenEnv">
+    Pick<
+      ConfigUnit,
+      "chartDirName" | "unitPath" | "helm" | "chartRepo" | "accessTokenEnv" | "groupPath"
+    >
   > = {},
 ): ConfigUnit {
   return {
@@ -190,6 +194,7 @@ export function makeConfigUnit(
     // 検証するテストだけが`locations`を持つ値で上書きする
     helm: { branchRef: toBranchName("release/2026-q1"), locations: [] },
     accessTokenEnv: toAccessTokenEnvName("ACCESS_TOKEN_TEAM_A"),
+    groupPath: toGroupPath("team-a-group"),
     ...overrides,
   }
 }

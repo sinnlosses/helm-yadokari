@@ -6,6 +6,7 @@ import type {
   CommitSha,
   ChartDirName,
   ConfigUnitPath,
+  GroupPath,
   PlatformUrl,
   ProjectId,
   ProjectName,
@@ -80,6 +81,13 @@ export type ConfigUnit = {
    * の読み取りの両方に効く、`registry.yaml`全体のスコープの値だから。
    */
   readonly accessTokenEnv: AccessTokenEnvName
+  /**
+   * `registry.yaml`トップレベルの`group`（同じchartリポジトリ配下の全設定ユニットで共通）。
+   *
+   * `chartRepo`・`apps`のプロジェクトがこのグループの内側にあるかを照合するための宣言で、
+   * 本体パイプラインは使わない（`config/`の実在チェックだけが参照する）。
+   */
+  readonly groupPath: GroupPath
 }
 
 /** タグ名から読み取れる情報。追跡ブランチと、タグ形式の`{date}`/`{time}`から読み取った打刻日時 */

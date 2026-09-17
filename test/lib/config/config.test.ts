@@ -70,6 +70,7 @@ describe("loadConfig（正常系）", () => {
         ],
       },
       accessTokenEnv: "ACCESS_TOKEN_TEAM_A",
+      groupPath: "team-a-group",
     })
   })
 

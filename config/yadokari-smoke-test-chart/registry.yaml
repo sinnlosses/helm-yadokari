@@ -1,4 +1,5 @@
 accessTokenEnv: ACCESS_TOKEN_SMOKE_A
+group: sinnlosses-group
 
 chartToUpdate:
   projectId: "86061211"

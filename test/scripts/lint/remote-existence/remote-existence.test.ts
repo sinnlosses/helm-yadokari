@@ -7,18 +7,26 @@ import {
   toAnchorName,
   toBranchName,
   toConfigUnitPath,
+  toGroupPath,
   toProjectId,
   toProjectName,
   toValuesPath,
 } from "../../../../src/domain/types.js"
-import { branchExists, getFileContent, projectExists } from "../../../../src/lib/gitlab/api.js"
+import {
+  branchExists,
+  getFileContent,
+  getProjectGroupPath,
+} from "../../../../src/lib/gitlab/api.js"
 import { makeApp, makeConfigUnit, mockGitlab } from "../../../helpers.js"
 
 const VALUES_YAML = `variables:\n  - &appVersion main-build-at-20260101-000000\n  - &targetBranch main\n`
 
+/** `makeConfigUnit()`が既定で宣言するグループ（＝registry.yamlの`group`） */
+const DECLARED_GROUP = toGroupPath("team-a-group")
+
 describe("validateRemoteExistence", () => {
   beforeEach(() => {
-    vi.mocked(projectExists).mockResolvedValue(true)
+    vi.mocked(getProjectGroupPath).mockResolvedValue(DECLARED_GROUP)
     vi.mocked(branchExists).mockResolvedValue(true)
     vi.mocked(getFileContent).mockResolvedValue(VALUES_YAML)
   })
@@ -37,9 +45,9 @@ describe("validateRemoteExistence", () => {
     const failing = makeConfigUnit([makeApp({ projectId: toProjectId("2") })], {
       unitPath: toConfigUnitPath("tenant1/client2"),
     })
-    vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => {
+    vi.mocked(getProjectGroupPath).mockImplementation(async (_gitlab, projectId) => {
       if (projectId === "2") throw new Error("想定外のエラー")
-      return true
+      return DECLARED_GROUP
     })
 
     const problems = await validateRemoteExistence(
@@ -54,7 +62,9 @@ describe("validateRemoteExistence", () => {
   })
 
   it("chartリポジトリのprojectIdが存在しないとき問題として返す", async () => {
-    vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== "100")
+    vi.mocked(getProjectGroupPath).mockImplementation(async (_gitlab, projectId) =>
+      projectId === "100" ? undefined : DECLARED_GROUP,
+    )
 
     const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
@@ -63,11 +73,54 @@ describe("validateRemoteExistence", () => {
   })
 
   it("アプリのprojectIdが存在しないとき問題として返す", async () => {
-    vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== "1")
+    vi.mocked(getProjectGroupPath).mockImplementation(async (_gitlab, projectId) =>
+      projectId === "1" ? undefined : DECLARED_GROUP,
+    )
 
     const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
     expect(problems.join("\n")).toContain("my-app")
+  })
+
+  it("アプリが registry.yaml の group の外にあるとき、不在とは違う文言で問題として返す", async () => {
+    vi.mocked(getProjectGroupPath).mockImplementation(async (_gitlab, projectId) =>
+      projectId === "1" ? toGroupPath("other-group") : DECLARED_GROUP,
+    )
+
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
+
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain("属していません")
+    expect(problems[0]).toContain("other-group")
+    expect(problems[0]).not.toContain("見つかりません")
+  })
+
+  it("chartリポジトリが registry.yaml の group の外にあるとき問題として返す", async () => {
+    vi.mocked(getProjectGroupPath).mockImplementation(async (_gitlab, projectId) =>
+      projectId === "100" ? toGroupPath("other-group") : DECLARED_GROUP,
+    )
+
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
+
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain("registry.yaml の projectId 100")
+    expect(problems[0]).toContain("属していません")
+  })
+
+  it("宣言したグループのサブグループ配下は問題にしない", async () => {
+    vi.mocked(getProjectGroupPath).mockResolvedValue(toGroupPath("team-a-group/sub"))
+
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
+
+    expect(problems).toEqual([])
+  })
+
+  it("グループ名が前方一致するだけの別グループ（team-a-group-2）は所属違いとして返す", async () => {
+    vi.mocked(getProjectGroupPath).mockResolvedValue(toGroupPath("team-a-group-2"))
+
+    const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
+
+    expect(problems.filter((problem) => problem.includes("属していません"))).toHaveLength(2)
   })
 
   it("mrTargetBranchが存在しないとき問題として返す", async () => {
@@ -196,7 +249,9 @@ describe("validateRemoteExistence", () => {
   })
 
   it("複数の設定ユニットを並列に検証しても、問題は入力順で返る", async () => {
-    vi.mocked(projectExists).mockImplementation(async (_gitlab, projectId) => projectId !== "2")
+    vi.mocked(getProjectGroupPath).mockImplementation(async (_gitlab, projectId) =>
+      projectId === "2" ? undefined : DECLARED_GROUP,
+    )
     const first = makeConfigUnit([
       makeApp({ projectId: toProjectId("2"), projectName: toProjectName("app-first") }),
     ])
