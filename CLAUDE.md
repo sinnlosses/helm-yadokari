@@ -59,11 +59,12 @@ pnpm build && pnpm start              # ビルドしてから実行
   **置き場所を名前にしたファイルは作らない**
 - **原則5**: 型の置き場所も同じ判断基準で決める（**利用箇所の数では決めない**）
 
-**新しいコードの置き場所の早見表、まとめる/分ける合図、型の置き場所、各ファイルの責務、
-過去の設計判断は [`docs/architecture.md`](./docs/architecture.md) が正典。**
+**新しいコードの置き場所の早見表、まとめる/分ける合図、型の置き場所、各ファイルの責務は
+[`docs/architecture.md`](./docs/architecture.md) が正典。** 過去の設計判断は同ファイルの
+「設計判断（なぜ今の形なのか）」の一覧表から、`docs/architecture/adr/` の1件1ファイルを開く。
 上の原則で迷ったら必ずそちらを開く（このファイルには判断材料を二重に書かない）。ただし
-**通読しない**。冒頭の「節の索引」で節を1つ特定し、`sed -n '/^#### 見出し/,/^#\{1,4\} /p'`
-でその節だけを読む。
+`docs/architecture.md` は**通読しない**。冒頭の「節の索引」で節を1つ特定し、
+`sed -n '/^### 見出し/,/^#\{1,3\} /p'` でその節だけを読む。
 
 ## 設定・環境変数
 
@@ -180,6 +181,7 @@ Spec軸（`docs/requirements.md`）を参照。
 ## 関連リンク
 
 - アーキテクチャ詳細（各ファイルの責務、ディレクトリ構成の勘所、既知の制約）: `docs/architecture.md`
+- 設計判断（なぜ今の形なのか）: `docs/architecture/adr/`（1件1ファイル。一覧表は `docs/architecture.md`）
 - コーディング規約の詳細（各ルールの理由・例外）: `docs/coding-standards.md`
 - 進捗管理の詳細（`develop/task/`・`develop/direction.md` の書式・`## 結果`の粒度・`tw` コマンド）:
   ユーザー単位スキル `task-workflow` の `WORKFLOW.md`。このプロジェクト固有の値と経緯は `docs/workflow.md`

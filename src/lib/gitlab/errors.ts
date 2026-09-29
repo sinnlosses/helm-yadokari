@@ -2,8 +2,7 @@
  * gitbeakerが投げるエラーを、このツールのエラー方針に翻訳する。
  *
  * **gitbeakerのエラーの形を知っているのはこのファイルだけ**で、
- * `utils/`にはこの知識を置かない（原則2）。方針は`docs/architecture.md`「エラーは『fatalは例外・
- * それ以外は戻り値』の2チャネル」節。
+ * `utils/`にはこの知識を置かない（原則2）。方針は`docs/architecture/adr/0001-two-channel-error-handling.md`。
  *
  * @gitbeaker/rest がスローするエラー構造 (Error → cause.response.status)、
  * その内部の fetch がネットワーク障害時に投げる構造 (TypeError: fetch failed → cause.code)、

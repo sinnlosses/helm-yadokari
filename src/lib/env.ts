@@ -45,8 +45,8 @@ export function validateGithubUrl(raw: string): PlatformUrl {
 /**
  * PLATFORM は接続先（GitLab/GitHub）の選択。
  *
- * 1回の実行で混在させないため全体に効く（`docs/architecture.md`「プラットフォームの選択は`PLATFORM`、
- * URLは`GITLAB_URL`/`GITHUB_URL`のまま」節）。未指定は`"gitlab"`（既存の`.env`・
+ * 1回の実行で混在させないため全体に効く（`docs/architecture/adr/0032-platform-env-vars.md`）。
+ * 未指定は`"gitlab"`（既存の`.env`・
  * GitLab CI/CDVariablesがそのまま動き続けるようにするための既定値）。
  */
 export function parsePlatform(raw: string | undefined): PlatformKind {
@@ -155,8 +155,8 @@ export function loadEnvConfig(): EnvConfig {
  * `accessTokenEnv`で宣言された環境変数名それぞれについて、値が設定されていればトークンを読む。
  *
  * 未設定の名前は例外にせず表から落とす（1グループのCI/CD変数の付け替え漏れを実行全体の失敗にしない
- * ため。宣言したトークンの401と同じ扱い。`docs/architecture.md`「アクセストークンはchartリポジトリ
- * 単位に宣言し…」節）。`loadConfig()`が`config/`を読んだあと、
+ * ため。宣言したトークンの401と同じ扱い。`docs/architecture/adr/0033-access-token-per-chart-repo.md`）。
+ * `loadConfig()`が`config/`を読んだあと、
  * `LoadedConfig.accessTokenEnvNames`を渡して呼ぶ。
  */
 export function loadAccessTokens(

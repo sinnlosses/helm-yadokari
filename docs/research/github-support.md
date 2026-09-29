@@ -21,7 +21,7 @@
 | `MergeRequest` / `mrTargetBranch` の出現 | 78 / 71                                                                            |
 | gitbeaker依存のテスト                    | `test/lib/gitlab/` 690行                                                           |
 
-`docs/architecture.md`「`lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く」
+`docs/architecture/adr/0020-lib-gitlab-scope.md`
 節が、置き場所の判断軸を次のように既に明言している。今回の問いはこの軸が実際に機能するかの
 検算でもある。
 
@@ -65,7 +65,7 @@ GitHubに**等価のエンドポイントは無い**。Git Data APIで4呼び出
 > and entries defined in the `tree` parameter
 
 代替案の `PUT /repos/{owner}/{repo}/contents/{path}` は**1ファイル＝1コミット**になるため使えない。
-`docs/architecture.md`「MRの単位は `(chartリポジトリ, 設定ユニット)`」が前提にしている
+`docs/architecture/adr/0031-mr-per-config-unit.md`が前提にしている
 「1MRは1コミット」が崩れる。
 
 ### ファイル内容の取得サイズ

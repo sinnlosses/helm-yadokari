@@ -8,7 +8,7 @@ import type { PlatformAdapter } from "./adapter.js"
  * `adapters`は渡される時点でトークン1本につき1つで、
  * それぞれそのトークンで作ったAPIクライアントを内側に持つ。
  * 分けてあるのは権限分離のため——トークンはグループごとに1本で、自分のグループにしか届かない
- * （`docs/architecture.md`「アクセストークンはchartリポジトリ単位に…」節）。
+ * （`docs/architecture/adr/0033-access-token-per-chart-repo.md`）。
  *
  * 401と未設定トークンは素の`Error`に読み替え、該当chartリポジトリだけを`ERROR`に留める。
  */

@@ -235,8 +235,7 @@ npx tsx --env-file=.env scripts/smoke/provision-group.ts token --group-path sinn
 | 5    | 複数グループ（宣言トークン） | 別グループ・別トークンの設定ユニットが独立して成功/失敗し、片方の401・未設定が他方へ波及しない |
 
 パス3が単体では今回の主目的だったが、**「該当chartリポジトリだけERRORとしてログ記録し
-処理継続する」**（`docs/architecture.md`「エラーは『fatalは例外・それ以外は戻り値』の
-2チャネル」）は複数グループ構成で初めて「別グループには波及しない」ところまで実機で確かめられる
+処理継続する」**（`docs/architecture/adr/0001-two-channel-error-handling.md`）は複数グループ構成で初めて「別グループには波及しない」ところまで実機で確かめられる
 （パス5）。
 
 ## 手順

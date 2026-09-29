@@ -73,7 +73,7 @@ sed -n '/^### 消すかどうか/,/^#\{2,4\} /p' docs/coding-standards.md
 ブランド型（`ProjectId`・`BranchName`等）の生成は`toProjectId`のようなfactory関数に封じ込め、
 それ以外で`as`を使わない。factoryに集めることで、値の検証（http(s)かどうか、空文字でないか）を
 通っていないブランド型が存在しえなくなる。どのブランド型を新設するかの基準は
-`docs/architecture.md`「ブランド型にするのは『同じ`string`の別物と取り違えうる識別子』」参照。
+`docs/architecture/adr/0012-brand-type-criteria.md`参照。
 
 ## 変数は基本 `const`
 
@@ -93,7 +93,7 @@ sed -n '/^### 消すかどうか/,/^#\{2,4\} /p' docs/coding-standards.md
   リポジトリを `ERROR` としてログ記録し処理継続する（README「エラーハンドリング」参照）。
   401が全体を止めないのは、トークンが `accessTokenEnv` でchartリポジトリ単位に分かれているため
 - **`src/steps/` 配下に `try`/`catch` を書かない**。理由と、この規約の対象外になる箇所は
-  `docs/architecture.md`「エラー方針は『fatalは例外・それ以外は戻り値』の2チャネル」参照
+  `docs/architecture/adr/0001-two-channel-error-handling.md`参照
 
 ## `async`/`await` と `.then()`/`.catch()`
 
@@ -127,7 +127,7 @@ top-level await が使えるため `await` + `try`/`catch` で書く。`try` が
 `src/` の環境変数はすべて `src/lib/env.ts` で管理し、読み取りは同ファイルの関数
 （`loadEnvConfig()` / `loadAccessTokens()`）を通す。モジュールのトップレベルでは
 `process.env` に触れない。トップレベルで読んでいた頃に何が起きたかは
-`docs/architecture.md`「環境変数はモジュールのトップレベルではなく`loadEnvConfig()`で読む」参照。
+`docs/architecture/adr/0025-env-loaded-by-load-env-config.md`参照。
 
 **`scripts/` はこの規約の対象外**で、そのスクリプトだけが使う環境変数は `process.env` から
 直接読んでよい（`smoke-fixture.ts` の `requireProjectId()`・`ACCESS_TOKEN_SMOKE_A`、
@@ -212,7 +212,7 @@ top-level await が使えるため `await` + `try`/`catch` で書く。`try` が
 行数・件数・呼び出し回数・「N つの step」のような**今のコードを数えた値**を、コメントにも
 `docs/` にも書かない。実装を変えたときに直し忘れても**誰も気づけない**まま残る。
 
-**例外は、読んだ人がその場で確かめられる形にできるとき。** `docs/architecture.md` の
+**例外は、読んだ人がその場で確かめられる形にできるとき。** `docs/architecture/adr/0001-two-channel-error-handling.md` の
 「`grep -rn "try {" src/steps/` が0件であること」のように検証手段が添えてあれば、腐っても
 分かる。添えられないなら数を落とす — 数え上げは論拠ではなく、たいてい飾りになっている。
 
@@ -246,11 +246,11 @@ top-level await が使えるため `await` + `try`/`catch` で書く。`try` が
 
 正典の対応:
 
-| 書きたいこと   | 置き場所               |
-| -------------- | ---------------------- |
-| 設計判断・経緯 | `docs/architecture.md` |
-| ドメイン用語   | `docs/glossary.md`     |
-| 要件           | `docs/requirements.md` |
+| 書きたいこと   | 置き場所                                                            |
+| -------------- | ------------------------------------------------------------------- |
+| 設計判断・経緯 | `docs/architecture.md`（設計判断の本文は `docs/architecture/adr/`） |
+| ドメイン用語   | `docs/glossary.md`                                                  |
+| 要件           | `docs/requirements.md`                                              |
 
 経緯をコードから消すときは、**先に正典の該当箇所を確認する**。既に書かれていれば消すだけ、
 無ければ正典に書いてから消す。

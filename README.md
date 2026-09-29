@@ -305,7 +305,7 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
 1件以上の `ERROR` があった場合は `exit(1)` でパイプライン失敗として終了します（致命的エラーを除く）。
 
 判定を担う関数とその経路（`isFatalError()`・`isRetryableError()`などがどの順で呼ばれるか）は
-[`docs/architecture.md`](./docs/architecture.md)「HTTPエラーの経路」が正典です。
+[`docs/architecture/adr/0002-http-error-path.md`](./docs/architecture/adr/0002-http-error-path.md)が正典です。
 
 ## CI/CD
 
@@ -353,7 +353,7 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
 複数チーム（＝複数グループ）が1つの `config/` を共用する場合、chart リポジトリごとに専用の
 トークンを発行して被害範囲を分けられます。方針の背景・採らなかった案は
 [`docs/requirements.md`](./docs/requirements.md) 5章、フィールドの仕様は同4.4節、設計判断は
-[`docs/architecture.md`](./docs/architecture.md)「アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける」が正典です。ここでは手順だけを示します。
+[`docs/architecture/adr/0033-access-token-per-chart-repo.md`](./docs/architecture/adr/0033-access-token-per-chart-repo.md)が正典です。ここでは手順だけを示します。
 
 1. **グループごとに Group Access Token を1本発行する。** スコープは `read_api` +
    `write_repository`、ロールは Developer（`api` スコープ・Maintainer は付けない）。名前は

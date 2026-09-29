@@ -73,7 +73,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   あるか、`projectName`が食い違っていないか）を検証する。`registry.yaml`の`appSpecs[]`にだけ
   あってどの設定ユニットからも参照されないappはエラーにしない（そのchartリポジトリで
   一時的に更新対象から外している状態を許すため）。ファイルを2つに分ける軸の理由は
-  `docs/architecture.md`「`config/`は「スコープ」で2ファイルに分け、変更頻度では分けない」節。
+  `docs/architecture/adr/0027-config-split-by-scope.md`。
 
 ### chartToUpdate・appSpecs
 
@@ -82,8 +82,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   - `chartToUpdate`: `projectId`・`projectName`・`mrTargetBranch`の3フィールドを持つ、chartリポジトリ共通の設定（`ConfigUnit.chartRepo`フィールドの値になる）。
   - `appSpecs`: `projectId`・`projectName`・`tagFormat`の3フィールドを持つ配列要素。ソースリポジトリごとのタグ形式の台帳で、`projectId`をキーに`config.yaml`側の`apps[]`と結合する。
 - **`registry.yaml`との関係**: 両ファイルの紐づけの検証（`resolveProjectLinkage()`）や、`appSpecs[]`にだけあってどの設定ユニットからも参照されないappを許容する挙動は「registry.yaml / config.yaml」の項を参照。
-- **YAMLキー`chartToUpdate`と型名`ChartRepoConfig`で語幹が違う理由**: `docs/architecture.md`
-  「`config/`は「スコープ」で2ファイルに分け、変更頻度では分けない」が、型名のうちドメイン語彙に
+- **YAMLキー`chartToUpdate`と型名`ChartRepoConfig`で語幹が違う理由**: `docs/architecture/adr/0027-config-split-by-scope.md`が、型名のうちドメイン語彙に
   当たるものはYAMLのキー名に追随させないと決めている。キーが`chartToUpdate`になっても、型が
   表すものは「chartリポジトリの設定」のままなので`ChartRepoConfig`を据え置く。
 
@@ -110,8 +109,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   要素を複数指定し、それぞれ異なる`anchor`を持たせる。
 - **補足**: `yaml`パッケージ（`src/lib/helm.ts`の`lookupValueAtAnchor`/`setValueAtAnchor`）がASTを
   `visit()`で走査し、アンカー名をノードのプロパティとして直接引く。値の位置指定として受け付ける
-  のはYAMLアンカーだけ（理由は`docs/architecture.md`「`values.yaml` の位置指定はYAMLアンカーのみ、
-  YAML処理は `yaml` パッケージ」節）。
+  のはYAMLアンカーだけ（理由は`docs/architecture/adr/0029-values-yaml-anchor-only.md`）。
 
 ### Helmの向き先ブランチ
 
@@ -154,7 +152,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   異なる。`apps[].locations[]`とは独立したリストで、app側に専用フィールドは持たせない。
   向き先ブランチは設定ユニット内のapps全体で共通なので、コード上もapp単位に振り分けず
   設定ユニット単位（`ConfigUnit`）で1つ持ち、書き込みもappのループの外で1回だけ行う
-  （理由は`docs/architecture.md`「Helmの向き先ブランチはapp単位に振り分けず設定ユニット単位で持つ」節）。
+  （理由は`docs/architecture/adr/0030-helm-branch-per-config-unit.md`）。
 - **制約**: そのconfig.yaml配下の全アプリの全`locations[].valuesPath`が同じ`config.yaml`の
   `helm.locations[]`でカバーされている必要がある（Helmの向き先ブランチは「1設定ユニット内のapps全体で
   共通」という前提のため、1つでもvaluesPathが漏れていると設定エラーになる）。`helm`自体の省略も、
@@ -198,8 +196,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   アプリは、複数の設定ユニットに登録されていても`resolveTags()`が1回だけ解決する。
 - **一意化は効率化ではなく正しさのため**: 解決は「HEADを指すタグが無ければ作る」という書き込みを
   含むので、設定ユニットごとに解決すると同じコミットに冗長なタグが並ぶ（秒をまたげば設定ユニット
-  ごとに違うタグ名が`values.yaml`に書かれる）。判断の経緯は`docs/architecture.md`
-  「読み取りだけの軸交差は〜」節。
+  ごとに違うタグ名が`values.yaml`に書かれる）。判断の経緯は`docs/architecture/adr/0008-cached-reads-for-read-only-axis-crossing.md`。
 - **`projectName`をキーに入れない**: `projectId`と1:1のラベルで、同一性の判定には効かないため。
 
 ### タグの読み取り結果
@@ -325,8 +322,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 - **定義**: `AppConfig.imageTagLocations`のうち1箇所分の更新内容。`currentTag`（反映済みタグ。
   詳細は「反映済みタグ」の項）は書き換え箇所（`location`）ごとに独立して読み取る。`AppUpdatePlan.updates`
   の要素になる。
-- **`location`という短いフィールド名にする理由**: `docs/architecture.md`「用途別の型エイリアスを
-  作らない」の但し書き（包含する型名・キー名が用途を与えている場合は、フィールド名で用途を
+- **`location`という短いフィールド名にする理由**: `docs/architecture/adr/0014-no-purpose-type-aliases.md`の但し書き（包含する型名・キー名が用途を与えている場合は、フィールド名で用途を
   繰り返さなくてよい）による。`ImageTagUpdate.location`は型名が「イメージタグの更新」という
   用途を与えているため、`AnchorLocation`という型の語をそのまま繰り返さない。
   `HelmBranchRefUpdate.location`も同じ。
@@ -340,8 +336,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   の要素になる。
 - **`location`という短いフィールド名にする理由**: 「イメージタグの更新」の項を参照
   （`ImageTagUpdate.location`と同じ理由）。
-- **`BranchName`型なのに`Name`が付かない理由**: `docs/architecture.md`「ブランド型のフィールド名は、
-  修飾語があれば型の語を落とし、無ければ持つ」により、`current`という修飾語が既に
+- **`BranchName`型なのに`Name`が付かない理由**: `docs/architecture/adr/0013-brand-field-naming.md`により、`current`という修飾語が既に
   「どちらのブランチか」を語っているため`Name`を足さない。`ImageTagUpdate.currentTag`も同じ理由。
 
 ### 設定ユニット更新対象
@@ -402,8 +397,8 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   **1回の実行でGitLab・GitHubを混在させることはない**。
 - **API呼び出しだけでなくエラー分類も持つ**: `isFatalError`・`extractHttpStatus`など、
   プラットフォームごとに形が違うエラー判定もこの表に含める。詳細は
-  `docs/architecture.md`「GitLab/GitHubの2実装は関数テーブル型`PlatformAdapter`で受け渡す」
-  「HTTPエラーの経路」節。
+  `docs/architecture/adr/0024-platform-adapter-function-table.md`・
+  `docs/architecture/adr/0002-http-error-path.md`。
 
 ### `ACCESS_TOKEN_<グループ>`・accessTokenEnv
 
@@ -421,8 +416,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   持つGitLabのGroup Access Token（Developerロール・短い有効期限）、`PLATFORM=github`なら
   GitHubのPersonal Access Token（fine-grained推奨）を渡す。**GitHub側はPersonal Access Tokenのみ
   サポートする**（GitHub Appは短命なinstallation access tokenの再発行が必要になるため採らなかった。
-  理由は`docs/architecture.md`「プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/
-  `GITHUB_URL`のまま」節）。
+  理由は`docs/architecture/adr/0032-platform-env-vars.md`）。
 - **失敗したときの波及範囲**: 宣言したトークンの401（認証エラー）と、宣言した環境変数が未設定
   だった場合は、そのchartリポジトリ配下の設定ユニットだけが`ERROR`になる。トークンに依らない
   5xx・ネットワーク障害は実行全体を即時終了する。宣言された環境変数が1つも読めずトークンが
@@ -476,8 +470,7 @@ Helmの向き先ブランチは2026-09-12まで`helmTargetBranch`／`HelmTargetB
 
 **書き込み位置1箇所分を表す型だけは`target`を使わず`AnchorLocation`と呼ぶ。** アンカーは
 値の位置を**どう指すか**という識別の手段でしかなく、「何のための位置か」という用途を
-答えていない。`docs/architecture.md`「1つの語を2つの意味に使ってよいのは、包含する型名・
-キー名が用途を与える場合だけ」の但し書きは用途を語る修飾語にしか効かないため、この型だけは
+答えていない。`docs/architecture/adr/0016-one-word-two-meanings.md`の但し書きは用途を語る修飾語にしか効かないため、この型だけは
 多義でない`Location`を使う。
 
 ### 「反映」「適用」「更新」の使い分け

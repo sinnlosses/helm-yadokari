@@ -19,7 +19,7 @@ import type { PlatformAdapter } from "./adapter.js"
  * **載せてよいのは、このツール自身の書き込み（タグ作成・コミット・MR作成・ブランチ削除）
  * でバッチ中に値が変わらない読み取りだけ。** `listTags`は`createTag`で、`openMergeRequestExists`は
  * `createMergeRequest`で、固定ブランチの存在確認は削除と再作成で変わるので載せられない。
- * 判断の経緯は`docs/architecture.md`「PlatformAdapterへの問い合わせのキャッシュは〜」節。
+ * 判断の経緯は`docs/architecture/adr/0009-platform-cache-in-lib-platform.md`。
  *
  * `branchExists`だけは両方に並ぶ。削除と再作成をまたぐ確認は生、
  * バッチ中不変な向き先ブランチの実在確認はキャッシュ済みを呼ぶ。

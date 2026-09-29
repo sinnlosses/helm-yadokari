@@ -2,7 +2,7 @@
  * Octokitが投げるエラーを、このツールのエラー方針に翻訳する。
  *
  * **Octokitのエラーの形を知っているのはこのファイルだけ**で、`utils/`にはこの知識を置かない（原則2）。
- * 方針は`docs/architecture.md`「エラーは『fatalは例外・それ以外は戻り値』の2チャネル」節。
+ * 方針は`docs/architecture/adr/0001-two-channel-error-handling.md`。
  *
  * @octokit/request-error の `RequestError` は HTTP ステータスを `status` プロパティに、
  * レスポンスヘッダを `response.headers`（キーは小文字）に持つ。

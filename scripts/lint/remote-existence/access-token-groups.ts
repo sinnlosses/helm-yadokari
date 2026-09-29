@@ -3,7 +3,7 @@ import type { AccessToken, AccessTokenEnvName, ConfigUnit } from "../../../src/d
 /**
  * `accessTokenEnv`が同じ設定ユニットをまとめたグループ。`validate-config.ts`の`--remote`が
  * グループごとにクライアントを1つ作って`validateRemoteExistence()`を呼ぶために使う
- * （`docs/architecture.md`「アクセストークンはchartリポジトリ単位に宣言し…」節の
+ * （`docs/architecture/adr/0033-access-token-per-chart-repo.md`の
  * 「`validate-config --remote`はトークンごとに分解する」段落）。
  */
 export type AccessTokenGroup = {
@@ -45,7 +45,7 @@ export function lookupAccessToken(
  * 必要なアクセストークンが未設定のグループを集め、chart ディレクトリ名と環境変数名を含む
  * 文字列の配列で返す（無ければ空配列）。本体の`loadAccessTokens()`（未設定の名前を黙って
  * 表から落とす）とは異なり、`validate-config --remote`は必要なトークンが1本でも欠けたら
- * 検証自体を打ち切るため、ここでは黙って落とさず全件報告する（`docs/architecture.md`
+ * 検証自体を打ち切るため、ここでは黙って落とさず全件報告する（`docs/architecture/adr/0033-access-token-per-chart-repo.md`
  * 「`validate-config --remote`はトークンごとに分解する」段落）。
  */
 export function findMissingAccessTokenProblems(
