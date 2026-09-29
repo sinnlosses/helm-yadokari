@@ -9,6 +9,24 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-29（17回目）
+
+生成したタスク: T-265〜T-270。タスクにしなかった項目: なし（GitHub対応に関わる課題は会話で「github 対応は放置」とされたため、最初から指示メモに入れていない）。
+
+タスク化にあたってユーザーへ確認し、`## 決まっていること（蒸し返さない）` に焼き込んだ2点:
+`audit` ジョブは high 以上で止める（T-266） / ドキュメントの軽量化は無人（`/loop`）で進めてよい（T-270）。
+
+以下は `develop/direction.md` にあった当時の記述。
+
+GitHub（`PLATFORM=github`）対応に関わるものは今回は対象外。以下をタスク化する。
+
+- Renovate の依存更新が止まっている。`renovate` ジョブの image が `renovate/renovate:latest` で固定されていないので、バージョンを固定する（`RENOVATE=true` の pipeline schedule 作成は GitLab 側の設定なので人間が行う。必要なら手順を README に残す）
+- `.gitlab-ci.yml` の `audit` ジョブが `allow_failure: true` のため、high の脆弱性があってもパイプラインが止まらない。止めるかどうかを含めて見直す
+- `src/lib/gitlab/errors.ts` の `isFatalError` がネットワーク障害として見るコードが `ECONNREFUSED`/`ENOTFOUND`/`ETIMEDOUT` だけで、`ECONNRESET`・`EAI_AGAIN` などは設定ユニットの ERROR に落ちる。fatal にすべきコードを見直す（`src/lib/github/errors.ts` は GitHub 対応なので触らない）
+- ソースのコメントが整形で壊れている箇所を直す（単語の途中での改行: `src/utils/parallel.ts` の「re\nject」、`src/lib/env.ts` の「ファイルシ\nステム」、`src/lib/gitlab/errors.ts` の「こ\nの関数」、行をまたいで崩れた `**…**`）。あわせて JSDoc と関数の間の空行の有無がファイルごとにばらついているのを揃える
+- `docs/architecture.md`「FatalErrorは後続ステップも止める」節の冒頭が「FatalError（401/5xx等）」のままで、直後の「401はもう全chart共通ではない」と食い違っている。記述を今の挙動に合わせる
+- ドキュメントがコード量に比べて重い（`docs/architecture.md` 152KB に対して `src` は約8.5k行）。追随漏れを減らすため、重複・古い記述を削って軽くする（`/maintenance-docs` を使う想定）
+
 ## 2026-09-18（16回目）
 
 生成したタスク: T-264（`registry.yaml` の `group` を `groupId` での特定に変え、`groupName` はラベルにする）。タスクにしなかった項目: なし。
