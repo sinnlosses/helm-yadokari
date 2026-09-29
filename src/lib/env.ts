@@ -49,7 +49,6 @@ export function validateGithubUrl(raw: string): PlatformUrl {
  * URLは`GITLAB_URL`/`GITHUB_URL`のまま」節）。未指定は`"gitlab"`（既存の`.env`・
  * GitLab CI/CDVariablesがそのまま動き続けるようにするための既定値）。
  */
-
 export function parsePlatform(raw: string | undefined): PlatformKind {
   if (raw === undefined) return "gitlab"
   if (raw === "gitlab" || raw === "github") return raw
@@ -67,7 +66,6 @@ export function parsePlatform(raw: string | undefined): PlatformKind {
  * ディレクトリとして実在することはそちらでは見ないのでここで検証する。無いままだと後段の
  * `listSubdirectories()`が生の`ENOENT`を投げるだけで、どの環境変数が原因か分からないため。
  */
-
 export function parseConfigRootPath(raw: string | undefined): ConfigRootPath {
   const configRootPath = toConfigRootPath(raw ?? DEFAULT_CONFIG_ROOT_PATH)
   if (!existsSync(configRootPath) || !statSync(configRootPath).isDirectory()) {
@@ -85,7 +83,6 @@ export function parseConfigRootPath(raw: string | undefined): ConfigRootPath {
  * パストラバーサル検証は`toReportOutputPath()`が行う。`CONFIG_ROOT_PATH`と違い、
  * 実在チェックはしない（これから書き出すファイルなので存在するはずがない）。
  */
-
 export function parseReportOutputPath(raw: string | undefined): ReportOutputPath {
   return toReportOutputPath(raw ?? DEFAULT_REPORT_OUTPUT_PATH)
 }
@@ -120,7 +117,6 @@ export function parseTargetUnits(raw: string | undefined): readonly ConfigUnitPa
  * `loadEnvConfig()`だけが生成する。`platformUrl`と名付けているのは、`platform`に応じて`GITLAB_URL`/
  * `GITHUB_URL`のどちらかを読んでいるため（どちらの値が入っているかは`platform`を見ないと分からない）
  */
-
 export type EnvConfig = {
   readonly platform: PlatformKind
   readonly platformUrl: PlatformUrl
@@ -138,10 +134,9 @@ export type EnvConfig = {
  * モジュールのトップレベルではなく関数にしてあるのは、
  * `process.env`に触れるのを呼び出した瞬間だけに限定するため。トップレベルの定数にすると、
  * このファイルをimport しただけで（＝環境変数を必要としない`pnpm lint:validate-config`や、
- * 各テストからも）検証が走ってしまう。`parseConfigRootPath()`のディレクトリ存在チェック（ファイルシ
- * ステムへのアクセス）も同じ理由でここでしか走らせない。
+ * 各テストからも）検証が走ってしまう。`parseConfigRootPath()`のディレクトリ存在チェック（
+ * ファイルシステムへのアクセス）も同じ理由でここでしか走らせない。
  */
-
 export function loadEnvConfig(): EnvConfig {
   const platform = parsePlatform(loadOptionalEnv("PLATFORM"))
   return {
@@ -164,7 +159,6 @@ export function loadEnvConfig(): EnvConfig {
  * 単位に宣言し…」節）。`loadConfig()`が`config/`を読んだあと、
  * `LoadedConfig.accessTokenEnvNames`を渡して呼ぶ。
  */
-
 export function loadAccessTokens(
   names: readonly AccessTokenEnvName[],
 ): ReadonlyMap<AccessTokenEnvName, AccessToken> {

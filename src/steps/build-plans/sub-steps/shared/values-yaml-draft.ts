@@ -19,8 +19,8 @@ export type ValuesYamlDraft = ReadonlyMap<ValuesPath, ValuesYamlEntry>
 /**
  * values.yamlの現在値を下書き優先で取り出す。
  *
- * 下書きに無いときだけGitLabから読むため、同じ設定ユニット内の別アプリが既に書き換えた内容がそのま
- * ま次のアプリへ引き継がれる。渡した下書きは変更せず、読み込み結果を載せた新しい下書きを返す。
+ * 下書きに無いときだけGitLabから読むため、同じ設定ユニット内の別アプリが既に書き換えた内容が
+ * そのまま次のアプリへ引き継がれる。渡した下書きは変更せず、読み込み結果を載せた新しい下書きを返す。
  */
 export async function readValuesYamlDraft(
   adapter: PlatformAdapterWithCachedReads,

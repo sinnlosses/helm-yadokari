@@ -22,12 +22,11 @@ import type {
  * タグ形式はソースリポジトリ側の性質であって設定ユニットごとに変わる値ではなく、
  * 食い違ったまま実行すると`resolve-tags` stepが解決の単位を一意化するキー（`projectId`+
  * `branchToSync`+`tagFormat`）が設定ユニットごとに別々になり、
- * 同じアプリの同じコミットに形式違いのタグが2つできる（詳細は`docs/architecture.md`のタグ形式の置き
- * 場所を扱う節）。
+ * 同じアプリの同じコミットに形式違いのタグが2つできる（詳細は`docs/architecture.md`のタグ形式の
+ * 置き場所を扱う節）。
  *
  * `branchToSync`の食い違いは設定ユニット側の判断として正当なので検証しない。
  */
-
 export function validateTagFormatConsistency(configUnits: readonly ConfigUnit[]): void {
   const seen = new Map<
     ProjectId,
@@ -59,7 +58,6 @@ export function validateTagFormatConsistency(configUnits: readonly ConfigUnit[])
  * 最新タグの解決・キャッシュは`projectId`単位のため、
  * 同じ`projectId`に2つのトークンが結びつく状態はそもそも表現できない（`docs/requirements.md` 4.4節）。
  */
-
 export function validateAccessTokenEnvConsistency(configUnits: readonly ConfigUnit[]): void {
   const seen = new Map<
     ProjectId,
@@ -122,7 +120,6 @@ export type LabeledLocation = { readonly location: AnchorLocation; readonly labe
  * 静かに誤った結果になる。イメージタグ用（`apps[].locations[]`）と
  * 向き先ブランチ用（`helm.locations[]`）の衝突も対象にする。
  */
-
 export function validateNoDuplicateLocations(
   filePath: LocalPath,
   locations: readonly LabeledLocation[],

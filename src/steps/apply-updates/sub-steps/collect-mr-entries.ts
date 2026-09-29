@@ -10,7 +10,6 @@ import type { MrEntries } from "./shared/types.js"
  * 向き先ブランチは設定ユニット単位で確定済みなのでそのまま渡す。`helmBranchRef`は
  * `ConfigUnit.helm.branchRef`（全箇所で共通の書き込み後の値）。
  */
-
 export async function collectMrEntries(
   adapter: PlatformAdapterWithCachedReads,
   plans: readonly AppUpdatePlan[],

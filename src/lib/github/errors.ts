@@ -43,7 +43,6 @@ export function extractHttpStatus(error: unknown): number | undefined {
  * 1関数＝1 API呼び出しの形が崩れる）、404を既定値に読み替えた後の書き込みが403/404で失敗し、
  * その設定ユニットが`ERROR`としてメッセージ付きでログに残ることに委ねる。
  */
-
 export function isNotFoundError(error: unknown): boolean {
   return extractHttpStatus(error) === 404
 }
@@ -75,7 +74,6 @@ export function isFatalError(error: unknown): boolean {
  * もここに落ちるが、リセットは数分〜1時間先で`MAX_RETRY_AFTER_MS`を超えるため、
  * そのヘッダを読んでも行き先は同じ`ERROR`になる。判定の分岐を増やさないために読まない。
  */
-
 export function isRetryableError(error: unknown): boolean {
   const status = extractHttpStatus(error)
   if (status === undefined) return false
@@ -115,7 +113,6 @@ function isFatalStatus(status: number): boolean {
  * `ENOTFOUND` などの実際の `code`は `cause` に入れるため。`cause`は1段だけ辿る。際限なく辿ると、
  * 無関係な内側のエラーの`code`で実行全体を止める危険がある。
  */
-
 function extractErrorCode(error: unknown): string | undefined {
   if (!(error instanceof Error)) return undefined
   return readCode(error) ?? readCode(error.cause)

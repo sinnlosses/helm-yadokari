@@ -56,7 +56,6 @@ type RunProcessResult = {
  * `runPipeline()`が`FatalError`を投げたときはこの関数も rejectするため書き出しには到達しない（fatal
  * なバッチはレポートを残さないのが期待する挙動）。
  */
-
 async function runProcess(env: EnvConfig): Promise<RunProcessResult> {
   const startedAt = new Date()
   const { value: result, durationMs } = await timed(() => runPipeline(env))
@@ -82,7 +81,6 @@ async function runProcess(env: EnvConfig): Promise<RunProcessResult> {
  * 3. buildPlans: 設定ユニットそれぞれの更新計画（差分）を構築する
  * 4. applyUpdates: 差分がある設定ユニットに対してコミット・MR作成を行う
  */
-
 async function runPipeline(env: EnvConfig): Promise<RunProcessResult> {
   const { configUnits, accessTokenEnvNames } = loadConfig(env.configRootPath, {
     chartDirName: env.targetChart,
@@ -118,7 +116,6 @@ async function runPipeline(env: EnvConfig): Promise<RunProcessResult> {
  * 値が未設定の名前は`loadAccessTokens()`が表から落とすため、ここでも表に載らない（1本も載らなければ
  * `createTokenRoutedAdapter()`が例外を投げる）。
  */
-
 function buildAdaptersByAccessToken(
   env: EnvConfig,
   accessTokenEnvNames: readonly AccessTokenEnvName[],

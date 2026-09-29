@@ -25,7 +25,6 @@ import { logger } from "../../../utils/logger.js"
  *
  * あわせて`trackedHeadTagNames`を返す（意味は`LatestTagResolution`のJSDoc参照）。
  */
-
 export async function resolveLatestTag(
   adapter: PlatformAdapter,
   source: TagSource,
@@ -72,8 +71,8 @@ export async function resolveLatestTag(
  * `headSha`と同じコミットを指す、現在の追跡ブランチ由来のタグ名の集合を組み立てる。
  *
  * 「現在の追跡ブランチ由来」は`source.branchToSync`と`source.tagFormat`でパースできること。
- * 追跡ブランチを切り替えた場合、切り替え前のタグ名は現在の`source.branchToSync`ではパースできないた
- * めこの集合には含まれない。結果として、HEADと同じコミットを指していても更新をスキップしない。
+ * 追跡ブランチを切り替えた場合、切り替え前のタグ名は現在の`source.branchToSync`ではパースできない
+ * ためこの集合には含まれない。結果として、HEADと同じコミットを指していても更新をスキップしない。
  */
 function resolveTrackedHeadTagNames(
   tags: readonly TagInfo[],

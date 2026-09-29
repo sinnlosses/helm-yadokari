@@ -9,7 +9,6 @@
  * `cache.get()` が返す `undefined` を使うため、`undefined` 自体を正当な値として持てるキャッシュでは
  * 毎回 fetch が走ってしまうことを、型の側で防いでいる。
  */
-
 export function getOrFetchShared<K, V extends {}>(
   cache: Map<K, Promise<V>>,
   key: K,
@@ -39,7 +38,6 @@ export type CacheKeyPart = string | number
  * 値を箱に入れてから載せるのは、`getOrFetchShared()`が「未キャッシュ」の判定に`undefined`を使うため。
  * 箱越しなら`undefined`を返す読み取りもそのまま載せられる。
  */
-
 export function cacheByArgs<A extends readonly CacheKeyPart[], V>(
   read: (...args: A) => Promise<V>,
 ): (...args: A) => Promise<V> {
@@ -59,7 +57,6 @@ export function cacheByArgs<A extends readonly CacheKeyPart[], V>(
  * にほぼ現れない制御文字だから（区切りが値の中に現れると、
  * 引数の切れ目が違う組み合わせが同じキーになる）。
  */
-
 function toCacheKey(args: readonly CacheKeyPart[]): string {
   return args.join("\0")
 }

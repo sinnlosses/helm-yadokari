@@ -19,7 +19,6 @@ import { cacheByArgs } from "../../../src/utils/cache.js"
  * 同じプロジェクト・ブランチ・values.yamlは複数の設定ユニット/appから参照されるため、
  * 1回の検証実行で共有する1つのインスタンスにまとめて問い合わせ回数を抑える。
  */
-
 export type RemoteCache = {
   /**
    * 宣言されたグループIDのフルパス（存在しない・参照できないときは`undefined`）。

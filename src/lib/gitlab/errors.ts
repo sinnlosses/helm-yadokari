@@ -71,14 +71,13 @@ export function isFatalError(error: unknown): boolean {
  * このエラーを再試行してよいか。
  *
  * 混雑・一時的なゲートウェイ障害を表すステータスだけを対象にする。
- * 選定はGitLab APIに対する方針なので、汎用の`utils/retry.ts`ではなくここが持つ（`withRetry()`にはこ
- * の関数を渡す）。
+ * 選定はGitLab APIに対する方針なので、汎用の`utils/retry.ts`ではなくここが持つ（`withRetry()`には
+ * この関数を渡す）。
  *
  * `GitbeakerRetryError`（gitbeakerが429/502を内部で10回試して使い切った状態）は**対象外**。
- * こちらから追加で叩く相手ではないため、`extractHttpStatus()`が`undefined`を返すことで自然に除外さ
- * れる。
+ * こちらから追加で叩く相手ではないため、`extractHttpStatus()`が`undefined`を返すことで自然に除外
+ * される。
  */
-
 export function isRetryableError(error: unknown): boolean {
   const status = extractHttpStatus(error)
   return status !== undefined && RETRYABLE_STATUSES.has(status)
@@ -103,7 +102,6 @@ function isFatalStatus(status: number): boolean {
  * 致命的エラーを包み直さないことを `rethrowWithAppContext()` が保証しているため。際限なく辿ると、
  * 無関係な内側のエラーの`code` で実行全体を止める危険がある。
  */
-
 function extractErrorCode(error: Error): string | undefined {
   return readCode(error) ?? readCode(error.cause)
 }
@@ -124,10 +122,9 @@ function readCode(value: unknown): string | undefined {
  * gitbeakerが内部リトライするのは429と502だけなので、ここで拾えるのは実質その2つ。
  * 502は5xxとして即時終了になり、429は該当設定ユニットの`ERROR`のままになる。
  *
- * **この値は`isFatalError()`の判定にだけ使い、`isRetryableError()`には渡さない。
- * **gitbeakerが既に10回試したあとなので、こちらから追加で叩く相手ではない。
+ * **この値は`isFatalError()`の判定にだけ使い、`isRetryableError()`には渡さない。**
+ * **gitbeakerが既に10回試したあとなので、こちらから追加で叩く相手ではない。**
  */
-
 function extractExhaustedRetryStatus(error: Error): number | undefined {
   if (error.name !== GITBEAKER_RETRY_ERROR_NAME) return undefined
   const digits = EXHAUSTED_RETRY_STATUS_PATTERN.exec(error.message)?.[1]

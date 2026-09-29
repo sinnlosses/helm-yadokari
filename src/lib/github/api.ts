@@ -30,11 +30,10 @@ const PER_PAGE = 100
  * `//repos/...`になってしまうから。
  *
  * gitbeakerの`queryTimeout`にあたる設定はOctokitに無い。
- * コンストラクタで`request.signal`を渡すとクライアント1つにつき1本の`AbortSignal`を全リクエストが共
- * 有し、実行全体がその時間で打ち切られてしまうため、
+ * コンストラクタで`request.signal`を渡すとクライアント1つにつき1本の`AbortSignal`を全リクエストが
+ * 共有し、実行全体がその時間で打ち切られてしまうため、
  * ここでは設定せずNode組み込みのfetchのタイムアウトに委ねる。
  */
-
 export function createClient(baseUrl: PlatformUrl, token: AccessToken): GithubClient {
   return new Octokit({ auth: token, baseUrl: baseUrl.replace(/\/+$/, "") })
 }
@@ -42,8 +41,8 @@ export function createClient(baseUrl: PlatformUrl, token: AccessToken): GithubCl
 /**
  * タグ名とそれが指すコミットSHAの一覧を返す。
  *
- * GitHubにはgitbeakerの`.all()`にあたる自動ページングが無いため`paginate()`を明示する（既定は1ペー
- * ジ30件で、タグが31件以上あるリポジトリでは黙って取りこぼす）。
+ * GitHubにはgitbeakerの`.all()`にあたる自動ページングが無いため`paginate()`を明示する（既定は1
+ * ページ30件で、タグが31件以上あるリポジトリでは黙って取りこぼす）。
  */
 export async function listTags(github: GithubClient, projectId: ProjectId): Promise<TagInfo[]> {
   const { owner, repo } = splitProjectId(projectId)
@@ -101,7 +100,6 @@ export async function getBranchHeadSha(
  * values.yamlがその大きさになることは実運用で起きないため、黙って空文字を返して差分を壊すより、
  * どのファイルが原因かが読めるエラーで止める。
  */
-
 export async function getFileContent(
   github: GithubClient,
   projectId: ProjectId,
@@ -145,8 +143,8 @@ type TreeEntry = {
  * `featureBranch` が既に存在する場合の扱い（削除して作り直すか）は呼び出し元の判断で、
  * ここでは行わない。
  *
- * GitHubにはGitLabの`POST /projects/:id/repository/commits`にあたる「複数ファイルの更新とブランチ作
- * 成を1呼び出しで行う」エンドポイントが無いため、Git Data APIの複数呼び出しに分解する。
+ * GitHubにはGitLabの`POST /projects/:id/repository/commits`にあたる「複数ファイルの更新とブランチ
+ * 作成を1呼び出しで行う」エンドポイントが無いため、Git Data APIの複数呼び出しに分解する。
  * 内容はtreeのentryにインラインの`content`で載せる（GitHubがblobを書き出すのでファイルごとの
  * `createBlob`は要らず、ファイルが何個でも呼び出しの回数は変わらない）。
  * `PUT /repos/{owner}/{repo}/contents/{path}`は1ファイル＝1コミットになるため使えない。
@@ -160,12 +158,11 @@ type TreeEntry = {
  * 元が渡すのは`baseBranch`時点の内容を読み込めたファイルだけ）。
  * modeを`100644`に固定できるのもこの前提があるからで、実行ビットやシンボリックリンクは渡ってこない。
  *
- * **途中で失敗しても`featureBranch`は生えない。** ブランチができるのは最後の`createRef`が成功したと
- * きだけで、それより手前で落ちたときに残るのはどのrefからも参照されないtree・
+ * **途中で失敗しても`featureBranch`は生えない。** ブランチができるのは最後の`createRef`が成功した
+ * ときだけで、それより手前で落ちたときに残るのはどのrefからも参照されないtree・
  * commitオブジェクトだけ（GitHubのGCが回収する）。次回実行の差分にも現れないため、
  * 呼び出し元はGitLab側の1呼び出しと同じく「成功＝ブランチができた／失敗＝できていない」で扱ってよい。
  */
-
 export async function commitFileUpdates(
   github: GithubClient,
   projectId: ProjectId,
@@ -238,7 +235,6 @@ export async function createMergeRequest(
  * 呼び出し元も同じSHAを持っているが、その受け渡しのためにシグネチャを変えるとGitLab側と呼び出し側に
  * も波及するため、差はこのファイルの中に閉じ込める。
  */
-
 export async function createTag(
   github: GithubClient,
   projectId: ProjectId,
@@ -272,7 +268,6 @@ export async function getProjectWebUrl(
  * `repos.getCommit`のrefはコミットSHA・ブランチ名・タグ名のいずれも受け、
  * annotated tagも中身のコミットまで辿ってくれる。実行一覧は新しい順に返るため先頭が最新。
  */
-
 export async function getLatestPipelineForRef(
   github: GithubClient,
   projectId: ProjectId,

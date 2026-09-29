@@ -45,7 +45,6 @@ function buildMrDescription(adapter: PlatformAdapter, entries: MrEntries): strin
  * アンカーの列で区別する。比較・パイプラインはリンクテキストを付けずURLをそのまま載せ（GitLabが自動
  * リンクする）、値が無いセルは `-` で埋める。
  */
-
 function buildImageTagSection(adapter: PlatformAdapter, entries: readonly ImageTagEntry[]): string {
   return [
     "## イメージタグ",
@@ -75,7 +74,6 @@ function buildImageTagSection(adapter: PlatformAdapter, entries: readonly ImageT
  * 書き込み先はイメージタグの表と同じくファイル・アンカーの2列に分ける。新ブランチの列は全行が同じ
  * `branchRef`になる。
  */
-
 function buildHelmBranchRefSection(
   updates: readonly HelmBranchRefUpdate[],
   branchRef: BranchName,

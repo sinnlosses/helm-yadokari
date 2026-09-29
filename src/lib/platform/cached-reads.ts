@@ -24,7 +24,6 @@ import type { PlatformAdapter } from "./adapter.js"
  * `branchExists`だけは両方に並ぶ。削除と再作成をまたぐ確認は生、
  * バッチ中不変な向き先ブランチの実在確認はキャッシュ済みを呼ぶ。
  */
-
 export type CachedReads = {
   /**
    * このツールが作り直すのは固定ブランチ（`feature/yadokari/...`）だけで、問い合わせ対象の

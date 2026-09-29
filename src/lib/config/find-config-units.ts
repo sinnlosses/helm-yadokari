@@ -41,7 +41,6 @@ export function findConfigUnits(configRootPath: LocalPath, chartDir: string): re
  * 深さ0・深さ3以上・入れ子はいずれも設定エラーとして例外をスローする（`docs/requirements.md`4.4節。
  * なぜ走査を深さで打ち切らないかは`docs/architecture.md`）。
  */
-
 function findUnitPaths(chartDirPath: LocalPath): readonly ConfigUnitPath[] {
   const unitSegmentsList = collectUnitSegments(chartDirPath, [])
 
@@ -80,7 +79,6 @@ function findUnitPaths(chartDirPath: LocalPath): readonly ConfigUnitPath[] {
  * 上限で打ち切らないのは、深すぎる位置に置かれた`config.yaml`を「見つからなかった」
  * ではなく設定エラーとして報告するため。YAMLは読まず`config.yaml`の有無だけを見る。
  */
-
 function collectUnitSegments(dirPath: LocalPath, segments: UnitSegments): readonly UnitSegments[] {
   const here = existsSync(join(dirPath, CONFIG_YAML_FILE_NAME)) ? [segments] : []
   const deeper = listSubdirectories(dirPath).flatMap((childDir) =>

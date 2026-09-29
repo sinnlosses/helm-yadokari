@@ -12,7 +12,6 @@ import type { PlatformAdapter } from "./adapter.js"
  *
  * 401と未設定トークンは素の`Error`に読み替え、該当chartリポジトリだけを`ERROR`に留める。
  */
-
 export function createTokenRoutedAdapter(
   configUnits: readonly ConfigUnit[],
   adapters: ReadonlyMap<AccessTokenEnvName, PlatformAdapter>,
@@ -84,7 +83,6 @@ type Route =
  * 設定漏れ）なので、どのchartディレクトリがどの環境変数を要求しているかを並べる。
  * chartリポジトリ単位の`ERROR`に落とせるのは、他に1本でも読めるトークンがあるときだけ。
  */
-
 function assertAdapterAvailable(
   configUnits: readonly ConfigUnit[],
   adapters: ReadonlyMap<AccessTokenEnvName, PlatformAdapter>,

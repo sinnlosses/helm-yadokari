@@ -16,7 +16,6 @@ export const MAX_CONFIG_UNIT_DEPTH = 2
  * 受理するのは深さ1〜2で、それ以外の深さと空のセグメントを含むものには undefinedを返す（深さの制約
  * は `docs/requirements.md` 4.4節）。セグメントがGitLabブランチ名として妥当かは検証しない（同 4.2節）。
  */
-
 export function parseConfigUnitPath(raw: string): ConfigUnitPath | undefined {
   const segments = raw.split(CONFIG_UNIT_PATH_SEPARATOR)
   if (segments.length > MAX_CONFIG_UNIT_DEPTH) return undefined

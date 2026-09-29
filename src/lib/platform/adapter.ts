@@ -21,7 +21,6 @@ import type {
  * も、プラットフォームごとに違って本体パイプラインが必要とするのでここに並べる。表を1つに保つと、
  * API呼び出しはGitHub・エラー分類はGitLab、という取り違えが起きない。
  */
-
 export type PlatformAdapter = {
   /** タグ名とそれが指すコミットSHAの一覧を返す */
   readonly listTags: (projectId: ProjectId) => Promise<TagInfo[]>

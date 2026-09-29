@@ -30,7 +30,6 @@ export type AnchorLocation = {
  * 設定ユニット内のいずれかのappが書き込むvaluesPathを指すもの。
  * 向き先ブランチは設定ユニット内のapps全体で共通なので設定ユニット単位で持つ
  */
-
 export type HelmConfig = {
   readonly branchRef: BranchName
   readonly locations: readonly AnchorLocation[]
@@ -134,7 +133,6 @@ export type HelmBranchRefUpdate = {
  * 作成予定であることを意味する）。追跡ブランチのHEADに既存タグがあり、それを再利用した場合は
  * `"existing"`
  */
-
 export type TagOrigin = "existing" | "created"
 
 /**
@@ -151,14 +149,13 @@ export type AppUpdatePlan = {
 /**
  * 1アプリ分の「最新タグの判定結果」。
  *
- * `trackedHeadTagNames`は、「現在の追跡ブランチ由来（＝現在の`branchToSync`と`tagFormat`でパースで
- * きる）で、かつ追跡ブランチの現在のHEADコミットを指すタグ名」の集合。
+ * `trackedHeadTagNames`は、「現在の追跡ブランチ由来（＝現在の`branchToSync`と`tagFormat`でパース
+ * できる）で、かつ追跡ブランチの現在のHEADコミットを指すタグ名」の集合。
  * values.yamlに書かれている現在値がこの集合に含まれるなら、
  * たとえより新しい名前のタグが存在してもデプロイされる中身は変わらないため更新しない。
  * 追跡ブランチを切り替えた直後は、切り替え前のタグ名がこの集合に含まれない（現在の追跡ブランチ由来
  * ではないため）ので、HEADと同じコミットを指していてもスキップされない。
  */
-
 export type LatestTagResolution = {
   readonly tag: ParsedTag
   readonly trackedHeadTagNames: ReadonlySet<TagName>
@@ -219,7 +216,6 @@ export type FileUpdate = {
  * `helmBranchRefUpdates`がapp単位でなくここにあるのは、
  * 向き先ブランチが設定ユニット内のapps全体で共通だから（`plans`が空でもこちらに差分があればMRを作る）
  */
-
 export type ConfigUnitUpdateTarget = {
   readonly configUnit: ConfigUnit
   readonly plans: readonly AppUpdatePlan[]

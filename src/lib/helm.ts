@@ -43,7 +43,6 @@ export function lookupValueAtAnchor(
  * chartリポジトリ側のvalues.yamlからアンカーが消えた・想定と違う位置に付け直されたケース向けで、
  * config/側の設定ミス検知には`lookupValueAtAnchor()`を使う。
  */
-
 export function getRequiredValueAtAnchor(
   yamlContent: string,
   anchorName: AnchorName,
@@ -67,7 +66,6 @@ export function getRequiredValueAtAnchor(
  * ASTノードを直接書き換えて再シリアライズするため、他の要素・インデント・
  * アンカー記法自体はそのまま維持される。
  */
-
 export function setValueAtAnchor(
   yamlContent: string,
   anchorName: AnchorName,
@@ -103,7 +101,6 @@ type AnchorLookup =
  * スカラー以外のノード種別（マッピング・シーケンス）も見つけたうえで区別できるよう、
  * `Scalar`に限定せず全ノード種別を対象に探索する。
  */
-
 function findAnchorNode(doc: Document, anchorName: AnchorName): AnchorLookup {
   let result: AnchorLookup = { kind: "not_found" }
   visit(doc, {

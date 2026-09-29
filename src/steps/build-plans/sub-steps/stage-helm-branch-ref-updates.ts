@@ -20,7 +20,6 @@ export type StageHelmBranchRefUpdatesAcc = StageUpdatesAcc<HelmBranchRefUpdate>
  * 複数箇所を扱うのはこの関数の責務で、呼び出し元は「Helmの向き先ブランチを適用する」
  * という1つの操作として呼ぶだけでよい。
  */
-
 export async function stageHelmBranchRefUpdates(
   adapter: PlatformAdapterWithCachedReads,
   chart: ChartRepoConfig,
@@ -42,7 +41,6 @@ export async function stageHelmBranchRefUpdates(
  * 実在確認は`adapter.cached`越しに行う。値の読み込み（`readValuesYamlDraft()`）と同じ`adapter`・
  * `chart`を使うので、問い合わせ先を決める情報がこの関数の中で1つに揃う。
  */
-
 async function stageHelmBranchRefUpdate(
   adapter: PlatformAdapterWithCachedReads,
   chart: ChartRepoConfig,

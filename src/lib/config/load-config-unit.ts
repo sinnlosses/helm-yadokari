@@ -31,7 +31,6 @@ import { validateNoDuplicateProjectIds, validateNoDuplicateLocations } from "./v
  * `ConfigUnit`にする。`appSpecs[]`は1つのchartディレクトリで共有されるため、
  * 重複チェックもここで1回だけ行う。
  */
-
 export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[] {
   const registryYamlPath = toLocalPath(join(chartUnits.chartDirPath, REGISTRY_YAML_FILE_NAME))
   const {
@@ -143,7 +142,6 @@ type LinkedApp = {
  * 検証だけして捨てず組を返すのは、呼び出し元が同じ突き合わせを繰り返さずに済ませるため。2回引くと、
  * ここを通った時点で起こりえない「見つからない」を型と分岐に持つことになる。
  */
-
 function resolveProjectLinkage(
   configYamlPath: LocalPath,
   registryYamlPath: LocalPath,
@@ -174,9 +172,9 @@ function resolveProjectLinkage(
  * Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提なので、
  * appごとに振り分けず設定ユニット単位で1つだけ持つ。
  *
- * そのconfig.yaml配下の全アプリの全`locations[].valuesPath`が`helm.locations[]`でカバーされている必
- * 要がある（1つでも漏れていれば、そのvaluesPathだけ更新対象から漏れてしまう設定ミスとして例外をスロー
- * する）。逆にどのappも書き込まないvaluesPathを指す`helm.locations[]`の要素は`locations`に含めない。
+ * そのconfig.yaml配下の全アプリの全`locations[].valuesPath`が`helm.locations[]`でカバーされている
+ * 必要がある（1つでも漏れていれば、そのvaluesPathだけ更新対象から漏れてしまう設定ミスとして例外を
+ * スローする）。逆にどのappも書き込まないvaluesPathを指す`helm.locations[]`の要素は`locations`に含めない。
  */
 function resolveHelmConfig(
   configYamlPath: LocalPath,

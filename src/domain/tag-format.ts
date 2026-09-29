@@ -73,7 +73,6 @@ export function parseTag(
  * 該当するタグがひとつもない場合はundefined を返す。呼び出し元は「タグ一覧全体」だけでなく、
  * 「HEADを指すタグの集合」のような絞り込み済みのタグ名リストを渡すこともある。
  */
-
 export function findLatestParsedTag(
   tagNames: readonly TagName[],
   branch: BranchName,

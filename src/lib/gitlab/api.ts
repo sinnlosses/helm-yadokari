@@ -27,10 +27,9 @@ export type GitlabClient = InstanceType<typeof Gitlab>
  * gitbeakerが429/502で行う内部リトライも同じsignalを共有するため、
  * これは**リトライ込みの総予算**になる。
  *
- * 値はgitbeakerの既定値と同じだが、明示しているのは既定値がバージョンアップで黙って変わっても気づけ
- * ないため。超過時の`GitbeakerTimeoutError`は`isFatalError()`が致命的エラーとして扱う。
+ * 値はgitbeakerの既定値と同じだが、明示しているのは既定値がバージョンアップで黙って変わっても
+ * 気づけないため。超過時の`GitbeakerTimeoutError`は`isFatalError()`が致命的エラーとして扱う。
  */
-
 const QUERY_TIMEOUT_MS = 300_000
 
 export function createClient(host: PlatformUrl, token: AccessToken): GitlabClient {
@@ -162,11 +161,10 @@ type CommitAction = { action: "update"; filePath: ValuesPath; content: string }
  * ここでは行わない。
  *
  * ファイルごとの action は常に `update`。ここへ渡してよいのは、
- * `baseBranch` 時点の内容を読み込めたファイルを書き換えた結果だけ（読み込めなければ渡す前に例外にな
- * っている）という事前条件を置いている。つまり `baseBranch` に存在しないファイルは渡ってこない。
+ * `baseBranch` 時点の内容を読み込めたファイルを書き換えた結果だけ（読み込めなければ渡す前に例外
+ * になっている）という事前条件を置いている。つまり `baseBranch` に存在しないファイルは渡ってこない。
  * この前提は`lib/gitlab/`からは見えないためここに書く。
  */
-
 export async function commitFileUpdates(
   gitlab: GitlabClient,
   projectId: ProjectId,
@@ -228,7 +226,6 @@ export async function getProjectWebUrl(
  * パイプライン情報はMR本文への参考情報にすぎず更新処理の必須条件ではないため、
  * 404と同様に「パイプライン無し」として扱う。
  */
-
 export async function getLatestPipelineForRef(
   gitlab: GitlabClient,
   projectId: ProjectId,

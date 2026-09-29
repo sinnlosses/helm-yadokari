@@ -76,7 +76,6 @@ const TagFormatSchema = z
  * `projectId`をキーに`config.yaml`側の`apps[]`と結合する。
  * `projectName`は`config.yaml`側と食い違っていないかの検証用に重複して持つ
  */
-
 const AppSpecSchema = z.object({
   projectId: ProjectIdSchema,
   projectName: z.string().min(1).transform(toProjectName),
@@ -214,7 +213,6 @@ export type ConfigApp = z.infer<typeof AppSchema>
  * と書き込み先（`locations[]`）も両方揃って初めて意味を持つので、
  * 片方だけの指定はここで設定エラーになる（`docs/requirements.md` 4.4節）。
  */
-
 const HelmSchema = z.object(
   {
     branchRef: z

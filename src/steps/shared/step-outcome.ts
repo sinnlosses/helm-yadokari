@@ -35,7 +35,6 @@ export type StepOutcome<T> =
  * `ConfigUnitReport`を持たないのは、この失敗をどの設定ユニットのERRORにするかを決めるのが受け取った
  * 側だから。
  */
-
 export type AppOutcome<T> =
   | { readonly status: "ok"; readonly value: T }
   | { readonly status: "failed"; readonly error: Error }
@@ -119,7 +118,6 @@ export function withAppContext<T>(
  * API呼び出しはしない。gitbeakerとOctokitでは例外の形が違うので、どちらで動いているかを知っている
  * `PlatformAdapter`に尋ねる。
  */
-
 export function withHandling<T>(
   adapter: PlatformAdapter,
   configUnit: ConfigUnit,
@@ -138,7 +136,6 @@ export function withHandling<T>(
  * こちらは設定ユニットが決まっていないためログを出さない。
  * `withAppContext()`が例外でない値をそのまま投げうるので、`Error`に揃えてから値にする。
  */
-
 function failApp<T>(adapter: PlatformAdapter, err: unknown): AppOutcome<T> {
   if (adapter.isFatalError(err)) throw new FatalError(adapter.extractHttpStatus(err), err)
   return { status: "failed", error: err instanceof Error ? err : new Error(toErrorMessage(err)) }
@@ -157,7 +154,6 @@ function failApp<T>(adapter: PlatformAdapter, err: unknown): AppOutcome<T> {
  * `FatalError`に昇格できなくなるためである。この関数と`settleAsError()`が同じ
  * `adapter.isFatalError()`に尋ねることで、包む・包まないの境目と昇格の境目がずれないようにしている。
  */
-
 function rethrowWithAppContext(
   adapter: PlatformAdapter,
   err: unknown,
@@ -176,7 +172,6 @@ function rethrowWithAppContext(
  *
  * 方針そのものを1箇所に置くための関数。外からは直接ではなく`withHandling()`経由で呼ぶ。
  */
-
 function settleAsError(
   adapter: PlatformAdapter,
   err: unknown,

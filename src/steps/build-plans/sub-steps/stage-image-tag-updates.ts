@@ -86,7 +86,6 @@ async function stageAppImageTagUpdates(
  * 現在値が「追跡ブランチの現在のHEADを指すタグ」の場合も更新しない。
  * タグ名は違ってもデプロイされる中身は同じで、更新しても意味が無いMRになるため。
  */
-
 async function stageImageTagUpdate(
   adapter: PlatformAdapterWithCachedReads,
   chart: ChartRepoConfig,

@@ -81,7 +81,6 @@ declare const localPathBrand: unique symbol
  * `ConfigUnitPath`（識別子）とは別概念で、これらが`join()`で同じ式に並ぶため取り違え防止でブランド
  * 型にしている。
  */
-
 export type LocalPath = string & { readonly [localPathBrand]: never }
 export function toLocalPath(s: string): LocalPath {
   return s as LocalPath
@@ -100,7 +99,6 @@ export type ConfigRootPath = LocalPath & { readonly [configRootPathBrand]: never
  * パストラバーサルを含むパスが`ConfigRootPath`になることはない。
  * label はエラーメッセージ内でそのパスを何と呼ぶか（既定は環境変数名の`CONFIG_ROOT_PATH`）。
  */
-
 export function toConfigRootPath(s: string, label = "CONFIG_ROOT_PATH"): ConfigRootPath {
   assertSafePath(s, label)
   return s as ConfigRootPath
@@ -162,7 +160,6 @@ const GROUP_ID_PATTERN = /^[1-9][0-9]*$/
  * グループの宣言がGitLab専用（`PLATFORM=github`では検査しない）で数値IDしか取らず、
  * ここにフルパスを書けてしまうと「名前は変わるがIDは変わらない」という特定の前提が崩れるため。
  */
-
 export type GroupId = string & { readonly [groupIdBrand]: never }
 /** `GroupId`の唯一の生成経路 */
 export function toGroupId(s: string): GroupId {
@@ -185,7 +182,6 @@ const GROUP_PATH_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9_.-]*(?:\/[A-Za-z0-9_][A-Za-z
  * （宣言したグループのフルパスそのものか、それ＋`"/"`で始まるか）で行われ、末尾に`/`が付いた値は
  * 常に外れ、空文字は照合の意味を失うため。
  */
-
 export type GroupPath = string & { readonly [groupPathBrand]: never }
 /** `GroupPath`の唯一の生成経路。label はエラーメッセージ内でその値を何と呼ぶか */
 export function toGroupPath(s: string, label = "group"): GroupPath {
@@ -207,7 +203,6 @@ declare const groupNameBrand: unique symbol
  * `GroupPath`の部分型にしているのは、`groupId`から引いた`full_path`と直接突き合わせて
  * グループのリネームを検出するため（形式の条件も同じ）。
  */
-
 export type GroupName = GroupPath & { readonly [groupNameBrand]: never }
 /** `GroupName`の唯一の生成経路。フルパスとしての形式検証は`toGroupPath()`と共通 */
 export function toGroupName(s: string): GroupName {
@@ -224,7 +219,6 @@ const ACCESS_TOKEN_ENV_NAME_PATTERN = /^ACCESS_TOKEN_[A-Z0-9_]+$/
  * `config/`は各チームがMRを送るセルフサービス方式なので、
  * 任意の環境変数名を書けると無関係な秘密をCLIに読み出させる経路になるため
  */
-
 export type AccessTokenEnvName = string & { readonly [accessTokenEnvNameBrand]: never }
 export function toAccessTokenEnvName(s: string): AccessTokenEnvName {
   if (!ACCESS_TOKEN_ENV_NAME_PATTERN.test(s)) {
@@ -245,7 +239,6 @@ declare const accessTokenBrand: unique symbol
  * `loadEnv()`が既に保証している。接頭辞や長さでの形式検証はしない（GitLabの`glpat-`・
  * GitHubの`ghp_`はいずれも慣習であり、Group Access TokenやCI変数経由の値では前提にできないため）
  */
-
 export type AccessToken = string & { readonly [accessTokenBrand]: never }
 export function toAccessToken(s: string): AccessToken {
   return s as AccessToken
