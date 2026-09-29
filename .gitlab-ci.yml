@@ -182,7 +182,7 @@ update-app-versions:
 # ──────────────────────────────────────────────────────────────────
 renovate:
   stage: renovate
-  image: renovate/renovate:latest
+  image: renovate/renovate:44
   variables:
     RENOVATE_PLATFORM: gitlab
     RENOVATE_ENDPOINT: $CI_SERVER_URL/api/v4

@@ -8,7 +8,7 @@
       "automerge": true
     },
     {
-      "matchPackageNames": ["@gitbeaker/rest", "js-yaml", "p-limit", "zod"],
+      "matchPackageNames": ["@gitbeaker/rest", "@octokit/rest", "p-limit", "yaml", "zod"],
       "groupName": "runtime dependencies",
       "automerge": false
     }
