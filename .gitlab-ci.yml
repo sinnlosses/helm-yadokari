@@ -100,8 +100,8 @@ audit:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push"'
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-  # critical 以上の脆弱性をブロックしたい場合は allow_failure: false に変更すること
-  allow_failure: true
+  # high 以上の脆弱性で CI が失敗する
+  allow_failure: false
   timeout: 10 minutes
 
 check:
