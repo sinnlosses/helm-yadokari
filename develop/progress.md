@@ -1,3 +1,5 @@
+移行の残り。8章の表で振り分けたら消す。
+
 # 現在の状態
 
 最終更新: 2026-09-16（**`docs/coding-standards.md` を整理する指示を T-259〜T-262 にタスク化し、
@@ -17,80 +19,6 @@ T-259〜T-262 を全件完了**。二重になっていた本文を1つに戻し
 （2026-09-16、ユーザーが実施。API で確認したCI/CD変数は `GITLAB_URL` / `ACCESS_TOKEN_SMOKE_A` /
 `ACCESS_TOKEN_SMOKE_B` の3つだけ）。手元の `.env` に `GITLAB_PROVISION_PAT` はまだ無いので、
 `scripts/smoke/provision-group.ts` を動かすときに追加が要る（T-255 で名前を変えたため）。
-
-## 完了したこと（このセッション）
-
-### 2026-09-18 registry.yaml の group を groupId での特定に変えた（T-264）
-
-- T-263 が入れた `group: <フルパス>` は**名前で特定していて規約違反**だった。`projectId`/
-  `projectName` と同じく **`group.groupId` で特定し、`group.groupName` はラベル**に改めた。
-  `docs/glossary.md` に既にあった「`projectName`をキーに入れない」と同じ項を `groupName` にも足した
-- **`GroupName` は `GroupPath` の部分型**（`GroupPath & { brand }`。`ConfigRootPath = LocalPath & {...}`
-  の前例）。TypeScript は独立したブランド型同士の `!==` を「型に重なりがない」としてエラーに
-  するので、独立ブランドだと `groupName` と API 由来の `full_path` のズレ検出が書けない
-- `groupId` → フルパスの解決は `RemoteCache.lookupGroupPath`（`cacheByArgs`）。registry.yaml 1件に
-  つき1回で、**projectId ごとの API 呼び出しは1回も増えていない**
-- 報告の文言は3つに分かれる: 不在は「見つかりません」、所属違いは「属していません」、
-  リネームは「現在のフルパスと食い違っています」。`groupId` 自体が引けないときは所属の照合だけを
-  畳み、実在チェックは続ける
-- `GroupId` は `/^[1-9][0-9]*$/` を検証する。`ProjectId` が素通しなのは GitHub の `owner/repo` を
-  兼ねるためで、グループは GitLab 専用。ここにフルパスを書けると「IDは変わらない」前提が崩れる
-
-### 2026-09-17 registry.yaml に group を必須で足し、--remote で所属を検証するようにした（T-263）
-
-- `registry.yaml` トップレベルに **`group`（必須）** を足し、`validate-config --remote` が
-  `chartToUpdate.projectId` と `apps[].projectId` の所属を照合するようにした。`accessTokenEnv` が
-  「どのトークンを使うか」なのに対し、`group` は「そのトークンがどこまで届いてよいか」の宣言
-- `projectExists()` を **`getProjectGroupPath()`**（`GroupPath | undefined`、404 は `undefined`）に
-  置き換えた。戻り値を捨てていた同じ `Projects.show` 1回で実在確認と所属取得を兼ねるので
-  **API 呼び出し回数は増えていない**。`RemoteCache` も `hasProject` → `lookupProjectGroupPath`
-- 照合は**セグメント単位の前方一致**（`group` そのもの、または `group + "/"` 始まり）。素の
-  `startsWith` だと `team-a-group` が `team-a-group-2` にも一致して隣のグループを通してしまう。
-  **サブグループ配下は属している扱い**——グループのトークンはサブグループにも届くので、
-  宣言したトークンの被害範囲の内側にあるため
-- 所属違いは不在と**別の文言**にし（直す手が違うため）、プロジェクト自体は参照できているので
-  報告したうえで branch / values.yaml の検証を続ける
-- `pnpm lint:validate-config:remote` は未実行（実トークンとネットワークが要る）。`config/` の
-  2件に書いた `sinnlosses-group` は `docs/smoke-test.md` のプロジェクト表と一致する実在グループ
-
-### 2026-09-16 coding-standards.md から対応記録を落とした（T-262）
-
-- **T-262: `docs/coding-standards.md` を 509行 → 400行**に。`### 消すかどうか` の実施記録
-  3ブロック、`### 足すかどうか` の「埋めないと決めた穴」、`## async/await` の
-  「採らなかった立場」2項目を落とした。**ルールの理由と例外は残してある**
-- 線引きは「この文が無いと規約の意味（何をしてよくて何が駄目か）が変わるか」で判定した。
-  **「埋めないと決めた穴は理由を添えて書き残す」は文面がルール形だが落とした**——これは
-  テストの書き方ではなく「この記録をここに書け」という指示で、記録を置かない結論と矛盾するため
-- 逆に**MR本文の粒度の段落は特定のテストファイル名を含むが残した**。「書式変更のたびに
-  壊れることは冗長さの証拠にしない」という、判定表に無い基準を足しているため
-- ファイルは 32230B で、冒頭の「30KB超あるため通読しない」という前置きは今も成り立つ
-
-### 2026-09-16 関数の並び順の lint 化は見送った（T-261）
-
-- **T-261: oxlint に「export された関数を上・非公開ヘルパーを下」を見るルールは無い**と確認し、
-  `status: done` / `passes: false` で閉じた（ユーザー判断により、既製ルールが無ければ見送り）。
-  `docs/coding-standards.md`「## 関数の並び順」と CLAUDE.md の該当ルールはそのまま残っている
-- **`no-use-before-define` は方向が逆**なので今後も採れない。この規約どおりに並べると
-  「定義前に使っている」として必ず落ちる（最小例で実測）。`typescript/member-ordering` は
-  oxlint に存在しない（設定すると `Rule 'member-ordering' not found in plugin 'typescript'`）
-
-### 2026-09-16 JSDocのブロックタグ禁止規約を廃止した（T-260）
-
-- **T-260: `### JSDocのブロックタグは使わない` 小節を削除**した。禁止をやめると残るのが
-  「何も強制しない」という裏返しだけになり、規約として言うことが無くなるため、書き換えて
-  残す案は採らなかった。`@param` 等は**必要なら書いてよい**扱いになった
-- 索引表の該当行・`## コメント` の「下の7小節を含む」→「6小節」・`### 1行目は要約` の
-  「（ブロックタグだけを採らなかった）」も追随。受け入れ時に、T-259 で本文を更新したのに
-  索引表の説明が古いままだった1行（`2段落以上のJSDocの形と…`）も直した
-- `docs/research/comment-conventions.md` は**当時の調査記録なので書き換えていない**
-
-### 2026-09-16 coding-standards.md の重複した本文を1つに戻した（T-259）
-
-- **T-259: `docs/coding-standards.md` を 667行 → 517行に**。79b7356 が入れた重複ブロック
-  （本文の前半と索引表後半のコピー、157行）を削り、`### 1行目は要約、空けてから詳細` は
-  **重複側にしか入っていなかった新しい本文**のほうを残した
-- **`oxfmt` は太字 `**…**` の中のコードスパン `` `/** \*/` `` を壊す\*\*ことが分かったため
-  （下の「注意」）、追加した段落は太字を外して平文で書いた。文言の意味は変えていない
 
 ## 未解決
 
