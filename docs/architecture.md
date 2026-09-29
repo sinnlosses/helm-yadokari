@@ -17,7 +17,7 @@
 
 ### このファイルは通読しない
 
-110KB超あるため、頭から全部読むとそれだけでコンテキストを大きく消費する。下の索引で節を1つ
+130KB超あるため、頭から全部読むとそれだけでコンテキストを大きく消費する。下の索引で節を1つ
 特定し、**その節だけ**を次の形で読む（見出し名で切り出すので、行番号と違って編集で腐らない）:
 
 ```bash
@@ -63,15 +63,14 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 | #### 引数として渡した入れ物が呼び出し先で書き変わる契約にしない                                  | データの受け渡しの契約                                        |
 | #### 読み取りだけの軸交差は`CachedReads`で暗黙に、副作用を伴う軸交差はstepとして明示的に         | ソース軸と設定ユニット軸が交差する3箇所と、重複排除の置き場所 |
 | #### PlatformAdapterへの問い合わせのキャッシュは`lib/platform/`に列挙し、バッチ単位で1つ持ち回る | 何をキャッシュしてよいかの判断                                |
-| #### サブステップに関数型を注入しない                                                            | DIを置かない理由と、やめた3つの注入                           |
-| #### ブランチの作り直しはサブステップに置き、`lib/gitlab/`は薄いラッパーに保つ                   | コミット周りの分担と、以前の判断を覆した理由                  |
+| #### サブステップに関数型を注入しない                                                            | DIを置かない理由                                              |
+| #### ブランチの作り直しはサブステップに置き、`lib/gitlab/`は薄いラッパーに保つ                   | コミット周りの分担                                            |
 
 `### 型と命名` の中:
 
 | 節                                                                                       | 中身                                                  |
 | ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | #### ブランド型にするのは「同じ`string`の別物と取り違えうる識別子」                      | ブランド型を作る基準                                  |
-| #### 型の置き場所は`src/`全件と突き合わせて確かめてある                                  | 上の判断表の裏付け                                    |
 | #### ブランド型のフィールド名は、修飾語があれば型の語を落とし、無ければ持つ              | 命名（逆則）                                          |
 | #### 用途別の型エイリアスを作らない                                                      | 構造的型付けゆえ別名に効果が無い                      |
 | #### 配列の非空を型で保証するより、生成経路を1つに保つ（`AppUpdatePlan.updates`）        | 非空タプル型を見送った理由                            |
@@ -82,13 +81,13 @@ sed -n '/^#### 用途別の型エイリアスを作らない/,/^#\{2,4\} /p' doc
 
 `### ディレクトリ配置` の中:
 
-| 節                                                                         | 中身                                               |
-| -------------------------------------------------------------------------- | -------------------------------------------------- |
-| #### `lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く  | 分割の基準                                         |
-| #### URLは`URL`オブジェクトではなく文字列のブランド型で扱う                | `URL`を使わない理由                                |
-| #### サブステップ同士は互いをimportせず、共有物は`sub-steps/shared/`に置く | 原則1のサブステップ版                              |
-| #### 実在チェックは`src/lib/`ではなく`scripts/lint/`に置く                 | 原則3が原則2に優先する例                           |
-| #### GitLab/GitHub の2実装は関数テーブル型`PlatformAdapter`で受け渡す      | 2実装の並べ方、語彙、`cached-reads.ts`の移動・改名 |
+| 節                                                                         | 中身                                             |
+| -------------------------------------------------------------------------- | ------------------------------------------------ |
+| #### `lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く  | 分割の基準                                       |
+| #### URLは`URL`オブジェクトではなく文字列のブランド型で扱う                | `URL`を使わない理由                              |
+| #### サブステップ同士は互いをimportせず、共有物は`sub-steps/shared/`に置く | 原則1のサブステップ版                            |
+| #### 実在チェックは`src/lib/`ではなく`scripts/lint/`に置く                 | 原則3が原則2に優先する例                         |
+| #### GitLab/GitHub の2実装は関数テーブル型`PlatformAdapter`で受け渡す      | 2実装の並べ方、語彙、`cached-reads.ts`の置き場所 |
 
 `### 設定・環境変数・外部形式` の中:
 
@@ -170,7 +169,7 @@ importせず〜」の節を参照）。
 | `shared/types.ts`         | 上記3つが受け渡す`MrEntries`・`ImageTagEntry`・`MrContent`                                     |
 
 項目の選別（何をMRに載せるか）とMarkdownの組み立てを分けてあるのは、**タイトルの件数と本文の
-テーブルの行を同じ配列から数えるため**。別々に数えていた頃は、件数と行数がずれても気づけなかった。
+テーブルの行を同じ配列から数えるため**（別々に数えると、件数と行数がずれても気づけない）。
 
 ### `src/lib/` — 特定の技術・外部システム・ファイル形式に依存する処理
 
@@ -362,6 +361,8 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
   `config/`を読む唯一の入口の戻り値の形なので、引数側の `ConfigTarget` と同じくそのアダプタの
   インターフェースの一部に当たる。1行目の目安は`docs/glossary.md`に載る概念かどうかで、
   既にある型を1つ包むだけの型はそこに載らない
+- **型を動かすときは表を先に読む。** 表に当てはまらない型が出てきたら、その型を動かす前に
+  表の側が足りていないことを疑う
 
 ## 設計判断（なぜ今の形なのか）
 
@@ -372,7 +373,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 #### エラーは「fatalは例外・それ以外は戻り値」の2チャネル。`steps/`に`try`/`catch`を書かない
 
-「401/5xx/ネットワーク障害なら実行全体を落とし、それ以外は該当する設定ユニットだけをERRORにして
+「5xx/ネットワーク障害なら実行全体を落とし、それ以外は該当する設定ユニットだけをERRORにして
 続行する」という判断を、`steps/shared/step-outcome.ts` の1箇所だけが持つ。stepがcatchすると
 「fatalもERRORとして計上して続行する」ように読めてしまうため、catch節は高階関数に吸収した。
 **`grep -rn "try {" src/steps/` が0件であること**が「stepはエラー方針を持たない」の機械的な確認。
@@ -419,28 +420,9 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 `README.md`「エラーハンドリング」が正典で、ここに書くのは判定を担う関数とその順序だけ
 （なぜその方針なのかは上の節）。
 
-**GitLabとGitHubで同じ形・同じ順序**で、違うのは`lib/<プラットフォーム>/`側の中身だけ。以下の表の
+**GitLabとGitHubで同じ形・同じ順序**で、違うのは`lib/<プラットフォーム>/`側の中身だけ。以下の
 `errors.ts`・`api.ts`は、GitHubで動かすときは`lib/github/errors.ts`・`lib/github/api.ts`に
 読み替える（`withGitlabRetry()`↔`withGithubRetry()`、`createGitlabAdapter()`↔`createGithubAdapter()`）。
-
-**登場人物**（`*` はファイル内からのみ呼ぶ非公開の関数）
-
-| 関数                         | 置き場所                           | 役割                                                                                  |
-| ---------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------- |
-| `withNotFoundFallback()` `*` | `src/lib/gitlab/api.ts`            | 404のときだけ既定値を返し、それ以外は再スローする                                     |
-| `isNotFoundError()`          | `src/lib/gitlab/errors.ts`         | ステータスが404か                                                                     |
-| `withGitlabRetry()` `*`      | `src/lib/gitlab/api.ts`            | `lib/gitlab/`の全リクエストに同じリトライ方針を当てる                                 |
-| `withRetry()`                | `src/utils/retry.ts`               | 待って呼び直す仕組みだけを持ち、再試行の可否も待ち時間の上書きも引数で受け取る        |
-| `isRetryableError()`         | `src/lib/gitlab/errors.ts`         | 再試行してよいステータスか（プラットフォームごとに集合が違う。下記）                  |
-| `retryAfterMs()`             | `src/lib/github/errors.ts`         | `retry-after`ヘッダの秒数（GitHubのみ。`withRetry()`に渡す）                          |
-| `withHandling()`             | `src/steps/shared/step-outcome.ts` | 設定ユニット1件分を包み、抜けてきた例外を`settleAsError()`に渡す                      |
-| `settleApp()`                | `src/steps/shared/step-outcome.ts` | アプリ1件分を包み、fatalでなければ`AppOutcome`の値にする（ログは出さない）            |
-| `settleAsError()` `*`        | `src/steps/shared/step-outcome.ts` | fatalなら`FatalError`を投げ、それ以外は`ERROR`をログに記録して返す                    |
-| `isFatalError()`             | `src/lib/gitlab/errors.ts`         | 401 / 5xx / ネットワーク障害を真とする（GitLabは`GitbeakerTimeoutError`も）           |
-| `extractHttpStatus()`        | `src/lib/gitlab/errors.ts`         | 例外からHTTPステータスを読む（gitbeakerは`cause.response.status`、Octokitは`status`） |
-
-`errors.ts`には、`isFatalError()`の中からしか呼ばない`isFatalStatus()`・`extractErrorCode()`もある
-（GitLab版はさらに`extractExhaustedRetryStatus()`）。
 
 **`steps/`は`isFatalError()`・`extractHttpStatus()`を直接importしない。** どちらも`PlatformAdapter`
 （`lib/platform/adapter.ts`）の関数として渡り、`step-outcome.ts`は`adapter.isFatalError(err)`と
@@ -549,11 +531,6 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - 採らない理由: 1アプリあたりのAPI往復は実質2〜3回で削減幅が小さい一方、下書きの並列共有には
   二重fetch対策が要る。夜間の定期実行という前提で、MR内容とプラットフォームへの書き込みに
   関わる経路を複雑にする価値は無い
-- **タグ作成という副作用はもうこのループの中に無い**。以前は最新タグの解決も設定ユニットの中の
-  アプリのループにあり、「並列化するとタグの作成順が実行ごとに変わる」ことが逐次を選ぶ理由の
-  1つだった。今は`resolveTags`として設定ユニットの外に出ており、一意化した解決の単位で並列に
-  走る（「読み取りだけの軸交差は〜」節）。作られるタグの集合は解決の単位ごとに高々1つと
-  決まっているので、並列でも実行ごとに変わるのは作成順だけになる
 - 遅い場合にまず動かすのは`CONCURRENCY_LIMIT`。1つの設定ユニットに数十アプリが登録され、そこが実測で
   ボトルネックになったときに再検討する
 
@@ -602,18 +579,14 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 #### 引数として渡した入れ物が呼び出し先で書き変わる契約にしない
 
-下書き（`ValuesYamlDraft`）は受け取って返す。以前はMutableな`Map`を渡して実装が埋める形で、
+下書き（`ValuesYamlDraft`）は受け取って返す。Mutableな`Map`を渡して実装が埋める形にすると、
 周囲がすべて不変（`ReadonlyMap`・`readonly`フィールド）なのにここだけ規約が違い、JSDocを
-読まないと正しく使えなかった。複製の責任は実装側に寄せる。
+読まないと正しく使えない。複製の責任は実装側に寄せ、実際に読み書きしたときだけ新しいMapを作る。
 
-- **コピー回数はむしろ減った**。呼び出し側の無条件な複製が消え、実際に読み書きしたときだけ
-  新しいMapを作るようになったため
 - 読み込み用と書き込み用で**入口の関数を分けてある**のは、「変更済みエントリは書き込み経由でしか
   生まれない」という不変条件を関数名のレベルで保つため
-- **内容と「書き換えた」印は1つのエントリにまとめてある**。以前は`valuesYamlCache`（内容）と
-  `modifiedValuesPaths`（印）を別々に持ち回り、1アプリ分の処理が段階ごとに2フィールドを
-  手作業で詰め替えていた。「印は付いているのに内容が無い」組み合わせを型で防げず、
-  実行時のinternal errorで検査していた
+- **内容と「書き換えた」印は1つのエントリにまとめてある**。別々に持ち回ると
+  「印は付いているのに内容が無い」組み合わせを型で防げない
 
 #### 読み取りだけの軸交差は`CachedReads`で暗黙に、副作用を伴う軸交差はstepとして明示的に
 
@@ -655,11 +628,11 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 `cached: CachedReads`を1つ足しただけの値）を全stepへ引数で渡す。包む相手はトークンの振り分け
 アダプタ（`createTokenRoutedAdapter()`）の戻り値で、キャッシュは常にその**外側**に重ねる
 （「アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける」節）。キャッシュが必要になるたびに
-その場で工場関数を書いていた頃は、新しい問い合わせを足す人がキャッシュの要否を毎回自分で
-気づく必要があり、素の関数を呼ぶほうが常に書きやすいぶん抜けるほうへ倒れていた。
+その場で工場関数を書く形だと、新しい問い合わせを足す人がキャッシュの要否を毎回自分で
+気づく必要があり、素の関数を呼ぶほうが常に書きやすいぶん抜けるほうへ倒れる。
 
-**キャッシュ済みの読み取りを`PlatformAdapter`に入れ子にする。** 以前は`adapter`とバッチキャッシュの
-2つの値を`steps/`が持ち回り、生とキャッシュ済みのどちらを呼んでいるかが変数名でしか読めなかった。
+**キャッシュ済みの読み取りを`PlatformAdapter`に入れ子にする。** `adapter`とバッチキャッシュを
+別の値として持ち回ると、生とキャッシュ済みのどちらを呼んでいるかが変数名でしか読めない。
 `branchExists`は生・キャッシュ済みの両方が要る唯一のメンバーで
 （`submitMergeRequest()`は固定ブランチの削除と再作成をまたぐため`adapter.branchExists`を、
 `stageHelmBranchRefUpdate()`はバッチ中不変な向き先ブランチの実在確認なので
@@ -677,12 +650,9 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
    変わる）・固定ブランチを作り直すときの存在確認（`submitMergeRequest()`。削除と再作成をまたぐ）がこれに当たる
 2. 変わらないなら`CachedReads`にメンバーを1つ足す。キーは引数から機械的に組み立てられる
    ので手書きしない。読み取りごとに`Map`を分けてあるため、別の読み取りとのキー衝突も起きない
-3. **複数のAPI呼び出しとドメイン判定にまたがる「解決結果」はここに載せない。** 以前はその処理を
-   持つサブステップが工場関数でバッチ寿命のキャッシュを持っていたが、最新タグの解決は
-   `listTags`＋`getBranchHeadSha`＋タグ作成とその判定の組で**副作用を含む**ため、今はキャッシュ
-   ではなくstep（`resolveTags`）として軸の交差を明示する（前節）。`lib/platform/`がドメイン判定を
-   知らないという理由は当時から変わっていない。`build-plans.ts`にあった
-   `createCachedBranchExists()`は逆に単一の読み取りだけを包んでいたので、この機構へ移して廃止した
+3. **複数のAPI呼び出しとドメイン判定にまたがる「解決結果」はここに載せない。** `lib/platform/`は
+   ドメイン判定を知らない。最新タグの解決は`listTags`＋`getBranchHeadSha`＋タグ作成とその判定の
+   組で**副作用を含む**ため、キャッシュではなくstep（`resolveTags`）として軸の交差を明示する（前節）
 
 なお、**厳密には値が変わりうるが載せてよい読み取りもある**。`getLatestPipelineForRef`は
 このツールが作ったタグに後からパイプラインが現れうるが、MR本文への参考情報でしかなく、
@@ -718,11 +688,9 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 読み込みは1回で済む）。キャッシュを`lib/platform/`の読み取り単位に置いたことで、この分離は
 作りから自動的に決まる。
 
-**単一の読み取りの重複排除はキャッシュの外に置かない。** web URLの解決は以前
-`getProjectWebUrls()`が`new Set`で`projectId`を一意化していたが、その重複排除は1回の呼び出しの
-中だけに閉じていて、バッチ全体を見るキャッシュと役割が二重になる。`getProjectWebUrls()`は廃止して
-単数の`getProjectWebUrl()`だけを残し、一意化はキャッシュに一本化した。あわせて「依頼した
-`projectId`はすべて解決済み」という呼び出し元側の前提チェックも要らなくなっている。
+**単一の読み取りの重複排除はキャッシュの外に置かない。** 呼び出し側で`new Set`などで一意化すると、
+その重複排除は1回の呼び出しの中だけに閉じていて、バッチ全体を見るキャッシュと役割が二重になる。
+web URLの解決が単数の`getProjectWebUrl()`だけなのはこのため。
 **副作用を含む解決の重複排除は逆にキャッシュへ寄せない**（前節）。一意化をどちらに置くかは
 「速度のためか、正しさのためか」で分かれる。
 
@@ -733,50 +701,31 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 そのまま受け取り、必要な問い合わせを自分で呼ぶ。読み込み先はそれ自体がただのデータなので、
 関数型で包んでも間接層が増えるだけになる。
 
-この形に落ち着くまでに、同じ理由で2つの注入をやめている:
+関数型で注入すると、下書きの読み書きが「読みは親stepが組み立てたクロージャ、書きは
+`values-yaml-draft.ts`の関数」のように別々の出所に分かれて一連の操作として追いにくくなる。
+また、問い合わせ先を決める情報（`adapter`・`chart`）を親step側に閉じ込めるつもりで注入しても、
+同じ関数がそれらを別の引数でも受け取っていれば隠せていない。サブステップは
+`adapter.cached.branchExists(chart.projectId, ...)`のように`adapter`・`chart`を素の引数として
+受け取って直接呼ぶ（束ねる型も作らない。同じ値を2つの経路で受け取る歪みを生むため）。
 
-- **values.yamlの読み込み**（`ReadDraftValuesYaml`）: 下書きの読み書きが「読みは親stepが
-  組み立てたクロージャ、書きは`values-yaml-draft.ts`の関数」と別々の出所に分かれていて、
-  一連の操作として追いにくかった。`readValuesYamlDraft(adapter, chart, draft, valuesPath)`の
-  直接呼び出しにした
-- **ブランチの実在確認**（`BranchExists`）: 「バッチ単位のキャッシュとchartのprojectIdを親step側に
-  閉じ込めるため」という理由で注入していたが、**同じ関数が`source`（当時は`adapter`
-  （`PlatformAdapterWithCachedReads`）と`chart`を`ValuesYamlSource`という1つの型に束ねて
-  受け取っていた）を別の引数で受け取っており、隠せていなかった**。
-  `source.adapter.cached.branchExists(source.chart.projectId, ...)`の直接呼び出しにして、
-  問い合わせ先を決める情報が関数の中で1つに揃うようにした
-
-  その後、`ValuesYamlSource`自体を廃止し、`adapter`と`chart`を素の引数として渡す形にした。
-  束ねる利益（引数が1本減る）より、`stageImageTagUpdates()`が`adapter`（分類用）と
-  `source.adapter`（`source`越し）という同じ値を2つの経路で受け取ってしまう歪みのほうが
-  大きいと判断したため。`readValuesYamlDraft()`・`stageHelmBranchRefUpdate()`など上の
-  直接呼び出しは`adapter.cached.branchExists(chart.projectId, ...)`のように`adapter`・`chart`を
-  そのまま並べる形になっている
-
-**例外は無い。** 以前は「サブステップ自身がバッチ単位のキャッシュを持つ場合」だけを例外とし、
-工場関数を公開して親stepに寿命だけを持たせていた（最新タグの解決）。その解決自体がstepになり、
-重複排除がキャッシュではなく`TagSource`での一意化に変わったため（「読み取りだけの軸交差は〜」節）、
-工場関数を公開するサブステップは1つも無くなった。バッチ寿命のキャッシュを持つのは
-`lib/platform/cached-reads.ts`だけで、サブステップはそれを`adapter.cached.*`として受け取る。
+**例外は無い。** バッチ寿命のキャッシュを持つのは`lib/platform/cached-reads.ts`だけで、
+サブステップはそれを`adapter.cached.*`として受け取る。工場関数を公開するサブステップは無い。
 
 #### ブランチの作り直しはサブステップに置き、`lib/gitlab/`は薄いラッパーに保つ
 
 `commitFileUpdates()`はドメイン型`FileUpdate`を受け取り、ファイルごとの action を`update`に
 固定する。ここだけは`lib/gitlab/`がドメイン型を知っている。`update`固定でよい根拠は呼び出し元側の
 不変条件（`baseBranch`時点の内容を読めたファイルしか渡ってこない）で、`lib/gitlab/`からは
-見えないため`commitFileUpdates()`のJSDocに書いてある。以前はファイルごとに`getFileContent()`を
-引いてcreate/updateを振り分けていたが、判定結果は常に`update`でMRごとにファイル数ぶんの
-問い合わせが無駄になっていたため取り除いた。
+見えないため`commitFileUpdates()`のJSDocに書いてある（ファイルごとに問い合わせてcreate/updateを
+振り分けても、判定結果は常に`update`になる）。
 
 一方**「固定ブランチが残っていれば削除して`baseBranch`から作り直す」手順は`commitFileUpdates()`
-から外し、`submit-merge-request.ts`（サブステップ）へ移した**。以前は「step側へ引き上げると
-GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/`へ置いていたが、漏れる先は
+には置かず、`submit-merge-request.ts`（サブステップ）に置く**。GitLab APIの呼び出し順が漏れる先は
 サブステップの内側であって`steps/`直下ではない。`applyUpdate()`から見えるのはサブステップ3つの
 呼び出しだけで、ブランチ確認・削除・コミット・MR作成という順序はその1段下に隠れる
 （`buildPlan()`と同じ形。「サブステップ同士は互いをimportせず〜」節の**階層はサブステップ側に
-隠す**）。この結果`lib/gitlab/`の関数はどれもGitLab APIの1呼び出しに対応する薄いラッパーに戻り、
-`deleteBranch()`は非公開から公開に変えた（公開するのは`Branches.remove`1本ぶんで、
-`lib/gitlab/`の役割からはみ出さない）。
+隠す**）。`lib/gitlab/`の関数はどれもGitLab APIの1呼び出しに対応する薄いラッパーで、
+`deleteBranch()`を公開しているのも`Branches.remove`1本ぶんなので`lib/gitlab/`の役割からはみ出さない。
 
 ### 型と命名
 
@@ -803,55 +752,6 @@ GitLab APIの呼び出し順がstepに漏れる」ことを理由に`lib/gitlab/
 部分型にしているのは`join()`・`listSubdirectories()`へ変換なしで渡すため。
 `src/utils/`（`fs.ts`・`yaml.ts`）はドメインを知らない側にあるので
 （→「新しいコードを置く場所」の2軸の表）、そちらの引数は素の`string`のまま据え置く。
-
-#### 型の置き場所は`src/`全件と突き合わせて確かめてある
-
-「型の置き場所」の表は、`src/`の型定義76件を1件ずつ**表のどの行に当たるかまで**割り当てた
-うえでの形（2026-09-12に実施し、以後は型が増減するたびに数え直している）。
-**表の行のどれにも当たらない型は1件も無い。**
-
-**数え方**（これを書いておかないと次に数え直したとき同じ数にならない）: `src/`配下の`.ts`で、
-**行頭から**始まる`type`／`interface`の宣言を1件と数える。`export`の有無は問わない
-（ファイル内ローカルの型も実装の都合を表す型として表の対象）。インデントされた`type X,`は
-`import { type X }` の一部なので入らない。`brand.ts`の`declare const xxxBrand: unique symbol`は
-型ではなく目印の値宣言なので数えない（対になる`export type`の側で1件と数える）。
-`utils/errors.ts`の`class FatalError`も値なので数えない。
-
-```bash
-grep -rhE '^(export )?(type|interface) ' --include='*.ts' src | wc -l   # 76
-```
-
-**表の行ごとの内訳**（件数の裏付けになるのはこちら。合計76）:
-
-| 表の行                            | 件数 | 実体                                                                    |
-| --------------------------------- | ---- | ----------------------------------------------------------------------- |
-| 1行目 ドメイン語彙                | 35   | `domain/types.ts` 21・`domain/brand.ts` 14                              |
-| 2行目 `lib/`のインターフェース    | 13   | `config/`6・`platform/`3・`gitlab/`1・`github/`1・`env.ts`1・`helm.ts`1 |
-| 3行目 `utils/`                    | 3    | `partition.ts`・`cache.ts`・`retry.ts`                                  |
-| 4行目 `steps/shared/`             | 3    | `step-outcome.ts`                                                       |
-| 5行目 関数と同じファイル          | 18   | `steps/`9（`describe-plan.ts`2を含む）・`lib/`9                         |
-| 6行目 `sub-steps/shared/types.ts` | 4    | `build-plans/`1・`apply-updates/`3                                      |
-
-1・3・4・6行目は置き場所そのものが行の定義なので機械的に確かめられる:
-
-```bash
-grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/domain/types.ts src/domain/brand.ts | wc -l  # 35（1行目）
-grep -rhE '^(export )?(type|interface) ' --include='*.ts' src/utils | wc -l                 # 3（3行目）
-grep -hE  '^(export )?(type|interface) ' src/steps/shared/step-outcome.ts | wc -l           # 3（4行目）
-grep -rhE '^(export )?(type|interface) ' src/steps/*/sub-steps/shared/types.ts | wc -l      # 4（6行目）
-```
-
-残り31件が2行目と5行目で、この2つは同じファイルに同居するため境目は人が読んで決める
-（判断基準は表の下の箇条書き）。内訳は`lib/`22件（2行目13・5行目9）と`steps/`9件（すべて5行目）。
-
-2026-09-12の突き合わせで表から外れていたのは9件で、いずれも**基準の側**が足りていなかった。
-5行目が「ステップ内部の作業用の型」と`steps/`限定の書き方になっていたため、`lib/`の中の作業用の型7件と
-`steps/shared/describe-plan.ts`の2件が行に当たらなかった。5行目の文言を「関数の内部の」に広げ、
-2行目との境目と`steps/shared/`の但し書きを箇条書きに足して埋めた。**型は1件も動かしていない。**
-
-**型を動かすときは表を先に読む。** 表に当てはまらない型が出てきたら、その型を動かす前に
-表の側が足りていないことを疑う。件数がこの節と合わなくなっていたら、それだけでは表が
-壊れた証拠にはならない（型が増えただけのこともある）ので、上の内訳を数え直してから直す。
 
 #### ブランド型のフィールド名は、修飾語があれば型の語を落とし、無ければ持つ
 
@@ -922,34 +822,12 @@ values.yamlの書き込み位置は用途を問わず`AnchorLocation`1つ。Type
 `.gitlab-ci.yml`のstage名（検証全般を指す）まで、層をまたいで使われている。**`validate`に
 「形の検証だけ」のような狭い意味を割り当て直すことはできない**。
 
-`verify`はこれに対して`scripts/lint/`の実在チェック1箇所でしか使っておらず、そこだけが例外に
-なっていた。隣り合う`scripts/lint/validate-config.ts`（CLI入口）と実在チェックで動詞が違うと、
-どちらがどちらの一部なのかがファイル名から読めない。**例外の側（`verify`）を一般動詞に寄せる**。
+`verify`は使わない。隣り合う`scripts/lint/validate-config.ts`（CLI入口）と実在チェックで動詞が
+違うと、どちらがどちらの一部なのかがファイル名から読めない。
 
-実在チェックのディレクトリ名には`remote`を使う。`--remote`オプション・pnpmスクリプトの
+実在チェックのディレクトリ名には`remote`を使う（`scripts/lint/remote-existence/`）。`--remote`オプション・pnpmスクリプトの
 `lint:validate-config:remote`・CIジョブの`validate-config-remote`と語彙が揃い、**入口の
 どのモードの実装なのかが名前で分かる**ため。
-
-| 旧名                                          | 新名                                                |
-| --------------------------------------------- | --------------------------------------------------- |
-| `scripts/lint/verify-config/`                 | `scripts/lint/remote-existence/`                    |
-| `scripts/lint/verify-config/verify-config.ts` | `scripts/lint/remote-existence/remote-existence.ts` |
-| `verifyConfigExistence()`                     | `validateRemoteExistence()`                         |
-| `VerifyContext`                               | `ValidateContext`                                   |
-| `verifyChartAndApps()`                        | `validateConfigUnit()`                              |
-| `verifyApp()`                                 | `validateApp()`                                     |
-| `verifyHelmTargetBranch()`                    | `validateHelmConfig()`                              |
-| `verifyTargets()`                             | `validateLocations()`                               |
-| `verifyTarget()`                              | `validateLocation()`                                |
-| `test/scripts/lint/verify-config/`            | `test/scripts/lint/remote-existence/`               |
-
-`remote-cache.ts`はファイル名を変えず、`verify-config/`から`remote-existence/`へ移すだけ。
-
-**外部インターフェースは変えない**。pnpmスクリプト名（`lint:validate-config`・
-`lint:validate-config:remote`）、`.gitlab-ci.yml`のジョブ名`validate-config-remote`とstage名
-`validate`、`scripts/lint/validate-config.ts`というCLI入口のファイル名、`lib/config/validate.ts`の
-4つの公開関数はすべてそのまま。ジョブ名はGitLab上のパイプライン表示と過去のジョブ履歴にも
-現れるため、名前を揃える利益がこの互換性のコストを上回らない。
 
 #### `steps/`配下はファイル名＝公開関数名のケバブケース
 
@@ -959,18 +837,13 @@ values.yamlの書き込み位置は用途を問わず`AnchorLocation`1つ。Type
 
 #### `lib/<プラットフォーム>/`はディレクトリ名と同じ名前のファイルを置かず`api.ts`にする
 
-`lib/gitlab/`・`lib/github/`にはそれぞれ`gitlab.ts`・`github.ts`という、ディレクトリ名を
-そのまま繰り返しただけのファイルがあった。CLAUDE.mdの原則4「置き場所を名前にしたファイルは
-作らない」はファイル名の話で、ディレクトリ名の繰り返しも同じ失敗の一種になる
-（`helpers.ts`が「このディレクトリに置くもの」としか言わないのと同じで、
-`gitlab.ts`も「`lib/gitlab/`に置くもの」以上の概念を名乗っていない）。中身は
-`@gitbeaker/rest`・`@octokit/rest` のラッパー（`createClient()`・`listTags()`・
-`getFileContent()`・`withNotFoundFallback()`ほか）で、「そのプラットフォームのAPIを叩く場所」
-という概念を`api.ts`のほうが正確に表すため改名した。公開関数名・型名
-（`createClient()`・`GitlabClient`・`GithubClient`）は変えていない。
+CLAUDE.mdの原則4「置き場所を名前にしたファイルは作らない」はファイル名の話で、ディレクトリ名の
+繰り返し（`lib/gitlab/gitlab.ts`）も同じ失敗の一種になる（`helpers.ts`が「このディレクトリに置くもの」
+としか言わないのと同じ）。中身は`@gitbeaker/rest`・`@octokit/rest` のラッパーで、
+「そのプラットフォームのAPIを叩く場所」という概念を`api.ts`が表す。
 
 `src/lib/config/config.ts`は同じ形（`config/`というディレクトリ名を繰り返すファイル名）だが
-据え置いた。こちらは外部APIのラッパーではなく`config/`配下（`limit-to-target.ts`・
+これでよい。こちらは外部APIのラッパーではなく`config/`配下（`limit-to-target.ts`・
 `find-config-units.ts`・`load-config-unit.ts`等）を束ねて`loadConfig()`だけを公開する
 **入口**で、ファイル名が指しているのは「`config/`に置くもの」ではなく「`config/`の公開窓口」
 という概念。ディレクトリ名と同じ名前になっているのは偶然で、`gitlab.ts`／`github.ts`とは
@@ -980,9 +853,8 @@ values.yamlの書き込み位置は用途を問わず`AnchorLocation`1つ。Type
 
 #### `lib/gitlab/` にはGitLabという外部システムを知っているものだけを置く
 
-以前はここにタグ形式やMR本文の組み立ても同居していたが、それは「ファイルが長くなったので
-切り出した」結果で、原則2では説明できない配置だった。依存対象で見ると別物が混ざっていたため、
-タグ形式と固定ブランチ名は`domain/`へ、MRの組み立ては`apply-updates/sub-steps/`へ移した。
+タグ形式と固定ブランチ名は`domain/`、MRの組み立ては`apply-updates/sub-steps/`に置く。GitLabに
+関係する処理でも、依存対象（原則2）で見ればGitLabを知らないものは`lib/gitlab/`に入れない。
 
 - **「複数のstepが使う」は`steps/shared/`に置く理由にならない**。`domain/`の取り決めは呼び出し元を
   問わない。`steps/shared/`はstep処理の配線だけに絞る
@@ -990,11 +862,10 @@ values.yamlの書き込み位置は用途を問わず`AnchorLocation`1つ。Type
   依存で、このツール自身が定義したテンプレートはそこに当てはまらない
 - GitLab固有のURLパス形式（`/-/tags/`・`/-/compare/`）に依存する部分だけは`lib/gitlab/`に残す。
   「外部I/Oは`api.ts`だけ」を保つため、I/Oを持たないURL組み立ては別ファイルにしている
-- **gitbeakerのエラーの形を読む処理も同じ理由で`lib/gitlab/errors.ts`に置く**。以前は
-  `utils/http.ts`にあったが、`cause.response.status`という構造依存に加えて、
-  クラス名（`GitbeakerTimeoutError`・`GitbeakerRetryError`）とメッセージの書式
-  （`last status code: N`）まで持つようになり、「ドメイン知識を一切持たない汎用ユーティリティ」
-  という`utils/`の定義と両立しなくなった。**ライブラリを差し替えたときに書き換える範囲が
+- **gitbeakerのエラーの形を読む処理も同じ理由で`lib/gitlab/errors.ts`に置く**。
+  `cause.response.status`という構造依存に加えて、クラス名（`GitbeakerTimeoutError`・
+  `GitbeakerRetryError`）とメッセージの書式（`last status code: N`）まで持つので、
+  「ドメイン知識を一切持たない汎用ユーティリティ」という`utils/`の定義と両立しない。**ライブラリを差し替えたときに書き換える範囲が
   `lib/gitlab/`に収まるかどうか**が判断の軸
 - **再試行の仕組み（`utils/retry.ts`）と、再試行してよいかの判断（`lib/gitlab/errors.ts`の
   `isRetryableError()`）は分ける**。429/502/503/504という選定はGitLab APIに対する方針で、
@@ -1038,8 +909,7 @@ GitLab APIと`config/`形式に依存するので`lib/`の条件（原則2）は
 検出）は`scripts/lint/remote-existence/`に置く。`src/`側にあるのは`GroupId`/`GroupName`/
 `GroupPath`（`domain/brand.ts`。`config/`のスキーマが使うため）と、値を取ってくる
 `getGroupPath()`・`getProjectGroupPath()`（`lib/gitlab/api.ts`。GitLab APIを知ってよいのは
-ここだけという原則2）だけ。所属を返す関数は実在だけを見ていた旧`projectExists()`を置き換えた形で、
-実在確認と所属の取得を同じ1回の`Projects.show`で兼ねるのでAPI呼び出しは増えない。宣言された
+ここだけという原則2）だけ。実在確認と所属の取得は同じ1回の`Projects.show`で兼ねる。宣言された
 `groupId`→フルパスの解決は`RemoteCache`（`remote-existence/remote-cache.ts`）が`groupId`をキーに
 キャッシュするので、`registry.yaml`1件につき1回で済み、projectIdごとの呼び出しは増えない。
 `PlatformAdapter`には載せない（本体パイプラインが呼ばないため。「GitLab/GitHub の2実装は〜」節）。
@@ -1050,30 +920,21 @@ GitLabとGitHubの**両方に対応する。ただし1回の実行で混在は�
 
 **語彙は`PlatformAdapter`。** `lib/platform/adapter.ts` に`steps/`が必要とするものを並べた `PlatformAdapter` 型を1つ置き、
 `lib/gitlab/` と `lib/github/` がそれぞれその形の値を組み立てる。`steps/` は `PlatformAdapter` を
-引数で受け取り、`lib/`配下への直接のimport（現在7ファイル）は無くなる。あわせて
-`GitLabUrl` は `PlatformUrl` に改名する（`PipelineInfo` は名前自体が特定サービスに
-寄っていないため据え置き。漏れているのは `webUrl` の型のほうだった）。
-
-型名は当初`Platform`だったが、`buildTagUrl`・`buildCompareUrl`・`isFatalError`・
-`extractHttpStatus`の4エントリがネットワークI/Oを持たない純粋関数で「APIクライアント」と
-呼ぶには実態が狭すぎたため、後日`PlatformAdapter`に改名した（`ApiClient`系の名前は採らない）。
-`src/lib/`を「外部システム・ファイル形式に依存するアダプタの責務表」と呼ぶ既存の語彙に合わせた形。
+引数で受け取り、`lib/`配下のプラットフォーム実装を直接importしない。`buildTagUrl`・`buildCompareUrl`・
+`isFatalError`・`extractHttpStatus`のようにネットワークI/Oを持たない純粋関数も載るので、
+`ApiClient`系の名前は採らない。`src/lib/`を「外部システム・ファイル形式に依存するアダプタ」と呼ぶ
+既存の語彙に合わせた形。
 
 - **`forge`を採らなかった**。FOSS界隈では定着した語だが（Forgejo・ForgeFed）、GitHubとGitLab
   自身がその語で自称していない。`platform`は**このリポジトリのCIが既に動かしているRenovate**が
   `platform: "gitlab" | "github" | ...` として使っている語で、外部との一貫性の根拠が強い
-- **関数テーブルという形は新しい発明ではない**。移動前の`lib/gitlab/batch-cache.ts`にあった
-  `GitlabBatchCache`（現在は`lib/platform/cached-reads.ts`の`CachedReads`。
-  `readonly branchExists: (...) => Promise<boolean>` を4本並べたオブジェクト型）と
-  当時の最新タグ解決のサブステップが持っていた `ResolveLatestTags`（関数型を1つ定義して工場関数が
-  返す）が既にあり、`PlatformAdapter` はその席に座るだけ
+- **関数テーブルという形は新しい発明ではない**。`CachedReads`（`readonly branchExists: (...) => Promise<boolean>`
+  のような関数を並べたオブジェクト型）と同じ形で、`PlatformAdapter` はその席に座るだけ
 - **`lib/platform/`は「置き場所を名前にしたファイル」ではない**（原則4）。`platform`はこのツールの
   ドメイン語彙（`docs/glossary.md`に載せる語）であって、`helpers`・`common`のような容れ物の名前ではない
-- **`batch-cache.ts`（現在の`lib/platform/cached-reads.ts`）は`lib/gitlab/`から`lib/platform/`へ移す。** どの読み取りをキャッシュしてよいかの
+- **`cached-reads.ts`は`lib/platform/`に置く。** どの読み取りをキャッシュしてよいかの
   選定（このツール自身の書き込みでバッチ中に値が変わらないか）はプラットフォーム非依存の判断で、
-  GitLab固有の知識を持たない。後日`cached-reads.ts`に改名し、`CachedReads`を
-  `PlatformAdapterWithCachedReads.cached`として`PlatformAdapter`に入れ子にした
-  （「PlatformAdapterへの問い合わせのキャッシュは〜」節）
+  GitLab固有の知識を持たない（「PlatformAdapterへの問い合わせのキャッシュは〜」節）
 
 採らなかった案:
 
@@ -1087,14 +948,13 @@ GitLabとGitHubの**両方に対応する。ただし1回の実行で混在は�
 
 #### 環境変数はモジュールのトップレベルではなく`loadEnvConfig()`で読む
 
-トップレベルの定数で読んでいた頃は、**importした瞬間に検証が走って未設定なら投げる**ため、
-環境変数を必要としない側（lintスクリプト・テスト）に動的importやダミー値注入といった迂回が
-3つ生まれていた。関数化でこれらはすべて消えた。
+トップレベルの定数で読むと**importした瞬間に検証が走って未設定なら投げる**ため、
+環境変数を必要としない側（lintスクリプト・テスト）に動的importやダミー値注入といった迂回が要る。
 
 - `EnvConfig`は引数で受け渡し、生成するのは`src/index.ts`だけ。テストは`vi.mock`ではなく
   普通のオブジェクトを渡せばよい
-- 起動時に落ちる（fail fast）性質は変わらず、むしろ**エラーが構造化ログに乗るようになった**
-  （トップレベルで投げていた頃は`index.ts`のcatchより前で投げるため素のスタックトレースだった）
+- 起動時に落ちる（fail fast）性質はそのままで、`index.ts`のcatchの内側で投げるので
+  **エラーが構造化ログに乗る**
 - **入口は`loadEnvConfig()`だけではない。** `registry.yaml`の`accessTokenEnv`で宣言された
   トークンは名前が`config/`を読むまで決まらないので、同じファイルの`loadAccessTokens()`が
   config読み込みのあとに読む。`process.env`に触れるのが`src/lib/env.ts`だけという点は変わらない
@@ -1105,9 +965,7 @@ GitLabとGitHubの**両方に対応する。ただし1回の実行で混在は�
 ローカルのYAMLだけで分かること（型・対応関係・重複）は`loadConfig()`時に例外を投げ、GitLabに
 問い合わせないと分からないこと（projectId・ブランチ・valuesPath・アンカーの実在と、
 projectIdが`registry.yaml`の`group`に属しているか）はlintスクリプトが問題の一覧を返す。
-前者は認証不要なので全パイプラインで、後者はトークンがあるパイプラインでのみ実行する。2段に
-分ける前は、存在しないアンカー・valuesPath・ブランチ・projectIdが本番実行時にはじめて
-`ERROR`になっていた。
+前者は認証不要なので全パイプラインで、後者はトークンがあるパイプラインでのみ実行する。
 
 chartリポジトリをまたいだ突き合わせ（`validateTagFormatConsistency()`・
 `validateAccessTokenEnvConsistency()`）もローカルのYAMLだけで分かるので前者に入る。後者の
@@ -1121,11 +979,8 @@ chartリポジトリをまたいだ突き合わせ（`validateTagFormatConsisten
 
 **この2ファイル構成では、次の2つも避ける。**
 
-- **同じキー名を2つの意味に使わない（同名別義）。同一ファイルの中にも及ぶ。** 実例は
-  `config.yaml` の `helm.branchToSync`（values.yamlへ書き込む向き先ブランチ）と
-  `apps[].branchToSync`（タグを探す追跡ブランチ）で、**同じファイルの数行違いで別物を指して
-  いた**（helm側を`helm.branchRef`に改名して解消した）。2ファイル間でも同じで、同じキー名が
-  両方に現れると鏡写しに見えて読み違いを招く（下の `chart` の例）
+- **同じキー名を2つの意味に使わない（同名別義）。同一ファイルの中にも及ぶ。** 同じキー名が
+  2ファイルの両方に現れると鏡写しに見えて読み違いを招く（下の `chart` の例）
 - **YAMLキーと型フィールドで語幹を違えない**。`locations[]` というキーを `targets` という
   フィールド名で受けるような食い違いは作らない
 
@@ -1135,62 +990,27 @@ chartリポジトリをまたいだ突き合わせ（`validateTagFormatConsisten
 
 **chartリポジトリ単位のファイル側では `chart` という語を使わない。** ファイル名は
 `registry.yaml`、トップレベルキーは `chartToUpdate:`（MRを送る先のGitLabプロジェクト）と
-`appSpecs:`（ソースリポジトリごとの `tagFormat` の台帳）。以前はファイル名にもトップレベル
-キーにも `chart` を使っており、`config.yaml` の `apps[].chart[]`・`helm.chart[]` と**同じ2語が
-入れ子違いで両方のファイルに現れて**（同名別義）、別々のことを定義しているのに鏡写しに
-見えていた。加えて `chart` が「更新先のGitLabプロジェクト」と「`values.yaml` 内の書き込み位置」
-の2つの意味を持っており、「1つの語を2つの意味に使わない」に反していた。`chartToUpdate` の
+`appSpecs:`（ソースリポジトリごとの `tagFormat` の台帳）。`chart` は「更新先のGitLabプロジェクト」と
+「`values.yaml` 内の書き込み位置」の2つの意味を持ちうるうえ、`config.yaml` 側のキーと同じ語が
+両方のファイルに現れると、別々のことを定義しているのに鏡写しに見える。`chartToUpdate` の
 語形は `branchToSync` に揃えたもの。
 
-**`config.yaml` 側（ファイル名・`apps[]`）は、このファイル分割の論点では据え置く。**
-鏡写しに見える原因は同じ2語が両方のファイルに現れることなので、片側の名前が変われば解消する。
-`config.yaml` は設定ユニットの数だけ存在するので、改名の手数はその数に比例して増える。
-解消に要らない改名はしない（必要になった時点で改める）。`apps[].chart[]`・`helm.chart[]`は
-この論点では変えなかったが、のちに「1つの語を2つの意味に使ってよいのは、包含する型名・キー名が
-用途を与える場合だけ」（`target`が識別の手段でしかなく用途を語れない、という別の理由）で
-`apps[].locations[]`・`helm.locations[]`へ改名した。
-
 **コード側の識別子は「外部ファイル形式の写しかどうか」で追随を決める。** 「型の置き場所」の表の
-2行目（特定の外部ファイル形式のインターフェースの一部）に当たる名前だけがYAMLのファイル名・
-キー名に追随し、1行目（ドメイン語彙）は `docs/glossary.md` の語に従う。YAML上の名前が
-変わってもドメインの語彙は変わらないため。
+2行目（特定の外部ファイル形式のインターフェースの一部。`RegistryYamlSchema`・`AppSpec`など）に
+当たる名前だけがYAMLのファイル名・キー名に追随し、1行目（ドメイン語彙。`ChartRepoConfig`など）は
+`docs/glossary.md` の語に従う。YAML上の名前が変わってもドメインの語彙は変わらないため。
 
-| 識別子                                                                             | どうするか                                 | 理由                                                                                                                                                                                                                            |
-| ---------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ChartYamlSchema`（`lib/config/schema.ts`）                                        | `RegistryYamlSchema` へ改名                | 外部ファイル形式の写しなので、ファイル名に追随する                                                                                                                                                                              |
-| `ChartApp` / `ChartAppSchema`（同上）                                              | `AppSpec` / `AppSpecSchema` へ改名         | 同上。`appSpecs[]` の1要素そのもの                                                                                                                                                                                              |
-| `chartYamlPath` / `chartApps`（`config.ts`・`load-config-unit.ts`・`validate.ts`） | `registryYamlPath` / `appSpecs` へ改名     | ファイル名・キー名をそのまま指しているローカル変数・引数                                                                                                                                                                        |
-| `ChartRepoConfig`（`domain/types.ts`）                                             | 変えない                                   | ドメイン語彙。キーが `chartToUpdate` になっても、型が表すものは「chartリポジトリの設定」のまま                                                                                                                                  |
-| `ConfigUnit` とそのフィールド `chartRepo`                                          | この論点では変えない（別の論点で改名済み） | ここでの論点はYAMLのファイル分割への追随の要否で、ドメイン語彙自体は変わらない。フィールド名`chartRepo`は「型と命名」の理由（型名が`chart`を含まなくなり用途を与えなくなったため）で別途改名した                                |
-| `lib/config/load-config-unit.ts`（ファイル名）                                     | この論点では変えない（別の論点で改名済み） | ここでの論点はYAMLのファイル名（`chart.yaml`→`registry.yaml`）への追随の要否で、`ConfigUnit` に対応する名前という位置づけは変わらないため据え置いた。のちに「動詞が無く何をするか読めない」という別の論点で現在名へ改名している |
-| `ConfigYamlSchema` / `AppSchema`（`lib/config/schema.ts`）                         | 変えない                                   | `config.yaml` を据え置くため                                                                                                                                                                                                    |
+**変更頻度の軸（よく変える運用値と滅多に変えない構造）では分けない。** その軸は実際の編集の形と
+合わない:
 
-**正典を先に更新し、実装・テスト・実 `config/`・`README.md` は後から追随させる**
-（`tagFormat` の置き場所を変えたときと同じ順序）。正典の書き換えでは旧名を残さず現在の名前に
-統一する。経緯を書く場所はこのファイルと `docs/history/` で、`docs/glossary.md` は今の姿だけを
-載せる（用語集は経緯を持たない）。このファイルで経緯を書くときも、今も存在するファイルは
-現在の名前で書く（読者がリポジトリと突き合わせられるほうを優先する）。`apps.yaml`・
-`anchors.yaml`・`chart-targets.yaml` のように既に廃止されて対応物が無い名前だけ、当時の
-名前のまま残す。`docs/history/requirements-grilling.md` は書き換えない
-（要件検討時のQ&Aログで、`docs/history/` と同じく当時の記述をそのまま残す扱い。
-`/maintenance-docs` の対象からも外してある）。
-
-**以前は3ファイルで、`anchors.yaml` を分けていた。** 「よく変更する運用値」と「滅多に変更しない
-chart構造」を混ぜない、という変更頻度の軸で分けていた。やめた理由は、**その軸が実際の編集の形と
-合っていなかった**こと:
-
-- 最も多い編集である**appの追加・削除では両方のファイルを触る**。手数が減らないまま、
-  `projectId` と `projectName` を両方に重複して書く手間だけが残っていた
+- 最も多い編集である**appの追加・削除では両方のファイルを触る**。分けても手数は減らず、
+  `projectId` と `projectName` を両方に重複して書く手間だけが残る
 - **編集者が分かれていない**（セルフサービス方式で各チームが同じ `config/` へMRを送る）ため、
   「別の担当者が別のファイルを触る」という分割理由が無い
 - 本当によく変わるのは `branchToSync` だけで、1設定ユニットのファイルは十数行に収まる
 
-移行時の実測では、実 `config/` のファイルが7個→4個、appを1件足すときに触るファイルが
-3個→2個、`projectId`/`projectName` の重複が10組→7組になった。
-
 **タグ形式（`tagFormat`）を `registry.yaml` に置くのは、ソースリポジトリの性質だから。**
-設定ユニットごとに変わる値ではないため、設定ユニット側に置くと同じ値を何度も書くことになる
-（移行前は、ソースリポジトリ2つに対して5箇所に同じ値が書かれていた）。`config/` 直下に
+設定ユニットごとに変わる値ではないため、設定ユニット側に置くと同じ値を何度も書くことになる。`config/` 直下に
 グローバルな台帳を1つ置く案もあったが、chartリポジトリごとに独立させるほうがMRの影響範囲が
 そのchart配下に閉じるため、chartリポジトリ単位を採った。その代わり、同じソースリポジトリを
 複数のchartリポジトリが参照する構成では重複が残るため、後述の食い違い検証は残している。
@@ -1225,12 +1045,12 @@ chart構造」を混ぜない、という変更頻度の軸で分けていた。
   判定と同じ1箇所に並ぶため。「見つけた`unitPath`同士しか見ないので深い位置の`config.yaml`を
   拾えない」というこの方式の弱点は、走査を深さで打ち切らないことで消してある
 - **階層の検証は`TARGET_UNITS`の絞り込みより前に、対象外の設定ユニットも含めて行う**。絞り込み
-  実行でしか通らない検証を作らないため。一方で`config.yaml`の読み込みは従来
-  どおり絞り込んだ後だけに行う。無関係なチームのYAMLの設定ミスで緊急時の限定実行まで
+  実行でしか通らない検証を作らないため。一方で`config.yaml`の読み込みは
+  絞り込んだ後だけに行う。無関係なチームのYAMLの設定ミスで緊急時の限定実行まで
   止めないため（全設定ユニットのYAMLは、`target`を指定しない`pnpm lint:validate-config`が
   MR時点で読む）
-- **`TARGET_UNITS`の実在チェックは、走査で見つかった`unitPath`との照合で行う**（以前は
-  `existsSync`でディレクトリの有無だけを見ていた）。深さが可変になると「ディレクトリはあるが
+- **`TARGET_UNITS`の実在チェックは、走査で見つかった`unitPath`との照合で行う**（ディレクトリの
+  有無では足りない）。深さが可変なので「ディレクトリはあるが
   `config.yaml`が無い」「深さ2の設定ユニットの中間ディレクトリを指している」が紛れ込み、
   どちらも「設定ユニットとしては存在しない」と報告するのが正しいため。この照合を通った
   `unitPath`は必ず`config.yaml`を持つので、設定ユニットの読み込み処理は`config.yaml`の有無を
@@ -1239,23 +1059,17 @@ chart構造」を混ぜない、という変更頻度の軸で分けていた。
 #### `values.yaml` の位置指定はYAMLアンカーのみ、YAML処理は `yaml` パッケージ
 
 `js-yaml`はオブジェクトとしてしか読み書きできずアンカー名を保持できないため採らない。値の位置
-指定にアンカーを使う以上、Document（AST）を直接操作できる必要がある。オブジェクトのネストを
-dotパスで辿る方式も実装していたが、実運用ではアンカー方式で十分なため削除した。
+指定にアンカーを使う以上、Document（AST）を直接操作できる必要がある。
 
 #### Helmの向き先ブランチはapp単位に振り分けず設定ユニット単位で持つ
 
 向き先ブランチは「1設定ユニット内のapps全体で共通」という要件（`docs/glossary.md`）なので、
 `ConfigUnit`が1つだけ持ち、`build-plans.ts`はappのループの**外**で1回だけ適用する。
+app単位に持たせると共通の値を複製することになり、同じ書き込み先が複数appの計画に現れて、
+MR本文の組み立てと実在チェックの報告で書き込み先単位の重複排除が要る。
 
-以前は`AppConfig`がapp単位で持ち、`anchors.yaml`の`helm.chart[]`を`valuesPath`の一致で
-appへ振り分けていた。共通の値を複製することになるため、同じ書き込み先が複数appの計画に現れ、
-MR本文を組み立てる`collect-mr-entries.ts`が書き込み先単位で重複排除し直していた。
-`scripts/lint/remote-existence/`も同じ問題をappの数だけ報告していた。設定ユニット単位にすると
-振り分けと重複排除の両方が不要になる。
-
-- **`plans`が空でも向き先ブランチに差分があればMRを作る**。app単位だった頃はイメージタグに
-  差分が無いappでも「向き先ブランチだけ差分あり」の`AppUpdatePlan`が作られていたが、
-  設定ユニット単位になったので`ConfigUnitUpdateTarget`側が持つ
+- **`plans`が空でも向き先ブランチに差分があればMRを作る**。向き先ブランチの差分は
+  `AppUpdatePlan`ではなく`ConfigUnitUpdateTarget`側が持つ
 - **向き先ブランチのエラーにアプリ名は付かない**。`withAppContext()`はappのループの中だけに
   掛かる。どのappの問題でもないので、`valuesPath`とアンカー名で位置を示す
 - **書き込みはイメージタグを全app分積んだ後の下書きに重ねる**。同じ`values.yaml`への
@@ -1264,11 +1078,10 @@ MR本文を組み立てる`collect-mr-entries.ts`が書き込み先単位で重�
 #### MRの単位は `(chartリポジトリ, 設定ユニット)`
 
 設定ユニットごとに独立してマージ判断・保留できるようにするため。オールオアナッシングの範囲も
-この単位。以前は`(chartリポジトリ, tenantId, clientId)`という2値の組で表していたが、
-`ConfigUnitPath`（`unitPath`）1本に一本化した（`docs/glossary.md`「設定ユニット」参照）。
+この単位。設定ユニットは`ConfigUnitPath`（`unitPath`）1本で表す（`docs/glossary.md`「設定ユニット」参照）。
 
-MRタイトルの件数は「何が何件変わったか」を種別ごとに示す。以前は「N app image tag(s)」固定で、
-向き先ブランチだけが変わった場合もイメージタグが変わったように読めていた。
+MRタイトルの件数は「何が何件変わったか」を種別ごとに示す。件数を1種類に固定すると、
+向き先ブランチだけが変わった場合もイメージタグが変わったように読めてしまう。
 
 #### プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/`GITHUB_URL`のまま
 
@@ -1394,7 +1207,7 @@ GitLabに問い合わせずローカルのYAMLだけで分かる＝「形」の�
 ユニットを`ERROR`として記録して他のchartリポジトリは続く。`FatalError`へ昇格させるかの判定を
 2箇所に増やさないための形で、`rethrowWithAppContext()`がさらに包んでも（`cause`を1段しか
 辿らないため）結果は変わらない。宣言した環境変数が未設定だったときも同じく素の`Error`を投げる。
-5xx・ネットワーク障害は従来どおりそのまま上がって`FatalError`になる（プラットフォーム側の
+5xx・ネットワーク障害はそのまま上がって`FatalError`になる（プラットフォーム側の
 障害であってトークンの問題ではないため）。この読み替えでログの`httpStatus`は`undefined`になる
 （`HTTP 401`はメッセージ側に残る）。
 
@@ -1444,8 +1257,8 @@ GitLabに問い合わせずローカルのYAMLだけで分かる＝「形」の�
 `runProcess()` はステップを順番に await しているため、あるステップでFatalErrorが起きると
 **後続のステップは一切開始されない**。`docs/requirements.md` 4.3節の
 「chartリポジトリ間は失敗しても他は継続する」という記述は一般的なエラーを指しており、GitLab側の
-認証切れ・障害のような全chart共通の致命的エラーに対しては、無駄なAPI呼び出しを避けるため
-この例外を設けている（gitlab-watari-dori由来のパターン）。
+障害のような全chart共通の致命的エラーに対しては、無駄なAPI呼び出しを避けるため
+この例外を設けている。
 
 **401はもう「全chart共通」ではない。** `registry.yaml`の`accessTokenEnv`で宣言された
 トークンの401は、そのchartリポジトリの設定ユニットの`ERROR`に読み替えられて実行は止まらない
