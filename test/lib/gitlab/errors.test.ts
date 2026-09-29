@@ -77,7 +77,7 @@ describe("isFatalError", () => {
     expect(isFatalError(makeHttpError(404))).toBe(false)
   })
 
-  it.each(["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT"])(
+  it.each(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT", "UND_ERR_CONNECT_TIMEOUT"])(
     "エラー自身が code=%s を持つとき true を返す",
     (code) => {
       const err = Object.assign(new Error(`connect ${code}`), { code })
@@ -85,7 +85,7 @@ describe("isFatalError", () => {
     },
   )
 
-  it.each(["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT"])(
+  it.each(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT", "UND_ERR_CONNECT_TIMEOUT"])(
     "cause に code=%s を持つとき true を返す",
     (code) => {
       // fetch が実際に投げる形。code は TypeError 自身ではなく cause に入る
@@ -94,6 +94,16 @@ describe("isFatalError", () => {
       })
       expect(extractHttpStatus(err)).toBeUndefined()
       expect(isFatalError(err)).toBe(true)
+    },
+  )
+
+  it.each(["ECONNRESET", "UND_ERR_SOCKET", "UND_ERR_HEADERS_TIMEOUT"])(
+    "接続確立後の切断 code=%s は 1リクエスト単位の事情でも起きるため false を返す",
+    (code) => {
+      const err = new TypeError("fetch failed", {
+        cause: Object.assign(new Error(code), { code }),
+      })
+      expect(isFatalError(err)).toBe(false)
     },
   )
 

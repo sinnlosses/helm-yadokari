@@ -26,6 +26,17 @@ const EXHAUSTED_RETRY_STATUS_PATTERN = /last status code: (\d+)/
 // 再試行してよいステータス。429は混雑、502/503/504は一時的なゲートウェイ障害を表す。
 const RETRYABLE_STATUSES = new Set([429, 502, 503, 504])
 
+// 名前解決・接続確立の失敗は、GitLab のホスト自体に届かないことを表すので全設定ユニット共通の障害
+// とみなす。接続確立後の切断（`ECONNRESET`・`UND_ERR_SOCKET`・`UND_ERR_HEADERS_TIMEOUT` など）は
+// 1リクエストだけの事情でも起きるため含めない。
+const FATAL_NETWORK_CODES = new Set([
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ETIMEDOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+])
+
 export function extractHttpStatus(error: unknown): number | undefined {
   if (!(error instanceof Error)) return undefined
   const { cause } = error
@@ -53,7 +64,7 @@ export function isFatalError(error: unknown): boolean {
   const exhaustedStatus = extractExhaustedRetryStatus(error)
   if (exhaustedStatus !== undefined) return isFatalStatus(exhaustedStatus)
   const code = extractErrorCode(error)
-  return code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ETIMEDOUT"
+  return code !== undefined && FATAL_NETWORK_CODES.has(code)
 }
 
 /**
