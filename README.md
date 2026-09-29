@@ -429,7 +429,7 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN_TEAM_A=<token> pnpm start
 ├── config/                 # 対象アプリ設定（定期実行の登録 ＋ 手動スモークテスト用の設定を同居）
 ├── config.example/         # config/ のコピー用サンプル（実行対象ではない）
 ├── docs/                   # 要件定義・アーキテクチャ・用語集など
-├── develop/                # 進捗管理（tasks.json・progress.md・direction.md）。機能には関係しない作業用
+├── develop/                # 進捗管理（task/・direction.md）。機能には関係しない作業用
 ├── .gitlab-ci.yml          # CI ジョブ定義
 └── package.json
 ```

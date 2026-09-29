@@ -1,26 +1,30 @@
 # 進捗管理とHandoffの詳細（このプロジェクト固有の部分）
 
-`develop/tasks.json` / `develop/progress.md` / `develop/direction.md` でタスクを管理する運用の
-**ルール本体（フィールド定義、`summary`・`difficulty` の基準、evidence の書き方、アーカイブの
-トリガーと手順）は、ユーザー単位スキル `task-workflow` の `WORKFLOW.md` が正典**
+`develop/task/`（1件1ファイル）/ `develop/direction.md` でタスクを管理する運用の
+**ルール本体（タスクファイルの文法、`summary`・`difficulty` の基準、`## 結果` の書き方、
+知見の置き場、`tw` コマンド）は、ユーザー単位スキル `task-workflow` の `WORKFLOW.md` が正典**
 （`~/.claude/skills/task-workflow/WORKFLOW.md`。ソースは
 `~/ghq/github.com/sinnlosses/claude-skills`）。このファイルには、その運用のうち
-**このプロジェクトでしか成り立たないこと**だけを書く。5手順そのものは `CLAUDE.md`
+**このプロジェクトでしか成り立たないこと**だけを書く。手順の概略は `CLAUDE.md`
 「進捗管理とHandoff」が正典。
 
 ## このプロジェクトの値
 
-検証コマンドと整形コマンドは `CLAUDE.md`「## タスク運用」節が正典。それ以外（タスクIDの
-接頭辞 `T-`、アーカイブ先 `docs/history/`、アーカイブのトリガー `done` 10件以上または
-30KB超）は既定値のまま。
+検証コマンド・整形コマンド・ブランチは `CLAUDE.md`「## タスク運用」節が正典。
+
+## 旧形式の履歴
+
+2026-09-29 に `develop/tasks.json`・`develop/progress.md` の旧形式から `tw migrate` で移した。
+それ以前の完了タスクと過去セッションの記録は `docs/history/tasks.md` / `docs/history/progress.md`
+に残っており、**読むだけで書き足さない**。
 
 ## コミットメッセージ
 
 タスクに対応するコミットは件名の先頭にタスクIDを置く（書式は正典「コミットメッセージ」）。
 このプロジェクトでは `docs/coding-standards.md`「タスク番号を書かない」がコードとドキュメント
-にタスク番号を書くことを禁じているが、**コミットメッセージはその対象外**。IDはアーカイブ後も
-`docs/history/tasks.md` に `## T-XXX` の節として残るため、参照先が消えた識別子には
-ならない。
+にタスク番号を書くことを禁じているが、**コミットメッセージはその対象外**。タスクファイルが
+`tw prune` で消えたあとも、本文は `git log --grep=T-XXX` で引ける（旧形式の時代のものは
+`docs/history/tasks.md` の `## T-XXX` の節）。
 
 ## `summary` を持たないタスク
 
@@ -29,8 +33,8 @@
 そのまま入っているものが15件ある。`docs/history/` は当時の記述のまま残す運用なので
 **遡って直さない**。
 
-## evidence に書かない経緯の行き先
+## `## 結果` に書かない経緯の行き先
 
-正典は evidence に「設計変更の物語・撤回した案・実機検証の手順」を書かないと定めている。
+正典は `## 結果` に「設計の物語・撤回した案・手順の詳細」を書かないと定めている。
 このプロジェクトでそれらを残したいときは、要件に関わるものは `docs/history/requirements-grilling.md`、
-設計に関わるものは `docs/architecture.md`、それ以外は `docs/history/` のアーカイブへ書く。
+設計に関わるものは `docs/architecture.md` へ書く。

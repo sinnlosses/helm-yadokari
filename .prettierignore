@@ -2,3 +2,5 @@
 # .claude/ は導入済みスキル（外部由来）、config/ はユーザーが管理する実データのため対象外にする。
 .claude/
 config/
+# develop/task/ は tw コマンドが書き出すタスクファイルで、整形すると本文の記号がエスケープされて壊れる。
+develop/task/

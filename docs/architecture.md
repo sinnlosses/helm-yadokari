@@ -1173,7 +1173,7 @@ chartリポジトリをまたいだ突き合わせ（`validateTagFormatConsisten
 `anchors.yaml`・`chart-targets.yaml` のように既に廃止されて対応物が無い名前だけ、当時の
 名前のまま残す。`docs/history/requirements-grilling.md` は書き換えない
 （要件検討時のQ&Aログで、`docs/history/` と同じく当時の記述をそのまま残す扱い。
-`/maintain-docs` の対象からも外してある）。
+`/maintenance-docs` の対象からも外してある）。
 
 **以前は3ファイルで、`anchors.yaml` を分けていた。** 「よく変更する運用値」と「滅多に変更しない
 chart構造」を混ぜない、という変更頻度の軸で分けていた。やめた理由は、**その軸が実際の編集の形と
