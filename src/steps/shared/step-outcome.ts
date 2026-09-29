@@ -151,7 +151,7 @@ function failApp<T>(adapter: PlatformAdapter, err: unknown): AppOutcome<T> {
  * 原因のアプリがログから特定できないと調査できないことへの対策。`withAppContext()`の内部実装であり、
  * 外からは直接呼ばない。
  *
- * 致命的エラー（401 / 5xx / ネットワーク障害）は**包まずにそのまま投げる**。
+ * 致命的エラー（5xx / ネットワーク障害）は**包まずにそのまま投げる**。
  * 判定は元の例外の構造（gitbeakerなら`cause.response.status`、Octokitなら`status`）を読むため、
  * `new Error(..., { cause })`で包むとその構造が1段深くなり、
  * `FatalError`に昇格できなくなるためである。この関数と`settleAsError()`が同じ
@@ -170,9 +170,8 @@ function rethrowWithAppContext(
 /**
  * step内で捕捉した例外を、このツールのエラー方針に従って処理する。
  *
- * - 401 / 5xx / ネットワーク障害（`adapter.isFatalError()`）
- * は全設定ユニット共通の致命的エラーなので  `FatalError`として投げ直し、
- * 実行全体を即時終了させる（この関数は値を返さない）
+ * - 5xx / ネットワーク障害（`adapter.isFatalError()`）は全設定ユニット共通の致命的エラーなので
+ *   `FatalError`として投げ直し、実行全体を即時終了させる（この関数は値を返さない）
  * - それ以外は該当設定ユニットのみ`ERROR`として記録し、他の設定ユニットの処理は続行する
  *
  * 方針そのものを1箇所に置くための関数。外からは直接ではなく`withHandling()`経由で呼ぶ。

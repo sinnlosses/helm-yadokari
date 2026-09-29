@@ -1439,7 +1439,7 @@ GitLabに問い合わせずローカルのYAMLだけで分かる＝「形」の�
 
 ### FatalErrorは後続ステップも止める
 
-`FatalError`（401/5xx等）を検知すると、`utils/parallel.ts`がその時点で並列実行のキューを
+`FatalError`（5xx / ネットワーク障害）を検知すると、`utils/parallel.ts`がその時点で並列実行のキューを
 クリアし、同じステップ内の他の設定ユニットの未着手タスクを実行させずに reject する。
 `runProcess()` はステップを順番に await しているため、あるステップでFatalErrorが起きると
 **後続のステップは一切開始されない**。`docs/requirements.md` 4.3節の
