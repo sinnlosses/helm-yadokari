@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import { toBranchName, toProjectId } from "../../../src/domain/types.js"
 import { withCachedReads } from "../../../src/lib/platform/cached-reads.js"
@@ -8,10 +8,6 @@ const PROJECT_ID = toProjectId("1")
 const MAIN = toBranchName("main")
 
 describe("withCachedReads", () => {
-  afterEach(() => {
-    vi.clearAllMocks()
-  })
-
   it("同じ引数を同時に呼んでもPlatformへの問い合わせは1回だけになる", async () => {
     const adapter = makeAdapter()
     vi.mocked(adapter.branchExists).mockResolvedValue(true)

@@ -1,12 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../src/steps/apply-updates/sub-steps/build-mr-content.js")
 vi.mock("../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js")
 vi.mock("../../../src/steps/apply-updates/sub-steps/submit-merge-request.js")
 vi.mock("../../../src/domain/feature-branch.js")
-vi.mock("../../../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}))
+vi.mock("../../../src/utils/logger.js")
 
 import { buildFeatureBranch } from "../../../src/domain/feature-branch.js"
 import type { ConfigUnitUpdateTarget } from "../../../src/domain/types.js"
@@ -82,10 +80,6 @@ describe("applyUpdates", () => {
     vi.mocked(collectMrEntries).mockResolvedValue(MR_ENTRIES)
     vi.mocked(buildMrContent).mockReturnValue(MR_CONTENT)
     vi.mocked(buildFeatureBranch).mockReturnValue(toBranchName("feature/yadokari/tenant1/client1"))
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   it("成功したとき、識別情報を持つCREATEDのレコードを返す", async () => {

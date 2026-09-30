@@ -1,8 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}))
+vi.mock("../../../../src/utils/logger.js")
 
 import {
   toAnchorName,
@@ -27,10 +25,6 @@ const adapter = makeAdapter()
 describe("buildPlans（Helmの向き先ブランチ）", () => {
   beforeEach(() => {
     mockBuildPlansAdapter(adapter)
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   it("helmが現在値と異なるとき、helmBranchRefUpdateに含めて書き換える", async () => {

@@ -1,10 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-
-import { afterEach, beforeEach } from "vitest"
 
 import type { ConfigRootPath } from "../../../src/domain/types.js"
 import { toConfigRootPath } from "../../../src/domain/types.js"
+import { useTmpDir } from "../../helpers.js"
 
 /**
  * `loadConfig()` のテスト用に、テストごとの使い捨て `config/` ディレクトリを用意する。
@@ -20,26 +19,17 @@ export type ConfigDir = {
 }
 
 export function useConfigDir(): ConfigDir {
-  // テストごとに作り直すため、フックの外側に持ち出す用途で let を使う
-  let tmpDir = ""
-
-  beforeEach(() => {
-    tmpDir = mkdtempSync(join(process.cwd(), "test-tmp-"))
-  })
-
-  afterEach(() => {
-    rmSync(tmpDir, { recursive: true })
-  })
+  const tmpDir = useTmpDir()
 
   const writeFile = (relativePath: string, content: string): void => {
-    const filePath = join(tmpDir, relativePath)
+    const filePath = join(tmpDir.path, relativePath)
     mkdirSync(join(filePath, ".."), { recursive: true })
     writeFileSync(filePath, content, "utf-8")
   }
 
   return {
     get path() {
-      return toConfigRootPath(tmpDir)
+      return toConfigRootPath(tmpDir.path)
     },
     writeFile,
     writeRegistryYaml: (chartDir, registry) => writeFile(`${chartDir}/registry.yaml`, registry),

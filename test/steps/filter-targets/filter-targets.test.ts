@@ -1,8 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}))
+vi.mock("../../../src/utils/logger.js")
 
 import { toChartDirName, toConfigUnitPath } from "../../../src/domain/types.js"
 import { filterTargets } from "../../../src/steps/filter-targets/filter-targets.js"
@@ -14,10 +12,6 @@ const adapter = makeAdapter()
 describe("filterTargets", () => {
   beforeEach(() => {
     vi.mocked(adapter.openMergeRequestExists).mockResolvedValue(false)
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   it("アプリが0件の設定ユニットはsettledにSKIPPEDとして入り、targetsには含まれない", async () => {

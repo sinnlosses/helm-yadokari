@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const { loadEnvConfigMock, runMock, loggerMock } = vi.hoisted(() => ({
   loadEnvConfigMock: vi.fn(),
@@ -29,10 +29,6 @@ async function importIndexAndWaitForExit(): Promise<number | undefined> {
 
 beforeEach(() => {
   vi.resetModules()
-})
-
-afterEach(() => {
-  vi.clearAllMocks()
 })
 
 describe("index", () => {

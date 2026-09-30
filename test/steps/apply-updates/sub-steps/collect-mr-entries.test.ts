@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import {
   toAnchorName,
@@ -24,10 +24,6 @@ const adapter = makeAdapter()
 function mockWebUrl() {
   vi.mocked(adapter.getProjectWebUrl).mockResolvedValue(webUrl)
 }
-
-afterEach(() => {
-  vi.clearAllMocks()
-})
 
 describe("collectMrEntries", () => {
   it("イメージタグの書き換え箇所ごとに1件、解決したweb URLを添えて返す", async () => {

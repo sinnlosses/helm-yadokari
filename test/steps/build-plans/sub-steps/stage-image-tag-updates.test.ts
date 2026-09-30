@@ -1,8 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}))
+vi.mock("../../../../src/utils/logger.js")
 
 import type { LatestTagResolution } from "../../../../src/domain/types.js"
 import {
@@ -30,10 +28,6 @@ const adapter = makeAdapter()
 describe("buildPlans（イメージタグの書き込み先）", () => {
   beforeEach(() => {
     mockBuildPlansAdapter(adapter)
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   it("locations.anchorで指定したアンカーの値だけを取得・書き換える", async () => {

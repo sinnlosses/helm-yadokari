@@ -1,8 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}))
+vi.mock("../../../src/utils/logger.js")
 
 import { buildTagSourceKey } from "../../../src/domain/tag-source.js"
 import {
@@ -34,10 +32,6 @@ describe("resolveTags（解決の単位ごとに1回だけ解決する）", () =
     vi.mocked(adapter.createTag).mockResolvedValue(undefined)
     // HEADを指すタグが1件も無い状態にして、タグの自動作成を走らせる
     vi.mocked(adapter.listTagsAtCommit).mockResolvedValue([])
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   it("同じapp（projectId+追跡ブランチ+tagFormat）が複数の設定ユニットに登録されていても解決は1回だけ行う", async () => {
@@ -85,10 +79,6 @@ describe("resolveTags（解決の失敗）", () => {
   beforeEach(() => {
     mockBuildPlansAdapter(adapter)
     vi.mocked(adapter.getBranchHeadSha).mockResolvedValue(HEAD_SHA)
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   it("1つのappの解決が失敗したとき、そのappを含む全設定ユニットがERRORになり、他の設定ユニットは続行する", async () => {

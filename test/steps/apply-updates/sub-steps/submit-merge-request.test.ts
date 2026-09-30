@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { ChartRepoConfig, FileUpdate } from "../../../../src/domain/types.js"
 import {
@@ -34,10 +34,6 @@ describe("submitMergeRequest", () => {
     vi.mocked(adapter.deleteBranch).mockResolvedValue(undefined)
     vi.mocked(adapter.commitFileUpdates).mockResolvedValue(undefined)
     vi.mocked(adapter.createMergeRequest).mockResolvedValue(MR_URL)
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   it("固定ブランチが残っているとき、削除してからコミットする", async () => {

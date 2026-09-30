@@ -8,9 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 // 個々のラッパ関数を列挙し直さずに検知できる。
 vi.mock("@gitbeaker/rest")
 vi.mock("../src/lib/config/config.js")
-vi.mock("../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}))
+vi.mock("../src/utils/logger.js")
 
 import { Gitlab } from "@gitbeaker/rest"
 
@@ -100,8 +98,6 @@ describe("run（DRY_RUN=true）", () => {
   })
 
   afterEach(() => {
-    vi.unstubAllEnvs()
-    vi.clearAllMocks()
     rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
   })
 

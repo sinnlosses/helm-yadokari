@@ -1,4 +1,7 @@
-import { vi } from "vitest"
+import { mkdtempSync, rmSync } from "node:fs"
+import { join, relative } from "node:path"
+
+import { afterEach, beforeEach, vi } from "vitest"
 
 import { validateTagFormat } from "../src/domain/tag-format.js"
 import { buildTagSourceKey } from "../src/domain/tag-source.js"
@@ -236,5 +239,32 @@ export function makePlan(
         currentTag,
       },
     ],
+  }
+}
+
+/**
+ * テストごとの使い捨てディレクトリを `cwd()` 配下に作り、終わったら消す（`beforeEach`/`afterEach` の
+ * 登録もここで行う）。`CONFIG_ROOT_PATH`・`REPORT_OUTPUT_PATH` の検証は `cwd()` 配下の相対パスしか
+ * 受け付けないため、`cwd()` からの相対パスも `relativePath` で引ける。
+ */
+export function useTmpDir(): { readonly path: string; readonly relativePath: string } {
+  // テストごとに作り直すため、フックの外側に持ち出す用途で let を使う
+  let tmpDir = ""
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(process.cwd(), "test-tmp-"))
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  return {
+    get path() {
+      return tmpDir
+    },
+    get relativePath() {
+      return relative(process.cwd(), tmpDir)
+    },
   }
 }

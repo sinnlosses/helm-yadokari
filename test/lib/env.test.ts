@@ -1,7 +1,6 @@
-import { mkdtempSync, rmSync } from "node:fs"
 import { join } from "node:path"
 
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import { toAccessTokenEnvName } from "../../src/domain/types.js"
 import {
@@ -18,42 +17,39 @@ import {
   validateGithubUrl,
   validateGitlabUrl,
 } from "../../src/lib/env.js"
+import { useTmpDir } from "../helpers.js"
 
 describe("loadEnv", () => {
   it("設定済みの環境変数の値を返す", () => {
-    process.env["TEST_LOAD_ENV"] = "value"
+    vi.stubEnv("TEST_LOAD_ENV", "value")
     expect(loadEnv("TEST_LOAD_ENV")).toBe("value")
-    delete process.env["TEST_LOAD_ENV"]
   })
 
   it("未設定のとき例外をスローする", () => {
-    delete process.env["TEST_LOAD_ENV_MISSING"]
+    vi.stubEnv("TEST_LOAD_ENV_MISSING", undefined)
     expect(() => loadEnv("TEST_LOAD_ENV_MISSING")).toThrow("TEST_LOAD_ENV_MISSING")
   })
 
   it("空文字のとき例外をスローする", () => {
-    process.env["TEST_LOAD_ENV_EMPTY"] = "   "
+    vi.stubEnv("TEST_LOAD_ENV_EMPTY", "   ")
     expect(() => loadEnv("TEST_LOAD_ENV_EMPTY")).toThrow("TEST_LOAD_ENV_EMPTY")
-    delete process.env["TEST_LOAD_ENV_EMPTY"]
   })
 })
 
 describe("loadOptionalEnv", () => {
   it("未設定のとき undefined を返す", () => {
-    delete process.env["TEST_OPTIONAL_ENV"]
+    vi.stubEnv("TEST_OPTIONAL_ENV", undefined)
     expect(loadOptionalEnv("TEST_OPTIONAL_ENV")).toBeUndefined()
   })
 
   it("空文字のとき undefined を返す", () => {
-    process.env["TEST_OPTIONAL_ENV"] = ""
+    vi.stubEnv("TEST_OPTIONAL_ENV", "")
     expect(loadOptionalEnv("TEST_OPTIONAL_ENV")).toBeUndefined()
-    delete process.env["TEST_OPTIONAL_ENV"]
   })
 
   it("設定済みのとき値を返す", () => {
-    process.env["TEST_OPTIONAL_ENV"] = "value"
+    vi.stubEnv("TEST_OPTIONAL_ENV", "value")
     expect(loadOptionalEnv("TEST_OPTIONAL_ENV")).toBe("value")
-    delete process.env["TEST_OPTIONAL_ENV"]
   })
 })
 
@@ -109,20 +105,14 @@ describe("parsePlatform", () => {
 })
 
 describe("parseConfigRootPath", () => {
-  let tmpDir = ""
-
-  afterEach(() => {
-    if (tmpDir) rmSync(tmpDir, { recursive: true })
-    tmpDir = ""
-  })
+  const tmpDir = useTmpDir()
 
   it("未指定のとき デフォルトの config ディレクトリを返す", () => {
     expect(parseConfigRootPath(undefined)).toBe("config")
   })
 
   it("実在するディレクトリを指定したときそのまま返す", () => {
-    tmpDir = mkdtempSync(join(process.cwd(), "test-tmp-"))
-    const relativePath = tmpDir.slice(process.cwd().length + 1)
+    const relativePath = tmpDir.relativePath
     expect(parseConfigRootPath(relativePath)).toBe(relativePath)
   })
 
@@ -140,12 +130,7 @@ describe("parseConfigRootPath", () => {
 })
 
 describe("parseReportOutputPath", () => {
-  let tmpDir = ""
-
-  afterEach(() => {
-    if (tmpDir) rmSync(tmpDir, { recursive: true })
-    tmpDir = ""
-  })
+  const tmpDir = useTmpDir()
 
   it("未指定のとき デフォルトの出力パスを返す", () => {
     expect(parseReportOutputPath(undefined)).toBe("report/report.md")
@@ -156,8 +141,7 @@ describe("parseReportOutputPath", () => {
   })
 
   it("実在するディレクトリを指しても例外をスローしない", () => {
-    tmpDir = mkdtempSync(join(process.cwd(), "test-tmp-"))
-    const relativePath = join(tmpDir.slice(process.cwd().length + 1), "report.md")
+    const relativePath = join(tmpDir.relativePath, "report.md")
     expect(parseReportOutputPath(relativePath)).toBe(relativePath)
   })
 
@@ -246,10 +230,6 @@ describe("parseTargetUnits", () => {
 })
 
 describe("loadEnvConfig", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
   it("必須の環境変数だけが設定されているとき、省略可能な項目に既定値を入れる", () => {
     vi.stubEnv("PLATFORM", undefined)
     vi.stubEnv("GITLAB_URL", "https://gitlab.example.com")
@@ -319,10 +299,6 @@ describe("loadEnvConfig", () => {
 })
 
 describe("loadAccessTokens", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
   it("宣言された名前ごとに設定済みのトークンをMapに詰めて返す", () => {
     vi.stubEnv("ACCESS_TOKEN_TEAM_A", "token-a")
     vi.stubEnv("ACCESS_TOKEN_TEAM_B", "token-b")

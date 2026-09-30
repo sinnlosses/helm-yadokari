@@ -5,9 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 vi.mock("../src/lib/gitlab/api.js")
 vi.mock("../src/lib/github/api.js")
 vi.mock("../src/lib/config/config.js")
-vi.mock("../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}))
+vi.mock("../src/utils/logger.js")
 
 import {
   toAccessTokenEnvName,
@@ -79,8 +77,6 @@ describe("run", () => {
   })
 
   afterEach(() => {
-    vi.unstubAllEnvs()
-    vi.clearAllMocks()
     rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
   })
 
@@ -164,58 +160,52 @@ describe("run", () => {
 
   it("あるchartリポジトリが宣言したトークンの401は、そのchartだけをERRORにする（別のトークンのchartはCREATEDになる）", async () => {
     const declaredEnvName = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_B")
-    process.env[declaredEnvName] = "team-b-token"
-    try {
-      const chartAProjectId = toProjectId("100")
-      const appAProjectId = toProjectId("1")
-      const chartBProjectId = toProjectId("200")
-      const appBProjectId = toProjectId("201")
+    vi.stubEnv(declaredEnvName, "team-b-token")
+    const chartAProjectId = toProjectId("100")
+    const appAProjectId = toProjectId("1")
+    const chartBProjectId = toProjectId("200")
+    const appBProjectId = toProjectId("201")
 
-      const chartA = makeConfigUnit([makeApp({ projectId: appAProjectId })], {
+    const chartA = makeConfigUnit([makeApp({ projectId: appAProjectId })], {
+      chartRepo: {
+        projectId: chartAProjectId,
+        projectName: toProjectName("teamA-chart"),
+        mrTargetBranch: toBranchName("develop"),
+      },
+    })
+    const chartB = makeConfigUnit(
+      [makeApp({ projectId: appBProjectId, projectName: toProjectName("app-b") })],
+      {
+        chartDirName: toChartDirName("teamB-chart"),
         chartRepo: {
-          projectId: chartAProjectId,
-          projectName: toProjectName("teamA-chart"),
+          projectId: chartBProjectId,
+          projectName: toProjectName("teamB-chart"),
           mrTargetBranch: toBranchName("develop"),
         },
-      })
-      const chartB = makeConfigUnit(
-        [makeApp({ projectId: appBProjectId, projectName: toProjectName("app-b") })],
-        {
-          chartDirName: toChartDirName("teamB-chart"),
-          chartRepo: {
-            projectId: chartBProjectId,
-            projectName: toProjectName("teamB-chart"),
-            mrTargetBranch: toBranchName("develop"),
-          },
-          accessTokenEnv: declaredEnvName,
-        },
-      )
-      vi.mocked(loadConfig).mockReturnValue({
-        configUnits: [chartA, chartB],
-        accessTokenEnvNames: [TEAM_A, declaredEnvName],
-      })
-      vi.mocked(listTagsAtCommit).mockImplementation((_gitlab, projectId) =>
-        projectId === appBProjectId
-          ? Promise.reject(makeHttpError(401))
-          : Promise.resolve([NEW_TAG]),
-      )
+        accessTokenEnv: declaredEnvName,
+      },
+    )
+    vi.mocked(loadConfig).mockReturnValue({
+      configUnits: [chartA, chartB],
+      accessTokenEnvNames: [TEAM_A, declaredEnvName],
+    })
+    vi.mocked(listTagsAtCommit).mockImplementation((_gitlab, projectId) =>
+      projectId === appBProjectId ? Promise.reject(makeHttpError(401)) : Promise.resolve([NEW_TAG]),
+    )
 
-      await expect(run(env)).resolves.toBe("PARTIAL_FAILURE")
-      await expect(summaryCounts()).resolves.toEqual({ CREATED: 1, SKIPPED: 0, ERROR: 1 })
-      await expect(summaryFailedUnits()).resolves.toEqual([
-        {
-          chartDirName: chartB.chartDirName,
-          chartProjectName: chartB.chartRepo.projectName,
-          unitPath: chartB.unitPath,
-          reason: expect.stringContaining("401"),
-        },
-      ])
-      // chartAとchartBが別々のトークンを宣言しているので、トークンごとに1アダプタ作られる
-      expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
-      expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "team-b-token")
-    } finally {
-      delete process.env[declaredEnvName]
-    }
+    await expect(run(env)).resolves.toBe("PARTIAL_FAILURE")
+    await expect(summaryCounts()).resolves.toEqual({ CREATED: 1, SKIPPED: 0, ERROR: 1 })
+    await expect(summaryFailedUnits()).resolves.toEqual([
+      {
+        chartDirName: chartB.chartDirName,
+        chartProjectName: chartB.chartRepo.projectName,
+        unitPath: chartB.unitPath,
+        reason: expect.stringContaining("401"),
+      },
+    ])
+    // chartAとchartBが別々のトークンを宣言しているので、トークンごとに1アダプタ作られる
+    expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
+    expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "team-b-token")
   })
 
   it("createClient に GITLAB_URL と、宣言された環境変数から読んだトークンを渡す", async () => {
@@ -259,8 +249,6 @@ describe("run（PLATFORMによる実装の切り替え）", () => {
   })
 
   afterEach(() => {
-    vi.unstubAllEnvs()
-    vi.clearAllMocks()
     rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
   })
 

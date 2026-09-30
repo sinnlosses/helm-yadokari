@@ -19,9 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 // projectId・複数valuesPath）ごとに応答を変える必要があり、形が違う。無理に寄せると
 // 両方が読みにくくなるため、`test/helpers.ts` には寄せずこのファイルに閉じ込める。
 vi.mock("@gitbeaker/rest")
-vi.mock("../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}))
+vi.mock("../src/utils/logger.js")
 
 import { Gitlab } from "@gitbeaker/rest"
 
@@ -219,7 +217,7 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
     // `accessTokenEnv: ACCESS_TOKEN_SMOKE_A` を宣言しているため、`loadAccessTokens()`が
     // 読めるようここで設定する（未設定だと該当chartの設定ユニットが「宣言した環境変数が
     // 未設定」でERRORになる）
-    process.env["ACCESS_TOKEN_SMOKE_A"] = "test-token-smoke-a"
+    vi.stubEnv("ACCESS_TOKEN_SMOKE_A", "test-token-smoke-a")
     gitlab = makeFakeGitlab()
     // アロー関数は `new` できないので、コンストラクタとして呼べる関数を渡す
     vi.mocked(Gitlab).mockImplementation(function () {
@@ -228,7 +226,6 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
   })
 
   afterEach(() => {
-    delete process.env["ACCESS_TOKEN_SMOKE_A"]
     rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
   })
 

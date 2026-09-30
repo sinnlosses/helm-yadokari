@@ -3,6 +3,9 @@ import { defineConfig } from "vitest/config"
 export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
+    // モックの呼び出し履歴と `vi.stubEnv` の値はテストごとに消す（各ファイルで後始末を書かない）
+    clearMocks: true,
+    unstubEnvs: true,
     // junit レポート（test-results.xml）はCIのartifact用。ローカル実行のたびに
     // 生成物が増えないよう、CI（GitLab CIが自動で設定する CI=true）でのみ有効にする。
     reporters: process.env["CI"] ? ["verbose", "junit"] : ["verbose"],

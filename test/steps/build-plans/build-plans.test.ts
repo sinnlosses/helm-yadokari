@@ -1,8 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}))
+vi.mock("../../../src/utils/logger.js")
 
 import {
   toAnchorName,
@@ -33,10 +31,6 @@ const adapter = makeAdapter()
 describe("buildPlans", () => {
   beforeEach(() => {
     mockBuildPlansAdapter(adapter)
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   it("差分がある設定ユニットはtoApplyに含まれる", async () => {

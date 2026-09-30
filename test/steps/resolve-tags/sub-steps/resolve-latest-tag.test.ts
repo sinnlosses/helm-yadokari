@@ -1,8 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../../../../src/utils/logger.js", () => ({
-  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}))
+vi.mock("../../../../src/utils/logger.js")
 
 import { validateTagFormat } from "../../../../src/domain/tag-format.js"
 import {
@@ -31,10 +29,6 @@ describe("resolveLatestTag", () => {
     givenRemoteTags([{ name: NEW_TAG, commitSha: HEAD_SHA }])
     vi.mocked(adapter.getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     vi.mocked(adapter.createTag).mockResolvedValue(undefined)
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   it("HEADと一致する既存タグを再利用して新しいタグは作らない", async () => {
@@ -156,10 +150,6 @@ describe("resolveLatestTag", () => {
 describe("resolveLatestTag（trackedHeadTagNamesの中身）", () => {
   beforeEach(() => {
     vi.mocked(adapter.getBranchHeadSha).mockResolvedValue(HEAD_SHA)
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   it("追跡ブランチ由来かつHEADと同じコミットを指すタグ名だけを含む", async () => {

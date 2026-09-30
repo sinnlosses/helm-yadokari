@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../../src/lib/gitlab/api.js")
 
@@ -32,10 +32,6 @@ describe("validateRemoteExistence", () => {
     vi.mocked(getProjectGroupPath).mockResolvedValue(DECLARED_GROUP)
     vi.mocked(branchExists).mockResolvedValue(true)
     vi.mocked(getFileContent).mockResolvedValue(VALUES_YAML)
-  })
-
-  afterEach(() => {
-    vi.clearAllMocks()
   })
 
   it("すべて実在するとき問題を1件も返さない", async () => {
