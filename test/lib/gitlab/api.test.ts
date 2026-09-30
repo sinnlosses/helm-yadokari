@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 import {
   toAccessToken,
   toBranchName,
+  toCommitSha,
   toGroupId,
   toPlatformUrl,
   toProjectId,
@@ -24,29 +25,29 @@ import {
   getLatestPipelineForRef,
   getProjectGroupPath,
   getProjectWebUrl,
-  listTags,
+  listTagsAtCommit,
   openMergeRequestExists,
 } from "../../../src/lib/gitlab/api.js"
 import { makeHttpError } from "../../helpers.js"
 
 function makeClient(
   overrides: Partial<{
-    Tags: { all: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> }
+    Tags: Partial<Record<"all" | "create" | "show", ReturnType<typeof vi.fn>>>
     Branches: { show: ReturnType<typeof vi.fn>; remove?: ReturnType<typeof vi.fn> }
     RepositoryFiles: { show: ReturnType<typeof vi.fn> }
     MergeRequests: { all: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> }
-    Commits: { create: ReturnType<typeof vi.fn> }
+    Commits: Partial<Record<"create" | "allReferences", ReturnType<typeof vi.fn>>>
     Pipelines: { showLatest: ReturnType<typeof vi.fn> }
     Projects: { show: ReturnType<typeof vi.fn> }
     Groups: { show: ReturnType<typeof vi.fn> }
   }>,
 ): GitlabClient {
   return {
-    Tags: { all: vi.fn(), create: vi.fn(), ...overrides.Tags },
+    Tags: { all: vi.fn(), create: vi.fn(), show: vi.fn(), ...overrides.Tags },
     Branches: { show: vi.fn(), remove: vi.fn(), ...overrides.Branches },
     RepositoryFiles: { show: vi.fn(), ...overrides.RepositoryFiles },
     MergeRequests: { all: vi.fn(), create: vi.fn(), ...overrides.MergeRequests },
-    Commits: { create: vi.fn(), ...overrides.Commits },
+    Commits: { create: vi.fn(), allReferences: vi.fn(), ...overrides.Commits },
     Pipelines: { showLatest: vi.fn(), ...overrides.Pipelines },
     Projects: { show: vi.fn(), ...overrides.Projects },
     Groups: { show: vi.fn(), ...overrides.Groups },
@@ -73,21 +74,48 @@ describe("createClient", () => {
   })
 })
 
-describe("listTags", () => {
-  it("タグ名とコミットSHAの一覧を返す", async () => {
-    const client = makeClient({
-      Tags: {
-        all: vi.fn().mockResolvedValue([
-          { name: "main-build-at-20260101-000000", commit: { id: "sha1" } },
-          { name: "main-build-at-20260201-000000", commit: { id: "sha2" } },
-        ]),
-        create: vi.fn(),
-      },
-    })
-    expect(await listTags(client, toProjectId("1"))).toEqual([
-      { name: "main-build-at-20260101-000000", commitSha: "sha1" },
-      { name: "main-build-at-20260201-000000", commitSha: "sha2" },
+describe("listTagsAtCommit", () => {
+  const SHA = toCommitSha("head-sha")
+  const isMain = (name: string) => name.startsWith("main-")
+
+  it("タグ一覧を全件引かず、コミットのrefsをタグに絞って引く", async () => {
+    const allReferences = vi.fn().mockResolvedValue([])
+    const all = vi.fn()
+    const client = makeClient({ Tags: { all }, Commits: { allReferences } })
+
+    await listTagsAtCommit(client, toProjectId("1"), SHA, isMain)
+
+    expect(allReferences).toHaveBeenCalledWith("1", SHA, { type: "tag", perPage: 100 })
+    expect(all).not.toHaveBeenCalled()
+  })
+
+  it("候補に当たらない名前は照合せず、照合したコミットがSHAと一致するものだけを返す", async () => {
+    const allReferences = vi.fn().mockResolvedValue([
+      { type: "tag", name: "main-build-at-20260101-000000" },
+      { type: "tag", name: "main-build-at-20260201-000000" },
+      { type: "tag", name: "develop-build-at-20260301-000000" },
     ])
+    const show = vi.fn().mockImplementation(async (_projectId: string, name: string) => ({
+      name,
+      // 子孫のコミットに付いたタグもrefsには含まれる
+      commit: { id: name === "main-build-at-20260101-000000" ? SHA : "descendant-sha" },
+    }))
+    const client = makeClient({ Tags: { show }, Commits: { allReferences } })
+
+    expect(await listTagsAtCommit(client, toProjectId("1"), SHA, isMain)).toEqual([
+      "main-build-at-20260101-000000",
+    ])
+    expect(show).not.toHaveBeenCalledWith("1", "develop-build-at-20260301-000000")
+  })
+
+  it("照合の時点で消えていたタグ（404）は返さない", async () => {
+    const allReferences = vi
+      .fn()
+      .mockResolvedValue([{ type: "tag", name: "main-build-at-20260101-000000" }])
+    const show = vi.fn().mockRejectedValue(makeHttpError(404))
+    const client = makeClient({ Tags: { show }, Commits: { allReferences } })
+
+    expect(await listTagsAtCommit(client, toProjectId("1"), SHA, isMain)).toEqual([])
   })
 })
 

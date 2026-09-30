@@ -3,7 +3,6 @@ import type {
   AccessTokenEnvName,
   AnchorName,
   BranchName,
-  CommitSha,
   ChartDirName,
   ConfigUnitPath,
   GroupId,
@@ -98,12 +97,6 @@ export type ParsedTag = {
   readonly name: TagName
   readonly branchName: BranchName
   readonly taggedAt: Date
-}
-
-/** GitLab上のタグ1件分。名前とそのタグが指すコミットのSHA */
-export type TagInfo = {
-  readonly name: TagName
-  readonly commitSha: CommitSha
 }
 
 /** タグに紐づく最新パイプラインの情報 */

@@ -1,11 +1,5 @@
 import { buildNewTag, findLatestParsedTag, parseTag } from "../../../domain/tag-format.js"
-import type {
-  CommitSha,
-  LatestTagResolution,
-  TagInfo,
-  TagName,
-  TagSource,
-} from "../../../domain/types.js"
+import type { LatestTagResolution, TagName, TagSource } from "../../../domain/types.js"
 import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
 import { logger } from "../../../utils/logger.js"
 
@@ -30,16 +24,21 @@ export async function resolveLatestTag(
   source: TagSource,
   dryRun: boolean,
 ): Promise<LatestTagResolution> {
-  const [tags, headSha] = await Promise.all([
-    adapter.listTags(source.projectId),
-    adapter.getBranchHeadSha(source.projectId, source.branchToSync),
-  ])
+  const headSha = await adapter.getBranchHeadSha(source.projectId, source.branchToSync)
   if (headSha === undefined) {
     throw new Error(
       `追跡ブランチ "${source.branchToSync}" がプロジェクト "${source.projectName}" に見つかりません`,
     )
   }
-  const trackedHeadTagNames = resolveTrackedHeadTagNames(tags, headSha, source)
+  // 追跡ブランチを切り替えた場合、切り替え前のタグ名は現在の`branchToSync`ではパースできないため
+  // 集合に含まれない。結果として、HEADと同じコミットを指していても更新をスキップしない。
+  const trackedHeadTagNames: ReadonlySet<TagName> = new Set(
+    await adapter.listTagsAtCommit(
+      source.projectId,
+      headSha,
+      (name) => parseTag(name, source.branchToSync, source.tagFormat) !== undefined,
+    ),
+  )
 
   // HEADを指すタグはどれも同じコミットを指すため中身は同じだが、返す値を一意に決める
   // ためだけに、打刻日時が最も新しいものを選ぶ（決定性のための規則）。
@@ -65,27 +64,4 @@ export async function resolveLatestTag(
     dryRun,
   })
   return { tag: newTag, trackedHeadTagNames, origin: "created" }
-}
-
-/**
- * `headSha`と同じコミットを指す、現在の追跡ブランチ由来のタグ名の集合を組み立てる。
- *
- * 「現在の追跡ブランチ由来」は`source.branchToSync`と`source.tagFormat`でパースできること。
- * 追跡ブランチを切り替えた場合、切り替え前のタグ名は現在の`source.branchToSync`ではパースできない
- * ためこの集合には含まれない。結果として、HEADと同じコミットを指していても更新をスキップしない。
- */
-function resolveTrackedHeadTagNames(
-  tags: readonly TagInfo[],
-  headSha: CommitSha,
-  source: TagSource,
-): ReadonlySet<TagName> {
-  return new Set(
-    tags
-      .filter(
-        (tag) =>
-          tag.commitSha === headSha &&
-          parseTag(tag.name, source.branchToSync, source.tagFormat) !== undefined,
-      )
-      .map((tag) => tag.name),
-  )
 }

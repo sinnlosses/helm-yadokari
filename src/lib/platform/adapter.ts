@@ -5,7 +5,6 @@ import type {
   PipelineInfo,
   PlatformUrl,
   ProjectId,
-  TagInfo,
   TagName,
   ValuesPath,
 } from "../../domain/types.js"
@@ -22,8 +21,15 @@ import type {
  * API呼び出しはGitHub・エラー分類はGitLab、という取り違えが起きない。
  */
 export type PlatformAdapter = {
-  /** タグ名とそれが指すコミットSHAの一覧を返す */
-  readonly listTags: (projectId: ProjectId) => Promise<TagInfo[]>
+  /**
+   * `commitSha`を指すタグのうち`isCandidate`を満たすものの名前を返す。
+   * `isCandidate`はコミットの照合より前に当たる
+   */
+  readonly listTagsAtCommit: (
+    projectId: ProjectId,
+    commitSha: CommitSha,
+    isCandidate: (name: TagName) => boolean,
+  ) => Promise<TagName[]>
 
   readonly branchExists: (projectId: ProjectId, branch: BranchName) => Promise<boolean>
 

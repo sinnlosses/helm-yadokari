@@ -46,7 +46,7 @@ const env: EnvConfig = {
  */
 function makeFakeGitlab() {
   return {
-    Tags: { all: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({}) },
+    Tags: { show: vi.fn(), create: vi.fn().mockResolvedValue({}) },
     Branches: {
       show: vi.fn().mockResolvedValue({ commit: { id: "head-sha" } }),
       remove: vi.fn().mockResolvedValue(undefined),
@@ -60,7 +60,10 @@ function makeFakeGitlab() {
       all: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue({}),
     },
-    Commits: { create: vi.fn().mockResolvedValue({}) },
+    Commits: {
+      allReferences: vi.fn().mockResolvedValue([]),
+      create: vi.fn().mockResolvedValue({}),
+    },
     Projects: { show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.test/g/my-app" }) },
     Pipelines: {
       showLatest: vi.fn().mockResolvedValue({ web_url: "https://gitlab.test/g/my-app/-/p/1" }),
@@ -128,7 +131,7 @@ describe("run（DRY_RUN=true）", () => {
   })
 
   it("HEADにタグが無く新規作成予定のアプリは、計画のログでoriginがcreatedになる", async () => {
-    // makeFakeGitlab()はTags.allが空配列（＝HEADを指すタグが1件も無い）状態にしているため、
+    // makeFakeGitlab()はCommits.allReferencesが空配列（＝HEADを指すタグが1件も無い）状態にしているため、
     // resolveLatestTag()は新規タグ作成の経路に入る。dry-runなので実際の作成はしない
     const { logger } = await import("../src/utils/logger.js")
     await run(env)

@@ -10,7 +10,6 @@ import type {
   PlatformUrl,
   PipelineInfo,
   ProjectId,
-  TagInfo,
   TagName,
   ValuesPath,
 } from "../../domain/types.js"
@@ -32,14 +31,38 @@ export type GitlabClient = InstanceType<typeof Gitlab>
  */
 const QUERY_TIMEOUT_MS = 300_000
 
+/** GitLab APIの一覧取得が許す1ページあたりの最大件数 */
+const MAX_PER_PAGE = 100
+
 export function createClient(host: PlatformUrl, token: AccessToken): GitlabClient {
   return new Gitlab({ host, token, queryTimeout: QUERY_TIMEOUT_MS })
 }
 
-/** タグ名とそれが指すコミットSHAの一覧を返す */
-export async function listTags(gitlab: GitlabClient, projectId: ProjectId): Promise<TagInfo[]> {
-  const tags = await withGitlabRetry(() => gitlab.Tags.all(projectId))
-  return tags.map((tag) => ({ name: toTagName(tag.name), commitSha: toCommitSha(tag.commit.id) }))
+/**
+ * `commitSha`を指すタグのうち`isCandidate`を満たすものの名前を返す。
+ *
+ * コミットのrefs APIは`commitSha`を**含む**タグ（子孫のコミットに付いたタグも）を返すため、
+ * `isCandidate`で絞った候補だけを1件ずつ引いて、指すコミットを照合する。
+ */
+export async function listTagsAtCommit(
+  gitlab: GitlabClient,
+  projectId: ProjectId,
+  commitSha: CommitSha,
+  isCandidate: (name: TagName) => boolean,
+): Promise<TagName[]> {
+  const refs = await withGitlabRetry(() =>
+    gitlab.Commits.allReferences(projectId, commitSha, { type: "tag", perPage: MAX_PER_PAGE }),
+  )
+  const candidates = refs.map((ref) => toTagName(ref.name)).filter(isCandidate)
+  const matches = await Promise.all(
+    candidates.map(async (name) => {
+      const tag = await withGitlabRetry(() =>
+        withNotFoundFallback(() => gitlab.Tags.show(projectId, name), undefined),
+      )
+      return tag !== undefined && toCommitSha(tag.commit.id) === commitSha
+    }),
+  )
+  return candidates.filter((_, i) => matches[i])
 }
 
 /**

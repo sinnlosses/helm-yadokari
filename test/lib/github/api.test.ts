@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest"
 import {
   toAccessToken,
   toBranchName,
+  toCommitSha,
   toPlatformUrl,
   toProjectId,
   toTagName,
@@ -21,7 +22,7 @@ import {
   getFileContent,
   getLatestPipelineForRef,
   getProjectWebUrl,
-  listTags,
+  listTagsAtCommit,
   openMergeRequestExists,
 } from "../../../src/lib/github/api.js"
 
@@ -65,6 +66,8 @@ function makeClient(
 
 const PROJECT_ID = toProjectId("acme/chart")
 const VALUES_PATH = toValuesPath("values.yaml")
+const SHA = toCommitSha("head-sha")
+const acceptAll = () => true
 
 describe("createClient", () => {
   it("Octokit インスタンスを返す", () => {
@@ -86,31 +89,34 @@ describe("createClient", () => {
 describe("projectId の分割", () => {
   it("owner/repo 以外の形式はどの値が原因か分かるエラーにする", async () => {
     const client = makeClient()
-    await expect(listTags(client, toProjectId("1"))).rejects.toThrow('"1"')
+    await expect(listTagsAtCommit(client, toProjectId("1"), SHA, acceptAll)).rejects.toThrow('"1"')
   })
 
   it("セグメントが3つ以上あるときもエラーにする", async () => {
     const client = makeClient()
-    await expect(listTags(client, toProjectId("acme/group/chart"))).rejects.toThrow("owner/repo")
+    await expect(
+      listTagsAtCommit(client, toProjectId("acme/group/chart"), SHA, acceptAll),
+    ).rejects.toThrow("owner/repo")
   })
 })
 
-describe("listTags", () => {
-  it("タグ名とコミットSHAの一覧を返す", async () => {
+describe("listTagsAtCommit", () => {
+  it("SHAを指し、候補に当たるタグの名前だけを返す", async () => {
     const paginate = vi.fn().mockResolvedValue([
-      { name: "main-build-at-20260101-000000", commit: { sha: "sha1" } },
-      { name: "main-build-at-20260201-000000", commit: { sha: "sha2" } },
+      { name: "main-build-at-20260101-000000", commit: { sha: SHA } },
+      { name: "main-build-at-20260201-000000", commit: { sha: "other-sha" } },
+      { name: "develop-build-at-20260301-000000", commit: { sha: SHA } },
     ])
-    expect(await listTags(makeClient({ paginate }), PROJECT_ID)).toEqual([
-      { name: "main-build-at-20260101-000000", commitSha: "sha1" },
-      { name: "main-build-at-20260201-000000", commitSha: "sha2" },
+    const isMain = (name: string) => name.startsWith("main-")
+    expect(await listTagsAtCommit(makeClient({ paginate }), PROJECT_ID, SHA, isMain)).toEqual([
+      "main-build-at-20260101-000000",
     ])
   })
 
   it("自動ページングが無いので paginate に最大ページサイズで渡す", async () => {
     const paginate = vi.fn().mockResolvedValue([])
     const client = makeClient({ paginate })
-    await listTags(client, PROJECT_ID)
+    await listTagsAtCommit(client, PROJECT_ID, SHA, acceptAll)
     expect(paginate).toHaveBeenCalledWith(client.rest.repos.listTags, {
       owner: "acme",
       repo: "chart",

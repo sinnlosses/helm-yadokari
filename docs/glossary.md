@@ -28,7 +28,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 | 節                          | 収録している用語                                                                                                                                                                                                                                                                            |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ## 設定・登録関連           | アプリ / ソースリポジトリ / chartリポジトリ / 設定ユニット（ConfigUnit） / registry.yaml・versions.yaml・locations.yaml / chartToUpdate・appSpecs / valuesPath / 書き込み位置（AnchorLocation） / anchor / Helmの向き先ブランチ / helm[]のanchor / chartディレクトリ名 / セルフサービス方式 |
-| ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / TagSource / タグの読み取り結果（ParsedTag） / タグ情報（TagInfo） / 打刻日時 / 最新タグ / 反映済みタグ / タグ自動作成 / タグの由来（TagOrigin）                                                                                                     |
+| ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / TagSource / タグの読み取り結果（ParsedTag） / 打刻日時 / 最新タグ / 反映済みタグ / タグ自動作成 / タグの由来（TagOrigin）                                                                                                                           |
 | ## MR・リポジトリ操作関連   | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング                                                                                                                                                                                                                  |
 | ## 実行結果・処理単位関連   | アプリ更新計画 / イメージタグの更新 / 向き先ブランチの更新 / 設定ユニット更新対象 / 設定ユニット処理結果 / 実行結果                                                                                                                                                                         |
 | ## 実行環境・運用関連       | Dry-runモード / `TARGET_CHART`・`TARGET_UNITS` / pipeline schedules / Platform / `ACCESS_TOKEN_<グループ>`・accessTokenEnv / グループ（group・groupId・groupName）                                                                                                                          |
@@ -207,17 +207,6 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 - **定義**: タグ名を`tagFormat`でパースして読み取れる情報。タグ名そのもの（`name`）、タグ形式から
   読み取った追跡ブランチ名（`branchName`）、打刻日時（`taggedAt`。詳細は「打刻日時」の
   項）をまとめた型。`parseTag()`/`findLatestParsedTag()`/`buildNewTag()`が返す。
-
-### タグ情報（TagInfo）
-
-- **英語識別子**: `TagInfo`（`name: TagName`・`commitSha: CommitSha`の2フィールド）
-- **定義**: リポジトリ上のタグ1件分の情報。名前とそのタグが指すコミットのSHAを持つ。
-  GitLab・GitHubで共通の形で、`Platform.listTags()`（`lib/gitlab/`・`lib/github/`それぞれの
-  実装）が返す。
-- **`ParsedTag`と型名の付け方が非対称な理由**: `TagInfo`はプラットフォームのAPIが返した生の
-  タグ情報、`ParsedTag`はそれを`tagFormat`で解釈した結果で、持っている情報も出どころも別物。
-  接尾辞（`〜Info`）と接頭辞（`Parsed〜`）が揃っていないこと自体が、この2つを取り違えないための
-  情報になっているため据え置く。
 
 ### 打刻日時
 

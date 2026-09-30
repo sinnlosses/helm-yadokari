@@ -10,7 +10,7 @@ import {
   getFileContent,
   getLatestPipelineForRef,
   getProjectWebUrl,
-  listTags,
+  listTagsAtCommit,
   openMergeRequestExists,
 } from "./api.js"
 import { extractHttpStatus, isFatalError } from "./errors.js"
@@ -24,7 +24,8 @@ import { buildCompareUrl, buildTagUrl } from "./web-url.js"
  */
 export function createGithubAdapter(github: GithubClient): PlatformAdapter {
   return {
-    listTags: (projectId) => listTags(github, projectId),
+    listTagsAtCommit: (projectId, commitSha, isCandidate) =>
+      listTagsAtCommit(github, projectId, commitSha, isCandidate),
     branchExists: (projectId, branch) => branchExists(github, projectId, branch),
     deleteBranch: (projectId, branch) => deleteBranch(github, projectId, branch),
     getBranchHeadSha: (projectId, branch) => getBranchHeadSha(github, projectId, branch),

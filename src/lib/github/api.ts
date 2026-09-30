@@ -8,7 +8,6 @@ import type {
   PipelineInfo,
   PlatformUrl,
   ProjectId,
-  TagInfo,
   TagName,
   ValuesPath,
 } from "../../domain/types.js"
@@ -39,17 +38,29 @@ export function createClient(baseUrl: PlatformUrl, token: AccessToken): GithubCl
 }
 
 /**
- * タグ名とそれが指すコミットSHAの一覧を返す。
+ * `commitSha`を指すタグのうち`isCandidate`を満たすものの名前を返す。
+ *
+ * **全タグを読んでから絞る。** GitHubにはREST・GraphQLともコミットからタグを引く手段が無い。
+ * RESTの`matching-refs`はタグ名の前方一致しかできず、GraphQLの`TAG_COMMIT_DATE`順で途中から
+ * 打ち切る方法はコミット日時が単調でないため取りこぼしうる。
  *
  * GitHubにはgitbeakerの`.all()`にあたる自動ページングが無いため`paginate()`を明示する（既定は1
  * ページ30件で、タグが31件以上あるリポジトリでは黙って取りこぼす）。
  */
-export async function listTags(github: GithubClient, projectId: ProjectId): Promise<TagInfo[]> {
+export async function listTagsAtCommit(
+  github: GithubClient,
+  projectId: ProjectId,
+  commitSha: CommitSha,
+  isCandidate: (name: TagName) => boolean,
+): Promise<TagName[]> {
   const { owner, repo } = splitProjectId(projectId)
   const tags = await withGithubRetry(() =>
     github.paginate(github.rest.repos.listTags, { owner, repo, per_page: PER_PAGE }),
   )
-  return tags.map((tag) => ({ name: toTagName(tag.name), commitSha: toCommitSha(tag.commit.sha) }))
+  return tags
+    .filter((tag) => toCommitSha(tag.commit.sha) === commitSha)
+    .map((tag) => toTagName(tag.name))
+    .filter(isCandidate)
 }
 
 export async function branchExists(

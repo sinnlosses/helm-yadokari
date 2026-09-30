@@ -29,7 +29,8 @@ export function createTokenRoutedAdapter(
   ): Promise<T> => callRoute(lookupRoute(routes, projectId), invoke)
 
   return {
-    listTags: (projectId) => call(projectId, (adapter) => adapter.listTags(projectId)),
+    listTagsAtCommit: (projectId, commitSha, isCandidate) =>
+      call(projectId, (adapter) => adapter.listTagsAtCommit(projectId, commitSha, isCandidate)),
     branchExists: (projectId, branch) =>
       call(projectId, (adapter) => adapter.branchExists(projectId, branch)),
     deleteBranch: (projectId, branch) =>

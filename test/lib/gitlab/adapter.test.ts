@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../src/lib/gitlab/api.js")
 
-import { toBranchName, toProjectId, toTagName, toValuesPath } from "../../../src/domain/types.js"
+import {
+  toBranchName,
+  toCommitSha,
+  toProjectId,
+  toTagName,
+  toValuesPath,
+} from "../../../src/domain/types.js"
 import { createGitlabAdapter } from "../../../src/lib/gitlab/adapter.js"
 import {
   type GitlabClient,
@@ -15,7 +21,7 @@ import {
   getFileContent,
   getLatestPipelineForRef,
   getProjectWebUrl,
-  listTags,
+  listTagsAtCommit,
   openMergeRequestExists,
 } from "../../../src/lib/gitlab/api.js"
 import { extractHttpStatus, isFatalError } from "../../../src/lib/gitlab/errors.js"
@@ -24,13 +30,15 @@ import { buildCompareUrl, buildTagUrl } from "../../../src/lib/gitlab/web-url.js
 const gitlab = {} as unknown as GitlabClient
 const PROJECT_ID = toProjectId("1")
 const BRANCH = toBranchName("main")
+const SHA = toCommitSha("sha")
 
 describe("createGitlabAdapter", () => {
   it("各関数にクライアントを結びつけて呼ぶ", async () => {
     const adapter = createGitlabAdapter(gitlab)
 
-    await adapter.listTags(PROJECT_ID)
-    expect(listTags).toHaveBeenCalledWith(gitlab, PROJECT_ID)
+    const isCandidate = () => true
+    await adapter.listTagsAtCommit(PROJECT_ID, SHA, isCandidate)
+    expect(listTagsAtCommit).toHaveBeenCalledWith(gitlab, PROJECT_ID, SHA, isCandidate)
 
     await adapter.branchExists(PROJECT_ID, BRANCH)
     expect(branchExists).toHaveBeenCalledWith(gitlab, PROJECT_ID, BRANCH)

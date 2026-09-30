@@ -5,15 +5,30 @@ vi.mock("../../../../src/utils/logger.js", () => ({
 }))
 
 import { validateTagFormat } from "../../../../src/domain/tag-format.js"
-import { toBranchName, toCommitSha, toTagName } from "../../../../src/domain/types.js"
+import {
+  type CommitSha,
+  type TagName,
+  toBranchName,
+  toCommitSha,
+  toTagName,
+} from "../../../../src/domain/types.js"
 import { resolveLatestTag } from "../../../../src/steps/resolve-tags/sub-steps/resolve-latest-tag.js"
 import { HEAD_SHA, NEW_TAG, OLD_TAG, makeAdapter, makeTagSource } from "../../../helpers.js"
 
 const adapter = makeAdapter()
 
+/** リモートに`tags`があるものとして、`listTagsAtCommit`の契約どおりに絞って返す偽物を差し込む */
+function givenRemoteTags(
+  tags: readonly { readonly name: TagName; readonly commitSha: CommitSha }[],
+): void {
+  vi.mocked(adapter.listTagsAtCommit).mockImplementation(async (_projectId, sha, isCandidate) =>
+    tags.filter((tag) => tag.commitSha === sha && isCandidate(tag.name)).map((tag) => tag.name),
+  )
+}
+
 describe("resolveLatestTag", () => {
   beforeEach(() => {
-    vi.mocked(adapter.listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
+    givenRemoteTags([{ name: NEW_TAG, commitSha: HEAD_SHA }])
     vi.mocked(adapter.getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     vi.mocked(adapter.createTag).mockResolvedValue(undefined)
   })
@@ -31,7 +46,7 @@ describe("resolveLatestTag", () => {
   })
 
   it("追跡ブランチ由来のタグが見つからないとき、追跡ブランチに新しいタグを作成する", async () => {
-    vi.mocked(adapter.listTags).mockResolvedValue([
+    givenRemoteTags([
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
     ])
 
@@ -44,7 +59,7 @@ describe("resolveLatestTag", () => {
   })
 
   it("tagFormatに別の形式を渡すと、その形式で新しいタグを作成する", async () => {
-    vi.mocked(adapter.listTags).mockResolvedValue([])
+    givenRemoteTags([])
     const source = makeTagSource({ tagFormat: validateTagFormat("{date}-{time}-{branch}") })
 
     const resolution = await resolveLatestTag(adapter, source, false)
@@ -56,9 +71,7 @@ describe("resolveLatestTag", () => {
   it("最新タグが追跡ブランチの現在のHEADコミットにビハインドしているとき、新しいタグを作成する", async () => {
     // タグ名はパースできるが、コミットSHAが現在のブランチHEADと異なる
     // （＝タグ作成後に追跡ブランチへ新しいコミットが積まれた）ケース
-    vi.mocked(adapter.listTags).mockResolvedValue([
-      { name: NEW_TAG, commitSha: toCommitSha("old-sha") },
-    ])
+    givenRemoteTags([{ name: NEW_TAG, commitSha: toCommitSha("old-sha") }])
 
     await resolveLatestTag(adapter, makeTagSource(), false)
 
@@ -68,7 +81,7 @@ describe("resolveLatestTag", () => {
   it("HEADを指すタグが複数あるとき、タグ名の日時が最も新しいものを返す（決定性のための規則）", async () => {
     // いずれもHEADと同じコミットを指すため中身は同じだが、どれを返すかは決定性のために
     // タグ名の日時で決める。新規タグ作成は発生しない。
-    vi.mocked(adapter.listTags).mockResolvedValue([
+    givenRemoteTags([
       { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
       { name: NEW_TAG, commitSha: HEAD_SHA },
     ])
@@ -83,7 +96,7 @@ describe("resolveLatestTag", () => {
     // OLD_TAG は現在のHEADを指しているが、タグ名の日時としては古い。NEW_TAG はタグ名の
     // 日時としては新しいが、HEADではない別コミットを指している（例: HEADへのタグ付け後、
     // 別ブランチや過去のコミットに対して後からタグが打たれたケース）。
-    vi.mocked(adapter.listTags).mockResolvedValue([
+    givenRemoteTags([
       { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
       { name: NEW_TAG, commitSha: toCommitSha("other-commit-sha") },
     ])
@@ -98,7 +111,7 @@ describe("resolveLatestTag", () => {
     // 切り替えを明示するためだけの新規タグは作らない（タグ名に切り替え後のブランチ名が
     // 入るため、values.yaml から追跡先が変わったことは読み取れる）
     const existingTag = toTagName("release-2026-q2-build-at-20260101-000000")
-    vi.mocked(adapter.listTags).mockResolvedValue([{ name: existingTag, commitSha: HEAD_SHA }])
+    givenRemoteTags([{ name: existingTag, commitSha: HEAD_SHA }])
     const source = makeTagSource({ branchToSync: toBranchName("release/2026-q2") })
 
     const resolution = await resolveLatestTag(adapter, source, false)
@@ -109,7 +122,7 @@ describe("resolveLatestTag", () => {
 
   it("dryRun=true のとき、HEADにタグが無くても実際のタグ作成はしない", async () => {
     // 作成予定の名前だけを使って以降の判定を続ける
-    vi.mocked(adapter.listTags).mockResolvedValue([])
+    givenRemoteTags([])
 
     const resolution = await resolveLatestTag(adapter, makeTagSource(), true)
 
@@ -119,12 +132,23 @@ describe("resolveLatestTag", () => {
     expect(resolution.origin).toBe("created")
   })
 
-  it("追跡ブランチが存在しないとき、タグを作成せずエラーを投げる", async () => {
+  it("HEADのコミットSHAを渡してタグを引く", async () => {
+    await resolveLatestTag(adapter, makeTagSource(), false)
+
+    expect(adapter.listTagsAtCommit).toHaveBeenCalledWith(
+      makeTagSource().projectId,
+      HEAD_SHA,
+      expect.any(Function),
+    )
+  })
+
+  it("追跡ブランチが存在しないとき、タグを引かず作成もせずエラーを投げる", async () => {
     vi.mocked(adapter.getBranchHeadSha).mockResolvedValue(undefined)
 
     await expect(resolveLatestTag(adapter, makeTagSource(), false)).rejects.toThrow(
       /追跡ブランチ "main"/,
     )
+    expect(adapter.listTagsAtCommit).not.toHaveBeenCalled()
     expect(adapter.createTag).not.toHaveBeenCalled()
   })
 })
@@ -141,7 +165,7 @@ describe("resolveLatestTag（trackedHeadTagNamesの中身）", () => {
   it("追跡ブランチ由来かつHEADと同じコミットを指すタグ名だけを含む", async () => {
     // 同じコミット(HEAD_SHA)を指すタグが2件あるが、他ブランチ由来のものはパースできないため
     // 集合には含まれない。コミットが違うタグ（OLD_TAG）も含まれない
-    vi.mocked(adapter.listTags).mockResolvedValue([
+    givenRemoteTags([
       { name: NEW_TAG, commitSha: HEAD_SHA },
       { name: toTagName("other-branch-build-at-20260101-000000"), commitSha: HEAD_SHA },
       { name: toTagName(OLD_TAG), commitSha: toCommitSha("older-sha") },
@@ -157,9 +181,7 @@ describe("resolveLatestTag（trackedHeadTagNamesの中身）", () => {
     // たまたま同じコミットを指しているケース。tagFormatではrelease/2026-q2由来として
     // パースできないため、trackedHeadTagNamesは空になる（＝反映済みタグがHEADを指していても
     // 更新をスキップしない）
-    vi.mocked(adapter.listTags).mockResolvedValue([
-      { name: toTagName(OLD_TAG), commitSha: HEAD_SHA },
-    ])
+    givenRemoteTags([{ name: toTagName(OLD_TAG), commitSha: HEAD_SHA }])
     const source = makeTagSource({ branchToSync: toBranchName("release/2026-q2") })
 
     const resolution = await resolveLatestTag(adapter, source, false)

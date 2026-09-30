@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from "vitest"
 
 vi.mock("../../../src/lib/github/api.js")
 
-import { toBranchName, toProjectId, toTagName, toValuesPath } from "../../../src/domain/types.js"
+import {
+  toBranchName,
+  toCommitSha,
+  toProjectId,
+  toTagName,
+  toValuesPath,
+} from "../../../src/domain/types.js"
 import { createGithubAdapter } from "../../../src/lib/github/adapter.js"
 import {
   type GithubClient,
@@ -15,7 +21,7 @@ import {
   getFileContent,
   getLatestPipelineForRef,
   getProjectWebUrl,
-  listTags,
+  listTagsAtCommit,
   openMergeRequestExists,
 } from "../../../src/lib/github/api.js"
 import { extractHttpStatus, isFatalError } from "../../../src/lib/github/errors.js"
@@ -24,13 +30,15 @@ import { buildCompareUrl, buildTagUrl } from "../../../src/lib/github/web-url.js
 const github = {} as unknown as GithubClient
 const PROJECT_ID = toProjectId("acme/chart")
 const BRANCH = toBranchName("main")
+const SHA = toCommitSha("sha")
 
 describe("createGithubAdapter", () => {
   it("各関数にクライアントを結びつけて呼ぶ", async () => {
     const adapter = createGithubAdapter(github)
 
-    await adapter.listTags(PROJECT_ID)
-    expect(listTags).toHaveBeenCalledWith(github, PROJECT_ID)
+    const isCandidate = () => true
+    await adapter.listTagsAtCommit(PROJECT_ID, SHA, isCandidate)
+    expect(listTagsAtCommit).toHaveBeenCalledWith(github, PROJECT_ID, SHA, isCandidate)
 
     await adapter.branchExists(PROJECT_ID, BRANCH)
     expect(branchExists).toHaveBeenCalledWith(github, PROJECT_ID, BRANCH)

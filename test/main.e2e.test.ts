@@ -149,7 +149,10 @@ function makeFakeGitlab() {
 
   return {
     Tags: {
-      all: vi.fn((projectId: string) => Promise.resolve(tagsByProject.get(projectId) ?? [])),
+      show: vi.fn((projectId: string, name: string) => {
+        const tag = tagsByProject.get(projectId)?.find((t) => t.name === name)
+        return tag !== undefined ? Promise.resolve(tag) : Promise.reject(makeHttpError(404))
+      }),
       create: vi.fn().mockResolvedValue({}),
     },
     Branches: {
@@ -175,7 +178,16 @@ function makeFakeGitlab() {
       all: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue({}),
     },
-    Commits: { create: vi.fn().mockResolvedValue({}) },
+    Commits: {
+      allReferences: vi.fn((projectId: string, sha: string) =>
+        Promise.resolve(
+          (tagsByProject.get(projectId) ?? [])
+            .filter((tag) => tag.commit.id === sha)
+            .map((tag) => ({ type: "tag", name: tag.name })),
+        ),
+      ),
+      create: vi.fn().mockResolvedValue({}),
+    },
     Projects: {
       show: vi.fn().mockResolvedValue({ web_url: "https://gitlab.test/g/app" }),
     },

@@ -129,7 +129,7 @@ chartリポジトリ側のCIを回したいなら、PAT（fine-grained: `content
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `commitFileUpdates`       | 等価なし。Git Data APIで4呼び出しに分解（上記）                                                                                                                   |
 | `createTag`               | `git.createRef` は**コミットSHA必須**。現在はブランチ名を ref に渡しているため、呼び出し側（`resolve-latest-tags.ts`）が既に持っている `headSha` を渡す形に変わる |
-| `listTags`                | gitbeakerの `.all()` にあたる自動ページングが無い。`octokit.paginate` を明示する                                                                                  |
+| `listTagsAtCommit`        | コミットからタグを引く API が無いため全タグを読んでから絞る。gitbeakerの `.all()` にあたる自動ページングが無いので `octokit.paginate` を明示する                  |
 | `getFileContent`          | 1MBの段差（上記）                                                                                                                                                 |
 | `getLatestPipelineForRef` | `GET /repos/{o}/{r}/actions/runs?head_sha=` 起点。タグ名では引けない（漏れている3点目と直結）                                                                     |
 

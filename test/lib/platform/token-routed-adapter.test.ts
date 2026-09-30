@@ -9,10 +9,11 @@ import {
 } from "../../../src/domain/types.js"
 import type { ChartRepoConfig } from "../../../src/domain/types.js"
 import { createTokenRoutedAdapter } from "../../../src/lib/platform/token-routed-adapter.js"
-import { makeAdapter, makeApp, makeConfigUnit, makeHttpError } from "../../helpers.js"
+import { HEAD_SHA, makeAdapter, makeApp, makeConfigUnit, makeHttpError } from "../../helpers.js"
 
 const TEAM_B = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_B")
 const TEAM_C = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_C")
+const acceptAll = () => true
 
 /** `makeConfigUnit()`が固定で使う`chartRepo.projectId`を、テストごとのProjectIdに差し替える */
 function chartRepoFor(projectId: ReturnType<typeof toProjectId>): ChartRepoConfig {
@@ -25,7 +26,7 @@ describe("createTokenRoutedAdapter", () => {
     const teamCAdapter = makeAdapter()
     const projectIdB = toProjectId("2")
     const projectIdC = toProjectId("3")
-    vi.mocked(teamBAdapter.listTags).mockResolvedValue([])
+    vi.mocked(teamBAdapter.listTagsAtCommit).mockResolvedValue([])
     const configUnitB = makeConfigUnit([makeApp({ projectId: projectIdB })], {
       chartRepo: chartRepoFor(projectIdB),
       accessTokenEnv: TEAM_B,
@@ -42,10 +43,10 @@ describe("createTokenRoutedAdapter", () => {
         [TEAM_C, teamCAdapter],
       ]),
     )
-    await adapter.listTags(projectIdB)
+    await adapter.listTagsAtCommit(projectIdB, HEAD_SHA, acceptAll)
 
-    expect(teamBAdapter.listTags).toHaveBeenCalledWith(projectIdB)
-    expect(teamCAdapter.listTags).not.toHaveBeenCalled()
+    expect(teamBAdapter.listTagsAtCommit).toHaveBeenCalledWith(projectIdB, HEAD_SHA, acceptAll)
+    expect(teamCAdapter.listTagsAtCommit).not.toHaveBeenCalled()
   })
 
   it("対応表に無いProjectIdを呼ぶと例外を投げる", async () => {
@@ -56,7 +57,9 @@ describe("createTokenRoutedAdapter", () => {
     })
     const adapter = createTokenRoutedAdapter([configUnit], new Map([[TEAM_B, makeAdapter()]]))
 
-    await expect(adapter.listTags(toProjectId("999"))).rejects.toThrow("999")
+    await expect(adapter.listTagsAtCommit(toProjectId("999"), HEAD_SHA, acceptAll)).rejects.toThrow(
+      "999",
+    )
   })
 
   it("読めたトークンが1つも無いと、chart名と環境変数名を並べた例外を組み立て時に投げる", () => {
@@ -81,7 +84,7 @@ describe("createTokenRoutedAdapter", () => {
   it("401は、chart名・環境変数名・HTTP 401を含む素のErrorに読み替える", async () => {
     const teamBAdapter = makeAdapter()
     const projectId = toProjectId("2")
-    vi.mocked(teamBAdapter.listTags).mockRejectedValue(makeHttpError(401))
+    vi.mocked(teamBAdapter.listTagsAtCommit).mockRejectedValue(makeHttpError(401))
     const configUnit = makeConfigUnit([makeApp({ projectId })], {
       chartDirName: toChartDirName("team-b-chart"),
       chartRepo: chartRepoFor(projectId),
@@ -89,7 +92,9 @@ describe("createTokenRoutedAdapter", () => {
     })
     const adapter = createTokenRoutedAdapter([configUnit], new Map([[TEAM_B, teamBAdapter]]))
 
-    const err: unknown = await adapter.listTags(projectId).catch((e: unknown) => e)
+    const err: unknown = await adapter
+      .listTagsAtCommit(projectId, HEAD_SHA, acceptAll)
+      .catch((e: unknown) => e)
     expect(err).toBeInstanceOf(Error)
     expect((err as Error).message).toMatch(/team-b-chart/)
     expect((err as Error).message).toMatch(/ACCESS_TOKEN_TEAM_B/)
@@ -102,14 +107,16 @@ describe("createTokenRoutedAdapter", () => {
   it("5xxは読み替えずそのまま投げる（プラットフォーム側の障害は従来どおり即時終了させるため）", async () => {
     const teamBAdapter = makeAdapter()
     const projectId = toProjectId("2")
-    vi.mocked(teamBAdapter.listTags).mockRejectedValue(makeHttpError(503))
+    vi.mocked(teamBAdapter.listTagsAtCommit).mockRejectedValue(makeHttpError(503))
     const configUnit = makeConfigUnit([makeApp({ projectId })], {
       chartRepo: chartRepoFor(projectId),
       accessTokenEnv: TEAM_B,
     })
     const adapter = createTokenRoutedAdapter([configUnit], new Map([[TEAM_B, teamBAdapter]]))
 
-    const err: unknown = await adapter.listTags(projectId).catch((e: unknown) => e)
+    const err: unknown = await adapter
+      .listTagsAtCommit(projectId, HEAD_SHA, acceptAll)
+      .catch((e: unknown) => e)
     expect(adapter.extractHttpStatus(err)).toBe(503)
     expect(adapter.isFatalError(err)).toBe(true)
   })
@@ -133,7 +140,9 @@ describe("createTokenRoutedAdapter", () => {
       new Map([[TEAM_B, makeAdapter()]]),
     )
 
-    const err: unknown = await adapter.listTags(projectIdC).catch((e: unknown) => e)
+    const err: unknown = await adapter
+      .listTagsAtCommit(projectIdC, HEAD_SHA, acceptAll)
+      .catch((e: unknown) => e)
     expect(err).toBeInstanceOf(Error)
     expect((err as Error).message).toMatch(/team-c-chart/)
     expect((err as Error).message).toMatch(/ACCESS_TOKEN_TEAM_C/)

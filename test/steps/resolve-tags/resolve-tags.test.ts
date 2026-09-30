@@ -7,11 +7,9 @@ vi.mock("../../../src/utils/logger.js", () => ({
 import { buildTagSourceKey } from "../../../src/domain/tag-source.js"
 import {
   toBranchName,
-  toCommitSha,
   toConfigUnitPath,
   toProjectId,
   toProjectName,
-  toTagName,
 } from "../../../src/domain/types.js"
 import { buildPlans } from "../../../src/steps/build-plans/build-plans.js"
 import { resolveTags } from "../../../src/steps/resolve-tags/resolve-tags.js"
@@ -20,7 +18,6 @@ import { logger } from "../../../src/utils/logger.js"
 import {
   HEAD_SHA,
   NEW_TAG,
-  OLD_TAG,
   makeAdapter,
   makeAdapterWithCachedReads,
   makeApp,
@@ -36,9 +33,7 @@ describe("resolveTags（解決の単位ごとに1回だけ解決する）", () =
     vi.mocked(adapter.getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     vi.mocked(adapter.createTag).mockResolvedValue(undefined)
     // HEADを指すタグが1件も無い状態にして、タグの自動作成を走らせる
-    vi.mocked(adapter.listTags).mockResolvedValue([
-      { name: toTagName(OLD_TAG), commitSha: toCommitSha("older-sha") },
-    ])
+    vi.mocked(adapter.listTagsAtCommit).mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -59,7 +54,7 @@ describe("resolveTags（解決の単位ごとに1回だけ解決する）", () =
 
     const resolvedTags = await resolveTags(adapter, targets, 3, false)
 
-    expect(adapter.listTags).toHaveBeenCalledTimes(1)
+    expect(adapter.listTagsAtCommit).toHaveBeenCalledTimes(1)
     expect(adapter.getBranchHeadSha).toHaveBeenCalledTimes(1)
     expect(adapter.createTag).toHaveBeenCalledTimes(1)
     // 別インスタンスのapp（appA/appB/appC）でも同じ解決単位を表す値キーは1件にまとまり、
@@ -81,7 +76,7 @@ describe("resolveTags（解決の単位ごとに1回だけ解決する）", () =
 
     await resolveTags(adapter, targets, 3, false)
 
-    expect(adapter.listTags).toHaveBeenCalledTimes(2)
+    expect(adapter.listTagsAtCommit).toHaveBeenCalledTimes(2)
     expect(adapter.createTag).toHaveBeenCalledTimes(2)
   })
 })
@@ -104,9 +99,9 @@ describe("resolveTags（解決の失敗）", () => {
       makeConfigUnit([appFail], { unitPath: toConfigUnitPath("tenant1/clientB") }),
       makeConfigUnit([appOk], { unitPath: toConfigUnitPath("tenant1/clientC") }),
     ]
-    vi.mocked(adapter.listTags).mockImplementation(async (projectId) => {
+    vi.mocked(adapter.listTagsAtCommit).mockImplementation(async (projectId) => {
       if (projectId === "1") throw makeHttpError(403)
-      return [{ name: NEW_TAG, commitSha: HEAD_SHA }]
+      return [NEW_TAG]
     })
 
     const resolvedTags = await resolveTags(adapter, targets, 3, false)
@@ -122,7 +117,7 @@ describe("resolveTags（解決の失敗）", () => {
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.configUnit).toBe(targets[2])
     // 失敗したappの解決は設定ユニットごとに再試行しない（再試行はクライアント層のwithRetry()が持つ）
-    expect(adapter.listTags).toHaveBeenCalledTimes(2)
+    expect(adapter.listTagsAtCommit).toHaveBeenCalledTimes(2)
     // どのappで失敗したかは、値として持ち回った後もERRORログに残る
     expect(vi.mocked(logger.error).mock.calls[0]?.[0]?.reason).toContain("app-fail")
   })
@@ -132,14 +127,14 @@ describe("resolveTags（解決の失敗）", () => {
       makeConfigUnit([makeApp({ projectId: toProjectId("1") })]),
       makeConfigUnit([makeApp({ projectId: toProjectId("2") })]),
     ]
-    vi.mocked(adapter.listTags).mockRejectedValue(makeHttpError(401))
+    vi.mocked(adapter.listTagsAtCommit).mockRejectedValue(makeHttpError(401))
 
     await expect(resolveTags(adapter, targets, 1, false)).rejects.toThrow(FatalError)
-    expect(adapter.listTags).toHaveBeenCalledTimes(1)
+    expect(adapter.listTagsAtCommit).toHaveBeenCalledTimes(1)
   })
 
   it("5xxエラーのとき FatalError を投げる", async () => {
-    vi.mocked(adapter.listTags).mockRejectedValue(makeHttpError(503))
+    vi.mocked(adapter.listTagsAtCommit).mockRejectedValue(makeHttpError(503))
 
     await expect(resolveTags(adapter, [makeConfigUnit([makeApp()])], 3, false)).rejects.toThrow(
       FatalError,

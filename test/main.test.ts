@@ -32,7 +32,7 @@ import {
   getFileContent,
   getLatestPipelineForRef,
   getProjectWebUrl,
-  listTags,
+  listTagsAtCommit,
   openMergeRequestExists,
 } from "../src/lib/gitlab/api.js"
 import { run } from "../src/main.js"
@@ -66,7 +66,7 @@ describe("run", () => {
     vi.stubEnv(TEAM_A, "test-token")
     vi.mocked(createClient).mockReturnValue(mockGitlab)
     vi.mocked(loadConfig).mockReturnValue({ configUnits: [], accessTokenEnvNames: [TEAM_A] })
-    vi.mocked(listTags).mockResolvedValue([{ name: NEW_TAG, commitSha: HEAD_SHA }])
+    vi.mocked(listTagsAtCommit).mockResolvedValue([NEW_TAG])
     vi.mocked(getBranchHeadSha).mockResolvedValue(HEAD_SHA)
     vi.mocked(getFileContent).mockResolvedValue(`variables:\n  - &appVersion ${OLD_TAG}\n`)
     vi.mocked(openMergeRequestExists).mockResolvedValue(false)
@@ -111,7 +111,7 @@ describe("run", () => {
       configUnits: [makeConfigUnit([makeApp()])],
       accessTokenEnvNames: [TEAM_A],
     })
-    vi.mocked(listTags).mockRejectedValue(makeHttpError(500))
+    vi.mocked(listTagsAtCommit).mockRejectedValue(makeHttpError(500))
     await expect(run(env)).rejects.toThrow(FatalError)
   })
 
@@ -120,7 +120,7 @@ describe("run", () => {
       configUnits: [makeConfigUnit([makeApp()])],
       accessTokenEnvNames: [TEAM_A],
     })
-    vi.mocked(listTags).mockRejectedValue(makeHttpError(500))
+    vi.mocked(listTagsAtCommit).mockRejectedValue(makeHttpError(500))
     await expect(run(env)).rejects.toThrow(FatalError)
     expect(existsSync(REPORT_OUTPUT_PATH)).toBe(false)
   })
@@ -145,7 +145,7 @@ describe("run", () => {
       configUnits: [makeConfigUnit([makeApp()])],
       accessTokenEnvNames: [TEAM_A],
     })
-    vi.mocked(listTags).mockRejectedValue(makeHttpError(403))
+    vi.mocked(listTagsAtCommit).mockRejectedValue(makeHttpError(403))
     await expect(run(env)).resolves.toBe("PARTIAL_FAILURE")
   })
 
@@ -181,10 +181,10 @@ describe("run", () => {
         configUnits: [chartA, chartB],
         accessTokenEnvNames: [TEAM_A, declaredEnvName],
       })
-      vi.mocked(listTags).mockImplementation((_gitlab, projectId) =>
+      vi.mocked(listTagsAtCommit).mockImplementation((_gitlab, projectId) =>
         projectId === appBProjectId
           ? Promise.reject(makeHttpError(401))
-          : Promise.resolve([{ name: NEW_TAG, commitSha: HEAD_SHA }]),
+          : Promise.resolve([NEW_TAG]),
       )
 
       await expect(run(env)).resolves.toBe("PARTIAL_FAILURE")

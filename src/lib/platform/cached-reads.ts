@@ -17,7 +17,7 @@ import type { PlatformAdapter } from "./adapter.js"
  * `adapter.*`として同じ値に同居するので、どちらを呼んでいるかは`.cached`の有無で読める。
  *
  * **載せてよいのは、このツール自身の書き込み（タグ作成・コミット・MR作成・ブランチ削除）
- * でバッチ中に値が変わらない読み取りだけ。** `listTags`は`createTag`で、`openMergeRequestExists`は
+ * でバッチ中に値が変わらない読み取りだけ。** `listTagsAtCommit`は`createTag`で、`openMergeRequestExists`は
  * `createMergeRequest`で、固定ブランチの存在確認は削除と再作成で変わるので載せられない。
  * 判断の経緯は`docs/architecture/adr/0009-platform-cache-in-lib-platform.md`。
  *

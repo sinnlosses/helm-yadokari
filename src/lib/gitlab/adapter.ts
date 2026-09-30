@@ -10,7 +10,7 @@ import {
   getFileContent,
   getLatestPipelineForRef,
   getProjectWebUrl,
-  listTags,
+  listTagsAtCommit,
   openMergeRequestExists,
 } from "./api.js"
 import { extractHttpStatus, isFatalError } from "./errors.js"
@@ -28,7 +28,8 @@ import { buildCompareUrl, buildTagUrl } from "./web-url.js"
  */
 export function createGitlabAdapter(gitlab: GitlabClient): PlatformAdapter {
   return {
-    listTags: (projectId) => listTags(gitlab, projectId),
+    listTagsAtCommit: (projectId, commitSha, isCandidate) =>
+      listTagsAtCommit(gitlab, projectId, commitSha, isCandidate),
     branchExists: (projectId, branch) => branchExists(gitlab, projectId, branch),
     deleteBranch: (projectId, branch) => deleteBranch(gitlab, projectId, branch),
     getBranchHeadSha: (projectId, branch) => getBranchHeadSha(gitlab, projectId, branch),

@@ -55,7 +55,7 @@ export const mockGitlab = {} as unknown as GitlabClient
  */
 export function makeAdapter(overrides: Partial<PlatformAdapter> = {}): PlatformAdapter {
   return {
-    listTags: vi.fn(),
+    listTagsAtCommit: vi.fn(),
     branchExists: vi.fn(),
     deleteBranch: vi.fn(),
     getBranchHeadSha: vi.fn(),
