@@ -207,13 +207,13 @@ function appMapSchema<T extends z.ZodType>(value: T) {
 
 /** `versions.yaml`のZodスキーマ */
 export const VersionsYamlSchema = z.strictObject({
-  branchRef: z
+  helmBranchRef: z
     .string({
       error:
-        "branchRef は必須です。versions.yaml に、Helmの向き先ブランチ名を書いてください" +
+        "helmBranchRef は必須です。versions.yaml に、Helmの向き先ブランチ名を書いてください" +
         "（locations.yaml の helm[] とセットで指定します）",
     })
-    .min(1, "branchRef は空にできません")
+    .min(1, "helmBranchRef は空にできません")
     .transform(toBranchName),
   branchToSync: appMapSchema(
     z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
@@ -233,7 +233,7 @@ export const LocationsYamlSchema = z.strictObject({
     .array(AnchorLocationSchema, {
       error:
         "helm は必須です。locations.yaml に、Helmの向き先ブランチの書き込み先" +
-        "（valuesPath + anchor）を書いてください（versions.yaml の branchRef とセットで指定します）",
+        "（valuesPath + anchor）を書いてください（versions.yaml の helmBranchRef とセットで指定します）",
     })
     .min(1, "helm は1件以上指定してください"),
   apps: appMapSchema(AppLocationsSchema),

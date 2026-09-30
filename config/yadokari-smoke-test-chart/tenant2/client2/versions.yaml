@@ -1,6 +1,6 @@
 # 複数appのimage tag更新のみを検証するclient（docs/smoke-test.md 参照）。
-# Helmの向き先ブランチは values.yaml の初期値を branchRef と同じ値にしてあるので差分が出ない
-branchRef: release/2026-q1
+# Helmの向き先ブランチは values.yaml の初期値を helmBranchRef と同じ値にしてあるので差分が出ない
+helmBranchRef: release/2026-q1
 branchToSync:
   sample-qa-sprint: main
   sample-develop-client: main

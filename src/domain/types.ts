@@ -25,7 +25,7 @@ export type AnchorLocation = {
 /**
  * Helmの向き先ブランチを扱うための設定。
  *
- * `branchRef`はversions.yamlの`branchRef`由来、
+ * `branchRef`はversions.yamlの`helmBranchRef`由来、
  * `locations`はlocations.yamlの`helm[]`のうち、
  * 設定ユニット内のいずれかのappが書き込むvaluesPathを指すもの。
  * 向き先ブランチは設定ユニット内のapps全体で共通なので設定ユニット単位で持つ

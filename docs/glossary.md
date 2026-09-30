@@ -65,7 +65,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   `projectName`・`tagFormat`）、操作に使うアクセストークンの宣言（`accessTokenEnv`。必須）、
   所属グループの宣言（`group`。必須）を持つ。設定ユニットは2ファイルで、
   `versions.yaml`が「どのブランチを追跡するか」というよく触る値（app名をキーにした
-  `branchToSync`と、Helmの向き先ブランチ`branchRef`）、`locations.yaml`が「`values.yaml`の
+  `branchToSync`と、Helmの向き先ブランチ`helmBranchRef`）、`locations.yaml`が「`values.yaml`の
   どこに書き込むか」というあまり触らない値（`helm[]`と、app名をキーにした`apps`）を持つ。
   設定ユニット側のappは`projectName`をキーにし、`ConfigUnit`（1設定ユニット分の集約）の
   読み込み時に`registry.yaml`の`appSpecs[]`を`projectName`で引いて`projectId`・`tagFormat`を
@@ -115,17 +115,17 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### Helmの向き先ブランチ
 
-- **英語識別子**: `branchRef`（versions.yamlのフィールド名）/
-  `ConfigUnit.helm: HelmConfig`（設定ユニット単位で持つコード上の型）
+- **英語識別子**: `helmBranchRef`（versions.yamlのフィールド名）/ `HelmConfig.branchRef`（コード上のフィールド名。
+  YAMLキーの`Helm`接頭辞は型名`HelmConfig`が担うので省く）/ `ConfigUnit.helm: HelmConfig`（設定ユニット単位で持つコード上の型）
 - **定義**: Helm chartは(1)`values.yaml`等のパラメータを定義するブランチ（既存の`mrTargetBranch`に相当）と、
   (2)そのパラメータを受け取ってk8sリソースを実際に構築するブランチの2種類で構成される、という前提のもと、
   後者を指すブランチ名。タグではなくブランチ名そのもので指定する。1つの設定ユニット内のapps全体で
-  共通の1つの値であり、`versions.yaml`の`branchRef`（値）と`locations.yaml`の`helm[]`（書き込み先）として人間が直接
+  共通の1つの値であり、`versions.yaml`の`helmBranchRef`（値）と`locations.yaml`の`helm[]`（書き込み先）として人間が直接
   書き換える。タグ形式のような自動生成・自動判定の仕組みは持たない。chartリポジトリが常に
-  上記2ブランチ構成である以上、設定ユニットごとに1件書くのが常態なので`branchRef`と`helm[]`は**必須**
+  上記2ブランチ構成である以上、設定ユニットごとに1件書くのが常態なので`helmBranchRef`と`helm[]`は**必須**
   （省略は設定エラー）。更新したくない設定ユニットは現在の値と同じブランチ名を書けば差分が
   出ないので更新されない。
-- **`branchRef`という名前にしている理由**: `target`が答えるのは「何を狙っているか」、`ref`が
+- **`helmBranchRef`という名前にしている理由**: `Helm`を頭に付けたのは、同じ`versions.yaml`に並ぶ`branchToSync`（ソースリポジトリの追跡ブランチ）と、どちらのブランチかをキー名だけで区別するため。`branch`+`Ref`の語幹は、`target`が答えるのは「何を狙っているか」、`ref`が
   答えるのは「何を指しているか」で、「向き先」の語感は後者に近い。Argo CDの
   `Application.spec.source.targetRevision`・Fluxの`GitRepository.spec.ref.branch`と同じ用法。
   `Revision`ではなく`Branch`を語幹にしているのは、この設計が取るのがブランチ名だけで
@@ -134,11 +134,11 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 - **表記ゆれ**: YAMLキーは2026-09-12に`helm.branchName`から`helm.branchRef`へ改名した
   （その前は`helm.branchToSync`）。その後、設定ユニットの2ファイル分割で`versions.yaml`の
   トップレベルの`branchRef`になった。古い設定ファイル・過去のログを読むときは読み替える。
-- **`AppConfig.branchToSync`（追跡ブランチ）との関係**: YAMLキー名は`versions.yaml`の`branchRef`と
+- **`AppConfig.branchToSync`（追跡ブランチ）との関係**: YAMLキー名は`versions.yaml`の`helmBranchRef`と
   `branchToSync`で別々になっており、コード側も`HelmConfig.branchRef`と
   `AppConfig.branchToSync`で名前が分かれている。指しているものも別（前者はk8sリソースを
   構築するブランチ、後者はタグを探す追跡ブランチ）で、混同しない。
-- **HelmConfig**: `branchRef`（向き先ブランチ名。`versions.yaml`の`branchRef`由来）と
+- **HelmConfig**: `branchRef`（向き先ブランチ名。`versions.yaml`の`helmBranchRef`由来）と
   `locations`（書き込み先の`valuesPath`＋`anchorName`の一覧。`locations.yaml`の`helm[]`のうち、設定ユニット内の
   いずれかのappが実際に書き込む`valuesPath`を指す要素だけになる。空もありうる）の2フィールドを
   持つ、設定ユニット単位の集約型。
@@ -158,7 +158,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 - **制約**: その設定ユニットの全アプリの全書き込み先の`valuesPath`が`locations.yaml`の
   `helm[]`でカバーされている必要がある（Helmの向き先ブランチは「1設定ユニット内のapps全体で
   共通」という前提のため、1つでもvaluesPathが漏れていると設定エラーになる）。`helm[]`の省略も、
-  `branchRef`と`helm[]`の片方だけの指定も設定エラー。
+  `helmBranchRef`と`helm[]`の片方だけの指定も設定エラー。
 
 ### chartディレクトリ名
 
@@ -177,7 +177,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 - **定義**: アプリごとに設定する、最新タグの判定対象とするソースリポジトリ側のブランチ。
 - **表記ゆれ**: 要件定義の初期検討段階（`docs/history/requirements-grilling.md`）では「追跡対象ブランチ」という表記もあったが、確定版の`docs/requirements.md`では「追跡ブランチ」に統一されている。
 - **`branchToSync`という名前を据え置く理由**: YAMLキーとコード上のフィールド名（`AppConfig.branchToSync`）が
-  一致しており、「YAMLキーと型フィールドで語幹を違えない」という規約に違反していない。`branchRef`とは
+  一致しており、「YAMLキーと型フィールドで語幹を違えない」という規約に違反していない。`helmBranchRef`とは
   キー名が異なるため、同じキー名を別の意味に使う衝突も無い。
 
 ### タグ形式
@@ -333,7 +333,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 - **英語識別子**: `HelmBranchRefUpdate`（`location: AnchorLocation`・`currentBranch: BranchName`の2フィールド）
 - **定義**: Helmの向き先ブランチのうち1箇所分の更新内容。`currentBranch`は`values.yaml`側の現在値。
-  新しい値は`ConfigUnit.helm.branchRef`（`versions.yaml`の`branchRef`）からその都度取るため、
+  新しい値は`ConfigUnit.helm.branchRef`（`versions.yaml`の`helmBranchRef`）からその都度取るため、
   `HelmBranchRefUpdate`自体は新しい値のフィールドを持たない。`ConfigUnitUpdateTarget.helmBranchRefUpdates`
   の要素になる。
 - **`location`という短いフィールド名にする理由**: 「イメージタグの更新」の項を参照

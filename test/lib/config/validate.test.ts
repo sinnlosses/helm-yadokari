@@ -36,7 +36,7 @@ describe("loadConfig（設定ユニットと registry.yaml の appSpecs[] の紐
       ]),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "branchRef: r\nbranchToSync:\n  app-1: main\n  app-2: main\n",
+      versions: "helmBranchRef: r\nbranchToSync:\n  app-1: main\n  app-2: main\n",
       locations:
         "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: v\n",
     })
@@ -53,7 +53,7 @@ describe("loadConfig（設定ユニットと registry.yaml の appSpecs[] の紐
       ]),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "branchRef: r\nbranchToSync:\n  app-1: main\n",
+      versions: "helmBranchRef: r\nbranchToSync:\n  app-1: main\n",
       locations:
         "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: v\n  app-2:\n    - valuesPath: a.yaml\n      anchor: w\n",
     })
@@ -206,7 +206,7 @@ describe("loadConfig（重複指定の検証）", () => {
           },
         ],
         {
-          branchRef: "release/2026-q1",
+          helmBranchRef: "release/2026-q1",
           locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
         },
       ),

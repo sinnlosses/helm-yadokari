@@ -64,7 +64,7 @@ const DEV_TAG = "main-build-at-20251231-000000"
 /** QA appの追跡ブランチ`develop`のHEADを指すタグ名（`shared-app`が書き込む新タグ） */
 const QA_NEW_TAG_DEVELOP = "develop-build-at-20260102-030000"
 
-/** 4つの設定ユニットの `versions.yaml` に書かれている `branchRef`（4つとも同じ値） */
+/** 4つの設定ユニットの `versions.yaml` に書かれている `helmBranchRef`（4つとも同じ値） */
 const NEW_HELM_BRANCH = "release/2026-q1"
 /** `charts/smoke-tenant2/client1/values.yaml` の `t2c1HelmTargetBranch` の現在値 */
 const OLD_HELM_BRANCH = "release/2025-q4"
@@ -281,7 +281,7 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
 
     // イメージタグは新しいタグへ書き換わる
     expect(values.content).toContain(`&t2c1QaSprintVersion ${QA_NEW_TAG}`)
-    // Helmの向き先ブランチは versions.yaml の branchRef へ書き換わる
+    // Helmの向き先ブランチは versions.yaml の helmBranchRef へ書き換わる
     expect(values.content).toContain(`&t2c1HelmTargetBranch ${NEW_HELM_BRANCH}`)
     // HEAD一致で据え置きになるアプリは元の値のまま
     expect(values.content).toContain(`&t2c1DevelopClientVersion ${DEV_TAG}`)

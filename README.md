@@ -203,7 +203,7 @@ config/
   このchartリポジトリの操作に使うアクセストークンの環境変数名を、`group`（必須）で
   このchartリポジトリとソースリポジトリが属するGitLabグループのフルパスを宣言します（詳細は
   「[複数グループで運用する](#複数グループで運用する)」）。
-- `versions.yaml` は設定ユニット単位で、Helmの向き先ブランチ（`branchRef`）と、
+- `versions.yaml` は設定ユニット単位で、Helmの向き先ブランチ（`helmBranchRef`）と、
   どのブランチを追跡するか（app名をキーにした `branchToSync`）を持ちます。
 - `locations.yaml` は設定ユニット単位で、`values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
   書き込むかを持ちます（Helmの向き先ブランチの書き込み先 `helm` と、app名をキーにした `apps`）。
@@ -217,7 +217,7 @@ config/
 Helmの向き先ブランチとは、values.yaml のパラメータを受け取ってk8sリソースを実際に構築する
 ブランチのことです。`mrTargetBranch`（値定義ブランチ。MRの作成先）とは別物で、このブランチへの
 追従・更新もMRの対象に含まれます。chartリポジトリはこの2ブランチ構成であることが前提のため、
-`branchRef`（`versions.yaml`）と `helm`（`locations.yaml`）は**必須**です。
+`helmBranchRef`（`versions.yaml`）と `helm`（`locations.yaml`）は**必須**です。
 
 - `versions.yaml` と `locations.yaml` が両方あるディレクトリが1つの設定ユニット（MRを作る単位）です。
   片方しかないディレクトリは設定エラーになります。
@@ -247,7 +247,7 @@ appSpecs:
 
 ```yaml
 # versions.yaml
-branchRef: helm-main # Helmの向き先ブランチ（values.yamlを受け取ってk8sリソースを構築するブランチ）。必須
+helmBranchRef: helm-main # Helmの向き先ブランチ（values.yamlを受け取ってk8sリソースを構築するブランチ）。必須
 branchToSync: # app名（registry.yaml の appSpecs[].projectName）をキーにした追跡ブランチ
   my-app: main
 ```

@@ -84,9 +84,9 @@ projectIdは別のGitLabインスタンス・別のフィクスチャで検証�
   `anchor-app` 用。**`helmVersion` はこのツールが読み書きしないアンカー**だが、chartリポジトリ側の
   実物にあるものなので、`setup` の上書きで消さないようシード内容にも含めている
 
-向き先ブランチのアンカーは全ユニットで必須（`versions.yaml`の`branchRef`と`locations.yaml`の`helm`は必須フィールド）。
+向き先ブランチのアンカーは全ユニットで必須（`versions.yaml`の`helmBranchRef`と`locations.yaml`の`helm`は必須フィールド）。
 `t2c1HelmTargetBranch` と `t2c1HelmTargetBranchExtra` だけシード値が `main` で、残りは
-`release/2026-q1`（＝`versions.yaml`の`branchRef`と同じ値）をシードするので差分が出ない。
+`release/2026-q1`（＝`versions.yaml`の`helmBranchRef`と同じ値）をシードするので差分が出ない。
 
 ### chartリポジトリ 2 に必要なもの
 
@@ -309,7 +309,7 @@ pnpm dev
 - `config/yadokari-smoke-test-chart-b/registry.yaml` … 新規。`chartToUpdate`にchartリポジトリB、
   `appSpecs[]`にソースリポジトリB、トップレベルに `accessTokenEnv: ACCESS_TOKEN_SMOKE_B` と
   `group`（`groupId` + `groupName`。中身は`provision-group.ts`が最後に表示する）
-- `config/yadokari-smoke-test-chart-b/smoke-b-app/versions.yaml` … 新規。`branchRef`と、
+- `config/yadokari-smoke-test-chart-b/smoke-b-app/versions.yaml` … 新規。`helmBranchRef`と、
   `sample-smoke-b-app`をキーにした`branchToSync`
 - `config/yadokari-smoke-test-chart-b/smoke-b-app/locations.yaml` … 新規。`helm[]`と
   `apps.sample-smoke-b-app[]`に`smokeBHelmTargetBranch` / `smokeBAppVersion`を登録

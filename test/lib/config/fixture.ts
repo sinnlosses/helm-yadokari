@@ -117,11 +117,11 @@ export type ConfigAppFixture = {
 }
 
 /**
- * Helmの向き先ブランチ1件分。`branchRef`・`locations`を省略するとそのキーごとYAMLに出さないので、
+ * Helmの向き先ブランチ1件分。`helmBranchRef`・`locations`を省略するとそのキーごとYAMLに出さないので、
  * 片方だけ書いた設定エラーの検証にも使える
  */
 export type ConfigHelmFixture = {
-  readonly branchRef?: string
+  readonly helmBranchRef?: string
   readonly locations?: readonly AnchorLocationFixture[]
 }
 
@@ -140,7 +140,8 @@ export function configUnitFiles(
   apps: readonly ConfigAppFixture[] = [],
   helm: ConfigHelmFixture = defaultHelm(apps),
 ): ConfigUnitFiles {
-  const branchRefLine = helm.branchRef === undefined ? "" : `branchRef: ${helm.branchRef}\n`
+  const helmBranchRefLine =
+    helm.helmBranchRef === undefined ? "" : `helmBranchRef: ${helm.helmBranchRef}\n`
   const branchToSync =
     apps.length === 0
       ? "branchToSync: {}\n"
@@ -155,7 +156,7 @@ export function configUnitFiles(
     apps.length === 0
       ? "apps: {}\n"
       : `apps:\n${apps.map((app) => `  ${app.projectName}:\n${locationsBlock(app.locations, "    ")}`).join("")}`
-  return { versions: branchRefLine + branchToSync, locations: helmBlock + appsBlock }
+  return { versions: helmBranchRefLine + branchToSync, locations: helmBlock + appsBlock }
 }
 
 /** `apps`が書き込む全`valuesPath`を1つのアンカー名でカバーする`helm`（appsが空なら1件だけ置く） */
@@ -163,7 +164,7 @@ function defaultHelm(apps: readonly ConfigAppFixture[]): ConfigHelmFixture {
   const valuesPaths = [...new Set(apps.flatMap((app) => app.locations.map((l) => l.valuesPath)))]
   const covered = valuesPaths.length === 0 ? ["values.yaml"] : valuesPaths
   return {
-    branchRef: "release/2026-q1",
+    helmBranchRef: "release/2026-q1",
     locations: covered.map((valuesPath) => ({ valuesPath, anchor: "defaultHelmTargetBranch" })),
   }
 }

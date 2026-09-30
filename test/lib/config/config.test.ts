@@ -548,7 +548,7 @@ describe("loadConfig（helm）", () => {
             locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
         ],
-        { branchRef: "release/2026-q1", locations: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] },
+        { helmBranchRef: "release/2026-q1", locations: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] },
       ),
     )
 
@@ -569,14 +569,14 @@ describe("loadConfig（helm）", () => {
     )
     // `configUnitFiles()` は省略時に既定の helm を補うので、helm が無い状態はYAMLを直接書く
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "branchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n",
+      versions: "helmBranchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n",
       locations: "apps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: appVersion\n",
     })
 
     expect(() => loadConfig(dir.path)).toThrow("helm は必須です")
   })
 
-  it("branchRefはあるがhelmが無いとき例外をスローする", () => {
+  it("helmBranchRefはあるがhelmが無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -595,14 +595,14 @@ describe("loadConfig（helm）", () => {
             locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
         ],
-        { branchRef: "release/2026-q1" },
+        { helmBranchRef: "release/2026-q1" },
       ),
     )
 
     expect(() => loadConfig(dir.path)).toThrow("helm は必須です")
   })
 
-  it("helmはあるがbranchRefが無いとき例外をスローする", () => {
+  it("helmはあるがhelmBranchRefが無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -622,7 +622,7 @@ describe("loadConfig（helm）", () => {
       ], { locations: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] }),
     )
 
-    expect(() => loadConfig(dir.path)).toThrow("branchRef は必須です")
+    expect(() => loadConfig(dir.path)).toThrow("helmBranchRef は必須です")
   })
 
   it("helmが空配列のとき例外をスローする", () => {
@@ -644,7 +644,7 @@ describe("loadConfig（helm）", () => {
             locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
         ],
-        { branchRef: "release/2026-q1", locations: [] },
+        { helmBranchRef: "release/2026-q1", locations: [] },
       ),
     )
 
@@ -678,7 +678,7 @@ describe("loadConfig（helm）", () => {
             locations: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
           },
         ],
-        { branchRef: "release/2026-q1", locations: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] },
+        { helmBranchRef: "release/2026-q1", locations: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] },
       ),
     )
 
@@ -713,7 +713,7 @@ describe("loadConfig（helm）", () => {
           },
         ],
         {
-          branchRef: "release/2026-q1",
+          helmBranchRef: "release/2026-q1",
           locations: [
             { valuesPath: "a.yaml", anchor: "targetBranchA" },
             { valuesPath: "b.yaml", anchor: "targetBranchB" },
@@ -752,7 +752,7 @@ describe("loadConfig（helm）", () => {
           },
         ],
         {
-          branchRef: "release/2026-q1",
+          helmBranchRef: "release/2026-q1",
           locations: [
             { valuesPath: "webapi.yaml", anchor: "webapiTargetBranch" },
             { valuesPath: "batch.yaml", anchor: "batchTargetBranch" },

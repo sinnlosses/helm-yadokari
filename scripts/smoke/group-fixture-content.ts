@@ -64,7 +64,9 @@ export function buildRegistryYamlContent(
 /** config/<CHART_DIR_NAME>/<CONFIG_UNIT_DIR>/versions.yaml の中身 */
 export function buildVersionsYamlContent(): string {
   return (
-    `branchRef: ${HELM_TARGET_BRANCH}\n` + `branchToSync:\n` + `  ${SOURCE_PROJECT_NAME}: main\n`
+    `helmBranchRef: ${HELM_TARGET_BRANCH}\n` +
+    `branchToSync:\n` +
+    `  ${SOURCE_PROJECT_NAME}: main\n`
   )
 }
 

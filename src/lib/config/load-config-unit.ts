@@ -137,7 +137,7 @@ function buildConfigUnit(
     unitPath,
     chartRepo: chart,
     apps: appConfigs,
-    helm: resolveHelmConfig(locationsYamlPath, versions.branchRef, locations.helm, appConfigs),
+    helm: resolveHelmConfig(locationsYamlPath, versions.helmBranchRef, locations.helm, appConfigs),
     accessTokenEnv,
     groupId,
     groupName,
@@ -164,9 +164,9 @@ function validateSameAppNames(
 }
 
 /**
- * `versions.yaml`の`branchRef`と`locations.yaml`の`helm[]`から、設定ユニット単位の`HelmConfig`を作る。
+ * `versions.yaml`の`helmBranchRef`と`locations.yaml`の`helm[]`から、設定ユニット単位の`HelmConfig`を作る。
  *
- * `branchRef`＝書き込む値、`helm[]`＝書き込み先の`valuesPath`+`anchor`一覧。
+ * `helmBranchRef`（引数`branchRef`）＝書き込む値、`helm[]`＝書き込み先の`valuesPath`+`anchor`一覧。
  * Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提なので、
  * appごとに振り分けず設定ユニット単位で1つだけ持つ。
  *

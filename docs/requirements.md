@@ -246,7 +246,7 @@ config/
 | ファイル         | スコープ        | 持つもの                                                                                                                                                                                                                        |
 | ---------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `registry.yaml`  | chartリポジトリ | MRの作成先（`chartToUpdate`）、ソースリポジトリの台帳（`appSpecs[]`の`projectId`・`projectName`・`tagFormat`）、操作に使うアクセストークンの宣言（`accessTokenEnv`）、所属グループの宣言（`group.groupId` / `group.groupName`） |
-| `versions.yaml`  | 設定ユニット    | どのブランチを追跡するか（`branchToSync`）とHelmの向き先ブランチ（`branchRef`）。よく触る値                                                                                                                                     |
+| `versions.yaml`  | 設定ユニット    | どのブランチを追跡するか（`branchToSync`）とHelmの向き先ブランチ（`helmBranchRef`）。よく触る値                                                                                                                                 |
 | `locations.yaml` | 設定ユニット    | `values.yaml`のどこへ書き込むか（`helm[]`と`apps`の`locations`）。あまり触らない値                                                                                                                                              |
 
 設定ユニット側のappは`projectName`をキーにしたマップで参照し、`projectId`は`registry.yaml`の
@@ -282,7 +282,7 @@ appSpecs: # このchartリポジトリ配下の設定ユニットが追跡する
 
 ```yaml
 # versions.yaml
-branchRef: release/2026-q1 # Helmの向き先ブランチ（必須）
+helmBranchRef: release/2026-q1 # Helmの向き先ブランチ（必須）
 branchToSync: # app名（registry.yamlのappSpecs[].projectName）をキーにした追跡ブランチ
   my-app: main # 設定ユニットごとに違ってよい
   another-app: main
@@ -428,16 +428,16 @@ apps: # versions.yamlのbranchToSyncと同じapp名のキー集合にする
 **Helmの向き先ブランチ**（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
 ブランチ。既存の`mrTargetBranch`＝値定義ブランチとは別物）の追従・更新も、このMRの対象に含める:
 
-`versions.yaml`の`branchRef`と`locations.yaml`の`helm[]`が、設定ユニット単位に1件ずつの
+`versions.yaml`の`helmBranchRef`と`locations.yaml`の`helm[]`が、設定ユニット単位に1件ずつの
 Helmの向き先ブランチの設定になる（YAMLの例は上の`versions.yaml`・`locations.yaml`）。
 
 - Helmの向き先ブランチは**必須**とする。chartリポジトリは「`values.yaml`等のパラメータを定義するブランチ」と
   「そのパラメータを受け取ってk8sリソースを構築するブランチ」の2ブランチ構成である、というのが
   この運用の前提だからで、設定ユニットごとに向き先ブランチを1件書くのが常態になる。
-  `versions.yaml`の`branchRef`と`locations.yaml`の`helm[]`のどちらが欠けても設定エラー。
-  向き先ブランチを更新したくない設定ユニットは、`branchRef`に現在の値と同じブランチ名を
+  `versions.yaml`の`helmBranchRef`と`locations.yaml`の`helm[]`のどちらが欠けても設定エラー。
+  向き先ブランチを更新したくない設定ユニットは、`helmBranchRef`に現在の値と同じブランチ名を
   書けば差分が出ないので更新されない
-- `branchRef`はchartリポジトリ内の別ブランチ（`registry.yaml`の`chartToUpdate.projectId`と
+- `helmBranchRef`はchartリポジトリ内の別ブランチ（`registry.yaml`の`chartToUpdate.projectId`と
   同一プロジェクト）を指す、設定ユニット単位に1件の値。人間が自己申告方式で直接書き換える
   運用とし、タグ形式のような自動生成・自動判定の仕組みは持たない
 - `helm[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、`apps`配下の書き込み先とは独立した
