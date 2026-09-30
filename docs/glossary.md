@@ -134,6 +134,8 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 - **表記ゆれ**: YAMLキーは2026-09-12に`helm.branchName`から`helm.branchRef`へ改名した
   （その前は`helm.branchToSync`）。その後、設定ユニットの2ファイル分割で`versions.yaml`の
   トップレベルの`branchRef`になった。古い設定ファイル・過去のログを読むときは読み替える。
+  さらに2026-09-30に`versions.yaml`のキーを`branchRef`から`helmBranchRef`へ改名した
+  （コード上の`HelmConfig.branchRef`は改名していない）。
 - **`AppConfig.branchToSync`（追跡ブランチ）との関係**: YAMLキー名は`versions.yaml`の`helmBranchRef`と
   `appBranchToSync`で別々になっており、コード側も`HelmConfig.branchRef`と
   `AppConfig.branchToSync`で名前が分かれている。指しているものも別（前者はk8sリソースを
