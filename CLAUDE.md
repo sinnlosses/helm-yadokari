@@ -124,8 +124,10 @@ Spec軸（`docs/requirements.md`）を参照。
 
 ## 導入済みスキル
 
-スキルは**ユーザー単位**（`~/.claude/skills/`）に置いてあり、このリポジトリには含まれない
-（導入方法は上の「セットアップ / 環境構築」。一覧は毎セッションのスキル案内を参照）。
+下の一覧のうち `register-chart` 以外は**ユーザー単位**（`~/.claude/skills/`）に置いてあり、
+このリポジトリには含まれない（導入方法は上の「セットアップ / 環境構築」。一覧は毎セッションの
+スキル案内を参照）。`register-chart` だけはプロジェクト単位（`.claude/skills/`）にあり、この
+リポジトリを clone するだけで使える。
 ユーザー単位スキルはプロジェクト単位の同名スキルより優先されるので、このリポジトリ側で
 同名スキルを置いて上書きすることはできない。プロジェクト差分は CLAUDE.md の
 「タスク運用」節で表す。
@@ -143,6 +145,10 @@ Spec軸（`docs/requirements.md`）を参照。
   - `setup-tasks`・`retrospect`: 運用の用意と、1件ごとの振り返りの物差し
 - `maintenance-docs`: `docs/`（`history/` 以外）・`README.md`・`CLAUDE.md` を検査にかけ、
   実物とのズレ・重複・読みにくい構造を直す。正典を書き換えたあとの追随漏れを洗うのにも使う
+- `register-chart`（プロジェクト単位）: 手元に clone した chart リポジトリから `config/` の
+  `registry.yaml`・`versions.yaml`・`locations.yaml` を下書きし、`pnpm lint:validate-config` まで
+  通す。新しい chart ディレクトリの生成と、既存の chart ディレクトリへの設定ユニット・app の追加を
+  扱う。`/register-chart` で呼ぶ
 
 ## Git運用
 

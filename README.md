@@ -224,6 +224,8 @@ Helmの向き先ブランチとは、values.yaml のパラメータを受け取�
 - 階層は**深さ1〜2**で、同じchartリポジトリの配下に深さ1と深さ2を混在させられます
   - 深さ0（`registry.yaml` と同じ階層）・深さ3以上はいずれも設定エラーになります。
 - 設定のサンプルは[`config.example/`](./config.example/README.md)にあります。
+- Claude Code を使うなら、`/register-chart`（[`.claude/skills/register-chart/`](./.claude/skills/register-chart/SKILL.md)）で
+  手元に clone した chart リポジトリの values ファイルから3種のファイルを下書きできます。
 
 最小構成の例（必須フィールドのみ）:
 
@@ -437,6 +439,7 @@ GITLAB_URL=https://gitlab.example.com ACCESS_TOKEN_TEAM_A=<token> pnpm start
 ├── config.example/         # config/ のコピー用サンプル（実行対象ではない）
 ├── docs/                   # 要件定義・アーキテクチャ・用語集など
 ├── develop/                # 進捗管理（task/・direction.md）。機能には関係しない作業用
+├── .claude/skills/         # このリポジトリ固有の Claude Code スキル（register-chart）
 ├── .gitlab-ci.yml          # CI ジョブ定義
 └── package.json
 ```
