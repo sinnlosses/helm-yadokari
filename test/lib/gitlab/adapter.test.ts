@@ -24,7 +24,11 @@ import {
   listTagsAtCommit,
   openMergeRequestExists,
 } from "../../../src/lib/gitlab/api.js"
-import { extractHttpStatus, isFatalError } from "../../../src/lib/gitlab/errors.js"
+import {
+  describeFailedRequest,
+  extractHttpStatus,
+  isFatalError,
+} from "../../../src/lib/gitlab/errors.js"
 import { buildCompareUrl, buildTagUrl } from "../../../src/lib/gitlab/web-url.js"
 
 const gitlab = {} as unknown as GitlabClient
@@ -100,5 +104,6 @@ describe("createGitlabAdapter", () => {
     const adapter = createGitlabAdapter(gitlab)
     expect(adapter.isFatalError).toBe(isFatalError)
     expect(adapter.extractHttpStatus).toBe(extractHttpStatus)
+    expect(adapter.describeFailedRequest).toBe(describeFailedRequest)
   })
 })

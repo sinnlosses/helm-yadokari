@@ -161,6 +161,20 @@ describe("buildPlans", () => {
     ).rejects.toThrow(FatalError)
   })
 
+  it("アプリ単位の処理中の FatalError の context に、アプリと設定ユニットの識別情報が入る", async () => {
+    vi.mocked(adapter.getFileContent).mockRejectedValue(makeHttpError(503))
+    const targets = [makeConfigUnit([makeApp()])]
+    await expect(
+      buildPlans(makeAdapterWithCachedReads(adapter), targets, makeResolvedTags(targets), 3, false),
+    ).rejects.toMatchObject({
+      context: {
+        appProjectName: "my-app",
+        chartDirName: "teamA-chart",
+        unitPath: "tenant1/client1",
+      },
+    })
+  })
+
   it("非fatalなAPIエラーのときsettledにERRORとして入り、reasonにエラーの内容が入る", async () => {
     vi.mocked(adapter.getFileContent).mockRejectedValue(makeHttpError(403))
     const targets = [makeConfigUnit([makeApp()])]

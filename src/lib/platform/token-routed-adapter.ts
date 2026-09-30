@@ -59,6 +59,7 @@ export function createTokenRoutedAdapter(
     buildCompareUrl: representative.buildCompareUrl,
     isFatalError: representative.isFatalError,
     extractHttpStatus: representative.extractHttpStatus,
+    describeFailedRequest: representative.describeFailedRequest,
   }
 }
 

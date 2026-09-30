@@ -95,6 +95,18 @@ describe("filterTargets", () => {
     )
   })
 
+  it("FatalError の context に chart リポジトリと設定ユニットの識別情報が入る", async () => {
+    vi.mocked(adapter.openMergeRequestExists).mockRejectedValue(makeHttpError(503))
+    await expect(filterTargets(adapter, [makeConfigUnit([makeApp()])], 3)).rejects.toMatchObject({
+      context: {
+        chartDirName: "teamA-chart",
+        unitPath: "tenant1/client1",
+        chartProjectId: "100",
+        chartProjectName: "teamA-chart",
+      },
+    })
+  })
+
   it("非fatalなAPIエラーのときsettledにERRORとして入る", async () => {
     vi.mocked(adapter.openMergeRequestExists).mockRejectedValue(makeHttpError(403))
     const { targets, settled } = await filterTargets(adapter, [makeConfigUnit([makeApp()])], 3)

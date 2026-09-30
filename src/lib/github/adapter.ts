@@ -13,7 +13,7 @@ import {
   listTagsAtCommit,
   openMergeRequestExists,
 } from "./api.js"
-import { extractHttpStatus, isFatalError } from "./errors.js"
+import { describeFailedRequest, extractHttpStatus, isFatalError } from "./errors.js"
 import { buildCompareUrl, buildTagUrl } from "./web-url.js"
 
 /**
@@ -43,5 +43,6 @@ export function createGithubAdapter(github: GithubClient): PlatformAdapter {
     buildCompareUrl,
     isFatalError,
     extractHttpStatus,
+    describeFailedRequest,
   }
 }

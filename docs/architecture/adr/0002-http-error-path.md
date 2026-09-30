@@ -9,7 +9,7 @@
 `errors.ts`・`api.ts`は、GitHubで動かすときは`lib/github/errors.ts`・`lib/github/api.ts`に
 読み替える（`withGitlabRetry()`↔`withGithubRetry()`、`createGitlabAdapter()`↔`createGithubAdapter()`）。
 
-**`steps/`は`isFatalError()`・`extractHttpStatus()`を直接importしない。** どちらも`PlatformAdapter`
+**`steps/`は`isFatalError()`・`extractHttpStatus()`・`describeFailedRequest()`を直接importしない。** いずれも`PlatformAdapter`
 （`lib/platform/adapter.ts`）の関数として渡り、`step-outcome.ts`は`adapter.isFatalError(err)`と
 尋ねる。`PlatformAdapter`はAPI呼び出しだけの表ではなく「プラットフォームごとに違って`steps/`が必要とする
 もの」の表で、URLの組み立て（`buildTagUrl`）と並んでエラー分類が載る。1つの表にまとめてあるので、
@@ -25,11 +25,15 @@
    `maxAttempts`で打ち切る（`src/utils/retry.ts`の既定は`maxAttempts` 3・`baseDelayMs` 1000）。
    待ち時間は既定では`baseDelayMs * 2 ** (attempt - 1)`だが、`retryDelayMs`が値を返した回は
    その値になる（GitHubの`retry-after`。`withRetry()`自身はヘッダを知らない）
-3. 抜けてきた例外は`lib/`の外へ出て、途中で`withAppContext()`がアプリ名を前置する（次節）
-4. `withHandling()`が捕まえて`settleAsError()`に渡す。`platform.isFatalError()`が真なら
-   `new FatalError(platform.extractHttpStatus(err), err)`を投げ、偽なら`httpStatus`とメッセージを
-   `result: "ERROR"`としてログに出し、`ConfigUnitUpdateResult`の`"ERROR"`を返す
-5. `FatalError`は`src/index.ts`まで上がり、`event: "fatal_error"`をログに出して`exit(1)`
+3. 抜けてきた例外は`lib/`の外へ出て、途中で`withAppContext()`がアプリ名を前置する（次節）。
+   `platform.isFatalError()`が真なら前置せず、アプリ名と`platform.describeFailedRequest()`を
+   `context`に持つ`FatalError`にして投げる
+4. `withHandling()`が捕まえて`settleAsError()`に渡す。3で`FatalError`になっていれば設定ユニットの
+   識別情報を`context`に足して投げ直す。そうでなく`platform.isFatalError()`が真なら、設定ユニットの
+   識別情報と`platform.describeFailedRequest()`を`context`に持つ`FatalError`を投げ、偽なら
+   `httpStatus`とメッセージを`result: "ERROR"`としてログに出し、`ConfigUnitUpdateResult`の`"ERROR"`を返す
+5. `FatalError`は`src/index.ts`まで上がり、`event: "fatal_error"`に`context`と`cause`をつないだ
+   スタックを載せてログに出し、`exit(1)`
 
 **401は1・2の外側で読み替わる。** `createTokenRoutedAdapter()`
 （`lib/platform/token-routed-adapter.ts`）が`ProjectId`でトークンのアダプタを引き当てて呼び、そのアダプタが
@@ -39,8 +43,8 @@
 
 **`resolveTags()`の失敗だけは4に入るのが遅れる。** 3の後で`settleApp()`が捕まえて`AppOutcome`の
 `failed`にし、`buildPlans()`が引き当てのたびに投げ直してから4に入る。1回の解決の失敗を、その
-アプリを含む**すべての**設定ユニットのERRORにするための遠回りで、fatalかどうかの判定だけは
-`settleApp()`側でも行うため即時終了は遅れない。
+アプリを含む**すべての**設定ユニットのERRORにするための遠回りで、fatalは3で`FatalError`に
+なっていて`settleApp()`がそのまま投げ直すため即時終了は遅れない。
 
 **404と403の読み替えは`lib/<プラットフォーム>/`の内側で完結する**。`withNotFoundFallback()`が既定値に
 変えるのは404だけで、403は変換せずそのまま上がる（`isFatalError()`も403をfatalにしない。トークンが

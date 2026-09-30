@@ -4,7 +4,7 @@
  * **gitbeakerのエラーの形を知っているのはこのファイルだけ**で、
  * `utils/`にはこの知識を置かない（原則2）。方針は`docs/architecture/adr/0001-two-channel-error-handling.md`。
  *
- * @gitbeaker/rest がスローするエラー構造 (Error → cause.response.status)、
+ * @gitbeaker/rest がスローするエラー構造 (Error → cause.response.status、cause.request.method/url)、
  * その内部の fetch がネットワーク障害時に投げる構造 (TypeError: fetch failed → cause.code)、
  * タイムアウト時のエラー名 (GitbeakerTimeoutError)、
  * 内部リトライを使い切ったときのエラー名とそのメッセージ (GitbeakerRetryError → "last status code:N
@@ -48,6 +48,15 @@ export function extractHttpStatus(error: unknown): number | undefined {
   return typeof status === "number" ? status : undefined
 }
 
+/** `cause.request`（fetchの`Request`）の`method`と`url`だけを読む。トークンはヘッダ側にある */
+export function describeFailedRequest(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return undefined
+  const { cause } = error
+  if (typeof cause !== "object" || cause === null) return undefined
+  if (!hasKey(cause, "request")) return undefined
+  return formatRequest(cause.request)
+}
+
 export function isNotFoundError(error: unknown): boolean {
   return extractHttpStatus(error) === 404
 }
@@ -84,6 +93,13 @@ export function isRetryableError(error: unknown): boolean {
 
 function hasKey<K extends string>(obj: object, key: K): obj is Record<K, unknown> {
   return key in obj
+}
+
+function formatRequest(request: unknown): string | undefined {
+  if (typeof request !== "object" || request === null) return undefined
+  if (!hasKey(request, "method") || !hasKey(request, "url")) return undefined
+  const { method, url } = request
+  return typeof method === "string" && typeof url === "string" ? `${method} ${url}` : undefined
 }
 
 // 403 はトークンが特定プロジェクトへのアクセス権を持たない場合に発生しうるため fatal 扱いしない。

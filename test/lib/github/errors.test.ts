@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  describeFailedRequest,
   extractHttpStatus,
   isFatalError,
   isNotFoundError,
@@ -43,6 +44,25 @@ describe("extractHttpStatus", () => {
     // GitLab版とGitHub版でエラーの形が違うことの確認。取り違えるとすべての分類が黙って外れる
     expect(
       extractHttpStatus(new Error("oops", { cause: { response: { status: 404 } } })),
+    ).toBeUndefined()
+  })
+})
+
+describe("describeFailedRequest", () => {
+  it("request のメソッドとURLを返す", () => {
+    const url = "https://api.github.com/repos/my-org/my-app/git/refs"
+    const err = Object.assign(makeHttpError(500), {
+      request: { method: "POST", url, headers: { authorization: "token [REDACTED]" } },
+    })
+
+    expect(describeFailedRequest(err)).toBe(`POST ${url}`)
+  })
+
+  it("request が無い・形が違うときは undefined を返す", () => {
+    expect(describeFailedRequest("string")).toBeUndefined()
+    expect(describeFailedRequest(makeHttpError(500))).toBeUndefined()
+    expect(
+      describeFailedRequest(Object.assign(new Error("oops"), { request: { url: 1 } })),
     ).toBeUndefined()
   })
 })

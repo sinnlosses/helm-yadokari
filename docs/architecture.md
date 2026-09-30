@@ -133,7 +133,7 @@ sed -n '/^### 型の置き場所/,/^#\{2,3\} /p' docs/architecture.md
 
 | ファイル                           | 責務                                                                                                                                                                                            |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `platform/adapter.ts`              | `PlatformAdapter`型（GitLab/GitHubの15エントリを並べた関数テーブル。`steps/`はこれだけを受け取り、クライアントの型を知らない）。API呼び出しに加えエラー分類（`isFatalError`等）も持つ           |
+| `platform/adapter.ts`              | `PlatformAdapter`型（GitLab/GitHubの16エントリを並べた関数テーブル。`steps/`はこれだけを受け取り、クライアントの型を知らない）。API呼び出しに加えエラー分類（`isFatalError`等）も持つ           |
 | `platform/cached-reads.ts`         | `CachedReads`と`withCachedReads()`。バッチ1回を通して使い回す`PlatformAdapter`読み取りのキャッシュを`PlatformAdapterWithCachedReads.cached`として入れ子にする。キャッシュしてよい読み取りの一覧 |
 | `platform/token-routed-adapter.ts` | `createTokenRoutedAdapter()`。`ProjectId`ごとに宣言されたトークンのアダプタへ振り分け、宣言トークンの401だけをそのchartリポジトリの設定ユニットの`ERROR`に読み替える                            |
 | `gitlab/api.ts`                    | `@gitbeaker/rest` のラッパー（retry・404フォールバック）。外部I/Oはここだけ。**GitLab専用**                                                                                                     |
@@ -181,7 +181,7 @@ helm-yadokari が何を扱っているかを表す**語彙**（ドメイン型�
 | `cache.ts`                                          | 並列向けに実行中のPromiseを共有するキャッシュ（`getOrFetchShared()`）と、引数からキーを組み立てて読み取り1つをキャッシュ付きの関数にする`cacheByArgs()` |
 | `fs.ts`                                             | パストラバーサル検証・サブディレクトリ列挙                                                                                                              |
 | `yaml.ts`                                           | YAMLファイル読み込み + Zodバリデーション                                                                                                                |
-| `errors.ts` / `retry.ts` / `timer.ts` / `logger.ts` | カスタムエラーと例外→文字列の変換・指数バックオフ（再試行の可否は引数で受け取る）・実行時間計測・構造化ログ                                             |
+| `errors.ts` / `retry.ts` / `timer.ts` / `logger.ts` | カスタムエラーと例外→文字列・`cause`をつないだスタックへの変換・指数バックオフ（再試行の可否は引数で受け取る）・実行時間計測・構造化ログ                |
 
 ## 新しいコードを置く場所
 
@@ -423,6 +423,10 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 トークンの401は、そのchartリポジトリの設定ユニットの`ERROR`に読み替えられて実行は止まらない
 （読み替える場所と理由は`docs/architecture/adr/0033-access-token-per-chart-repo.md`）。ここで言う即時終了に当たるのは、トークンに依らない5xx・ネットワーク障害・
 タイムアウト。
+
+`FatalError`は落ちた地点の文脈を`context`に持つ。`steps/shared/step-outcome.ts`がアプリ単位
+（`withAppContext()`）、設定ユニット単位（`withHandling()`）の順に足し、`src/index.ts`が
+`fatal_error`のログ行に広げる。
 
 ### その他
 

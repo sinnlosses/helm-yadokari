@@ -26,7 +26,7 @@ import {
   toValuesPath,
 } from "../src/domain/types.js"
 import type { GitlabClient } from "../src/lib/gitlab/api.js"
-import { extractHttpStatus, isFatalError } from "../src/lib/gitlab/errors.js"
+import { describeFailedRequest, extractHttpStatus, isFatalError } from "../src/lib/gitlab/errors.js"
 import type { PlatformAdapter } from "../src/lib/platform/adapter.js"
 import type { PlatformAdapterWithCachedReads } from "../src/lib/platform/cached-reads.js"
 import { withCachedReads } from "../src/lib/platform/cached-reads.js"
@@ -49,7 +49,7 @@ export const mockGitlab = {} as unknown as GitlabClient
  * 各テストは`vi.mocked(adapter.X)`でその場ごとに返り値・実装を差し替えられる。
  * `overrides`は個別の関数を丸ごと差し替えたいとき（稀）に使う。
  *
- * エラー分類の2関数だけは`vi.fn()`にせずGitLab版の実物を入れる。`makeHttpError()`が組み立てるのが
+ * エラー分類の3関数だけは`vi.fn()`にせずGitLab版の実物を入れる。`makeHttpError()`が組み立てるのが
  * gitbeaker形のエラーで、`steps/`のテストが確かめたいのは「401はFatalError、403はERROR」という
  * 振り分けそのものだからである。
  */
@@ -70,6 +70,7 @@ export function makeAdapter(overrides: Partial<PlatformAdapter> = {}): PlatformA
     buildCompareUrl: vi.fn(),
     isFatalError,
     extractHttpStatus,
+    describeFailedRequest,
     ...overrides,
   }
 }

@@ -157,6 +157,30 @@ flowchart TD
 
 上は絞り込み無しの実行例です。`TARGET_CHART` / `TARGET_UNITS` を指定すると、`run_start` に `targetChart` / `targetUnits` が載ります。`platformUrl` は `PLATFORM` に応じて `GITLAB_URL` / `GITHUB_URL` のどちらかの値になります。
 
+致命的エラー（5xx・ネットワーク障害など）で止まった実行はレポートを書き出さないため、落ちた箇所は次の `fatal_error` 行で追います（実際は1行。ここでは改行し、`stack` の途中を省略しています）。
+
+```json
+{
+  "level": "error",
+  "timestamp": "2026-09-02T00:00:00.300Z",
+  "event": "fatal_error",
+  "httpStatus": 500,
+  "message": "Internal Server Error",
+  "appProjectName": "my-app",
+  "request": "GET https://gitlab.example.com/api/v4/projects/123/repository/tags/main-build-at-20260902-090000",
+  "chartDirName": "teamA-chart",
+  "unitPath": "my-group/my-unit",
+  "chartProjectId": 888,
+  "chartProjectName": "teamA-chart",
+  "stack": "FatalError: Internal Server Error\n    at ...\nCaused by: GitbeakerRequestError: Internal Server Error\n    at ..."
+}
+```
+
+- `chartDirName`・`unitPath`・`chartProjectId`・`chartProjectName`: 処理中だった設定ユニット。最新タグの解決（設定ユニットより前に、アプリ単位でまとめて行う）で落ちたときは載りません
+- `appProjectName`: アプリ単位の処理中に落ちたときのアプリ
+- `request`: 失敗したリクエストのメソッドとURL。応答の無い失敗（タイムアウト・ネットワーク障害など）では載りません
+- `stack`: 例外のスタックに、`cause` のスタックを `Caused by:` でつないだもの。`unhandled_error` 行にも載ります
+
 ## 設定
 
 ### 環境変数

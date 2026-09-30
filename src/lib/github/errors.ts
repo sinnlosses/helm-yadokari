@@ -36,6 +36,20 @@ export function extractHttpStatus(error: unknown): number | undefined {
 }
 
 /**
+ * `RequestError.request`の`method`と`url`だけを読む。URLの`access_token`・`client_secret`は
+ * Octokitが伏字にしてある
+ */
+export function describeFailedRequest(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return undefined
+  if (!hasKey(error, "request")) return undefined
+  const { request } = error
+  if (typeof request !== "object" || request === null) return undefined
+  if (!hasKey(request, "method") || !hasKey(request, "url")) return undefined
+  const { method, url } = request
+  return typeof method === "string" && typeof url === "string" ? `${method} ${url}` : undefined
+}
+
+/**
  * 対象が存在しないことを表すエラーか。
  *
  * **GitHubはトークンに権限が無いリソースも404で返す**ため、この判定が true でも「存在しない」

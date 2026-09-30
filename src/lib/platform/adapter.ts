@@ -101,4 +101,10 @@ export type PlatformAdapter = {
 
   /** 捕捉した例外からHTTPステータスを読む。読めない場合は undefined（ログと`FatalError`に載せる） */
   readonly extractHttpStatus: (error: unknown) => number | undefined
+
+  /**
+   * 捕捉した例外から、失敗したHTTPリクエストを`"<METHOD> <URL>"`の形で読む。応答の無い失敗
+   * （タイムアウト・ネットワーク障害など）では undefined。ヘッダは読まない
+   */
+  readonly describeFailedRequest: (error: unknown) => string | undefined
 }

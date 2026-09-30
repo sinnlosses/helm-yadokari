@@ -148,7 +148,7 @@ describe("createTokenRoutedAdapter", () => {
     expect((err as Error).message).toMatch(/ACCESS_TOKEN_TEAM_C/)
   })
 
-  it("buildTagUrl・buildCompareUrl・isFatalError・extractHttpStatusは表の先頭を代表にする", () => {
+  it("buildTagUrl・buildCompareUrl・isFatalError・extractHttpStatus・describeFailedRequestは表の先頭を代表にする", () => {
     const teamBAdapter = makeAdapter()
     const teamCAdapter = makeAdapter()
     const projectId = toProjectId("2")
@@ -168,5 +168,6 @@ describe("createTokenRoutedAdapter", () => {
     expect(adapter.buildCompareUrl).toBe(teamBAdapter.buildCompareUrl)
     expect(adapter.isFatalError).toBe(teamBAdapter.isFatalError)
     expect(adapter.extractHttpStatus).toBe(teamBAdapter.extractHttpStatus)
+    expect(adapter.describeFailedRequest).toBe(teamBAdapter.describeFailedRequest)
   })
 })

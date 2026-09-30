@@ -59,8 +59,33 @@ describe("index", () => {
     )
   })
 
+  it("FatalError の context とスタック（cause を含む）を fatal_error に載せ、トークンは出さない", async () => {
+    const { FatalError } = await import("../src/utils/errors.js")
+    const request = new Request("https://gitlab.example.com/api/v4/projects/42/repository/tags", {
+      headers: { "PRIVATE-TOKEN": "glpat-secret-token" },
+    })
+    const cause = new Error("Internal Server Error", {
+      cause: { description: "Internal Server Error", request, response: { status: 500 } },
+    })
+    runMock.mockRejectedValue(
+      new FatalError(500, cause, { chartDirName: "teamA-chart", unitPath: "tenant1/client1" }),
+    )
+
+    expect(await importIndexAndWaitForExit()).toBe(1)
+    const fields = loggerMock.error.mock.calls[0]?.[0]
+    expect(fields).toMatchObject({
+      event: "fatal_error",
+      httpStatus: 500,
+      chartDirName: "teamA-chart",
+      unitPath: "tenant1/client1",
+    })
+    expect(fields.stack).toContain("FatalError: Internal Server Error")
+    expect(fields.stack).toContain("Caused by: Error: Internal Server Error")
+    expect(JSON.stringify(fields)).not.toContain("glpat-secret-token")
+  })
+
   it("環境変数の読み込みの失敗も unhandled_error として記録し終了コード1で終わる", async () => {
-    loadEnvConfigMock.mockImplementation(() => {
+    loadEnvConfigMock.mockImplementationOnce(() => {
       throw new Error("GITLAB_URL が未設定です")
     })
 
@@ -77,5 +102,14 @@ describe("index", () => {
     expect(loggerMock.error).toHaveBeenCalledWith(
       expect.objectContaining({ event: "unhandled_error" }),
     )
+  })
+
+  it("unhandled_error にスタック（cause を含む）を載せる", async () => {
+    runMock.mockRejectedValue(new Error("想定外", { cause: new Error("内側の原因") }))
+
+    expect(await importIndexAndWaitForExit()).toBe(1)
+    const fields = loggerMock.error.mock.calls[0]?.[0]
+    expect(fields.stack).toContain("Error: 想定外")
+    expect(fields.stack).toContain("Caused by: Error: 内側の原因")
   })
 })

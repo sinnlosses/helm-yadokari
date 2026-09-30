@@ -88,13 +88,13 @@ export function settleApp<T>(
 ): Promise<AppOutcome<T>> {
   return withAppContext(adapter, projectName, fn).then(
     (value): AppOutcome<T> => ({ status: "ok", value }),
-    (err: unknown) => failApp<T>(adapter, err),
+    (err: unknown) => failApp<T>(err),
   )
 }
 
 /**
  * アプリ単位の処理を実行し、非fatalな例外に「どのアプリで起きたか」を付けて投げ直す。
- * 致命的エラーはそのまま投げる（アプリ名を付けない）。
+ * 致命的エラーは`FatalError`にし、アプリ名を`context`に付けて投げる。
  */
 export function withAppContext<T>(
   adapter: PlatformAdapter,
@@ -130,14 +130,13 @@ export function withHandling<T>(
 }
 
 /**
- * `settleApp()`が捕捉した例外を`AppOutcome`に変換する。
+ * `settleApp()`が捕捉した例外を`AppOutcome`に変換する。`FatalError`は投げ直す。
  *
- * fatalかどうかの判定は`settleAsError()`と同じで、
- * こちらは設定ユニットが決まっていないためログを出さない。
+ * 設定ユニットが決まっていないためログを出さない。
  * `withAppContext()`が例外でない値をそのまま投げうるので、`Error`に揃えてから値にする。
  */
-function failApp<T>(adapter: PlatformAdapter, err: unknown): AppOutcome<T> {
-  if (adapter.isFatalError(err)) throw new FatalError(adapter.extractHttpStatus(err), err)
+function failApp<T>(err: unknown): AppOutcome<T> {
+  if (err instanceof FatalError) throw err
   return { status: "failed", error: err instanceof Error ? err : new Error(toErrorMessage(err)) }
 }
 
@@ -148,18 +147,22 @@ function failApp<T>(adapter: PlatformAdapter, err: unknown): AppOutcome<T> {
  * 原因のアプリがログから特定できないと調査できないことへの対策。`withAppContext()`の内部実装であり、
  * 外からは直接呼ばない。
  *
- * 致命的エラー（5xx / ネットワーク障害）は**包まずにそのまま投げる**。
+ * 致命的エラー（5xx / ネットワーク障害）は**包まずにここで`FatalError`へ昇格させる**。
  * 判定は元の例外の構造（gitbeakerなら`cause.response.status`、Octokitなら`status`）を読むため、
- * `new Error(..., { cause })`で包むとその構造が1段深くなり、
- * `FatalError`に昇格できなくなるためである。この関数と`settleAsError()`が同じ
- * `adapter.isFatalError()`に尋ねることで、包む・包まないの境目と昇格の境目がずれないようにしている。
+ * `new Error(..., { cause })`で包むとその構造が1段深くなり、外側で昇格できなくなる。
  */
 function rethrowWithAppContext(
   adapter: PlatformAdapter,
   err: unknown,
   projectName: ProjectName,
 ): never {
-  if (adapter.isFatalError(err) || !(err instanceof Error)) throw err
+  if (adapter.isFatalError(err)) {
+    throw new FatalError(adapter.extractHttpStatus(err), err, {
+      appProjectName: projectName,
+      request: adapter.describeFailedRequest(err),
+    })
+  }
+  if (!(err instanceof Error)) throw err
   throw new Error(`[アプリ: ${projectName}] ${err.message}`, { cause: err })
 }
 
@@ -167,7 +170,8 @@ function rethrowWithAppContext(
  * step内で捕捉した例外を、このツールのエラー方針に従って処理する。
  *
  * - 5xx / ネットワーク障害（`adapter.isFatalError()`）は全設定ユニット共通の致命的エラーなので
- *   `FatalError`として投げ直し、実行全体を即時終了させる（この関数は値を返さない）
+ *   `FatalError`として投げ直し、実行全体を即時終了させる（この関数は値を返さない）。
+ *   `withAppContext()`が昇格済みの`FatalError`には、設定ユニットの識別情報を足して投げ直す
  * - それ以外は該当設定ユニットのみ`ERROR`として記録し、他の設定ユニットの処理は続行する
  *
  * 方針そのものを1箇所に置くための関数。外からは直接ではなく`withHandling()`経由で呼ぶ。
@@ -177,10 +181,27 @@ function settleAsError(
   err: unknown,
   logContext: ConfigUnitLogContext,
 ): ConfigUnitUpdateOutcome {
-  if (adapter.isFatalError(err)) throw new FatalError(adapter.extractHttpStatus(err), err)
+  const unitContext = toFatalContext(logContext)
+  if (err instanceof FatalError) throw err.withContext(unitContext)
+  if (adapter.isFatalError(err)) {
+    throw new FatalError(adapter.extractHttpStatus(err), err, {
+      ...unitContext,
+      request: adapter.describeFailedRequest(err),
+    })
+  }
   const reason = `httpStatus: ${adapter.extractHttpStatus(err)}, message: ${toErrorMessage(err)}`
   logger.error({ ...logContext, result: "ERROR", reason })
   return { result: "ERROR", reason }
+}
+
+/** `fatal_error`のログ行に載せる、設定ユニットの識別情報（`event`を除いたもの） */
+function toFatalContext(logContext: ConfigUnitLogContext): Readonly<Record<string, unknown>> {
+  return {
+    chartDirName: logContext.chartDirName,
+    unitPath: logContext.unitPath,
+    chartProjectId: logContext.chartProjectId,
+    chartProjectName: logContext.chartProjectName,
+  }
 }
 
 /**

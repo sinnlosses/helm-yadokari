@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  describeFailedRequest,
   extractHttpStatus,
   isFatalError,
   isNotFoundError,
@@ -41,6 +42,27 @@ describe("extractHttpStatus", () => {
     expect(extractHttpStatus(makeHttpError(404))).toBe(404)
     expect(extractHttpStatus(makeHttpError(401))).toBe(401)
     expect(extractHttpStatus(makeHttpError(500))).toBe(500)
+  })
+})
+
+describe("describeFailedRequest", () => {
+  it("cause.request のメソッドとURLを返し、ヘッダのトークンは含めない", () => {
+    const url = "https://gitlab.example.com/api/v4/projects/42/repository/branches/main"
+    const request = new Request(url, { headers: { "PRIVATE-TOKEN": "glpat-secret-token" } })
+    const err = new Error("boom", { cause: { request, response: { status: 500 } } })
+
+    const described = describeFailedRequest(err)
+
+    expect(described).toBe(`GET ${url}`)
+    expect(described).not.toContain("glpat-secret-token")
+  })
+
+  it("cause.request が無い・形が違うときは undefined を返す", () => {
+    expect(describeFailedRequest("string")).toBeUndefined()
+    expect(describeFailedRequest(makeHttpError(500))).toBeUndefined()
+    expect(
+      describeFailedRequest(new Error("oops", { cause: { request: { method: 1 } } })),
+    ).toBeUndefined()
   })
 })
 

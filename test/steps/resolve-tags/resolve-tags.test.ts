@@ -140,4 +140,12 @@ describe("resolveTags（解決の失敗）", () => {
       FatalError,
     )
   })
+
+  it("FatalError の context にアプリ名が入る", async () => {
+    vi.mocked(adapter.listTagsAtCommit).mockRejectedValue(makeHttpError(503))
+
+    await expect(
+      resolveTags(adapter, [makeConfigUnit([makeApp()])], 3, false),
+    ).rejects.toMatchObject({ context: { appProjectName: "my-app" } })
+  })
 })

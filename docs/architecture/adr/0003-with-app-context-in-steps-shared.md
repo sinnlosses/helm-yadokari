@@ -14,7 +14,7 @@
 - **`collect-mr-entries.ts`を対象外にしない**。設定ユニットはオールオアナッシングでERRORになるため、
   「どのアプリで落ちたか」が要るのはアプリ単位の処理を持つ箇所すべてで同じ。ここは
   `getLatestPipelineForRef()`のリトライ後の失敗と`getProjectWebUrl()`の前提崩れが該当する
-- **`build-plans/`へ移さない**。移すと、`rethrowWithAppContext()`が持つ「fatalは包まない」判断が
+- **`build-plans/`へ移さない**。移すと、`rethrowWithAppContext()`が持つ「fatalは包まずに`FatalError`へ昇格させる」判断が
   `settleAsError()`と別ファイルに離れ、エラー方針の変更漏れを招く。「複数stepから呼ばれる」ことは
   `steps/shared/`に置く理由ではないが、**エラー方針の一体性**がここに置く理由になる
 - サブステップが`steps/shared/`をimportするのは、サブステップ同士のimport禁止（下記）には

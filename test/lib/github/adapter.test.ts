@@ -24,7 +24,11 @@ import {
   listTagsAtCommit,
   openMergeRequestExists,
 } from "../../../src/lib/github/api.js"
-import { extractHttpStatus, isFatalError } from "../../../src/lib/github/errors.js"
+import {
+  describeFailedRequest,
+  extractHttpStatus,
+  isFatalError,
+} from "../../../src/lib/github/errors.js"
 import { buildCompareUrl, buildTagUrl } from "../../../src/lib/github/web-url.js"
 
 const github = {} as unknown as GithubClient
@@ -100,5 +104,6 @@ describe("createGithubAdapter", () => {
     const adapter = createGithubAdapter(github)
     expect(adapter.isFatalError).toBe(isFatalError)
     expect(adapter.extractHttpStatus).toBe(extractHttpStatus)
+    expect(adapter.describeFailedRequest).toBe(describeFailedRequest)
   })
 })
