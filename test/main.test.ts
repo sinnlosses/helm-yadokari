@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("../src/lib/gitlab/api.js")
 vi.mock("../src/lib/github/api.js")
@@ -35,11 +36,9 @@ import {
 } from "../src/lib/gitlab/api.js"
 import { run } from "../src/main.js"
 import { FatalError } from "../src/utils/errors.js"
-import { makeApp, makeConfigUnit, makeHttpError, mockGitlab } from "./helpers.js"
+import { makeApp, makeConfigUnit, makeHttpError, mockGitlab, useTmpDir } from "./helpers.js"
 
-/** このファイル専用の一時出力先。`REPORT_OUTPUT_PATH`の実在チェックはcwd()配下限定のため相対パスにする */
-const REPORT_OUTPUT_DIR = "test-tmp-report-main"
-const REPORT_OUTPUT_PATH = toReportOutputPath(`${REPORT_OUTPUT_DIR}/report.md`)
+const reportDir = useTmpDir()
 
 /** `makeConfigUnit()`の既定の宣言。`run()`はこの名前のCI/CD変数からトークンを読む */
 const TEAM_A = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_A")
@@ -48,7 +47,10 @@ const env: EnvConfig = {
   platform: "gitlab",
   platformUrl: toPlatformUrl("https://gitlab.test"),
   configRootPath: DEFAULT_CONFIG_ROOT_PATH,
-  reportOutputPath: REPORT_OUTPUT_PATH,
+  // テストごとに作り直す一時ディレクトリを指すため、読むたびに組み立てる
+  get reportOutputPath() {
+    return toReportOutputPath(join(reportDir.relativePath, "report.md"))
+  },
   concurrencyLimit: 3,
   dryRun: false,
   targetChart: undefined,
@@ -74,10 +76,6 @@ describe("run", () => {
     vi.mocked(createMergeRequest).mockResolvedValue(
       toPlatformUrl("https://gitlab.test/group/chart/-/merge_requests/1"),
     )
-  })
-
-  afterEach(() => {
-    rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
   })
 
   /** summary イベントに載った設定ユニット単位の件数 */
@@ -129,7 +127,7 @@ describe("run", () => {
     })
     vi.mocked(listTagsAtCommit).mockRejectedValue(makeHttpError(500))
     await expect(run(env)).rejects.toThrow(FatalError)
-    expect(existsSync(REPORT_OUTPUT_PATH)).toBe(false)
+    expect(existsSync(env.reportOutputPath)).toBe(false)
   })
 
   it("実行後、件数サマリと設定ユニット1件につき1行の表を含むMarkdownレポートを書き出す", async () => {
@@ -139,8 +137,8 @@ describe("run", () => {
     })
     await run(env)
 
-    expect(existsSync(REPORT_OUTPUT_PATH)).toBe(true)
-    const markdown = readFileSync(REPORT_OUTPUT_PATH, "utf-8")
+    expect(existsSync(env.reportOutputPath)).toBe(true)
+    const markdown = readFileSync(env.reportOutputPath, "utf-8")
     expect(markdown).toContain("- dryRun: false")
     expect(markdown).toContain("- 件数: CREATED 2 / SKIPPED 0 / ERROR 0")
     expect(markdown).toContain("| chart | unit | 結果 | 理由 | MR |")
@@ -246,10 +244,6 @@ describe("run（PLATFORMによる実装の切り替え）", () => {
   beforeEach(() => {
     vi.stubEnv(TEAM_A, "test-token")
     vi.mocked(loadConfig).mockReturnValue({ configUnits: [], accessTokenEnvNames: [TEAM_A] })
-  })
-
-  afterEach(() => {
-    rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
   })
 
   it('PLATFORM="gitlab"（既定）のとき、GitLab側のcreateClientだけを使う', async () => {

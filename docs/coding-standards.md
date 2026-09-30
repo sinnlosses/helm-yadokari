@@ -313,6 +313,10 @@ top-level await が使えるため `await` + `try`/`catch` で書く。`try` が
   モックする
 - 非公開関数（`buildPlan()` 等）は、エクスポートされた関数の振る舞いを通して検証する。
   テストのためだけの `export` を足さない（上の「関数の並び順」節と同じ規約。例外もそちら）
+- モックの呼び出し履歴と環境変数は `vitest.config.ts` の `clearMocks`・`unstubEnvs` が
+  テストごとに戻すので、各ファイルに `afterEach` の後始末を書かない。環境変数は
+  `process.env` を直接書き換えず `vi.stubEnv` で差し替える。使い捨てディレクトリは
+  `test/helpers.ts` の `useTmpDir()` を使う
 
 ### カバレッジに閾値を設けない
 

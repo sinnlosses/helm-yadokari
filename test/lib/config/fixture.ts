@@ -7,8 +7,8 @@ import { useTmpDir } from "../../helpers.js"
 
 /**
  * `loadConfig()` のテスト用に、テストごとの使い捨て `config/` ディレクトリを用意する。
- * `beforeEach`/`afterEach` の登録も行うので、テストファイル側は
- * `const dir = useConfigDir()` と書くだけでよい。
+ * 作成・削除は `useTmpDir()` が行うので、テストファイル側は `const dir = useConfigDir()` と
+ * 書くだけでよい。
  */
 export type ConfigDir = {
   /** 現在のテスト用ディレクトリの絶対パス */

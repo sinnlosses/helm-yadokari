@@ -112,8 +112,7 @@ describe("parseConfigRootPath", () => {
   })
 
   it("実在するディレクトリを指定したときそのまま返す", () => {
-    const relativePath = tmpDir.relativePath
-    expect(parseConfigRootPath(relativePath)).toBe(relativePath)
+    expect(parseConfigRootPath(tmpDir.relativePath)).toBe(tmpDir.relativePath)
   })
 
   it("パストラバーサルのとき例外をスローし、メッセージに CONFIG_ROOT_PATH と指定値を含む", () => {

@@ -1,6 +1,7 @@
-import { readFileSync, rmSync } from "node:fs"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 // 「config/ のYAML実ファイル → loadConfig() → 3ステップ → コミットされる values.yaml の
 // 中身・MRタイトル・MR本文」という連結を通す唯一のテスト（docs/coding-standards.md
@@ -31,7 +32,7 @@ import {
 } from "../src/domain/types.js"
 import type { EnvConfig } from "../src/lib/env.js"
 import { run } from "../src/main.js"
-import { makeHttpError } from "./helpers.js"
+import { makeHttpError, useTmpDir } from "./helpers.js"
 
 /** `config/yadokari-smoke-test-chart/registry.yaml` の projectId */
 const CHART_PROJECT_ID = "86061211"
@@ -99,14 +100,16 @@ const VALUES_YAML_SHARED_APP =
   `  - &sharedQaSprintVersion ${QA_OLD_VALUE}\n` +
   `  - &sharedHelmTargetBranch ${NEW_HELM_BRANCH}\n`
 
-/** このファイル専用の一時出力先。`REPORT_OUTPUT_PATH`の実在チェックはcwd()配下限定のため相対パスにする */
-const REPORT_OUTPUT_DIR = "test-tmp-report-e2e"
+const reportDir = useTmpDir()
 
 const env: EnvConfig = {
   platform: "gitlab",
   platformUrl: toPlatformUrl("https://gitlab.test"),
   configRootPath: toConfigRootPath("config"),
-  reportOutputPath: toReportOutputPath(`${REPORT_OUTPUT_DIR}/report.md`),
+  // テストごとに作り直す一時ディレクトリを指すため、読むたびに組み立てる
+  get reportOutputPath() {
+    return toReportOutputPath(join(reportDir.relativePath, "report.md"))
+  },
   concurrencyLimit: 3,
   dryRun: false,
   targetChart: undefined,
@@ -225,15 +228,11 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
     } as never)
   })
 
-  afterEach(() => {
-    rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
-  })
-
   it("config/ 全件で、設定ユニット単位に1つずつMRが作られる（深さ1・深さ2・複数chartリポジトリが混在）", async () => {
     await expect(run(env)).resolves.toBe("SUCCESS")
 
     expect(gitlab.MergeRequests.create).toHaveBeenCalledTimes(4)
-    expect(readFileSync(`${REPORT_OUTPUT_DIR}/report.md`, "utf-8")).toContain(
+    expect(readFileSync(env.reportOutputPath, "utf-8")).toContain(
       "https://gitlab.test/g/chart/-/merge_requests/1",
     )
 

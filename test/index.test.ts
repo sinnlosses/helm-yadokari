@@ -8,6 +8,8 @@ const { loadEnvConfigMock, runMock, loggerMock } = vi.hoisted(() => ({
 
 vi.mock("../src/lib/env.js", () => ({ loadEnvConfig: loadEnvConfigMock }))
 vi.mock("../src/main.js", () => ({ run: runMock }))
+// `vi.resetModules()` で読み直すたびに自動モックの logger は作り直されるため、アサーションで
+// 参照できるよう hoisted の固定インスタンスを返す
 vi.mock("../src/utils/logger.js", () => ({ logger: loggerMock }))
 
 /**

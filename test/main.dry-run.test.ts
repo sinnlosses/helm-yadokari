@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 // GitLabクライアントの生成そのものを通したいので、`src/lib/gitlab/api.js` ではなく
 // **gitbeaker の境界**でモックする（`main.test.ts` と同居できないのはモックの範囲が違うため）。
@@ -16,22 +17,23 @@ import { toAccessTokenEnvName, toPlatformUrl, toReportOutputPath } from "../src/
 import { DEFAULT_CONFIG_ROOT_PATH, loadConfig } from "../src/lib/config/config.js"
 import type { EnvConfig } from "../src/lib/env.js"
 import { run } from "../src/main.js"
-import { makeApp, makeConfigUnit } from "./helpers.js"
+import { makeApp, makeConfigUnit, useTmpDir } from "./helpers.js"
 
 const OLD_TAG = "main-build-at-20251231-000000"
 
 /** `makeConfigUnit()`の既定の宣言。`run()`はこの名前のCI/CD変数からトークンを読む */
 const TEAM_A = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_A")
 
-/** このファイル専用の一時出力先。`REPORT_OUTPUT_PATH`の実在チェックはcwd()配下限定のため相対パスにする */
-const REPORT_OUTPUT_DIR = "test-tmp-report-dry-run"
-const REPORT_OUTPUT_PATH = toReportOutputPath(`${REPORT_OUTPUT_DIR}/report.md`)
+const reportDir = useTmpDir()
 
 const env: EnvConfig = {
   platform: "gitlab",
   platformUrl: toPlatformUrl("https://gitlab.test"),
   configRootPath: DEFAULT_CONFIG_ROOT_PATH,
-  reportOutputPath: REPORT_OUTPUT_PATH,
+  // テストごとに作り直す一時ディレクトリを指すため、読むたびに組み立てる
+  get reportOutputPath() {
+    return toReportOutputPath(join(reportDir.relativePath, "report.md"))
+  },
   concurrencyLimit: 3,
   dryRun: true,
   targetChart: undefined,
@@ -97,15 +99,11 @@ describe("run（DRY_RUN=true）", () => {
     })
   })
 
-  afterEach(() => {
-    rmSync(REPORT_OUTPUT_DIR, { recursive: true, force: true })
-  })
-
   it("dryRunでもレポートを書き出す（headerにdryRun: trueが載る）", async () => {
     await expect(run(env)).resolves.toBe("SUCCESS")
 
-    expect(existsSync(REPORT_OUTPUT_PATH)).toBe(true)
-    expect(readFileSync(REPORT_OUTPUT_PATH, "utf-8")).toContain("- dryRun: true")
+    expect(existsSync(env.reportOutputPath)).toBe(true)
+    expect(readFileSync(env.reportOutputPath, "utf-8")).toContain("- dryRun: true")
   })
 
   it("GitLabの状態を変える呼び出しが1つも起きない", async () => {
