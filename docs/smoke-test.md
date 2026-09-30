@@ -74,8 +74,8 @@ projectIdは別のGitLabインスタンス・別のフィクスチャで検証�
   （`t2c1QaSprintVersion` / `t2c1DevelopClientVersion` / `t2c1HelmTargetBranch`）
 - `charts/smoke-tenant2/client1/values-extra.yaml` … アンカー2つ
   （`t2c1QaSprintVersionExtra` / `t2c1HelmTargetBranchExtra`）。**1つのappが複数の
-  `valuesPath` に書き込む**シナリオ用。`apps[].locations[]` に2件目を足すと、その `valuesPath` は
-  `helm.locations[]` にも必要になる（全appのvaluesPathがカバーされていないと設定エラー）ため、
+  `valuesPath` に書き込む**シナリオ用。`locations.yaml`の`apps.<app名>[]`に2件目を足すと、その `valuesPath` は
+  `helm[]` にも必要になる（全appのvaluesPathがカバーされていないと設定エラー）ため、
   向き先ブランチのアンカーも同じファイルに置く
 - `charts/smoke-tenant2/client2/values.yaml` … アンカー3つ
   （`t2c2QaSprintVersion` / `t2c2DevelopClientVersion` / `t2c2HelmTargetBranch`）
@@ -84,9 +84,9 @@ projectIdは別のGitLabインスタンス・別のフィクスチャで検証�
   `anchor-app` 用。**`helmVersion` はこのツールが読み書きしないアンカー**だが、chartリポジトリ側の
   実物にあるものなので、`setup` の上書きで消さないようシード内容にも含めている
 
-向き先ブランチのアンカーは全ユニットで必須（`config.yaml`の`helm`は必須フィールド）。
+向き先ブランチのアンカーは全ユニットで必須（`versions.yaml`の`branchRef`と`locations.yaml`の`helm`は必須フィールド）。
 `t2c1HelmTargetBranch` と `t2c1HelmTargetBranchExtra` だけシード値が `main` で、残りは
-`release/2026-q1`（＝`helm.branchRef`と同じ値）をシードするので差分が出ない。
+`release/2026-q1`（＝`versions.yaml`の`branchRef`と同じ値）をシードするので差分が出ない。
 
 ### chartリポジトリ 2 に必要なもの
 
@@ -175,7 +175,7 @@ npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path 
 # 問題なければ --apply を付けて実行する。最後に表示される内容を控える:
 #   グループID・chartプロジェクトID・ソースプロジェクトID・
 #   （--skip-tokenを付けない場合のみ）トークン値・.envに追記する行（ACCESS_TOKEN_SMOKE_B=...）・
-#   config/yadokari-smoke-test-chart-b/ に置くregistry.yaml・smoke-b-app/config.yamlの中身
+#   config/yadokari-smoke-test-chart-b/ に置くregistry.yaml・smoke-b-app/versions.yaml・locations.yamlの中身
 npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path <group-b> \
   --use-existing-group --skip-token --apply
 ```
@@ -187,7 +187,7 @@ npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path 
 | chartリポジトリ B         | `<group-b>/yadokari-smoke-test-chart-b` | private・デフォルトブランチ `main` |
 | ソースリポジトリ（app B） | `<group-b>/sample-smoke-b-app`          | **1つで足りる**（下記）            |
 
-- ソースリポジトリは**1つで足りる**。`apps[]`・`appSpecs[]`の重複禁止は1ファイル内の重複
+- ソースリポジトリは**1つで足りる**。`appSpecs[]`の`projectId`の重複禁止は1ファイル内の重複
   （`validateNoDuplicateProjectIds()`）を指すだけで、グループBに複数appを揃える理由にならない。
   パス5が確かめたいのは「別グループ・別トークンの設定ユニットが独立して成功/失敗する」ことで、
   1app・1設定ユニットで示せる
@@ -198,7 +198,8 @@ npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path 
   `{branch}-build-at-{date}-{time}` で揃える（appごとに違えてよいが、揃えない理由が無いため）
 
 表示された `config/yadokari-smoke-test-chart-b/registry.yaml` と
-`config/yadokari-smoke-test-chart-b/smoke-b-app/config.yaml` の中身をそのままそのパスに置く。
+`config/yadokari-smoke-test-chart-b/smoke-b-app/versions.yaml` と
+`config/yadokari-smoke-test-chart-b/smoke-b-app/locations.yaml` の中身をそのままそのパスに置く。
 
 **トークン**は Group Access Token をグループA用・グループB用に1本ずつ発行する（スコープ・
 ロール・有効期限の考え方はREADME
@@ -308,8 +309,10 @@ pnpm dev
 - `config/yadokari-smoke-test-chart-b/registry.yaml` … 新規。`chartToUpdate`にchartリポジトリB、
   `appSpecs[]`にソースリポジトリB、トップレベルに `accessTokenEnv: ACCESS_TOKEN_SMOKE_B` と
   `group`（`groupId` + `groupName`。中身は`provision-group.ts`が最後に表示する）
-- `config/yadokari-smoke-test-chart-b/smoke-b-app/config.yaml` … 新規。`helm.locations[]`と
-  `apps[].locations[]`に`smokeBHelmTargetBranch` / `smokeBAppVersion`を登録
+- `config/yadokari-smoke-test-chart-b/smoke-b-app/versions.yaml` … 新規。`branchRef`と、
+  `sample-smoke-b-app`をキーにした`branchToSync`
+- `config/yadokari-smoke-test-chart-b/smoke-b-app/locations.yaml` … 新規。`helm[]`と
+  `apps.sample-smoke-b-app[]`に`smokeBHelmTargetBranch` / `smokeBAppVersion`を登録
 
 トークンを不正にする操作は`.env`を書き換えず**コマンド行で上書き**する
 （`tsx --env-file`は既に設定済みの環境変数を上書きしないため）。

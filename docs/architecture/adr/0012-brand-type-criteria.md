@@ -8,7 +8,7 @@
 生成は必ずfactory関数（`toProjectId`等）を通す。形式の検証を付けるかは値ごとに決めてよい
 （外部から受け取った値をそのまま比較するだけなら不要）。
 
-ローカルのファイルシステムパス（`config/`配下のディレクトリ・`registry.yaml`・`config.yaml`など、
+ローカルのファイルシステムパス（`config/`配下のディレクトリ・`registry.yaml`・`versions.yaml`・`locations.yaml`など、
 `readFileSync`・`existsSync`・`readdirSync`に渡る値）は`LocalPath`にする。`join()`で
 `ConfigUnitPath`（識別子）と同じ式に並ぶため、この基準に該当する。GitLab上のパスを表す
 `ValuesPath`（chart内での相対パス）とは別の型で、`LocalPath`にはしない。パスの種類ごとに

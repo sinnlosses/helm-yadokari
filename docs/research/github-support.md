@@ -34,7 +34,7 @@
 `lib/gitlab/` を差し替えるだけでは済まず、呼び出し側まで波及する3点。**着手するならここが先**。
 
 - **`ProjectId = number`**（`src/types/brand.ts`）— GitHubのREST APIは `owner/repo` で資源を指す。
-  数値のブランド型のままでは表せない。`registry.yaml` / `config.yaml` の `projectId` が
+  数値のブランド型のままでは表せない。`registry.yaml` の `projectId` が
   `z.number().int()`（`src/lib/config/schema.ts`）なので、**設定ファイルの破壊的変更**を伴う
 - **`GitLabUrl` ブランド型**（`src/types/brand.ts`）— `types/types.ts` の `PipelineInfo.webUrl`、
   `lib/env.ts` の `gitlabUrl`、`steps/apply-updates/sub-steps/build-mr-content.ts` が使う。
