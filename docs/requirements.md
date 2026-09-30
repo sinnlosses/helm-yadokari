@@ -329,6 +329,7 @@ apps: # versions.yamlのbranchToSyncと同じapp名のキー集合にする
   なる。`tagFormat`が引けないため最新タグを判定できない
 - `versions.yaml`の`branchToSync`と`locations.yaml`の`apps`は、app名のキー集合が一致していなければ
   設定エラーになる。片方にしか無いappは、追跡ブランチと書き込み先の一方が欠けて更新できない
+- `registry.yaml`・`versions.yaml`・`locations.yaml`の全階層（`group`・`chartToUpdate`・`appSpecs[]`・`helm[]`・`apps.<app名>[]`の要素を含む）で、知らないキーは設定エラーになる。書き間違いや、キーを書くファイルの取り違え（`versions.yaml`に`helm:`を書くなど）が黙って無視されないようにするため。エラーにはファイル名と知らないキーの名前・階層が出る。YAMLのコメントはキーではないので影響しない
 - `versions.yaml`と`locations.yaml`は両方そろって初めて設定ユニットになり、片方しか無い
   ディレクトリは設定エラーになる
 - 同じ`registry.yaml`の`appSpecs[]`で`projectName`が重複している場合は設定エラーになる。

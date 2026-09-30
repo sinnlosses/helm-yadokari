@@ -350,3 +350,66 @@ describe("loadConfig（projectIdの数値/文字列両対応）", () => {
     expect(configUnits[0]?.apps[0]?.projectId).toBe("owner/repo")
   })
 })
+
+describe("loadConfig（知らないキー）", () => {
+  const REGISTRY = registryYaml(
+    { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
+    [{ projectId: 1, projectName: "app-1" }],
+  )
+  const VERSIONS = "branchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n"
+  const LOCATIONS =
+    "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: appVersion\n"
+
+  const load = (files: { registry?: string; versions?: string; locations?: string }) => {
+    dir.writeRegistryYaml("teamA-chart", files.registry ?? REGISTRY)
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
+      versions: files.versions ?? VERSIONS,
+      locations: files.locations ?? LOCATIONS,
+    })
+    return loadConfig(dir.path)
+  }
+
+  it("正常な設定は読める（下のテストの土台）", () => {
+    expect(() => load({})).not.toThrow()
+  })
+
+  it.each([
+    ["registry.yaml のトップレベル", { registry: REGISTRY + "extra: 1\n" }, "registry.yaml"],
+    [
+      "registry.yaml の group",
+      { registry: REGISTRY.replace("  groupName:", "  extra: 1\n  groupName:") },
+      "registry.yaml",
+    ],
+    [
+      "registry.yaml の chartToUpdate",
+      { registry: REGISTRY.replace("  mrTargetBranch:", "  extra: 1\n  mrTargetBranch:") },
+      "registry.yaml",
+    ],
+    [
+      "registry.yaml の appSpecs[]",
+      { registry: REGISTRY.replace("    tagFormat:", "    extra: 1\n    tagFormat:") },
+      "registry.yaml",
+    ],
+    ["versions.yaml のトップレベル", { versions: VERSIONS + "extra: 1\n" }, "versions.yaml"],
+    ["locations.yaml のトップレベル", { locations: LOCATIONS + "extra: 1\n" }, "locations.yaml"],
+    [
+      "locations.yaml の helm[]",
+      { locations: LOCATIONS.replace("    anchor: t\n", "    anchor: t\n    extra: 1\n") },
+      "locations.yaml",
+    ],
+    [
+      "locations.yaml の apps.<app>[]",
+      { locations: LOCATIONS.replace("      anchor: appVersion\n", "      anchor: appVersion\n      extra: 1\n") },
+      "locations.yaml",
+    ],
+  ])("%s に知らないキーがあると設定エラーになる", (_label, files, fileName) => {
+    expect(() => load(files)).toThrow(fileName)
+    expect(() => load(files)).toThrow("extra")
+  })
+
+  it("versions.yaml に helm: を書く（キーを書くファイルの取り違え）と設定エラーになる", () => {
+    const versions = VERSIONS + "helm:\n  - valuesPath: a.yaml\n    anchor: t\n"
+    expect(() => load({ versions })).toThrow("versions.yaml")
+    expect(() => load({ versions })).toThrow("helm")
+  })
+})

@@ -16,6 +16,7 @@ import {
 /**
  * `config/` の3種のファイル（`registry.yaml` / `versions.yaml` / `locations.yaml`）のZodスキーマ。
  * スキーマの仕様（何をどう書くか）は `docs/requirements.md` 4.4節が正典。
+ * 知らないキーは設定エラー。
  */
 
 /** chartリポジトリ単位の設定ファイル名 */
@@ -33,7 +34,7 @@ export const LOCATIONS_YAML_FILE_NAME = "locations.yaml"
  * （型側も`AnchorLocation`を共有している）
  */
 const AnchorLocationSchema = z
-  .object({
+  .strictObject({
     valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
     anchor: z.string().min(1, "anchor は空にできません").transform(toAnchorName),
   })
@@ -78,7 +79,7 @@ const TagFormatSchema = z
  * ソースリポジトリのタグ形式（`tagFormat`）の台帳。
  * 設定ユニット側は`projectName`で引く
  */
-const AppSpecSchema = z.object({
+const AppSpecSchema = z.strictObject({
   projectId: ProjectIdSchema,
   projectName: z.string().min(1).transform(toProjectName),
   tagFormat: TagFormatSchema,
@@ -171,7 +172,7 @@ const GroupNameSchema = z
  * 所属の照合をすり抜ける形を残さないため。`accessTokenEnv`が「どのトークンを使うか」の宣言なのに
  * 対し、こちらは「そのトークンがどこまで届いてよいか」の宣言にあたる
  */
-const GroupSchema = z.object(
+const GroupSchema = z.strictObject(
   {
     groupId: GroupIdSchema,
     groupName: GroupNameSchema,
@@ -183,10 +184,10 @@ const GroupSchema = z.object(
   },
 )
 
-export const RegistryYamlSchema = z.object({
+export const RegistryYamlSchema = z.strictObject({
   accessTokenEnv: AccessTokenEnvNameSchema,
   group: GroupSchema,
-  chartToUpdate: z.object({
+  chartToUpdate: z.strictObject({
     projectId: ProjectIdSchema,
     projectName: z.string().min(1).transform(toProjectName),
     mrTargetBranch: z.string().min(1, "mrTargetBranch は空にできません").transform(toBranchName),
@@ -205,7 +206,7 @@ function appMapSchema<T extends z.ZodType>(value: T) {
 }
 
 /** `versions.yaml`のZodスキーマ */
-export const VersionsYamlSchema = z.object({
+export const VersionsYamlSchema = z.strictObject({
   branchRef: z
     .string({
       error:
@@ -227,7 +228,7 @@ const AppLocationsSchema = z.array(AnchorLocationSchema).min(1, "apps の各app�
  * chartリポジトリは「値を定義するブランチ」と「値を受け取ってk8sリソースを構築するブランチ」の
  * 2ブランチ構成という前提のため、`helm[]`は必須（`docs/requirements.md` 4.4節）
  */
-export const LocationsYamlSchema = z.object({
+export const LocationsYamlSchema = z.strictObject({
   helm: z
     .array(AnchorLocationSchema, {
       error:
