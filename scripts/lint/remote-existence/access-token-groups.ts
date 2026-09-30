@@ -15,19 +15,9 @@ export type AccessTokenGroup = {
 export function groupByAccessTokenEnv(
   configUnits: readonly ConfigUnit[],
 ): readonly AccessTokenGroup[] {
-  const map = new Map<AccessTokenEnvName, ConfigUnit[]>()
-  for (const configUnit of configUnits) {
-    const group = map.get(configUnit.accessTokenEnv)
-    if (group === undefined) {
-      map.set(configUnit.accessTokenEnv, [configUnit])
-    } else {
-      group.push(configUnit)
-    }
-  }
-  return [...map.entries()].map(([accessTokenEnv, units]) => ({
-    accessTokenEnv,
-    configUnits: units,
-  }))
+  return [...Map.groupBy(configUnits, (configUnit) => configUnit.accessTokenEnv)].map(
+    ([accessTokenEnv, units]) => ({ accessTokenEnv, configUnits: units }),
+  )
 }
 
 /**

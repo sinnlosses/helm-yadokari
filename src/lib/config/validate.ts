@@ -120,8 +120,9 @@ export function validateNoDuplicateProjectNames(
 }
 
 function findDuplicates<T>(values: readonly T[]): readonly T[] {
-  const seen = new Set<T>()
-  return [...new Set(values.filter((value) => (seen.has(value) ? true : (seen.add(value), false))))]
+  return [...Map.groupBy(values, (value) => value)]
+    .filter(([, group]) => group.length > 1)
+    .map(([value]) => value)
 }
 
 /** `valuesPath`+`anchorName`の組を、エラーメッセージ用のラベル付きで表す */
