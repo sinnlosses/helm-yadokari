@@ -15,14 +15,14 @@ export type PlanLogSummary = {
   readonly origin: TagOrigin
   readonly updates: readonly {
     readonly valuesPath: ValuesPath
-    readonly currentTag: TagName
+    readonly currentTag: TagName | undefined
   }[]
 }
 
 /** `describeHelmBranchRefUpdates()`が組み立てる、向き先ブランチの更新1件分のログ表現 */
 export type HelmBranchRefLogSummary = {
   readonly valuesPath: ValuesPath
-  readonly currentBranch: BranchName
+  readonly currentBranch: BranchName | undefined
   readonly newBranch: BranchName
 }
 

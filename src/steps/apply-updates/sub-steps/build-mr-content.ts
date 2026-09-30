@@ -43,7 +43,8 @@ function buildMrDescription(adapter: PlatformAdapter, entries: MrEntries): strin
  *
  * 1アプリが複数箇所を書き換える場合は同じリポジトリの行が箇所の数だけ並ぶため、ファイル・
  * アンカーの列で区別する。比較・パイプラインはリンクテキストを付けずURLをそのまま載せ（GitLabが自動
- * リンクする）、値が無いセルは `-` で埋める。
+ * リンクする）、値が無いセルは `-` で埋める。旧タグが未設定の行は旧タグ列を「未設定」とし、
+ * 比較URLは出さない。
  */
 function buildImageTagSection(adapter: PlatformAdapter, entries: readonly ImageTagEntry[]): string {
   return [
@@ -52,14 +53,19 @@ function buildImageTagSection(adapter: PlatformAdapter, entries: readonly ImageT
     "| リポジトリ | 追跡ブランチ | ファイル | アンカー | 旧タグ | 新タグ | 比較 | パイプライン |",
     "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...entries.map(({ plan, update, webUrl, pipeline }) => {
+      const currentTag = update.currentTag
       const cells = [
         plan.app.projectName,
         `\`${plan.app.branchToSync}\``,
         `\`${update.location.valuesPath}\``,
         `\`${update.location.anchorName}\``,
-        `[${update.currentTag}](${adapter.buildTagUrl(webUrl, update.currentTag)})`,
+        currentTag === undefined
+          ? "未設定"
+          : `[${currentTag}](${adapter.buildTagUrl(webUrl, currentTag)})`,
         `[${plan.latestTag.name}](${adapter.buildTagUrl(webUrl, plan.latestTag.name)})`,
-        adapter.buildCompareUrl(webUrl, update.currentTag, plan.latestTag.name),
+        currentTag === undefined
+          ? "-"
+          : adapter.buildCompareUrl(webUrl, currentTag, plan.latestTag.name),
         pipeline ? pipeline.webUrl : "-",
       ]
       return `| ${cells.join(" | ")} |`
@@ -85,7 +91,7 @@ function buildHelmBranchRefSection(
     "| --- | --- | --- | --- |",
     ...updates.map((update) => {
       const cells = [
-        `\`${update.currentBranch}\``,
+        update.currentBranch === undefined ? "未設定" : `\`${update.currentBranch}\``,
         `\`${branchRef}\``,
         `\`${update.location.valuesPath}\``,
         `\`${update.location.anchorName}\``,

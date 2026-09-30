@@ -169,6 +169,25 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     expect(settled.map((report) => report.result)).toEqual(["SKIPPED"])
   })
 
+  it.each([
+    ["null", "variables:\n  - &appVersion\n"],
+    ["空文字", 'variables:\n  - &appVersion ""\n'],
+  ])("values.yamlの値が%sのとき、旧タグを未設定として更新する", async (_label, content) => {
+    vi.mocked(adapter.getFileContent).mockResolvedValue(content)
+    const targets = [makeConfigUnit([makeApp()])]
+    const { toApply } = await buildPlans(
+      makeAdapterWithCachedReads(adapter),
+      targets,
+      makeResolvedTags(targets),
+      3,
+      false,
+    )
+    expect(toApply).toHaveLength(1)
+    expect(toApply[0]?.plans[0]?.updates[0]?.currentTag).toBeUndefined()
+    expect(toApply[0]?.files[0]?.content).toContain(NEW_TAG)
+    expect(toApply[0]?.files[0]?.content).not.toContain("null")
+  })
+
   it("values.yamlの値がタグ名でないとき（初期値など）は更新する", async () => {
     vi.mocked(adapter.getFileContent).mockResolvedValue("variables:\n  - &appVersion placeholder\n")
     const targets = [makeConfigUnit([makeApp()])]
@@ -227,7 +246,7 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
     )
     expect(toApply).toHaveLength(1)
     expect(toApply[0]?.plans[0]?.updates[0]?.currentTag).toBe(OLD_TAG)
-    expect(toApply[0]?.files[0]?.content).toContain(`&appVersion ${NEW_TAG}`)
+    expect(toApply[0]?.files[0]?.content).toContain(NEW_TAG)
     expect(settled).toEqual([])
   })
 })

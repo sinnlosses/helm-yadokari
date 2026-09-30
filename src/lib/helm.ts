@@ -26,13 +26,16 @@ export type AnchorValueLookup =
  * 値が取れない理由（アンカー自体が無い / スカラー以外に付いている）を呼び出し元が区別できるよう、
  * 値そのものではなく`AnchorValueLookup`を返す。`config/`側の設定ミスを1件目で止めず、
  * 理由ごとに違う文言で全問題を集めたい `remote-existence.ts` 向け。
+ *
+ * 値が null（`&a`だけ・`~`・`null`）のときは空文字を返す。
  */
 export function lookupValueAtAnchor(
   yamlContent: string,
   anchorName: AnchorName,
 ): AnchorValueLookup {
   const lookup = findAnchorNode(parseDocument(yamlContent), anchorName)
-  return lookup.kind === "scalar" ? { kind: "scalar", value: String(lookup.node.value) } : lookup
+  if (lookup.kind !== "scalar") return lookup
+  return { kind: "scalar", value: lookup.node.value === null ? "" : String(lookup.node.value) }
 }
 
 /**

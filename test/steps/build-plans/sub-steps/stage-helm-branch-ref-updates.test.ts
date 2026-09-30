@@ -64,6 +64,31 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     expect(toApply[0]?.files[0]?.content).toContain("&targetBranch release/2026-q1")
   })
 
+  it("helmの現在値がnullのとき、currentBranchを未設定として書き換える", async () => {
+    const helm = {
+      branchRef: toBranchName("release/2026-q1"),
+      locations: [
+        {
+          valuesPath: toValuesPath("values.yaml"),
+          anchorName: toAnchorName("targetBranch"),
+        },
+      ],
+    }
+    vi.mocked(adapter.getFileContent).mockResolvedValue(
+      `variables:\n  - &appVersion ${NEW_TAG}\n  - &targetBranch\n`,
+    )
+    const targets = [makeConfigUnit([makeApp()], { helm })]
+    const { toApply } = await buildPlans(
+      makeAdapterWithCachedReads(adapter),
+      targets,
+      makeResolvedTags(targets),
+      3,
+      false,
+    )
+    expect(toApply[0]?.helmBranchRefUpdates[0]?.currentBranch).toBeUndefined()
+    expect(toApply[0]?.files[0]?.content).toContain("&targetBranch release/2026-q1")
+  })
+
   it("helmが現在値と同じで、chart側も差分が無いとき、そのアプリはSKIPPEDになる", async () => {
     const app = makeApp()
     const helm = {

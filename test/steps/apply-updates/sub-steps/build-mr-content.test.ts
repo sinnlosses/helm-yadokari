@@ -130,6 +130,32 @@ describe("buildMrContent（本文）", () => {
     )
   })
 
+  it("旧タグが未設定のとき、旧タグのリンクと比較URLを出さず「未設定」と書く", () => {
+    const plan = makePlan({
+      updates: [
+        {
+          location: makePlan().updates[0]!.location,
+          currentTag: undefined,
+        },
+      ],
+    })
+    const row = buildDescription(entriesOf([plan]))
+      .split("\n")
+      .find((line) => line.includes("my-app"))
+    expect(row).toContain("| 未設定 | [main-build-at-20260101-000000](")
+    expect(row).not.toContain("compare")
+    expect(row).not.toContain("undefined")
+    expect(row).toMatch(/\| - \| - \|$/)
+  })
+
+  it("向き先ブランチの旧値が未設定のとき、「未設定」と書く", () => {
+    const description = buildDescription(
+      entriesOf([makePlan()], [{ ...helmUpdate, currentBranch: undefined }]),
+    )
+    expect(description).toContain("| 未設定 | `release/2026-q1` |")
+    expect(description).not.toContain("undefined")
+  })
+
   it("比較のリンクはURLをそのまま表示する", () => {
     expect(buildDescription(entriesOf([makePlan()]))).not.toContain("[比較]")
   })

@@ -101,12 +101,18 @@ async function stageImageTagUpdate(
     acc.draft,
     location.valuesPath,
   )
-  const currentTagName = toTagName(
-    getRequiredValueAtAnchor(valuesYamlContent, location.anchorName, location.valuesPath),
+  const currentTagRaw = getRequiredValueAtAnchor(
+    valuesYamlContent,
+    location.anchorName,
+    location.valuesPath,
   )
+  const currentTagName = currentTagRaw === "" ? undefined : toTagName(currentTagRaw)
 
   // タグ名が同じ、またはタグ名は違っても追跡ブランチのHEADを指す（＝デプロイされる中身が同じ）ならスキップする
-  if (currentTagName === latestTagName || trackedHeadTagNames.has(currentTagName)) {
+  if (
+    currentTagName !== undefined &&
+    (currentTagName === latestTagName || trackedHeadTagNames.has(currentTagName))
+  ) {
     return { ...acc, draft }
   }
 

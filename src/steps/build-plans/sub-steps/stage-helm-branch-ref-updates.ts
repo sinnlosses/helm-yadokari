@@ -78,7 +78,7 @@ async function stageHelmBranchRefUpdate(
       ...acc.updates,
       {
         location,
-        currentBranch: toBranchName(currentBranchRaw),
+        currentBranch: currentBranchRaw === "" ? undefined : toBranchName(currentBranchRaw),
       },
     ],
   }

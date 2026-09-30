@@ -47,6 +47,25 @@ describe("lookupValueAtAnchor", () => {
     })
   })
 
+  it.each([
+    ["値なし", "variables:\n  - &b\n"],
+    ["チルダ", "variables:\n  - &b ~\n"],
+    ["null", "variables:\n  - &b null\n"],
+    ["空文字", 'variables:\n  - &b ""\n'],
+  ])('値が%sのとき、空文字を返す（"null"という文字列にしない）', (_label, yamlContent) => {
+    expect(lookupValueAtAnchor(yamlContent, toAnchorName("b"))).toEqual({
+      kind: "scalar",
+      value: "",
+    })
+  })
+
+  it('引用符つきの"null"は文字列のまま返す', () => {
+    expect(lookupValueAtAnchor('variables:\n  - &b "null"\n', toAnchorName("b"))).toEqual({
+      kind: "scalar",
+      value: "null",
+    })
+  })
+
   it("アンカーがマッピングに付いているとき（スカラーではないとき）、アンカー不在と区別できる non_scalar を返す", () => {
     const yamlContent = "group: &group\n  a: 1\n  b: 2\n"
     expect(lookupValueAtAnchor(yamlContent, toAnchorName("group"))).toEqual({ kind: "non_scalar" })

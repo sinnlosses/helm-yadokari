@@ -104,19 +104,20 @@ export type PipelineInfo = {
   readonly webUrl: PlatformUrl
 }
 
-/** `AppConfig.imageTagLocations`のうち1箇所分の更新内容。`currentTag`は書き換え箇所ごとに独立して読み取る */
+/** `AppConfig.imageTagLocations`のうち1箇所分の更新内容。`currentTag`は書き換え箇所ごとに独立して読み取る。値が null・空文字のとき undefined */
 export type ImageTagUpdate = {
   readonly location: AnchorLocation
-  readonly currentTag: TagName
+  readonly currentTag: TagName | undefined
 }
 
 /**
  * `HelmConfig.locations`のうち1箇所分の更新内容。`currentBranch`はvalues.yaml側の
- * 現在値。新しい値は設定ユニットに1つしかないので`ConfigUnit.helm.branchRef`から取る
+ * 現在値（null・空文字のとき undefined）。新しい値は設定ユニットに1つしかないので
+ * `ConfigUnit.helm.branchRef`から取る
  */
 export type HelmBranchRefUpdate = {
   readonly location: AnchorLocation
-  readonly currentBranch: BranchName
+  readonly currentBranch: BranchName | undefined
 }
 
 /**
