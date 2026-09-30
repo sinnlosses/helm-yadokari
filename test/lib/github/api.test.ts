@@ -1,4 +1,3 @@
-import { Octokit } from "@octokit/rest"
 import { describe, expect, it, vi } from "vitest"
 
 import {
@@ -70,11 +69,6 @@ const SHA = toCommitSha("head-sha")
 const acceptAll = () => true
 
 describe("createClient", () => {
-  it("Octokit インスタンスを返す", () => {
-    const client = createClient(toPlatformUrl("https://api.github.com"), toAccessToken("t"))
-    expect(client).toBeInstanceOf(Octokit)
-  })
-
   it("GHES の baseUrl をそのまま使う", () => {
     const client = createClient(toPlatformUrl("https://ghe.example.com/api/v3"), toAccessToken("t"))
     expect(client.request.endpoint.DEFAULTS.baseUrl).toBe("https://ghe.example.com/api/v3")

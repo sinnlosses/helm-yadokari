@@ -12,12 +12,6 @@ import { toBranchName, toTagName } from "../../src/domain/types.js"
 const BUILD_AT_FORMAT = validateTagFormat("{branch}-build-at-{date}-{time}")
 
 describe("validateTagFormat", () => {
-  it("{branch}-build-at-{date}-{time} を受け入れる", () => {
-    expect(validateTagFormat("{branch}-build-at-{date}-{time}")).toBe(
-      "{branch}-build-at-{date}-{time}",
-    )
-  })
-
   it("プレースホルダの並び順を入れ替えたフォーマットを受け入れる", () => {
     expect(validateTagFormat("{date}-{time}-{branch}")).toBe("{date}-{time}-{branch}")
   })

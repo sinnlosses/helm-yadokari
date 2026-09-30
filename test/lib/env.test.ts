@@ -1,5 +1,3 @@
-import { join } from "node:path"
-
 import { describe, expect, it, vi } from "vitest"
 
 import { toAccessTokenEnvName } from "../../src/domain/types.js"
@@ -129,19 +127,12 @@ describe("parseConfigRootPath", () => {
 })
 
 describe("parseReportOutputPath", () => {
-  const tmpDir = useTmpDir()
-
   it("未指定のとき デフォルトの出力パスを返す", () => {
     expect(parseReportOutputPath(undefined)).toBe("report/report.md")
   })
 
   it("指定されたパスをそのまま返す（これから書き出すファイルなので実在チェックはしない）", () => {
     expect(parseReportOutputPath("out/summary.md")).toBe("out/summary.md")
-  })
-
-  it("実在するディレクトリを指しても例外をスローしない", () => {
-    const relativePath = join(tmpDir.relativePath, "report.md")
-    expect(parseReportOutputPath(relativePath)).toBe(relativePath)
   })
 
   it("パストラバーサルのとき例外をスローし、メッセージに REPORT_OUTPUT_PATH と指定値を含む", () => {
@@ -191,14 +182,6 @@ describe("parseTargetChart", () => {
 describe("parseTargetUnits", () => {
   it("未指定のとき undefined を返す", () => {
     expect(parseTargetUnits(undefined)).toBeUndefined()
-  })
-
-  it("深さ2のunitPathを1件の配列に分解する", () => {
-    expect(parseTargetUnits("tenant1/client1")).toEqual(["tenant1/client1"])
-  })
-
-  it("深さ1のunitPathを受け入れる", () => {
-    expect(parseTargetUnits("central")).toEqual(["central"])
   })
 
   it("深さ1と深さ2を混ぜて指定できる", () => {

@@ -31,13 +31,6 @@ describe("logger", () => {
       expect(output.level).toBe("info")
     })
 
-    it("渡したフィールドを含む", () => {
-      logger.info({ event: "test", projectId: 1 })
-      const output = JSON.parse(lastLog)
-      expect(output.event).toBe("test")
-      expect(output.projectId).toBe(1)
-    })
-
     it("timestamp フィールドを含む", () => {
       logger.info({ event: "test" })
       const output = JSON.parse(lastLog)

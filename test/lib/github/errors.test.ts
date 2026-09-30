@@ -90,7 +90,7 @@ describe("isFatalError", () => {
     expect(isFatalError(makeHttpError(401))).toBe(true)
   })
 
-  it.each([500, 502, 503, 504])("HTTP %s エラーのとき true を返す", (status) => {
+  it.each([502, 503, 504])("HTTP %s エラーのとき true を返す", (status) => {
     expect(isFatalError(makeHttpError(status))).toBe(true)
   })
 

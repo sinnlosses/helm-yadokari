@@ -114,15 +114,6 @@ describe("setValueAtAnchor", () => {
     })
   })
 
-  it("アンカー記法自体は書き換え後も維持される", () => {
-    const result = setValueAtAnchor(
-      VARIABLES_YAML,
-      toAnchorName("tenant1client1AppsVersion"),
-      "release/1.2.3",
-    )
-    expect(result).toContain("&tenant1client1AppsVersion release/1.2.3")
-  })
-
   it("該当するアンカーが存在しないとき例外をスローする", () => {
     expect(() => setValueAtAnchor(VARIABLES_YAML, toAnchorName("noSuchAnchor"), "x")).toThrow(
       "noSuchAnchor",

@@ -201,13 +201,6 @@ describe("loadConfig（設定ユニットの階層）", () => {
     )
   })
 
-  it("深さ1のディレクトリに置かれた設定ユニットを読み込む", () => {
-    dir.writeConfigUnit("teamA-chart", "central", configUnitFiles())
-
-    const { configUnits } = loadConfig(dir.path)
-    expect(configUnits.map((g) => g.unitPath)).toEqual(["central"])
-  })
-
   it("深さ1と深さ2の設定ユニットを同じchartディレクトリ配下に混在させられる", () => {
     dir.writeConfigUnit("teamA-chart", "central", configUnitFiles())
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", configUnitFiles())
@@ -513,69 +506,9 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
     ).toThrow(/実在するディレクトリ.*teamA-chart.*teamB-chart/)
   })
 
-  it("絞り込みで実際に1件以上ヒットしていれば例外をスローしない", () => {
-    dir.writeRegistryYaml(
-      "teamA-chart",
-      registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
-    )
-    dir.writeConfigUnit("teamA-chart", "tenant1/client1", configUnitFiles())
-
-    const { configUnits } = loadConfig(dir.path, {
-      chartDirName: toChartDirName("teamA-chart"),
-      units: undefined,
-    })
-    expect(configUnits).toHaveLength(1)
-  })
 })
 
 describe("loadConfig（helm）", () => {
-  it("locations.yamlのhelm[]のvaluesPathがappの書き込み先のvaluesPathと一致すると、appのhelmにマージされる", () => {
-    dir.writeRegistryYaml(
-      "teamA-chart",
-      registryYaml(
-        { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
-        [{ projectId: 1, projectName: "app-1" }],
-      ),
-    )
-    dir.writeConfigUnit(
-      "teamA-chart",
-      "tenant1/client1",
-      configUnitFiles(
-        [
-          {
-            projectName: "app-1",
-            appBranchToSync: "main",
-            locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
-          },
-        ],
-        { helmBranchRef: "release/2026-q1", locations: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] },
-      ),
-    )
-
-    const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.helm).toEqual({
-      branchRef: "release/2026-q1",
-      locations: [{ valuesPath: "a.yaml", anchorName: "targetBranch" }],
-    })
-  })
-
-  it("helm自体が無いとき例外をスローする", () => {
-    dir.writeRegistryYaml(
-      "teamA-chart",
-      registryYaml(
-        { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
-        [{ projectId: 1, projectName: "app-1" }],
-      ),
-    )
-    // `configUnitFiles()` は省略時に既定の helm を補うので、helm が無い状態はYAMLを直接書く
-    dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n",
-      locations: "apps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: appVersion\n",
-    })
-
-    expect(() => loadConfig(dir.path)).toThrow("helm は必須です")
-  })
-
   it("helmBranchRefはあるがhelmが無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",

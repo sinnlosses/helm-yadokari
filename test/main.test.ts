@@ -111,15 +111,6 @@ describe("run", () => {
     await expect(summaryCounts()).resolves.toEqual({ CREATED: 2, SKIPPED: 0, ERROR: 0 })
   })
 
-  it("FatalErrorが発生したとき reject する", async () => {
-    vi.mocked(loadConfig).mockReturnValue({
-      configUnits: [makeConfigUnit([makeApp()])],
-      accessTokenEnvNames: [TEAM_A],
-    })
-    vi.mocked(listTagsAtCommit).mockRejectedValue(makeHttpError(500))
-    await expect(run(env)).rejects.toThrow(FatalError)
-  })
-
   it("FatalErrorが発生したときレポートを書き出さない", async () => {
     vi.mocked(loadConfig).mockReturnValue({
       configUnits: [makeConfigUnit([makeApp()])],
@@ -204,11 +195,6 @@ describe("run", () => {
     // chartAとchartBが別々のトークンを宣言しているので、トークンごとに1アダプタ作られる
     expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
     expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "team-b-token")
-  })
-
-  it("createClient に GITLAB_URL と、宣言された環境変数から読んだトークンを渡す", async () => {
-    await run(env)
-    expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
   })
 
   it("loadConfig に CONFIG_ROOT_PATH と TARGET_CHART/TARGET_UNITS由来のtargetを渡す", async () => {

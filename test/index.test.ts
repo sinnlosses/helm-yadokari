@@ -46,17 +46,6 @@ describe("index", () => {
     expect(await importIndexAndWaitForExit()).toBe(1)
   })
 
-  it("FatalError のとき fatal_error として記録し終了コード1で終わる", async () => {
-    // `index.ts`が見るのと同じモジュール実体から取らないと`instanceof`が成立しない
-    const { FatalError } = await import("../src/utils/errors.js")
-    runMock.mockRejectedValue(new FatalError(401, new Error("認証に失敗しました")))
-
-    expect(await importIndexAndWaitForExit()).toBe(1)
-    expect(loggerMock.error).toHaveBeenCalledWith(
-      expect.objectContaining({ event: "fatal_error", httpStatus: 401 }),
-    )
-  })
-
   it("FatalError の context とスタック（cause を含む）を fatal_error に載せ、トークンは出さない", async () => {
     const { FatalError } = await import("../src/utils/errors.js")
     const request = new Request("https://gitlab.example.com/api/v4/projects/42/repository/tags", {

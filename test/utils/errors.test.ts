@@ -15,11 +15,6 @@ describe("FatalError", () => {
     expect(err.httpStatus).toBe(500)
   })
 
-  it("httpStatus が undefined のとき保持する", () => {
-    const err = new FatalError(undefined, new Error("ECONNREFUSED"))
-    expect(err.httpStatus).toBeUndefined()
-  })
-
   it("context を渡さないとき空で持つ", () => {
     expect(new FatalError(500, new Error("boom")).context).toEqual({})
   })

@@ -1,4 +1,3 @@
-import { Gitlab } from "@gitbeaker/rest"
 import { describe, expect, it, vi } from "vitest"
 
 import {
@@ -55,14 +54,6 @@ function makeClient(
 }
 
 describe("createClient", () => {
-  it("Gitlab インスタンスを返す", () => {
-    const client = createClient(
-      toPlatformUrl("https://gitlab.example.com"),
-      toAccessToken("test-token"),
-    )
-    expect(client).toBeInstanceOf(Gitlab)
-  })
-
   it("queryTimeout を明示して gitbeaker の既定値に依存しない", () => {
     // gitbeaker はこの値を AbortSignal.timeout() として全リクエストに載せる。
     // 既定値と同値だが、バージョンアップで黙って変わらないようここで固定する

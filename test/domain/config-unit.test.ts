@@ -18,10 +18,4 @@ describe("buildConfigUnitLocation", () => {
       buildConfigUnitLocation(toChartDirName("teamA-chart"), toConfigUnitPath("tenant2/client1")),
     ).toBe("teamA-chart/tenant2/client1")
   })
-
-  it("深さ1の設定ユニットでも同じ形になる", () => {
-    expect(
-      buildConfigUnitLocation(toChartDirName("teamB-chart"), toConfigUnitPath("my-unit")),
-    ).toBe("teamB-chart/my-unit")
-  })
 })

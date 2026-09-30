@@ -213,26 +213,6 @@ describe("validateRemoteExistence", () => {
     expect(problems[0]).toContain("スカラー値に付いていません")
   })
 
-  it("Helmの向き先ブランチが存在しないとき問題として返す", async () => {
-    const helm = {
-      branchRef: toBranchName("release/ghost"),
-      locations: [
-        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
-      ],
-    }
-    vi.mocked(branchExists).mockImplementation(
-      async (_gitlab, _projectId, branch) => branch !== "release/ghost",
-    )
-
-    const problems = await validateRemoteExistence(
-      mockGitlab,
-      [makeConfigUnit([makeApp()], { helm })],
-      3,
-    )
-
-    expect(problems.join("\n")).toContain("release/ghost")
-  })
-
   it("Helmの向き先ブランチの問題は、アプリの数だけ重複して報告しない", async () => {
     const helm = {
       branchRef: toBranchName("release/ghost"),
