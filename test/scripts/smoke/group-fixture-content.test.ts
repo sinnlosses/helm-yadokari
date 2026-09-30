@@ -44,9 +44,9 @@ describe("buildRegistryYamlContent", () => {
 })
 
 describe("buildVersionsYamlContent", () => {
-  it("helmBranchRefとapp名をキーにしたbranchToSyncを持つversions.yamlを返す", () => {
+  it("helmBranchRefとapp名をキーにしたappBranchToSyncを持つversions.yamlを返す", () => {
     expect(buildVersionsYamlContent()).toBe(
-      "helmBranchRef: release/2026-q1\nbranchToSync:\n  sample-smoke-b-app: main\n",
+      "helmBranchRef: release/2026-q1\nappBranchToSync:\n  sample-smoke-b-app: main\n",
     )
   })
 })

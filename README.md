@@ -204,11 +204,11 @@ config/
   このchartリポジトリとソースリポジトリが属するGitLabグループのフルパスを宣言します（詳細は
   「[複数グループで運用する](#複数グループで運用する)」）。
 - `versions.yaml` は設定ユニット単位で、Helmの向き先ブランチ（`helmBranchRef`）と、
-  どのブランチを追跡するか（app名をキーにした `branchToSync`）を持ちます。
+  どのブランチを追跡するか（app名をキーにした `appBranchToSync`）を持ちます。
 - `locations.yaml` は設定ユニット単位で、`values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
   書き込むかを持ちます（Helmの向き先ブランチの書き込み先 `helm` と、app名をキーにした `apps`）。
 - 設定ユニット側のappは、`registry.yaml` の `appSpecs[].projectName` を**app名**として
-  参照します（`projectId` は `registry.yaml` にだけ書きます）。`branchToSync` と `apps` のapp名の
+  参照します（`projectId` は `registry.yaml` にだけ書きます）。`appBranchToSync` と `apps` のapp名の
   集合は一致させ、どのapp名も `appSpecs[]` に存在する必要があります。
 
 `projectId` は `PLATFORM=gitlab`（既定）なら GitLab のプロジェクトID（数値）、
@@ -248,7 +248,7 @@ appSpecs:
 ```yaml
 # versions.yaml
 helmBranchRef: helm-main # Helmの向き先ブランチ（values.yamlを受け取ってk8sリソースを構築するブランチ）。必須
-branchToSync: # app名（registry.yaml の appSpecs[].projectName）をキーにした追跡ブランチ
+appBranchToSync: # app名（registry.yaml の appSpecs[].projectName）をキーにした追跡ブランチ
   my-app: main
 ```
 
@@ -257,7 +257,7 @@ branchToSync: # app名（registry.yaml の appSpecs[].projectName）をキーに
 helm: # Helmの向き先ブランチの書き込み先。必須
   - valuesPath: charts/my-app/values.yaml
     anchor: my-app-tag
-apps: # versions.yaml の branchToSync と同じapp名のキー集合にする
+apps: # versions.yaml の appBranchToSync と同じapp名のキー集合にする
   my-app:
     - valuesPath: charts/my-app/values.yaml
       anchor: my-app-tag

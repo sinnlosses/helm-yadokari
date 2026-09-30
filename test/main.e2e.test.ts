@@ -42,7 +42,7 @@ const CHART2_PROJECT_ID = "86354445"
 /** `sample-qa-sprint`。4つの設定ユニット（`anchor-app`＋`tenant2/client1`＋`tenant2/client2`＋
  * chartリポジトリ2の`shared-app`）共通で登録されているapp。追跡ブランチ`main`のHEADに現在値と
  * 異なる名前のタグが既にある状態にする（更新対象、タグ自動作成の経路には入らない）。
- * `shared-app`だけは`branchToSync`が`develop`で、キャッシュキー（`projectId:branchToSync`）が
+ * `shared-app`だけは`appBranchToSync`が`develop`で、キャッシュキー（`projectId:branchToSync`）が
  * 他の3ユニットとは分岐する経路を通る */
 const QA_PROJECT_ID = "82861978"
 /** `sample-develop-client`。tenant2の2ユニット共通で登録されているapp（`anchor-app`・
@@ -95,7 +95,7 @@ const VALUES_YAML_TENANT2_CLIENT2 =
   `  - &t2c2DevelopClientVersion ${DEV_TAG}\n` +
   `  - &t2c2HelmTargetBranch ${NEW_HELM_BRANCH}\n`
 // chartリポジトリ2（`yadokari-smoke-test-chart2`）配下の唯一の設定ユニット。`sample-qa-sprint`を
-// `branchToSync: develop` で追跡する（複数chartリポジトリ・複数追跡ブランチのシナリオ）。
+// `appBranchToSync: develop` で追跡する（複数chartリポジトリ・複数追跡ブランチのシナリオ）。
 const VALUES_YAML_SHARED_APP =
   `variables:\n` +
   `  - &sharedQaSprintVersion ${QA_OLD_VALUE}\n` +
@@ -259,7 +259,7 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
     expect(tenant2Client1Description).toContain("charts/smoke-tenant2/client1/values-extra.yaml")
     expect(tenant2Client1Description).toContain("t2c1QaSprintVersionExtra")
 
-    // shared-app は branchToSync: develop で追跡するため、main由来のタグではなくdevelop由来の
+    // shared-app は appBranchToSync: develop で追跡するため、main由来のタグではなくdevelop由来の
     // タグが新タグとして選ばれる（キャッシュキーが projectId:branchToSync で分岐する確認）
     const sharedAppDescription = (sharedApp[4] as { readonly description: string }).description
     expect(sharedAppDescription).toContain(QA_NEW_TAG_DEVELOP)

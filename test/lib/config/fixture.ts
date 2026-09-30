@@ -112,7 +112,7 @@ function appSpecEntry(app: AppSpecFixture): string {
 /** 設定ユニットの`apps`1件分（追跡ブランチ＋書き込み位置）。app名は`registry.yaml`の`appSpecs[].projectName` */
 export type ConfigAppFixture = {
   readonly projectName: string
-  readonly branchToSync: string
+  readonly appBranchToSync: string
   readonly locations: readonly AnchorLocationFixture[]
 }
 
@@ -142,10 +142,10 @@ export function configUnitFiles(
 ): ConfigUnitFiles {
   const helmBranchRefLine =
     helm.helmBranchRef === undefined ? "" : `helmBranchRef: ${helm.helmBranchRef}\n`
-  const branchToSync =
+  const appBranchToSync =
     apps.length === 0
-      ? "branchToSync: {}\n"
-      : `branchToSync:\n${apps.map((app) => `  ${app.projectName}: ${app.branchToSync}\n`).join("")}`
+      ? "appBranchToSync: {}\n"
+      : `appBranchToSync:\n${apps.map((app) => `  ${app.projectName}: ${app.appBranchToSync}\n`).join("")}`
   const helmBlock =
     helm.locations === undefined
       ? ""
@@ -156,7 +156,7 @@ export function configUnitFiles(
     apps.length === 0
       ? "apps: {}\n"
       : `apps:\n${apps.map((app) => `  ${app.projectName}:\n${locationsBlock(app.locations, "    ")}`).join("")}`
-  return { versions: helmBranchRefLine + branchToSync, locations: helmBlock + appsBlock }
+  return { versions: helmBranchRefLine + appBranchToSync, locations: helmBlock + appsBlock }
 }
 
 /** `apps`が書き込む全`valuesPath`を1つのアンカー名でカバーする`helm`（appsが空なら1件だけ置く） */

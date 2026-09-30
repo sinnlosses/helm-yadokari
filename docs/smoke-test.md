@@ -102,7 +102,7 @@ chartリポジトリ2には `sample-qa-sprint` を登録する。**同じappが2
 
 ### ソースリポジトリに必要なもの（条件付き）
 
-**`branchToSync` が複数種類**であることを確認するため、`sample-qa-sprint` に `main` 以外の
+**`appBranchToSync` が複数種類**であることを確認するため、`sample-qa-sprint` に `main` 以外の
 追跡ブランチ（例: `develop`）と、そのブランチ由来のタグが1件以上必要。
 **無ければ作る**が、ソースリポジトリへの書き込みになるので個別に承認を得る。
 最新タグの解決の単位（`TagSource`）は `projectId` ＋追跡ブランチ＋タグ形式なので、
@@ -310,7 +310,7 @@ pnpm dev
   `appSpecs[]`にソースリポジトリB、トップレベルに `accessTokenEnv: ACCESS_TOKEN_SMOKE_B` と
   `group`（`groupId` + `groupName`。中身は`provision-group.ts`が最後に表示する）
 - `config/yadokari-smoke-test-chart-b/smoke-b-app/versions.yaml` … 新規。`helmBranchRef`と、
-  `sample-smoke-b-app`をキーにした`branchToSync`
+  `sample-smoke-b-app`をキーにした`appBranchToSync`
 - `config/yadokari-smoke-test-chart-b/smoke-b-app/locations.yaml` … 新規。`helm[]`と
   `apps.sample-smoke-b-app[]`に`smokeBHelmTargetBranch` / `smokeBAppVersion`を登録
 

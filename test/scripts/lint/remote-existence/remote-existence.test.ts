@@ -171,14 +171,14 @@ describe("validateRemoteExistence", () => {
     expect(problems.join("\n")).toContain("mrTargetBranch")
   })
 
-  it("追跡ブランチ（branchToSync）が存在しないとき問題として返す", async () => {
+  it("追跡ブランチ（appBranchToSync）が存在しないとき問題として返す", async () => {
     vi.mocked(branchExists).mockImplementation(
       async (_gitlab, _projectId, branch) => branch !== "main",
     )
 
     const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
-    expect(problems.join("\n")).toContain("branchToSync")
+    expect(problems.join("\n")).toContain("appBranchToSync")
   })
 
   it("valuesPathのファイルが存在しないとき問題として返す", async () => {

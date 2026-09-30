@@ -246,7 +246,7 @@ config/
 | ファイル         | スコープ        | 持つもの                                                                                                                                                                                                                        |
 | ---------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `registry.yaml`  | chartリポジトリ | MRの作成先（`chartToUpdate`）、ソースリポジトリの台帳（`appSpecs[]`の`projectId`・`projectName`・`tagFormat`）、操作に使うアクセストークンの宣言（`accessTokenEnv`）、所属グループの宣言（`group.groupId` / `group.groupName`） |
-| `versions.yaml`  | 設定ユニット    | どのブランチを追跡するか（`branchToSync`）とHelmの向き先ブランチ（`helmBranchRef`）。よく触る値                                                                                                                                 |
+| `versions.yaml`  | 設定ユニット    | どのブランチを追跡するか（`appBranchToSync`）とHelmの向き先ブランチ（`helmBranchRef`）。よく触る値                                                                                                                              |
 | `locations.yaml` | 設定ユニット    | `values.yaml`のどこへ書き込むか（`helm[]`と`apps`の`locations`）。あまり触らない値                                                                                                                                              |
 
 設定ユニット側のappは`projectName`をキーにしたマップで参照し、`projectId`は`registry.yaml`の
@@ -283,7 +283,7 @@ appSpecs: # このchartリポジトリ配下の設定ユニットが追跡する
 ```yaml
 # versions.yaml
 helmBranchRef: release/2026-q1 # Helmの向き先ブランチ（必須）
-branchToSync: # app名（registry.yamlのappSpecs[].projectName）をキーにした追跡ブランチ
+appBranchToSync: # app名（registry.yamlのappSpecs[].projectName）をキーにした追跡ブランチ
   my-app: main # 設定ユニットごとに違ってよい
   another-app: main
 ```
@@ -293,7 +293,7 @@ branchToSync: # app名（registry.yamlのappSpecs[].projectName）をキーに�
 helm:
   - valuesPath: charts/my-app/values.yaml
     anchor: myAppTargetBranch # values.yaml内のYAMLアンカー名
-apps: # versions.yamlのbranchToSyncと同じapp名のキー集合にする
+apps: # versions.yamlのappBranchToSyncと同じapp名のキー集合にする
   my-app:
     - valuesPath: charts/my-app/values.yaml
       anchor: myAppVersion # values.yaml内のYAMLアンカー名
@@ -324,10 +324,10 @@ apps: # versions.yamlのbranchToSyncと同じapp名のキー集合にする
         anchor: multiServiceAppDaemonVersion
   ```
 
-- 設定ユニットのapp名（`versions.yaml`の`branchToSync`と`locations.yaml`の`apps`のキー）が、同じ
+- 設定ユニットのapp名（`versions.yaml`の`appBranchToSync`と`locations.yaml`の`apps`のキー）が、同じ
   chartリポジトリの`registry.yaml`の`appSpecs[].projectName`に見つからない場合は設定エラーに
   なる。`tagFormat`が引けないため最新タグを判定できない
-- `versions.yaml`の`branchToSync`と`locations.yaml`の`apps`は、app名のキー集合が一致していなければ
+- `versions.yaml`の`appBranchToSync`と`locations.yaml`の`apps`は、app名のキー集合が一致していなければ
   設定エラーになる。片方にしか無いappは、追跡ブランチと書き込み先の一方が欠けて更新できない
 - `registry.yaml`・`versions.yaml`・`locations.yaml`の全階層（`group`・`chartToUpdate`・`appSpecs[]`・`helm[]`・`apps.<app名>[]`の要素を含む）で、知らないキーは設定エラーになる。書き間違いや、キーを書くファイルの取り違え（`versions.yaml`に`helm:`を書くなど）が黙って無視されないようにするため。エラーにはファイル名と知らないキーの名前・階層が出る。YAMLのコメントはキーではないので影響しない
 - `versions.yaml`と`locations.yaml`は両方そろって初めて設定ユニットになり、片方しか無い
@@ -346,7 +346,7 @@ apps: # versions.yamlのbranchToSyncと同じapp名のキー集合にする
   あって登録先ごとに変わる値ではなく、食い違ったまま実行すると同じアプリの最新タグが実行ごとに
   違う形式で決まってしまうため。台帳をchartリポジトリ単位にしたことで、同じchart
   リポジトリ配下の設定ユニット間では食い違いようが無くなり、この検証が働くのはchartリポジトリ
-  をまたぐ場合だけになった（`branchToSync` は設定ユニットごとに違ってよい。こちらは
+  をまたぐ場合だけになった（`appBranchToSync` は設定ユニットごとに違ってよい。こちらは
   「どのブランチを追うか」という設定ユニット側の判断のため）
 - `registry.yaml`のトップレベルの`accessTokenEnv`は、そのchartリポジトリの操作に使うアクセス
   トークンが入っている**環境変数名**（トークンの値そのものではない）を書くフィールドで、**必須**。

@@ -2,5 +2,5 @@
 # 固定ブランチ `feature/yadokari/my-unit` で MR が作られる。
 # よく触る値（追跡ブランチ・Helmの向き先ブランチ）。書き込み位置は locations.yaml に書く。
 helmBranchRef: release/2026-q1 # Helmの向き先ブランチ。mrTargetBranch とは別物
-branchToSync: # app名（registry.yaml の appSpecs[].projectName）をキーにした追跡ブランチ
+appBranchToSync: # app名（registry.yaml の appSpecs[].projectName）をキーにした追跡ブランチ
   my-app: main

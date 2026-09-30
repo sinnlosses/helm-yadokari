@@ -31,7 +31,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("versions.yaml の branchToSync が空文字のとき例外をスローする", () => {
+  it("versions.yaml の appBranchToSync が空文字のとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -40,7 +40,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       ),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: 'helmBranchRef: release/2026-q1\nbranchToSync:\n  app-1: ""\n',
+      versions: 'helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: ""\n',
       locations: "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: appVersion\n",
     })
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
@@ -55,7 +55,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       ),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "helmBranchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n",
+      versions: "helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n",
       locations: "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1: []\n",
     })
 
@@ -71,7 +71,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       ),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "helmBranchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n",
+      versions: "helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n",
       locations: "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - anchor: appVersion\n",
     })
 
@@ -87,7 +87,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       ),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "helmBranchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n",
+      versions: "helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n",
       locations: "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n",
     })
 
@@ -99,7 +99,7 @@ describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
   const CONFIG_YAML = configUnitFiles([
     {
       projectName: "app-1",
-      branchToSync: "main",
+      appBranchToSync: "main",
       locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
     },
   ])
@@ -150,7 +150,7 @@ describe("loadConfig（registry.yamlのaccessTokenEnv）", () => {
   const CONFIG_YAML = configUnitFiles([
     {
       projectName: "app-1",
-      branchToSync: "main",
+      appBranchToSync: "main",
       locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
     },
   ])
@@ -209,7 +209,7 @@ describe("loadConfig（registry.yamlのgroup）", () => {
   const CONFIG_YAML = configUnitFiles([
     {
       projectName: "app-1",
-      branchToSync: "main",
+      appBranchToSync: "main",
       locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
     },
   ])
@@ -319,7 +319,7 @@ describe("loadConfig（projectIdの数値/文字列両対応）", () => {
       configUnitFiles([
         {
           projectName: "app-1",
-          branchToSync: "main",
+          appBranchToSync: "main",
           locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
       ]),
@@ -341,7 +341,7 @@ describe("loadConfig（projectIdの数値/文字列両対応）", () => {
         `    tagFormat: '${DEFAULT_TAG_FORMAT}'\n`,
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "helmBranchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n",
+      versions: "helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n",
       locations: "helm:\n  - valuesPath: a.yaml\n    anchor: defaultHelmTargetBranch\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: appVersion\n",
     })
 
@@ -356,7 +356,7 @@ describe("loadConfig（知らないキー）", () => {
     { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
     [{ projectId: 1, projectName: "app-1" }],
   )
-  const VERSIONS = "helmBranchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n"
+  const VERSIONS = "helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n"
   const LOCATIONS =
     "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: appVersion\n"
 
@@ -414,8 +414,14 @@ describe("loadConfig（知らないキー）", () => {
   })
 
   it("versions.yaml に旧キー branchRef を書くと設定エラーになる", () => {
-    const versions = "branchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n"
+    const versions = "branchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n"
     expect(() => load({ versions })).toThrow("versions.yaml")
     expect(() => load({ versions })).toThrow("branchRef")
+  })
+
+  it("versions.yaml に旧キー branchToSync を書くと設定エラーになる", () => {
+    const versions = "helmBranchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n"
+    expect(() => load({ versions })).toThrow("versions.yaml")
+    expect(() => load({ versions })).toThrow("branchToSync")
   })
 })

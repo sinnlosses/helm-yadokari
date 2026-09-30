@@ -106,7 +106,7 @@ function buildConfigUnit(
   const { unitPath, versionsYamlPath, locationsYamlPath } = configUnitScope
   const versions = parseYamlFile(versionsYamlPath, VersionsYamlSchema)
   const locations = parseYamlFile(locationsYamlPath, LocationsYamlSchema)
-  validateSameAppNames(versionsYamlPath, locationsYamlPath, versions.branchToSync, locations.apps)
+  validateSameAppNames(versionsYamlPath, locationsYamlPath, versions.appBranchToSync, locations.apps)
   validateNoDuplicateLocations(locationsYamlPath, [
     ...[...locations.apps].flatMap(([name, appLocations]) =>
       appLocations.map((location) => ({ location, label: `app "${name}" の書き込み先` })),
@@ -114,7 +114,7 @@ function buildConfigUnit(
     ...locations.helm.map((location) => ({ location, label: "helm[]" })),
   ])
 
-  const appConfigs: readonly AppConfig[] = [...versions.branchToSync].map(
+  const appConfigs: readonly AppConfig[] = [...versions.appBranchToSync].map(
     ([projectName, branchToSync]) => {
       const appSpec = appSpecByName.get(projectName)
       if (appSpec === undefined) {
@@ -144,22 +144,22 @@ function buildConfigUnit(
   }
 }
 
-/** `branchToSync`と`apps`のapp名の集合が一致していなければ例外をスローする */
+/** `appBranchToSync`と`apps`のapp名の集合が一致していなければ例外をスローする */
 function validateSameAppNames(
   versionsYamlPath: LocalPath,
   locationsYamlPath: LocalPath,
-  branchToSync: ReadonlyMap<ProjectName, unknown>,
+  appBranchToSync: ReadonlyMap<ProjectName, unknown>,
   apps: ReadonlyMap<ProjectName, unknown>,
 ): void {
-  const onlyInVersions = [...branchToSync.keys()].filter((name) => !apps.has(name))
-  const onlyInLocations = [...apps.keys()].filter((name) => !branchToSync.has(name))
+  const onlyInVersions = [...appBranchToSync.keys()].filter((name) => !apps.has(name))
+  const onlyInLocations = [...apps.keys()].filter((name) => !appBranchToSync.has(name))
   if (onlyInVersions.length === 0 && onlyInLocations.length === 0) return
   const details = [
     ...onlyInVersions.map((name) => `"${name}"（${versionsYamlPath} のみ）`),
     ...onlyInLocations.map((name) => `"${name}"（${locationsYamlPath} のみ）`),
   ].join(", ")
   throw new Error(
-    `${versionsYamlPath} の branchToSync と ${locationsYamlPath} の apps で app 名の集合が一致しません: ${details}`,
+    `${versionsYamlPath} の appBranchToSync と ${locationsYamlPath} の apps で app 名の集合が一致しません: ${details}`,
   )
 }
 

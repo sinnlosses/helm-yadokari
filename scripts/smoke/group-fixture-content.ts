@@ -65,7 +65,7 @@ export function buildRegistryYamlContent(
 export function buildVersionsYamlContent(): string {
   return (
     `helmBranchRef: ${HELM_TARGET_BRANCH}\n` +
-    `branchToSync:\n` +
+    `appBranchToSync:\n` +
     `  ${SOURCE_PROJECT_NAME}: main\n`
   )
 }

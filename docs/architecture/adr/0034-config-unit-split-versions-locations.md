@@ -1,6 +1,6 @@
 # 設定ユニットは`versions.yaml`と`locations.yaml`に分け、appは`projectName`で参照する
 
-設定ユニットのファイルを、よく触る値の`versions.yaml`（`helmBranchRef`・app名をキーにした`branchToSync`）と、
+設定ユニットのファイルを、よく触る値の`versions.yaml`（`helmBranchRef`・app名をキーにした`appBranchToSync`）と、
 あまり触らない値の`locations.yaml`（`helm[]`・app名をキーにした`apps`）に分ける。
 `0027-config-split-by-scope.md`が決めた「変更頻度では分けない」を、この判断で置き換える。
 仕様（形・検証規則）は`docs/requirements.md` 4.4節が正典。
@@ -9,7 +9,7 @@
 重複して書く手間だった。** 設定ユニット側のappを`projectName`をキーにしたマップで参照し、
 `projectId`を`registry.yaml`の`appSpecs[]`にだけ書くことで、この重複が無くなった。
 appの追加・削除で両ファイルを触る点は変わらないが、触る行はキー1つずつで済み、分けても
-手数はほとんど増えない。一方、`branchToSync`と`helmBranchRef`だけを見たいとき・変えたいときに、
+手数はほとんど増えない。一方、`appBranchToSync`と`helmBranchRef`だけを見たいとき・変えたいときに、
 書き込み位置の細部（`valuesPath`・`anchor`）が邪魔にならない。0027の残る2つの理由（編集者が
 分かれていない・1ファイルが十数行）は、分割を禁じるものではなく、分けない積極的な根拠にも
 ならなくなった。

@@ -144,7 +144,7 @@ function describeGroupProblems(
 
 /**
  * 1アプリ分を検証する。ソースプロジェクト自体が見つからない場合、そこに依存する検証
- * （branchToSync）は結果が自明なので行わず、原因となる1件だけを報告する。所属違いは
+ * （appBranchToSync）は結果が自明なので行わず、原因となる1件だけを報告する。所属違いは
  * プロジェクト自体は参照できている状態なので、報告したうえで残りの検証も続ける。
  * values.yaml側（`locations[]`）の検証は、chartリポジトリとそのベースブランチが
  * 揃っているとき（`baseBranchFound`）だけ意味があるためスキップする。
@@ -168,7 +168,7 @@ async function validateApp(
   const branchProblems = branchFound
     ? []
     : [
-        `${where}: app "${app.projectName}" の branchToSync "${app.branchToSync}" が ${app.projectName} に見つかりません`,
+        `${where}: app "${app.projectName}" の appBranchToSync "${app.branchToSync}" が ${app.projectName} に見つかりません`,
       ]
   if (!baseBranchFound) return [...projectProblems, ...branchProblems]
 

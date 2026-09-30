@@ -38,7 +38,7 @@ describe("lookupValueAtAnchor", () => {
 
   it("クォートなしの数値に見える値（例: ブランチ名が数字だけ）も文字列として返す", () => {
     // yaml パッケージは `&b 2026` のようなクォートなしのスカラーを number としてパースする。
-    // ここで文字列化しておかないと、versions.yaml側（branchToSyncはz.string()）の値と
+    // ここで文字列化しておかないと、versions.yaml側（appBranchToSyncはz.string()）の値と
     // 型が合わず比較できない
     const yamlContent = "variables:\n  - &b 2026\n"
     expect(lookupValueAtAnchor(yamlContent, toAnchorName("b"))).toEqual({

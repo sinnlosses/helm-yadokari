@@ -25,7 +25,7 @@ import type {
  * 同じアプリの同じコミットに形式違いのタグが2つできる（詳細は`docs/architecture.md`のタグ形式の
  * 置き場所を扱う節）。
  *
- * `branchToSync`の食い違いは設定ユニット側の判断として正当なので検証しない。
+ * `appBranchToSync`の食い違いは設定ユニット側の判断として正当なので検証しない。
  */
 export function validateTagFormatConsistency(configUnits: readonly ConfigUnit[]): void {
   const seen = new Map<

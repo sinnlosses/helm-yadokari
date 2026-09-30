@@ -97,7 +97,7 @@ values ファイルを持つディレクトリ1つを設定ユニット1つの�
   6桁数字を `{time}`、残りのブランチ名にあたる部分を `{branch}` に置き換えて提案する
   （`main-build-at-20260101-000000` → `{branch}-build-at-{date}-{time}`）。8桁・6桁が
   見つからない値からは推測せずに尋ねる。
-- `branchToSync`: 上の `tagFormat` でタグ値の `{branch}` 部分を取り出して提案する。タグの中では
+- `appBranchToSync`: 上の `tagFormat` でタグ値の `{branch}` 部分を取り出して提案する。タグの中では
   ブランチ名の `/` が `-` になるので、`release-x` が `release/x` の可能性があることを必ず添える。
 - `helmBranchRef`: そのユニットの向き先ブランチのアンカーの今の値。今と同じ値なら差分が出ない。
   ユニット内のアンカー同士で今の値が違うときは、全部が同じ `helmBranchRef` に揃うことを伝えて
@@ -116,7 +116,7 @@ remote URL の `owner/repo` を候補にしてよい）、`group.groupId`、`acc
 
 1. 上の「共通」の3段を順に行い、確認の済んだ値で `config/<chartディレクトリ名>/registry.yaml`
    と、ユニットごとの `versions.yaml`・`locations.yaml` を書く。
-2. `locations.yaml` の `apps` と `versions.yaml` の `branchToSync` は同じ app 名のキー集合にし、
+2. `locations.yaml` の `apps` と `versions.yaml` の `appBranchToSync` は同じ app 名のキー集合にし、
    ユニットで使う app だけを書く。`registry.yaml` の `appSpecs[]` には全ユニットの app を
    1件ずつ書く。
 3. 新しい app の `projectId` が別の chart ディレクトリの `registry.yaml` にもあれば、その
@@ -140,7 +140,7 @@ remote URL の `owner/repo` を候補にしてよい）、`group.groupId`、`acc
    - 新しい app の `projectId` が別の chart ディレクトリにあるときは、新規生成の3と同じ
 4. 新しいユニットは新規生成と同じ形で足す。`unitPath` が既存ユニットと入れ子・重複に
    ならないことを「共通」の2段目で確かめておく。
-5. 既存ユニットに app を足すときは、`versions.yaml` の `branchToSync` と `locations.yaml` の
+5. 既存ユニットに app を足すときは、`versions.yaml` の `appBranchToSync` と `locations.yaml` の
    `apps` の両方にキーを足す。app の `valuesPath` がそのユニットの `helm[]` に無ければ、
    `helm[]` にも足す。
 6. 「書いたあとの検証」へ進む。

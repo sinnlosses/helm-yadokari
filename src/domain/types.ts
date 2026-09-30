@@ -36,7 +36,7 @@ export type HelmConfig = {
 }
 
 /**
- * `branchToSync`はversions.yaml、`imageTagLocations`はlocations.yamlの値、
+ * `branchToSync`はversions.yamlの`appBranchToSync`、`imageTagLocations`はlocations.yamlの値、
  * `projectId`と`tagFormat`は同じchartリポジトリの`registry.yaml`の`appSpecs[]`から`projectName`で引いた値
  */
 export type AppConfig = {

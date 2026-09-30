@@ -1,5 +1,5 @@
 # 複数app + Helm向き先ブランチの更新に加え、1appが複数valuesPathに書き込むことを検証するclient（docs/smoke-test.md 参照）
 helmBranchRef: release/2026-q1
-branchToSync:
+appBranchToSync:
   sample-qa-sprint: main
   sample-develop-client: main

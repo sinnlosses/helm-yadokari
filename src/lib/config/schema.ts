@@ -215,8 +215,8 @@ export const VersionsYamlSchema = z.strictObject({
     })
     .min(1, "helmBranchRef は空にできません")
     .transform(toBranchName),
-  branchToSync: appMapSchema(
-    z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
+  appBranchToSync: appMapSchema(
+    z.string().min(1, "appBranchToSync は空にできません").transform(toBranchName),
   ),
 })
 

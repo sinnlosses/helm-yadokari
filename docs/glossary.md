@@ -65,11 +65,11 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   `projectName`・`tagFormat`）、操作に使うアクセストークンの宣言（`accessTokenEnv`。必須）、
   所属グループの宣言（`group`。必須）を持つ。設定ユニットは2ファイルで、
   `versions.yaml`が「どのブランチを追跡するか」というよく触る値（app名をキーにした
-  `branchToSync`と、Helmの向き先ブランチ`helmBranchRef`）、`locations.yaml`が「`values.yaml`の
+  `appBranchToSync`と、Helmの向き先ブランチ`helmBranchRef`）、`locations.yaml`が「`values.yaml`の
   どこに書き込むか」というあまり触らない値（`helm[]`と、app名をキーにした`apps`）を持つ。
   設定ユニット側のappは`projectName`をキーにし、`ConfigUnit`（1設定ユニット分の集約）の
   読み込み時に`registry.yaml`の`appSpecs[]`を`projectName`で引いて`projectId`・`tagFormat`を
-  結合する。このとき`branchToSync`と`apps`のapp名の集合が一致しているか、各app名が
+  結合する。このとき`appBranchToSync`と`apps`のapp名の集合が一致しているか、各app名が
   `appSpecs[]`にあるかを検証し、`appSpecs[]`内の`projectName`の重複も設定エラーにする。
   `registry.yaml`の`appSpecs[]`にだけあってどの設定ユニットからも参照されないappは
   エラーにしない（そのchartリポジトリで一時的に更新対象から外している状態を許すため）。
@@ -125,7 +125,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   上記2ブランチ構成である以上、設定ユニットごとに1件書くのが常態なので`helmBranchRef`と`helm[]`は**必須**
   （省略は設定エラー）。更新したくない設定ユニットは現在の値と同じブランチ名を書けば差分が
   出ないので更新されない。
-- **`helmBranchRef`という名前にしている理由**: `Helm`を頭に付けたのは、同じ`versions.yaml`に並ぶ`branchToSync`（ソースリポジトリの追跡ブランチ）と、どちらのブランチかをキー名だけで区別するため。`branch`+`Ref`の語幹は、`target`が答えるのは「何を狙っているか」、`ref`が
+- **`helmBranchRef`という名前にしている理由**: `Helm`を頭に付けたのは、同じ`versions.yaml`に並ぶ`appBranchToSync`（ソースリポジトリの追跡ブランチ）と、どちらのブランチかをキー名だけで区別するため。`branch`+`Ref`の語幹は、`target`が答えるのは「何を狙っているか」、`ref`が
   答えるのは「何を指しているか」で、「向き先」の語感は後者に近い。Argo CDの
   `Application.spec.source.targetRevision`・Fluxの`GitRepository.spec.ref.branch`と同じ用法。
   `Revision`ではなく`Branch`を語幹にしているのは、この設計が取るのがブランチ名だけで
@@ -135,7 +135,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   （その前は`helm.branchToSync`）。その後、設定ユニットの2ファイル分割で`versions.yaml`の
   トップレベルの`branchRef`になった。古い設定ファイル・過去のログを読むときは読み替える。
 - **`AppConfig.branchToSync`（追跡ブランチ）との関係**: YAMLキー名は`versions.yaml`の`helmBranchRef`と
-  `branchToSync`で別々になっており、コード側も`HelmConfig.branchRef`と
+  `appBranchToSync`で別々になっており、コード側も`HelmConfig.branchRef`と
   `AppConfig.branchToSync`で名前が分かれている。指しているものも別（前者はk8sリソースを
   構築するブランチ、後者はタグを探す追跡ブランチ）で、混同しない。
 - **HelmConfig**: `branchRef`（向き先ブランチ名。`versions.yaml`の`helmBranchRef`由来）と
@@ -173,12 +173,12 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### 追跡ブランチ
 
-- **英語識別子**: `branchToSync` / `BranchName`
+- **英語識別子**: `appBranchToSync`（`versions.yaml`のキー）/ `AppConfig.branchToSync`（コード上のフィールド）/ `BranchName`
 - **定義**: アプリごとに設定する、最新タグの判定対象とするソースリポジトリ側のブランチ。
 - **表記ゆれ**: 要件定義の初期検討段階（`docs/history/requirements-grilling.md`）では「追跡対象ブランチ」という表記もあったが、確定版の`docs/requirements.md`では「追跡ブランチ」に統一されている。
-- **`branchToSync`という名前を据え置く理由**: YAMLキーとコード上のフィールド名（`AppConfig.branchToSync`）が
-  一致しており、「YAMLキーと型フィールドで語幹を違えない」という規約に違反していない。`helmBranchRef`とは
-  キー名が異なるため、同じキー名を別の意味に使う衝突も無い。
+- **YAMLキーとコードのフィールド名が違う理由**: YAMLキーは`helmBranchRef`と対になるよう、頭に`app`を
+  付けて何のブランチかをキー名だけで区別できるようにしている。コード側は`AppConfig`のフィールドで
+  持ち主が型から分かるため`branchToSync`のまま（語幹`branchToSync`は共通）。
 
 ### タグ形式
 

@@ -1,4 +1,4 @@
 # 深さ1の設定ユニット（docs/smoke-test.md 参照）
 helmBranchRef: release/2026-q1
-branchToSync:
+appBranchToSync:
   sample-qa-sprint: main
