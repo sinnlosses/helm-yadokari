@@ -9,6 +9,45 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-09-30（19回目）
+
+生成したタスク: T-272〜T-274。タスクにしなかった項目: なし。
+
+以下は `develop/direction.md` にあった当時の記述（会話でユーザーと合意した内容を書き起こしたもの）。
+
+### 設定ユニットの `config.yaml` を `versions.yaml` と `locations.yaml` に分ける（2026-09-30）
+
+目的: よく触る値（追跡ブランチ）とあまり触らない値（`values.yaml` の書き込み位置）をファイル単位で分けたい。
+
+- `projectId` と `projectName` は `registry.yaml` の `appSpecs[]` にだけ書く。設定ユニット側では app を `projectName` をキーにしたマップで参照し、ID は書かない
+  - `projectName` が参照の鍵になるので、同じ `registry.yaml` の中で一意であることを検証する
+- `versions.yaml`（よく触る）: `branchRef` と、app 名 → `branchToSync` のマップ
+- `locations.yaml`（あまり触らない）: `helm` の書き込み位置と、app 名 → 書き込み位置の配列のマップ
+- 設定ユニットは「`versions.yaml` と `locations.yaml` が両方あるディレクトリ」とし、片方だけなら設定エラーにする
+- 2ファイルの app 名のキー集合が一致すること、各キーが `registry.yaml` の `appSpecs[]` にあることを検証する。要らなくなる検証（同じ `projectId` の重複、`projectId` と `projectName` の食い違い）は外す
+- 「変更頻度では分けない」とした ADR 0027 を覆すことになるので、新しい ADR を起こして 0027 を置き換える（理由: 名前キーにしたことで、分割をやめた一番の理由だった `projectId`・`projectName` の重複が無くなったため）
+- `config/`・`config.example/`・スモークテストのフィクスチャ・`docs/requirements.md` 4.4節・README の「設定」章を新しい形式に合わせる
+- 案の形は次のとおり:
+
+```yaml
+# versions.yaml
+branchRef: release/2026-q1
+branchToSync:
+  my-app: develop
+  another-app: main
+```
+
+```yaml
+# locations.yaml
+helm:
+  - valuesPath: charts/my-tenant/client-a/values.yaml
+    anchor: clientATargetBranch
+apps:
+  my-app:
+    - valuesPath: charts/my-tenant/client-a/values.yaml
+      anchor: myAppVersion
+```
+
 ## 2026-09-30（18回目）
 
 生成したタスク: T-271。タスクにしなかった項目: なし。
