@@ -133,4 +133,85 @@ describe("setValueAtAnchor", () => {
     expect(reparsed.variables[0]).toBe("2027")
     expect(typeof reparsed.variables[0]).toBe("string")
   })
+
+  describe("アンカーの値以外を書き換えない", () => {
+    const LONG = "x".repeat(100)
+    const BASE = [
+      "# header",
+      "root:",
+      "    deep:",
+      `        long: ${LONG}`,
+      "        note: keep   # comment",
+      "        flow: {a: 1,   b: [1,2]}",
+      "    tags:",
+      "        - &target old   # trailing",
+      "        - &other main",
+      "",
+    ].join("\n")
+    const cases = [
+      ["LF", (t: string) => t],
+      ["CRLF", (t: string) => t.replaceAll("\n", "\r\n")],
+      ["BOM付き", (t: string) => `\uFEFF${t}`],
+      ["BOM付きCRLF", (t: string) => `\uFEFF${t.replaceAll("\n", "\r\n")}`],
+    ] as const
+
+    it.each(cases)("%s: 差分がアンカーの値だけになる", (_name, convert) => {
+      const source = convert(BASE)
+      const result = setValueAtAnchor(source, toAnchorName("target"), "release/1.2.3")
+      expect(result).toBe(source.replace("&target old", "&target release/1.2.3"))
+    })
+
+    it.each([
+      ['"old"', '"new"'],
+      ["'old'", "'new'"],
+      ["old", "new"],
+    ])("元の値 %s の引用符の種類を保つ", (original, expected) => {
+      const result = setValueAtAnchor(`a:\n  - &t ${original}  # c\n`, toAnchorName("t"), "new")
+      expect(result).toBe(`a:\n  - &t ${expected}  # c\n`)
+    })
+
+    it.each([
+      "2027",
+      "true",
+      "null",
+      "a: b",
+      "# x",
+      "it's",
+      "a,b",
+      "[x]",
+      "- y",
+      "*z",
+      "release/1.2.3",
+    ])("特殊な値 %s も元の引用符に関わらずYAMLとして同じ値に読める", (value) => {
+      for (const original of ['"old"', "'old'", "old"]) {
+        for (const template of [`a:\n  - &t ${original}\n`, `a: [&t ${original}, z]\n`]) {
+          const written = setValueAtAnchor(template, toAnchorName("t"), value)
+          const reparsed: { a: readonly unknown[] } = parseYaml(written)
+          expect(reparsed.a[0]).toBe(value)
+          expect(reparsed.a).toHaveLength(template.includes("z") ? 2 : 1)
+        }
+      }
+    })
+
+    it.each([
+      ["tag: &a\nother: 1\n", "tag: &a v\nother: 1\n"],
+      ["tag: &a", "tag: &a v"],
+      ["l:\n  - &a\n  - x\n", "l:\n  - &a v\n  - x\n"],
+      ['tag: &a ""\n', 'tag: &a "v"\n'],
+    ])("空値のアンカー %j を壊さず書き換える", (source, expected) => {
+      const result = setValueAtAnchor(source, toAnchorName("a"), "v")
+      expect(result).toBe(expected)
+      expect(parseYaml(result)).toMatchObject(parseYaml(expected) as object)
+    })
+
+    it.each([
+      ["tag: &a |\n  old\nother: 1\n", "tag: &a v\nother: 1\n"],
+      ["tag: &a >-\r\n  old\r\nother: 1\r\n", "tag: &a v\r\nother: 1\r\n"],
+      ["l:\n  - &a |\n    old\n  - x\n", "l:\n  - &a v\n  - x\n"],
+    ])("ブロックスカラーのアンカー %j を次の行とつなげずに書き換える", (source, expected) => {
+      const result = setValueAtAnchor(source, toAnchorName("a"), "v")
+      expect(result).toBe(expected)
+      expect(parseYaml(result)).toMatchObject(parseYaml(expected) as object)
+    })
+  })
 })

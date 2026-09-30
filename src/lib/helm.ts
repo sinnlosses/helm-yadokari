@@ -4,7 +4,7 @@
  * Chart.yaml の読み込みなど、Helm chart 固有の処理もここに入る。
  */
 
-import { type Document, type Scalar, isScalar, parseDocument, visit } from "yaml"
+import { type Document, Scalar, isScalar, parseDocument, stringify, visit } from "yaml"
 
 import type { AnchorName, ValuesPath } from "../domain/types.js"
 
@@ -61,21 +61,34 @@ export function getRequiredValueAtAnchor(
 }
 
 /**
- * YAML文字列内の、指定したアンカー名を持つスカラー値だけを書き換え、更新後のYAML文字列を返す。
+ * YAML文字列内の、指定したアンカー名を持つスカラー値の部分だけを置き換え、更新後のYAML文字列を返す。
  *
- * ASTノードを直接書き換えて再シリアライズするため、他の要素・インデント・
- * アンカー記法自体はそのまま維持される。
+ * それ以外の部分（改行コード・BOM・インデント・コメント・他の値の書式）はバイト単位で保たれる。
+ * 元の値の引用符の種類は保つが、新しい値が引用符なしではYAMLとして別の値に読まれる場合は
+ * 引用符を付ける。値が空のアンカー（`- &a`）には、アンカー名との間に半角スペースを1つ挟んで書く。
  */
 export function setValueAtAnchor(
   yamlContent: string,
   anchorName: AnchorName,
   newValue: string,
 ): string {
-  const doc = parseDocument(yamlContent)
-  const lookup = findAnchorNode(doc, anchorName)
+  const lookup = findAnchorNode(parseDocument(yamlContent), anchorName)
   if (lookup.kind === "scalar") {
-    lookup.node.value = newValue
-    return doc.toString()
+    const { range, type } = lookup.node
+    if (range === undefined || range === null) {
+      throw new Error(`values.yaml のアンカー "${anchorName}" の位置を特定できません`)
+    }
+    const [start, end] = range
+    const separator = start === end ? " " : ""
+    // ブロックスカラー（`|`・`>`）の区間は末尾の改行まで含むので、それを残さないと次の行とつながる
+    const trailingBreaks = /(?:\r?\n)*$/.exec(yamlContent.slice(start, end))?.[0] ?? ""
+    return (
+      yamlContent.slice(0, start) +
+      separator +
+      formatScalar(type, newValue) +
+      trailingBreaks +
+      yamlContent.slice(end)
+    )
   }
   if (lookup.kind === "non_scalar") {
     throw new Error(
@@ -83,6 +96,16 @@ export function setValueAtAnchor(
     )
   }
   throw new Error(`values.yaml にアンカー "${anchorName}" が見つかりません`)
+}
+
+function formatScalar(originalType: Scalar["type"], value: string): string {
+  if (originalType === Scalar.QUOTE_SINGLE && !value.includes("\n")) {
+    return `'${value.replaceAll("'", "''")}'`
+  }
+  if (originalType === Scalar.QUOTE_DOUBLE) return JSON.stringify(value)
+  const plain = stringify(value, { lineWidth: 0 }).trimEnd()
+  // flow形式の中ではこれらの文字が区切りとして読まれるため、平文では書かない
+  return plain.includes("\n") || /[,[\]{}]/.test(plain) ? JSON.stringify(value) : plain
 }
 
 /**
