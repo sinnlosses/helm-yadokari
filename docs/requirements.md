@@ -15,7 +15,7 @@ sed -n '/^### 4.4 アプリの登録・設定/,/^#\{2,4\} /p' docs/requirements.
 ```
 
 **終端は `^#\{2,4\}` にする（`^#\{1,4\}` にしない）。** 4.4節はYAMLの実例を含み、その
-コードブロック内の `# config.yaml トップレベル…` というコメント行を見出しと誤認して、
+コードブロック内の `# versions.yaml` のようなコメント行を見出しと誤認して、
 節の途中（スキーマ本体の手前）で切れる。
 
 ### 節の索引
@@ -69,13 +69,13 @@ Pull Request) を自動作成する。1回の実行でGitLab・GitHubを混在�
 
 ## 3. 用語
 
-| 用語                          | 意味                                                                                                                                                                                                                                                                            |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| アプリ                        | 管理対象とする、Helm chartでデプロイされる1つのアプリケーション単位。`config.yaml`の1エントリに対応する                                                                                                                                                                         |
-| ソースリポジトリ              | アプリのソースコードが置かれ、タグが打たれるGitLab/GitHubのプロジェクト（リポジトリ）                                                                                                                                                                                           |
-| chartリポジトリ               | Helm chart（`values.yaml`を含む）を管理するGitLab/GitHubのプロジェクト（リポジトリ）。ソースリポジトリとは別プロジェクト。`config/`配下では1ディレクトリ（`registry.yaml`）に対応する                                                                                           |
-| 設定ユニット (`unitPath`)     | 同一のchartリポジトリ配下で、アプリの設定を分割管理するための単位。`config/<chartリポジトリ>/<unitPath>/config.yaml` というディレクトリ階層で表現する。`unitPath`は`config/<chartリポジトリ>/`からの相対パスで、深さ1か深さ2のいずれか（詳細は4.4節）。MRを作成する単位でもある |
-| 追跡ブランチ (`branchToSync`) | アプリごとに設定する、最新タグの判定対象とするソースリポジトリ側のブランチ                                                                                                                                                                                                      |
+| 用語                          | 意味                                                                                                                                                                                                                                                                                                            |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| アプリ                        | 管理対象とする、Helm chartでデプロイされる1つのアプリケーション単位。`versions.yaml`・`locations.yaml`の同じ名前のエントリに対応する                                                                                                                                                                            |
+| ソースリポジトリ              | アプリのソースコードが置かれ、タグが打たれるGitLab/GitHubのプロジェクト（リポジトリ）                                                                                                                                                                                                                           |
+| chartリポジトリ               | Helm chart（`values.yaml`を含む）を管理するGitLab/GitHubのプロジェクト（リポジトリ）。ソースリポジトリとは別プロジェクト。`config/`配下では1ディレクトリ（`registry.yaml`）に対応する                                                                                                                           |
+| 設定ユニット (`unitPath`)     | 同一のchartリポジトリ配下で、アプリの設定を分割管理するための単位。`config/<chartリポジトリ>/<unitPath>/` というディレクトリ階層（`versions.yaml`と`locations.yaml`を置く）で表現する。`unitPath`は`config/<chartリポジトリ>/`からの相対パスで、深さ1か深さ2のいずれか（詳細は4.4節）。MRを作成する単位でもある |
+| 追跡ブランチ (`branchToSync`) | アプリごとに設定する、最新タグの判定対象とするソースリポジトリ側のブランチ                                                                                                                                                                                                                                      |
 
 ## 4. 機能要件
 
@@ -141,7 +141,7 @@ Pull Request) を自動作成する。1回の実行でGitLab・GitHubを混在�
 - **`unitPath` について起動時に検証するのは「形」だけ**とし、内訳は次の2点に限る。
   どちらも相手のGitLab/GitHubプロジェクトに関係なく成立しない設定の書き方の誤りなので、
   該当分だけERRORにするのではなく設定エラーとして即時終了する（詳細は4.4節）
-  - 深さが1〜2であること。置き場所を間違えた`config.yaml`を検知するための上限で、
+  - 深さが1〜2であること。置き場所を間違えた設定ユニットのファイルを検知するための上限で、
     入れ子の禁止では代替できない（理由は4.4節）
   - 設定ユニットが入れ子でないこと。入れ子だとブランチ名が `feature/yadokari/a` と
     `feature/yadokari/a/b` のようにプレフィックス関係になり、Gitのrefが
@@ -219,10 +219,10 @@ Pull Request) を自動作成する。1回の実行でGitLab・GitHubを混在�
 
 管理対象の情報は、CLIリポジトリ側の `config/` ディレクトリで一元管理する
 （chartリポジトリ側に設定を持たせる自己申告方式は採用しない）。CLIは `config/` 配下を
-再帰的に走査し、見つけた全ての `config.yaml`（とその直近の親をたどって見つかる`registry.yaml`）を
-処理対象とする。`config.yaml` を見つけたディレクトリが
-1つの**設定ユニット**で、そこより深い階層へは降りない（後述のとおり設定ユニットの入れ子は
-禁止しており、降りた先に `config.yaml` があれば設定エラーとして検出する）。
+再帰的に走査し、`versions.yaml` と `locations.yaml` が**両方ある**ディレクトリ（とその直近の親を
+たどって見つかる`registry.yaml`）を処理対象とする。そのディレクトリが1つの**設定ユニット**で、
+そこより深い階層へは降りない（後述のとおり設定ユニットの入れ子は禁止しており、降りた先に
+どちらかのファイルがあれば設定エラーとして検出する）。片方しかないディレクトリも設定エラーになる。
 
 ディレクトリ構成:
 
@@ -231,35 +231,32 @@ config/
   <chartリポジトリ名>/            # 例: teamA-chart（ディレクトリ名は人間向けのラベル）
     registry.yaml                  # chartリポジトリの情報＋ソースリポジトリの台帳
     <unitPath>/                    # 深さ1の設定ユニット
-      config.yaml                  # その設定ユニットの全て
+      versions.yaml                # よく触る値（追跡・向き先ブランチ）
+      locations.yaml               # あまり触らない値（values.yaml内の書き込み位置）
     <unitPathの第1セグメント>/     # 深さ2の設定ユニット
       <unitPathの第2セグメント>/
-        config.yaml
+        versions.yaml
+        locations.yaml
 ```
 
-**ファイルを分ける軸は「スコープ」**とする。値が何の単位で決まるかでファイルを決め、
-それ以上は分けない。
+**ファイルを分ける軸は「スコープ」と「変更頻度」**とする。値が何の単位で決まるかで
+`registry.yaml`（chartリポジトリ）と設定ユニットのファイルを分け、設定ユニットの中は
+よく触る値と滅多に触らない値で2ファイルに分ける。
 
-| ファイル        | スコープ        | 持つもの                                                                                                                                                                                                   |
-| --------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `registry.yaml` | chartリポジトリ | MRの作成先（`chartToUpdate`）、ソースリポジトリのタグ形式の台帳（`appSpecs[].tagFormat`）、操作に使うアクセストークンの宣言（`accessTokenEnv`）、所属グループの宣言（`group.groupId` / `group.groupName`） |
-| `config.yaml`   | 設定ユニット    | どのブランチを追跡し、`values.yaml`のどこへ書き込むか                                                                                                                                                      |
+| ファイル         | スコープ        | 持つもの                                                                                                                                                                                                                        |
+| ---------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `registry.yaml`  | chartリポジトリ | MRの作成先（`chartToUpdate`）、ソースリポジトリの台帳（`appSpecs[]`の`projectId`・`projectName`・`tagFormat`）、操作に使うアクセストークンの宣言（`accessTokenEnv`）、所属グループの宣言（`group.groupId` / `group.groupName`） |
+| `versions.yaml`  | 設定ユニット    | どのブランチを追跡するか（`branchToSync`）とHelmの向き先ブランチ（`branchRef`）。よく触る値                                                                                                                                     |
+| `locations.yaml` | 設定ユニット    | `values.yaml`のどこへ書き込むか（`helm[]`と`apps`の`locations`）。あまり触らない値                                                                                                                                              |
 
-**変更頻度で更に分けることはしない。** かつては「よく変更する運用値」と「滅多に変更しない
-chart構造」を別ファイル（`config.yaml` と `anchors.yaml`）にしていたが、次の理由でやめた。
-
-- **appの追加・削除ではどちらのファイルも触る。** 最も多い編集で手数が減らず、`projectId`と
-  `projectName`を両方のファイルに重複して書く手間だけが残っていた
-- **編集者が分かれていない。** 各チームがこの`config/`へMRを送るセルフサービス方式なので、
-  「別の担当者が別のファイルを触る」という分割理由が無い
-- **本当によく変わるのは`branchToSync`だけ**で、1つの設定ユニットのファイルは十数行に収まる。
-  分けなくても見通せる
+設定ユニット側のappは`projectName`をキーにしたマップで参照し、`projectId`は`registry.yaml`の
+`appSpecs[]`にだけ書く。このため2ファイルに`projectId`と`projectName`を重複して書く必要が
+無く、変更頻度で分けてもappの追加・削除の手数は増えない（判断の経緯は
+`docs/architecture/adr/0034-config-unit-split-versions-locations.md`）。
 
 `tagFormat`をchartリポジトリ単位の`registry.yaml`に置くのは、タグ形式が**ソースリポジトリ側の
 性質**で、設定ユニットごとに変わる値ではないため。設定ユニット側に置くと、同じソース
-リポジトリを複数の設定ユニットが追跡する構成で同じ値を何度も書くことになる。`projectName`は
-`registry.yaml`が正典だが、`config.yaml`にも重複して書く（設定ユニットのファイル単体で
-「どのappか」が読めることを優先する。食い違いは設定エラーで防ぐ）。
+リポジトリを複数の設定ユニットが追跡する構成で同じ値を何度も書くことになる。
 
 `registry.yaml`:
 
@@ -281,57 +278,64 @@ appSpecs: # このchartリポジトリ配下の設定ユニットが追跡する
     tagFormat: "{date}-{time}-{branch}"
 ```
 
-`config.yaml`（このファイルがあるディレクトリが1つの設定ユニット）:
+`versions.yaml`と`locations.yaml`（この2つがあるディレクトリが1つの設定ユニット）:
 
 ```yaml
-apps:
-  - projectId: 1 # registry.yaml の appSpecs[] と一致させる
-    projectName: my-app # registry.yaml の appSpecs[] と一致させる
-    branchToSync: main # 追跡するブランチ（設定ユニットごとに違ってよい）
-    locations:
-      - valuesPath: charts/my-app/values.yaml
-        anchor: myAppVersion # values.yaml内のYAMLアンカー名
-  - projectId: 2
-    projectName: another-app
-    branchToSync: main
-    locations:
-      - valuesPath: charts/another-app/values.yaml
-        anchor: anotherAppVersion
+# versions.yaml
+branchRef: release/2026-q1 # Helmの向き先ブランチ（必須）
+branchToSync: # app名（registry.yamlのappSpecs[].projectName）をキーにした追跡ブランチ
+  my-app: main # 設定ユニットごとに違ってよい
+  another-app: main
 ```
 
-- `apps[].locations[].anchor` は、`values.yaml`内のイメージタグの位置をYAMLアンカー名で
+```yaml
+# locations.yaml
+helm:
+  - valuesPath: charts/my-app/values.yaml
+    anchor: myAppTargetBranch # values.yaml内のYAMLアンカー名
+apps: # versions.yamlのbranchToSyncと同じapp名のキー集合にする
+  my-app:
+    - valuesPath: charts/my-app/values.yaml
+      anchor: myAppVersion # values.yaml内のYAMLアンカー名
+  another-app:
+    - valuesPath: charts/another-app/values.yaml
+      anchor: anotherAppVersion
+```
+
+- `locations.yaml`の`apps.<app名>[].anchor` は、`values.yaml`内のイメージタグの位置をYAMLアンカー名で
   指定するフィールド。`values.yaml`はオブジェクトのネストではなく、配列要素にYAMLアンカーで
   名前を付けた構成（例: `variables: [&myAppVersion main, ...]`）を前提とし、指定したアンカー名を
   持つYAML上のスカラー値を、ネストの深さ・キー名に関わらず直接書き換える
 
-- `locations` は1件以上の配列で、`valuesPath`（書き換え対象の`values.yaml`のパス）＋
+- `apps.<app名>`は1件以上の配列で、`valuesPath`（書き換え対象の`values.yaml`のパス）＋
   `anchor`（書き換え位置）ごとに1要素を指定する。1つのソースリポジトリ（1つの
   `projectId`・タグ）に対してWebAPI/バッチ/デーモンなど複数のデプロイ単位を管理している
-  ケースでは、`locations`に複数要素を指定することで、同じ最新タグを複数箇所へまとめて反映できる
+  ケースでは、配列に複数要素を指定することで、同じ最新タグを複数箇所へまとめて反映できる
 
   ```yaml
-  # config.yaml
+  # locations.yaml
   apps:
-    - projectId: 890
-      branchToSync: main
-      projectName: multi-service-app
-      locations:
-        - valuesPath: charts/multi-service-app/values.yaml
-          anchor: multiServiceAppWebapiVersion
-        - valuesPath: charts/multi-service-app/values.yaml
-          anchor: multiServiceAppBatchVersion
-        - valuesPath: charts/multi-service-app/values.yaml
-          anchor: multiServiceAppDaemonVersion
+    multi-service-app:
+      - valuesPath: charts/multi-service-app/values.yaml
+        anchor: multiServiceAppWebapiVersion
+      - valuesPath: charts/multi-service-app/values.yaml
+        anchor: multiServiceAppBatchVersion
+      - valuesPath: charts/multi-service-app/values.yaml
+        anchor: multiServiceAppDaemonVersion
   ```
 
-- `config.yaml`の各appに対応する`projectId`が、同じchartリポジトリの`registry.yaml`の`appSpecs[]`に
-  見つからない場合は設定エラーになる。`tagFormat`が引けないため最新タグを判定できない。
-  同じ`projectId`なのに`projectName`が食い違っている場合も設定エラーになる
+- 設定ユニットのapp名（`versions.yaml`の`branchToSync`と`locations.yaml`の`apps`のキー）が、同じ
+  chartリポジトリの`registry.yaml`の`appSpecs[].projectName`に見つからない場合は設定エラーに
+  なる。`tagFormat`が引けないため最新タグを判定できない
+- `versions.yaml`の`branchToSync`と`locations.yaml`の`apps`は、app名のキー集合が一致していなければ
+  設定エラーになる。片方にしか無いappは、追跡ブランチと書き込み先の一方が欠けて更新できない
+- `versions.yaml`と`locations.yaml`は両方そろって初めて設定ユニットになり、片方しか無い
+  ディレクトリは設定エラーになる
+- 同じ`registry.yaml`の`appSpecs[]`で`projectName`が重複している場合は設定エラーになる。
+  設定ユニット側は`projectName`で`appSpecs[]`を引くので、重複していると引き先が決まらない。
+  同じ`projectId`が`appSpecs[]`に複数あるのも従来どおり設定エラー
 - `registry.yaml`の`appSpecs[]`にだけ書かれていて、どの設定ユニットからも参照されていないappは
   **エラーにしない**（そのchartリポジトリで一時的に更新対象から外している状態を許すため）
-- 同じ`projectId`のappが1つのファイル内に複数書かれている場合も設定エラーになる。
-  CLIは`projectId`をキーに2ファイルを突き合わせるため、重複していると片方が黙って無視され、
-  同じ書き込み先へ別々のタグを順に書いて最後の値だけが残る
 - `registry.yaml`の`appSpecs[].tagFormat` はそのアプリ（ソースリポジトリ）のタグ形式を表す
   テンプレート文字列で、**必須**（判定・生成の仕様は4.1節が正典）。省略した場合、
   `{branch}`/`{date}`/`{time}` のいずれかを含まない場合、同じプレースホルダを2回以上含む
@@ -371,7 +375,7 @@ apps:
   外れてしまう
 - `group`の照合は`validate-config --remote`（実在チェック）だけが行い、本体の更新処理は参照
   しない。まず`groupId`からそのグループのフルパスを1回引き、`chartToUpdate.projectId`と
-  `apps[].projectId`のそれぞれについて、GitLabが返すプロジェクトの所属
+  `appSpecs[].projectId`のそれぞれについて、GitLabが返すプロジェクトの所属
   （`namespace.full_path`）がそのフルパスそのものか、その**サブグループ配下**であることを
   確認する。サブグループを許すのは、グループのトークンがサブグループのプロジェクトにも
   届く＝宣言したトークンの被害範囲の内側だから。照合はセグメント単位なので、`team-a-group`は
@@ -395,24 +399,24 @@ apps:
   裏返すと、**同じソースリポジトリを別グループのchartリポジトリから追う構成は、両者が同じ
   `accessTokenEnv`を宣言できるときだけ可能**という制約になる
 - 1つの設定ユニット内で、同じ`valuesPath`+`anchor`の組（＝values.yamlの同じ1箇所）が複数の
-  書き込み先として指定されている場合も設定エラーになる。`apps[].locations[]`同士の重複、
-  `apps[].locations[]`と`helm.locations[]`の衝突（イメージタグと向き先ブランチが同じ箇所を奪い合う）が対象
+  書き込み先として指定されている場合も設定エラーになる。`locations.yaml`の`apps`配下同士の重複、
+  `apps`配下と`helm[]`の衝突（イメージタグと向き先ブランチが同じ箇所を奪い合う）が対象
 - 設定ユニットのディレクトリ階層（`unitPath` の深さ）は `config/<chartリポジトリ>/` から
-  数えて**1〜2**とする。深さ1（`<chartリポジトリ>/<ユニット名>/config.yaml`）と深さ2
-  （`<chartリポジトリ>/<第1セグメント>/<第2セグメント>/config.yaml`）のどちらでもよく、**同じchart
+  数えて**1〜2**とする。深さ1（`<chartリポジトリ>/<ユニット名>/`）と深さ2
+  （`<chartリポジトリ>/<第1セグメント>/<第2セグメント>/`）のどちらでもよく、**同じchart
   リポジトリ配下に深さ1と深さ2の設定ユニットを混在させてもよい**（入れ子でない限り
   `feature/yadokari/<unitPath>` が衝突しないため）。深さ0（`registry.yaml`と同じ階層に
-  `config.yaml`を置く）と深さ3以上はいずれも設定エラーとする。深さ0は`unitPath`が空になって
+  設定ユニットのファイルを置く）と深さ3以上はいずれも設定エラーとする。深さ0は`unitPath`が空になって
   固定ブランチ名を組み立てられず、かつ同じchartリポジトリ配下の全設定ユニットと必ず入れ子に
   なる。深さ3以上は現時点で必要とする運用が無く、**上限があるほうが置き場所を間違えた
-  `config.yaml`を設定エラーとして検知できる**ため許さない（必要になった時点で緩める）。
-  入れ子の禁止だけではこれを代替できない。深い位置に`config.yaml`が1つだけある場合は
+  設定ユニットのファイルを設定エラーとして検知できる**ため許さない（必要になった時点で緩める）。
+  入れ子の禁止だけではこれを代替できない。深い位置に設定ユニットが1つだけある場合は
   入れ子ではないため、上限が無ければ黙って設定ユニットとして受理されてしまう。
-  **この上限は走査を打ち切る条件ではない**。深すぎる位置の`config.yaml`を「対象0件」ではなく
+  **この上限は走査を打ち切る条件ではない**。深すぎる位置の設定ユニットを「対象0件」ではなく
   設定エラーとして報告するため、走査自体はchartディレクトリ配下を全部見る
   （実装上の判断の詳細は`docs/architecture.md`）
-- 設定ユニットの**入れ子は禁止**する。`config.yaml`を持つディレクトリの配下に、さらに
-  `config.yaml`を持つディレクトリがある場合は設定エラーとして即時終了する。入れ子を許すと
+- 設定ユニットの**入れ子は禁止**する。設定ユニットのファイルを持つディレクトリの配下に、さらに
+  設定ユニットのファイルを持つディレクトリがある場合は設定エラーとして即時終了する。入れ子を許すと
   固定ブランチ名が `feature/yadokari/a` と `feature/yadokari/a/b` のようにプレフィックス
   関係になり、Gitのrefは directory/file conflict を起こして両者を同一リポジトリに
   共存させられない。refの衝突はパスがプレフィックス関係のときにだけ起きるので、入れ子さえ
@@ -423,40 +427,28 @@ apps:
 **Helmの向き先ブランチ**（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
 ブランチ。既存の`mrTargetBranch`＝値定義ブランチとは別物）の追従・更新も、このMRの対象に含める:
 
-```yaml
-# config.yaml トップレベル。apps:配列と同階層、設定ユニット単位に1件のオブジェクト。
-# helm は必須で、branchRef と locations[] の両方が必要
-helm:
-  branchRef: release/2026-q1
-  locations:
-    # helm.branchRefの値をこのvaluesPath内のこのアンカーに書き込む
-    - valuesPath: charts/my-app/values.yaml
-      anchor: myAppTargetBranch
-apps:
-  - projectId: 1
-    projectName: my-app
-    branchToSync: main
-```
+`versions.yaml`の`branchRef`と`locations.yaml`の`helm[]`が、設定ユニット単位に1件ずつの
+Helmの向き先ブランチの設定になる（YAMLの例は上の`versions.yaml`・`locations.yaml`）。
 
-- `helm`は**必須**とする。chartリポジトリは「`values.yaml`等のパラメータを定義するブランチ」と
+- Helmの向き先ブランチは**必須**とする。chartリポジトリは「`values.yaml`等のパラメータを定義するブランチ」と
   「そのパラメータを受け取ってk8sリソースを構築するブランチ」の2ブランチ構成である、というのが
   この運用の前提だからで、設定ユニットごとに向き先ブランチを1件書くのが常態になる。
-  `helm`自体の省略も、`helm.branchRef`と`helm.locations[]`の片方だけの指定も設定エラー。
-  向き先ブランチを更新したくない設定ユニットは、`helm.branchRef`に現在の値と同じブランチ名を
+  `versions.yaml`の`branchRef`と`locations.yaml`の`helm[]`のどちらが欠けても設定エラー。
+  向き先ブランチを更新したくない設定ユニットは、`branchRef`に現在の値と同じブランチ名を
   書けば差分が出ないので更新されない
-- `config.yaml`の`helm.branchRef`はchartリポジトリ内の別ブランチ（`registry.yaml`の`chartToUpdate.projectId`と
+- `branchRef`はchartリポジトリ内の別ブランチ（`registry.yaml`の`chartToUpdate.projectId`と
   同一プロジェクト）を指す、設定ユニット単位に1件の値。人間が自己申告方式で直接書き換える
   運用とし、タグ形式のような自動生成・自動判定の仕組みは持たない
-- `helm.locations[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、
-  `apps[].locations[]`とは独立したリスト。どのappに紐づくかは`valuesPath`の一致だけで決まる
-  （app側に専用フィールドは持たせない）。1つのappが複数の`valuesPath`を持つ場合、それぞれに
-  対応する`helm.locations[]`の要素があれば複数箇所へまとめて反映できる
-- Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提のため、そのconfig.yaml
-  配下の**全アプリ**の**全`locations[].valuesPath`**が`helm.locations[]`でカバーされている必要がある
+- `helm[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、`apps`配下の書き込み先とは独立した
+  リスト。どのappに紐づくかは`valuesPath`の一致だけで決まる（app側に専用フィールドは
+  持たせない）。1つのappが複数の`valuesPath`を持つ場合、それぞれに対応する`helm[]`の要素が
+  あれば複数箇所へまとめて反映できる
+- Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提のため、その設定ユニットの
+  **全アプリ**の**全`valuesPath`**が`helm[]`でカバーされている必要がある
   （1つでも漏れていると設定エラー）
 - 書き込み前に、指定されたブランチ名がchartリポジトリ上に実在するか検証する。存在しなければ
   その設定ユニット全体を`ERROR`として扱う（他のアプリの更新も含めオールオアナッシングで見送る）
-- 同じ`unitPath`が複数のchartディレクトリにまたがる場合、各`config.yaml`が独立して
+- 同じ`unitPath`が複数のchartディレクトリにまたがる場合、各設定ユニットが独立して
   値を持つため、片方だけ更新し忘れて値がズレる可能性がある。これは許容し、追加の
   整合性チェックは行わない
 
@@ -468,14 +460,14 @@ apps:
 - `TARGET_CHART`: `config/` 直下の特定のchartディレクトリ名を1つ指定し、そのchart
   リポジトリのみを対象にする
 - `TARGET_UNITS`: `unitPath`（`config/<chartリポジトリ>/` からの深さ1〜2の相対パス。4.4節）で
-  特定の設定ユニットを指定し、該当するconfig.yamlのみを対象にする。カンマ区切りで複数の
+  特定の設定ユニットを指定し、該当する設定ユニットのみを対象にする。カンマ区切りで複数の
   `unitPath`を指定でき、指定した
-  いずれかに一致するconfig.yamlがすべて対象になる（`TARGET_CHART`と
+  いずれかに一致する設定ユニットがすべて対象になる（`TARGET_CHART`と
   組み合わせ可能。組み合わせた場合はその両方に一致するものだけが対象になる）
 - 指定した`TARGET_CHART`、または`TARGET_UNITS`内の各`unitPath`が
   `config/`配下に1件も見つからない場合は、typo等に気づけるようエラーとして即時終了する
   （`TARGET_UNITS`に複数指定した場合、1件でも見つからない`unitPath`があればエラーにする。
-  ディレクトリ自体は存在していても`registry.yaml`/`config.yaml`が無く、絞り込み結果として
+  ディレクトリ自体は存在していても`registry.yaml`または設定ユニットのファイルが無く、絞り込み結果として
   対象アプリが1件も残らない場合も同様にエラーにする。対象0件のまま正常終了はしない）
 - どちらも未指定の場合の挙動（全件実行）は変わらない
 

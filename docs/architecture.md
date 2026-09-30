@@ -375,17 +375,18 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 
 ### 設定・環境変数・外部形式
 
-| ファイル                                                         | 判断                                                                     |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `docs/architecture/adr/0025-env-loaded-by-load-env-config.md`    | 環境変数はモジュールのトップレベルではなく`loadEnvConfig()`で読む        |
-| `docs/architecture/adr/0026-config-check-shape-and-existence.md` | 設定ミスの検知は「形」と「実在」で2段に分ける                            |
-| `docs/architecture/adr/0027-config-split-by-scope.md`            | `config/`は「スコープ」で2ファイルに分け、変更頻度では分けない           |
-| `docs/architecture/adr/0028-config-unit-scan-no-depth-cutoff.md` | 設定ユニットの走査は深さで打ち切らず、絞り込みより先に階層を検証する     |
-| `docs/architecture/adr/0029-values-yaml-anchor-only.md`          | `values.yaml` の位置指定はYAMLアンカーのみ、YAML処理は `yaml` パッケージ |
-| `docs/architecture/adr/0030-helm-branch-per-config-unit.md`      | Helmの向き先ブランチはapp単位に振り分けず設定ユニット単位で持つ          |
-| `docs/architecture/adr/0031-mr-per-config-unit.md`               | MRの単位は `(chartリポジトリ, 設定ユニット)`                             |
-| `docs/architecture/adr/0032-platform-env-vars.md`                | プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/`GITHUB_URL`のまま |
-| `docs/architecture/adr/0033-access-token-per-chart-repo.md`      | アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける   |
+| ファイル                                                             | 判断                                                                                |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `docs/architecture/adr/0025-env-loaded-by-load-env-config.md`        | 環境変数はモジュールのトップレベルではなく`loadEnvConfig()`で読む                   |
+| `docs/architecture/adr/0026-config-check-shape-and-existence.md`     | 設定ミスの検知は「形」と「実在」で2段に分ける                                       |
+| `docs/architecture/adr/0027-config-split-by-scope.md`                | `config/`は「スコープ」で2ファイルに分け、変更頻度では分けない（0034で置き換え）    |
+| `docs/architecture/adr/0028-config-unit-scan-no-depth-cutoff.md`     | 設定ユニットの走査は深さで打ち切らず、絞り込みより先に階層を検証する                |
+| `docs/architecture/adr/0029-values-yaml-anchor-only.md`              | `values.yaml` の位置指定はYAMLアンカーのみ、YAML処理は `yaml` パッケージ            |
+| `docs/architecture/adr/0030-helm-branch-per-config-unit.md`          | Helmの向き先ブランチはapp単位に振り分けず設定ユニット単位で持つ                     |
+| `docs/architecture/adr/0031-mr-per-config-unit.md`                   | MRの単位は `(chartリポジトリ, 設定ユニット)`                                        |
+| `docs/architecture/adr/0032-platform-env-vars.md`                    | プラットフォームの選択は`PLATFORM`、URLは`GITLAB_URL`/`GITHUB_URL`のまま            |
+| `docs/architecture/adr/0033-access-token-per-chart-repo.md`          | アクセストークンはchartリポジトリ単位に宣言し、`ProjectId`で振り分ける              |
+| `docs/architecture/adr/0034-config-unit-split-versions-locations.md` | 設定ユニットは`versions.yaml`と`locations.yaml`に分け、appは`projectName`で参照する |
 
 ## 既知の制約・注意点
 

@@ -1,5 +1,9 @@
 # `config/`は「スコープ」で2ファイルに分け、変更頻度では分けない
 
+> `config.yaml`を1ファイルにする結論と`projectName`の重複記述は、
+> `0034-config-unit-split-versions-locations.md`で置き換えられた。`chart`の語の使い分け・
+> `tagFormat`の置き場所・環境変数を採らなかった理由・食い違い検証は引き続き有効。
+
 `registry.yaml`（chartリポジトリ単位）と `config.yaml`（設定ユニット単位）の2つだけを置く。
 値が何の単位で決まるかでファイルを決め、それ以上は分けない。`docs/requirements.md` 4.4節が正典。
 
