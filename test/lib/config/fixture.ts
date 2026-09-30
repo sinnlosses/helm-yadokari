@@ -16,7 +16,7 @@ export type ConfigDir = {
   readonly path: ConfigRootPath
   readonly writeFile: (relativePath: string, content: string) => void
   readonly writeRegistryYaml: (chartDir: string, registry: string) => void
-  readonly writeConfigYaml: (chartDir: string, unitPath: string, config: string) => void
+  readonly writeConfigUnit: (chartDir: string, unitPath: string, files: ConfigUnitFiles) => void
 }
 
 export function useConfigDir(): ConfigDir {
@@ -43,8 +43,10 @@ export function useConfigDir(): ConfigDir {
     },
     writeFile,
     writeRegistryYaml: (chartDir, registry) => writeFile(`${chartDir}/registry.yaml`, registry),
-    writeConfigYaml: (chartDir, unitPath, config) =>
-      writeFile(`${chartDir}/${unitPath}/config.yaml`, config),
+    writeConfigUnit: (chartDir, unitPath, files) => {
+      writeFile(`${chartDir}/${unitPath}/versions.yaml`, files.versions)
+      writeFile(`${chartDir}/${unitPath}/locations.yaml`, files.locations)
+    },
   }
 }
 
@@ -64,7 +66,7 @@ export type AppSpecFixture = {
   readonly tagFormat?: string
 }
 
-/** `apps[].locations[]`・`helm.locations[]`共通の書き込み先1件分 */
+/** `apps`配下・`helm`共通の書き込み先1件分 */
 export type AnchorLocationFixture = {
   readonly valuesPath: string
   readonly anchor: string
@@ -107,34 +109,53 @@ function appSpecEntry(app: AppSpecFixture): string {
   )
 }
 
-/** `config.yaml`の`apps[]`1件分（運用値＋書き込み位置） */
+/** 設定ユニットの`apps`1件分（追跡ブランチ＋書き込み位置）。app名は`registry.yaml`の`appSpecs[].projectName` */
 export type ConfigAppFixture = {
-  readonly projectId: number
   readonly projectName: string
   readonly branchToSync: string
   readonly locations: readonly AnchorLocationFixture[]
 }
 
 /**
- * `config.yaml`の`helm`（Helmの向き先ブランチ）1件分。`branchRef`・`locations`を省略すると
- * そのキーごとYAMLに出さないので、片方だけ書いた設定エラーの検証にも使える
+ * Helmの向き先ブランチ1件分。`branchRef`・`locations`を省略するとそのキーごとYAMLに出さないので、
+ * 片方だけ書いた設定エラーの検証にも使える
  */
 export type ConfigHelmFixture = {
   readonly branchRef?: string
   readonly locations?: readonly AnchorLocationFixture[]
 }
 
+/** 設定ユニットの2ファイルの中身 */
+export type ConfigUnitFiles = {
+  readonly versions: string
+  readonly locations: string
+}
+
 /**
- * `config.yaml`のYAML文字列を組み立てる。`apps`を省略すると`apps: []`になる。
- * `helm`は必須フィールドなので、省略時は`apps`の全`valuesPath`をカバーする既定値を組み立てる
- * （向き先ブランチが主題でないテストが毎回同じブロックを書かずに済むようにするため）。
- * `helm`が書かれていない状態そのものを検証したいテストは、YAML文字列を直接書く。
+ * `versions.yaml`と`locations.yaml`のYAML文字列を組み立てる。`apps`を省略すると空のマップになる。
+ * `helm`は必須なので、省略時は`apps`の全`valuesPath`をカバーする既定値を組み立てる。
+ * 書かれていない状態そのものを検証したいテストは、YAML文字列を直接書く。
  */
-export function configYaml(
+export function configUnitFiles(
   apps: readonly ConfigAppFixture[] = [],
   helm: ConfigHelmFixture = defaultHelm(apps),
-): string {
-  return helmField(helm) + listField("apps", apps, (app) => configAppEntry(app))
+): ConfigUnitFiles {
+  const branchRefLine = helm.branchRef === undefined ? "" : `branchRef: ${helm.branchRef}\n`
+  const branchToSync =
+    apps.length === 0
+      ? "branchToSync: {}\n"
+      : `branchToSync:\n${apps.map((app) => `  ${app.projectName}: ${app.branchToSync}\n`).join("")}`
+  const helmBlock =
+    helm.locations === undefined
+      ? ""
+      : helm.locations.length === 0
+        ? "helm: []\n"
+        : `helm:\n${locationsBlock(helm.locations, "  ")}`
+  const appsBlock =
+    apps.length === 0
+      ? "apps: {}\n"
+      : `apps:\n${apps.map((app) => `  ${app.projectName}:\n${locationsBlock(app.locations, "    ")}`).join("")}`
+  return { versions: branchRefLine + branchToSync, locations: helmBlock + appsBlock }
 }
 
 /** `apps`が書き込む全`valuesPath`を1つのアンカー名でカバーする`helm`（appsが空なら1件だけ置く） */
@@ -145,26 +166,6 @@ function defaultHelm(apps: readonly ConfigAppFixture[]): ConfigHelmFixture {
     branchRef: "release/2026-q1",
     locations: covered.map((valuesPath) => ({ valuesPath, anchor: "defaultHelmTargetBranch" })),
   }
-}
-
-function helmField(helm: ConfigHelmFixture): string {
-  const branchBlock =
-    helm.branchRef === undefined ? "" : `  branchRef: ${helm.branchRef}\n`
-  return `helm:\n${branchBlock}${helm.locations === undefined ? "" : helmLocationsBlock(helm.locations)}`
-}
-
-/** `helm.locations`は空配列も表現できるようにする（`locations: []`が設定エラーになることの検証で使う） */
-function helmLocationsBlock(locations: readonly AnchorLocationFixture[]): string {
-  return locations.length === 0
-    ? "  locations: []\n"
-    : `  locations:\n${locationsBlock(locations, "    ")}`
-}
-
-function configAppEntry(app: ConfigAppFixture): string {
-  return (
-    `  - projectId: ${app.projectId}\n    projectName: ${app.projectName}\n` +
-    `    branchToSync: ${app.branchToSync}\n    locations:\n${locationsBlock(app.locations, "      ")}`
-  )
 }
 
 function locationsBlock(locations: readonly AnchorLocationFixture[], indent: string): string {

@@ -1,0 +1,10 @@
+helm:
+  - valuesPath: charts/smoke-tenant2/client2/values.yaml
+    anchor: t2c2HelmTargetBranch
+apps:
+  sample-qa-sprint:
+    - valuesPath: charts/smoke-tenant2/client2/values.yaml
+      anchor: t2c2QaSprintVersion
+  sample-develop-client:
+    - valuesPath: charts/smoke-tenant2/client2/values.yaml
+      anchor: t2c2DevelopClientVersion

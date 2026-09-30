@@ -1,0 +1,7 @@
+helm:
+  - valuesPath: charts/anchor-app/values.yaml
+    anchor: smokeTestTargetBranch
+apps:
+  sample-qa-sprint:
+    - valuesPath: charts/anchor-app/values.yaml
+      anchor: tenantId1client1AppsVersion

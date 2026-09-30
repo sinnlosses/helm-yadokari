@@ -1,22 +1,22 @@
 import { describe, expect, it } from "vitest"
 
 import { loadConfig } from "../../../src/lib/config/config.js"
-import { configYaml, registryYaml, useConfigDir } from "./fixture.js"
+import type { ConfigUnitFiles } from "./fixture.js"
+import { configUnitFiles, registryYaml, useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
 
-describe("loadConfig（config.yaml と registry.yaml の appSpecs[] の紐づけ）", () => {
-  it("config.yamlのappに対応するprojectIdがregistry.yamlのappSpecs[]に無いとき例外をスローする", () => {
+describe("loadConfig（設定ユニットと registry.yaml の appSpecs[] の紐づけ）", () => {
+  it("設定ユニットのapp名がregistry.yamlのappSpecs[].projectNameに無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
     )
-    dir.writeConfigYaml(
+    dir.writeConfigUnit(
       "teamA-chart",
       "tenant1/client1",
-      configYaml([
+      configUnitFiles([
         {
-          projectId: 1,
           projectName: "app-1",
           branchToSync: "main",
           locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
@@ -25,6 +25,40 @@ describe("loadConfig（config.yaml と registry.yaml の appSpecs[] の紐づけ
     )
 
     expect(() => loadConfig(dir.path)).toThrow("app-1")
+  })
+
+  it("branchToSync にだけあるappがあるとき例外をスローする", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }, [
+        { projectId: 1, projectName: "app-1" },
+        { projectId: 2, projectName: "app-2" },
+      ]),
+    )
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
+      versions: "branchRef: r\nbranchToSync:\n  app-1: main\n  app-2: main\n",
+      locations:
+        "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: v\n",
+    })
+
+    expect(() => loadConfig(dir.path)).toThrow(/"app-2".*versions\.yaml のみ/)
+  })
+
+  it("apps にだけあるappがあるとき例外をスローする", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }, [
+        { projectId: 1, projectName: "app-1" },
+        { projectId: 2, projectName: "app-2" },
+      ]),
+    )
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
+      versions: "branchRef: r\nbranchToSync:\n  app-1: main\n",
+      locations:
+        "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: v\n  app-2:\n    - valuesPath: a.yaml\n      anchor: w\n",
+    })
+
+    expect(() => loadConfig(dir.path)).toThrow(/"app-2".*locations\.yaml のみ/)
   })
 
   it("registry.yamlのappSpecs[]にどの設定ユニットからも参照されないappがあってもエラーにしない", () => {
@@ -38,12 +72,11 @@ describe("loadConfig（config.yaml と registry.yaml の appSpecs[] の紐づけ
         ],
       ),
     )
-    dir.writeConfigYaml(
+    dir.writeConfigUnit(
       "teamA-chart",
       "tenant1/client1",
-      configYaml([
+      configUnitFiles([
         {
-          projectId: 1,
           projectName: "app-1",
           branchToSync: "main",
           locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
@@ -53,30 +86,6 @@ describe("loadConfig（config.yaml と registry.yaml の appSpecs[] の紐づけ
 
     const { configUnits } = loadConfig(dir.path)
     expect(configUnits[0]?.apps.map((a) => a.projectName)).toEqual(["app-1"])
-  })
-
-  it("config.yamlとregistry.yamlでprojectIdが同じでもprojectNameが一致しないとき例外をスローする", () => {
-    dir.writeRegistryYaml(
-      "teamA-chart",
-      registryYaml(
-        { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
-        [{ projectId: 1, projectName: "app-1-typo" }],
-      ),
-    )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenant1/client1",
-      configYaml([
-        {
-          projectId: 1,
-          projectName: "app-1",
-          branchToSync: "main",
-          locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
-        },
-      ]),
-    )
-
-    expect(() => loadConfig(dir.path)).toThrow("projectName")
   })
 })
 
@@ -89,28 +98,30 @@ describe("loadConfig（重複指定の検証）", () => {
     ],
   )
 
-  it("config.yamlに同じprojectIdのappが2件あるとき例外をスローする", () => {
-    dir.writeRegistryYaml("teamA-chart", REGISTRY_YAML)
-    dir.writeConfigYaml(
+  it("registry.yamlに同じprojectNameのappが2件あるとき例外をスローする", () => {
+    dir.writeRegistryYaml(
+      "teamA-chart",
+      registryYaml(
+        { projectId: 888, projectName: "teamA-chart", mrTargetBranch: "develop" },
+        [
+          { projectId: 1, projectName: "my-app" },
+          { projectId: 2, projectName: "my-app" },
+        ],
+      ),
+    )
+    dir.writeConfigUnit(
       "teamA-chart",
       "tenant1/client1",
-      configYaml([
+      configUnitFiles([
         {
-          projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
-          locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
-        },
-        {
-          projectId: 1,
-          projectName: "my-app",
-          branchToSync: "develop",
           locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
         },
       ]),
     )
 
-    expect(() => loadConfig(dir.path)).toThrow("projectId 1")
+    expect(() => loadConfig(dir.path)).toThrow('projectName のappが複数あります（"my-app"）')
   })
 
   it("registry.yamlに同じprojectIdのappが2件あるとき例外をスローする", () => {
@@ -124,12 +135,11 @@ describe("loadConfig（重複指定の検証）", () => {
         ],
       ),
     )
-    dir.writeConfigYaml(
+    dir.writeConfigUnit(
       "teamA-chart",
       "tenant1/client1",
-      configYaml([
+      configUnitFiles([
         {
-          projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
           locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
@@ -142,18 +152,16 @@ describe("loadConfig（重複指定の検証）", () => {
 
   it("別々のappが同じ valuesPath + anchor を指しているとき例外をスローする", () => {
     dir.writeRegistryYaml("teamA-chart", REGISTRY_YAML)
-    dir.writeConfigYaml(
+    dir.writeConfigUnit(
       "teamA-chart",
       "tenant1/client1",
-      configYaml([
+      configUnitFiles([
         {
-          projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
           locations: [{ valuesPath: "charts/shared/values.yaml", anchor: "sharedAnchor" }],
         },
         {
-          projectId: 2,
           projectName: "app-two",
           branchToSync: "main",
           locations: [{ valuesPath: "charts/shared/values.yaml", anchor: "sharedAnchor" }],
@@ -166,12 +174,11 @@ describe("loadConfig（重複指定の検証）", () => {
 
   it("1つのappが同じ valuesPath + anchor を2回指定しているとき例外をスローする", () => {
     dir.writeRegistryYaml("teamA-chart", REGISTRY_YAML)
-    dir.writeConfigYaml(
+    dir.writeConfigUnit(
       "teamA-chart",
       "tenant1/client1",
-      configYaml([
+      configUnitFiles([
         {
-          projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
           locations: [
@@ -187,13 +194,12 @@ describe("loadConfig（重複指定の検証）", () => {
 
   it("イメージタグとHelm向き先ブランチが同じ valuesPath + anchor を奪い合うとき例外をスローする", () => {
     dir.writeRegistryYaml("teamA-chart", REGISTRY_YAML)
-    dir.writeConfigYaml(
+    dir.writeConfigUnit(
       "teamA-chart",
       "tenant1/client1",
-      configYaml(
+      configUnitFiles(
         [
           {
-            projectId: 1,
             projectName: "my-app",
             branchToSync: "main",
             locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
@@ -211,18 +217,16 @@ describe("loadConfig（重複指定の検証）", () => {
 
   it("valuesPathが同じでもanchorが違えば読み込める", () => {
     dir.writeRegistryYaml("teamA-chart", REGISTRY_YAML)
-    dir.writeConfigYaml(
+    dir.writeConfigUnit(
       "teamA-chart",
       "tenant1/client1",
-      configYaml([
+      configUnitFiles([
         {
-          projectId: 1,
           projectName: "my-app",
           branchToSync: "main",
           locations: [{ valuesPath: "charts/shared/values.yaml", anchor: "appOneVersion" }],
         },
         {
-          projectId: 2,
           projectName: "app-two",
           branchToSync: "main",
           locations: [{ valuesPath: "charts/shared/values.yaml", anchor: "appTwoVersion" }],
@@ -237,10 +241,9 @@ describe("loadConfig（重複指定の検証）", () => {
 })
 
 describe("loadConfig（複数のchartリポジトリにまたがるaccessTokenEnvの整合性）", () => {
-  const configYamlFor = (projectId: number, projectName: string): string =>
-    configYaml([
+  const configYamlFor = (projectName: string): ConfigUnitFiles =>
+    configUnitFiles([
       {
-        projectId,
         projectName,
         branchToSync: "main",
         locations: [{ valuesPath: `${projectName}.yaml`, anchor: "appVersion" }],
@@ -256,7 +259,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるaccessTokenEn
         "ACCESS_TOKEN_TEAM_A",
       ),
     )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYamlFor(1, "my-app"))
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", configYamlFor("my-app"))
     dir.writeRegistryYaml(
       "teamB-chart",
       registryYaml(
@@ -265,7 +268,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるaccessTokenEn
         "ACCESS_TOKEN_TEAM_B",
       ),
     )
-    dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYamlFor(1, "my-app"))
+    dir.writeConfigUnit("teamB-chart", "tenant1/client1", configYamlFor("my-app"))
 
     expect(() => loadConfig(dir.path)).toThrow("accessTokenEnv")
   })
@@ -279,7 +282,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるaccessTokenEn
         "ACCESS_TOKEN_TEAM_A",
       ),
     )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYamlFor(1, "my-app"))
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", configYamlFor("my-app"))
     dir.writeRegistryYaml(
       "teamB-chart",
       registryYaml(
@@ -288,7 +291,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるaccessTokenEn
         "ACCESS_TOKEN_TEAM_A",
       ),
     )
-    dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYamlFor(1, "my-app"))
+    dir.writeConfigUnit("teamB-chart", "tenant1/client1", configYamlFor("my-app"))
 
     const { configUnits } = loadConfig(dir.path)
     expect(configUnits).toHaveLength(2)
@@ -303,7 +306,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるaccessTokenEn
         "ACCESS_TOKEN_TEAM_A",
       ),
     )
-    dir.writeConfigYaml("teamA-chart", "central", configYaml())
+    dir.writeConfigUnit("teamA-chart", "central", configUnitFiles())
     dir.writeRegistryYaml(
       "teamB-chart",
       registryYaml(
@@ -312,17 +315,16 @@ describe("loadConfig（複数のchartリポジトリにまたがるaccessTokenEn
         "ACCESS_TOKEN_TEAM_B",
       ),
     )
-    dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYamlFor(1, "shared-app"))
+    dir.writeConfigUnit("teamB-chart", "tenant1/client1", configYamlFor("shared-app"))
 
     expect(() => loadConfig(dir.path)).toThrow("accessTokenEnv")
   })
 })
 
 describe("loadConfig（複数のchartリポジトリにまたがるtagFormatの食い違い）", () => {
-  const configYamlFor = (branchToSync: string): string =>
-    configYaml([
+  const configYamlFor = (branchToSync: string): ConfigUnitFiles =>
+    configUnitFiles([
       {
-        projectId: 1,
         projectName: "my-app",
         branchToSync,
         locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
@@ -337,7 +339,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるtagFormatの�
         [{ projectId: 1, projectName: "my-app", tagFormat: "{branch}-build-at-{date}-{time}" }],
       ),
     )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYamlFor("main"))
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", configYamlFor("main"))
     dir.writeRegistryYaml(
       "teamB-chart",
       registryYaml(
@@ -345,7 +347,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるtagFormatの�
         [{ projectId: 1, projectName: "my-app", tagFormat: "{date}-{time}-{branch}" }],
       ),
     )
-    dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYamlFor("develop"))
+    dir.writeConfigUnit("teamB-chart", "tenant1/client1", configYamlFor("develop"))
 
     expect(() => loadConfig(dir.path)).toThrow("tagFormat")
   })
@@ -358,7 +360,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるtagFormatの�
         [{ projectId: 1, projectName: "my-app", tagFormat: "{date}-{time}-{branch}" }],
       ),
     )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYamlFor("main"))
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", configYamlFor("main"))
     dir.writeRegistryYaml(
       "teamB-chart",
       registryYaml(
@@ -366,7 +368,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるtagFormatの�
         [{ projectId: 1, projectName: "my-app", tagFormat: "{date}-{time}-{branch}" }],
       ),
     )
-    dir.writeConfigYaml("teamB-chart", "tenant1/client1", configYamlFor("develop"))
+    dir.writeConfigUnit("teamB-chart", "tenant1/client1", configYamlFor("develop"))
 
     const { configUnits } = loadConfig(dir.path)
 
@@ -381,8 +383,8 @@ describe("loadConfig（複数のchartリポジトリにまたがるtagFormatの�
         [{ projectId: 1, projectName: "my-app", tagFormat: "{date}-{time}-{branch}" }],
       ),
     )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", configYamlFor("main"))
-    dir.writeConfigYaml("teamA-chart", "tenant1/client2", configYamlFor("develop"))
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", configYamlFor("main"))
+    dir.writeConfigUnit("teamA-chart", "tenant1/client2", configYamlFor("develop"))
 
     const { configUnits } = loadConfig(dir.path)
 

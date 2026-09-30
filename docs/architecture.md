@@ -147,9 +147,9 @@ sed -n '/^### 型の置き場所/,/^#\{2,3\} /p' docs/architecture.md
 | `config/config.ts`                 | 公開API `loadConfig()`。絞り込み（`limit-to-target.ts`）→設定ユニットの発見（`find-config-units.ts`）→読み込み・結合（`load-config-unit.ts`）の段を順に呼ぶだけの入口                           |
 | `config/limit-to-target.ts`        | `TARGET_CHART`/`TARGET_UNITS`（`ConfigTarget`）の解釈。絞り込み（`selectChartDirs`/`selectTargetConfigUnits`）と絞り込み結果0件の検出（`assertTargetMatched`）                                  |
 | `config/find-config-units.ts`      | 1つのchartディレクトリから設定ユニットを見つける（`findConfigUnits()`）。`registry.yaml`の有無を見て、階層の検証（深さ・入れ子）込みで`ChartDirUnits`にする                                     |
-| `config/load-config-unit.ts`       | 走査で見つかった設定ユニットごとに `config.yaml` と chartディレクトリの `registry.yaml` の `appSpecs[]` を読み込み・結合し `ConfigUnit` にする                                                  |
-| `config/schema.ts`                 | 2つの設定ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ                                                                                                                               |
-| `config/validate.ts`               | projectId重複・書き込み先重複・chartリポジトリをまたぐtagFormat食い違いの検証                                                                                                                   |
+| `config/load-config-unit.ts`       | 走査で見つかった設定ユニットごとに `versions.yaml`・`locations.yaml` を読み、chartディレクトリの `registry.yaml` の `appSpecs[]` を `projectName` で引いて結合し `ConfigUnit` にする            |
+| `config/schema.ts`                 | 3種の設定ファイル（`registry.yaml` / `versions.yaml` / `locations.yaml`）のZodスキーマ                                                                                                          |
+| `config/validate.ts`               | projectId・projectName重複・書き込み先重複・chartリポジトリをまたぐtagFormat食い違いの検証                                                                                                      |
 | `helm.ts`                          | `values.yaml` のYAMLアンカー位置の値の読み書き                                                                                                                                                  |
 | `env.ts`                           | 環境変数の読み込み・検証（環境変数に触れてよいのはこのファイルだけ）。`loadEnvConfig()`に加え、`registry.yaml`が宣言したトークンを読む`loadAccessTokens()`を持つ                                |
 | `report/format-report.ts`          | 設定ユニット単位のレコード配列をMarkdown1枚（ヘッダ＋表）に整形する。外部I/Oを持たない同期の純粋関数                                                                                            |

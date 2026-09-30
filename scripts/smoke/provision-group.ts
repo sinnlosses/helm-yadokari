@@ -9,7 +9,8 @@ import { extractHttpStatus } from "../../src/lib/gitlab/errors.js"
 import { toErrorMessage } from "../../src/utils/errors.js"
 import {
   ACCESS_TOKEN_ENV_NAME,
-  buildAppConfigYamlContent,
+  buildLocationsYamlContent,
+  buildVersionsYamlContent,
   buildRegistryYamlContent,
   buildTokenSkipGuidance,
   buildValuesYamlContent,
@@ -317,8 +318,10 @@ async function provision(
   console.log("")
   console.log(`config/${CHART_DIR_NAME}/registry.yaml:`)
   console.log(buildRegistryYamlContent(groupId, groupPath, chartProjectId, sourceProjectId))
-  console.log(`config/${CHART_DIR_NAME}/${CONFIG_UNIT_DIR}/config.yaml:`)
-  console.log(buildAppConfigYamlContent(sourceProjectId))
+  console.log(`config/${CHART_DIR_NAME}/${CONFIG_UNIT_DIR}/versions.yaml:`)
+  console.log(buildVersionsYamlContent())
+  console.log(`config/${CHART_DIR_NAME}/${CONFIG_UNIT_DIR}/locations.yaml:`)
+  console.log(buildLocationsYamlContent())
 }
 
 /**

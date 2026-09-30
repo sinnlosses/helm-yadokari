@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 import { validateTagFormat } from "../../domain/tag-format.js"
-import type { AnchorLocation } from "../../domain/types.js"
+import type { AnchorLocation, ProjectName } from "../../domain/types.js"
 import {
   toAccessTokenEnvName,
   toAnchorName,
@@ -14,18 +14,21 @@ import {
 } from "../../domain/types.js"
 
 /**
- * `config/` の2ファイル（`registry.yaml` / `config.yaml`）のZodスキーマ。
+ * `config/` の3種のファイル（`registry.yaml` / `versions.yaml` / `locations.yaml`）のZodスキーマ。
  * スキーマの仕様（何をどう書くか）は `docs/requirements.md` 4.4節が正典。
  */
 
 /** chartリポジトリ単位の設定ファイル名 */
 export const REGISTRY_YAML_FILE_NAME = "registry.yaml"
 
-/** 設定ユニット単位の設定ファイル名 */
-export const CONFIG_YAML_FILE_NAME = "config.yaml"
+/** 設定ユニット単位の設定ファイル名（よく触る値） */
+export const VERSIONS_YAML_FILE_NAME = "versions.yaml"
+
+/** 設定ユニット単位の設定ファイル名（`values.yaml`内の書き込み位置） */
+export const LOCATIONS_YAML_FILE_NAME = "locations.yaml"
 
 /**
- * `apps[].locations[]`（イメージタグの書き込み先）と`helm.locations[]`（Helm向き先ブランチの
+ * `apps.<名前>[]`（イメージタグの書き込み先）と`helm[]`（Helm向き先ブランチの
  * 書き込み先）はどちらも`valuesPath`+`anchor`という同じ形なので、スキーマも共有する
  * （型側も`AnchorLocation`を共有している）
  */
@@ -72,9 +75,8 @@ const TagFormatSchema = z
 /**
  * registry.yaml側の1app分。
  *
- * ソースリポジトリのタグ形式（`tagFormat`）の台帳で、
- * `projectId`をキーに`config.yaml`側の`apps[]`と結合する。
- * `projectName`は`config.yaml`側と食い違っていないかの検証用に重複して持つ
+ * ソースリポジトリのタグ形式（`tagFormat`）の台帳。
+ * 設定ユニット側は`projectName`で引く
  */
 const AppSpecSchema = z.object({
   projectId: ProjectIdSchema,
@@ -192,52 +194,46 @@ export const RegistryYamlSchema = z.object({
   appSpecs: z.array(AppSpecSchema),
 })
 
-/**
- * config.yaml側の1app分。運用値（`branchToSync`）と書き込み位置（`locations[]`）の両方を持つ。
- * `tagFormat`は持たず、`registry.yaml`の`appSpecs[]`から`projectId`で引く
- */
-const AppSchema = z.object({
-  projectId: ProjectIdSchema,
-  projectName: z.string().min(1).transform(toProjectName),
-  branchToSync: z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
-  locations: z.array(AnchorLocationSchema).min(1, "locations は1件以上指定してください"),
+/** app名をキーにしたマップ。キーは`registry.yaml`の`appSpecs[].projectName`と突き合わせる */
+function appMapSchema<T extends z.ZodType>(value: T) {
+  return z
+    .record(z.string().min(1, "app名は空にできません"), value)
+    .transform(
+      (record): ReadonlyMap<ProjectName, z.output<T>> =>
+        new Map(Object.entries(record).map(([name, v]) => [toProjectName(name), v])),
+    )
+}
+
+/** `versions.yaml`のZodスキーマ */
+export const VersionsYamlSchema = z.object({
+  branchRef: z
+    .string({
+      error:
+        "branchRef は必須です。versions.yaml に、Helmの向き先ブランチ名を書いてください" +
+        "（locations.yaml の helm[] とセットで指定します）",
+    })
+    .min(1, "branchRef は空にできません")
+    .transform(toBranchName),
+  branchToSync: appMapSchema(
+    z.string().min(1, "branchToSync は空にできません").transform(toBranchName),
+  ),
 })
 
-export type ConfigApp = z.infer<typeof AppSchema>
+const AppLocationsSchema = z.array(AnchorLocationSchema).min(1, "apps の各appは1件以上指定してください")
 
 /**
- * config.yamlの`helm`のZodスキーマ（必須）。
+ * `locations.yaml`のZodスキーマ。
  *
- * chartリポジトリは「値を定義するブランチ」と「値を受け取ってk8sリソースを構築するブランチ」
- * の2ブランチ構成である、という前提のため`helm`自体を必須にする。書き込む値（`branchRef`）
- * と書き込み先（`locations[]`）も両方揃って初めて意味を持つので、
- * 片方だけの指定はここで設定エラーになる（`docs/requirements.md` 4.4節）。
+ * chartリポジトリは「値を定義するブランチ」と「値を受け取ってk8sリソースを構築するブランチ」の
+ * 2ブランチ構成という前提のため、`helm[]`は必須（`docs/requirements.md` 4.4節）
  */
-const HelmSchema = z.object(
-  {
-    branchRef: z
-      .string({
-        error: "helm.branchRef は必須です（helm.locations とセットで指定してください）",
-      })
-      .min(1, "helm.branchRef は空にできません")
-      .transform(toBranchName),
-    locations: z
-      .array(AnchorLocationSchema, {
-        error: "helm.locations は必須です（helm.branchRef とセットで指定してください）",
-      })
-      .min(1, "helm.locations は1件以上指定してください"),
-  },
-  {
-    error:
-      "helm は必須です。chartリポジトリは値を定義するブランチとk8sリソースを構築するブランチの " +
-      "2ブランチ構成のため、config.yaml に helm.branchRef（向き先ブランチ名）と " +
-      "helm.locations[]（書き込み先の valuesPath + anchor）を書いてください",
-  },
-)
-
-export type ConfigHelm = z.infer<typeof HelmSchema>
-
-export const ConfigYamlSchema = z.object({
-  helm: HelmSchema,
-  apps: z.array(AppSchema),
+export const LocationsYamlSchema = z.object({
+  helm: z
+    .array(AnchorLocationSchema, {
+      error:
+        "helm は必須です。locations.yaml に、Helmの向き先ブランチの書き込み先" +
+        "（valuesPath + anchor）を書いてください（versions.yaml の branchRef とセットで指定します）",
+    })
+    .min(1, "helm は1件以上指定してください"),
+  apps: appMapSchema(AppLocationsSchema),
 })

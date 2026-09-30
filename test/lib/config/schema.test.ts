@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { loadConfig } from "../../../src/lib/config/config.js"
 import type { GroupFixture } from "./fixture.js"
-import { DEFAULT_TAG_FORMAT, configYaml, registryYaml, useConfigDir } from "./fixture.js"
+import { DEFAULT_TAG_FORMAT, configUnitFiles, registryYaml, useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
 
@@ -31,7 +31,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("config.yaml の branchToSync が空文字のとき例外をスローする", () => {
+  it("versions.yaml の branchToSync が空文字のとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -39,15 +39,14 @@ describe("loadConfig（スキーマ検証エラー）", () => {
         [{ projectId: 1, projectName: "app-1" }],
       ),
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenant1/client1",
-      'apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: ""\n    locations:\n      - valuesPath: a.yaml\n        anchor: appVersion\n',
-    )
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
+      versions: 'branchRef: release/2026-q1\nbranchToSync:\n  app-1: ""\n',
+      locations: "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: appVersion\n",
+    })
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("config.yaml の apps[].locations が空配列のとき例外をスローする", () => {
+  it("locations.yaml の apps の書き込み先が空配列のとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -55,33 +54,15 @@ describe("loadConfig（スキーマ検証エラー）", () => {
         [{ projectId: 1, projectName: "app-1" }],
       ),
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    locations: []\n",
-    )
-
-    expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
-  })
-
-  it("config.yaml の apps[].locations[].valuesPath が無いとき例外をスローする", () => {
-    dir.writeRegistryYaml(
-      "teamA-chart",
-      registryYaml(
-        { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
-        [{ projectId: 1, projectName: "app-1" }],
-      ),
-    )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    locations:\n      - anchor: appVersion\n",
-    )
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
+      versions: "branchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n",
+      locations: "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1: []\n",
+    })
 
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("config.yaml の apps[].locations[].anchor が無いとき例外をスローする", () => {
+  it("locations.yaml の apps の valuesPath が無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -89,20 +70,34 @@ describe("loadConfig（スキーマ検証エラー）", () => {
         [{ projectId: 1, projectName: "app-1" }],
       ),
     )
-    dir.writeConfigYaml(
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
+      versions: "branchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n",
+      locations: "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - anchor: appVersion\n",
+    })
+
+    expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
+  })
+
+  it("locations.yaml の apps の anchor が無いとき例外をスローする", () => {
+    dir.writeRegistryYaml(
       "teamA-chart",
-      "tenant1/client1",
-      "apps:\n  - projectId: 1\n    projectName: app-1\n    branchToSync: main\n    locations:\n      - valuesPath: a.yaml\n",
+      registryYaml(
+        { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
+        [{ projectId: 1, projectName: "app-1" }],
+      ),
     )
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
+      versions: "branchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n",
+      locations: "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n",
+    })
 
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 })
 
 describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
-  const CONFIG_YAML = configYaml([
+  const CONFIG_YAML = configUnitFiles([
     {
-      projectId: 1,
       projectName: "app-1",
       branchToSync: "main",
       locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
@@ -117,7 +112,7 @@ describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
         [{ projectId: 1, projectName: "app-1", tagFormat: "{date}-{time}-{branch}" }],
       ),
     )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
     const { configUnits } = loadConfig(dir.path)
     expect(configUnits[0]?.apps[0]?.tagFormat).toBe("{date}-{time}-{branch}")
@@ -129,7 +124,7 @@ describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
       "chartToUpdate:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n" +
         "appSpecs:\n  - projectId: 1\n    projectName: app-1\n",
     )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
     expect(() => loadConfig(dir.path)).toThrow("tagFormat は必須です")
   })
@@ -144,7 +139,7 @@ describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
           [{ projectId: 1, projectName: "app-1", tagFormat }],
         ),
       )
-      dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+      dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
       expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
     },
@@ -152,9 +147,8 @@ describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
 })
 
 describe("loadConfig（registry.yamlのaccessTokenEnv）", () => {
-  const CONFIG_YAML = configYaml([
+  const CONFIG_YAML = configUnitFiles([
     {
-      projectId: 1,
       projectName: "app-1",
       branchToSync: "main",
       locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
@@ -170,7 +164,7 @@ describe("loadConfig（registry.yamlのaccessTokenEnv）", () => {
         "ACCESS_TOKEN_TEAM_A",
       ),
     )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
     const { configUnits } = loadConfig(dir.path)
     expect(configUnits[0]?.accessTokenEnv).toBe("ACCESS_TOKEN_TEAM_A")
@@ -188,7 +182,7 @@ describe("loadConfig（registry.yamlのaccessTokenEnv）", () => {
         "    projectName: app-1\n" +
         `    tagFormat: '${DEFAULT_TAG_FORMAT}'\n`,
     )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
     expect(() => loadConfig(dir.path)).toThrow("accessTokenEnv は必須です")
   })
@@ -204,7 +198,7 @@ describe("loadConfig（registry.yamlのaccessTokenEnv）", () => {
           accessTokenEnv,
         ),
       )
-      dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+      dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
       expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
     },
@@ -212,9 +206,8 @@ describe("loadConfig（registry.yamlのaccessTokenEnv）", () => {
 })
 
 describe("loadConfig（registry.yamlのgroup）", () => {
-  const CONFIG_YAML = configYaml([
+  const CONFIG_YAML = configUnitFiles([
     {
-      projectId: 1,
       projectName: "app-1",
       branchToSync: "main",
       locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
@@ -232,7 +225,7 @@ describe("loadConfig（registry.yamlのgroup）", () => {
         group,
       ),
     )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
   }
 
   it("宣言したgroupIdとgroupNameがそのままConfigUnitまで届く", () => {
@@ -252,7 +245,7 @@ describe("loadConfig（registry.yamlのgroup）", () => {
 
   it("group を書いていない registry.yaml は設定エラーになる（所属の照合を黙ってすり抜けないようにするため）", () => {
     dir.writeRegistryYaml("teamA-chart", registryYamlWithoutGroupBlock(""))
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
     expect(() => loadConfig(dir.path)).toThrow("group は必須です")
   })
@@ -262,7 +255,7 @@ describe("loadConfig（registry.yamlのgroup）", () => {
       "teamA-chart",
       registryYamlWithoutGroupBlock("group:\n  groupName: team-a-group\n"),
     )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
     expect(() => loadConfig(dir.path)).toThrow("group.groupId は必須です")
   })
@@ -272,7 +265,7 @@ describe("loadConfig（registry.yamlのgroup）", () => {
       "teamA-chart",
       registryYamlWithoutGroupBlock("group:\n  groupId: 4242\n"),
     )
-    dir.writeConfigYaml("teamA-chart", "tenant1/client1", CONFIG_YAML)
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
     expect(() => loadConfig(dir.path)).toThrow("group.groupName は必須です")
   })
@@ -313,19 +306,18 @@ function registryYamlWithoutGroupBlock(groupBlock: string): string {
 }
 
 describe("loadConfig（projectIdの数値/文字列両対応）", () => {
-  it("registry.yaml と config.yaml の projectId が数値（GitLabのプロジェクトID）でも読める", () => {
+  it("registry.yaml の projectId が数値（GitLabのプロジェクトID）でも読める", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml({ projectId: 100, projectName: "teamA-chart", mrTargetBranch: "develop" }, [
         { projectId: 100, projectName: "app-1" },
       ]),
     )
-    dir.writeConfigYaml(
+    dir.writeConfigUnit(
       "teamA-chart",
       "tenant1/client1",
-      configYaml([
+      configUnitFiles([
         {
-          projectId: 100,
           projectName: "app-1",
           branchToSync: "main",
           locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
@@ -338,7 +330,7 @@ describe("loadConfig（projectIdの数値/文字列両対応）", () => {
     expect(configUnits[0]?.apps[0]?.projectId).toBe("100")
   })
 
-  it("registry.yaml と config.yaml の projectId が文字列（GitHubのowner/repo）でも読める", () => {
+  it("registry.yaml の projectId が文字列（GitHubのowner/repo）でも読める", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       'accessTokenEnv: ACCESS_TOKEN_TEAM_A\n' +
@@ -348,13 +340,10 @@ describe("loadConfig（projectIdの数値/文字列両対応）", () => {
         'appSpecs:\n  - projectId: "owner/repo"\n    projectName: app-1\n' +
         `    tagFormat: '${DEFAULT_TAG_FORMAT}'\n`,
     )
-    dir.writeConfigYaml(
-      "teamA-chart",
-      "tenant1/client1",
-      'helm:\n  branchRef: release/2026-q1\n  locations:\n    - valuesPath: a.yaml\n      anchor: defaultHelmTargetBranch\n' +
-        'apps:\n  - projectId: "owner/repo"\n    projectName: app-1\n    branchToSync: main\n' +
-        '    locations:\n      - valuesPath: a.yaml\n        anchor: appVersion\n',
-    )
+    dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
+      versions: "branchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n",
+      locations: "helm:\n  - valuesPath: a.yaml\n    anchor: defaultHelmTargetBranch\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: appVersion\n",
+    })
 
     const { configUnits } = loadConfig(dir.path)
     expect(configUnits[0]?.chartRepo.projectId).toBe("owner/repo")

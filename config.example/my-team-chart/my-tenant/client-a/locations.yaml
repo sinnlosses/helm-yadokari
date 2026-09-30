@@ -1,0 +1,16 @@
+# apps に出てくる valuesPath は、1つ残らず helm でカバーする必要がある
+helm:
+  - valuesPath: charts/my-tenant/client-a/values.yaml
+    anchor: clientATargetBranch
+  - valuesPath: charts/my-tenant/client-a/values-extra.yaml
+    anchor: clientATargetBranchExtra
+apps:
+  # 1つのappの最新タグを複数の valuesPath へまとめて反映する例
+  my-app:
+    - valuesPath: charts/my-tenant/client-a/values.yaml
+      anchor: myAppVersion
+    - valuesPath: charts/my-tenant/client-a/values-extra.yaml
+      anchor: myAppVersionExtra
+  another-app:
+    - valuesPath: charts/my-tenant/client-a/values.yaml
+      anchor: anotherAppVersion

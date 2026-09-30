@@ -27,7 +27,7 @@ export type LoadedConfig = {
  * `config/`配下のディレクトリ構成を読み込む。
  *
  * 読むのは`config/<chartディレクトリ>/registry.yaml` +
- * `config/<chartディレクトリ>/<unitPath>/config.yaml`。`target`（`TARGET_CHART` / `TARGET_UNITS`）
+ * `config/<chartディレクトリ>/<unitPath>/{versions,locations}.yaml`。`target`（`TARGET_CHART` / `TARGET_UNITS`）
  * を明示的に指定したときだけ、該当が無ければ例外をスローする（未指定時は0件でもエラーにしない）。
  */
 export function loadConfig(configRootPath: ConfigRootPath, target: ConfigTarget = NO_TARGET): LoadedConfig {

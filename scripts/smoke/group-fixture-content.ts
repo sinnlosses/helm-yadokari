@@ -29,7 +29,7 @@ export function defaultTokenName(groupPath: string): string {
   return `yadokari-${lastSegment ?? groupPath}`
 }
 
-/** チャートリポジトリのvalues.yaml初期値。アンカー名はCONFIG_UNIT_DIR配下のconfig.yamlと一致させる */
+/** チャートリポジトリのvalues.yaml初期値。アンカー名はCONFIG_UNIT_DIR配下のlocations.yamlと一致させる */
 export function buildValuesYamlContent(seedTag: string): string {
   return (
     `variables:\n` +
@@ -61,21 +61,23 @@ export function buildRegistryYamlContent(
   )
 }
 
-/** config/<CHART_DIR_NAME>/<CONFIG_UNIT_DIR>/config.yaml の中身 */
-export function buildAppConfigYamlContent(sourceProjectId: number): string {
+/** config/<CHART_DIR_NAME>/<CONFIG_UNIT_DIR>/versions.yaml の中身 */
+export function buildVersionsYamlContent(): string {
+  return (
+    `branchRef: ${HELM_TARGET_BRANCH}\n` + `branchToSync:\n` + `  ${SOURCE_PROJECT_NAME}: main\n`
+  )
+}
+
+/** config/<CHART_DIR_NAME>/<CONFIG_UNIT_DIR>/locations.yaml の中身 */
+export function buildLocationsYamlContent(): string {
   return (
     `helm:\n` +
-    `  branchRef: ${HELM_TARGET_BRANCH}\n` +
-    `  locations:\n` +
-    `    - valuesPath: ${VALUES_PATH}\n` +
-    `      anchor: smokeBHelmTargetBranch\n` +
+    `  - valuesPath: ${VALUES_PATH}\n` +
+    `    anchor: smokeBHelmTargetBranch\n` +
     `apps:\n` +
-    `  - projectId: "${sourceProjectId}"\n` +
-    `    projectName: ${SOURCE_PROJECT_NAME}\n` +
-    `    branchToSync: main\n` +
-    `    locations:\n` +
-    `      - valuesPath: ${VALUES_PATH}\n` +
-    `        anchor: smokeBAppVersion\n`
+    `  ${SOURCE_PROJECT_NAME}:\n` +
+    `    - valuesPath: ${VALUES_PATH}\n` +
+    `      anchor: smokeBAppVersion\n`
   )
 }
 

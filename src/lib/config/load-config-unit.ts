@@ -2,7 +2,9 @@ import { join } from "node:path"
 
 import type {
   AccessTokenEnvName,
+  AnchorLocation,
   AppConfig,
+  BranchName,
   ChartDirName,
   ChartRepoConfig,
   ConfigUnit,
@@ -11,18 +13,25 @@ import type {
   GroupName,
   HelmConfig,
   LocalPath,
+  ProjectName,
 } from "../../domain/types.js"
 import { toLocalPath } from "../../domain/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
-import type { AppSpec, ConfigApp, ConfigHelm } from "./schema.js"
+import type { AppSpec } from "./schema.js"
 import {
-  CONFIG_YAML_FILE_NAME,
-  ConfigYamlSchema,
+  LOCATIONS_YAML_FILE_NAME,
+  LocationsYamlSchema,
   REGISTRY_YAML_FILE_NAME,
   RegistryYamlSchema,
+  VERSIONS_YAML_FILE_NAME,
+  VersionsYamlSchema,
 } from "./schema.js"
 import type { ChartDirUnits } from "./find-config-units.js"
-import { validateNoDuplicateProjectIds, validateNoDuplicateLocations } from "./validate.js"
+import {
+  validateNoDuplicateLocations,
+  validateNoDuplicateProjectIds,
+  validateNoDuplicateProjectNames,
+} from "./validate.js"
 
 /**
  * 1つのchartディレクトリを、設定ユニット単位の`ConfigUnit`一覧にする。
@@ -40,10 +49,11 @@ export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[
     group,
   } = parseYamlFile(registryYamlPath, RegistryYamlSchema)
   validateNoDuplicateProjectIds(registryYamlPath, appSpecs)
+  validateNoDuplicateProjectNames(registryYamlPath, appSpecs)
   const chartRepoScope: ChartRepoScope = {
     chartDirName: chartUnits.chartDirName,
     chart,
-    appSpecs,
+    appSpecByName: new Map(appSpecs.map((appSpec) => [appSpec.projectName, appSpec])),
     accessTokenEnv,
     groupId: group.groupId,
     groupName: group.groupName,
@@ -52,7 +62,10 @@ export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[
   return chartUnits.unitPaths.map((unitPath) =>
     buildConfigUnit(chartRepoScope, {
       unitPath,
-      configYamlPath: toLocalPath(join(chartUnits.chartDirPath, unitPath, CONFIG_YAML_FILE_NAME)),
+      versionsYamlPath: toLocalPath(join(chartUnits.chartDirPath, unitPath, VERSIONS_YAML_FILE_NAME)),
+      locationsYamlPath: toLocalPath(
+        join(chartUnits.chartDirPath, unitPath, LOCATIONS_YAML_FILE_NAME),
+      ),
     }),
   )
 }
@@ -61,7 +74,7 @@ export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[
 type ChartRepoScope = {
   readonly chartDirName: ChartDirName
   readonly chart: ChartRepoConfig
-  readonly appSpecs: readonly AppSpec[]
+  readonly appSpecByName: ReadonlyMap<ProjectName, AppSpec>
   readonly accessTokenEnv: AccessTokenEnvName
   readonly groupId: GroupId
   readonly groupName: GroupName
@@ -71,15 +84,16 @@ type ChartRepoScope = {
 /** `buildConfigUnit()`の引数のうち、設定ユニットごとに変わる値 */
 type ConfigUnitScope = {
   readonly unitPath: ConfigUnitPath
-  readonly configYamlPath: LocalPath
+  readonly versionsYamlPath: LocalPath
+  readonly locationsYamlPath: LocalPath
 }
 
 /**
  * 1つの設定ユニットのディレクトリを読み、`ConfigUnit`（MRを作成する単位）1件にする。
  *
- * `<chartDir>/<unitPath>/`の`config.yaml`を読み込み、`appSpecs`（`registry.yaml`の`appSpecs[]`、
- * `projectId`をキーにしたタグ形式の台帳）と`projectId`で結合する。
- * `config.yaml`が実在するディレクトリだけが渡ってくる前提（どのディレクトリが設定ユニットかは走査が
+ * `versions.yaml`と`locations.yaml`を読み、app名（`projectName`）で`registry.yaml`の
+ * `appSpecs[]`（タグ形式の台帳）を引いて結合する。
+ * 2ファイルが実在するディレクトリだけが渡ってくる前提（どのディレクトリが設定ユニットかは走査が
  * 決める）。`unitPath`は識別子（ログ・`TARGET_UNITS`・固定ブランチ名に使う）、
  * `*YamlPath`はローカルの実ファイルパス。
  */
@@ -87,98 +101,83 @@ function buildConfigUnit(
   chartRepoScope: ChartRepoScope,
   configUnitScope: ConfigUnitScope,
 ): ConfigUnit {
-  const { chartDirName, chart, appSpecs, accessTokenEnv, groupId, groupName, registryYamlPath } =
+  const { chartDirName, chart, appSpecByName, accessTokenEnv, groupId, groupName, registryYamlPath } =
     chartRepoScope
-  const { unitPath, configYamlPath } = configUnitScope
-  const { helm, apps } = parseYamlFile(configYamlPath, ConfigYamlSchema)
-  validateNoDuplicateProjectIds(configYamlPath, apps)
-  const linkedApps = resolveProjectLinkage(configYamlPath, registryYamlPath, apps, appSpecs)
-  validateNoDuplicateLocations(configYamlPath, [
-    ...apps.flatMap((app) =>
-      app.locations.map((location) => ({
-        location,
-        label: `app "${app.projectName}" の locations[]`,
-      })),
+  const { unitPath, versionsYamlPath, locationsYamlPath } = configUnitScope
+  const versions = parseYamlFile(versionsYamlPath, VersionsYamlSchema)
+  const locations = parseYamlFile(locationsYamlPath, LocationsYamlSchema)
+  validateSameAppNames(versionsYamlPath, locationsYamlPath, versions.branchToSync, locations.apps)
+  validateNoDuplicateLocations(locationsYamlPath, [
+    ...[...locations.apps].flatMap(([name, appLocations]) =>
+      appLocations.map((location) => ({ location, label: `app "${name}" の書き込み先` })),
     ),
-    ...helm.locations.map((location) => ({
-      location,
-      label: "helm.locations[]",
-    })),
+    ...locations.helm.map((location) => ({ location, label: "helm[]" })),
   ])
 
-  const appConfigs: readonly AppConfig[] = linkedApps.map(({ app, appSpec }) => ({
-    projectId: app.projectId,
-    projectName: app.projectName,
-    branchToSync: app.branchToSync,
-    tagFormat: appSpec.tagFormat,
-    imageTagLocations: app.locations,
-  }))
+  const appConfigs: readonly AppConfig[] = [...versions.branchToSync].map(
+    ([projectName, branchToSync]) => {
+      const appSpec = appSpecByName.get(projectName)
+      if (appSpec === undefined) {
+        throw new Error(
+          `${versionsYamlPath}: app "${projectName}" に対応する設定が ${registryYamlPath} の appSpecs[] に見つかりません`,
+        )
+      }
+      return {
+        projectId: appSpec.projectId,
+        projectName,
+        branchToSync,
+        tagFormat: appSpec.tagFormat,
+        imageTagLocations: locations.apps.get(projectName) ?? [],
+      }
+    },
+  )
 
   return {
     chartDirName,
     unitPath,
     chartRepo: chart,
     apps: appConfigs,
-    helm: resolveHelmConfig(configYamlPath, helm, appConfigs),
+    helm: resolveHelmConfig(locationsYamlPath, versions.branchRef, locations.helm, appConfigs),
     accessTokenEnv,
     groupId,
     groupName,
   }
 }
 
-/** `config.yaml`のapp1件と、`projectId`で引き当てた`registry.yaml`の`appSpecs[]`1件の組 */
-type LinkedApp = {
-  readonly app: ConfigApp
-  readonly appSpec: AppSpec
+/** `branchToSync`と`apps`のapp名の集合が一致していなければ例外をスローする */
+function validateSameAppNames(
+  versionsYamlPath: LocalPath,
+  locationsYamlPath: LocalPath,
+  branchToSync: ReadonlyMap<ProjectName, unknown>,
+  apps: ReadonlyMap<ProjectName, unknown>,
+): void {
+  const onlyInVersions = [...branchToSync.keys()].filter((name) => !apps.has(name))
+  const onlyInLocations = [...apps.keys()].filter((name) => !branchToSync.has(name))
+  if (onlyInVersions.length === 0 && onlyInLocations.length === 0) return
+  const details = [
+    ...onlyInVersions.map((name) => `"${name}"（${versionsYamlPath} のみ）`),
+    ...onlyInLocations.map((name) => `"${name}"（${locationsYamlPath} のみ）`),
+  ].join(", ")
+  throw new Error(
+    `${versionsYamlPath} の branchToSync と ${locationsYamlPath} の apps で app 名の集合が一致しません: ${details}`,
+  )
 }
 
 /**
- * `config.yaml`の各appと`registry.yaml`の`appSpecs[]`を`projectId`で突き合わせ、組にして返す。
+ * `versions.yaml`の`branchRef`と`locations.yaml`の`helm[]`から、設定ユニット単位の`HelmConfig`を作る。
  *
- * - `appSpecs[]`に対応する`projectId`が無ければ例外（`tagFormat`が引けず最新タグを判定できない）
- * - 両方にあって`projectName`が食い違えば例外（コピペミスの検知）
- * - `appSpecs[]`にだけあって参照されないappはエラーにしない（一時的に更新対象から外せるように）
- *
- * 検証だけして捨てず組を返すのは、呼び出し元が同じ突き合わせを繰り返さずに済ませるため。2回引くと、
- * ここを通った時点で起こりえない「見つからない」を型と分岐に持つことになる。
- */
-function resolveProjectLinkage(
-  configYamlPath: LocalPath,
-  registryYamlPath: LocalPath,
-  configApps: readonly ConfigApp[],
-  appSpecs: readonly AppSpec[],
-): readonly LinkedApp[] {
-  const appSpecByProjectId = new Map(appSpecs.map((appSpec) => [appSpec.projectId, appSpec]))
-  return configApps.map((app) => {
-    const appSpec = appSpecByProjectId.get(app.projectId)
-    if (appSpec === undefined) {
-      throw new Error(
-        `${configYamlPath}: app "${app.projectName}"（projectId: ${app.projectId}）に対応する設定が ${registryYamlPath} に見つかりません`,
-      )
-    }
-    if (appSpec.projectName !== app.projectName) {
-      throw new Error(
-        `${configYamlPath} と ${registryYamlPath} で projectId ${app.projectId} の projectName が一致しません（"${app.projectName}" / "${appSpec.projectName}"）`,
-      )
-    }
-    return { app, appSpec }
-  })
-}
-
-/**
- * config.yamlの`helm`から、設定ユニット単位の`HelmConfig`を作る。
- *
- * `branchRef`＝書き込む値、`locations[]`＝書き込み先の`valuesPath`+`anchor`一覧。
+ * `branchRef`＝書き込む値、`helm[]`＝書き込み先の`valuesPath`+`anchor`一覧。
  * Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提なので、
  * appごとに振り分けず設定ユニット単位で1つだけ持つ。
  *
- * そのconfig.yaml配下の全アプリの全`locations[].valuesPath`が`helm.locations[]`でカバーされている
+ * その設定ユニットの全アプリの全書き込み先の`valuesPath`が`helm[]`でカバーされている
  * 必要がある（1つでも漏れていれば、そのvaluesPathだけ更新対象から漏れてしまう設定ミスとして例外を
- * スローする）。逆にどのappも書き込まないvaluesPathを指す`helm.locations[]`の要素は`locations`に含めない。
+ * スローする）。逆にどのappも書き込まないvaluesPathを指す`helm[]`の要素は`locations`に含めない。
  */
 function resolveHelmConfig(
-  configYamlPath: LocalPath,
-  helm: ConfigHelm,
+  locationsYamlPath: LocalPath,
+  branchRef: BranchName,
+  helmLocations: readonly AnchorLocation[],
   apps: readonly AppConfig[],
 ): HelmConfig {
   for (const app of apps) {
@@ -186,11 +185,11 @@ function resolveHelmConfig(
       ...new Set(app.imageTagLocations.map((location) => location.valuesPath)),
     ]
     const uncoveredValuesPaths = appValuesPaths.filter(
-      (valuesPath) => !helm.locations.some((location) => location.valuesPath === valuesPath),
+      (valuesPath) => !helmLocations.some((location) => location.valuesPath === valuesPath),
     )
     if (uncoveredValuesPaths.length > 0) {
       throw new Error(
-        `${configYamlPath}: app "${app.projectName}" の valuesPath（${uncoveredValuesPaths.join(", ")}）が helm.locations[] に見つかりません（Helmの向き先ブランチは設定ユニット内の全appで共通のため、全appのvaluesPathを helm.locations[] に含めてください）`,
+        `${locationsYamlPath}: app "${app.projectName}" の valuesPath（${uncoveredValuesPaths.join(", ")}）が helm[] に見つかりません（Helmの向き先ブランチは設定ユニット内の全appで共通のため、全appのvaluesPathを helm[] に含めてください）`,
       )
     }
   }
@@ -198,6 +197,6 @@ function resolveHelmConfig(
   const allValuesPaths = new Set(
     apps.flatMap((app) => app.imageTagLocations.map((location) => location.valuesPath)),
   )
-  const locations = helm.locations.filter((location) => allValuesPaths.has(location.valuesPath))
-  return { branchRef: helm.branchRef, locations }
+  const locations = helmLocations.filter((location) => allValuesPaths.has(location.valuesPath))
+  return { branchRef, locations }
 }

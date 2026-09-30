@@ -76,7 +76,7 @@ declare const localPathBrand: unique symbol
 /**
  * ローカルのファイルシステム上のパス。
  *
- * `config/`配下のディレクトリ・`registry.yaml`・`config.yaml`など、`readFileSync`・`existsSync`・
+ * `config/`配下のディレクトリ・`registry.yaml`・`versions.yaml`など、`readFileSync`・`existsSync`・
  * `readdirSync`に渡る値が対象。`ValuesPath`（GitLab上のchart内での相対パス）・
  * `ConfigUnitPath`（識別子）とは別概念で、これらが`join()`で同じ式に並ぶため取り違え防止でブランド
  * 型にしている。

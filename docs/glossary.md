@@ -20,26 +20,26 @@
 sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ```
 
-見出しに `[` を含むもの（`### helm.locations\[\].anchor`・`### anchor（locations[].anchor）`）は、
+見出しに `[` を含むもの（`### helm[]のanchor`・`### anchor`）は、
 `[` の手前までを指定すれば同じ形で引ける（例: `/^### helm\.locations/`）。
 
 ### 用語の索引
 
-| 節                          | 収録している用語                                                                                                                                                                                                                                                                                         |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ## 設定・登録関連           | アプリ / ソースリポジトリ / chartリポジトリ / 設定ユニット（ConfigUnit） / registry.yaml・config.yaml / chartToUpdate・appSpecs / valuesPath / 書き込み位置（AnchorLocation） / anchor（locations[].anchor） / Helmの向き先ブランチ / helm.locations[].anchor / chartディレクトリ名 / セルフサービス方式 |
-| ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / TagSource / タグの読み取り結果（ParsedTag） / タグ情報（TagInfo） / 打刻日時 / 最新タグ / 反映済みタグ / タグ自動作成 / タグの由来（TagOrigin）                                                                                                                  |
-| ## MR・リポジトリ操作関連   | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング                                                                                                                                                                                                                               |
-| ## 実行結果・処理単位関連   | アプリ更新計画 / イメージタグの更新 / 向き先ブランチの更新 / 設定ユニット更新対象 / 設定ユニット処理結果 / 実行結果                                                                                                                                                                                      |
-| ## 実行環境・運用関連       | Dry-runモード / `TARGET_CHART`・`TARGET_UNITS` / pipeline schedules / Platform / `ACCESS_TOKEN_<グループ>`・accessTokenEnv / グループ（group・groupId・groupName）                                                                                                                                       |
-| ## その他の注記             | 「target」の意味は文脈で決まる / 「反映」「適用」「更新」の使い分け                                                                                                                                                                                                                                      |
+| 節                          | 収録している用語                                                                                                                                                                                                                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ## 設定・登録関連           | アプリ / ソースリポジトリ / chartリポジトリ / 設定ユニット（ConfigUnit） / registry.yaml・versions.yaml・locations.yaml / chartToUpdate・appSpecs / valuesPath / 書き込み位置（AnchorLocation） / anchor / Helmの向き先ブランチ / helm[]のanchor / chartディレクトリ名 / セルフサービス方式 |
+| ## タグ・バージョン管理関連 | 追跡ブランチ（BranchName） / タグ形式 / TagSource / タグの読み取り結果（ParsedTag） / タグ情報（TagInfo） / 打刻日時 / 最新タグ / 反映済みタグ / タグ自動作成 / タグの由来（TagOrigin）                                                                                                     |
+| ## MR・リポジトリ操作関連   | MR（Merge Request） / 固定ブランチ / mrTargetBranch / オールオアナッシング                                                                                                                                                                                                                  |
+| ## 実行結果・処理単位関連   | アプリ更新計画 / イメージタグの更新 / 向き先ブランチの更新 / 設定ユニット更新対象 / 設定ユニット処理結果 / 実行結果                                                                                                                                                                         |
+| ## 実行環境・運用関連       | Dry-runモード / `TARGET_CHART`・`TARGET_UNITS` / pipeline schedules / Platform / `ACCESS_TOKEN_<グループ>`・accessTokenEnv / グループ（group・groupId・groupName）                                                                                                                          |
+| ## その他の注記             | 「target」の意味は文脈で決まる / 「反映」「適用」「更新」の使い分け                                                                                                                                                                                                                         |
 
 ## 設定・登録関連
 
 ### アプリ
 
 - **英語識別子**: `AppConfig` / `app`
-- **定義**: Helm chartでデプロイされる1つのアプリケーション単位。`config/<chart>/<unitPath>/config.yaml`の1エントリ（運用値＋chart構造）と、同じchartリポジトリの`registry.yaml`の対応するエントリ（タグ形式の台帳）を`projectId`で結合したもの。
+- **定義**: Helm chartでデプロイされる1つのアプリケーション単位。`config/<chart>/<unitPath>/`の`versions.yaml`・`locations.yaml`の同じapp名のエントリ（追跡ブランチ・書き込み位置）と、同じchartリポジトリの`registry.yaml`の`appSpecs[]`の対応するエントリ（`projectId`・タグ形式の台帳）を、app名（`projectName`）で結合したもの。
 
 ### ソースリポジトリ
 
@@ -53,35 +53,37 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### 設定ユニット
 
 - **英語識別子**: `ConfigUnit`（集約。`registry.yaml`の情報＋その設定ユニット配下の全アプリ設定をまとめた型）・`unitPath`（`ConfigUnitPath`ブランド型、`ConfigUnit`のフィールドで、`config/`のどこに置かれているかを表す）
-- **定義**: 同一chartリポジトリ配下でアプリ設定を分割管理する単位。`config.yaml`を1つ持つディレクトリがそのまま1つの設定ユニットで、`unitPath`は`config/<chart>/`からそのディレクトリまでの相対パス（深さ1〜2のいずれか。深さ0と深さ3以上は設定エラー。詳細は`docs/requirements.md` 4.4節）。MRを作成する単位でもあり、固定ブランチ名`feature/yadokari/<unitPath>`の可変部にもなる。
-- **入れ子の禁止**: `config.yaml`を持つディレクトリの配下にさらに`config.yaml`があると設定エラーになる。Gitのrefは directory/file conflict を起こすため、`feature/yadokari/a`と`feature/yadokari/a/b`は同一リポジトリに共存できない。逆にプレフィックス関係でなければ衝突しないので、深さ1と深さ2の設定ユニットは同じchartリポジトリ配下に混在できる。
+- **定義**: 同一chartリポジトリ配下でアプリ設定を分割管理する単位。`versions.yaml`と`locations.yaml`が両方あるディレクトリがそのまま1つの設定ユニットで（片方だけのディレクトリは設定エラー）、`unitPath`は`config/<chart>/`からそのディレクトリまでの相対パス（深さ1〜2のいずれか。深さ0と深さ3以上は設定エラー。詳細は`docs/requirements.md` 4.4節）。MRを作成する単位でもあり、固定ブランチ名`feature/yadokari/<unitPath>`の可変部にもなる。
+- **入れ子の禁止**: 設定ユニットのディレクトリの配下にさらに設定ユニットがあると設定エラーになる。Gitのrefは directory/file conflict を起こすため、`feature/yadokari/a`と`feature/yadokari/a/b`は同一リポジトリに共存できない。逆にプレフィックス関係でなければ衝突しないので、深さ1と深さ2の設定ユニットは同じchartリポジトリ配下に混在できる。
 
-### registry.yaml / config.yaml
+### registry.yaml / versions.yaml / locations.yaml
 
 - **英語識別子**: なし（ファイル名そのもの）
-- **定義**: `config/<chart>/`配下に置く2つの設定ファイル。ファイルを分ける軸は
-  「スコープ」（値が何の単位で決まるか）。`registry.yaml`はchartリポジトリ単位で、
-  MRの作成先（`chartToUpdate`）、ソースリポジトリのタグ形式の台帳（`appSpecs[].tagFormat`）、
-  操作に使うアクセストークンの宣言（`accessTokenEnv`。任意）を持つ。
-  `config.yaml`は設定ユニット単位で、「どのプロジェクトのどのブランチを追跡するか」という
-  運用値（`projectId`/`projectName`/`branchToSync`、Helmの向き先ブランチの値
-  `helm.branchRef`）と、「`values.yaml`のどこに書き込むか」というchart構造
-  （`apps[].locations[]`、`helm.locations[]`）の両方を持つ。両者は`projectId`で対応付ける。
-  `registry.yaml`側の各appは`projectId`に加えて`projectName`も重複して持ち、
-  `ConfigUnit`（1設定ユニット分の集約）の読み込み時に`resolveProjectLinkage()`が
-  両ファイル間の紐づけ（`config.yaml`の各appに対応するエントリが`registry.yaml`の`appSpecs[]`に
-  あるか、`projectName`が食い違っていないか）を検証する。`registry.yaml`の`appSpecs[]`にだけ
-  あってどの設定ユニットからも参照されないappはエラーにしない（そのchartリポジトリで
-  一時的に更新対象から外している状態を許すため）。ファイルを2つに分ける軸の理由は
-  `docs/architecture/adr/0027-config-split-by-scope.md`。
+- **定義**: `config/<chart>/`配下に置く設定ファイル。ファイルを分ける軸は
+  「スコープ」（値が何の単位で決まるか）と「変更頻度」。`registry.yaml`はchartリポジトリ単位で、
+  MRの作成先（`chartToUpdate`）、ソースリポジトリの台帳（`appSpecs[]`の`projectId`・
+  `projectName`・`tagFormat`）、操作に使うアクセストークンの宣言（`accessTokenEnv`。必須）、
+  所属グループの宣言（`group`。必須）を持つ。設定ユニットは2ファイルで、
+  `versions.yaml`が「どのブランチを追跡するか」というよく触る値（app名をキーにした
+  `branchToSync`と、Helmの向き先ブランチ`branchRef`）、`locations.yaml`が「`values.yaml`の
+  どこに書き込むか」というあまり触らない値（`helm[]`と、app名をキーにした`apps`）を持つ。
+  設定ユニット側のappは`projectName`をキーにし、`ConfigUnit`（1設定ユニット分の集約）の
+  読み込み時に`registry.yaml`の`appSpecs[]`を`projectName`で引いて`projectId`・`tagFormat`を
+  結合する。このとき`branchToSync`と`apps`のapp名の集合が一致しているか、各app名が
+  `appSpecs[]`にあるかを検証し、`appSpecs[]`内の`projectName`の重複も設定エラーにする。
+  `registry.yaml`の`appSpecs[]`にだけあってどの設定ユニットからも参照されないappは
+  エラーにしない（そのchartリポジトリで一時的に更新対象から外している状態を許すため）。
+  ファイルを分ける軸の理由は`docs/architecture/adr/0027-config-split-by-scope.md`
+  （chartリポジトリ単位と設定ユニット単位）と
+  `docs/architecture/adr/0034-config-unit-split-versions-locations.md`（設定ユニットの2ファイル）。
 
 ### chartToUpdate・appSpecs
 
 - **英語識別子**: `chartToUpdate`（型は`ChartRepoConfig`）・`appSpecs`（要素の型は`AppSpec`）。いずれも`registry.yaml`のトップレベルキー。
 - **定義**:
   - `chartToUpdate`: `projectId`・`projectName`・`mrTargetBranch`の3フィールドを持つ、chartリポジトリ共通の設定（`ConfigUnit.chartRepo`フィールドの値になる）。
-  - `appSpecs`: `projectId`・`projectName`・`tagFormat`の3フィールドを持つ配列要素。ソースリポジトリごとのタグ形式の台帳で、`projectId`をキーに`config.yaml`側の`apps[]`と結合する。
-- **`registry.yaml`との関係**: 両ファイルの紐づけの検証（`resolveProjectLinkage()`）や、`appSpecs[]`にだけあってどの設定ユニットからも参照されないappを許容する挙動は「registry.yaml / config.yaml」の項を参照。
+  - `appSpecs`: `projectId`・`projectName`・`tagFormat`の3フィールドを持つ配列要素。ソースリポジトリの台帳で、設定ユニット側が`projectName`で引いて結合する。
+- **`registry.yaml`との関係**: 設定ユニットとの紐づけの検証や、`appSpecs[]`にだけあってどの設定ユニットからも参照されないappを許容する挙動は「registry.yaml / versions.yaml / locations.yaml」の項を参照。
 - **YAMLキー`chartToUpdate`と型名`ChartRepoConfig`で語幹が違う理由**: `docs/architecture/adr/0027-config-split-by-scope.md`が、型名のうちドメイン語彙に
   当たるものはYAMLのキー名に追随させないと決めている。キーが`chartToUpdate`になっても、型が
   表すものは「chartリポジトリの設定」のままなので`ChartRepoConfig`を据え置く。
@@ -89,23 +91,23 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### valuesPath
 
 - **英語識別子**: `valuesPath`
-- **定義**: `config.yaml`内で、対象アプリが参照する`values.yaml`ファイルのパスを指すフィールド。
+- **定義**: `locations.yaml`内で、対象アプリが参照する`values.yaml`ファイルのパスを指すフィールド。
 
 ### 書き込み位置
 
 - **英語識別子**: `AnchorLocation`（`valuesPath`・`anchorName`の2フィールドを持つ型。スキーマは`AnchorLocationSchema`）
-- **定義**: `values.yaml`内の書き込み位置1箇所分を表す型。`apps[].locations[]`（イメージタグの書き込み先）と`helm.locations[]`（Helmの向き先ブランチの書き込み先）の両方がこの型を共有する（スキーマ側も`AnchorLocationSchema`を共有している）。各フィールドの意味は「valuesPath」「anchor（locations[].anchor）」の各項を参照。
+- **定義**: `values.yaml`内の書き込み位置1箇所分を表す型。`locations.yaml`の`apps`配下（イメージタグの書き込み先）と`helm[]`（Helmの向き先ブランチの書き込み先）の両方がこの型を共有する（スキーマ側も`AnchorLocationSchema`を共有している）。各フィールドの意味は「valuesPath」「anchor」の各項を参照。
 - **`Anchor`と`Location`の両方を名前に持つ理由**: `Location`が「1箇所分の位置」という役割を、`Anchor`が「その位置をYAMLアンカーで指す」という手段を担う。手段を落とすと`src/lib/helm.ts`の`lookupValueAtAnchor()`/`setValueAtAnchor()`と語が繋がらなくなる。
 
-### anchor（locations[].anchor）
+### anchor
 
 - **英語識別子**: `anchorName`（型は`AnchorName`ブランド型、`AnchorLocation`のフィールド）。ただし
-  `config.yaml`上のYAMLキー名は`anchor`のままで、`AnchorLocationSchema`（`src/lib/config/schema.ts`）
+  `locations.yaml`上のYAMLキー名は`anchor`のままで、`AnchorLocationSchema`（`src/lib/config/schema.ts`）
   の`.transform()`がキー`anchor`をフィールド`anchorName`に詰め替える
-- **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`config.yaml`の
-  `apps[].locations`配列の1要素が持つフィールド名。`variables: [&myAppVersion main, ...]`
+- **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`locations.yaml`の
+  `apps.<app名>`配列の1要素が持つフィールド名。`variables: [&myAppVersion main, ...]`
   のように、配列要素にアンカーで名前を付けた構成のvalues.yamlを前提とする。1つのソース
-  リポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を管理している場合は、`locations`配列に
+  リポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を管理している場合は、`apps.<app名>`配列に
   要素を複数指定し、それぞれ異なる`anchor`を持たせる。
 - **補足**: `yaml`パッケージ（`src/lib/helm.ts`の`lookupValueAtAnchor`/`setValueAtAnchor`）がASTを
   `visit()`で走査し、アンカー名をノードのプロパティとして直接引く。値の位置指定として受け付ける
@@ -113,15 +115,14 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### Helmの向き先ブランチ
 
-- **英語識別子**: `helm.branchRef`（config.yamlのフィールド名）/
+- **英語識別子**: `branchRef`（versions.yamlのフィールド名）/
   `ConfigUnit.helm: HelmConfig`（設定ユニット単位で持つコード上の型）
 - **定義**: Helm chartは(1)`values.yaml`等のパラメータを定義するブランチ（既存の`mrTargetBranch`に相当）と、
   (2)そのパラメータを受け取ってk8sリソースを実際に構築するブランチの2種類で構成される、という前提のもと、
   後者を指すブランチ名。タグではなくブランチ名そのもので指定する。1つの設定ユニット内のapps全体で
-  共通の1つの値であり、`config.yaml`のトップレベルフィールド`helm`（`apps:`配列と同階層、
-  `branchRef`と`locations`を持つ1件のオブジェクト。配列表記は使わない）として人間が直接
+  共通の1つの値であり、`versions.yaml`の`branchRef`（値）と`locations.yaml`の`helm[]`（書き込み先）として人間が直接
   書き換える。タグ形式のような自動生成・自動判定の仕組みは持たない。chartリポジトリが常に
-  上記2ブランチ構成である以上、設定ユニットごとに1件書くのが常態なので`helm`は**必須**
+  上記2ブランチ構成である以上、設定ユニットごとに1件書くのが常態なので`branchRef`と`helm[]`は**必須**
   （省略は設定エラー）。更新したくない設定ユニットは現在の値と同じブランチ名を書けば差分が
   出ないので更新されない。
 - **`branchRef`という名前にしている理由**: `target`が答えるのは「何を狙っているか」、`ref`が
@@ -131,32 +132,33 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   タグ・コミットSHAは取らないため、`targetRevision`の「branch/tag/commitのどれでもよい」という
   含みが嘘になるから。
 - **表記ゆれ**: YAMLキーは2026-09-12に`helm.branchName`から`helm.branchRef`へ改名した
-  （その前は`helm.branchToSync`）。古い`config.yaml`・過去のログを読むときは読み替える。
-- **`AppConfig.branchToSync`（追跡ブランチ）との関係**: YAMLキー名は`helm.branchRef`と
-  `apps[].branchToSync`で別々になっており、コード側も`HelmConfig.branchRef`と
+  （その前は`helm.branchToSync`）。その後、設定ユニットの2ファイル分割で`versions.yaml`の
+  トップレベルの`branchRef`になった。古い設定ファイル・過去のログを読むときは読み替える。
+- **`AppConfig.branchToSync`（追跡ブランチ）との関係**: YAMLキー名は`versions.yaml`の`branchRef`と
+  `branchToSync`で別々になっており、コード側も`HelmConfig.branchRef`と
   `AppConfig.branchToSync`で名前が分かれている。指しているものも別（前者はk8sリソースを
   構築するブランチ、後者はタグを探す追跡ブランチ）で、混同しない。
-- **HelmConfig**: `branchRef`（向き先ブランチ名。`helm.branchRef`由来）と
-  `locations`（書き込み先の`valuesPath`＋`anchorName`の一覧。`helm.locations[]`のうち、設定ユニット内の
+- **HelmConfig**: `branchRef`（向き先ブランチ名。`versions.yaml`の`branchRef`由来）と
+  `locations`（書き込み先の`valuesPath`＋`anchorName`の一覧。`locations.yaml`の`helm[]`のうち、設定ユニット内の
   いずれかのappが実際に書き込む`valuesPath`を指す要素だけになる。空もありうる）の2フィールドを
   持つ、設定ユニット単位の集約型。
 
-### helm.locations\[\].anchor
+### helm[]のanchor
 
 - **英語識別子**: `anchorName`（型は`AnchorName`ブランド型、`AnchorLocation`のフィールド）。YAMLキー名は
-  `anchor`のままで、`apps[].locations[].anchor`と同じ`AnchorLocationSchema`がキー`anchor`から
+  `anchor`のままで、`apps`配下の`anchor`と同じ`AnchorLocationSchema`がキー`anchor`から
   フィールド`anchorName`への詰め替えを担う
 - **定義**: 「Helmの向き先ブランチ」の値を`valuesPath`のどこに書き込むかを指す、
-  `config.yaml`トップレベル`helm.locations`配列の各要素が持つフィールド。`apps[].locations[].anchor`と
+  `locations.yaml`の`helm`配列の各要素が持つフィールド。`apps`配下の`anchor`と
   同様にYAMLアンカー名で位置を指定するが、書き込む値がタグではなくブランチ名である点が
-  異なる。`apps[].locations[]`とは独立したリストで、app側に専用フィールドは持たせない。
+  異なる。`apps`配下とは独立したリストで、app側に専用フィールドは持たせない。
   向き先ブランチは設定ユニット内のapps全体で共通なので、コード上もapp単位に振り分けず
   設定ユニット単位（`ConfigUnit`）で1つ持ち、書き込みもappのループの外で1回だけ行う
   （理由は`docs/architecture/adr/0030-helm-branch-per-config-unit.md`）。
-- **制約**: そのconfig.yaml配下の全アプリの全`locations[].valuesPath`が同じ`config.yaml`の
-  `helm.locations[]`でカバーされている必要がある（Helmの向き先ブランチは「1設定ユニット内のapps全体で
-  共通」という前提のため、1つでもvaluesPathが漏れていると設定エラーになる）。`helm`自体の省略も、
-  `helm.branchRef`と`helm.locations[]`の片方だけの指定も設定エラー。
+- **制約**: その設定ユニットの全アプリの全書き込み先の`valuesPath`が`locations.yaml`の
+  `helm[]`でカバーされている必要がある（Helmの向き先ブランチは「1設定ユニット内のapps全体で
+  共通」という前提のため、1つでもvaluesPathが漏れていると設定エラーになる）。`helm[]`の省略も、
+  `branchRef`と`helm[]`の片方だけの指定も設定エラー。
 
 ### chartディレクトリ名
 
@@ -174,8 +176,8 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 - **英語識別子**: `branchToSync` / `BranchName`
 - **定義**: アプリごとに設定する、最新タグの判定対象とするソースリポジトリ側のブランチ。
 - **表記ゆれ**: 要件定義の初期検討段階（`docs/history/requirements-grilling.md`）では「追跡対象ブランチ」という表記もあったが、確定版の`docs/requirements.md`では「追跡ブランチ」に統一されている。
-- **`apps[].branchToSync`という名前を据え置く理由**: YAMLキーとコード上のフィールド名（`AppConfig.branchToSync`）が
-  一致しており、「YAMLキーと型フィールドで語幹を違えない」という規約に違反していない。`helm.branchRef`とは
+- **`branchToSync`という名前を据え置く理由**: YAMLキーとコード上のフィールド名（`AppConfig.branchToSync`）が
+  一致しており、「YAMLキーと型フィールドで語幹を違えない」という規約に違反していない。`branchRef`とは
   キー名が異なるため、同じキー名を別の意味に使う衝突も無い。
 
 ### タグ形式
@@ -331,7 +333,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 - **英語識別子**: `HelmBranchRefUpdate`（`location: AnchorLocation`・`currentBranch: BranchName`の2フィールド）
 - **定義**: Helmの向き先ブランチのうち1箇所分の更新内容。`currentBranch`は`values.yaml`側の現在値。
-  新しい値は`ConfigUnit.helm.branchRef`（`config.yaml`の設定値）からその都度取るため、
+  新しい値は`ConfigUnit.helm.branchRef`（`versions.yaml`の`branchRef`）からその都度取るため、
   `HelmBranchRefUpdate`自体は新しい値のフィールドを持たない。`ConfigUnitUpdateTarget.helmBranchRefUpdates`
   の要素になる。
 - **`location`という短いフィールド名にする理由**: 「イメージタグの更新」の項を参照
@@ -371,7 +373,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 - **定義**: 通常は`config/`配下の全chartリポジトリ・全アプリを対象に実行するところを、
   絞り込んで実行するための環境変数。`TARGET_CHART`は`config/`直下のchartディレクトリ名を1つ
   指定してそのchartリポジトリのみを対象にし、`TARGET_UNITS`は`unitPath`（設定ユニット）を
-  指定して該当する`config.yaml`のみを対象にする。両方を組み合わせた場合は両方に一致するものだけが
+  指定して該当する設定ユニットのみを対象にする。両方を組み合わせた場合は両方に一致するものだけが
   対象になる。指定した`TARGET_CHART`、または`TARGET_UNITS`内の各`unitPath`が`config/`配下に
   1件も見つからない場合はエラーとして即時終了する（仕様は`docs/requirements.md` 4.5節が正典）。
 - **表記ゆれ**: 環境変数は`TARGET_CHART`/`TARGET_UNITS`（UPPER_SNAKE_CASE）だが、`loadEnvConfig()`が

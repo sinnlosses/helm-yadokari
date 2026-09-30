@@ -59,7 +59,7 @@ export function parsePlatform(raw: string | undefined): PlatformKind {
  * CONFIG_ROOT_PATH は設定ディレクトリのルートパス。
  *
  * `<configRootPath>/<chartディレクトリ>/registry.yaml` という2階層固定の構成を走査する起点。
- * `config.yaml` があるディレクトリ（設定ユニットのディレクトリ）と紛れないよう、フィールド名・
+ * `versions.yaml`・`locations.yaml` があるディレクトリ（設定ユニットのディレクトリ）と紛れないよう、フィールド名・
  * 変数名は `config/` の最上位だと分かる `configRootPath` を使う。
  *
  * パストラバーサル検証は`toConfigRootPath()`が行う。

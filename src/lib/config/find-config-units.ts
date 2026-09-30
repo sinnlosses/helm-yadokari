@@ -5,7 +5,11 @@ import { CONFIG_UNIT_PATH_SEPARATOR, MAX_CONFIG_UNIT_DEPTH } from "../../domain/
 import type { ChartDirName, ConfigUnitPath, LocalPath } from "../../domain/types.js"
 import { toChartDirName, toConfigUnitPath, toLocalPath } from "../../domain/types.js"
 import { listSubdirectories } from "../../utils/fs.js"
-import { CONFIG_YAML_FILE_NAME, REGISTRY_YAML_FILE_NAME } from "./schema.js"
+import {
+  LOCATIONS_YAML_FILE_NAME,
+  REGISTRY_YAML_FILE_NAME,
+  VERSIONS_YAML_FILE_NAME,
+} from "./schema.js"
 
 /** 1つのchartディレクトリと、その配下の走査で見つかった設定ユニットの`unitPath`一覧 */
 export type ChartDirUnits = {
@@ -20,7 +24,7 @@ type UnitSegments = readonly string[]
 /**
  * 1つのchartディレクトリを走査し、設定ユニットの`unitPath`一覧を集める。
  *
- * 設定ユニットは`config.yaml`を持つディレクトリ。階層に問題があれば例外をスローする。
+ * 設定ユニットは`versions.yaml`と`locations.yaml`が両方あるディレクトリ（片方だけなら設定エラー）。階層に問題があれば例外をスローする。
  * `registry.yaml`が無いディレクトリは配下ごと無視する（走査対象のchartとみなさない）。
  */
 export function findConfigUnits(configRootPath: LocalPath, chartDir: string): readonly ChartDirUnits[] {
@@ -46,7 +50,7 @@ function findUnitPaths(chartDirPath: LocalPath): readonly ConfigUnitPath[] {
 
   if (unitSegmentsList.some((segments) => segments.length === 0)) {
     throw new Error(
-      `${join(chartDirPath, CONFIG_YAML_FILE_NAME)}: ${CONFIG_YAML_FILE_NAME} が ${REGISTRY_YAML_FILE_NAME} と同じ階層にあります` +
+      `${chartDirPath}: ${VERSIONS_YAML_FILE_NAME} と ${LOCATIONS_YAML_FILE_NAME} が ${REGISTRY_YAML_FILE_NAME} と同じ階層にあります` +
         `（設定ユニットは chartディレクトリから数えて深さ1〜${MAX_CONFIG_UNIT_DEPTH} のディレクトリに置いてください）`,
     )
   }
@@ -54,8 +58,8 @@ function findUnitPaths(chartDirPath: LocalPath): readonly ConfigUnitPath[] {
   const tooDeep = unitSegmentsList.find((segments) => segments.length > MAX_CONFIG_UNIT_DEPTH)
   if (tooDeep !== undefined) {
     throw new Error(
-      `${join(chartDirPath, ...tooDeep, CONFIG_YAML_FILE_NAME)}: 設定ユニットのディレクトリが深すぎます` +
-        `（深さ${tooDeep.length}）。${CONFIG_YAML_FILE_NAME} は chartディレクトリから数えて` +
+      `${join(chartDirPath, ...tooDeep)}: 設定ユニットのディレクトリが深すぎます` +
+        `（深さ${tooDeep.length}）。${VERSIONS_YAML_FILE_NAME} と ${LOCATIONS_YAML_FILE_NAME} は chartディレクトリから数えて` +
         `深さ1〜${MAX_CONFIG_UNIT_DEPTH} のディレクトリに置いてください`,
     )
   }
@@ -74,13 +78,25 @@ function findUnitPaths(chartDirPath: LocalPath): readonly ConfigUnitPath[] {
 }
 
 /**
- * `config.yaml`を持つディレクトリを、深さの上限を設けず再帰的に集める。
+ * `versions.yaml`と`locations.yaml`が両方あるディレクトリを、深さの上限を設けず再帰的に集める。
  *
- * 上限で打ち切らないのは、深すぎる位置に置かれた`config.yaml`を「見つからなかった」
- * ではなく設定エラーとして報告するため。YAMLは読まず`config.yaml`の有無だけを見る。
+ * 上限で打ち切らないのは、深すぎる位置に置かれた設定ユニットを「見つからなかった」
+ * ではなく設定エラーとして報告するため。YAMLは読まず2ファイルの有無だけを見る。
+ * 片方しか無いディレクトリは例外をスローする。
  */
 function collectUnitSegments(dirPath: LocalPath, segments: UnitSegments): readonly UnitSegments[] {
-  const here = existsSync(join(dirPath, CONFIG_YAML_FILE_NAME)) ? [segments] : []
+  const hasVersions = existsSync(join(dirPath, VERSIONS_YAML_FILE_NAME))
+  const hasLocations = existsSync(join(dirPath, LOCATIONS_YAML_FILE_NAME))
+  if (hasVersions !== hasLocations) {
+    const [present, missing] = hasVersions
+      ? [VERSIONS_YAML_FILE_NAME, LOCATIONS_YAML_FILE_NAME]
+      : [LOCATIONS_YAML_FILE_NAME, VERSIONS_YAML_FILE_NAME]
+    throw new Error(
+      `${dirPath}: ${present} だけがあり ${missing} がありません` +
+        `（設定ユニットは ${VERSIONS_YAML_FILE_NAME} と ${LOCATIONS_YAML_FILE_NAME} の両方が要ります）`,
+    )
+  }
+  const here = hasVersions ? [segments] : []
   const deeper = listSubdirectories(dirPath).flatMap((childDir) =>
     collectUnitSegments(toLocalPath(join(dirPath, childDir)), [...segments, childDir]),
   )

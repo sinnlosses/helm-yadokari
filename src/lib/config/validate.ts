@@ -12,7 +12,7 @@ import type {
 /**
  * GitLabへ問い合わせなくても分かる設定ミス（紐づけの矛盾・重複）を検証する。
  *
- * `registry.yaml` / `config.yaml` を読み込んだ後に走らせる。実体の有無（projectIdやブランチの実在）
+ * `registry.yaml` / `versions.yaml` / `locations.yaml` を読み込んだ後に走らせる。実体の有無（projectIdやブランチの実在）
  * は`scripts/lint/remote-existence/` の担当。
  */
 
@@ -88,25 +88,40 @@ export function validateAccessTokenEnvConsistency(configUnits: readonly ConfigUn
 }
 
 /**
- * 同じ`projectId`のappが1ファイル内に複数書かれていないか検証する。
+ * `registry.yaml`の`appSpecs[]`に同じ`projectId`が複数書かれていないか検証する。
  *
- * CLIは`projectId`をキーに2ファイルを突き合わせるため、重複していると片方の設定が黙って無視され、
- * 同じ書き込み先へ別々のタグを順番に書いて最後の値だけが残る。
+ * 重複していると、同じソースリポジトリに別々のタグ形式が結びつきうる。
  */
 export function validateNoDuplicateProjectIds(
   filePath: LocalPath,
-  apps: readonly { readonly projectId: ProjectId; readonly projectName: ProjectName }[],
+  appSpecs: readonly { readonly projectId: ProjectId }[],
 ): void {
-  const seen = new Set<ProjectId>()
-  const duplicated = apps.filter((app) => {
-    if (seen.has(app.projectId)) return true
-    seen.add(app.projectId)
-    return false
-  })
+  const duplicated = findDuplicates(appSpecs.map((appSpec) => appSpec.projectId))
   if (duplicated.length > 0) {
-    const list = [...new Set(duplicated.map((app) => `projectId ${app.projectId}`))].join(", ")
+    const list = duplicated.map((projectId) => `projectId ${projectId}`).join(", ")
     throw new Error(`${filePath}: 同じappが複数回定義されています（${list}）`)
   }
+}
+
+/**
+ * `registry.yaml`の`appSpecs[]`に同じ`projectName`が複数書かれていないか検証する。
+ *
+ * 設定ユニット側は`projectName`で`appSpecs[]`を引くので、重複していると引き先が決まらない。
+ */
+export function validateNoDuplicateProjectNames(
+  filePath: LocalPath,
+  appSpecs: readonly { readonly projectName: ProjectName }[],
+): void {
+  const duplicated = findDuplicates(appSpecs.map((appSpec) => appSpec.projectName))
+  if (duplicated.length > 0) {
+    const list = duplicated.map((projectName) => `"${projectName}"`).join(", ")
+    throw new Error(`${filePath}: 同じ projectName のappが複数あります（${list}）`)
+  }
+}
+
+function findDuplicates<T>(values: readonly T[]): readonly T[] {
+  const seen = new Set<T>()
+  return [...new Set(values.filter((value) => (seen.has(value) ? true : (seen.add(value), false))))]
 }
 
 /** `valuesPath`+`anchorName`の組を、エラーメッセージ用のラベル付きで表す */
@@ -117,8 +132,8 @@ export type LabeledLocation = { readonly location: AnchorLocation; readonly labe
  *
  * 1つの設定ユニット内の同じ`valuesPath`+`anchorName`が対象。
  * 重複していると後から処理した側の値だけが残り、MRには両方を更新したように表示されるため、
- * 静かに誤った結果になる。イメージタグ用（`apps[].locations[]`）と
- * 向き先ブランチ用（`helm.locations[]`）の衝突も対象にする。
+ * 静かに誤った結果になる。イメージタグ用（`apps`配下）と
+ * 向き先ブランチ用（`helm[]`）の衝突も対象にする。
  */
 export function validateNoDuplicateLocations(
   filePath: LocalPath,

@@ -1,5 +1,5 @@
 import type { ChartDirName, ConfigUnit, ConfigUnitPath } from "../../domain/types.js"
-import { CONFIG_YAML_FILE_NAME, REGISTRY_YAML_FILE_NAME } from "./schema.js"
+import { LOCATIONS_YAML_FILE_NAME, REGISTRY_YAML_FILE_NAME, VERSIONS_YAML_FILE_NAME } from "./schema.js"
 import type { ChartDirUnits } from "./find-config-units.js"
 
 /**
@@ -50,7 +50,7 @@ export function selectTargetConfigUnits(
   if (missingUnits.length > 0) {
     throw new Error(
       `TARGET_UNITS で指定された "${missingUnits.join(", ")}" が見つかりません` +
-        `（${CONFIG_YAML_FILE_NAME} を持つディレクトリの、chartディレクトリからの相対パスを指定してください）`,
+        `（${VERSIONS_YAML_FILE_NAME} と ${LOCATIONS_YAML_FILE_NAME} を持つディレクトリの、chartディレクトリからの相対パスを指定してください）`,
     )
   }
 
@@ -72,7 +72,7 @@ export function assertTargetMatched(
   if (isExplicitlyTargeted(target) && configUnits.length === 0) {
     throw new Error(
       "TARGET_CHART / TARGET_UNITS で絞り込んだ結果、対象となるchartが1件も見つかりませんでした。" +
-        `config/ 直下のディレクトリ名を指定し、そのディレクトリに ${REGISTRY_YAML_FILE_NAME} と ${CONFIG_YAML_FILE_NAME} が` +
+        `config/ 直下のディレクトリ名を指定し、そのディレクトリに ${REGISTRY_YAML_FILE_NAME} と設定ユニット（${VERSIONS_YAML_FILE_NAME} と ${LOCATIONS_YAML_FILE_NAME}）が` +
         `両方存在するか確認してください（実在するディレクトリ: ${formatChartDirs(chartDirs)}）`,
     )
   }

@@ -190,11 +190,12 @@ config/
   <chartリポジトリ名>/            # 例: teamA-chart（ディレクトリ名は人間向けのラベル）
     registry.yaml                  # chartリポジトリの情報＋ソースリポジトリのタグ形式の台帳
     <ユニット名>/                  # 設定ユニット（深さ1）
-      config.yaml                  # 運用値（どのプロジェクトのどのブランチを追跡するか）＋
-                                    # chart構造（values.yaml内のどこに書き込むか）
+      versions.yaml                # よく触る値（どのブランチを追跡するか）
+      locations.yaml               # あまり触らない値（values.yaml内のどこに書き込むか）
     <第1セグメント>/               # 設定ユニット（深さ2）
       <第2セグメント>/
-        config.yaml
+        versions.yaml
+        locations.yaml
 ```
 
 - `registry.yaml` はchartリポジトリ単位で、MRの作成先と、ソースリポジトリのタグ形式。詳細は
@@ -202,10 +203,13 @@ config/
   このchartリポジトリの操作に使うアクセストークンの環境変数名を、`group`（必須）で
   このchartリポジトリとソースリポジトリが属するGitLabグループのフルパスを宣言します（詳細は
   「[複数グループで運用する](#複数グループで運用する)」）。
-- `config.yaml` は設定ユニット単位で、
-  どのプロジェクトのどのブランチを追跡し `values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
-  書き込むかを持ちます。
-- 両者は `projectId` で対応付けます。
+- `versions.yaml` は設定ユニット単位で、Helmの向き先ブランチ（`branchRef`）と、
+  どのブランチを追跡するか（app名をキーにした `branchToSync`）を持ちます。
+- `locations.yaml` は設定ユニット単位で、`values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
+  書き込むかを持ちます（Helmの向き先ブランチの書き込み先 `helm` と、app名をキーにした `apps`）。
+- 設定ユニット側のappは、`registry.yaml` の `appSpecs[].projectName` を**app名**として
+  参照します（`projectId` は `registry.yaml` にだけ書きます）。`branchToSync` と `apps` のapp名の
+  集合は一致させ、どのapp名も `appSpecs[]` に存在する必要があります。
 
 `projectId` は `PLATFORM=gitlab`（既定）なら GitLab のプロジェクトID（数値）、
 `PLATFORM=github` なら GitHub の `"owner/repo"` 形式の文字列で指定します。
@@ -213,9 +217,10 @@ config/
 Helmの向き先ブランチとは、values.yaml のパラメータを受け取ってk8sリソースを実際に構築する
 ブランチのことです。`mrTargetBranch`（値定義ブランチ。MRの作成先）とは別物で、このブランチへの
 追従・更新もMRの対象に含まれます。chartリポジトリはこの2ブランチ構成であることが前提のため、
-`config.yaml` の `helm` は**必須**です。
+`branchRef`（`versions.yaml`）と `helm`（`locations.yaml`）は**必須**です。
 
-- `config.yaml` を1つ持つディレクトリが1つの設定ユニット（MRを作る単位）です。
+- `versions.yaml` と `locations.yaml` が両方あるディレクトリが1つの設定ユニット（MRを作る単位）です。
+  片方しかないディレクトリは設定エラーになります。
 - 階層は**深さ1〜2**で、同じchartリポジトリの配下に深さ1と深さ2を混在させられます
   - 深さ0（`registry.yaml` と同じ階層）・深さ3以上はいずれも設定エラーになります。
 - 設定のサンプルは[`config.example/`](./config.example/README.md)にあります。
@@ -239,19 +244,21 @@ appSpecs:
 ```
 
 ```yaml
-# config.yaml
-helm: # Helmの向き先ブランチ（values.yamlを受け取ってk8sリソースを構築するブランチ）の設定。必須
-  branchRef: helm-main
-  locations:
+# versions.yaml
+branchRef: helm-main # Helmの向き先ブランチ（values.yamlを受け取ってk8sリソースを構築するブランチ）。必須
+branchToSync: # app名（registry.yaml の appSpecs[].projectName）をキーにした追跡ブランチ
+  my-app: main
+```
+
+```yaml
+# locations.yaml
+helm: # Helmの向き先ブランチの書き込み先。必須
+  - valuesPath: charts/my-app/values.yaml
+    anchor: my-app-tag
+apps: # versions.yaml の branchToSync と同じapp名のキー集合にする
+  my-app:
     - valuesPath: charts/my-app/values.yaml
       anchor: my-app-tag
-apps:
-  - projectId: 2 # registry.yaml の appSpecs[].projectId と対応させる
-    projectName: my-app
-    branchToSync: main # このアプリの追跡ブランチ
-    locations:
-      - valuesPath: charts/my-app/values.yaml
-        anchor: my-app-tag
 ```
 
 ### 設定ファイルの検証

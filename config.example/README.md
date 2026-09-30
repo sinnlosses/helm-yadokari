@@ -16,7 +16,7 @@ CIの `validate-config-remote` が実在チェックにかけるので、架空�
 
 ```bash
 cp -r config.example/my-team-chart config/<あなたのchartリポジトリ名>
-# projectId / projectName / ブランチ名 / valuesPath / anchor を実物に書き換える
+# projectId / projectName（app名）/ ブランチ名 / valuesPath / anchor を実物に書き換える
 pnpm lint:validate-config          # 文法・整合性チェック（GitLab/GitHubへの接続なし）
 pnpm lint:validate-config:remote   # 実在チェック（要 .env、読み取りのみ。GitLab専用。PLATFORM=github では未対応）
 ```
@@ -26,11 +26,11 @@ pnpm lint:validate-config:remote   # 実在チェック（要 .env、読み取�
 
 ## 何を例示しているか
 
-| ファイル                                       | 例示している構成                                                                              |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `my-team-chart/registry.yaml`                  | chartリポジトリ単位の設定（`accessTokenEnv`の宣言を含む）と、ソースリポジトリのタグ形式の台帳 |
-| `my-team-chart/my-unit/config.yaml`            | 深さ1の設定ユニット。1app・1箇所だけの最小構成                                                |
-| `my-team-chart/my-tenant/client-a/config.yaml` | 深さ2の設定ユニット。複数app・1appから複数 `valuesPath` への書き込み                          |
+| ファイル                            | 例示している構成                                                                              |
+| ----------------------------------- | --------------------------------------------------------------------------------------------- |
+| `my-team-chart/registry.yaml`       | chartリポジトリ単位の設定（`accessTokenEnv`の宣言を含む）と、ソースリポジトリのタグ形式の台帳 |
+| `my-team-chart/my-unit/`            | 深さ1の設定ユニット（`versions.yaml` + `locations.yaml`）。1app・1箇所だけの最小構成          |
+| `my-team-chart/my-tenant/client-a/` | 深さ2の設定ユニット。複数app・1appから複数 `valuesPath` への書き込み                          |
 
 ## chartリポジトリ側の `values.yaml`
 
@@ -41,8 +41,8 @@ pnpm lint:validate-config:remote   # 実在チェック（要 .env、読み取�
 ```yaml
 # chartリポジトリの charts/my-app/values.yaml（イメージ）
 variables:
-  - &myAppTargetBranch release/2026-q1 # helm.branchRef の書き込み先
-  - &myAppVersion main-build-at-20260101-000000 # apps[].locations[] の書き込み先
+  - &myAppTargetBranch release/2026-q1 # branchRef の書き込み先（locations.yaml の helm）
+  - &myAppVersion main-build-at-20260101-000000 # locations.yaml の apps の書き込み先
 ```
 
 ## 正典

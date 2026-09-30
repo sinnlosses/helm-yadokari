@@ -1,0 +1,7 @@
+helm:
+  - valuesPath: charts/shared-app/values.yaml
+    anchor: sharedHelmTargetBranch
+apps:
+  sample-qa-sprint:
+    - valuesPath: charts/shared-app/values.yaml
+      anchor: sharedQaSprintVersion

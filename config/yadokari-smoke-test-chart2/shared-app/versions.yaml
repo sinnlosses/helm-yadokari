@@ -1,0 +1,4 @@
+# 複数chartリポジトリにまたがるappと、branchToSyncが複数種類になることを検証するユニット（docs/smoke-test.md 参照）
+branchRef: release/2026-q1
+branchToSync:
+  sample-qa-sprint: develop

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  buildAppConfigYamlContent,
+  buildLocationsYamlContent,
+  buildVersionsYamlContent,
   buildRegistryYamlContent,
   buildTokenSkipGuidance,
   buildValuesYamlContent,
@@ -42,23 +43,24 @@ describe("buildRegistryYamlContent", () => {
   })
 })
 
-describe("buildAppConfigYamlContent", () => {
-  it("helm.locationsとapps[].locationsの両方に同じvaluesPathを持つconfig.yamlを返す", () => {
-    const content = buildAppConfigYamlContent(222)
+describe("buildVersionsYamlContent", () => {
+  it("branchRefとapp名をキーにしたbranchToSyncを持つversions.yamlを返す", () => {
+    expect(buildVersionsYamlContent()).toBe(
+      "branchRef: release/2026-q1\nbranchToSync:\n  sample-smoke-b-app: main\n",
+    )
+  })
+})
 
-    expect(content).toBe(
+describe("buildLocationsYamlContent", () => {
+  it("helmとappsの両方に同じvaluesPathを持つlocations.yamlを返す", () => {
+    expect(buildLocationsYamlContent()).toBe(
       "helm:\n" +
-        "  branchRef: release/2026-q1\n" +
-        "  locations:\n" +
-        "    - valuesPath: charts/smoke-b-app/values.yaml\n" +
-        "      anchor: smokeBHelmTargetBranch\n" +
+        "  - valuesPath: charts/smoke-b-app/values.yaml\n" +
+        "    anchor: smokeBHelmTargetBranch\n" +
         "apps:\n" +
-        '  - projectId: "222"\n' +
-        "    projectName: sample-smoke-b-app\n" +
-        "    branchToSync: main\n" +
-        "    locations:\n" +
-        "      - valuesPath: charts/smoke-b-app/values.yaml\n" +
-        "        anchor: smokeBAppVersion\n",
+        "  sample-smoke-b-app:\n" +
+        "    - valuesPath: charts/smoke-b-app/values.yaml\n" +
+        "      anchor: smokeBAppVersion\n",
     )
   })
 })
