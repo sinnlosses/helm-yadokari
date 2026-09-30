@@ -223,9 +223,9 @@ export async function createMergeRequest(
   targetBranch: BranchName,
   title: string,
   description: string,
-): Promise<void> {
+): Promise<PlatformUrl> {
   const { owner, repo } = splitProjectId(projectId)
-  await withGithubRetry(() =>
+  const result = await withGithubRetry(() =>
     github.rest.pulls.create({
       owner,
       repo,
@@ -235,6 +235,7 @@ export async function createMergeRequest(
       body: description,
     }),
   )
+  return toPlatformUrl(String(result.data.html_url), "GitHub APIが返したPRの html_url")
 }
 
 /**

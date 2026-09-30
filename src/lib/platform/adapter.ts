@@ -65,13 +65,14 @@ export type PlatformAdapter = {
     files: readonly FileUpdate[],
   ) => Promise<void>
 
+  /** 作成したMRのweb URLを返す */
   readonly createMergeRequest: (
     projectId: ProjectId,
     sourceBranch: BranchName,
     targetBranch: BranchName,
     title: string,
     description: string,
-  ) => Promise<void>
+  ) => Promise<PlatformUrl>
 
   /** 追跡ブランチの最新コミットに対して、指定した名前のタグを作成する */
   readonly createTag: (projectId: ProjectId, tagName: TagName, ref: BranchName) => Promise<void>

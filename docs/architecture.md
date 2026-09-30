@@ -119,12 +119,12 @@ sed -n '/^### 型の置き場所/,/^#\{2,3\} /p' docs/architecture.md
 `applyUpdate()`が呼ぶのはこの3つだけで、GitLab APIの呼び出し順はサブステップの内側にある
 （理由は`docs/architecture/adr/0011-branch-rebuild-in-substep.md`）。
 
-| ファイル                  | 責務                                                                                           |
-| ------------------------- | ---------------------------------------------------------------------------------------------- |
-| `collect-mr-entries.ts`   | 計画からMRに載せる項目（`MrEntries`）を選ぶ。リンク用のweb URLと最新パイプラインの解決         |
-| `build-mr-content.ts`     | `MrEntries`をMRのタイトルとMarkdown本文にする。外部I/Oを持たない同期の純粋関数                 |
-| `submit-merge-request.ts` | 固定ブランチの作り直し（残っていれば削除）・コミット・MR作成というGitLab APIの呼び出し順を持つ |
-| `shared/types.ts`         | 上記3つが受け渡す`MrEntries`・`ImageTagEntry`・`MrContent`                                     |
+| ファイル                  | 責務                                                                                                                    |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `collect-mr-entries.ts`   | 計画からMRに載せる項目（`MrEntries`）を選ぶ。リンク用のweb URLと最新パイプラインの解決                                  |
+| `build-mr-content.ts`     | `MrEntries`をMRのタイトルとMarkdown本文にする。外部I/Oを持たない同期の純粋関数                                          |
+| `submit-merge-request.ts` | 固定ブランチの作り直し（残っていれば削除）・コミット・MR作成（作成したMRのURLを返す）というGitLab APIの呼び出し順を持つ |
+| `shared/types.ts`         | 上記3つが受け渡す`MrEntries`・`ImageTagEntry`・`MrContent`                                                              |
 
 項目の選別（何をMRに載せるか）とMarkdownの組み立てを分けてあるのは、**タイトルの件数と本文の
 テーブルの行を同じ配列から数えるため**（別々に数えると、件数と行数がずれても気づけない）。

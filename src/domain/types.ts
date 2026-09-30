@@ -182,13 +182,17 @@ export type ConfigUnitSkipReason = "no_apps" | "mr_exists" | "no_diff" | "dry_ru
  * ERRORの理由は捕捉した例外から組み立てるため任意の文字列で、CREATEDには理由が無い
  */
 export type ConfigUnitUpdateOutcome =
-  | { readonly result: "CREATED"; readonly reason: undefined }
+  | {
+      readonly result: "CREATED"
+      readonly reason: undefined
+      readonly mergeRequestUrl: PlatformUrl
+    }
   | { readonly result: "SKIPPED"; readonly reason: ConfigUnitSkipReason }
   | { readonly result: "ERROR"; readonly reason: string }
 
 /**
  * 設定ユニット1件分の実行結果の記録。バッチ1回分のレポートの1行にあたる。
- * アプリ単位の内訳やMRのURLは持たない（レポートの粒度が設定ユニット単位のため）
+ * アプリ単位の内訳は持たない。MRのURLはCREATEDのときだけ持つ（レポートの粒度が設定ユニット単位のため）
  */
 export type ConfigUnitReport = ConfigUnitUpdateOutcome & {
   readonly chartDirName: ChartDirName

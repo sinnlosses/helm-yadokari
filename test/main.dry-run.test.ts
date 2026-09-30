@@ -58,7 +58,9 @@ function makeFakeGitlab() {
     },
     MergeRequests: {
       all: vi.fn().mockResolvedValue([]),
-      create: vi.fn().mockResolvedValue({}),
+      create: vi
+        .fn()
+        .mockResolvedValue({ web_url: "https://gitlab.test/g/chart/-/merge_requests/1" }),
     },
     Commits: {
       allReferences: vi.fn().mockResolvedValue([]),

@@ -330,7 +330,9 @@ describe("commitFileUpdates", () => {
 
 describe("createMergeRequest", () => {
   it("正しい引数で MergeRequests.create を呼び出す", async () => {
-    const createFn = vi.fn().mockResolvedValue({})
+    const createFn = vi
+      .fn()
+      .mockResolvedValue({ web_url: "https://gitlab.example.com/p/-/merge_requests/1" })
     const client = makeClient({ MergeRequests: { all: vi.fn(), create: createFn } })
     await createMergeRequest(
       client,
@@ -349,6 +351,35 @@ describe("createMergeRequest", () => {
         description: "description body",
       },
     )
+  })
+
+  it("応答の web_url を返す", async () => {
+    const client = makeClient({
+      MergeRequests: {
+        all: vi.fn(),
+        create: vi
+          .fn()
+          .mockResolvedValue({ web_url: "https://gitlab.example.com/p/-/merge_requests/1" }),
+      },
+    })
+    const url = await createMergeRequest(
+      client,
+      toProjectId("1"),
+      toBranchName("a"),
+      toBranchName("b"),
+      "t",
+      "d",
+    )
+    expect(url).toBe(toPlatformUrl("https://gitlab.example.com/p/-/merge_requests/1"))
+  })
+
+  it("web_url がURLとして不正ならエラーにする", async () => {
+    const client = makeClient({
+      MergeRequests: { all: vi.fn(), create: vi.fn().mockResolvedValue({ web_url: "not a url" }) },
+    })
+    await expect(
+      createMergeRequest(client, toProjectId("1"), toBranchName("a"), toBranchName("b"), "t", "d"),
+    ).rejects.toThrow("web_url")
   })
 })
 

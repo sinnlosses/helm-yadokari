@@ -13,7 +13,7 @@ export type ReportMeta = {
 
 /**
  * バッチ1回分の実行結果をMarkdown1枚に整形する。ヘッダに実行時刻・所要時間・dryRun・
- * 件数サマリを、本体に設定ユニット1件につき1行の表（chart / unit / 結果 / 理由）を持つ。
+ * 件数サマリを、本体に設定ユニット1件につき1行の表（chart / unit / 結果 / 理由 / MR）を持つ。
  */
 export function formatReport(meta: ReportMeta, reports: readonly ConfigUnitReport[]): string {
   return [buildHeader(meta), "", buildTable(reports)].join("\n")
@@ -33,10 +33,16 @@ function buildHeader(meta: ReportMeta): string {
 
 function buildTable(reports: readonly ConfigUnitReport[]): string {
   return [
-    "| chart | unit | 結果 | 理由 |",
-    "| --- | --- | --- | --- |",
+    "| chart | unit | 結果 | 理由 | MR |",
+    "| --- | --- | --- | --- | --- |",
     ...reports.map((report) => {
-      const cells = [report.chartDirName, report.unitPath, report.result, report.reason ?? "-"]
+      const cells = [
+        report.chartDirName,
+        report.unitPath,
+        report.result,
+        report.reason ?? "-",
+        report.result === "CREATED" ? report.mergeRequestUrl : "-",
+      ]
       return `| ${cells.map(toTableCell).join(" | ")} |`
     }),
   ].join("\n")

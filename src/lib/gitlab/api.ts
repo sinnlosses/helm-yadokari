@@ -214,10 +214,11 @@ export async function createMergeRequest(
   targetBranch: BranchName,
   title: string,
   description: string,
-): Promise<void> {
-  await withGitlabRetry(() =>
+): Promise<PlatformUrl> {
+  const mergeRequest = await withGitlabRetry(() =>
     gitlab.MergeRequests.create(projectId, sourceBranch, targetBranch, title, { description }),
   )
+  return toPlatformUrl(String(mergeRequest.web_url), "GitLab APIが返したMRの web_url")
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { BranchName, ChartRepoConfig, FileUpdate } from "../../../domain/types.js"
+import type { BranchName, ChartRepoConfig, FileUpdate, PlatformUrl } from "../../../domain/types.js"
 import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
 import type { MrContent } from "./shared/types.js"
 
@@ -9,7 +9,7 @@ import type { MrContent } from "./shared/types.js"
  * 積んだ変更が新しいMRの差分に紛れ込まないようにするため。オープン中のMRがこのブランチに
  * 無いことは`filterTargets`が確認済みなので、無条件に削除してよい。
  *
- * コミットメッセージにはMRのタイトルをそのまま使う。
+ * コミットメッセージにはMRのタイトルをそのまま使う。作成したMRのURLを返す。
  */
 export async function submitMergeRequest(
   adapter: PlatformAdapter,
@@ -17,7 +17,7 @@ export async function submitMergeRequest(
   featureBranch: BranchName,
   content: MrContent,
   files: readonly FileUpdate[],
-): Promise<void> {
+): Promise<PlatformUrl> {
   if (await adapter.branchExists(chart.projectId, featureBranch)) {
     await adapter.deleteBranch(chart.projectId, featureBranch)
   }
@@ -28,7 +28,7 @@ export async function submitMergeRequest(
     content.title,
     files,
   )
-  await adapter.createMergeRequest(
+  return adapter.createMergeRequest(
     chart.projectId,
     featureBranch,
     chart.mrTargetBranch,

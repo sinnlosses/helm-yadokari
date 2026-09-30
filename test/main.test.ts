@@ -73,7 +73,9 @@ describe("run", () => {
     vi.mocked(getLatestPipelineForRef).mockResolvedValue(undefined)
     vi.mocked(getProjectWebUrl).mockResolvedValue(toPlatformUrl("https://gitlab.test/group/my-app"))
     vi.mocked(commitFileUpdates).mockResolvedValue(undefined)
-    vi.mocked(createMergeRequest).mockResolvedValue(undefined)
+    vi.mocked(createMergeRequest).mockResolvedValue(
+      toPlatformUrl("https://gitlab.test/group/chart/-/merge_requests/1"),
+    )
   })
 
   afterEach(() => {
@@ -136,8 +138,10 @@ describe("run", () => {
     const markdown = readFileSync(REPORT_OUTPUT_PATH, "utf-8")
     expect(markdown).toContain("- dryRun: false")
     expect(markdown).toContain("- 件数: CREATED 2 / SKIPPED 0 / ERROR 0")
-    expect(markdown).toContain("| chart | unit | 結果 | 理由 |")
-    expect(markdown).toMatch(/\| .+ \| .+ \| CREATED \| - \|/)
+    expect(markdown).toContain("| chart | unit | 結果 | 理由 | MR |")
+    expect(markdown).toMatch(
+      /\| .+ \| .+ \| CREATED \| - \| https:\/\/gitlab\.test\/group\/chart\/-\/merge_requests\/1 \|/,
+    )
   })
 
   it('ERROR が1件以上あるとき "PARTIAL_FAILURE" を返す', async () => {

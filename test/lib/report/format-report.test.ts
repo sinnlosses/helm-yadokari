@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { ConfigUnitReport, ConfigUnitUpdateOutcome } from "../../../src/domain/types.js"
-import { toChartDirName, toConfigUnitPath, toProjectName } from "../../../src/domain/types.js"
+import { toChartDirName, toConfigUnitPath, toPlatformUrl, toProjectName } from "../../../src/domain/types.js"
 import { formatReport } from "../../../src/lib/report/format-report.js"
 
 /** 本番の`toConfigUnitReport()`と同じ「識別情報 + outcome」の組み立て方に揃える（`as`を使わずに済む） */
@@ -58,14 +58,20 @@ describe("formatReport", () => {
         counts: { CREATED: 1, SKIPPED: 1, ERROR: 0 },
       },
       [
-        makeReport({ result: "CREATED", reason: undefined }),
+        makeReport({
+          result: "CREATED",
+          reason: undefined,
+          mergeRequestUrl: toPlatformUrl("https://gitlab.test/g/chart/-/merge_requests/1"),
+        }),
         makeReport({ result: "SKIPPED", reason: "no_diff" }, "tenant2/client2"),
       ],
     )
 
-    expect(markdown).toContain("| chart | unit | 結果 | 理由 |")
-    expect(markdown).toContain("| teamA-chart | tenant1/client1 | CREATED | - |")
-    expect(markdown).toContain("| teamA-chart | tenant2/client2 | SKIPPED | no_diff |")
+    expect(markdown).toContain("| chart | unit | 結果 | 理由 | MR |")
+    expect(markdown).toContain(
+      "| teamA-chart | tenant1/client1 | CREATED | - | https://gitlab.test/g/chart/-/merge_requests/1 |",
+    )
+    expect(markdown).toContain("| teamA-chart | tenant2/client2 | SKIPPED | no_diff | - |")
   })
 
   it("ERRORの理由に含まれる`|`と改行を、表が崩れない形に直す", () => {
@@ -81,7 +87,7 @@ describe("formatReport", () => {
 
     const row = markdown.split("\n").find((line) => line.startsWith("| teamA-chart"))
     expect(row).toBe(
-      "| teamA-chart | tenant1/client1 | ERROR | httpStatus: 400, message: a\\|b c |",
+      "| teamA-chart | tenant1/client1 | ERROR | httpStatus: 400, message: a\\|b c | - |",
     )
   })
 

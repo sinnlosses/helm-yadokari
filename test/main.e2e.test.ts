@@ -1,4 +1,4 @@
-import { rmSync } from "node:fs"
+import { readFileSync, rmSync } from "node:fs"
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -176,7 +176,9 @@ function makeFakeGitlab() {
     },
     MergeRequests: {
       all: vi.fn().mockResolvedValue([]),
-      create: vi.fn().mockResolvedValue({}),
+      create: vi
+        .fn()
+        .mockResolvedValue({ web_url: "https://gitlab.test/g/chart/-/merge_requests/1" }),
     },
     Commits: {
       allReferences: vi.fn((projectId: string, sha: string) =>
@@ -234,6 +236,9 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
     await expect(run(env)).resolves.toBe("SUCCESS")
 
     expect(gitlab.MergeRequests.create).toHaveBeenCalledTimes(4)
+    expect(readFileSync(`${REPORT_OUTPUT_DIR}/report.md`, "utf-8")).toContain(
+      "https://gitlab.test/g/chart/-/merge_requests/1",
+    )
 
     // `anchor-app`・`shared-app` は深さ1、`tenant2/client1` `tenant2/client2` は深さ2の設定
     // ユニット。4件とも呼ばれていることが、深さ1・深さ2の混在・複数chartリポジトリへの分岐が

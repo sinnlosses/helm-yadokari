@@ -4,6 +4,7 @@ import type { ChartRepoConfig, FileUpdate } from "../../../../src/domain/types.j
 import {
   toBranchName,
   toProjectId,
+  toPlatformUrl,
   toProjectName,
   toValuesPath,
 } from "../../../../src/domain/types.js"
@@ -18,6 +19,7 @@ const CHART: ChartRepoConfig = {
   projectName: toProjectName("teamA-chart"),
   mrTargetBranch: toBranchName("develop"),
 }
+const MR_URL = toPlatformUrl("https://gitlab.test/g/chart/-/merge_requests/1")
 const FEATURE_BRANCH = toBranchName("feature/yadokari/tenant1/client1")
 const CONTENT: MrContent = {
   title: "Auto MR by yadokari: update tenant1/client1 (image tag 1)",
@@ -31,7 +33,7 @@ describe("submitMergeRequest", () => {
   beforeEach(() => {
     vi.mocked(adapter.deleteBranch).mockResolvedValue(undefined)
     vi.mocked(adapter.commitFileUpdates).mockResolvedValue(undefined)
-    vi.mocked(adapter.createMergeRequest).mockResolvedValue(undefined)
+    vi.mocked(adapter.createMergeRequest).mockResolvedValue(MR_URL)
   })
 
   afterEach(() => {
@@ -79,6 +81,13 @@ describe("submitMergeRequest", () => {
       CHART.mrTargetBranch,
       CONTENT.title,
       CONTENT.description,
+    )
+  })
+
+  it("作成したMRのURLを返す", async () => {
+    vi.mocked(adapter.branchExists).mockResolvedValue(false)
+    await expect(submitMergeRequest(adapter, CHART, FEATURE_BRANCH, CONTENT, FILES)).resolves.toBe(
+      MR_URL,
     )
   })
 })

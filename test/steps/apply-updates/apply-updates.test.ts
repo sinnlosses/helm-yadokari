@@ -10,7 +10,13 @@ vi.mock("../../../src/utils/logger.js", () => ({
 
 import { buildFeatureBranch } from "../../../src/domain/feature-branch.js"
 import type { ConfigUnitUpdateTarget } from "../../../src/domain/types.js"
-import { toAnchorName, toBranchName, toTagName, toValuesPath } from "../../../src/domain/types.js"
+import {
+  toAnchorName,
+  toBranchName,
+  toPlatformUrl,
+  toTagName,
+  toValuesPath,
+} from "../../../src/domain/types.js"
 import { applyUpdates } from "../../../src/steps/apply-updates/apply-updates.js"
 import { buildMrContent } from "../../../src/steps/apply-updates/sub-steps/build-mr-content.js"
 import { collectMrEntries } from "../../../src/steps/apply-updates/sub-steps/collect-mr-entries.js"
@@ -32,6 +38,8 @@ const MR_ENTRIES: MrEntries = {
   helmBranches: [],
   helmBranchRef: toBranchName("release/2026-q1"),
 }
+
+const MR_URL = toPlatformUrl("https://gitlab.test/g/chart/-/merge_requests/1")
 
 const MR_CONTENT = {
   title: "Auto MR by yadokari: update tenant1/client1 1 app image tag(s)",
@@ -70,7 +78,7 @@ function makeTarget(): ConfigUnitUpdateTarget {
 
 describe("applyUpdates", () => {
   beforeEach(() => {
-    vi.mocked(submitMergeRequest).mockResolvedValue(undefined)
+    vi.mocked(submitMergeRequest).mockResolvedValue(MR_URL)
     vi.mocked(collectMrEntries).mockResolvedValue(MR_ENTRIES)
     vi.mocked(buildMrContent).mockReturnValue(MR_CONTENT)
     vi.mocked(buildFeatureBranch).mockReturnValue(toBranchName("feature/yadokari/tenant1/client1"))
@@ -88,6 +96,7 @@ describe("applyUpdates", () => {
         chartProjectName: "teamA-chart",
         result: "CREATED",
         reason: undefined,
+        mergeRequestUrl: MR_URL,
       },
     ])
     expect(submitMergeRequest).toHaveBeenCalledOnce()
@@ -99,6 +108,7 @@ describe("applyUpdates", () => {
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({
         result: "CREATED",
+        mergeRequestUrl: MR_URL,
         apps: expect.arrayContaining([expect.objectContaining({ origin: "existing" })]),
       }),
     )
@@ -145,7 +155,7 @@ describe("applyUpdates", () => {
 
   it("複数targetの結果を入力順を保った配列で返す", async () => {
     vi.mocked(submitMergeRequest)
-      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(MR_URL)
       .mockRejectedValueOnce(makeHttpError(403))
     const reports = await applyUpdates(adapter, [makeTarget(), makeTarget()], 3)
     expect(reports.map((report) => report.result)).toEqual(["CREATED", "ERROR"])

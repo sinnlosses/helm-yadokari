@@ -50,16 +50,25 @@ async function applyUpdate(
     configUnit.helm.branchRef,
   )
   const content = buildMrContent(adapter, unitPath, entries)
-  await submitMergeRequest(adapter, chartRepo, featureBranch, content, files)
+  const mergeRequestUrl = await submitMergeRequest(
+    adapter,
+    chartRepo,
+    featureBranch,
+    content,
+    files,
+  )
 
   logger.info({
     ...logContext,
     result: "CREATED",
+    mergeRequestUrl,
     apps: plans.map(describePlan),
     helmBranchRefUpdates: describeHelmBranchRefUpdates(
       helmBranchRefUpdates,
       configUnit.helm.branchRef,
     ),
   })
-  return ok(toConfigUnitReport(logContext, { result: "CREATED", reason: undefined }))
+  return ok(
+    toConfigUnitReport(logContext, { result: "CREATED", reason: undefined, mergeRequestUrl }),
+  )
 }

@@ -343,7 +343,9 @@ describe("commitFileUpdates", () => {
 
 describe("createMergeRequest", () => {
   it("正しい引数で pulls.create を呼び出す", async () => {
-    const create = vi.fn().mockResolvedValue({})
+    const create = vi
+      .fn()
+      .mockResolvedValue({ data: { html_url: "https://github.com/acme/chart/pull/1" } })
     await createMergeRequest(
       makeClient({ pulls: { create } }),
       PROJECT_ID,
@@ -360,6 +362,35 @@ describe("createMergeRequest", () => {
       title: "chore: update app versions",
       body: "description body",
     })
+  })
+
+  it("応答の html_url を返す", async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValue({ data: { html_url: "https://github.com/acme/chart/pull/1" } })
+    const url = await createMergeRequest(
+      makeClient({ pulls: { create } }),
+      PROJECT_ID,
+      toBranchName("a"),
+      toBranchName("b"),
+      "t",
+      "d",
+    )
+    expect(url).toBe(toPlatformUrl("https://github.com/acme/chart/pull/1"))
+  })
+
+  it("html_url がURLとして不正ならエラーにする", async () => {
+    const create = vi.fn().mockResolvedValue({ data: { html_url: "not a url" } })
+    await expect(
+      createMergeRequest(
+        makeClient({ pulls: { create } }),
+        PROJECT_ID,
+        toBranchName("a"),
+        toBranchName("b"),
+        "t",
+        "d",
+      ),
+    ).rejects.toThrow("html_url")
   })
 })
 
