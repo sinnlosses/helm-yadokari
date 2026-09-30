@@ -36,7 +36,11 @@ export async function run(env: EnvConfig): Promise<RunResult> {
     targetUnits: env.targetUnits,
   })
   const { value: processed, durationMs } = await timed(() => runProcess(env))
-  logger.info({ event: "summary", ...processed.counts })
+  logger.info({
+    event: "summary",
+    ...processed.counts,
+    failedUnits: listFailedUnits(processed.reports),
+  })
   logger.info({ event: "run_end", durationMs })
   return processed.counts.ERROR === 0 ? "SUCCESS" : "PARTIAL_FAILURE"
 }
@@ -137,5 +141,20 @@ function summarizeResults(
   return reports.reduce<Record<ConfigUnitUpdateResult, number>>(
     (counts, { result }) => ({ ...counts, [result]: counts[result] + 1 }),
     { CREATED: 0, SKIPPED: 0, ERROR: 0 },
+  )
+}
+
+function listFailedUnits(reports: readonly ConfigUnitReport[]) {
+  return reports.flatMap((report) =>
+    report.result === "ERROR"
+      ? [
+          {
+            chartDirName: report.chartDirName,
+            chartProjectName: report.chartProjectName,
+            unitPath: report.unitPath,
+            reason: report.reason,
+          },
+        ]
+      : [],
   )
 }

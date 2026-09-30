@@ -412,7 +412,8 @@ npx tsx --env-file=.env scripts/smoke/smoke-fixture.ts setup --apply
 
 ### パス3: 部分失敗
 
-- 終了コード **1**、`summary` が `{"CREATED":3,"SKIPPED":0,"ERROR":1}`
+- 終了コード **1**、`summary` が `{"CREATED":3,"SKIPPED":0,"ERROR":1}`。`failedUnits` に
+  `tenant2/client2` が1件載る
 - `ERROR` は `tenant2/client2` のみ。メッセージは
   `[アプリ: sample-qa-sprint] values.yaml にアンカー "t2c2QaSprintVersion" が見つかりません`
   `(valuesPath: charts/smoke-tenant2/client2/values.yaml)`

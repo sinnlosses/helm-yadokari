@@ -94,6 +94,15 @@ describe("run", () => {
     return call && { CREATED: call["CREATED"], SKIPPED: call["SKIPPED"], ERROR: call["ERROR"] }
   }
 
+  /** summary イベントに載った、失敗した設定ユニットの一覧 */
+  async function summaryFailedUnits(): Promise<unknown> {
+    const { logger } = await import("../src/utils/logger.js")
+    return vi
+      .mocked(logger.info)
+      .mock.calls.map(([entry]) => entry as Record<string, unknown>)
+      .find((entry) => entry["event"] === "summary")?.["failedUnits"]
+  }
+
   it('configUnitsがないとき "SUCCESS" を返し、件数は全て0になる', async () => {
     await expect(run(env)).resolves.toBe("SUCCESS")
     await expect(summaryCounts()).resolves.toEqual({ CREATED: 0, SKIPPED: 0, ERROR: 0 })
@@ -193,6 +202,14 @@ describe("run", () => {
 
       await expect(run(env)).resolves.toBe("PARTIAL_FAILURE")
       await expect(summaryCounts()).resolves.toEqual({ CREATED: 1, SKIPPED: 0, ERROR: 1 })
+      await expect(summaryFailedUnits()).resolves.toEqual([
+        {
+          chartDirName: chartB.chartDirName,
+          chartProjectName: chartB.chartRepo.projectName,
+          unitPath: chartB.unitPath,
+          reason: expect.stringContaining("401"),
+        },
+      ])
       // chartAとchartBが別々のトークンを宣言しているので、トークンごとに1アダプタ作られる
       expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "test-token")
       expect(createClient).toHaveBeenCalledWith("https://gitlab.test", "team-b-token")
@@ -221,7 +238,13 @@ describe("run", () => {
       expect.objectContaining({ event: "run_start" }),
     )
     expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
-      expect.objectContaining({ event: "summary", CREATED: 0, SKIPPED: 0, ERROR: 0 }),
+      expect.objectContaining({
+        event: "summary",
+        CREATED: 0,
+        SKIPPED: 0,
+        ERROR: 0,
+        failedUnits: [],
+      }),
     )
     expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
       expect.objectContaining({ event: "run_end", durationMs: expect.any(Number) }),
