@@ -9,6 +9,22 @@
 過去の指示をたどりたいときだけ、`grep -n '^## '` で日付を選び、その節だけを
 `sed -n '/^## 2026-09-08（4回目）/,/^#\{2,4\} /p' docs/history/direction.md` の形で読む。
 
+## 2026-10-01（25回目）
+
+生成したタスク: T-286〜T-288。タスクにしなかった項目: なし。
+コードとYAMLの名前の対応（YAMLにキー名が無い位置・同名になる `apps` の呼び分け）は方針決めが要るので、ADRで決める前段（T-286）に切り出した。
+
+以下は `develop/direction.md` の `## ユーザーから` に書かれた指示（当時の記述のまま）。
+
+### config/ のYAMLキーの命名を揃え、コード側の名前もYAMLに合わせる（2026-10-01）
+
+YAMLキーのばらつきを次のとおり改名する（`config/`・`config.example/`・スキーマ・テスト・docs をすべて追随させる）。
+
+- versions.yaml: `helmBranchRef` → `helm`、`appBranchToSync` → `apps`（locations.yaml の `helm` / `apps` と同じキーにして、値と書き込み先の区別はファイルで表す）
+- registry.yaml: `chartToUpdate` → `chart`、`appSpecs` → `apps`、`group.groupId` → `group.id`、`group.groupName` → `group.name`
+
+コードとYAMLの名前が合っていないところは、YAML側に合わせてコードを改名する（ADR 0027 の「ドメイン語彙の型名はYAMLに追随させない」方針も見直し対象。たとえば `ChartRepoConfig`/`chartRepo`、`HelmConfig.branchRef`、`AppConfig.branchToSync`、`AnchorLocation.anchorName`、`imageTagLocations`、`HelmConfig.locations`、`ConfigUnit.groupId`/`groupName`、`AppSpec`）。方針を変える判断はADRに残し、glossary の「表記ゆれ」に旧名を記録する。
+
 ## 2026-09-30（24回目）
 
 生成したタスク: T-279〜T-285。タスクにしなかった項目: なし。
