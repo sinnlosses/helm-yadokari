@@ -1,5 +1,8 @@
 # 1つの語を2つの意味に使ってよいのは、包含する型名・キー名が用途を与える場合だけ
 
+> 下の`ConfigUnit.chartRepo`の項は、`0035-config-keys-mirrored-in-code.md`の規則A（YAMLのキーを受ける
+> フィールドはキー名と同じ綴りにする）で置き換えられ、`ConfigUnit.chart`になる。
+
 **多義（同じ語を複数の意味で使うこと）自体は禁止しない。** `target`は`mrTargetBranch`
 （MRのベース）・`ConfigUnitUpdateTarget`（更新対象）・`TARGET_CHART`/`filterTargets`
 （処理対象）の3つの意味で使われており、それぞれ単独では読み違えない。値の意味を語れないフィールド名（用途を何も語らない`chart`、既に別の意味で

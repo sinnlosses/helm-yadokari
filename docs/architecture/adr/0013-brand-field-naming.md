@@ -1,5 +1,8 @@
 # ブランド型のフィールド名は、修飾語があれば型の語を落とし、無ければ持つ
 
+> YAMLのキーを1対1で受けるフィールドは、この規則より`0035-config-keys-mirrored-in-code.md`の規則A
+> （キー名と同じ綴りにする）が優先する（`AnchorLocation.anchor: AnchorName`）。
+
 `anchor: AnchorName` は「アンカーそのもの」を持っているように読めるが、実際に持っているのは
 名前だけで、この差が読み違いを生む。だから修飾語が無いフィールドは`Name`のような型の語を
 落とさず持たせる（`ParsedTag.branchName`・`HelmConfig.branchRef`）。`Ref`も
