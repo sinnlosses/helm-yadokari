@@ -41,7 +41,7 @@ const CHART2_PROJECT_ID = "86354445"
 /** `sample-qa-sprint`。4つの設定ユニット（`anchor-app`＋`tenant2/client1`＋`tenant2/client2`＋
  * chartリポジトリ2の`shared-app`）共通で登録されているapp。追跡ブランチ`main`のHEADに現在値と
  * 異なる名前のタグが既にある状態にする（更新対象、タグ自動作成の経路には入らない）。
- * `shared-app`だけは`appBranchToSync`が`develop`で、キャッシュキー（`projectId:branchToSync`）が
+ * `shared-app`だけは`versions.yaml`の`apps`が`develop`で、キャッシュキー（`projectId:branchToSync`）が
  * 他の3ユニットとは分岐する経路を通る */
 const QA_PROJECT_ID = "82861978"
 /** `sample-develop-client`。tenant2の2ユニット共通で登録されているapp（`anchor-app`・
@@ -63,7 +63,7 @@ const DEV_TAG = "main-build-at-20251231-000000"
 /** QA appの追跡ブランチ`develop`のHEADを指すタグ名（`shared-app`が書き込む新タグ） */
 const QA_NEW_TAG_DEVELOP = "develop-build-at-20260102-030000"
 
-/** 4つの設定ユニットの `versions.yaml` に書かれている `helmBranchRef`（4つとも同じ値） */
+/** 4つの設定ユニットの `versions.yaml` に書かれている `helm`（4つとも同じ値） */
 const NEW_HELM_BRANCH = "release/2026-q1"
 /** `charts/smoke-tenant2/client1/values.yaml` の `t2c1HelmTargetBranch` の現在値 */
 const OLD_HELM_BRANCH = "release/2025-q4"
@@ -94,7 +94,7 @@ const VALUES_YAML_TENANT2_CLIENT2 =
   `  - &t2c2DevelopClientVersion ${DEV_TAG}\n` +
   `  - &t2c2HelmTargetBranch ${NEW_HELM_BRANCH}\n`
 // chartリポジトリ2（`yadokari-smoke-test-chart2`）配下の唯一の設定ユニット。`sample-qa-sprint`を
-// `appBranchToSync: develop` で追跡する（複数chartリポジトリ・複数追跡ブランチのシナリオ）。
+// `apps: develop` で追跡する（複数chartリポジトリ・複数追跡ブランチのシナリオ）。
 const VALUES_YAML_SHARED_APP =
   `variables:\n` +
   `  - &sharedQaSprintVersion ${QA_OLD_VALUE}\n` +
@@ -272,7 +272,7 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
     expect(tenant2Client1Description).toContain("charts/smoke-tenant2/client1/values-extra.yaml")
     expect(tenant2Client1Description).toContain("t2c1QaSprintVersionExtra")
 
-    // shared-app は appBranchToSync: develop で追跡するため、main由来のタグではなくdevelop由来の
+    // shared-app は versions.yaml の apps: develop で追跡するため、main由来のタグではなくdevelop由来の
     // タグが新タグとして選ばれる（キャッシュキーが projectId:branchToSync で分岐する確認）
     const sharedAppDescription = (sharedApp[4] as { readonly description: string }).description
     expect(sharedAppDescription).toContain(QA_NEW_TAG_DEVELOP)
@@ -294,7 +294,7 @@ describe("run（config/ の実ファイルを読むe2e）", () => {
 
     // イメージタグは新しいタグへ書き換わる
     expect(values.content).toContain(`&t2c1QaSprintVersion ${QA_NEW_TAG}`)
-    // Helmの向き先ブランチは versions.yaml の helmBranchRef へ書き換わる
+    // Helmの向き先ブランチは versions.yaml の helm へ書き換わる
     expect(values.content).toContain(`&t2c1HelmTargetBranch ${NEW_HELM_BRANCH}`)
     // HEAD一致で据え置きになるアプリは元の値のまま
     expect(values.content).toContain(`&t2c1DevelopClientVersion ${DEV_TAG}`)

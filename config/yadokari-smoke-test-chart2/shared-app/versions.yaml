@@ -1,4 +1,4 @@
-# 複数chartリポジトリにまたがるappと、appBranchToSyncが複数種類になることを検証するユニット（docs/smoke-test.md 参照）
-helmBranchRef: release/2026-q1
-appBranchToSync:
+# 複数chartリポジトリにまたがるappと、追跡ブランチ（versions.yaml の apps）が複数種類になることを検証するユニット（docs/smoke-test.md 参照）
+helm: release/2026-q1
+apps:
   sample-qa-sprint: develop

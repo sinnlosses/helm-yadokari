@@ -1,13 +1,13 @@
 accessTokenEnv: ACCESS_TOKEN_SMOKE_A
 group:
-  groupId: 133749373
-  groupName: sinnlosses-group
+  id: 133749373
+  name: sinnlosses-group
 
-chartToUpdate:
+chart:
   projectId: "86354445"
   projectName: yadokari-smoke-test-chart2
   mrTargetBranch: main
-appSpecs:
+apps:
   - projectId: "82861978"
     projectName: sample-qa-sprint
     tagFormat: "{branch}-build-at-{date}-{time}"

@@ -1,4 +1,4 @@
-# versions.yaml の appBranchToSync と同じapp名のキー集合にする。
+# versions.yaml の apps と同じapp名のキー集合にする。
 helm:
   - valuesPath: charts/my-app/values.yaml
     anchor: myAppTargetBranch

@@ -42,7 +42,7 @@ chart リポジトリ単位に更新をまとめた MR 作成を自動化しま�
 
 ソースリポジトリ（GitLab または GitHub）のタグのうち、追跡ブランチの現在のHEADコミットを
 指しているものから最新タグを決めます。
-タグ形式はアプリ（ソースリポジトリ）単位に `registry.yaml` の `appSpecs[].tagFormat` で指定します
+タグ形式はアプリ（ソースリポジトリ）単位に `registry.yaml` の `apps[].tagFormat` で指定します
 （**必須**。既定値はありません）。
 
 `{branch}`（追跡ブランチ名の "/" を "-" に置換した値）・`{date}`（`yyyymmdd`）・
@@ -57,7 +57,7 @@ chart リポジトリ単位に更新をまとめた MR 作成を自動化しま�
 
 ```yaml
 # registry.yaml
-appSpecs:
+apps:
   - projectId: 2
     projectName: my-app
     tagFormat: "{branch}-build-at-{date}-{time}"
@@ -229,13 +229,13 @@ config/
   このchartリポジトリの操作に使うアクセストークンの環境変数名を、`group`（必須）で
   このchartリポジトリとソースリポジトリが属するGitLabグループのフルパスを宣言します（詳細は
   「[複数グループで運用する](#複数グループで運用する)」）。
-- `versions.yaml` は設定ユニット単位で、Helmの向き先ブランチ（`helmBranchRef`）と、
-  どのブランチを追跡するか（app名をキーにした `appBranchToSync`）を持ちます。
+- `versions.yaml` は設定ユニット単位で、Helmの向き先ブランチ（`versions.yaml`の`helm`）と、
+  どのブランチを追跡するか（app名をキーにした `versions.yaml`の`apps`）を持ちます。
 - `locations.yaml` は設定ユニット単位で、`values.yaml` のどこ（`valuesPath` + YAMLアンカー名）に
   書き込むかを持ちます（Helmの向き先ブランチの書き込み先 `helm` と、app名をキーにした `apps`）。
-- 設定ユニット側のappは、`registry.yaml` の `appSpecs[].projectName` を**app名**として
-  参照します（`projectId` は `registry.yaml` にだけ書きます）。`appBranchToSync` と `apps` のapp名の
-  集合は一致させ、どのapp名も `appSpecs[]` に存在する必要があります。
+- 設定ユニット側のappは、`registry.yaml` の `apps[].projectName` を**app名**として
+  参照します（`projectId` は `registry.yaml` にだけ書きます）。`versions.yaml` の `apps` と `locations.yaml` の `apps` のapp名の
+  集合は一致させ、どのapp名も `apps[]` に存在する必要があります。
 
 `projectId` は `PLATFORM=gitlab`（既定）なら GitLab のプロジェクトID（数値）、
 `PLATFORM=github` なら GitHub の `"owner/repo"` 形式の文字列で指定します。
@@ -243,7 +243,7 @@ config/
 Helmの向き先ブランチとは、values.yaml のパラメータを受け取ってk8sリソースを実際に構築する
 ブランチのことです。`mrTargetBranch`（値定義ブランチ。MRの作成先）とは別物で、このブランチへの
 追従・更新もMRの対象に含まれます。chartリポジトリはこの2ブランチ構成であることが前提のため、
-`helmBranchRef`（`versions.yaml`）と `helm`（`locations.yaml`）は**必須**です。
+`helm`（`versions.yaml`）と `helm`（`locations.yaml`）は**必須**です。
 
 - `versions.yaml` と `locations.yaml` が両方あるディレクトリが1つの設定ユニット（MRを作る単位）です。
   片方しかないディレクトリは設定エラーになります。
@@ -259,13 +259,13 @@ Helmの向き先ブランチとは、values.yaml のパラメータを受け取�
 # registry.yaml
 accessTokenEnv: ACCESS_TOKEN_GROUP_A # （必須）このchartリポジトリの操作に使うトークンの環境変数名
 group: # （必須）このchartリポジトリとソースリポジトリが属するGitLabグループ
-  groupId: 2000 # グループのトップページに表示されるグループID（特定に使うのはこちら）
-  groupName: group-a # groupId が指すグループのフルパス（人が読むためのラベル）
-chartToUpdate:
+  id: 2000 # グループのトップページに表示されるグループID（特定に使うのはこちら）
+  name: group-a # group.id が指すグループのフルパス（人が読むためのラベル）
+chart:
   projectId: 100
   projectName: my-team-chart
   mrTargetBranch: main # 値定義ブランチ（MRの作成先）
-appSpecs:
+apps:
   - projectId: 2
     projectName: my-app
     tagFormat: "{branch}-build-at-{date}-{time}"
@@ -273,8 +273,8 @@ appSpecs:
 
 ```yaml
 # versions.yaml
-helmBranchRef: helm-main # Helmの向き先ブランチ（values.yamlを受け取ってk8sリソースを構築するブランチ）。必須
-appBranchToSync: # app名（registry.yaml の appSpecs[].projectName）をキーにした追跡ブランチ
+helm: helm-main # Helmの向き先ブランチ（values.yamlを受け取ってk8sリソースを構築するブランチ）。必須
+apps: # app名（registry.yaml の apps[].projectName）をキーにした追跡ブランチ
   my-app: main
 ```
 
@@ -283,7 +283,7 @@ appBranchToSync: # app名（registry.yaml の appSpecs[].projectName）をキー
 helm: # Helmの向き先ブランチの書き込み先。必須
   - valuesPath: charts/my-app/values.yaml
     anchor: my-app-tag
-apps: # versions.yaml の appBranchToSync と同じapp名のキー集合にする
+apps: # versions.yaml の apps と同じapp名のキー集合にする
   my-app:
     - valuesPath: charts/my-app/values.yaml
       anchor: my-app-tag
@@ -397,11 +397,11 @@ CI/CD Variables の Protected を OFF にする必要があります（理由は
    Masked（可能なら Masked and hidden）・Protected OFF は上記「[セットアップ手順](#セットアップ手順)」
    と同じ理由です。
 3. **そのchartリポジトリの `registry.yaml` に `accessTokenEnv: ACCESS_TOKEN_<GROUP>` と
-   `group`（`groupId` + `groupName`）を宣言する**（書き方は「[config/](#config)」参照）。
-   `pnpm lint:validate-config:remote` は、`groupId` から引いたグループのフルパスと、
+   `group`（`group.id` + `group.name`）を宣言する**（書き方は「[config/](#config)」参照）。
+   `pnpm lint:validate-config:remote` は、`group.id` から引いたグループのフルパスと、
    そのchartリポジトリの projectId の所属（サブグループ配下を含む）を照合します。親グループの
    トークンやボットの個人アクセストークンに差し替わって被害範囲が広がった状態は、これで
-   検出できます。グループ名が変わって `groupName` が古くなった場合も、所属違いとは別の文言で
+   検出できます。グループ名が変わって `group.name` が古くなった場合も、所属違いとは別の文言で
    報告します。
 4. **schedule は1つのままで構いません。** 複数chartを1つのscheduleで回せます。cadence
    （実行頻度）をグループごとに分けたいときだけ、`TARGET_CHART` を指定した別scheduleに

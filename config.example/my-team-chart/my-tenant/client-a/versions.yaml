@@ -1,6 +1,6 @@
 # 深さ2の設定ユニット。unitPath は `my-tenant/client-a`。
 # 同じchartリポジトリ配下に深さ1と深さ2を混在させてよい（入れ子でなければ衝突しない）。
-helmBranchRef: release/2026-q1
-appBranchToSync:
+helm: release/2026-q1
+apps:
   my-app: develop # 追跡ブランチは設定ユニットごとに変えてよい
   another-app: main

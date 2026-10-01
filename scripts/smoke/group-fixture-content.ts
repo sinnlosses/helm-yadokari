@@ -48,13 +48,13 @@ export function buildRegistryYamlContent(
   return (
     `accessTokenEnv: ${ACCESS_TOKEN_ENV_NAME}\n` +
     `group:\n` +
-    `  groupId: ${groupId}\n` +
-    `  groupName: ${groupPath}\n` +
-    `chartToUpdate:\n` +
+    `  id: ${groupId}\n` +
+    `  name: ${groupPath}\n` +
+    `chart:\n` +
     `  projectId: "${chartProjectId}"\n` +
     `  projectName: ${CHART_PROJECT_NAME}\n` +
     `  mrTargetBranch: main\n` +
-    `appSpecs:\n` +
+    `apps:\n` +
     `  - projectId: "${sourceProjectId}"\n` +
     `    projectName: ${SOURCE_PROJECT_NAME}\n` +
     `    tagFormat: "${SEED_TAG_FORMAT}"\n`
@@ -63,11 +63,7 @@ export function buildRegistryYamlContent(
 
 /** config/<CHART_DIR_NAME>/<CONFIG_UNIT_DIR>/versions.yaml の中身 */
 export function buildVersionsYamlContent(): string {
-  return (
-    `helmBranchRef: ${HELM_TARGET_BRANCH}\n` +
-    `appBranchToSync:\n` +
-    `  ${SOURCE_PROJECT_NAME}: main\n`
-  )
+  return `helm: ${HELM_TARGET_BRANCH}\n` + `apps:\n` + `  ${SOURCE_PROJECT_NAME}: main\n`
 }
 
 /** config/<CHART_DIR_NAME>/<CONFIG_UNIT_DIR>/locations.yaml の中身 */

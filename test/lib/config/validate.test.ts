@@ -6,8 +6,8 @@ import { configUnitFiles, registryYaml, useConfigDir } from "./fixture.js"
 
 const dir = useConfigDir()
 
-describe("loadConfig（設定ユニットと registry.yaml の appSpecs[] の紐づけ）", () => {
-  it("設定ユニットのapp名がregistry.yamlのappSpecs[].projectNameに無いとき例外をスローする", () => {
+describe("loadConfig（設定ユニットと registry.yaml の apps[] の紐づけ）", () => {
+  it("設定ユニットのapp名がregistry.yamlのapps[].projectNameに無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }),
@@ -18,7 +18,7 @@ describe("loadConfig（設定ユニットと registry.yaml の appSpecs[] の紐
       configUnitFiles([
         {
           projectName: "app-1",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
       ]),
@@ -27,7 +27,7 @@ describe("loadConfig（設定ユニットと registry.yaml の appSpecs[] の紐
     expect(() => loadConfig(dir.path)).toThrow("app-1")
   })
 
-  it("appBranchToSync にだけあるappがあるとき例外をスローする", () => {
+  it("versions.yaml の apps にだけあるappがあるとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml({ projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" }, [
@@ -36,7 +36,7 @@ describe("loadConfig（設定ユニットと registry.yaml の appSpecs[] の紐
       ]),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "helmBranchRef: r\nappBranchToSync:\n  app-1: main\n  app-2: main\n",
+      versions: "helm: r\napps:\n  app-1: main\n  app-2: main\n",
       locations:
         "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: v\n",
     })
@@ -53,7 +53,7 @@ describe("loadConfig（設定ユニットと registry.yaml の appSpecs[] の紐
       ]),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "helmBranchRef: r\nappBranchToSync:\n  app-1: main\n",
+      versions: "helm: r\napps:\n  app-1: main\n",
       locations:
         "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: v\n  app-2:\n    - valuesPath: a.yaml\n      anchor: w\n",
     })
@@ -61,7 +61,7 @@ describe("loadConfig（設定ユニットと registry.yaml の appSpecs[] の紐
     expect(() => loadConfig(dir.path)).toThrow(/"app-2".*locations\.yaml のみ/)
   })
 
-  it("registry.yamlのappSpecs[]にどの設定ユニットからも参照されないappがあってもエラーにしない", () => {
+  it("registry.yamlのapps[]にどの設定ユニットからも参照されないappがあってもエラーにしない", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -78,7 +78,7 @@ describe("loadConfig（設定ユニットと registry.yaml の appSpecs[] の紐
       configUnitFiles([
         {
           projectName: "app-1",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
       ]),
@@ -115,7 +115,7 @@ describe("loadConfig（重複指定の検証）", () => {
       configUnitFiles([
         {
           projectName: "my-app",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
         },
       ]),
@@ -141,7 +141,7 @@ describe("loadConfig（重複指定の検証）", () => {
       configUnitFiles([
         {
           projectName: "my-app",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
         },
       ]),
@@ -158,12 +158,12 @@ describe("loadConfig（重複指定の検証）", () => {
       configUnitFiles([
         {
           projectName: "my-app",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "charts/shared/values.yaml", anchor: "sharedAnchor" }],
         },
         {
           projectName: "app-two",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "charts/shared/values.yaml", anchor: "sharedAnchor" }],
         },
       ]),
@@ -180,7 +180,7 @@ describe("loadConfig（重複指定の検証）", () => {
       configUnitFiles([
         {
           projectName: "my-app",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [
             { valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" },
             { valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" },
@@ -201,12 +201,12 @@ describe("loadConfig（重複指定の検証）", () => {
         [
           {
             projectName: "my-app",
-            appBranchToSync: "main",
+            branchToSync: "main",
             locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
           },
         ],
         {
-          helmBranchRef: "release/2026-q1",
+          branchRef: "release/2026-q1",
           locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "myAppVersion" }],
         },
       ),
@@ -223,12 +223,12 @@ describe("loadConfig（重複指定の検証）", () => {
       configUnitFiles([
         {
           projectName: "my-app",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "charts/shared/values.yaml", anchor: "appOneVersion" }],
         },
         {
           projectName: "app-two",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "charts/shared/values.yaml", anchor: "appTwoVersion" }],
         },
       ]),
@@ -245,7 +245,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるaccessTokenEn
     configUnitFiles([
       {
         projectName,
-        appBranchToSync: "main",
+        branchToSync: "main",
         locations: [{ valuesPath: `${projectName}.yaml`, anchor: "appVersion" }],
       },
     ])
@@ -297,7 +297,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるaccessTokenEn
     expect(configUnits).toHaveLength(2)
   })
 
-  it("chartToUpdate.projectIdが別chartのappSpecs[].projectIdと衝突しているとき例外をスローする", () => {
+  it("chart.projectIdが別chartのapps[].projectIdと衝突しているとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -322,11 +322,11 @@ describe("loadConfig（複数のchartリポジトリにまたがるaccessTokenEn
 })
 
 describe("loadConfig（複数のchartリポジトリにまたがるtagFormatの食い違い）", () => {
-  const configYamlFor = (appBranchToSync: string): ConfigUnitFiles =>
+  const configYamlFor = (branchToSync: string): ConfigUnitFiles =>
     configUnitFiles([
       {
         projectName: "my-app",
-        appBranchToSync,
+        branchToSync,
         locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
       },
     ])
@@ -352,7 +352,7 @@ describe("loadConfig（複数のchartリポジトリにまたがるtagFormatの�
     expect(() => loadConfig(dir.path)).toThrow("tagFormat")
   })
 
-  it("同じprojectIdのappが別々のchartリポジトリで違うappBranchToSyncを指定していても、tagFormatが同じなら読み込める", () => {
+  it("同じprojectIdのappが別々のchartリポジトリで違う追跡ブランチ（versions.yaml の apps）を指定していても、tagFormatが同じなら読み込める", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(

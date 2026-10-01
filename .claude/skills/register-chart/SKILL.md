@@ -28,7 +28,7 @@ description: 手元に clone した Helm chart リポジトリの values ファ�
 
 2. clone のパスをユーザーに尋ねる（引数で渡されていればそれを使う）。
 
-3. 既存の `config/*/registry.yaml` をすべて読む。`chartToUpdate.projectName` が clone の
+3. 既存の `config/*/registry.yaml` をすべて読む。`chart.projectName` が clone の
    ディレクトリ名、または `git -C <clone> remote get-url origin` のリポジトリ名と一致するものが
    あれば **追加**（下の「既存の chart ディレクトリへの追加」）、無ければ **新規生成**に進む。
    どちらに進むかをユーザーに告げる。候補が複数あって決まらなければ尋ねる。
@@ -56,7 +56,7 @@ clone 内の `values*.yaml`（`.git/`・`node_modules/` は除く）から、ス
 （`Extra` など）を落として kebab-case にする（`myAppVersion`・`myAppVersionExtra` → `my-app`）。
 同じユニットのアンカーがそろって同じ接頭辞（`t2c1QaSprintVersion` と `t2c1DevelopClientVersion`
 の `t2c1` など）で始まるなら、その接頭辞も落とす。同じ候補に落ちたアンカーは、1つの app の
-複数の書き込み先としてまとめる。候補が既存の `appSpecs[].projectName` の末尾と一致するとき
+複数の書き込み先としてまとめる。候補が既存の `apps[].projectName` の末尾と一致するとき
 （`qa-sprint` と `sample-qa-sprint`）は、その既存の名前を候補にする。app 名はソース
 リポジトリ名に揃えるのが既定なので、候補がリポジトリ名と違いそうなら実際の名前を尋ねる。
 
@@ -97,27 +97,27 @@ values ファイルを持つディレクトリ1つを設定ユニット1つの�
   6桁数字を `{time}`、残りのブランチ名にあたる部分を `{branch}` に置き換えて提案する
   （`main-build-at-20260101-000000` → `{branch}-build-at-{date}-{time}`）。8桁・6桁が
   見つからない値からは推測せずに尋ねる。
-- `appBranchToSync`: 上の `tagFormat` でタグ値の `{branch}` 部分を取り出して提案する。タグの中では
+- `versions.yaml`の`apps`: 上の `tagFormat` でタグ値の `{branch}` 部分を取り出して提案する。タグの中では
   ブランチ名の `/` が `-` になるので、`release-x` が `release/x` の可能性があることを必ず添える。
-- `helmBranchRef`: そのユニットの向き先ブランチのアンカーの今の値。今と同じ値なら差分が出ない。
-  ユニット内のアンカー同士で今の値が違うときは、全部が同じ `helmBranchRef` に揃うことを伝えて
+- `versions.yaml`の`helm`: そのユニットの向き先ブランチのアンカーの今の値。今と同じ値なら差分が出ない。
+  ユニット内のアンカー同士で今の値が違うときは、全部が同じ `versions.yaml`の`helm` に揃うことを伝えて
   1つ選ばせる。
-- `config/` のディレクトリ名と `chartToUpdate.projectName`: clone のディレクトリ名か remote の
+- `config/` のディレクトリ名と `chart.projectName`: clone のディレクトリ名か remote の
   リポジトリ名。
 - `mrTargetBranch`: `git -C <clone> symbolic-ref --short refs/remotes/origin/HEAD` の結果から
   `origin/` を落としたもの。取れなければ尋ねる。
-- `group.groupName`: remote URL のパスからリポジトリ名を落としたもの。
+- `group.name`: remote URL のパスからリポジトリ名を落としたもの。
 
-ファイルから分からない値は尋ねる: `chartToUpdate.projectId`（GitLab は数値。GitHub なら
-remote URL の `owner/repo` を候補にしてよい）、`group.groupId`、`accessTokenEnv`（同じグループの
+ファイルから分からない値は尋ねる: `chart.projectId`（GitLab は数値。GitHub なら
+remote URL の `owner/repo` を候補にしてよい）、`group.id`、`accessTokenEnv`（同じグループの
 既存 chart ディレクトリがあればその値を候補にする）、新しい app の `projectId`。
 
 ## 新規生成
 
 1. 上の「共通」の3段を順に行い、確認の済んだ値で `config/<chartディレクトリ名>/registry.yaml`
    と、ユニットごとの `versions.yaml`・`locations.yaml` を書く。
-2. `locations.yaml` の `apps` と `versions.yaml` の `appBranchToSync` は同じ app 名のキー集合にし、
-   ユニットで使う app だけを書く。`registry.yaml` の `appSpecs[]` には全ユニットの app を
+2. `locations.yaml` の `apps` と `versions.yaml` の `apps` は同じ app 名のキー集合にし、
+   ユニットで使う app だけを書く。`registry.yaml` の `apps[]` には全ユニットの app を
    1件ずつ書く。
 3. 新しい app の `projectId` が別の chart ディレクトリの `registry.yaml` にもあれば、その
    `projectName`・`tagFormat` に合わせる。`accessTokenEnv` が違うと設定エラーになる
@@ -131,16 +131,16 @@ remote URL の `owner/repo` を候補にしてよい）、`group.groupId`、`acc
 
 1. 上の「共通」の1段目で、既存ユニットの `locations.yaml` にすでにある書き込み先
    （`valuesPath`+`anchor`）を候補から外してから表を見せる。
-2. app 名の候補が既存の `appSpecs[].projectName` と一致したら、その app の再利用を提案する。
+2. app 名の候補が既存の `apps[].projectName` と一致したら、その app の再利用を提案する。
    `projectId`・`tagFormat` は既存の値を使い、尋ねない。一致しない app だけを新しい app として
-   扱い、`appSpecs[]` の末尾に足す。
+   扱い、`apps[]` の末尾に足す。
 3. 名前の重複を書く前に解く。
    - 新しい app の `projectName` が既存と同じなのに別のソースリポジトリなら、別名を決めさせる
    - 新しい app の `projectId` が同じ `registry.yaml` に別名で既にあれば、既存の名前に寄せる
    - 新しい app の `projectId` が別の chart ディレクトリにあるときは、新規生成の3と同じ
 4. 新しいユニットは新規生成と同じ形で足す。`unitPath` が既存ユニットと入れ子・重複に
    ならないことを「共通」の2段目で確かめておく。
-5. 既存ユニットに app を足すときは、`versions.yaml` の `appBranchToSync` と `locations.yaml` の
+5. 既存ユニットに app を足すときは、`versions.yaml` の `apps` と `locations.yaml` の
    `apps` の両方にキーを足す。app の `valuesPath` がそのユニットの `helm[]` に無ければ、
    `helm[]` にも足す。
 6. 「書いたあとの検証」へ進む。

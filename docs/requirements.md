@@ -69,21 +69,21 @@ Pull Request) を自動作成する。1回の実行でGitLab・GitHubを混在�
 
 ## 3. 用語
 
-| 用語                             | 意味                                                                                                                                                                                                                                                                                                            |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| アプリ                           | 管理対象とする、Helm chartでデプロイされる1つのアプリケーション単位。`versions.yaml`・`locations.yaml`の同じ名前のエントリに対応する                                                                                                                                                                            |
-| ソースリポジトリ                 | アプリのソースコードが置かれ、タグが打たれるGitLab/GitHubのプロジェクト（リポジトリ）                                                                                                                                                                                                                           |
-| chartリポジトリ                  | Helm chart（`values.yaml`を含む）を管理するGitLab/GitHubのプロジェクト（リポジトリ）。ソースリポジトリとは別プロジェクト。`config/`配下では1ディレクトリ（`registry.yaml`）に対応する                                                                                                                           |
-| 設定ユニット (`unitPath`)        | 同一のchartリポジトリ配下で、アプリの設定を分割管理するための単位。`config/<chartリポジトリ>/<unitPath>/` というディレクトリ階層（`versions.yaml`と`locations.yaml`を置く）で表現する。`unitPath`は`config/<chartリポジトリ>/`からの相対パスで、深さ1か深さ2のいずれか（詳細は4.4節）。MRを作成する単位でもある |
-| 追跡ブランチ (`appBranchToSync`) | アプリごとに設定する、最新タグの判定対象とするソースリポジトリ側のブランチ                                                                                                                                                                                                                                      |
+| 用語                                   | 意味                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| アプリ                                 | 管理対象とする、Helm chartでデプロイされる1つのアプリケーション単位。`versions.yaml`・`locations.yaml`の同じ名前のエントリに対応する                                                                                                                                                                            |
+| ソースリポジトリ                       | アプリのソースコードが置かれ、タグが打たれるGitLab/GitHubのプロジェクト（リポジトリ）                                                                                                                                                                                                                           |
+| chartリポジトリ                        | Helm chart（`values.yaml`を含む）を管理するGitLab/GitHubのプロジェクト（リポジトリ）。ソースリポジトリとは別プロジェクト。`config/`配下では1ディレクトリ（`registry.yaml`）に対応する                                                                                                                           |
+| 設定ユニット (`unitPath`)              | 同一のchartリポジトリ配下で、アプリの設定を分割管理するための単位。`config/<chartリポジトリ>/<unitPath>/` というディレクトリ階層（`versions.yaml`と`locations.yaml`を置く）で表現する。`unitPath`は`config/<chartリポジトリ>/`からの相対パスで、深さ1か深さ2のいずれか（詳細は4.4節）。MRを作成する単位でもある |
+| 追跡ブランチ (`versions.yaml`の`apps`) | アプリごとに設定する、最新タグの判定対象とするソースリポジトリ側のブランチ                                                                                                                                                                                                                                      |
 
 ## 4. 機能要件
 
 ### 4.1 バージョン判定
 
-- GitLab/GitHubのタグ一覧から、アプリごとに設定された追跡ブランチ (`appBranchToSync`) 由来のタグ
+- GitLab/GitHubのタグ一覧から、アプリごとに設定された追跡ブランチ (`versions.yaml`の`apps`) 由来のタグ
   のみを対象に最新版を判定する
-- タグ形式はアプリ（ソースリポジトリ）単位に `registry.yaml` の `appSpecs[].tagFormat` で
+- タグ形式はアプリ（ソースリポジトリ）単位に `registry.yaml` の `apps[].tagFormat` で
   指定する（**必須**。既定値は持たない。スキーマは4.4節が正典）。タグ形式は新規タグ作成・
   既存タグ判定の両方に使う
   - `{branch}`（追跡ブランチ名の "/" を "-" に置換した値）・`{date}`（`yyyymmdd`）・
@@ -94,7 +94,7 @@ Pull Request) を自動作成する。1回の実行でGitLab・GitHubを混在�
     当てはまらないappを黙って取りこぼすより明示させるほうが安全なため
 - 日時（`{date}`/`{time}`）のタイムゾーンはJSTで全アプリ共通固定とし、設定項目にはしない
 - **追跡ブランチ由来のタグのうち、追跡ブランチの現在のHEADコミットを指しているものを探す**。
-  「追跡ブランチ由来」は、タグ名が `appBranchToSync` とタグ形式でパースできることで判定する
+  「追跡ブランチ由来」は、タグ名が `versions.yaml`の`apps` とタグ形式でパースできることで判定する
 - HEADを指すタグが見つかれば、それを最新タグとして扱う。複数見つかった場合はいずれも同じ
   コミットを指していてデプロイされる中身は同じなので、返す値を一意に決めるためだけに
   `{date}`/`{time}` から読み取った打刻日時が最も新しいものを選ぶ。タグ形式はapp単位に
@@ -107,7 +107,7 @@ Pull Request) を自動作成する。1回の実行でGitLab・GitHubを混在�
   このツール自身がタグ形式に従った新しいタグを作成し、それを最新タグとして扱う
   （`DRY_RUN=true` のときは実際のタグ作成をスキップし、作成予定のタグ名だけを使って以降の
   判定を続ける）。`{time}` が必須なので、生成するタグ名は秒単位で一意になる
-- `appBranchToSync` を切り替えた場合（タグ形式を変更した場合も同様）も、上記の判定を
+- `versions.yaml`の`apps` を切り替えた場合（タグ形式を変更した場合も同様）も、上記の判定を
   特別扱いしない。切り替え先のHEADコミットを指すタグがあればそれを再利用する
   - タグ名には `{branch}` が必ず含まれるため、そのタグを `values.yaml` に書けば追跡先が
     変わったことは名前から読み取れる。「切り替えを明示するため」だけに新しいタグを作る
@@ -122,7 +122,7 @@ Pull Request) を自動作成する。1回の実行でGitLab・GitHubを混在�
   反映済みのものと同じで、デプロイされる中身が変わらないため。中身が変わらない更新MRを
   作らないことを優先する（反映済みの値がタグ名でない場合や、より古いコミットを指すタグの
   場合は従来どおり更新する）。ただし反映済みのタグが**現在の追跡ブランチ由来でない**場合
-  （＝上記の `appBranchToSync` を切り替えた場合）はこのスキップの対象外とし、同じコミットを
+  （＝上記の `versions.yaml`の`apps` を切り替えた場合）はこのスキップの対象外とし、同じコミットを
   指していても更新する。デプロイされる中身は同じでも、`values.yaml` から読み取れる追従先が
   実態と食い違ったままになるのを避けることを優先する
 
@@ -243,14 +243,14 @@ config/
 `registry.yaml`（chartリポジトリ）と設定ユニットのファイルを分け、設定ユニットの中は
 よく触る値と滅多に触らない値で2ファイルに分ける。
 
-| ファイル         | スコープ        | 持つもの                                                                                                                                                                                                                        |
-| ---------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `registry.yaml`  | chartリポジトリ | MRの作成先（`chartToUpdate`）、ソースリポジトリの台帳（`appSpecs[]`の`projectId`・`projectName`・`tagFormat`）、操作に使うアクセストークンの宣言（`accessTokenEnv`）、所属グループの宣言（`group.groupId` / `group.groupName`） |
-| `versions.yaml`  | 設定ユニット    | どのブランチを追跡するか（`appBranchToSync`）とHelmの向き先ブランチ（`helmBranchRef`）。よく触る値                                                                                                                              |
-| `locations.yaml` | 設定ユニット    | `values.yaml`のどこへ書き込むか（`helm[]`と`apps`の`locations`）。あまり触らない値                                                                                                                                              |
+| ファイル         | スコープ        | 持つもの                                                                                                                                                                                                  |
+| ---------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `registry.yaml`  | chartリポジトリ | MRの作成先（`chart`）、ソースリポジトリの台帳（`apps[]`の`projectId`・`projectName`・`tagFormat`）、操作に使うアクセストークンの宣言（`accessTokenEnv`）、所属グループの宣言（`group.id` / `group.name`） |
+| `versions.yaml`  | 設定ユニット    | どのブランチを追跡するか（`versions.yaml`の`apps`）とHelmの向き先ブランチ（`versions.yaml`の`helm`）。よく触る値                                                                                          |
+| `locations.yaml` | 設定ユニット    | `values.yaml`のどこへ書き込むか（`helm[]`と`apps`の`locations`）。あまり触らない値                                                                                                                        |
 
 設定ユニット側のappは`projectName`をキーにしたマップで参照し、`projectId`は`registry.yaml`の
-`appSpecs[]`にだけ書く。このため2ファイルに`projectId`と`projectName`を重複して書く必要が
+`apps[]`にだけ書く。このため2ファイルに`projectId`と`projectName`を重複して書く必要が
 無く、変更頻度で分けてもappの追加・削除の手数は増えない（判断の経緯は
 `docs/architecture/adr/0034-config-unit-split-versions-locations.md`）。
 
@@ -263,14 +263,14 @@ config/
 ```yaml
 accessTokenEnv: ACCESS_TOKEN_TEAM_A # （必須）このchartリポジトリの操作に使うトークンの環境変数名
 group: # （必須）このchartリポジトリとソースリポジトリが属するグループ
-  groupId: 4242 # グループの数値ID（特定に使うのはこちら）
-  groupName: team-a-group # groupId が指すグループのフルパス（人が読むためのラベル）
-chartToUpdate:
+  id: 4242 # グループの数値ID（特定に使うのはこちら）
+  name: team-a-group # group.id が指すグループのフルパス（人が読むためのラベル）
+chart:
   projectId: 888 # values.yamlを更新するプロジェクトID（GitLabは数値、GitHubは"owner/repo"）
   projectName: teamA-chart
   mrTargetBranch: develop # MR作成先のベースブランチ
-appSpecs: # このchartリポジトリ配下の設定ユニットが追跡するソースリポジトリの台帳
-  - projectId: 1 # タグを取得するプロジェクトID（chartToUpdate.projectIdとは別物）
+apps: # このchartリポジトリ配下の設定ユニットが追跡するソースリポジトリの台帳
+  - projectId: 1 # タグを取得するプロジェクトID（chart.projectIdとは別物）
     projectName: my-app
     tagFormat: "{branch}-build-at-{date}-{time}" # ソースリポジトリのタグ形式（必須）
   - projectId: 2
@@ -282,8 +282,8 @@ appSpecs: # このchartリポジトリ配下の設定ユニットが追跡する
 
 ```yaml
 # versions.yaml
-helmBranchRef: release/2026-q1 # Helmの向き先ブランチ（必須）
-appBranchToSync: # app名（registry.yamlのappSpecs[].projectName）をキーにした追跡ブランチ
+helm: release/2026-q1 # Helmの向き先ブランチ（必須）
+apps: # app名（registry.yamlのapps[].projectName）をキーにした追跡ブランチ
   my-app: main # 設定ユニットごとに違ってよい
   another-app: main
 ```
@@ -293,7 +293,7 @@ appBranchToSync: # app名（registry.yamlのappSpecs[].projectName）をキー�
 helm:
   - valuesPath: charts/my-app/values.yaml
     anchor: myAppTargetBranch # values.yaml内のYAMLアンカー名
-apps: # versions.yamlのappBranchToSyncと同じapp名のキー集合にする
+apps: # versions.yamlのappsと同じapp名のキー集合にする
   my-app:
     - valuesPath: charts/my-app/values.yaml
       anchor: myAppVersion # values.yaml内のYAMLアンカー名
@@ -324,20 +324,20 @@ apps: # versions.yamlのappBranchToSyncと同じapp名のキー集合にする
         anchor: multiServiceAppDaemonVersion
   ```
 
-- 設定ユニットのapp名（`versions.yaml`の`appBranchToSync`と`locations.yaml`の`apps`のキー）が、同じ
-  chartリポジトリの`registry.yaml`の`appSpecs[].projectName`に見つからない場合は設定エラーに
+- 設定ユニットのapp名（`versions.yaml`の`apps`と`locations.yaml`の`apps`のキー）が、同じ
+  chartリポジトリの`registry.yaml`の`apps[].projectName`に見つからない場合は設定エラーに
   なる。`tagFormat`が引けないため最新タグを判定できない
-- `versions.yaml`の`appBranchToSync`と`locations.yaml`の`apps`は、app名のキー集合が一致していなければ
+- `versions.yaml`の`apps`と`locations.yaml`の`apps`は、app名のキー集合が一致していなければ
   設定エラーになる。片方にしか無いappは、追跡ブランチと書き込み先の一方が欠けて更新できない
-- `registry.yaml`・`versions.yaml`・`locations.yaml`の全階層（`group`・`chartToUpdate`・`appSpecs[]`・`helm[]`・`apps.<app名>[]`の要素を含む）で、知らないキーは設定エラーになる。書き間違いや、キーを書くファイルの取り違え（`versions.yaml`に`helm:`を書くなど）が黙って無視されないようにするため。エラーにはファイル名と知らないキーの名前・階層が出る。YAMLのコメントはキーではないので影響しない
+- `registry.yaml`・`versions.yaml`・`locations.yaml`の全階層（`group`・`chart`・`apps[]`・`helm[]`・`apps.<app名>[]`の要素を含む）で、知らないキーは設定エラーになる。書き間違いや、キーを書くファイルの取り違えや旧キー（`versions.yaml`に`branchToSync:`を書くなど）が黙って無視されないようにするため。エラーにはファイル名と知らないキーの名前・階層が出る。YAMLのコメントはキーではないので影響しない
 - `versions.yaml`と`locations.yaml`は両方そろって初めて設定ユニットになり、片方しか無い
   ディレクトリは設定エラーになる
-- 同じ`registry.yaml`の`appSpecs[]`で`projectName`が重複している場合は設定エラーになる。
-  設定ユニット側は`projectName`で`appSpecs[]`を引くので、重複していると引き先が決まらない。
-  同じ`projectId`が`appSpecs[]`に複数あるのも従来どおり設定エラー
-- `registry.yaml`の`appSpecs[]`にだけ書かれていて、どの設定ユニットからも参照されていないappは
+- 同じ`registry.yaml`の`apps[]`で`projectName`が重複している場合は設定エラーになる。
+  設定ユニット側は`projectName`で`apps[]`を引くので、重複していると引き先が決まらない。
+  同じ`projectId`が`apps[]`に複数あるのも従来どおり設定エラー
+- `registry.yaml`の`apps[]`にだけ書かれていて、どの設定ユニットからも参照されていないappは
   **エラーにしない**（そのchartリポジトリで一時的に更新対象から外している状態を許すため）
-- `registry.yaml`の`appSpecs[].tagFormat` はそのアプリ（ソースリポジトリ）のタグ形式を表す
+- `registry.yaml`の`apps[].tagFormat` はそのアプリ（ソースリポジトリ）のタグ形式を表す
   テンプレート文字列で、**必須**（判定・生成の仕様は4.1節が正典）。省略した場合、
   `{branch}`/`{date}`/`{time}` のいずれかを含まない場合、同じプレースホルダを2回以上含む
   場合、未知のプレースホルダを含む場合はいずれも設定エラーになる
@@ -346,37 +346,37 @@ apps: # versions.yamlのappBranchToSyncと同じapp名のキー集合にする
   あって登録先ごとに変わる値ではなく、食い違ったまま実行すると同じアプリの最新タグが実行ごとに
   違う形式で決まってしまうため。台帳をchartリポジトリ単位にしたことで、同じchart
   リポジトリ配下の設定ユニット間では食い違いようが無くなり、この検証が働くのはchartリポジトリ
-  をまたぐ場合だけになった（`appBranchToSync` は設定ユニットごとに違ってよい。こちらは
+  をまたぐ場合だけになった（`versions.yaml`の`apps` は設定ユニットごとに違ってよい。こちらは
   「どのブランチを追うか」という設定ユニット側の判断のため）
 - `registry.yaml`のトップレベルの`accessTokenEnv`は、そのchartリポジトリの操作に使うアクセス
   トークンが入っている**環境変数名**（トークンの値そのものではない）を書くフィールドで、**必須**。
   書かれていなければ設定エラーになる。任意にすると、書き漏らしたchartリポジトリが黙って
   より広い権限のトークンへ流れる。`config/`は各チームがMRを送るセルフサービス方式なので、
-  書き漏れは設定エラーで落とす。`chartToUpdate`の中ではなくトップレベルに
-  置くのは、このトークンが`chartToUpdate`への書き込み（ブランチ・コミット・MR）と`appSpecs[]`の
+  書き漏れは設定エラーで落とす。`chart`の中ではなくトップレベルに
+  置くのは、このトークンが`chart`への書き込み（ブランチ・コミット・MR）と`apps[]`の
   ソースリポジトリの読み取りの両方に効く、`registry.yaml`全体のスコープの値だから
 - `accessTokenEnv`に書ける環境変数名は`^ACCESS_TOKEN_[A-Z0-9_]+$`（例: `ACCESS_TOKEN_TEAM_A`）に
   限り、これ以外の名前は設定エラーになる。`config/`は各チームがMRを送るセルフサービス方式なので、
   任意の環境変数名を書けると`RENOVATE_TOKEN`のような無関係な秘密をCLIに読み出させる経路になる。
   接頭辞を固定しておくと、CI/CD変数の一覧を見るだけでどれがこのCLIに渡るトークンかも分かる。
   接尾辞なしの`ACCESS_TOKEN`も同じ理由で設定エラーにする
-- `registry.yaml`のトップレベルの`group`は、そのchartリポジトリと`appSpecs[]`のソース
-  リポジトリが属するGitLabのグループ（namespace）を宣言するフィールドで、`groupId`と
-  `groupName`の2つを持ち、**どちらも必須**。どちらかが書かれていなければ設定エラーになる。
+- `registry.yaml`のトップレベルの`group`は、そのchartリポジトリと`apps[]`のソース
+  リポジトリが属するGitLabのグループ（namespace）を宣言するフィールドで、`group.id`と
+  `group.name`の2つを持ち、**どちらも必須**。どちらかが書かれていなければ設定エラーになる。
   `accessTokenEnv`が「どのトークンを使うか」の宣言なのに対し、`group`は「そのトークンが
   どこまで届いてよいか」の宣言にあたる。必須にする理由も`accessTokenEnv`と同じで、書き漏らした
   chartリポジトリが黙って照合をすり抜ける形を残さないため
-- グループを**特定するのは`groupId`だけ**で、`groupName`は`projectName`と同じく人が読むための
+- グループを**特定するのは`group.id`だけ**で、`group.name`は`projectName`と同じく人が読むための
   ラベル。名前（パス）は変わるがIDは変わらないため、名前で特定するとリネームのたびに照合が
-  黙って壊れる。`groupId`はGitLabのグループID（1以上の整数）に限り、フルパスを書くと設定エラーに
+  黙って壊れる。`group.id`はGitLabのグループID（1以上の整数）に限り、フルパスを書くと設定エラーに
   なる。数値と文字列のどちらの書き方でもよい（`projectId`と同じ）
-- `groupName`に書ける値は英数字・アンダースコア・ドット・ハイフンからなるセグメントを`/`で
+- `group.name`に書ける値は英数字・アンダースコア・ドット・ハイフンからなるセグメントを`/`で
   つないだ形（例: `team-a-group`・`team-a-group/sub-group`）に限り、空文字・前後や連続の`/`は
   設定エラーになる。照合がセグメント単位の前方一致で行われるため、末尾に`/`が付いた値は常に
   外れてしまう
 - `group`の照合は`validate-config --remote`（実在チェック）だけが行い、本体の更新処理は参照
-  しない。まず`groupId`からそのグループのフルパスを1回引き、`chartToUpdate.projectId`と
-  `appSpecs[].projectId`のそれぞれについて、GitLabが返すプロジェクトの所属
+  しない。まず`group.id`からそのグループのフルパスを1回引き、`chart.projectId`と
+  `apps[].projectId`のそれぞれについて、GitLabが返すプロジェクトの所属
   （`namespace.full_path`）がそのフルパスそのものか、その**サブグループ配下**であることを
   確認する。サブグループを許すのは、グループのトークンがサブグループのプロジェクトにも
   届く＝宣言したトークンの被害範囲の内側だから。照合はセグメント単位なので、`team-a-group`は
@@ -384,16 +384,16 @@ apps: # versions.yamlのappBranchToSyncと同じapp名のキー集合にする
   とは別の文言で報告する（不在・権限不足と所属違いでは直す手が違うため）。狙いは、親グループの
   トークンやボットの個人アクセストークンに差し替わって被害範囲の分離だけが静かに壊れた状態を
   検出すること
-- 引いたフルパスが`groupName`と食い違っていれば、グループがリネームされたものとして所属違い・
-  不在とは別の文言で報告する（`groupId`で特定できている以上、照合そのものは成立しているため
-  他の検証は続ける）。`groupId`のグループ自体を参照できないとき（存在しない、またはトークンの
+- 引いたフルパスが`group.name`と食い違っていれば、グループがリネームされたものとして所属違い・
+  不在とは別の文言で報告する（`group.id`で特定できている以上、照合そのものは成立しているため
+  他の検証は続ける）。`group.id`のグループ自体を参照できないとき（存在しない、またはトークンの
   権限が届かない）は所属を判定できないので、その1件だけを報告し、そのchartリポジトリの所属照合は
   行わずに実在チェックの残りを続ける
 - 宣言した環境変数が実行時に未設定だった場合は設定エラーにせず、そのchartリポジトリ配下の
   設定ユニットだけを`ERROR`にして処理を続ける（4.3節）。`config/`の書き方としては正しく、
   CI/CD変数側の付け替え漏れに当たるため
 - **1つの`projectId`は1つのトークンにしか結びつけられない。** 同じ`projectId`が
-  （`chartToUpdate`・`appSpecs[]`のどちらに書かれているかを問わず）別々の`accessTokenEnv`を
+  （`chart`・`apps[]`のどちらに書かれているかを問わず）別々の`accessTokenEnv`を
   宣言した複数のchartリポジトリに登場する場合は設定エラーとして即時終了する。
   最新タグの解決は`(ソースリポジトリ, 追跡ブランチ, タグ形式)`単位に1回だけ行い、読み取りの
   キャッシュも`projectId`をキーに持つため、同じ`projectId`に2つの答えがある状態を表現できない。
@@ -428,16 +428,16 @@ apps: # versions.yamlのappBranchToSyncと同じapp名のキー集合にする
 **Helmの向き先ブランチ**（values.yamlのパラメータを受け取ってk8sリソースを実際に構築する
 ブランチ。既存の`mrTargetBranch`＝値定義ブランチとは別物）の追従・更新も、このMRの対象に含める:
 
-`versions.yaml`の`helmBranchRef`と`locations.yaml`の`helm[]`が、設定ユニット単位に1件ずつの
+`versions.yaml`の`helm`と`locations.yaml`の`helm[]`が、設定ユニット単位に1件ずつの
 Helmの向き先ブランチの設定になる（YAMLの例は上の`versions.yaml`・`locations.yaml`）。
 
 - Helmの向き先ブランチは**必須**とする。chartリポジトリは「`values.yaml`等のパラメータを定義するブランチ」と
   「そのパラメータを受け取ってk8sリソースを構築するブランチ」の2ブランチ構成である、というのが
   この運用の前提だからで、設定ユニットごとに向き先ブランチを1件書くのが常態になる。
-  `versions.yaml`の`helmBranchRef`と`locations.yaml`の`helm[]`のどちらが欠けても設定エラー。
-  向き先ブランチを更新したくない設定ユニットは、`helmBranchRef`に現在の値と同じブランチ名を
+  `versions.yaml`の`helm`と`locations.yaml`の`helm[]`のどちらが欠けても設定エラー。
+  向き先ブランチを更新したくない設定ユニットは、`versions.yaml`の`helm`に現在の値と同じブランチ名を
   書けば差分が出ないので更新されない
-- `helmBranchRef`はchartリポジトリ内の別ブランチ（`registry.yaml`の`chartToUpdate.projectId`と
+- `versions.yaml`の`helm`はchartリポジトリ内の別ブランチ（`registry.yaml`の`chart.projectId`と
   同一プロジェクト）を指す、設定ユニット単位に1件の値。人間が自己申告方式で直接書き換える
   運用とし、タグ形式のような自動生成・自動判定の仕組みは持たない
 - `helm[]`は書き込み先（`valuesPath`+`anchor`）の一覧で、`apps`配下の書き込み先とは独立した

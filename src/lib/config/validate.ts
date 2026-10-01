@@ -25,7 +25,7 @@ import type {
  * 同じアプリの同じコミットに形式違いのタグが2つできる（詳細は`docs/architecture.md`のタグ形式の
  * 置き場所を扱う節）。
  *
- * `appBranchToSync`の食い違いは設定ユニット側の判断として正当なので検証しない。
+ * `versions.yaml`の`apps`の食い違いは設定ユニット側の判断として正当なので検証しない。
  */
 export function validateTagFormatConsistency(configUnits: readonly ConfigUnit[]): void {
   const seen = new Map<
@@ -88,7 +88,7 @@ export function validateAccessTokenEnvConsistency(configUnits: readonly ConfigUn
 }
 
 /**
- * `registry.yaml`の`appSpecs[]`に同じ`projectId`が複数書かれていないか検証する。
+ * `registry.yaml`の`apps[]`に同じ`projectId`が複数書かれていないか検証する。
  *
  * 重複していると、同じソースリポジトリに別々のタグ形式が結びつきうる。
  */
@@ -104,9 +104,9 @@ export function validateNoDuplicateProjectIds(
 }
 
 /**
- * `registry.yaml`の`appSpecs[]`に同じ`projectName`が複数書かれていないか検証する。
+ * `registry.yaml`の`apps[]`に同じ`projectName`が複数書かれていないか検証する。
  *
- * 設定ユニット側は`projectName`で`appSpecs[]`を引くので、重複していると引き先が決まらない。
+ * 設定ユニット側は`projectName`で`apps[]`を引くので、重複していると引き先が決まらない。
  */
 export function validateNoDuplicateProjectNames(
   filePath: LocalPath,

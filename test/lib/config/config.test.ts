@@ -29,7 +29,7 @@ describe("loadConfig（正常系）", () => {
       configUnitFiles([
         {
           projectName: "my-app",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "charts/my-app/values.yaml", anchor: "appVersion" }],
         },
       ]),
@@ -108,7 +108,7 @@ describe("loadConfig（正常系）", () => {
       configUnitFiles([
         {
           projectName: "app-1",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
       ]),
@@ -119,7 +119,7 @@ describe("loadConfig（正常系）", () => {
       configUnitFiles([
         {
           projectName: "app-2",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
         },
       ]),
@@ -130,7 +130,7 @@ describe("loadConfig（正常系）", () => {
       configUnitFiles([
         {
           projectName: "app-3",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "c.yaml", anchor: "appVersion" }],
         },
       ]),
@@ -276,7 +276,7 @@ describe("loadConfig（locationsの複数指定）", () => {
       configUnitFiles([
         {
           projectName: "my-service",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [
             { valuesPath: "charts/webapi/values.yaml", anchor: "appVersion" },
             { valuesPath: "charts/batch/values.yaml", anchor: "batchAppsVersion" },
@@ -317,7 +317,7 @@ describe("loadConfig（target絞り込み）", () => {
       configUnitFiles([
         {
           projectName: "app-1",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
       ]),
@@ -328,7 +328,7 @@ describe("loadConfig（target絞り込み）", () => {
       configUnitFiles([
         {
           projectName: "app-2",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
         },
       ]),
@@ -346,7 +346,7 @@ describe("loadConfig（target絞り込み）", () => {
       configUnitFiles([
         {
           projectName: "app-3",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "c.yaml", anchor: "appVersion" }],
         },
       ]),
@@ -509,7 +509,7 @@ describe("loadConfig（絞り込み結果が0件のときの検知）", () => {
 })
 
 describe("loadConfig（helm）", () => {
-  it("helmBranchRefはあるがhelmが無いとき例外をスローする", () => {
+  it("versions.yamlのhelmはあるがlocations.yamlのhelmが無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -524,18 +524,18 @@ describe("loadConfig（helm）", () => {
         [
           {
             projectName: "app-1",
-            appBranchToSync: "main",
+            branchToSync: "main",
             locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
         ],
-        { helmBranchRef: "release/2026-q1" },
+        { branchRef: "release/2026-q1" },
       ),
     )
 
     expect(() => loadConfig(dir.path)).toThrow("helm は必須です")
   })
 
-  it("helmはあるがhelmBranchRefが無いとき例外をスローする", () => {
+  it("locations.yamlのhelmはあるがversions.yamlのhelmが無いとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -549,13 +549,13 @@ describe("loadConfig（helm）", () => {
       configUnitFiles([
         {
           projectName: "app-1",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
       ], { locations: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] }),
     )
 
-    expect(() => loadConfig(dir.path)).toThrow("helmBranchRef は必須です")
+    expect(() => loadConfig(dir.path)).toThrow("helm は必須です。versions.yaml")
   })
 
   it("helmが空配列のとき例外をスローする", () => {
@@ -573,11 +573,11 @@ describe("loadConfig（helm）", () => {
         [
           {
             projectName: "app-1",
-            appBranchToSync: "main",
+            branchToSync: "main",
             locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
         ],
-        { helmBranchRef: "release/2026-q1", locations: [] },
+        { branchRef: "release/2026-q1", locations: [] },
       ),
     )
 
@@ -602,16 +602,16 @@ describe("loadConfig（helm）", () => {
         [
           {
             projectName: "app-1",
-            appBranchToSync: "main",
+            branchToSync: "main",
             locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
           {
             projectName: "app-2",
-            appBranchToSync: "main",
+            branchToSync: "main",
             locations: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
           },
         ],
-        { helmBranchRef: "release/2026-q1", locations: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] },
+        { branchRef: "release/2026-q1", locations: [{ valuesPath: "a.yaml", anchor: "targetBranch" }] },
       ),
     )
 
@@ -636,17 +636,17 @@ describe("loadConfig（helm）", () => {
         [
           {
             projectName: "app-1",
-            appBranchToSync: "main",
+            branchToSync: "main",
             locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
           },
           {
             projectName: "app-2",
-            appBranchToSync: "main",
+            branchToSync: "main",
             locations: [{ valuesPath: "b.yaml", anchor: "appVersion" }],
           },
         ],
         {
-          helmBranchRef: "release/2026-q1",
+          branchRef: "release/2026-q1",
           locations: [
             { valuesPath: "a.yaml", anchor: "targetBranchA" },
             { valuesPath: "b.yaml", anchor: "targetBranchB" },
@@ -677,7 +677,7 @@ describe("loadConfig（helm）", () => {
         [
           {
             projectName: "app-1",
-            appBranchToSync: "main",
+            branchToSync: "main",
             locations: [
               { valuesPath: "webapi.yaml", anchor: "webapiVersion" },
               { valuesPath: "batch.yaml", anchor: "batchVersion" },
@@ -685,7 +685,7 @@ describe("loadConfig（helm）", () => {
           },
         ],
         {
-          helmBranchRef: "release/2026-q1",
+          branchRef: "release/2026-q1",
           locations: [
             { valuesPath: "webapi.yaml", anchor: "webapiTargetBranch" },
             { valuesPath: "batch.yaml", anchor: "batchTargetBranch" },

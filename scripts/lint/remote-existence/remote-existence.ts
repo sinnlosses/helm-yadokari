@@ -23,7 +23,7 @@ import { type RemoteCache, newRemoteCache } from "./remote-cache.js"
 /**
  * 1つの設定ユニットを検証する間ずっと変わらない値をまとめたもの。
  * `where` は問題を報告するときの位置表示（`<chartDir>/<unitPath>`）、
- * `declaredGroupPath` は`groupId`から引いたグループのフルパス（引けなければ`undefined`で、
+ * `declaredGroupPath` は`group.id`から引いたグループのフルパス（引けなければ`undefined`で、
  * このとき所属の照合は行わない）、
  * `reportedPaths` は同じvalues.yamlの不在を何度も報告しないための記録。
  */
@@ -38,7 +38,7 @@ type ValidateContext = {
 
 /**
  * `config/` に書かれた projectId・ブランチ・valuesPath・アンカーがGitLab上に実在するか、
- * および projectId が `registry.yaml` の `group.groupId` が指すグループに属しているかを検証し、
+ * および projectId が `registry.yaml` の `group.id` が指すグループに属しているかを検証し、
  * 見つかった問題を人が読める文字列の配列で返す（1件目で止めず全件集める）。
  * 問題が無ければ空配列を返す。GitLabへの問い合わせは読み取りのみで、タグ・ブランチ・MRは
  * 一切作らない。
@@ -124,7 +124,7 @@ async function validateConfigUnit(cache: RemoteCache, configUnit: ConfigUnit): P
 
 /**
  * `registry.yaml`が宣言したグループ自体を検証する。引けなければグループの問題を1件返し、
- * 引けた場合は`groupName`がGitLab上の現在のフルパスとズレていないか（グループのリネーム）を見る。
+ * 引けた場合は`group.name`がGitLab上の現在のフルパスとズレていないか（グループのリネーム）を見る。
  * どちらもプロジェクトの不在・所属違いとは直す手が違うので、別の文言にしてある。
  */
 function describeGroupProblems(
@@ -133,18 +133,18 @@ function describeGroupProblems(
 ): string[] {
   if (declaredGroupPath === undefined) {
     return [
-      `${where}: registry.yaml の group.groupId ${groupId} のグループを参照できません（存在しないか、アクセストークンの権限が届いていません）。この設定ユニットでは所属の照合を行いません`,
+      `${where}: registry.yaml の group.id ${groupId} のグループを参照できません（存在しないか、アクセストークンの権限が届いていません）。この設定ユニットでは所属の照合を行いません`,
     ]
   }
   if (declaredGroupPath === groupName) return []
   return [
-    `${where}: registry.yaml の group.groupName "${groupName}" が groupId ${groupId} の現在のフルパス "${declaredGroupPath}" と食い違っています（グループがリネームされた可能性があります。groupName を書き換えてください）`,
+    `${where}: registry.yaml の group.name "${groupName}" が group.id ${groupId} の現在のフルパス "${declaredGroupPath}" と食い違っています（グループがリネームされた可能性があります。group.name を書き換えてください）`,
   ]
 }
 
 /**
  * 1アプリ分を検証する。ソースプロジェクト自体が見つからない場合、そこに依存する検証
- * （appBranchToSync）は結果が自明なので行わず、原因となる1件だけを報告する。所属違いは
+ * （versions.yaml の apps）は結果が自明なので行わず、原因となる1件だけを報告する。所属違いは
  * プロジェクト自体は参照できている状態なので、報告したうえで残りの検証も続ける。
  * values.yaml側（`locations[]`）の検証は、chartリポジトリとそのベースブランチが
  * 揃っているとき（`baseBranchFound`）だけ意味があるためスキップする。
@@ -168,7 +168,7 @@ async function validateApp(
   const branchProblems = branchFound
     ? []
     : [
-        `${where}: app "${app.projectName}" の appBranchToSync "${app.branchToSync}" が ${app.projectName} に見つかりません`,
+        `${where}: app "${app.projectName}" の追跡ブランチ（versions.yaml の apps） "${app.branchToSync}" が ${app.projectName} に見つかりません`,
       ]
   if (!baseBranchFound) return [...projectProblems, ...branchProblems]
 
@@ -181,7 +181,7 @@ async function validateApp(
 }
 
 /**
- * Helmの向き先ブランチ（`versions.yaml`の`helmBranchRef` と `locations.yaml`の`helm[]`）を検証する。設定ユニット単位で
+ * Helmの向き先ブランチ（`versions.yaml`の`helm` と `locations.yaml`の`helm[]`）を検証する。設定ユニット単位で
  * 1つなので、アプリの数だけ同じ問題を報告しないようアプリのループの外で1回だけ呼ぶ。
  */
 async function validateHelmConfig(context: ValidateContext, helm: HelmConfig): Promise<string[]> {
@@ -190,7 +190,9 @@ async function validateHelmConfig(context: ValidateContext, helm: HelmConfig): P
   const branchFound = await cache.hasBranch(chart.projectId, helm.branchRef)
   const branchProblems = branchFound
     ? []
-    : [`${where}: helmBranchRef "${helm.branchRef}" が ${chart.projectName} に見つかりません`]
+    : [
+        `${where}: versions.yaml の helm "${helm.branchRef}" が ${chart.projectName} に見つかりません`,
+      ]
   const targetProblems = await validateLocations(context, helm.locations, "helm[]")
   return [...branchProblems, ...targetProblems]
 }
@@ -211,7 +213,7 @@ function describeProjectProblems(
   if (declaredGroupPath === undefined) return []
   if (isWithinGroup(projectGroupPath, declaredGroupPath)) return []
   return [
-    `${where}: ${label} は registry.yaml の group.groupId ${groupId}（${declaredGroupPath}）に属していません（実際の所属: ${projectGroupPath}）`,
+    `${where}: ${label} は registry.yaml の group.id ${groupId}（${declaredGroupPath}）に属していません（実際の所属: ${projectGroupPath}）`,
   ]
 }
 

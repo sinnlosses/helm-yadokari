@@ -84,9 +84,9 @@ projectIdは別のGitLabインスタンス・別のフィクスチャで検証�
   `anchor-app` 用。**`helmVersion` はこのツールが読み書きしないアンカー**だが、chartリポジトリ側の
   実物にあるものなので、`setup` の上書きで消さないようシード内容にも含めている
 
-向き先ブランチのアンカーは全ユニットで必須（`versions.yaml`の`helmBranchRef`と`locations.yaml`の`helm`は必須フィールド）。
+向き先ブランチのアンカーは全ユニットで必須（`versions.yaml`の`helm`と`locations.yaml`の`helm`は必須フィールド）。
 `t2c1HelmTargetBranch` と `t2c1HelmTargetBranchExtra` だけシード値が `main` で、残りは
-`release/2026-q1`（＝`versions.yaml`の`helmBranchRef`と同じ値）をシードするので差分が出ない。
+`release/2026-q1`（＝`versions.yaml`の`helm`と同じ値）をシードするので差分が出ない。
 
 ### chartリポジトリ 2 に必要なもの
 
@@ -102,7 +102,7 @@ chartリポジトリ2には `sample-qa-sprint` を登録する。**同じappが2
 
 ### ソースリポジトリに必要なもの（条件付き）
 
-**`appBranchToSync` が複数種類**であることを確認するため、`sample-qa-sprint` に `main` 以外の
+**`versions.yaml`の`apps` が複数種類**であることを確認するため、`sample-qa-sprint` に `main` 以外の
 追跡ブランチ（例: `develop`）と、そのブランチ由来のタグが1件以上必要。
 **無ければ作る**が、ソースリポジトリへの書き込みになるので個別に承認を得る。
 最新タグの解決の単位（`TagSource`）は `projectId` ＋追跡ブランチ＋タグ形式なので、
@@ -187,7 +187,7 @@ npx tsx --env-file=.env scripts/smoke/provision-group.ts provision --group-path 
 | chartリポジトリ B         | `<group-b>/yadokari-smoke-test-chart-b` | private・デフォルトブランチ `main` |
 | ソースリポジトリ（app B） | `<group-b>/sample-smoke-b-app`          | **1つで足りる**（下記）            |
 
-- ソースリポジトリは**1つで足りる**。`appSpecs[]`の`projectId`の重複禁止は1ファイル内の重複
+- ソースリポジトリは**1つで足りる**。`apps[]`の`projectId`の重複禁止は1ファイル内の重複
   （`validateNoDuplicateProjectIds()`）を指すだけで、グループBに複数appを揃える理由にならない。
   パス5が確かめたいのは「別グループ・別トークンの設定ユニットが独立して成功/失敗する」ことで、
   1app・1設定ユニットで示せる
@@ -306,11 +306,11 @@ pnpm dev
 その上で `config/` に一時的に以下を置く（実ファイルを置くかどうか＝常設するかの判断は
 [`config/README.md`](../config/README.md) 参照。ここでは検証のためだけに置く前提で書く）:
 
-- `config/yadokari-smoke-test-chart-b/registry.yaml` … 新規。`chartToUpdate`にchartリポジトリB、
-  `appSpecs[]`にソースリポジトリB、トップレベルに `accessTokenEnv: ACCESS_TOKEN_SMOKE_B` と
-  `group`（`groupId` + `groupName`。中身は`provision-group.ts`が最後に表示する）
-- `config/yadokari-smoke-test-chart-b/smoke-b-app/versions.yaml` … 新規。`helmBranchRef`と、
-  `sample-smoke-b-app`をキーにした`appBranchToSync`
+- `config/yadokari-smoke-test-chart-b/registry.yaml` … 新規。`chart`にchartリポジトリB、
+  `apps[]`にソースリポジトリB、トップレベルに `accessTokenEnv: ACCESS_TOKEN_SMOKE_B` と
+  `group`（`group.id` + `group.name`。中身は`provision-group.ts`が最後に表示する）
+- `config/yadokari-smoke-test-chart-b/smoke-b-app/versions.yaml` … 新規。`versions.yaml`の`helm`と、
+  `sample-smoke-b-app`をキーにした`versions.yaml`の`apps`
 - `config/yadokari-smoke-test-chart-b/smoke-b-app/locations.yaml` … 新規。`helm[]`と
   `apps.sample-smoke-b-app[]`に`smokeBHelmTargetBranch` / `smokeBAppVersion`を登録
 

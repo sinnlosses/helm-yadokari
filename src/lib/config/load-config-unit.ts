@@ -37,14 +37,14 @@ import {
  * 1つのchartディレクトリを、設定ユニット単位の`ConfigUnit`一覧にする。
  *
  * `registry.yaml`を読み、`chartUnits.unitPaths`（走査＋`TARGET_UNITS`の絞り込み済み）それぞれを
- * `ConfigUnit`にする。`appSpecs[]`は1つのchartディレクトリで共有されるため、
+ * `ConfigUnit`にする。`apps[]`は1つのchartディレクトリで共有されるため、
  * 重複チェックもここで1回だけ行う。
  */
 export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[] {
   const registryYamlPath = toLocalPath(join(chartUnits.chartDirPath, REGISTRY_YAML_FILE_NAME))
   const {
-    chartToUpdate: chart,
-    appSpecs,
+    chart,
+    apps: appSpecs,
     accessTokenEnv,
     group,
   } = parseYamlFile(registryYamlPath, RegistryYamlSchema)
@@ -55,8 +55,8 @@ export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[
     chart,
     appSpecByName: new Map(appSpecs.map((appSpec) => [appSpec.projectName, appSpec])),
     accessTokenEnv,
-    groupId: group.groupId,
-    groupName: group.groupName,
+    groupId: group.id,
+    groupName: group.name,
     registryYamlPath,
   }
   return chartUnits.unitPaths.map((unitPath) =>
@@ -92,7 +92,7 @@ type ConfigUnitScope = {
  * 1つの設定ユニットのディレクトリを読み、`ConfigUnit`（MRを作成する単位）1件にする。
  *
  * `versions.yaml`と`locations.yaml`を読み、app名（`projectName`）で`registry.yaml`の
- * `appSpecs[]`（タグ形式の台帳）を引いて結合する。
+ * `apps[]`（タグ形式の台帳）を引いて結合する。
  * 2ファイルが実在するディレクトリだけが渡ってくる前提（どのディレクトリが設定ユニットかは走査が
  * 決める）。`unitPath`は識別子（ログ・`TARGET_UNITS`・固定ブランチ名に使う）、
  * `*YamlPath`はローカルの実ファイルパス。
@@ -106,7 +106,7 @@ function buildConfigUnit(
   const { unitPath, versionsYamlPath, locationsYamlPath } = configUnitScope
   const versions = parseYamlFile(versionsYamlPath, VersionsYamlSchema)
   const locations = parseYamlFile(locationsYamlPath, LocationsYamlSchema)
-  validateSameAppNames(versionsYamlPath, locationsYamlPath, versions.appBranchToSync, locations.apps)
+  validateSameAppNames(versionsYamlPath, locationsYamlPath, versions.apps, locations.apps)
   validateNoDuplicateLocations(locationsYamlPath, [
     ...[...locations.apps].flatMap(([name, appLocations]) =>
       appLocations.map((location) => ({ location, label: `app "${name}" の書き込み先` })),
@@ -114,12 +114,12 @@ function buildConfigUnit(
     ...locations.helm.map((location) => ({ location, label: "helm[]" })),
   ])
 
-  const appConfigs: readonly AppConfig[] = [...versions.appBranchToSync].map(
+  const appConfigs: readonly AppConfig[] = [...versions.apps].map(
     ([projectName, branchToSync]) => {
       const appSpec = appSpecByName.get(projectName)
       if (appSpec === undefined) {
         throw new Error(
-          `${versionsYamlPath}: app "${projectName}" に対応する設定が ${registryYamlPath} の appSpecs[] に見つかりません`,
+          `${versionsYamlPath}: app "${projectName}" に対応する設定が ${registryYamlPath} の apps[] に見つかりません`,
         )
       }
       return {
@@ -137,36 +137,36 @@ function buildConfigUnit(
     unitPath,
     chartRepo: chart,
     apps: appConfigs,
-    helm: resolveHelmConfig(locationsYamlPath, versions.helmBranchRef, locations.helm, appConfigs),
+    helm: resolveHelmConfig(locationsYamlPath, versions.helm, locations.helm, appConfigs),
     accessTokenEnv,
     groupId,
     groupName,
   }
 }
 
-/** `appBranchToSync`と`apps`のapp名の集合が一致していなければ例外をスローする */
+/** `versions.yaml`の`apps`と`locations.yaml`の`apps`のapp名の集合が一致していなければ例外をスローする */
 function validateSameAppNames(
   versionsYamlPath: LocalPath,
   locationsYamlPath: LocalPath,
-  appBranchToSync: ReadonlyMap<ProjectName, unknown>,
+  versionsApps: ReadonlyMap<ProjectName, unknown>,
   apps: ReadonlyMap<ProjectName, unknown>,
 ): void {
-  const onlyInVersions = [...appBranchToSync.keys()].filter((name) => !apps.has(name))
-  const onlyInLocations = [...apps.keys()].filter((name) => !appBranchToSync.has(name))
+  const onlyInVersions = [...versionsApps.keys()].filter((name) => !apps.has(name))
+  const onlyInLocations = [...apps.keys()].filter((name) => !versionsApps.has(name))
   if (onlyInVersions.length === 0 && onlyInLocations.length === 0) return
   const details = [
     ...onlyInVersions.map((name) => `"${name}"（${versionsYamlPath} のみ）`),
     ...onlyInLocations.map((name) => `"${name}"（${locationsYamlPath} のみ）`),
   ].join(", ")
   throw new Error(
-    `${versionsYamlPath} の appBranchToSync と ${locationsYamlPath} の apps で app 名の集合が一致しません: ${details}`,
+    `${versionsYamlPath} の apps と ${locationsYamlPath} の apps で app 名の集合が一致しません: ${details}`,
   )
 }
 
 /**
- * `versions.yaml`の`helmBranchRef`と`locations.yaml`の`helm[]`から、設定ユニット単位の`HelmConfig`を作る。
+ * `versions.yaml`の`helm`と`locations.yaml`の`helm[]`から、設定ユニット単位の`HelmConfig`を作る。
  *
- * `helmBranchRef`（引数`branchRef`）＝書き込む値、`helm[]`＝書き込み先の`valuesPath`+`anchor`一覧。
+ * `versions.yaml`の`helm`（引数`branchRef`）＝書き込む値、`helm[]`＝書き込み先の`valuesPath`+`anchor`一覧。
  * Helmの向き先ブランチは「1設定ユニット内のapps全体で共通」という前提なので、
  * appごとに振り分けず設定ユニット単位で1つだけ持つ。
  *

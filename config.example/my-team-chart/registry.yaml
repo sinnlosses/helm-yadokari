@@ -7,13 +7,13 @@ accessTokenEnv: ACCESS_TOKEN_TEAM_A
 # このchartリポジトリとソースリポジトリが属するGitLabグループ（必須）。
 # 上の accessTokenEnv のトークンがここより外のプロジェクトへ届いていないかを
 # `pnpm lint:validate-config:remote` が照合する（サブグループ配下は属している扱い）。
-# グループを特定するのは groupId だけで、groupName は人が読むためのラベル
+# グループを特定するのは group.id だけで、group.name は人が読むためのラベル
 # （GitLab上の現在のフルパスとズレていると実在チェックが知らせる）
 group:
-  groupId: 2000 # グループのトップページに表示されるグループID
-  groupName: my-team-group # groupId が指すグループのフルパス
+  id: 2000 # グループのトップページに表示されるグループID
+  name: my-team-group # group.id が指すグループのフルパス
 
-chartToUpdate:
+chart:
   projectId: 1000 # values.yaml を更新する chartリポジトリの GitLab プロジェクトID
   projectName: my-team-chart
   mrTargetBranch: main # 値定義ブランチ。MRはこのブランチ宛てに作られる
@@ -22,7 +22,7 @@ chartToUpdate:
 # tagFormat は必須で、{branch} / {date} / {time} を1回ずつ含める必要がある。
 # ここに書いただけでどの設定ユニットからも参照されていないappはエラーにならない
 # （一時的に更新対象から外している状態を許すため）。
-appSpecs:
+apps:
   - projectId: 1001
     projectName: my-app
     tagFormat: "{branch}-build-at-{date}-{time}"

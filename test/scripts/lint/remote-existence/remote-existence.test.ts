@@ -23,7 +23,7 @@ import { makeApp, makeConfigUnit, mockGitlab } from "../../../helpers.js"
 
 const VALUES_YAML = `variables:\n  - &appVersion main-build-at-20260101-000000\n  - &targetBranch main\n`
 
-/** `makeConfigUnit()`が既定で宣言するグループ（`group.groupId`から引けるフルパス） */
+/** `makeConfigUnit()`が既定で宣言するグループ（`group.id`から引けるフルパス） */
 const DECLARED_GROUP = toGroupPath("team-a-group")
 
 describe("validateRemoteExistence", () => {
@@ -122,7 +122,7 @@ describe("validateRemoteExistence", () => {
     expect(problems.filter((problem) => problem.includes("属していません"))).toHaveLength(2)
   })
 
-  it("groupName がGitLab上の現在のフルパスとズレているとき、所属違い・不在とは違う文言で返す", async () => {
+  it("group.name がGitLab上の現在のフルパスとズレているとき、所属違い・不在とは違う文言で返す", async () => {
     const configUnit = makeConfigUnit([makeApp()], { groupName: toGroupName("team-a-group-old") })
 
     const problems = await validateRemoteExistence(mockGitlab, [configUnit], 3)
@@ -134,19 +134,19 @@ describe("validateRemoteExistence", () => {
     expect(problems[0]).not.toContain("見つかりません")
   })
 
-  it("groupId のグループを参照できないとき、所属の照合を行わず専用の文言で返す", async () => {
+  it("group.id のグループを参照できないとき、所属の照合を行わず専用の文言で返す", async () => {
     vi.mocked(getGroupPath).mockResolvedValue(undefined)
     vi.mocked(getProjectGroupPath).mockResolvedValue(toGroupPath("other-group"))
 
     const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
     expect(problems).toHaveLength(1)
-    expect(problems[0]).toContain("group.groupId 10")
+    expect(problems[0]).toContain("group.id 10")
     expect(problems[0]).toContain("参照できません")
     expect(problems.join("\n")).not.toContain("属していません")
   })
 
-  it("同じgroupIdは1回だけ問い合わせる（設定ユニットの数だけ増やさない）", async () => {
+  it("同じgroup.idは1回だけ問い合わせる（設定ユニットの数だけ増やさない）", async () => {
     const configUnits = [
       makeConfigUnit([makeApp()]),
       makeConfigUnit([makeApp()], { unitPath: toConfigUnitPath("tenant1/client2") }),
@@ -167,14 +167,14 @@ describe("validateRemoteExistence", () => {
     expect(problems.join("\n")).toContain("mrTargetBranch")
   })
 
-  it("追跡ブランチ（appBranchToSync）が存在しないとき問題として返す", async () => {
+  it("追跡ブランチ（versions.yaml の apps）が存在しないとき問題として返す", async () => {
     vi.mocked(branchExists).mockImplementation(
       async (_gitlab, _projectId, branch) => branch !== "main",
     )
 
     const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([makeApp()])], 3)
 
-    expect(problems.join("\n")).toContain("appBranchToSync")
+    expect(problems.join("\n")).toContain("versions.yaml の apps")
   })
 
   it("valuesPathのファイルが存在しないとき問題として返す", async () => {

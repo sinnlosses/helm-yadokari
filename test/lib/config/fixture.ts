@@ -43,11 +43,11 @@ export function useConfigDir(): ConfigDir {
 /** `registryYaml()`/`configYaml()` の既定タグ形式（`config/`の実ファイルと同じ値） */
 export const DEFAULT_TAG_FORMAT = "{branch}-build-at-{date}-{time}"
 
-/** `registry.yaml`の`appSpecs[]`1件分（タグ形式の台帳） */
-/** `registry.yaml`トップレベルの`group`。`groupId`は数値・文字列の両方の書き方を試せるようにしている */
+/** `registry.yaml`の`apps[]`1件分（タグ形式の台帳） */
+/** `registry.yaml`トップレベルの`group`。`id`は数値・文字列の両方の書き方を試せるようにしている */
 export type GroupFixture = {
-  readonly groupId: number | string
-  readonly groupName: string
+  readonly id: number | string
+  readonly name: string
 }
 
 export type AppSpecFixture = {
@@ -63,32 +63,32 @@ export type AnchorLocationFixture = {
 }
 
 /**
- * `registry.yaml`のYAML文字列を組み立てる。`appSpecs`を省略すると`appSpecs: []`になる
- * （`RegistryYamlSchema`が`appSpecs`を必須キーとして要求するため、空でも明示が要る）。
+ * `registry.yaml`のYAML文字列を組み立てる。`apps`を省略すると`apps: []`になる
+ * （`RegistryYamlSchema`が`apps`を必須キーとして要求するため、空でも明示が要る）。
  * `accessTokenEnv`と`group`は必須フィールドなので、省略時も既定の値を書き出す（トークンや
  * グループが主題でないテストが毎回同じ行を書かずに済むようにするため）。これらが書かれて
  * いない状態そのものを検証したいテストは、YAML文字列を直接書く。
  */
 export function registryYaml(
-  chartToUpdate: {
+  chart: {
     readonly projectId: number
     readonly projectName: string
     readonly mrTargetBranch: string
   },
-  appSpecs: readonly AppSpecFixture[] = [],
+  registryApps: readonly AppSpecFixture[] = [],
   accessTokenEnv: string = "ACCESS_TOKEN_TEAM_A",
-  group: GroupFixture = { groupId: 10, groupName: "team-a-group" },
+  group: GroupFixture = { id: 10, name: "team-a-group" },
 ): string {
   const accessTokenEnvBlock =
     `accessTokenEnv: ${accessTokenEnv}\n` +
-    `group:\n  groupId: ${group.groupId}\n  groupName: ${group.groupName}\n`
+    `group:\n  id: ${group.id}\n  name: ${group.name}\n`
   const chartToUpdateBlock =
-    `chartToUpdate:\n  projectId: ${chartToUpdate.projectId}\n  projectName: ${chartToUpdate.projectName}\n` +
-    `  mrTargetBranch: ${chartToUpdate.mrTargetBranch}\n`
+    `chart:\n  projectId: ${chart.projectId}\n  projectName: ${chart.projectName}\n` +
+    `  mrTargetBranch: ${chart.mrTargetBranch}\n`
   return (
     accessTokenEnvBlock +
     chartToUpdateBlock +
-    listField("appSpecs", appSpecs, (app) => appSpecEntry(app))
+    listField("apps", registryApps, (app) => appSpecEntry(app))
   )
 }
 
@@ -99,19 +99,19 @@ function appSpecEntry(app: AppSpecFixture): string {
   )
 }
 
-/** 設定ユニットの`apps`1件分（追跡ブランチ＋書き込み位置）。app名は`registry.yaml`の`appSpecs[].projectName` */
+/** 設定ユニットの`apps`1件分（追跡ブランチ＋書き込み位置）。app名は`registry.yaml`の`apps[].projectName` */
 export type ConfigAppFixture = {
   readonly projectName: string
-  readonly appBranchToSync: string
+  readonly branchToSync: string
   readonly locations: readonly AnchorLocationFixture[]
 }
 
 /**
- * Helmの向き先ブランチ1件分。`helmBranchRef`・`locations`を省略するとそのキーごとYAMLに出さないので、
+ * Helmの向き先ブランチ1件分。`branchRef`・`locations`を省略するとそのキーごとYAMLに出さないので、
  * 片方だけ書いた設定エラーの検証にも使える
  */
 export type ConfigHelmFixture = {
-  readonly helmBranchRef?: string
+  readonly branchRef?: string
   readonly locations?: readonly AnchorLocationFixture[]
 }
 
@@ -130,12 +130,12 @@ export function configUnitFiles(
   apps: readonly ConfigAppFixture[] = [],
   helm: ConfigHelmFixture = defaultHelm(apps),
 ): ConfigUnitFiles {
-  const helmBranchRefLine =
-    helm.helmBranchRef === undefined ? "" : `helmBranchRef: ${helm.helmBranchRef}\n`
-  const appBranchToSync =
+  const helmLine =
+    helm.branchRef === undefined ? "" : `helm: ${helm.branchRef}\n`
+  const appsLine =
     apps.length === 0
-      ? "appBranchToSync: {}\n"
-      : `appBranchToSync:\n${apps.map((app) => `  ${app.projectName}: ${app.appBranchToSync}\n`).join("")}`
+      ? "apps: {}\n"
+      : `apps:\n${apps.map((app) => `  ${app.projectName}: ${app.branchToSync}\n`).join("")}`
   const helmBlock =
     helm.locations === undefined
       ? ""
@@ -146,7 +146,7 @@ export function configUnitFiles(
     apps.length === 0
       ? "apps: {}\n"
       : `apps:\n${apps.map((app) => `  ${app.projectName}:\n${locationsBlock(app.locations, "    ")}`).join("")}`
-  return { versions: helmBranchRefLine + appBranchToSync, locations: helmBlock + appsBlock }
+  return { versions: helmLine + appsLine, locations: helmBlock + appsBlock }
 }
 
 /** `apps`が書き込む全`valuesPath`を1つのアンカー名でカバーする`helm`（appsが空なら1件だけ置く） */
@@ -154,7 +154,7 @@ function defaultHelm(apps: readonly ConfigAppFixture[]): ConfigHelmFixture {
   const valuesPaths = [...new Set(apps.flatMap((app) => app.locations.map((l) => l.valuesPath)))]
   const covered = valuesPaths.length === 0 ? ["values.yaml"] : valuesPaths
   return {
-    helmBranchRef: "release/2026-q1",
+    branchRef: "release/2026-q1",
     locations: covered.map((valuesPath) => ({ valuesPath, anchor: "defaultHelmTargetBranch" })),
   }
 }

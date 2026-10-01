@@ -6,7 +6,7 @@ import { logger } from "../../../utils/logger.js"
 /**
  * `source`分の、追跡ブランチ由来の最新タグを判定する。
  *
- * タグ形式は`source.tagFormat`（`registry.yaml`の`appSpecs[].tagFormat`由来）に従う。
+ * タグ形式は`source.tagFormat`（`registry.yaml`の`apps[].tagFormat`由来）に従う。
  *
  * このツールの目的は「追跡ブランチの最新コミットの中身をデプロイさせること」なので、
  * 「タグ名が最も新しいものを選んでからHEADと比較する」のではなく、**HEADを指すタグを直接探す**。

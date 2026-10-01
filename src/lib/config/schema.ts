@@ -49,7 +49,7 @@ const ProjectIdSchema = z
   .transform((v) => toProjectId(String(v)))
 
 /**
- * `registry.yaml`の`appSpecs[].tagFormat`のZodスキーマ。
+ * `registry.yaml`の`apps[].tagFormat`のZodスキーマ。
  *
  * 既定値は持たせず必須にしているのは、ソースリポジトリごとに実際のタグ形式が違い、
  * 既定に当てはまらないappを黙って取りこぼすより明示させるほうが安全なため。
@@ -58,7 +58,7 @@ const ProjectIdSchema = z
 const TagFormatSchema = z
   .string({
     error:
-      "tagFormat は必須です。registry.yaml の appSpecs[] に、ソースリポジトリのタグ形式を " +
+      "tagFormat は必須です。registry.yaml の apps[] に、ソースリポジトリのタグ形式を " +
       "{branch}/{date}/{time} で書いてください（例: '{branch}-build-at-{date}-{time}'）",
   })
   .transform((raw, ctx) => {
@@ -113,17 +113,17 @@ const AccessTokenEnvNameSchema = z
   })
 
 /**
- * `registry.yaml`トップレベルの`group.groupId`（このchartリポジトリと、その配下の設定ユニットが
+ * `registry.yaml`トップレベルの`group.id`（このchartリポジトリと、その配下の設定ユニットが
  * 追跡するソースリポジトリが属するGitLabのグループの数値ID）。
  *
- * `chartToUpdate`・`appSpecs[]`の`projectId`と同じく数値・文字列の両方を受ける
+ * `chart`・`apps[]`の`projectId`と同じく数値・文字列の両方を受ける
  * （既存の`config/`のYAMLの書き方に合わせるため）。形式検証は`toGroupId()`
  * （`domain/brand.ts`）に封じ込めてある
  */
 const GroupIdSchema = z
   .union([z.number().int(), z.string().min(1)], {
     error:
-      "group.groupId は必須です。registry.yaml の group に、このchartリポジトリとソースリポジトリが " +
+      "group.id は必須です。registry.yaml の group に、このchartリポジトリとソースリポジトリが " +
       "属する GitLab グループの数値ID（グループのトップページに表示されるグループID）を " +
       "書いてください",
   })
@@ -140,9 +140,9 @@ const GroupIdSchema = z
   })
 
 /**
- * `registry.yaml`トップレベルの`group.groupName`（`groupId`が指すグループのフルパス）。
+ * `registry.yaml`トップレベルの`group.name`（`group.id`が指すグループのフルパス）。
  *
- * `appSpecs[].projectName`と同じく人が読むためのラベルで、所属の照合は`groupId`で行う。
+ * `apps[].projectName`と同じく人が読むためのラベルで、所属の照合は`group.id`で行う。
  * それでも必須にしているのは、IDだけでは設定を読む人がどのグループを指しているか分からず、
  * グループがリネームされたことにも気づけないため（実在チェックがGitLab上の現在のフルパスと
  * 突き合わせる）。形式検証は`toGroupName()`（`domain/brand.ts`）に封じ込めてある
@@ -150,7 +150,7 @@ const GroupIdSchema = z
 const GroupNameSchema = z
   .string({
     error:
-      "group.groupName は必須です。registry.yaml の group に、groupId が指す GitLab グループの " +
+      "group.name は必須です。registry.yaml の group に、group.id が指す GitLab グループの " +
       "フルパスを書いてください（例: 'my-group' / 'my-group/sub-group'）",
   })
   .transform((raw, ctx) => {
@@ -174,28 +174,28 @@ const GroupNameSchema = z
  */
 const GroupSchema = z.strictObject(
   {
-    groupId: GroupIdSchema,
-    groupName: GroupNameSchema,
+    id: GroupIdSchema,
+    name: GroupNameSchema,
   },
   {
     error:
       "group は必須です。registry.yaml のトップレベルに、このchartリポジトリとソースリポジトリが " +
-      "属する GitLab グループの groupId（数値ID）と groupName（フルパス）を書いてください",
+      "属する GitLab グループの id（数値ID）と name（フルパス）を書いてください",
   },
 )
 
 export const RegistryYamlSchema = z.strictObject({
   accessTokenEnv: AccessTokenEnvNameSchema,
   group: GroupSchema,
-  chartToUpdate: z.strictObject({
+  chart: z.strictObject({
     projectId: ProjectIdSchema,
     projectName: z.string().min(1).transform(toProjectName),
     mrTargetBranch: z.string().min(1, "mrTargetBranch は空にできません").transform(toBranchName),
   }),
-  appSpecs: z.array(AppSpecSchema),
+  apps: z.array(AppSpecSchema),
 })
 
-/** app名をキーにしたマップ。キーは`registry.yaml`の`appSpecs[].projectName`と突き合わせる */
+/** app名をキーにしたマップ。キーは`registry.yaml`の`apps[].projectName`と突き合わせる */
 function appMapSchema<T extends z.ZodType>(value: T) {
   return z
     .record(z.string().min(1, "app名は空にできません"), value)
@@ -207,16 +207,16 @@ function appMapSchema<T extends z.ZodType>(value: T) {
 
 /** `versions.yaml`のZodスキーマ */
 export const VersionsYamlSchema = z.strictObject({
-  helmBranchRef: z
+  helm: z
     .string({
       error:
-        "helmBranchRef は必須です。versions.yaml に、Helmの向き先ブランチ名を書いてください" +
+        "helm は必須です。versions.yaml に、Helmの向き先ブランチ名を書いてください" +
         "（locations.yaml の helm[] とセットで指定します）",
     })
-    .min(1, "helmBranchRef は空にできません")
+    .min(1, "versions.yaml の helm は空にできません")
     .transform(toBranchName),
-  appBranchToSync: appMapSchema(
-    z.string().min(1, "appBranchToSync は空にできません").transform(toBranchName),
+  apps: appMapSchema(
+    z.string().min(1, "versions.yaml の apps の各ブランチ名は空にできません").transform(toBranchName),
   ),
 })
 
@@ -233,7 +233,7 @@ export const LocationsYamlSchema = z.strictObject({
     .array(AnchorLocationSchema, {
       error:
         "helm は必須です。locations.yaml に、Helmの向き先ブランチの書き込み先" +
-        "（valuesPath + anchor）を書いてください（versions.yaml の helmBranchRef とセットで指定します）",
+        "（valuesPath + anchor）を書いてください（versions.yaml の helm とセットで指定します）",
     })
     .min(1, "helm は1件以上指定してください"),
   apps: appMapSchema(AppLocationsSchema),

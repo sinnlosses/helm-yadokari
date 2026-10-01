@@ -8,7 +8,7 @@
   （YAMLの記述例もそこにある）。セットアップ手順は [`README.md`](../README.md) の「設定」章
 - 新しいアプリの登録は、このディレクトリへMRを送りレビュー後にマージするセルフサービス方式
 - CIの `validate-config-remote` ジョブは、ここに書かれた projectId・ブランチ・valuesPath・
-  アンカーがGitLab上に**実在するか**と、各 projectId が `registry.yaml` の `group.groupId`
+  アンカーがGitLab上に**実在するか**と、各 projectId が `registry.yaml` の `group.id`
   が指すグループ（サブグループ配下を含む）に**属しているか**をMR時点で検証する（読み取りのみ）。
   そのためドキュメント用の架空の設定例はここに置かない（置くと全MRが必ず落ちる）
 

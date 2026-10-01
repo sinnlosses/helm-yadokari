@@ -41,7 +41,7 @@ pnpm lint:validate-config:remote   # 実在チェック（要 .env、読み取�
 ```yaml
 # chartリポジトリの charts/my-app/values.yaml（イメージ）
 variables:
-  - &myAppTargetBranch release/2026-q1 # helmBranchRef の書き込み先（locations.yaml の helm）
+  - &myAppTargetBranch release/2026-q1 # versions.yaml の helm の書き込み先（locations.yaml の helm）
   - &myAppVersion main-build-at-20260101-000000 # locations.yaml の apps の書き込み先
 ```
 

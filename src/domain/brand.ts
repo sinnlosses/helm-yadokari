@@ -154,7 +154,7 @@ export function toTagSourceKey(s: string): TagSourceKey {
 declare const groupIdBrand: unique symbol
 const GROUP_ID_PATTERN = /^[1-9][0-9]*$/
 /**
- * GitLabのグループ（namespace）の数値ID（`registry.yaml`の`group.groupId`）。
+ * GitLabのグループ（namespace）の数値ID（`registry.yaml`の`group.id`）。
  *
  * 数値表記のYAMLも受けるため`String()`した値になる。`ProjectId`と違って形式を検証するのは、
  * グループの宣言がGitLab専用（`PLATFORM=github`では検査しない）で数値IDしか取らず、
@@ -164,9 +164,7 @@ export type GroupId = string & { readonly [groupIdBrand]: never }
 /** `GroupId`の唯一の生成経路 */
 export function toGroupId(s: string): GroupId {
   if (!GROUP_ID_PATTERN.test(s)) {
-    throw new Error(
-      `group.groupId は GitLab のグループID（1以上の整数）である必要があります: "${s}"`,
-    )
+    throw new Error(`group.id は GitLab のグループID（1以上の整数）である必要があります: "${s}"`)
   }
   return s as GroupId
 }
@@ -196,17 +194,17 @@ export function toGroupPath(s: string, label = "group"): GroupPath {
 
 declare const groupNameBrand: unique symbol
 /**
- * `registry.yaml`の`group.groupName`（`groupId`が指すグループのフルパスを人が読むために
+ * `registry.yaml`の`group.name`（`group.id`が指すグループのフルパスを人が読むために
  * 書き写した値）。
  *
- * `projectName`と同じく`groupId`と1:1のラベルで、所属の照合そのものには使わない。
- * `GroupPath`の部分型にしているのは、`groupId`から引いた`full_path`と直接突き合わせて
+ * `projectName`と同じく`group.id`と1:1のラベルで、所属の照合そのものには使わない。
+ * `GroupPath`の部分型にしているのは、`group.id`から引いた`full_path`と直接突き合わせて
  * グループのリネームを検出するため（形式の条件も同じ）。
  */
 export type GroupName = GroupPath & { readonly [groupNameBrand]: never }
 /** `GroupName`の唯一の生成経路。フルパスとしての形式検証は`toGroupPath()`と共通 */
 export function toGroupName(s: string): GroupName {
-  return toGroupPath(s, "group.groupName") as GroupName
+  return toGroupPath(s, "group.name") as GroupName
 }
 
 declare const accessTokenEnvNameBrand: unique symbol

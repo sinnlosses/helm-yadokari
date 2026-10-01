@@ -24,7 +24,7 @@ export type AnchorLocation = {
 /**
  * Helmの向き先ブランチを扱うための設定。
  *
- * `branchRef`はversions.yamlの`helmBranchRef`由来、
+ * `branchRef`はversions.yamlの`helm`由来、
  * `locations`はlocations.yamlの`helm[]`のうち、
  * 設定ユニット内のいずれかのappが書き込むvaluesPathを指すもの。
  * 向き先ブランチは設定ユニット内のapps全体で共通なので設定ユニット単位で持つ
@@ -35,8 +35,8 @@ export type HelmConfig = {
 }
 
 /**
- * `branchToSync`はversions.yamlの`appBranchToSync`、`imageTagLocations`はlocations.yamlの値、
- * `projectId`と`tagFormat`は同じchartリポジトリの`registry.yaml`の`appSpecs[]`から`projectName`で引いた値
+ * `branchToSync`はversions.yamlの`apps`、`imageTagLocations`はlocations.yamlの値、
+ * `projectId`と`tagFormat`は同じchartリポジトリの`registry.yaml`の`apps[]`から`projectName`で引いた値
  */
 export type AppConfig = {
   readonly projectId: ProjectId
@@ -81,14 +81,14 @@ export type ConfigUnit = {
    */
   readonly accessTokenEnv: AccessTokenEnvName
   /**
-   * `registry.yaml`トップレベルの`group.groupId`（同じchartリポジトリ配下の全設定ユニットで共通）。
+   * `registry.yaml`トップレベルの`group.id`（同じchartリポジトリ配下の全設定ユニットで共通）。
    *
    * `chartRepo`・`apps`のプロジェクトがこのグループの内側にあるかを照合するための宣言で、
    * 本体パイプラインは使わない（`config/`の実在チェックだけが参照する）。
    * 名前ではなくIDで宣言するのは、グループ名は変わってもIDは変わらないため。
    */
   readonly groupId: GroupId
-  /** `groupId`が指すグループのフルパスを人が読むために書き写した値。GitLab上の現在の値とのズレは実在チェックが報告する */
+  /** `group.name`は、`group.id`が指すグループのフルパスを人が読むために書き写した値。GitLab上の現在の値とのズレは実在チェックが報告する */
   readonly groupName: GroupName
 }
 

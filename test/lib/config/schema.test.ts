@@ -10,7 +10,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
   it("registry.yaml の projectId が空文字のとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
-      'chartToUpdate:\n  projectId: ""\n  projectName: teamA-chart\n  mrTargetBranch: develop\nappSpecs: []\n',
+      'chart:\n  projectId: ""\n  projectName: teamA-chart\n  mrTargetBranch: develop\napps: []\n',
     )
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
@@ -18,20 +18,20 @@ describe("loadConfig（スキーマ検証エラー）", () => {
   it("registry.yaml の mrTargetBranch がないとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
-      "chartToUpdate:\n  projectId: 1\n  projectName: teamA-chart\nappSpecs: []\n",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\napps: []\n",
     )
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("registry.yaml の appSpecs がないとき例外をスローする", () => {
+  it("registry.yaml の apps がないとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
-      "chartToUpdate:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n",
     )
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
   })
 
-  it("versions.yaml の appBranchToSync が空文字のとき例外をスローする", () => {
+  it("versions.yaml の apps のブランチ名が空文字のとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       registryYaml(
@@ -40,7 +40,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       ),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: 'helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: ""\n',
+      versions: 'helm: release/2026-q1\napps:\n  app-1: ""\n',
       locations: "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: appVersion\n",
     })
     expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
@@ -55,7 +55,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       ),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n",
+      versions: "helm: release/2026-q1\napps:\n  app-1: main\n",
       locations: "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1: []\n",
     })
 
@@ -71,7 +71,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       ),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n",
+      versions: "helm: release/2026-q1\napps:\n  app-1: main\n",
       locations: "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - anchor: appVersion\n",
     })
 
@@ -87,7 +87,7 @@ describe("loadConfig（スキーマ検証エラー）", () => {
       ),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n",
+      versions: "helm: release/2026-q1\napps:\n  app-1: main\n",
       locations: "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n",
     })
 
@@ -95,11 +95,11 @@ describe("loadConfig（スキーマ検証エラー）", () => {
   })
 })
 
-describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
+describe("loadConfig（registry.yamlのapps[].tagFormat）", () => {
   const CONFIG_YAML = configUnitFiles([
     {
       projectName: "app-1",
-      appBranchToSync: "main",
+      branchToSync: "main",
       locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
     },
   ])
@@ -121,8 +121,8 @@ describe("loadConfig（registry.yamlのappSpecs[].tagFormat）", () => {
   it("省略したとき例外をスローする", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
-      "chartToUpdate:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n" +
-        "appSpecs:\n  - projectId: 1\n    projectName: app-1\n",
+      "chart:\n  projectId: 1\n  projectName: teamA-chart\n  mrTargetBranch: develop\n" +
+        "apps:\n  - projectId: 1\n    projectName: app-1\n",
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
@@ -150,7 +150,7 @@ describe("loadConfig（registry.yamlのaccessTokenEnv）", () => {
   const CONFIG_YAML = configUnitFiles([
     {
       projectName: "app-1",
-      appBranchToSync: "main",
+      branchToSync: "main",
       locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
     },
   ])
@@ -173,11 +173,11 @@ describe("loadConfig（registry.yamlのaccessTokenEnv）", () => {
   it("accessTokenEnv を書いていない registry.yaml は設定エラーになる（書き漏れが広い権限のトークンへ流れないようにするため）", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
-      "chartToUpdate:\n" +
+      "chart:\n" +
         "  projectId: 888\n" +
         "  projectName: teamA-chart\n" +
         "  mrTargetBranch: develop\n" +
-        "appSpecs:\n" +
+        "apps:\n" +
         "  - projectId: 1\n" +
         "    projectName: app-1\n" +
         `    tagFormat: '${DEFAULT_TAG_FORMAT}'\n`,
@@ -209,7 +209,7 @@ describe("loadConfig（registry.yamlのgroup）", () => {
   const CONFIG_YAML = configUnitFiles([
     {
       projectName: "app-1",
-      appBranchToSync: "main",
+      branchToSync: "main",
       locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
     },
   ])
@@ -228,16 +228,16 @@ describe("loadConfig（registry.yamlのgroup）", () => {
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
   }
 
-  it("宣言したgroupIdとgroupNameがそのままConfigUnitまで届く", () => {
-    writeRegistryWithGroup({ groupId: 4242, groupName: "team-a-group/sub" })
+  it("宣言したgroup.idとgroup.nameがそのままConfigUnitまで届く", () => {
+    writeRegistryWithGroup({ id: 4242, name: "team-a-group/sub" })
 
     const { configUnits } = loadConfig(dir.path)
     expect(configUnits[0]?.groupId).toBe("4242")
     expect(configUnits[0]?.groupName).toBe("team-a-group/sub")
   })
 
-  it("groupId を文字列で書いても読める", () => {
-    writeRegistryWithGroup({ groupId: '"4242"', groupName: "team-a-group" })
+  it("group.id を文字列で書いても読める", () => {
+    writeRegistryWithGroup({ id: '"4242"', name: "team-a-group" })
 
     const { configUnits } = loadConfig(dir.path)
     expect(configUnits[0]?.groupId).toBe("4242")
@@ -250,39 +250,39 @@ describe("loadConfig（registry.yamlのgroup）", () => {
     expect(() => loadConfig(dir.path)).toThrow("group は必須です")
   })
 
-  it("groupId を書いていない registry.yaml は設定エラーになる", () => {
+  it("group.id を書いていない registry.yaml は設定エラーになる", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
-      registryYamlWithoutGroupBlock("group:\n  groupName: team-a-group\n"),
+      registryYamlWithoutGroupBlock("group:\n  name: team-a-group\n"),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
-    expect(() => loadConfig(dir.path)).toThrow("group.groupId は必須です")
+    expect(() => loadConfig(dir.path)).toThrow("group.id は必須です")
   })
 
-  it("groupName を書いていない registry.yaml は設定エラーになる", () => {
+  it("group.name を書いていない registry.yaml は設定エラーになる", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
-      registryYamlWithoutGroupBlock("group:\n  groupId: 4242\n"),
+      registryYamlWithoutGroupBlock("group:\n  id: 4242\n"),
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", CONFIG_YAML)
 
-    expect(() => loadConfig(dir.path)).toThrow("group.groupName は必須です")
+    expect(() => loadConfig(dir.path)).toThrow("group.name は必須です")
   })
 
   it.each(["team-a-group", "0", "-1", "42abc"])(
-    "groupId が数値のIDでない（%s）とき例外をスローする",
+    "group.id が数値のIDでない（%s）とき例外をスローする",
     (groupId) => {
-      writeRegistryWithGroup({ groupId: `"${groupId}"`, groupName: "team-a-group" })
+      writeRegistryWithGroup({ id: `"${groupId}"`, name: "team-a-group" })
 
       expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
     },
   )
 
   it.each(["/team-a-group", "team-a-group/", "team-a-group//sub", "team a group"])(
-    "groupName が不正なフルパス（%s）のとき例外をスローする",
+    "group.name が不正なフルパス（%s）のとき例外をスローする",
     (groupName) => {
-      writeRegistryWithGroup({ groupId: 4242, groupName: `"${groupName}"` })
+      writeRegistryWithGroup({ id: 4242, name: `"${groupName}"` })
 
       expect(() => loadConfig(dir.path)).toThrow("形式が不正です")
     },
@@ -294,11 +294,11 @@ function registryYamlWithoutGroupBlock(groupBlock: string): string {
   return (
     "accessTokenEnv: ACCESS_TOKEN_TEAM_A\n" +
     groupBlock +
-    "chartToUpdate:\n" +
+    "chart:\n" +
     "  projectId: 888\n" +
     "  projectName: teamA-chart\n" +
     "  mrTargetBranch: develop\n" +
-    "appSpecs:\n" +
+    "apps:\n" +
     "  - projectId: 1\n" +
     "    projectName: app-1\n" +
     `    tagFormat: '${DEFAULT_TAG_FORMAT}'\n`
@@ -319,7 +319,7 @@ describe("loadConfig（projectIdの数値/文字列両対応）", () => {
       configUnitFiles([
         {
           projectName: "app-1",
-          appBranchToSync: "main",
+          branchToSync: "main",
           locations: [{ valuesPath: "a.yaml", anchor: "appVersion" }],
         },
       ]),
@@ -334,14 +334,14 @@ describe("loadConfig（projectIdの数値/文字列両対応）", () => {
     dir.writeRegistryYaml(
       "teamA-chart",
       'accessTokenEnv: ACCESS_TOKEN_TEAM_A\n' +
-        'group:\n  groupId: 10\n  groupName: team-a-group\n' +
-        'chartToUpdate:\n  projectId: "owner/repo"\n  projectName: teamA-chart\n' +
+        'group:\n  id: 10\n  name: team-a-group\n' +
+        'chart:\n  projectId: "owner/repo"\n  projectName: teamA-chart\n' +
         '  mrTargetBranch: develop\n' +
-        'appSpecs:\n  - projectId: "owner/repo"\n    projectName: app-1\n' +
+        'apps:\n  - projectId: "owner/repo"\n    projectName: app-1\n' +
         `    tagFormat: '${DEFAULT_TAG_FORMAT}'\n`,
     )
     dir.writeConfigUnit("teamA-chart", "tenant1/client1", {
-      versions: "helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n",
+      versions: "helm: release/2026-q1\napps:\n  app-1: main\n",
       locations: "helm:\n  - valuesPath: a.yaml\n    anchor: defaultHelmTargetBranch\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: appVersion\n",
     })
 
@@ -356,7 +356,7 @@ describe("loadConfig（知らないキー）", () => {
     { projectId: 1, projectName: "teamA-chart", mrTargetBranch: "develop" },
     [{ projectId: 1, projectName: "app-1" }],
   )
-  const VERSIONS = "helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n"
+  const VERSIONS = "helm: release/2026-q1\napps:\n  app-1: main\n"
   const LOCATIONS =
     "helm:\n  - valuesPath: a.yaml\n    anchor: t\napps:\n  app-1:\n    - valuesPath: a.yaml\n      anchor: appVersion\n"
 
@@ -377,16 +377,16 @@ describe("loadConfig（知らないキー）", () => {
     ["registry.yaml のトップレベル", { registry: REGISTRY + "extra: 1\n" }, "registry.yaml"],
     [
       "registry.yaml の group",
-      { registry: REGISTRY.replace("  groupName:", "  extra: 1\n  groupName:") },
+      { registry: REGISTRY.replace("  name:", "  extra: 1\n  name:") },
       "registry.yaml",
     ],
     [
-      "registry.yaml の chartToUpdate",
+      "registry.yaml の chart",
       { registry: REGISTRY.replace("  mrTargetBranch:", "  extra: 1\n  mrTargetBranch:") },
       "registry.yaml",
     ],
     [
-      "registry.yaml の appSpecs[]",
+      "registry.yaml の apps[]",
       { registry: REGISTRY.replace("    tagFormat:", "    extra: 1\n    tagFormat:") },
       "registry.yaml",
     ],
@@ -407,20 +407,20 @@ describe("loadConfig（知らないキー）", () => {
     expect(() => load(files)).toThrow("extra")
   })
 
-  it("versions.yaml に helm: を書く（キーを書くファイルの取り違え）と設定エラーになる", () => {
-    const versions = VERSIONS + "helm:\n  - valuesPath: a.yaml\n    anchor: t\n"
-    expect(() => load({ versions })).toThrow("versions.yaml")
-    expect(() => load({ versions })).toThrow("helm")
-  })
-
   it("versions.yaml に旧キー branchRef を書くと設定エラーになる", () => {
-    const versions = "branchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n"
+    const versions = "branchRef: release/2026-q1\napps:\n  app-1: main\n"
     expect(() => load({ versions })).toThrow("versions.yaml")
     expect(() => load({ versions })).toThrow("branchRef")
   })
 
+  it("versions.yaml に旧キー helmBranchRef・appBranchToSync を書くと設定エラーになる", () => {
+    const versions = "helmBranchRef: release/2026-q1\nappBranchToSync:\n  app-1: main\n"
+    expect(() => load({ versions })).toThrow("versions.yaml")
+    expect(() => load({ versions })).toThrow("helmBranchRef")
+  })
+
   it("versions.yaml に旧キー branchToSync を書くと設定エラーになる", () => {
-    const versions = "helmBranchRef: release/2026-q1\nbranchToSync:\n  app-1: main\n"
+    const versions = "helm: release/2026-q1\nbranchToSync:\n  app-1: main\n"
     expect(() => load({ versions })).toThrow("versions.yaml")
     expect(() => load({ versions })).toThrow("branchToSync")
   })

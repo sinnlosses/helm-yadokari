@@ -23,19 +23,19 @@ describe("buildValuesYamlContent", () => {
 })
 
 describe("buildRegistryYamlContent", () => {
-  it("accessTokenEnv・group・chartToUpdate・appSpecsを含むregistry.yamlを返す", () => {
+  it("accessTokenEnv・group・chart・appsを含むregistry.yamlを返す", () => {
     const content = buildRegistryYamlContent(333, "smoke-b-group", 111, 222)
 
     expect(content).toBe(
       "accessTokenEnv: ACCESS_TOKEN_SMOKE_B\n" +
         "group:\n" +
-        "  groupId: 333\n" +
-        "  groupName: smoke-b-group\n" +
-        "chartToUpdate:\n" +
+        "  id: 333\n" +
+        "  name: smoke-b-group\n" +
+        "chart:\n" +
         '  projectId: "111"\n' +
         "  projectName: yadokari-smoke-test-chart-b\n" +
         "  mrTargetBranch: main\n" +
-        "appSpecs:\n" +
+        "apps:\n" +
         '  - projectId: "222"\n' +
         "    projectName: sample-smoke-b-app\n" +
         '    tagFormat: "{branch}-build-at-{date}-{time}"\n',
@@ -44,9 +44,9 @@ describe("buildRegistryYamlContent", () => {
 })
 
 describe("buildVersionsYamlContent", () => {
-  it("helmBranchRefとapp名をキーにしたappBranchToSyncを持つversions.yamlを返す", () => {
+  it("helmとapp名をキーにしたappsを持つversions.yamlを返す", () => {
     expect(buildVersionsYamlContent()).toBe(
-      "helmBranchRef: release/2026-q1\nappBranchToSync:\n  sample-smoke-b-app: main\n",
+      "helm: release/2026-q1\napps:\n  sample-smoke-b-app: main\n",
     )
   })
 })
