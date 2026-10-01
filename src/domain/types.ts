@@ -18,7 +18,7 @@ import type {
 /** values.yaml内の書き込み位置1箇所分 */
 export type AnchorLocation = {
   readonly valuesPath: ValuesPath
-  readonly anchorName: AnchorName
+  readonly anchor: AnchorName
 }
 
 /**
@@ -35,7 +35,7 @@ export type HelmConfig = {
 }
 
 /**
- * `branchToSync`はversions.yamlの`apps`、`imageTagLocations`はlocations.yamlの値、
+ * `branchToSync`はversions.yamlの`apps`、`locations`はlocations.yamlの値、
  * `projectId`と`tagFormat`は同じchartリポジトリの`registry.yaml`の`apps[]`から`projectName`で引いた値
  */
 export type AppConfig = {
@@ -44,12 +44,12 @@ export type AppConfig = {
   readonly branchToSync: BranchName
   readonly tagFormat: TagFormat
   /** 同じ最新タグを複数箇所へ反映するため配列。locations.yamlの`apps`配下由来 */
-  readonly imageTagLocations: readonly AnchorLocation[]
+  readonly locations: readonly AnchorLocation[]
 }
 
 /**
  * 最新タグを解決する単位。どこから取るか（`projectId`/`projectName`/`branchToSync`/`tagFormat`）
- * だけを持ち、どこへ書くか（`imageTagLocations`）は持たない
+ * だけを持ち、どこへ書くか（`locations`）は持たない
  */
 export type TagSource = {
   readonly projectId: ProjectId
@@ -59,37 +59,41 @@ export type TagSource = {
 }
 
 /** chartリポジトリ共通の設定。registry.yamlに対応する */
-export type ChartRepoConfig = {
+export type ChartConfig = {
   readonly projectId: ProjectId
   readonly projectName: ProjectName
   readonly mrTargetBranch: BranchName
+}
+
+/** `registry.yaml`の`group`。`name`は`id`が指すグループのフルパスを人が読むために書き写した値で、GitLab上の現在の値とのズレは実在チェックが報告する */
+export type GroupConfig = {
+  readonly id: GroupId
+  readonly name: GroupName
 }
 
 /** `config/<chartリポジトリ>/<unitPath>/`1つ分。MRを作成する単位でもある */
 export type ConfigUnit = {
   readonly chartDirName: ChartDirName
   readonly unitPath: ConfigUnitPath
-  readonly chartRepo: ChartRepoConfig
+  readonly chart: ChartConfig
   readonly apps: readonly AppConfig[]
   /** `locations`は`locations.yaml`の`helm[]`のうちapps側が実際に書き込むvaluesPathを指す要素だけになる（空もありうる） */
   readonly helm: HelmConfig
   /**
    * `registry.yaml`トップレベルの`accessTokenEnv`（同じchartリポジトリ配下の全設定ユニットで共通）。
    *
-   * `chartRepo`に入れないのは、このトークンが`chartRepo`への書き込みと`apps`（ソースリポジトリ）
+   * `chart`に入れないのは、このトークンが`chart`への書き込みと`apps`（ソースリポジトリ）
    * の読み取りの両方に効く、`registry.yaml`全体のスコープの値だから。
    */
   readonly accessTokenEnv: AccessTokenEnvName
   /**
-   * `registry.yaml`トップレベルの`group.id`（同じchartリポジトリ配下の全設定ユニットで共通）。
+   * `registry.yaml`トップレベルの`group`（同じchartリポジトリ配下の全設定ユニットで共通）。
    *
-   * `chartRepo`・`apps`のプロジェクトがこのグループの内側にあるかを照合するための宣言で、
+   * `chart`・`apps`のプロジェクトがこのグループの内側にあるかを照合するための宣言で、
    * 本体パイプラインは使わない（`config/`の実在チェックだけが参照する）。
    * 名前ではなくIDで宣言するのは、グループ名は変わってもIDは変わらないため。
    */
-  readonly groupId: GroupId
-  /** `group.name`は、`group.id`が指すグループのフルパスを人が読むために書き写した値。GitLab上の現在の値とのズレは実在チェックが報告する */
-  readonly groupName: GroupName
+  readonly group: GroupConfig
 }
 
 /** タグ名から読み取れる情報。追跡ブランチと、タグ形式の`{date}`/`{time}`から読み取った打刻日時 */
@@ -104,7 +108,7 @@ export type PipelineInfo = {
   readonly webUrl: PlatformUrl
 }
 
-/** `AppConfig.imageTagLocations`のうち1箇所分の更新内容。`currentTag`は書き換え箇所ごとに独立して読み取る。値が null・空文字のとき undefined */
+/** `AppConfig.locations`のうち1箇所分の更新内容。`currentTag`は書き換え箇所ごとに独立して読み取る。値が null・空文字のとき undefined */
 export type ImageTagUpdate = {
   readonly location: AnchorLocation
   readonly currentTag: TagName | undefined

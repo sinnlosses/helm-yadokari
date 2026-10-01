@@ -34,7 +34,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
-          anchorName: toAnchorName("targetBranch"),
+          anchor: toAnchorName("targetBranch"),
         },
       ],
     }
@@ -51,7 +51,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     )
     expect(toApply[0]?.helmBranchRefUpdates).toEqual([
       {
-        location: { valuesPath: "values.yaml", anchorName: "targetBranch" },
+        location: { valuesPath: "values.yaml", anchor: "targetBranch" },
         currentBranch: "release/2025-q4",
       },
     ])
@@ -64,7 +64,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
-          anchorName: toAnchorName("targetBranch"),
+          anchor: toAnchorName("targetBranch"),
         },
       ],
     }
@@ -90,7 +90,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
-          anchorName: toAnchorName("targetBranch"),
+          anchor: toAnchorName("targetBranch"),
         },
       ],
     }
@@ -116,7 +116,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
-          anchorName: toAnchorName("targetBranch"),
+          anchor: toAnchorName("targetBranch"),
         },
       ],
     }
@@ -143,7 +143,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
-          anchorName: toAnchorName("targetBranch"),
+          anchor: toAnchorName("targetBranch"),
         },
       ],
     }
@@ -170,7 +170,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
-          anchorName: toAnchorName("targetBranch"),
+          anchor: toAnchorName("targetBranch"),
         },
       ],
     }
@@ -186,7 +186,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       3,
       false,
     )
-    expect(adapter.branchExists).toHaveBeenCalledWith(group.chartRepo.projectId, "release/2026-q1")
+    expect(adapter.branchExists).toHaveBeenCalledWith(group.chart.projectId, "release/2026-q1")
   })
 
   it("向き先ブランチが見つからないときのエラーメッセージにブランチ名、valuesPath、anchorが含まれる", async () => {
@@ -195,7 +195,7 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
       locations: [
         {
           valuesPath: toValuesPath("helm/values.yaml"),
-          anchorName: toAnchorName("targetBranch"),
+          anchor: toAnchorName("targetBranch"),
         },
       ],
     }
@@ -218,13 +218,13 @@ describe("buildPlans（Helmの向き先ブランチ）", () => {
     expect(errorCall?.reason).toContain("targetBranch")
   })
 
-  it("同じchartRepo.projectId・同じブランチ名の向き先ブランチ確認は、複数の設定ユニットにまたがってもGitLab APIへの問い合わせを1回にまとめる", async () => {
+  it("同じchart.projectId・同じブランチ名の向き先ブランチ確認は、複数の設定ユニットにまたがってもGitLab APIへの問い合わせを1回にまとめる", async () => {
     const helm = {
       branchRef: toBranchName("release/2026-q1"),
       locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
-          anchorName: toAnchorName("targetBranch"),
+          anchor: toAnchorName("targetBranch"),
         },
       ],
     }

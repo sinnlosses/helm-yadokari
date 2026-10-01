@@ -7,7 +7,7 @@ import {
   toProjectId,
   toProjectName,
 } from "../../../src/domain/types.js"
-import type { ChartRepoConfig } from "../../../src/domain/types.js"
+import type { ChartConfig } from "../../../src/domain/types.js"
 import { createTokenRoutedAdapter } from "../../../src/lib/platform/token-routed-adapter.js"
 import { HEAD_SHA, makeAdapter, makeApp, makeConfigUnit, makeHttpError } from "../../helpers.js"
 
@@ -15,8 +15,8 @@ const TEAM_B = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_B")
 const TEAM_C = toAccessTokenEnvName("ACCESS_TOKEN_TEAM_C")
 const acceptAll = () => true
 
-/** `makeConfigUnit()`が固定で使う`chartRepo.projectId`を、テストごとのProjectIdに差し替える */
-function chartRepoFor(projectId: ReturnType<typeof toProjectId>): ChartRepoConfig {
+/** `makeConfigUnit()`が固定で使う`chart.projectId`を、テストごとのProjectIdに差し替える */
+function chartRepoFor(projectId: ReturnType<typeof toProjectId>): ChartConfig {
   return { projectId, projectName: toProjectName("chart"), mrTargetBranch: toBranchName("develop") }
 }
 
@@ -28,11 +28,11 @@ describe("createTokenRoutedAdapter", () => {
     const projectIdC = toProjectId("3")
     vi.mocked(teamBAdapter.listTagsAtCommit).mockResolvedValue([])
     const configUnitB = makeConfigUnit([makeApp({ projectId: projectIdB })], {
-      chartRepo: chartRepoFor(projectIdB),
+      chart: chartRepoFor(projectIdB),
       accessTokenEnv: TEAM_B,
     })
     const configUnitC = makeConfigUnit([makeApp({ projectId: projectIdC })], {
-      chartRepo: chartRepoFor(projectIdC),
+      chart: chartRepoFor(projectIdC),
       accessTokenEnv: TEAM_C,
     })
 
@@ -52,7 +52,7 @@ describe("createTokenRoutedAdapter", () => {
   it("対応表に無いProjectIdを呼ぶと例外を投げる", async () => {
     const projectId = toProjectId("1")
     const configUnit = makeConfigUnit([makeApp({ projectId })], {
-      chartRepo: chartRepoFor(projectId),
+      chart: chartRepoFor(projectId),
       accessTokenEnv: TEAM_B,
     })
     const adapter = createTokenRoutedAdapter([configUnit], new Map([[TEAM_B, makeAdapter()]]))
@@ -67,12 +67,12 @@ describe("createTokenRoutedAdapter", () => {
     const projectIdB = toProjectId("20")
     const configUnitA = makeConfigUnit([makeApp({ projectId: projectIdA })], {
       chartDirName: toChartDirName("yadokari-smoke-test-chart"),
-      chartRepo: chartRepoFor(projectIdA),
+      chart: chartRepoFor(projectIdA),
       accessTokenEnv: toAccessTokenEnvName("ACCESS_TOKEN_SMOKE"),
     })
     const configUnitB = makeConfigUnit([makeApp({ projectId: projectIdB })], {
       chartDirName: toChartDirName("yadokari-smoke-test-chart2"),
-      chartRepo: chartRepoFor(projectIdB),
+      chart: chartRepoFor(projectIdB),
       accessTokenEnv: toAccessTokenEnvName("ACCESS_TOKEN_SMOKE"),
     })
 
@@ -87,7 +87,7 @@ describe("createTokenRoutedAdapter", () => {
     vi.mocked(teamBAdapter.listTagsAtCommit).mockRejectedValue(makeHttpError(401))
     const configUnit = makeConfigUnit([makeApp({ projectId })], {
       chartDirName: toChartDirName("team-b-chart"),
-      chartRepo: chartRepoFor(projectId),
+      chart: chartRepoFor(projectId),
       accessTokenEnv: TEAM_B,
     })
     const adapter = createTokenRoutedAdapter([configUnit], new Map([[TEAM_B, teamBAdapter]]))
@@ -109,7 +109,7 @@ describe("createTokenRoutedAdapter", () => {
     const projectId = toProjectId("2")
     vi.mocked(teamBAdapter.listTagsAtCommit).mockRejectedValue(makeHttpError(503))
     const configUnit = makeConfigUnit([makeApp({ projectId })], {
-      chartRepo: chartRepoFor(projectId),
+      chart: chartRepoFor(projectId),
       accessTokenEnv: TEAM_B,
     })
     const adapter = createTokenRoutedAdapter([configUnit], new Map([[TEAM_B, teamBAdapter]]))
@@ -127,12 +127,12 @@ describe("createTokenRoutedAdapter", () => {
     // 代表（buildTagUrl等）を解決できるよう、他に読めたトークンが最低1つある状態にする
     // （このテストが確かめたいのはteam-c向けの呼び出しだけが失敗すること）
     const configUnitB = makeConfigUnit([makeApp({ projectId: projectIdB })], {
-      chartRepo: chartRepoFor(projectIdB),
+      chart: chartRepoFor(projectIdB),
       accessTokenEnv: TEAM_B,
     })
     const configUnitC = makeConfigUnit([makeApp({ projectId: projectIdC })], {
       chartDirName: toChartDirName("team-c-chart"),
-      chartRepo: chartRepoFor(projectIdC),
+      chart: chartRepoFor(projectIdC),
       accessTokenEnv: TEAM_C,
     })
     const adapter = createTokenRoutedAdapter(
@@ -153,7 +153,7 @@ describe("createTokenRoutedAdapter", () => {
     const teamCAdapter = makeAdapter()
     const projectId = toProjectId("2")
     const configUnit = makeConfigUnit([makeApp({ projectId })], {
-      chartRepo: chartRepoFor(projectId),
+      chart: chartRepoFor(projectId),
       accessTokenEnv: TEAM_B,
     })
     const adapter = createTokenRoutedAdapter(

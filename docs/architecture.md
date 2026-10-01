@@ -109,7 +109,7 @@ sed -n '/^### 型の置き場所/,/^#\{2,3\} /p' docs/architecture.md
 | ファイル                           | 責務                                                                                                                                                                      |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `look-up-latest-tags.ts`           | `resolveTags()`が解決済みの最新タグから、設定ユニット配下の全アプリぶんを引き当てる                                                                                       |
-| `stage-image-tag-updates.ts`       | イメージタグの1箇所分の差分検出・書き換えと、`app.imageTagLocations`全箇所＋設定ユニット配下の全アプリのループ                                                            |
+| `stage-image-tag-updates.ts`       | イメージタグの1箇所分の差分検出・書き換えと、`app.locations`全箇所＋設定ユニット配下の全アプリのループ                                                                    |
 | `stage-helm-branch-ref-updates.ts` | Helm向き先ブランチについて同じことを行う（値の自動判定はせず設定値と比較）。設定ユニット単位なので全アプリのイメージタグを積んだ後に1回だけ呼ぶ                           |
 | `shared/values-yaml-draft.ts`      | 1つの設定ユニットを処理する間の「values.yamlの下書き状態」（`ValuesYamlDraft`）の読み込み（下書き優先・無ければバッチキャッシュ経由でGitLab）・書き換え・`FileUpdate[]`化 |
 | `shared/types.ts`                  | 複数のサブステップと`build-plans.ts`の間で共有する型のみ                                                                                                                  |
@@ -280,7 +280,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 | 型の性質                                                                           | 置き場所                                         | 例                                                                         |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------- |
 | ドメイン語彙（`docs/glossary.md`に載る概念かどうかが目安）                         | `src/domain/types.ts`（ブランド型は`brand.ts`）  | `ConfigUnit`・`AppUpdatePlan`・`ConfigUnitUpdateResult`・`ParsedTag`       |
-| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                 | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`LoadedConfig`・`AppSpec`・`EnvConfig`     |
+| 特定の技術・外部システム・外部ファイル形式のインターフェースの一部                 | その`lib/`ファイル                               | `GitlabClient`・`ConfigTarget`・`LoadedConfig`・`RegistryApp`・`EnvConfig` |
 | ドメイン知識を持たない汎用処理の型                                                 | その`utils/`ファイル                             | `Sorted`                                                                   |
 | 複数のstepが共有する、ドメイン型にだけ依存する型                                   | `steps/shared/`                                  | `StepOutcome<T>`・`AppOutcome<T>`・`ConfigUnitLogContext`                  |
 | 関数の内部の作業用の型（アキュムレータ・処理中の文脈・その関数の戻り値・引数の形） | **その型を生み出す／受け取る関数と同じファイル** | `BuildPlansResult`・`ValuesYamlDraft`・`LabeledLocation`・`ChartRepoScope` |
@@ -312,7 +312,7 @@ CLAUDE.mdに原則1〜3の要約があり、**判断材料はここが正典**�
 - **関数が引数として受け取る形も5行目**（`LabeledLocation` は `validateNoDuplicateLocations()` の
   引数で、呼び出し側の `load-config-unit.ts` が組み立てる）。「生み出す」だけでなく
   「その関数のためだけに存在する」かで判断する
-- **Zodスキーマから `z.infer` で導出した型はスキーマと同じファイル**（`AppSpec` は
+- **Zodスキーマから `z.infer` で導出した型はスキーマと同じファイル**（`RegistryApp` は
   `lib/config/schema.ts`）。外部ファイル形式の写しなので2行目に当たる。内部表現への詰め替えは
   スキーマの `.transform()` が担うため、詰め替え後の型はドメイン語彙として1行目へ移る
 - **中身を1つ包むだけの集約型は語彙ではなく2行目**（`LoadedConfig` は `lib/config/config.ts`）。

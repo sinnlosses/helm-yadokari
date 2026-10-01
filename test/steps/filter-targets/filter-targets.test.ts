@@ -62,7 +62,7 @@ describe("filterTargets", () => {
     })
     await filterTargets(adapter, [group], 3)
     expect(adapter.openMergeRequestExists).toHaveBeenCalledWith(
-      group.chartRepo.projectId,
+      group.chart.projectId,
       "feature/yadokari/tenant1/client1",
     )
   })

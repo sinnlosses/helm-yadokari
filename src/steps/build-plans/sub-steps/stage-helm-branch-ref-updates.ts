@@ -1,6 +1,6 @@
 import type {
   AnchorLocation,
-  ChartRepoConfig,
+  ChartConfig,
   HelmConfig,
   HelmBranchRefUpdate,
 } from "../../../domain/types.js"
@@ -22,7 +22,7 @@ export type StageHelmBranchRefUpdatesAcc = StageUpdatesAcc<HelmBranchRefUpdate>
  */
 export async function stageHelmBranchRefUpdates(
   adapter: PlatformAdapterWithCachedReads,
-  chart: ChartRepoConfig,
+  chart: ChartConfig,
   helm: HelmConfig,
   draft: ValuesYamlDraft,
 ): Promise<StageHelmBranchRefUpdatesAcc> {
@@ -43,7 +43,7 @@ export async function stageHelmBranchRefUpdates(
  */
 async function stageHelmBranchRefUpdate(
   adapter: PlatformAdapterWithCachedReads,
-  chart: ChartRepoConfig,
+  chart: ChartConfig,
   helm: HelmConfig,
   acc: StageHelmBranchRefUpdatesAcc,
   location: AnchorLocation,
@@ -57,14 +57,14 @@ async function stageHelmBranchRefUpdate(
   )
   const currentBranchRaw = getRequiredValueAtAnchor(
     valuesYamlContent,
-    location.anchorName,
+    location.anchor,
     location.valuesPath,
   )
   if (currentBranchRaw === branchRef) return { ...acc, draft }
 
   if (!(await adapter.cached.branchExists(chart.projectId, branchRef))) {
     throw new Error(
-      `向き先ブランチ "${branchRef}" がchartリポジトリに見つかりません (valuesPath: ${location.valuesPath}, anchor: ${location.anchorName})`,
+      `向き先ブランチ "${branchRef}" がchartリポジトリに見つかりません (valuesPath: ${location.valuesPath}, anchor: ${location.anchor})`,
     )
   }
 
@@ -72,7 +72,7 @@ async function stageHelmBranchRefUpdate(
     draft: writeValuesYamlDraft(
       draft,
       location.valuesPath,
-      setValueAtAnchor(valuesYamlContent, location.anchorName, branchRef),
+      setValueAtAnchor(valuesYamlContent, location.anchor, branchRef),
     ),
     updates: [
       ...acc.updates,

@@ -50,7 +50,7 @@ export type GroupFixture = {
   readonly name: string
 }
 
-export type AppSpecFixture = {
+export type RegistryAppFixture = {
   readonly projectId: number
   readonly projectName: string
   readonly tagFormat?: string
@@ -75,7 +75,7 @@ export function registryYaml(
     readonly projectName: string
     readonly mrTargetBranch: string
   },
-  registryApps: readonly AppSpecFixture[] = [],
+  registryApps: readonly RegistryAppFixture[] = [],
   accessTokenEnv: string = "ACCESS_TOKEN_TEAM_A",
   group: GroupFixture = { id: 10, name: "team-a-group" },
 ): string {
@@ -88,11 +88,11 @@ export function registryYaml(
   return (
     accessTokenEnvBlock +
     chartToUpdateBlock +
-    listField("apps", registryApps, (app) => appSpecEntry(app))
+    listField("apps", registryApps, (app) => registryAppEntry(app))
   )
 }
 
-function appSpecEntry(app: AppSpecFixture): string {
+function registryAppEntry(app: RegistryAppFixture): string {
   return (
     `  - projectId: ${app.projectId}\n    projectName: ${app.projectName}\n` +
     `    tagFormat: '${app.tagFormat ?? DEFAULT_TAG_FORMAT}'\n`

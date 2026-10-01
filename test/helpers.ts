@@ -156,10 +156,10 @@ export function makeApp(overrides: Partial<AppConfig> = {}): AppConfig {
     projectName: toProjectName("my-app"),
     branchToSync: toBranchName("main"),
     tagFormat: BUILD_AT_FORMAT,
-    imageTagLocations: [
+    locations: [
       {
         valuesPath: toValuesPath("values.yaml"),
-        anchorName: toAnchorName("appVersion"),
+        anchor: toAnchorName("appVersion"),
       },
     ],
     ...overrides,
@@ -180,22 +180,13 @@ export function makeTagSource(overrides: Partial<TagSource> = {}): TagSource {
 export function makeConfigUnit(
   apps: AppConfig[],
   overrides: Partial<
-    Pick<
-      ConfigUnit,
-      | "chartDirName"
-      | "unitPath"
-      | "helm"
-      | "chartRepo"
-      | "accessTokenEnv"
-      | "groupId"
-      | "groupName"
-    >
+    Pick<ConfigUnit, "chartDirName" | "unitPath" | "helm" | "chart" | "accessTokenEnv" | "group">
   > = {},
 ): ConfigUnit {
   return {
     chartDirName: toChartDirName("teamA-chart"),
     unitPath: toConfigUnitPath("tenant1/client1"),
-    chartRepo: {
+    chart: {
       projectId: toProjectId("100"),
       projectName: toProjectName("teamA-chart"),
       mrTargetBranch: toBranchName("develop"),
@@ -205,8 +196,7 @@ export function makeConfigUnit(
     // 検証するテストだけが`locations`を持つ値で上書きする
     helm: { branchRef: toBranchName("release/2026-q1"), locations: [] },
     accessTokenEnv: toAccessTokenEnvName("ACCESS_TOKEN_TEAM_A"),
-    groupId: toGroupId("10"),
-    groupName: toGroupName("team-a-group"),
+    group: { id: toGroupId("10"), name: toGroupName("team-a-group") },
     ...overrides,
   }
 }
@@ -234,7 +224,7 @@ export function makePlan(
       {
         location: {
           valuesPath: toValuesPath("values.yaml"),
-          anchorName: toAnchorName("appVersion"),
+          anchor: toAnchorName("appVersion"),
         },
         currentTag,
       },

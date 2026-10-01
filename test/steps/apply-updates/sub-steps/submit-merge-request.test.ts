@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import type { ChartRepoConfig, FileUpdate } from "../../../../src/domain/types.js"
+import type { ChartConfig, FileUpdate } from "../../../../src/domain/types.js"
 import {
   toBranchName,
   toProjectId,
@@ -14,7 +14,7 @@ import { makeAdapter } from "../../../helpers.js"
 
 const adapter = makeAdapter()
 
-const CHART: ChartRepoConfig = {
+const CHART: ChartConfig = {
   projectId: toProjectId("100"),
   projectName: toProjectName("teamA-chart"),
   mrTargetBranch: toBranchName("develop"),

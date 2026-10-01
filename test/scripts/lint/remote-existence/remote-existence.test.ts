@@ -7,6 +7,7 @@ import {
   toAnchorName,
   toBranchName,
   toConfigUnitPath,
+  toGroupId,
   toGroupName,
   toGroupPath,
   toProjectId,
@@ -123,7 +124,9 @@ describe("validateRemoteExistence", () => {
   })
 
   it("group.name がGitLab上の現在のフルパスとズレているとき、所属違い・不在とは違う文言で返す", async () => {
-    const configUnit = makeConfigUnit([makeApp()], { groupName: toGroupName("team-a-group-old") })
+    const configUnit = makeConfigUnit([makeApp()], {
+      group: { id: toGroupId("10"), name: toGroupName("team-a-group-old") },
+    })
 
     const problems = await validateRemoteExistence(mockGitlab, [configUnit], 3)
 
@@ -188,8 +191,8 @@ describe("validateRemoteExistence", () => {
 
   it("アンカーがvalues.yamlに存在しないとき問題として返す", async () => {
     const app = makeApp({
-      imageTagLocations: [
-        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("noSuchAnchor") },
+      locations: [
+        { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("noSuchAnchor") },
       ],
     })
 
@@ -202,9 +205,7 @@ describe("validateRemoteExistence", () => {
   it("アンカーがスカラー以外に付いているとき、アンカー不在とは違う文言で問題として返す", async () => {
     vi.mocked(getFileContent).mockResolvedValue("group: &appVersion\n  a: 1\n")
     const app = makeApp({
-      imageTagLocations: [
-        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
-      ],
+      locations: [{ valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("appVersion") }],
     })
 
     const problems = await validateRemoteExistence(mockGitlab, [makeConfigUnit([app])], 3)
@@ -217,7 +218,7 @@ describe("validateRemoteExistence", () => {
     const helm = {
       branchRef: toBranchName("release/ghost"),
       locations: [
-        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
+        { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("targetBranch") },
       ],
     }
     vi.mocked(branchExists).mockImplementation(
@@ -237,10 +238,10 @@ describe("validateRemoteExistence", () => {
     vi.mocked(getFileContent).mockResolvedValue(undefined)
     const apps = [
       makeApp({
-        imageTagLocations: [{ valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") }],
+        locations: [{ valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("x") }],
       }),
       makeApp({
-        imageTagLocations: [{ valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") }],
+        locations: [{ valuesPath: toValuesPath("b.yaml"), anchor: toAnchorName("y") }],
       }),
     ]
 
@@ -251,9 +252,9 @@ describe("validateRemoteExistence", () => {
 
   it("同じvalues.yamlは1回だけ取得する（複数箇所でキャッシュを共有する）", async () => {
     const app = makeApp({
-      imageTagLocations: [
-        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
-        { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
+      locations: [
+        { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("appVersion") },
+        { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("targetBranch") },
       ],
     })
 

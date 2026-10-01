@@ -212,7 +212,7 @@ function buildLogContext(configUnit: ConfigUnit): ConfigUnitLogContext {
     event: "update_unit",
     chartDirName: configUnit.chartDirName,
     unitPath: configUnit.unitPath,
-    chartProjectId: configUnit.chartRepo.projectId,
-    chartProjectName: configUnit.chartRepo.projectName,
+    chartProjectId: configUnit.chart.projectId,
+    chartProjectName: configUnit.chart.projectName,
   }
 }

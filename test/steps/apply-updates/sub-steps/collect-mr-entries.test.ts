@@ -15,7 +15,7 @@ const webUrl = toPlatformUrl("https://gitlab.example.com/g/my-app")
 const helmBranchRef = toBranchName("release/2026-q1")
 
 const helmUpdate = {
-  location: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
+  location: { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("targetBranch") },
   currentBranch: toBranchName("release/2025-q4"),
 }
 
@@ -31,11 +31,11 @@ describe("collectMrEntries", () => {
     const plan = makePlan({
       updates: [
         {
-          location: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
+          location: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("x") },
           currentTag: toTagName("prev"),
         },
         {
-          location: { valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") },
+          location: { valuesPath: toValuesPath("b.yaml"), anchor: toAnchorName("y") },
           currentTag: toTagName("prev"),
         },
       ],
@@ -49,7 +49,7 @@ describe("collectMrEntries", () => {
     )
 
     expect(entries.imageTags).toHaveLength(2)
-    expect(entries.imageTags.map((entry) => entry.update.location.anchorName)).toEqual(["x", "y"])
+    expect(entries.imageTags.map((entry) => entry.update.location.anchor)).toEqual(["x", "y"])
     expect(entries.imageTags.every((entry) => entry.webUrl === webUrl)).toBe(true)
     expect(entries.imageTags[0]?.plan).toBe(plan)
   })
@@ -74,7 +74,7 @@ describe("collectMrEntries", () => {
       ...helmUpdate,
       location: {
         valuesPath: toValuesPath("values.yaml"),
-        anchorName: toAnchorName("otherBranch"),
+        anchor: toAnchorName("otherBranch"),
       },
     }
 

@@ -232,15 +232,15 @@ describe("loadConfig（registry.yamlのgroup）", () => {
     writeRegistryWithGroup({ id: 4242, name: "team-a-group/sub" })
 
     const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.groupId).toBe("4242")
-    expect(configUnits[0]?.groupName).toBe("team-a-group/sub")
+    expect(configUnits[0]?.group.id).toBe("4242")
+    expect(configUnits[0]?.group.name).toBe("team-a-group/sub")
   })
 
   it("group.id を文字列で書いても読める", () => {
     writeRegistryWithGroup({ id: '"4242"', name: "team-a-group" })
 
     const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.groupId).toBe("4242")
+    expect(configUnits[0]?.group.id).toBe("4242")
   })
 
   it("group を書いていない registry.yaml は設定エラーになる（所属の照合を黙ってすり抜けないようにするため）", () => {
@@ -326,7 +326,7 @@ describe("loadConfig（projectIdの数値/文字列両対応）", () => {
     )
 
     const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.chartRepo.projectId).toBe("100")
+    expect(configUnits[0]?.chart.projectId).toBe("100")
     expect(configUnits[0]?.apps[0]?.projectId).toBe("100")
   })
 
@@ -346,7 +346,7 @@ describe("loadConfig（projectIdの数値/文字列両対応）", () => {
     })
 
     const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.chartRepo.projectId).toBe("owner/repo")
+    expect(configUnits[0]?.chart.projectId).toBe("owner/repo")
     expect(configUnits[0]?.apps[0]?.projectId).toBe("owner/repo")
   })
 })

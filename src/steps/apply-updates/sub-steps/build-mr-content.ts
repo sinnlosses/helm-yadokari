@@ -58,7 +58,7 @@ function buildImageTagSection(adapter: PlatformAdapter, entries: readonly ImageT
         plan.app.projectName,
         `\`${plan.app.branchToSync}\``,
         `\`${update.location.valuesPath}\``,
-        `\`${update.location.anchorName}\``,
+        `\`${update.location.anchor}\``,
         currentTag === undefined
           ? "未設定"
           : `[${currentTag}](${adapter.buildTagUrl(webUrl, currentTag)})`,
@@ -94,7 +94,7 @@ function buildHelmBranchRefSection(
         update.currentBranch === undefined ? "未設定" : `\`${update.currentBranch}\``,
         `\`${branchRef}\``,
         `\`${update.location.valuesPath}\``,
-        `\`${update.location.anchorName}\``,
+        `\`${update.location.anchor}\``,
       ]
       return `| ${cells.join(" | ")} |`
     }),

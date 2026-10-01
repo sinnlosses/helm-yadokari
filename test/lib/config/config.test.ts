@@ -40,7 +40,7 @@ describe("loadConfig（正常系）", () => {
     expect(configUnits[0]).toEqual({
       chartDirName: "teamA-chart",
       unitPath: "tenant1/client1",
-      chartRepo: {
+      chart: {
         projectId: "888",
         projectName: "teamA-chart",
         mrTargetBranch: "develop",
@@ -51,10 +51,10 @@ describe("loadConfig（正常系）", () => {
           projectName: "my-app",
           branchToSync: "main",
           tagFormat: "{branch}-build-at-{date}-{time}",
-          imageTagLocations: [
+          locations: [
             {
               valuesPath: "charts/my-app/values.yaml",
-              anchorName: "appVersion",
+              anchor: "appVersion",
             },
           ],
         },
@@ -64,13 +64,12 @@ describe("loadConfig（正常系）", () => {
         locations: [
           {
             valuesPath: "charts/my-app/values.yaml",
-            anchorName: "defaultHelmTargetBranch",
+            anchor: "defaultHelmTargetBranch",
           },
         ],
       },
       accessTokenEnv: "ACCESS_TOKEN_TEAM_A",
-      groupId: "10",
-      groupName: "team-a-group",
+      group: { id: "10", name: "team-a-group" },
     })
   })
 
@@ -286,9 +285,9 @@ describe("loadConfig（locationsの複数指定）", () => {
     )
 
     const { configUnits } = loadConfig(dir.path)
-    expect(configUnits[0]?.apps[0]?.imageTagLocations).toEqual([
-      { valuesPath: "charts/webapi/values.yaml", anchorName: "appVersion" },
-      { valuesPath: "charts/batch/values.yaml", anchorName: "batchAppsVersion" },
+    expect(configUnits[0]?.apps[0]?.locations).toEqual([
+      { valuesPath: "charts/webapi/values.yaml", anchor: "appVersion" },
+      { valuesPath: "charts/batch/values.yaml", anchor: "batchAppsVersion" },
     ])
   })
 })
@@ -657,8 +656,8 @@ describe("loadConfig（helm）", () => {
 
     const { configUnits } = loadConfig(dir.path)
     expect(configUnits[0]?.helm?.locations).toEqual([
-      { valuesPath: "a.yaml", anchorName: "targetBranchA" },
-      { valuesPath: "b.yaml", anchorName: "targetBranchB" },
+      { valuesPath: "a.yaml", anchor: "targetBranchA" },
+      { valuesPath: "b.yaml", anchor: "targetBranchB" },
     ])
   })
 
@@ -698,8 +697,8 @@ describe("loadConfig（helm）", () => {
     expect(configUnits[0]?.helm).toEqual({
       branchRef: "release/2026-q1",
       locations: [
-        { valuesPath: "webapi.yaml", anchorName: "webapiTargetBranch" },
-        { valuesPath: "batch.yaml", anchorName: "batchTargetBranch" },
+        { valuesPath: "webapi.yaml", anchor: "webapiTargetBranch" },
+        { valuesPath: "batch.yaml", anchor: "batchTargetBranch" },
       ],
     })
   })

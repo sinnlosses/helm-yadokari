@@ -2,7 +2,7 @@ import { buildConfigUnitLocation } from "../../../src/domain/config-unit.js"
 import type {
   AnchorLocation,
   AppConfig,
-  ChartRepoConfig,
+  ChartConfig,
   ConfigUnit,
   GroupId,
   GroupName,
@@ -30,7 +30,7 @@ import { type RemoteCache, newRemoteCache } from "./remote-cache.js"
 type ValidateContext = {
   readonly cache: RemoteCache
   readonly where: string
-  readonly chart: ChartRepoConfig
+  readonly chart: ChartConfig
   readonly groupId: GroupId
   readonly declaredGroupPath: GroupPath | undefined
   readonly reportedPaths: Set<string>
@@ -76,34 +76,34 @@ export async function validateRemoteExistence(
  * 行わず、原因となる1件だけを報告する。
  */
 async function validateConfigUnit(cache: RemoteCache, configUnit: ConfigUnit): Promise<string[]> {
-  const { chartRepo, apps, helm, groupId, groupName } = configUnit
-  const declaredGroupPath = await cache.lookupGroupPath(groupId)
+  const { chart, apps, helm, group } = configUnit
+  const declaredGroupPath = await cache.lookupGroupPath(group.id)
   const context: ValidateContext = {
     cache,
     where: buildConfigUnitLocation(configUnit.chartDirName, configUnit.unitPath),
-    chart: chartRepo,
-    groupId,
+    chart,
+    groupId: group.id,
     declaredGroupPath,
     reportedPaths: new Set<string>(),
   }
   const { where } = context
-  const groupProblems = describeGroupProblems(context, groupName)
+  const groupProblems = describeGroupProblems(context, group.name)
 
-  const chartGroupPath = await cache.lookupProjectGroupPath(chartRepo.projectId)
+  const chartGroupPath = await cache.lookupProjectGroupPath(chart.projectId)
   const chartProjectFound = chartGroupPath !== undefined
   const chartProblems = describeProjectProblems(
     context,
     chartGroupPath,
-    `registry.yaml の projectId ${chartRepo.projectId}（${chartRepo.projectName}）`,
+    `registry.yaml の projectId ${chart.projectId}（${chart.projectName}）`,
   )
 
   const baseBranchFound =
-    chartProjectFound && (await cache.hasBranch(chartRepo.projectId, chartRepo.mrTargetBranch))
+    chartProjectFound && (await cache.hasBranch(chart.projectId, chart.mrTargetBranch))
   const baseBranchProblems =
     !chartProjectFound || baseBranchFound
       ? []
       : [
-          `${where}: registry.yaml の mrTargetBranch "${chartRepo.mrTargetBranch}" が ${chartRepo.projectName} に見つかりません`,
+          `${where}: registry.yaml の mrTargetBranch "${chart.mrTargetBranch}" が ${chart.projectName} に見つかりません`,
         ]
 
   const initial: readonly string[] = []
@@ -174,7 +174,7 @@ async function validateApp(
 
   const imageTagProblems = await validateLocations(
     context,
-    app.imageTagLocations,
+    app.locations,
     `app "${app.projectName}" の locations[]`,
   )
   return [...projectProblems, ...branchProblems, ...imageTagProblems]
@@ -268,15 +268,15 @@ async function validateLocation(
       `${where}: ${label} の values.yaml が見つかりません（${location.valuesPath} @ ${chart.mrTargetBranch}）`,
     ]
   }
-  const lookup = lookupValueAtAnchor(content, location.anchorName)
+  const lookup = lookupValueAtAnchor(content, location.anchor)
   if (lookup.kind === "not_found") {
     return [
-      `${where}: ${label} のアンカー "${location.anchorName}" が ${location.valuesPath} に見つかりません`,
+      `${where}: ${label} のアンカー "${location.anchor}" が ${location.valuesPath} に見つかりません`,
     ]
   }
   if (lookup.kind === "non_scalar") {
     return [
-      `${where}: ${label} のアンカー "${location.anchorName}" が ${location.valuesPath} でスカラー値に付いていません（マッピングまたはシーケンスに付いています）`,
+      `${where}: ${label} のアンカー "${location.anchor}" が ${location.valuesPath} でスカラー値に付いていません（マッピングまたはシーケンスに付いています）`,
     ]
   }
   return []

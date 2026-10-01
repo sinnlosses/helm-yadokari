@@ -156,7 +156,7 @@ describe("run", () => {
     const appBProjectId = toProjectId("201")
 
     const chartA = makeConfigUnit([makeApp({ projectId: appAProjectId })], {
-      chartRepo: {
+      chart: {
         projectId: chartAProjectId,
         projectName: toProjectName("teamA-chart"),
         mrTargetBranch: toBranchName("develop"),
@@ -166,7 +166,7 @@ describe("run", () => {
       [makeApp({ projectId: appBProjectId, projectName: toProjectName("app-b") })],
       {
         chartDirName: toChartDirName("teamB-chart"),
-        chartRepo: {
+        chart: {
           projectId: chartBProjectId,
           projectName: toProjectName("teamB-chart"),
           mrTargetBranch: toBranchName("develop"),
@@ -187,7 +187,7 @@ describe("run", () => {
     await expect(summaryFailedUnits()).resolves.toEqual([
       {
         chartDirName: chartB.chartDirName,
-        chartProjectName: chartB.chartRepo.projectName,
+        chartProjectName: chartB.chart.projectName,
         unitPath: chartB.unitPath,
         reason: expect.stringContaining("401"),
       },

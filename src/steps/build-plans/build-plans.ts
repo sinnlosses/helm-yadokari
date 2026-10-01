@@ -73,12 +73,12 @@ async function buildPlan(
   const appsWithLatestTag = lookUpLatestTags(configUnit.apps, resolvedTags)
   const { plans, draft: draftAfterApps } = await stageImageTagUpdates(
     adapter,
-    configUnit.chartRepo,
+    configUnit.chart,
     appsWithLatestTag,
   )
   const { draft, updates: helmBranchRefUpdates } = await stageHelmBranchRefUpdates(
     adapter,
-    configUnit.chartRepo,
+    configUnit.chart,
     configUnit.helm,
     draftAfterApps,
   )

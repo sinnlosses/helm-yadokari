@@ -62,7 +62,7 @@ function makeTarget(): ConfigUnitUpdateTarget {
           {
             location: {
               valuesPath: toValuesPath("values.yaml"),
-              anchorName: toAnchorName("appVersion"),
+              anchor: toAnchorName("appVersion"),
             },
             currentTag: toTagName("prev"),
           },
@@ -128,10 +128,10 @@ describe("applyUpdates", () => {
     )
   })
 
-  it("設定ユニットのchartRepo設定と書き換え済みファイルをそのまま渡す", async () => {
+  it("設定ユニットのchart設定と書き換え済みファイルをそのまま渡す", async () => {
     const target = makeTarget()
     await applyUpdates(adapter, [target], 3)
-    expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[1]).toBe(target.configUnit.chartRepo)
+    expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[1]).toBe(target.configUnit.chart)
     expect(vi.mocked(submitMergeRequest).mock.calls[0]?.[4]).toBe(target.files)
   })
 

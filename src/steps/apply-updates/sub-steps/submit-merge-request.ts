@@ -1,4 +1,4 @@
-import type { BranchName, ChartRepoConfig, FileUpdate, PlatformUrl } from "../../../domain/types.js"
+import type { BranchName, ChartConfig, FileUpdate, PlatformUrl } from "../../../domain/types.js"
 import type { PlatformAdapter } from "../../../lib/platform/adapter.js"
 import type { MrContent } from "./shared/types.js"
 
@@ -13,7 +13,7 @@ import type { MrContent } from "./shared/types.js"
  */
 export async function submitMergeRequest(
   adapter: PlatformAdapter,
-  chart: ChartRepoConfig,
+  chart: ChartConfig,
   featureBranch: BranchName,
   content: MrContent,
   files: readonly FileUpdate[],

@@ -114,20 +114,20 @@ describe("buildPlans", () => {
     const appA = makeApp({
       projectId: toProjectId("1"),
       projectName: toProjectName("app-a"),
-      imageTagLocations: [
+      locations: [
         {
           valuesPath: toValuesPath("shared.yaml"),
-          anchorName: toAnchorName("appAVersion"),
+          anchor: toAnchorName("appAVersion"),
         },
       ],
     })
     const appB = makeApp({
       projectId: toProjectId("2"),
       projectName: toProjectName("app-b"),
-      imageTagLocations: [
+      locations: [
         {
           valuesPath: toValuesPath("shared.yaml"),
-          anchorName: toAnchorName("appBVersion"),
+          anchor: toAnchorName("appBVersion"),
         },
       ],
     })
@@ -193,9 +193,7 @@ describe("buildPlans", () => {
     const appFail = makeApp({
       projectId: toProjectId("1"),
       projectName: toProjectName("app-fail"),
-      imageTagLocations: [
-        { valuesPath: toValuesPath("failing.yaml"), anchorName: toAnchorName("appVersion") },
-      ],
+      locations: [{ valuesPath: toValuesPath("failing.yaml"), anchor: toAnchorName("appVersion") }],
     })
     const appOk = makeApp({ projectId: toProjectId("2"), projectName: toProjectName("app-ok") })
     const failing = { ...makeConfigUnit([appFail]), chartDirName: toChartDirName("failing") }
@@ -242,10 +240,10 @@ describe("buildPlans", () => {
       makeConfigUnit(
         [
           makeApp({
-            imageTagLocations: [
+            locations: [
               {
                 valuesPath: toValuesPath("values.yaml"),
-                anchorName: toAnchorName(anchorName),
+                anchor: toAnchorName(anchorName),
               },
             ],
           }),

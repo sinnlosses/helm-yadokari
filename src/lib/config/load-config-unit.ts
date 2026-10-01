@@ -5,19 +5,18 @@ import type {
   AnchorLocation,
   AppConfig,
   BranchName,
+  ChartConfig,
   ChartDirName,
-  ChartRepoConfig,
   ConfigUnit,
   ConfigUnitPath,
-  GroupId,
-  GroupName,
+  GroupConfig,
   HelmConfig,
   LocalPath,
   ProjectName,
 } from "../../domain/types.js"
 import { toLocalPath } from "../../domain/types.js"
 import { parseYamlFile } from "../../utils/yaml.js"
-import type { AppSpec } from "./schema.js"
+import type { RegistryApp } from "./schema.js"
 import {
   LOCATIONS_YAML_FILE_NAME,
   LocationsYamlSchema,
@@ -44,19 +43,18 @@ export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[
   const registryYamlPath = toLocalPath(join(chartUnits.chartDirPath, REGISTRY_YAML_FILE_NAME))
   const {
     chart,
-    apps: appSpecs,
+    apps: registryApps,
     accessTokenEnv,
     group,
   } = parseYamlFile(registryYamlPath, RegistryYamlSchema)
-  validateNoDuplicateProjectIds(registryYamlPath, appSpecs)
-  validateNoDuplicateProjectNames(registryYamlPath, appSpecs)
+  validateNoDuplicateProjectIds(registryYamlPath, registryApps)
+  validateNoDuplicateProjectNames(registryYamlPath, registryApps)
   const chartRepoScope: ChartRepoScope = {
     chartDirName: chartUnits.chartDirName,
     chart,
-    appSpecByName: new Map(appSpecs.map((appSpec) => [appSpec.projectName, appSpec])),
+    registryAppByName: new Map(registryApps.map((registryApp) => [registryApp.projectName, registryApp])),
     accessTokenEnv,
-    groupId: group.id,
-    groupName: group.name,
+    group,
     registryYamlPath,
   }
   return chartUnits.unitPaths.map((unitPath) =>
@@ -73,11 +71,10 @@ export function loadConfigUnits(chartUnits: ChartDirUnits): readonly ConfigUnit[
 /** `buildConfigUnit()`の引数のうち、chartリポジトリ単位で1回だけ決まる値 */
 type ChartRepoScope = {
   readonly chartDirName: ChartDirName
-  readonly chart: ChartRepoConfig
-  readonly appSpecByName: ReadonlyMap<ProjectName, AppSpec>
+  readonly chart: ChartConfig
+  readonly registryAppByName: ReadonlyMap<ProjectName, RegistryApp>
   readonly accessTokenEnv: AccessTokenEnvName
-  readonly groupId: GroupId
-  readonly groupName: GroupName
+  readonly group: GroupConfig
   readonly registryYamlPath: LocalPath
 }
 
@@ -101,7 +98,7 @@ function buildConfigUnit(
   chartRepoScope: ChartRepoScope,
   configUnitScope: ConfigUnitScope,
 ): ConfigUnit {
-  const { chartDirName, chart, appSpecByName, accessTokenEnv, groupId, groupName, registryYamlPath } =
+  const { chartDirName, chart, registryAppByName, accessTokenEnv, group, registryYamlPath } =
     chartRepoScope
   const { unitPath, versionsYamlPath, locationsYamlPath } = configUnitScope
   const versions = parseYamlFile(versionsYamlPath, VersionsYamlSchema)
@@ -116,18 +113,18 @@ function buildConfigUnit(
 
   const appConfigs: readonly AppConfig[] = [...versions.apps].map(
     ([projectName, branchToSync]) => {
-      const appSpec = appSpecByName.get(projectName)
-      if (appSpec === undefined) {
+      const registryApp = registryAppByName.get(projectName)
+      if (registryApp === undefined) {
         throw new Error(
           `${versionsYamlPath}: app "${projectName}" に対応する設定が ${registryYamlPath} の apps[] に見つかりません`,
         )
       }
       return {
-        projectId: appSpec.projectId,
+        projectId: registryApp.projectId,
         projectName,
         branchToSync,
-        tagFormat: appSpec.tagFormat,
-        imageTagLocations: locations.apps.get(projectName) ?? [],
+        tagFormat: registryApp.tagFormat,
+        locations: locations.apps.get(projectName) ?? [],
       }
     },
   )
@@ -135,12 +132,11 @@ function buildConfigUnit(
   return {
     chartDirName,
     unitPath,
-    chartRepo: chart,
+    chart,
     apps: appConfigs,
     helm: resolveHelmConfig(locationsYamlPath, versions.helm, locations.helm, appConfigs),
     accessTokenEnv,
-    groupId,
-    groupName,
+    group,
   }
 }
 
@@ -182,7 +178,7 @@ function resolveHelmConfig(
 ): HelmConfig {
   for (const app of apps) {
     const appValuesPaths = [
-      ...new Set(app.imageTagLocations.map((location) => location.valuesPath)),
+      ...new Set(app.locations.map((location) => location.valuesPath)),
     ]
     const uncoveredValuesPaths = appValuesPaths.filter(
       (valuesPath) => !helmLocations.some((location) => location.valuesPath === valuesPath),
@@ -195,7 +191,7 @@ function resolveHelmConfig(
   }
 
   const allValuesPaths = new Set(
-    apps.flatMap((app) => app.imageTagLocations.map((location) => location.valuesPath)),
+    apps.flatMap((app) => app.locations.map((location) => location.valuesPath)),
   )
   const locations = helmLocations.filter((location) => allValuesPaths.has(location.valuesPath))
   return { branchRef, locations }

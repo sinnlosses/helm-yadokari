@@ -40,7 +40,7 @@ async function applyUpdate(
   logContext: ConfigUnitLogContext,
 ): Promise<StepOutcome<ConfigUnitReport>> {
   const { configUnit, plans, helmBranchRefUpdates, files } = target
-  const { chartRepo, unitPath } = configUnit
+  const { chart, unitPath } = configUnit
   const featureBranch = buildFeatureBranch(unitPath)
 
   const entries = await collectMrEntries(
@@ -50,13 +50,7 @@ async function applyUpdate(
     configUnit.helm.branchRef,
   )
   const content = buildMrContent(adapter, unitPath, entries)
-  const mergeRequestUrl = await submitMergeRequest(
-    adapter,
-    chartRepo,
-    featureBranch,
-    content,
-    files,
-  )
+  const mergeRequestUrl = await submitMergeRequest(adapter, chart, featureBranch, content, files)
 
   logger.info({
     ...logContext,

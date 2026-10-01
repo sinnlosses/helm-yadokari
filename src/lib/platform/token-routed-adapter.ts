@@ -100,7 +100,7 @@ function assertAdapterAvailable(
 }
 
 /**
- * `configUnits`（`chartRepo.projectId`と`apps[].projectId`）から`ProjectId`→`Route`の表を作る。
+ * `configUnits`（`chart.projectId`と`apps[].projectId`）から`ProjectId`→`Route`の表を作る。
  *
  * 同じ`ProjectId`が複数の設定ユニットから参照されても、`accessTokenEnv`は
  * `validateAccessTokenEnvConsistency()`が一致を保証しているため、先勝ちでよい。
@@ -131,7 +131,7 @@ function resolveRoute(
 }
 
 function projectIdsOf(configUnit: ConfigUnit): readonly ProjectId[] {
-  return [configUnit.chartRepo.projectId, ...configUnit.apps.map((app) => app.projectId)]
+  return [configUnit.chart.projectId, ...configUnit.apps.map((app) => app.projectId)]
 }
 
 function lookupRoute(routes: ReadonlyMap<ProjectId, Route>, projectId: ProjectId): Route {

@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 import { validateTagFormat } from "../../domain/tag-format.js"
-import type { AnchorLocation, ProjectName } from "../../domain/types.js"
+import type { ProjectName } from "../../domain/types.js"
 import {
   toAccessTokenEnvName,
   toAnchorName,
@@ -38,7 +38,6 @@ const AnchorLocationSchema = z
     valuesPath: z.string().min(1, "valuesPath は空にできません").transform(toValuesPath),
     anchor: z.string().min(1, "anchor は空にできません").transform(toAnchorName),
   })
-  .transform((v): AnchorLocation => ({ valuesPath: v.valuesPath, anchorName: v.anchor }))
 
 /**
  * `projectId`はGitLabの数値IDとGitHubの`owner/repo`の両方を受け、`ProjectId`（文字列）へ
@@ -79,13 +78,13 @@ const TagFormatSchema = z
  * ソースリポジトリのタグ形式（`tagFormat`）の台帳。
  * 設定ユニット側は`projectName`で引く
  */
-const AppSpecSchema = z.strictObject({
+const RegistryAppSchema = z.strictObject({
   projectId: ProjectIdSchema,
   projectName: z.string().min(1).transform(toProjectName),
   tagFormat: TagFormatSchema,
 })
 
-export type AppSpec = z.infer<typeof AppSpecSchema>
+export type RegistryApp = z.infer<typeof RegistryAppSchema>
 
 /**
  * `registry.yaml`トップレベルの`accessTokenEnv`。
@@ -192,7 +191,7 @@ export const RegistryYamlSchema = z.strictObject({
     projectName: z.string().min(1).transform(toProjectName),
     mrTargetBranch: z.string().min(1, "mrTargetBranch は空にできません").transform(toBranchName),
   }),
-  apps: z.array(AppSpecSchema),
+  apps: z.array(RegistryAppSchema),
 })
 
 /** app名をキーにしたマップ。キーは`registry.yaml`の`apps[].projectName`と突き合わせる */

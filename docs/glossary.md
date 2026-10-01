@@ -79,12 +79,12 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### chart・apps（registry.yaml）
 
-- **英語識別子**: `chart`（型は`ChartRepoConfig`）・`apps`（要素の型は`AppSpec`）。いずれも`registry.yaml`のトップレベルキー。`apps`は`versions.yaml`・`locations.yaml`にも同名のキーがあるが別の中身で、ファイルで区別する（`docs/architecture/adr/0035-config-keys-mirrored-in-code.md`）。
+- **英語識別子**: `chart`（型は`ChartConfig`）・`apps`（要素の型は`RegistryApp`）。いずれも`registry.yaml`のトップレベルキー。`apps`は`versions.yaml`・`locations.yaml`にも同名のキーがあるが別の中身で、ファイルで区別する（`docs/architecture/adr/0035-config-keys-mirrored-in-code.md`）。
 - **定義**:
-  - `chart`: `projectId`・`projectName`・`mrTargetBranch`の3フィールドを持つ、chartリポジトリ共通の設定（`ConfigUnit.chartRepo`フィールドの値になる）。
+  - `chart`: `projectId`・`projectName`・`mrTargetBranch`の3フィールドを持つ、chartリポジトリ共通の設定（`ConfigUnit.chart`フィールドの値になる）。
   - `apps`: `projectId`・`projectName`・`tagFormat`の3フィールドを持つ配列要素。ソースリポジトリの台帳で、設定ユニット側が`projectName`で引いて結合する。
 - **`registry.yaml`との関係**: 設定ユニットとの紐づけの検証や、`apps[]`にだけあってどの設定ユニットからも参照されないappを許容する挙動は「registry.yaml / versions.yaml / locations.yaml」の項を参照。
-- **表記ゆれ**: 2026-10-01に`registry.yaml`のキーを改名した（旧 → 新: `chartToUpdate` → `chart`、`appSpecs` → `apps`、`group.groupId` → `group.id`、`group.groupName` → `group.name`）。同日に`versions.yaml`も`helmBranchRef` → `helm`、`appBranchToSync` → `apps`へ改名した。古い設定ファイル・過去のログを読むときは読み替える。コードの型名（`ChartRepoConfig`・`AppSpec`）は後続の改名で`ChartConfig`・`RegistryApp`になる（`docs/architecture/adr/0035-config-keys-mirrored-in-code.md`）。
+- **表記ゆれ**: 2026-10-01に`registry.yaml`のキーを改名した（旧 → 新: `chartToUpdate` → `chart`、`appSpecs` → `apps`、`group.groupId` → `group.id`、`group.groupName` → `group.name`）。同日に`versions.yaml`も`helmBranchRef` → `helm`、`appBranchToSync` → `apps`へ改名した。古い設定ファイル・過去のログを読むときは読み替える。コードの識別子も同じ趣旨で改名した（旧 → 新: `ChartRepoConfig` → `ChartConfig`、`AppSpec`/`AppSpecSchema` → `RegistryApp`/`RegistryAppSchema`、`ConfigUnit.chartRepo` → `ConfigUnit.chart`、`ConfigUnit.groupId`/`groupName` → `ConfigUnit.group`、`AnchorLocation.anchorName` → `anchor`、`AppConfig.imageTagLocations` → `locations`。`docs/architecture/adr/0035-config-keys-mirrored-in-code.md`）。
 
 ### valuesPath
 
@@ -93,15 +93,14 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### 書き込み位置
 
-- **英語識別子**: `AnchorLocation`（`valuesPath`・`anchorName`の2フィールドを持つ型。スキーマは`AnchorLocationSchema`）
+- **英語識別子**: `AnchorLocation`（`valuesPath`・`anchor`の2フィールドを持つ型。スキーマは`AnchorLocationSchema`）
 - **定義**: `values.yaml`内の書き込み位置1箇所分を表す型。`locations.yaml`の`apps`配下（イメージタグの書き込み先）と`helm[]`（Helmの向き先ブランチの書き込み先）の両方がこの型を共有する（スキーマ側も`AnchorLocationSchema`を共有している）。各フィールドの意味は「valuesPath」「anchor」の各項を参照。
 - **`Anchor`と`Location`の両方を名前に持つ理由**: `Location`が「1箇所分の位置」という役割を、`Anchor`が「その位置をYAMLアンカーで指す」という手段を担う。手段を落とすと`src/lib/helm.ts`の`lookupValueAtAnchor()`/`setValueAtAnchor()`と語が繋がらなくなる。
 
 ### anchor
 
-- **英語識別子**: `anchorName`（型は`AnchorName`ブランド型、`AnchorLocation`のフィールド）。ただし
-  `locations.yaml`上のYAMLキー名は`anchor`のままで、`AnchorLocationSchema`（`src/lib/config/schema.ts`）
-  の`.transform()`がキー`anchor`をフィールド`anchorName`に詰め替える
+- **英語識別子**: `anchor`（型は`AnchorName`ブランド型、`AnchorLocation`のフィールド）。
+  `locations.yaml`のキー名と同じ。旧`anchorName`（2026-10-01に改名）
 - **定義**: `values.yaml`内のイメージタグの位置をYAMLアンカー名で指す、`locations.yaml`の
   `apps.<app名>`配列の1要素が持つフィールド名。`variables: [&myAppVersion main, ...]`
   のように、配列要素にアンカーで名前を付けた構成のvalues.yamlを前提とする。1つのソース
@@ -139,15 +138,14 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   `AppConfig.branchToSync`で名前が分かれている。指しているものも別（前者はk8sリソースを
   構築するブランチ、後者はタグを探す追跡ブランチ）で、混同しない。
 - **HelmConfig**: `branchRef`（向き先ブランチ名。`versions.yaml`の`helm`由来）と
-  `locations`（書き込み先の`valuesPath`＋`anchorName`の一覧。`locations.yaml`の`helm[]`のうち、設定ユニット内の
+  `locations`（書き込み先の`valuesPath`＋`anchor`の一覧。`locations.yaml`の`helm[]`のうち、設定ユニット内の
   いずれかのappが実際に書き込む`valuesPath`を指す要素だけになる。空もありうる）の2フィールドを
   持つ、設定ユニット単位の集約型。
 
 ### helm[]のanchor
 
-- **英語識別子**: `anchorName`（型は`AnchorName`ブランド型、`AnchorLocation`のフィールド）。YAMLキー名は
-  `anchor`のままで、`apps`配下の`anchor`と同じ`AnchorLocationSchema`がキー`anchor`から
-  フィールド`anchorName`への詰め替えを担う
+- **英語識別子**: `anchor`（型は`AnchorName`ブランド型、`AnchorLocation`のフィールド）。
+  `apps`配下の`anchor`と同じ`AnchorLocationSchema`で読む
 - **定義**: 「Helmの向き先ブランチ」の値を`valuesPath`のどこに書き込むかを指す、
   `locations.yaml`の`helm`配列の各要素が持つフィールド。`apps`配下の`anchor`と
   同様にYAMLアンカー名で位置を指定するが、書き込む値がタグではなくブランチ名である点が
@@ -193,7 +191,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   `TagSourceKey`（同一性を表す値キーのブランド型。組み立ては`domain/tag-source.ts`の
   `buildTagSourceKey()`）
 - **定義**: 最新タグを1回解決する単位。「どこから取るか」（ソースリポジトリ・追跡ブランチ・
-  タグ形式）だけを持ち、「どこへ書くか」（`imageTagLocations`）は持たない。同じ`TagSource`の
+  タグ形式）だけを持ち、「どこへ書くか」（`locations`）は持たない。同じ`TagSource`の
   アプリは、複数の設定ユニットに登録されていても`resolveTags()`が1回だけ解決する。
 - **一意化は効率化ではなく正しさのため**: 解決は「HEADを指すタグが無ければ作る」という書き込みを
   含むので、設定ユニットごとに解決すると同じコミットに冗長なタグが並ぶ（秒をまたげば設定ユニット
@@ -230,7 +228,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### 反映済みタグ
 
 - **英語識別子**: `currentTag`（型は`TagName`ブランド型、`ImageTagUpdate`のフィールド）
-- **定義**: `values.yaml`に現在書かれているタグ。`AppConfig.imageTagLocations`の書き換え箇所（`AnchorLocation`）ごとに
+- **定義**: `values.yaml`に現在書かれているタグ。`AppConfig.locations`の書き換え箇所（`AnchorLocation`）ごとに
   独立して読み取るため、1つのソースリポジトリでWebAPI/バッチ/デーモンなど複数のデプロイ単位を
   管理している場合、同一アプリ内でも箇所によって異なりうる（`AppUpdatePlan.updates[].currentTag`）。
 - **改名しない理由**: 「反映」の語はvalues.yaml側の意味に一本化済み（「「反映」「適用」「更新」の
@@ -287,7 +285,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 
 ### mrTargetBranch
 
-- **英語識別子**: `mrTargetBranch`（`ChartRepoConfig`のフィールド）
+- **英語識別子**: `mrTargetBranch`（`ChartConfig`のフィールド）
 - **定義**: MRの作成先（ベースブランチ）を指定する`registry.yaml`の`chart`のフィールド。
 - **改名しない理由**: GitLabがMRのベースブランチを指して使う語そのものなので、独自の言い換えはしない。
 - **GitHub対応後も改名しない**（ユーザー判断）: GitHubではPull Requestのベースブランチに
@@ -309,7 +307,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### イメージタグの更新
 
 - **英語識別子**: `ImageTagUpdate`（`location: AnchorLocation`・`currentTag: TagName`の2フィールド）
-- **定義**: `AppConfig.imageTagLocations`のうち1箇所分の更新内容。`currentTag`（反映済みタグ。
+- **定義**: `AppConfig.locations`のうち1箇所分の更新内容。`currentTag`（反映済みタグ。
   詳細は「反映済みタグ」の項）は書き換え箇所（`location`）ごとに独立して読み取る。`AppUpdatePlan.updates`
   の要素になる。
 - **`location`という短いフィールド名にする理由**: `docs/architecture/adr/0014-no-purpose-type-aliases.md`の但し書き（包含する型名・キー名が用途を与えている場合は、フィールド名で用途を
@@ -421,8 +419,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
 ### グループ（group・id・name）
 
 - **英語識別子**: `registry.yaml`トップレベルの`group`フィールド（`id`（`GroupId`
-  ブランド型）と`name`（`GroupName`ブランド型）を持ち、`ConfigUnit.groupId`/
-  `ConfigUnit.groupName`に載る）
+  ブランド型）と`name`（`GroupName`ブランド型）を持つ`GroupConfig`型で、`ConfigUnit.group`に載る）
 - **定義**: chartリポジトリとそのソースリポジトリが属するGitLabのグループ（namespace）の宣言。
   `accessTokenEnv`が「どのトークンを使うか」の宣言なのに対し、`group`は「そのトークンが
   どこまで届いてよいか」の宣言にあたる。両フィールドとも必須で、欠けている`registry.yaml`は
@@ -436,7 +433,7 @@ sed -n '/^### 固定ブランチ/,/^#\{2,4\} /p' docs/glossary.md
   確認し、外れていればプロジェクト不在とは別の文言で報告する。照合はセグメント単位なので
   `team-a-group`は`team-a-group-2`に一致しない。引いたフルパスが`group.name`と食い違っていれば、
   グループのリネームとしてさらに別の文言で報告する（`docs/requirements.md` 4.4節）。
-- **表記ゆれの注記**: YAMLのキー名は`group`（その下が`id`/`name`。2026-10-01に`groupId`/`groupName`から改名した）、GitLab APIが返す
+- **表記ゆれの注記**: YAMLのキー名は`group`（その下が`id`/`name`。2026-10-01に`groupId`/`groupName`から改名した。コードも`ConfigUnit.groupId`/`groupName`から`ConfigUnit.group`へ改名した）、GitLab APIが返す
   グループやプロジェクトのフルパスはコード上`GroupPath`型。「グループ」はGitLabのグループ
   そのもの（トークンの発行単位）を指すこともあるため、設定値としての意味で使うときは
   `group`フィールドと書き分ける。

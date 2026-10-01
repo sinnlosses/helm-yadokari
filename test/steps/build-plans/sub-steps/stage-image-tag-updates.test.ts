@@ -32,10 +32,10 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
 
   it("locations.anchorで指定したアンカーの値だけを取得・書き換える", async () => {
     const app = makeApp({
-      imageTagLocations: [
+      locations: [
         {
           valuesPath: toValuesPath("values.yaml"),
-          anchorName: toAnchorName("tenant1client1AppsVersion"),
+          anchor: toAnchorName("tenant1client1AppsVersion"),
         },
       ],
     })
@@ -56,14 +56,14 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
 
   it("1アプリに複数のlocationsを指定すると、同じ最新タグを複数箇所へ反映する", async () => {
     const app = makeApp({
-      imageTagLocations: [
+      locations: [
         {
           valuesPath: toValuesPath("webapi.yaml"),
-          anchorName: toAnchorName("webapiVersion"),
+          anchor: toAnchorName("webapiVersion"),
         },
         {
           valuesPath: toValuesPath("batch.yaml"),
-          anchorName: toAnchorName("batchVersion"),
+          anchor: toAnchorName("batchVersion"),
         },
       ],
     })
@@ -90,14 +90,14 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
 
   it("複数のlocationsのうち一部だけ差分があるとき、差分がある箇所だけをupdatesに含める", async () => {
     const app = makeApp({
-      imageTagLocations: [
+      locations: [
         {
           valuesPath: toValuesPath("webapi.yaml"),
-          anchorName: toAnchorName("webapiVersion"),
+          anchor: toAnchorName("webapiVersion"),
         },
         {
           valuesPath: toValuesPath("batch.yaml"),
-          anchorName: toAnchorName("batchVersion"),
+          anchor: toAnchorName("batchVersion"),
         },
       ],
     })
@@ -127,9 +127,9 @@ describe("buildPlans（イメージタグの書き込み先）", () => {
       "buildPlans() まで到達しない）",
     async () => {
       const app = makeApp({
-        imageTagLocations: [
-          { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
-          { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("appVersion") },
+        locations: [
+          { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("appVersion") },
+          { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("appVersion") },
         ],
       })
       vi.mocked(adapter.getFileContent).mockResolvedValue(

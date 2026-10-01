@@ -30,7 +30,7 @@ const defaultWebUrl = toPlatformUrl("https://gitlab.example.com/g/my-app")
 const helmBranchRef = toBranchName("release/2026-q1")
 
 const helmUpdate = {
-  location: { valuesPath: toValuesPath("values.yaml"), anchorName: toAnchorName("targetBranch") },
+  location: { valuesPath: toValuesPath("values.yaml"), anchor: toAnchorName("targetBranch") },
   currentBranch: toBranchName("release/2025-q4"),
 }
 
@@ -68,15 +68,15 @@ describe("buildMrContent（タイトル）", () => {
     const plan = makePlan({
       updates: [
         {
-          location: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
+          location: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("x") },
           currentTag: toTagName("prev"),
         },
         {
-          location: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("y") },
+          location: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("y") },
           currentTag: toTagName("prev"),
         },
         {
-          location: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("z") },
+          location: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("z") },
           currentTag: toTagName("prev"),
         },
       ],
@@ -166,11 +166,11 @@ describe("buildMrContent（本文）", () => {
         makePlan({
           updates: [
             {
-              location: { valuesPath: toValuesPath("a.yaml"), anchorName: toAnchorName("x") },
+              location: { valuesPath: toValuesPath("a.yaml"), anchor: toAnchorName("x") },
               currentTag: toTagName("prev"),
             },
             {
-              location: { valuesPath: toValuesPath("b.yaml"), anchorName: toAnchorName("y") },
+              location: { valuesPath: toValuesPath("b.yaml"), anchor: toAnchorName("y") },
               currentTag: toTagName("prev"),
             },
           ],

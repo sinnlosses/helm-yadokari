@@ -54,7 +54,7 @@ export function validateTagFormatConsistency(configUnits: readonly ConfigUnit[])
 /**
  * 同じ`projectId`が別々の`accessTokenEnv`に結びついていないか検証する。
  *
- * `chartRepo.projectId`と`apps[].projectId`の両方が対象で、どちらに書かれているかは問わない。
+ * `chart.projectId`と`apps[].projectId`の両方が対象で、どちらに書かれているかは問わない。
  * 最新タグの解決・キャッシュは`projectId`単位のため、
  * 同じ`projectId`に2つのトークンが結びつく状態はそもそも表現できない（`docs/requirements.md` 4.4節）。
  */
@@ -66,7 +66,7 @@ export function validateAccessTokenEnvConsistency(configUnits: readonly ConfigUn
   for (const configUnit of configUnits) {
     const location = buildConfigUnitLocation(configUnit.chartDirName, configUnit.unitPath)
     const projectIds = [
-      configUnit.chartRepo.projectId,
+      configUnit.chart.projectId,
       ...configUnit.apps.map((app) => app.projectId),
     ]
     for (const projectId of projectIds) {
@@ -94,9 +94,9 @@ export function validateAccessTokenEnvConsistency(configUnits: readonly ConfigUn
  */
 export function validateNoDuplicateProjectIds(
   filePath: LocalPath,
-  appSpecs: readonly { readonly projectId: ProjectId }[],
+  registryApps: readonly { readonly projectId: ProjectId }[],
 ): void {
-  const duplicated = findDuplicates(appSpecs.map((appSpec) => appSpec.projectId))
+  const duplicated = findDuplicates(registryApps.map((registryApp) => registryApp.projectId))
   if (duplicated.length > 0) {
     const list = duplicated.map((projectId) => `projectId ${projectId}`).join(", ")
     throw new Error(`${filePath}: 同じappが複数回定義されています（${list}）`)
@@ -110,9 +110,9 @@ export function validateNoDuplicateProjectIds(
  */
 export function validateNoDuplicateProjectNames(
   filePath: LocalPath,
-  appSpecs: readonly { readonly projectName: ProjectName }[],
+  registryApps: readonly { readonly projectName: ProjectName }[],
 ): void {
-  const duplicated = findDuplicates(appSpecs.map((appSpec) => appSpec.projectName))
+  const duplicated = findDuplicates(registryApps.map((registryApp) => registryApp.projectName))
   if (duplicated.length > 0) {
     const list = duplicated.map((projectName) => `"${projectName}"`).join(", ")
     throw new Error(`${filePath}: 同じ projectName のappが複数あります（${list}）`)
@@ -125,13 +125,13 @@ function findDuplicates<T>(values: readonly T[]): readonly T[] {
     .map(([value]) => value)
 }
 
-/** `valuesPath`+`anchorName`の組を、エラーメッセージ用のラベル付きで表す */
+/** `valuesPath`+`anchor`の組を、エラーメッセージ用のラベル付きで表す */
 export type LabeledLocation = { readonly location: AnchorLocation; readonly label: string }
 
 /**
  * values.yamlの同じ1箇所を複数の設定が書き込み先にしていないか検証する。
  *
- * 1つの設定ユニット内の同じ`valuesPath`+`anchorName`が対象。
+ * 1つの設定ユニット内の同じ`valuesPath`+`anchor`が対象。
  * 重複していると後から処理した側の値だけが残り、MRには両方を更新したように表示されるため、
  * 静かに誤った結果になる。イメージタグ用（`apps`配下）と
  * 向き先ブランチ用（`helm[]`）の衝突も対象にする。
@@ -142,11 +142,11 @@ export function validateNoDuplicateLocations(
 ): void {
   const seen = new Map<string, string>()
   for (const { location, label } of locations) {
-    const key = `${location.valuesPath}#${location.anchorName}`
+    const key = `${location.valuesPath}#${location.anchor}`
     const previousLabel = seen.get(key)
     if (previousLabel !== undefined) {
       throw new Error(
-        `${filePath}: 同じ書き込み先（${location.valuesPath} のアンカー "${location.anchorName}"）が複数指定されています（${previousLabel} / ${label}）`,
+        `${filePath}: 同じ書き込み先（${location.valuesPath} のアンカー "${location.anchor}"）が複数指定されています（${previousLabel} / ${label}）`,
       )
     }
     seen.set(key, label)

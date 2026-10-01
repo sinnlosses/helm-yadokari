@@ -2,7 +2,7 @@ import type {
   AnchorLocation,
   AppUpdatePlan,
   AppWithLatestTag,
-  ChartRepoConfig,
+  ChartConfig,
   ImageTagUpdate,
   ParsedTag,
   TagName,
@@ -33,7 +33,7 @@ type StageAppImageTagUpdatesAcc = StageUpdatesAcc<ImageTagUpdate>
  */
 export async function stageImageTagUpdates(
   adapter: PlatformAdapterWithCachedReads,
-  chart: ChartRepoConfig,
+  chart: ChartConfig,
   appsWithLatestTag: readonly AppWithLatestTag[],
 ): Promise<StageImageTagUpdatesResult> {
   const initialResult: StageImageTagUpdatesResult = { plans: [], draft: new Map() }
@@ -45,20 +45,20 @@ export async function stageImageTagUpdates(
 }
 
 /**
- * 1アプリの`app.imageTagLocations`を順に処理し、差分があれば`AppUpdatePlan`を1件積む。
+ * 1アプリの`app.locations`を順に処理し、差分があれば`AppUpdatePlan`を1件積む。
  *
  * `stageImageTagUpdate()`へ先頭から順に渡す。差分が無ければ理由をログに出し、
  * 下書きだけを引き継ぐ（読み込んだvalues.yamlは次のアプリで使い回せる）。
  */
 async function stageAppImageTagUpdates(
   adapter: PlatformAdapterWithCachedReads,
-  chart: ChartRepoConfig,
+  chart: ChartConfig,
   result: StageImageTagUpdatesResult,
   { app, latestTag }: AppWithLatestTag,
 ): Promise<StageImageTagUpdatesResult> {
   const tag = latestTag.tag
   const initialAcc: StageAppImageTagUpdatesAcc = { draft: result.draft, updates: [] }
-  const { draft, updates } = await reduceAsync(app.imageTagLocations, initialAcc, (acc, location) =>
+  const { draft, updates } = await reduceAsync(app.locations, initialAcc, (acc, location) =>
     stageImageTagUpdate(adapter, chart, tag, latestTag.trackedHeadTagNames, acc, location),
   )
 
@@ -78,7 +78,7 @@ async function stageAppImageTagUpdates(
 }
 
 /**
- * `app.imageTagLocations`のうち1箇所分について、下書き上の現在値と最新タグを比較する。
+ * `app.locations`のうち1箇所分について、下書き上の現在値と最新タグを比較する。
  *
  * 差分があれば書き換え内容を下書きに積み、`updates`にも積む（差分が無ければ読み込んだvalues.yamlを
  * 下書きに残すだけで`updates`には含めない）。
@@ -88,7 +88,7 @@ async function stageAppImageTagUpdates(
  */
 async function stageImageTagUpdate(
   adapter: PlatformAdapterWithCachedReads,
-  chart: ChartRepoConfig,
+  chart: ChartConfig,
   latestTag: ParsedTag,
   trackedHeadTagNames: ReadonlySet<TagName>,
   acc: StageAppImageTagUpdatesAcc,
@@ -103,7 +103,7 @@ async function stageImageTagUpdate(
   )
   const currentTagRaw = getRequiredValueAtAnchor(
     valuesYamlContent,
-    location.anchorName,
+    location.anchor,
     location.valuesPath,
   )
   const currentTagName = currentTagRaw === "" ? undefined : toTagName(currentTagRaw)
@@ -120,7 +120,7 @@ async function stageImageTagUpdate(
     draft: writeValuesYamlDraft(
       draft,
       location.valuesPath,
-      setValueAtAnchor(valuesYamlContent, location.anchorName, latestTagName),
+      setValueAtAnchor(valuesYamlContent, location.anchor, latestTagName),
     ),
     updates: [...acc.updates, { location, currentTag: currentTagName }],
   }

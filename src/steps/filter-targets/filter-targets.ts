@@ -54,7 +54,7 @@ async function evaluateTarget(
   }
 
   const branch = buildFeatureBranch(configUnit.unitPath)
-  if (await adapter.openMergeRequestExists(configUnit.chartRepo.projectId, branch)) {
+  if (await adapter.openMergeRequestExists(configUnit.chart.projectId, branch)) {
     const outcome: ConfigUnitUpdateOutcome = { result: "SKIPPED", reason: "mr_exists" }
     logger.info({ ...logContext, ...outcome })
     return settle(logContext, outcome)

@@ -1,4 +1,4 @@
-import type { ChartRepoConfig, FileUpdate, ValuesPath } from "../../../../domain/types.js"
+import type { ChartConfig, FileUpdate, ValuesPath } from "../../../../domain/types.js"
 import type { PlatformAdapterWithCachedReads } from "../../../../lib/platform/cached-reads.js"
 
 /**
@@ -24,7 +24,7 @@ export type ValuesYamlDraft = ReadonlyMap<ValuesPath, ValuesYamlEntry>
  */
 export async function readValuesYamlDraft(
   adapter: PlatformAdapterWithCachedReads,
-  chart: ChartRepoConfig,
+  chart: ChartConfig,
   draft: ValuesYamlDraft,
   valuesPath: ValuesPath,
 ): Promise<{ readonly valuesYamlContent: string; readonly draft: ValuesYamlDraft }> {
